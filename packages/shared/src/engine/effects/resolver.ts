@@ -31,7 +31,7 @@ import type {
   CompanyId,
   PlayerId,
 } from '../../index.js';
-import { Race } from '../../types/common.js';
+import { Race, RegionType } from '../../types/common.js';
 import { HAND_SIZE } from '../../constants.js';
 import { matchesCondition, matchesContext, conditionPaths } from '../../effects/condition-matcher.js';
 import { isCharacterCard } from '../../types/cards.js';
@@ -1369,6 +1369,16 @@ export interface CreatureSelfContext {
    * *Elf-lord Revealed in Wrath* ("+4 prowess versus Ringwraiths").
    */
   readonly defenderAlignment?: string;
+  /**
+   * Region types this specific play was keyed to (the hazard player's
+   * declared `keyedBy` match, or the union of the card's `keyedTo` region
+   * types when no declared match is available). Exposed as `attack.keying`
+   * in the self-effect context — mirrors the `attack.keying` field already
+   * surfaced to `cancel-attack`/`cancel-strike` conditions — so a creature
+   * can boost its own prowess based on which region type it was keyed to.
+   * Used by *Pirates* (le-88): "+2 prowess when keyed to Coastal Seas."
+   */
+  readonly attackKeying?: readonly RegionType[];
 }
 
 /**
@@ -1422,6 +1432,7 @@ function buildAttackContext(
   siteType?: string,
   isAgentAttack = false,
   isAutomaticAttack = false,
+  attackKeying?: readonly RegionType[],
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -1446,9 +1457,10 @@ function buildAttackContext(
   // ("each automatic-attack and hazard creature") — they gate on this flag.
   // Site automatic-attacks are flagged the same way for cards that name only
   // hazard creatures (Clouds tw-22).
-  const attackFlags: { isAgentAttack?: true; isAutomaticAttack?: true } = {};
+  const attackFlags: { isAgentAttack?: true; isAutomaticAttack?: true; keying?: readonly RegionType[] } = {};
   if (isAgentAttack) attackFlags.isAgentAttack = true;
   if (isAutomaticAttack) attackFlags.isAutomaticAttack = true;
+  if (attackKeying && attackKeying.length > 0) attackFlags.keying = attackKeying;
   const withAttack = Object.keys(attackFlags).length > 0
     ? { ...withSite, attack: attackFlags }
     : withSite;
@@ -1499,7 +1511,7 @@ export function resolveAttackProwess(
   isAgentAttack = false,
   siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
