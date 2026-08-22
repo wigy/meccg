@@ -5089,8 +5089,13 @@ export interface PlayTargetEffect extends EffectBase {
    * `agent` scopes to a hazard player's own agents (Never Seen Him dm-74,
    * played "on an agent" — a permanent event attached via
    * `CardInPlay.attachedToAgentId`).
+   * `nazgul-permanent-event` scopes to the hazard player's own in-play Nazgûl
+   * permanent-events (dual creature/event cards played in permanent-event
+   * mode, or a plain Nazgûl-keyword hazard-event) — one `play-hazard` action
+   * per candidate, riding on `targetNazgulInstanceId`. Used by Helms of Iron
+   * (dm-64): "Playable only if you have a Nazgûl permanent-event in play."
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent' | 'nazgul-permanent-event';
   /**
    * Widens a `character` target beyond the default own-characters scope. When
    * `'any-player'`, candidates are drawn from **both** players' characters so a

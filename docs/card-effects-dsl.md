@@ -269,7 +269,25 @@ Optional `target` scopes:
   Used by *A Strident Spawn* (wh-61): "Each of your Half-orcs requires one less
   point of influence to control" —
   `{ "stat": "mind", "value": -1, "target": "own-characters", "when": { "target.keywords": { "$includes": "half-orc" } } }`.
-- `"all-attacks"` — applies to every automatic-attack and hazard creature
+- `"all-attacks"` — applies to every automatic-attack and hazard creature.
+  For `stat: "body"`, `resolveAttackBody` (`engine/effects/resolver.ts`) treats
+  a bodyless attack (printed body `null`) specially: ordinary additive/
+  multiplicative modifiers have nothing to add to and are skipped, but an
+  `op: "set"` modifier gives the attack a *default* body instead — the only
+  way an `all-attacks` effect can turn a bodyless attack into one with a body
+  check. Once a body value exists (either printed or defaulted this way),
+  further `all-attacks` modifiers apply normally. Used by Helms of Iron
+  (dm-64): "All Orc, Troll, and Man attacks with body have their body
+  modified by +1; and all Orc, Troll, and Man attacks with no body have 4
+  body" — a plain `+1` (`op` absent) for the first clause plus a `op: "set",
+  "value": 4` for the second, both gated on the same
+  `{ "enemy.race": { "$in": ["orc", "troll", "man"] } }`:
+  ```json
+  { "type": "stat-modifier", "stat": "body", "value": 1, "target": "all-attacks",
+    "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } }
+  { "type": "stat-modifier", "stat": "body", "op": "set", "value": 4, "target": "all-attacks",
+    "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } }
+  ```
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
 - `"company-others"` — applies to every **other** character in the bearer's
   company, excluding the bearer itself. Collected in `collectCharacterEffects`
@@ -6594,6 +6612,24 @@ Supported targets:
   agent action. Cannot be duplicated on a given agent." — paired with
   `extra-agent-actions` (below), scoped to the bound agent via
   `countExtraAgentActions(state, agentId)`.
+- `nazgul-permanent-event` — a **hazard** permanent event playable only while
+  the hazard player has a Nazgûl permanent-event of their own in play (the
+  Nine's dual creature/permanent-event cards, once played in permanent-event
+  mode, or a plain Nazgûl-keyword hazard-event — `isNazgulPermanentEvent`,
+  `reducer-utils.ts`). One `play-hazard` action is emitted per matching
+  instance in the hazard player's own `cardsInPlay`
+  (`legal-actions/movement-hazard.ts`); with none, no action is emitted at
+  all — this structurally implements a "Playable only if you have a Nazgûl
+  permanent-event in play" condition without a separate `play-condition`.
+  The chosen instance rides on `PlayHazardAction.targetNazgulInstanceId`,
+  threaded through the permanent-event chain payload
+  (`ChainEntryPayload.targetNazgulInstanceId`) into the resolving card's
+  `self-enters-play` move as `MoveContext.targetCardId` — so a plain
+  `{ "type": "move", "select": "target", "from": "in-play", "to": "discard" }`
+  discards exactly the chosen candidate (no `filter` needed; `toOwner`
+  defaults to the located card's own owner). Used by Helms of Iron (dm-64):
+  "Playable only if you have a Nazgûl permanent-event in play. Discard the
+  Nazgûl when this card is brought into play."
 
 Optional fields:
 

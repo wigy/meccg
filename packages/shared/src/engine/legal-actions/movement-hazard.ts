@@ -3521,7 +3521,29 @@ function playHazardsActions(
       // marshalling-point pile. The stored item is displaced back to the
       // opponent's hand on resolution and the card takes its place.
       const isStoredItemTargeting = playTarget?.target === 'stored-item';
-      if (isStoredItemTargeting) {
+      // play-target DSL: nazgul-permanent-event-targeting hazards (Helms of
+      // Iron dm-64) get one action per Nazgûl permanent-event the hazard
+      // player has in their own cardsInPlay. With none, the card is not
+      // playable at all — this structurally implements "Playable only if you
+      // have a Nazgûl permanent-event in play." The chosen instance rides on
+      // targetNazgulInstanceId and is discarded by the card's self-enters-play
+      // move.
+      const isNazgulTargeting = playTarget?.target === 'nazgul-permanent-event';
+      if (isNazgulTargeting) {
+        const nazgulCandidates = player.cardsInPlay.filter(c => isNazgulPermanentEvent(defById(state, c.definitionId)));
+        if (nazgulCandidates.length === 0) {
+          logDetail(`Hazard "${def.name}": no Nazgûl permanent-event in play`);
+          actions.push({ action, viable: false, reason: `${def.name} requires a Nazgûl permanent-event in play` });
+        }
+        for (const candidate of nazgulCandidates) {
+          const candidateDef = defById(state, candidate.definitionId);
+          logDetail(`Hazard "${def.name}" playable — discards Nazgûl permanent-event ${candidateDef?.name ?? (candidate.definitionId as string)}`);
+          actions.push({
+            action: { ...action, targetNazgulInstanceId: candidate.instanceId },
+            viable: true,
+          });
+        }
+      } else if (isStoredItemTargeting) {
         const storedItems = resourcePlayer.killPile.filter(c => {
           const cDef = defById(state, c.definitionId);
           return !!cDef && isItemCard(cDef);

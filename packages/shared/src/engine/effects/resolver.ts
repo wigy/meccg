@@ -1572,15 +1572,25 @@ export function resolveAttackStrikes(
  * with `stat: "body"` from events and cards in play. A lower body value means
  * the creature is eliminated more easily (body check must exceed body).
  *
+ * A bodyless attack (`baseBody === null`) normally stays bodyless — additive
+ * modifiers have nothing to add to. The one exception is an `op: "set"`
+ * modifier, which gives a *default* body to attacks that printed none (Helms
+ * of Iron dm-64: "all Orc, Troll, and Man attacks with no body have 4 body").
+ * Such a modifier is meaningless against an attack that already has a printed
+ * body — dm-64's own separate `+1` (additive) modifier handles that case — so
+ * it is collected only in the null-base branch and excluded from the
+ * non-null branch (an `op: "set"` there would wrongly clobber the printed
+ * body instead of leaving it to additive/multiplicative modifiers).
+ *
  * @param state - The full game state.
  * @param baseBody - The creature's or automatic attack's base body (null means
- *   no body check; returned as-is).
+ *   no printed body).
  * @param inPlayNames - Names of all cards currently in play.
  * @param creatureRace - The lowercase singular race of the attacking creature.
  * @param attackBoostCtx - Optional company context for company-scoped modifiers.
  * @param isAgentAttack - True when the attacker is an agent hazard (exposed as
  *   `attack.isAgentAttack`; see {@link buildAttackContext}).
- * @returns The modified body value (minimum 0), or null if baseBody was null.
+ * @returns The modified body value (minimum 0), or null if the attack remains bodyless.
  */
 export function resolveAttackBody(
   state: GameState,
@@ -1590,10 +1600,17 @@ export function resolveAttackBody(
   attackBoostCtx?: CreatureAttackBoostContext,
   isAgentAttack = false,
 ): number | null {
-  if (baseBody === null) return null;
   const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, undefined, isAgentAttack);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
-  const modified = resolveStatModifiers(globalEffects, 'body', baseBody, context);
+  const isBodySetter = (e: CollectedEffect): e is CollectedEffect & { effect: StatModifierEffect } =>
+    e.effect.type === 'stat-modifier' && e.effect.stat === 'body' && e.effect.op === 'set';
+  if (baseBody === null) {
+    const setters = globalEffects.filter(isBodySetter);
+    if (setters.length === 0) return null;
+    return Math.max(0, resolveStatModifiers(setters, 'body', 0, context));
+  }
+  const additiveEffects = globalEffects.filter(e => !isBodySetter(e));
+  const modified = resolveStatModifiers(additiveEffects, 'body', baseBody, context);
   return Math.max(0, modified);
 }
 

@@ -1138,6 +1138,14 @@ export type ChainEntryPayload =
        */
       readonly targetStoredItemInstanceId?: CardInstanceId;
       /**
+       * For a `play-target: "nazgul-permanent-event"` hazard permanent-event
+       * (Helms of Iron dm-64: "Discard the Nazgûl when this card is brought
+       * into play"), the hazard player's own Nazgûl permanent-event instance
+       * chosen at declaration. Threaded into the `self-enters-play` move's
+       * `targetCardId` so the DSL move can discard it without a filter.
+       */
+      readonly targetNazgulInstanceId?: CardInstanceId;
+      /**
        * For a card played in a `play-option` mode declared as a permanent-event
        * (Returned Beyond All Hope as-35 mode 3), the id of the chosen option.
        * The chain resolver dispatches that option's `apply` instead of placing

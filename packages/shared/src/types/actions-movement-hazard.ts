@@ -123,6 +123,13 @@ export interface PlayHazardAction {
    */
   readonly targetStoredItemInstanceId?: CardInstanceId;
   /**
+   * For a `play-target: "nazgul-permanent-event"` hazard permanent-event
+   * (Helms of Iron dm-64), the hazard player's own Nazgûl permanent-event
+   * instance chosen at declaration. Discarded on resolution by the card's
+   * `self-enters-play` move.
+   */
+  readonly targetNazgulInstanceId?: CardInstanceId;
+  /**
    * For hazard short-events with a creature-race-choice effect (e.g. Two
    * or Three Tribes Present), the race the player announced when playing.
    */
