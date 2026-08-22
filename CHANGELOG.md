@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.126.0 — 2026-08-22
+
+Four more certifications and combat bookkeeping fixes
+
+### Game Engine
+
+- **No card disappears:** discard-target-character keeps the hazards
+  borne by the target (#2702), CvCC attacker elimination no longer
+  orphans its attached cards (#2715), and manifestation-swap /
+  discard-to-recruit preserve `itemsInUse` (#2713).
+- **Combat:** an ally assigned a strike is no longer offered as a
+  supporter (#2717).
+- **Scoring:** a Balrog player's hero items score half MP per rule
+  10.B1 (#2707).
+- **Mûmak keying repaired** (tw-66 v2, #2706): region names now match
+  the printed region cards (Nurn, Udûn), "may also be played at sites
+  in these regions" is encoded via `siteInRegionNames`, and the
+  Corsairs-of-Umbar follow-up adds the Ruins & Lairs / Shadow-hold
+  site-type keying with its combined region + encounter condition.
+
+### Cards
+
+- **Certified:** Helms of Iron (dm-64), Scimitars of Steel (dm-86),
+  Pirates (le-88), and the upgraded Mûmak (tw-66) certification.
+
+### Web Client
+
+- Dice tray repaints when the roll changed while hidden (#2708),
+  attacker card images show for all single-card combat sources
+  (#2705), movement/attack action descriptions resolve company ids to
+  readable names (#2711), and the deck-list favourite comparator is
+  consistent (#2714).
+
+### Infrastructure
+
+- Console-client AI picks the argmax heuristic action instead of
+  sampling (#2704), and the observer's log tail detects a rewritten
+  game log that did not shrink below the read offset (#2716).
+
 ## 0.125.0 — 2026-08-22
 
 Certification wave, agent-combat fixes, and server hardening

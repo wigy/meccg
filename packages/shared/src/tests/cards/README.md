@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1196 | 1196 | 0 | 100.0% |
+| 1199 | 1199 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,8 +14,8 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 112 | 112 | 100.0% |
 | BA | 97 | 97 | 100.0% |
-| DM | 110 | 110 | 100.0% |
-| LE | 309 | 309 | 100.0% |
+| DM | 112 | 112 | 100.0% |
+| LE | 310 | 310 | 100.0% |
 | TD | 99 | 99 | 100.0% |
 | TW | 376 | 376 | 100.0% |
 | WH | 93 | 93 | 100.0% |
@@ -136,7 +136,7 @@
 | as-168 | The Under-vaults | — | 13 | ☑ |
 | as-169 | Weathertop | — | 6 | ☑ |
 | as-170 | Wellinghall | — | 10 | ☑ |
-| ba-1 | Strider | — | 16 | ☑ |
+| ba-1 | Strider | — | 17 | ☑ |
 | ba-2 | Azog | — | 6 | ☑ |
 | ba-3 | The Balrog | — | 8 | ☑ |
 | ba-4 | Bolg | — | 8 | ☑ |
@@ -277,6 +277,7 @@
 | dm-58 | Flies and Spiders | — | 6 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-63 | Great Secrets Buried There | — | 9 | ☑ |
+| dm-64 | Helms of Iron | — | 16 | ☑ |
 | dm-67 | In the Heart of his Realm | — | 15 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
 | dm-70 | Long Dark Reach | — | 12 | ☑ |
@@ -290,6 +291,7 @@
 | dm-80 | Rank upon Rank | — | 11 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
+| dm-86 | Scimitars of Steel | — | 6 | ☑ |
 | dm-88 | Seized by Terror | — | 9 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
@@ -416,6 +418,7 @@
 | le-82 | Lawless Men | — | 6 | ☑ |
 | le-83 | Lesser Spiders | — | 9 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
+| le-88 | Pirates | — | 7 | ☑ |
 | le-89 | Sellswords Between Charters | — | 4 | ☑ |
 | le-90 | Slayer | — | 9 | ☑ |
 | le-91 | Sons of Kings | — | 5 | ☑ |
@@ -650,7 +653,7 @@
 | le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-416 | Wose Passage-hold | — | 5 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
-| le-418 | The Arkenstone | — | 19 | ☑ |
+| le-418 | The Arkenstone | — | 20 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 17 | ☑ |
@@ -801,7 +804,7 @@
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
-| tw-66 | Mûmak (Oliphant) | — | 6 | ☑ |
+| tw-66 | Mûmak (Oliphant) | — | 11 | ☑ |
 | tw-067 | — | — | 7 | ☑ |
 | tw-67 | Muster Disperses | — | 1 | ☑ |
 | tw-068 | — | — | 8 | ☑ |

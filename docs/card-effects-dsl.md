@@ -282,12 +282,14 @@ Optional `target` scopes:
   body" — a plain `+1` (`op` absent) for the first clause plus a `op: "set",
   "value": 4` for the second, both gated on the same
   `{ "enemy.race": { "$in": ["orc", "troll", "man"] } }`:
+
   ```json
   { "type": "stat-modifier", "stat": "body", "value": 1, "target": "all-attacks",
     "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } }
   { "type": "stat-modifier", "stat": "body", "op": "set", "value": 4, "target": "all-attacks",
     "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } } }
   ```
+
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
 - `"company-others"` — applies to every **other** character in the bearer's
   company, excluding the bearer itself. Collected in `collectCharacterEffects`
