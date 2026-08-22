@@ -2099,7 +2099,25 @@ function handleDeclareAgentAttack(
     const priorStackSites = agent.siteStack.slice(0, -1); // all but top
     const emptyStack = agent.siteStack.length === 0;
 
-    if (action.homeSiteInstanceId) {
+    if (!emptyStack) {
+      // Traveled agent: its current site card already sits on top of its own
+      // stack — no deck card is needed, and the rule 4.2.2 / 9.04 reveal
+      // penalty ("discard at end of turn if revealed without a site") is
+      // scoped to reveals AT A HOME SITE, so it never applies here. Earlier
+      // code conflated the cases: with a homeSiteInstanceId it deleted the
+      // home-site deck card into nothing; without one it wrongly doomed the
+      // agent to end-of-turn discard.
+      const newSiteStack = [{ instanceId: currentSiteEntry.instanceId, definitionId: currentSiteEntry.definitionId, status: CardStatus.Untapped as const }];
+      stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+        ...p,
+        agents: p.agents.map(a =>
+          a.character.instanceId === action.agentInstanceId
+            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true }
+            : a,
+        ),
+        siteDeck: [...p.siteDeck, ...priorStackSites],
+      }));
+    } else if (action.homeSiteInstanceId) {
       const homeSiteCard = findById(hazardPlayer.siteDeck, action.homeSiteInstanceId);
       if (!homeSiteCard) {
         return { state, error: `Home site ${action.homeSiteInstanceId} not in hazard player's site deck` };

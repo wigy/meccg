@@ -2289,6 +2289,43 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    // set-character-status (target: "company"): untap every tapped, unwounded
+    // character in the played-on character's company (Narya tw-290: "Immediately
+    // untap all unwounded characters in Gandalf's company"). Reuses the same
+    // tapped-only gate as the single-character branch below, so wounded
+    // (Inverted) and already-Untapped members are left untouched.
+    if (onEvent.apply.type === 'set-character-status' && onEvent.apply.target === 'company') {
+      const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+      if (!characterId) {
+        logDetail(`"${def.name}": set-character-status(company) — no target character — fizzle`);
+        continue;
+      }
+      const company = findCharacterCompany(state.players[playerIndex].companies, characterId);
+      if (!company) {
+        logDetail(`"${def.name}": set-character-status(company) — target character not in a company — fizzle`);
+        continue;
+      }
+      const nextStatus = onEvent.apply.status;
+      const statusEnum = nextStatus === undefined ? CardStatus.Inverted : cardStatusFromName(nextStatus);
+      logDetail(`"${def.name}" played — untapping unwounded members of company ${company.id as string}`);
+      state = updatePlayer(state, playerIndex, p => {
+        const characters = { ...p.characters };
+        for (const memberId of company.characters) {
+          const member = characters[memberId];
+          if (!member) continue;
+          if (statusEnum === CardStatus.Untapped && member.status !== CardStatus.Tapped) {
+            continue;
+          }
+          if (statusEnum === CardStatus.Tapped && member.status !== CardStatus.Untapped) {
+            continue;
+          }
+          characters[memberId] = { ...member, status: statusEnum };
+        }
+        return { ...p, characters };
+      });
+      continue;
+    }
+
     // set-character-status: untap/tap/wound the target character (e.g. Hundreds of Butterflies).
     if (onEvent.apply.type === 'set-character-status') {
       const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;

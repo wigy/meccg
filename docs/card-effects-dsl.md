@@ -2440,6 +2440,21 @@ realizes ba-76's "untap all tapped characters in The Balrog's company; if then
 untapped, tap The Balrog" (the empty `cost` lets it fire even when the Balrog is
 already tapped).
 
+The same `target: "company"` shape is also reachable from a resource
+**short-event**'s `on-event: self-enters-play` (not just a `grant-action`
+apply): `applyShortEventOnEntersPlay` (`reducer-events.ts`) resolves the
+company from the played-on character (`action.targetCharacterId`, the card's
+own `play-target`) and applies the identical tapped-only gate — an
+`Inverted` (wounded) member or an already-`Untapped` member is left alone, so
+"untap all unwounded characters in the company" needs no separate
+wounded-exclusion clause. Used by Narya (tw-290): "Immediately untap all
+unwounded characters in Gandalf's company."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-character-status", "target": "company", "status": "untapped" } }
+```
+
 **Two exclusive modes sharing one action name.** A card granting a choice —
 "During your organization phase, you may: A **or** B" — declares **two**
 `grant-action` effects with the **same** `action` string, each `oncePerTurn:

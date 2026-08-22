@@ -1362,7 +1362,17 @@ function agentTapAttackActions(
 
     logDetail(`Agent tap-attack ${agentDef.name}: at company site "${companySiteName}" — offering attack`);
 
-    if (!agent.revealed) {
+    if (!agent.revealed && agent.siteStack.length > 0) {
+      // Traveled face-down agent: its current site card is already on top of
+      // its own stack — the reveal needs no deck card and carries no rule
+      // 4.2.2 / 9.04 penalty. Offer the plain attack; a homeSiteInstanceId
+      // variant would (wrongly) pull a home-site card from the deck.
+      logDetail(`Agent tap-attack ${agentDef.name}: face-down with traveled site stack — offering without home site`);
+      actions.push({
+        action: { type: 'agent-tap-attack', player: playerId, agentId: agent.id } as AgentTapAttackAction,
+        viable: true,
+      });
+    } else if (!agent.revealed) {
       // Face-down: offer one action per home site in deck (reveal at attack)
       const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
       const seenHome = new Set<string>();
