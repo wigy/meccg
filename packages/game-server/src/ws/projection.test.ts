@@ -736,3 +736,64 @@ describe('spectator on-guard redaction', () => {
     expect(shown?.definitionId).toBe(ARAGORN);
   });
 });
+
+/**
+ * A face-down agent belongs to the bottom player (p1), so buildSelfView would
+ * show it in full — but a spectator is not its owner. Its card identity, the
+ * cards it carries, and the sites it has visited are hidden information until
+ * the agent is revealed; only that an agent exists (and how many sites it
+ * holds) is public.
+ */
+describe('spectator face-down agent redaction', () => {
+  const AGENT_CO = 'agent-co' as unknown;
+  const AGENT_CHAR = 'agent-char-inst' as CardInstanceId;
+  const VISITED_SITE = 'agent-visited-site' as CardInstanceId;
+
+  function gameWithAgentOnAlice(revealed: boolean): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Ringwraith, draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    const base = createGame(config, pool);
+    const agent = {
+      id: AGENT_CO,
+      character: {
+        instanceId: AGENT_CHAR, definitionId: BALIN, status: CardStatus.Untapped,
+        items: [], allies: [], hazards: [], followers: [], controlledBy: 'general',
+      },
+      revealed,
+      siteStack: [{ instanceId: VISITED_SITE, definitionId: RIVENDELL, status: CardStatus.Untapped }],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+    return {
+      ...base,
+      players: [
+        { ...base.players[0], agents: [agent] },
+        base.players[1],
+      ],
+    } as unknown as GameState;
+  }
+
+  test('a spectator cannot see a face-down agent\'s identity or the sites it visited', () => {
+    const spec = projectSpectatorView(gameWithAgentOnAlice(false));
+    const agent = spec.self.agents[0];
+    expect(agent.revealed).toBe(false);
+    expect(agent.character.definitionId).toBe(UNKNOWN_CARD);
+    // The count of visited sites is public; their identity is not.
+    expect(agent.siteStack).toHaveLength(1);
+    expect(agent.siteStack[0].definitionId).toBe(UNKNOWN_SITE);
+  });
+
+  test('a revealed agent is public and keeps its identity', () => {
+    const spec = projectSpectatorView(gameWithAgentOnAlice(true));
+    const agent = spec.self.agents[0];
+    expect(agent.character.definitionId).toBe(BALIN);
+    expect(agent.siteStack[0].definitionId).toBe(RIVENDELL);
+  });
+});
