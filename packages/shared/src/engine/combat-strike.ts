@@ -330,12 +330,15 @@ export function resolveStrikeCore(
     logDetail(`Forced strike defeat (Liquid Fire) — strike automatically fails${bodyCheckTarget ? ', creature body check pending' : ''}`);
   }
 
-  // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25): on a
-  // successful agent strike the defender is not wounded; the company must
-  // instead discard one item of their choice.
-  const discardItemEffect = result === 'wounded' && !combat.detainment && combat.strikeEffect === 'discard-item';
+  // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25,
+  // Thief tw-102, Pick-pocket tw-79): on a successful strike the defender is
+  // not wounded; an item must instead be discarded (defender's choice) —
+  // pooled from the whole company for 'discard-item', or scoped to just the
+  // struck character for 'discard-item-character'.
+  const discardItemEffect = result === 'wounded' && !combat.detainment
+    && (combat.strikeEffect === 'discard-item' || combat.strikeEffect === 'discard-item-character');
   if (discardItemEffect) {
-    logDetail('discard-item strike effect: successful strike — character not wounded; company must discard one item');
+    logDetail(`${combat.strikeEffect as string} strike effect: successful strike — character not wounded; must discard one item`);
     result = 'success';
     bodyCheckTarget = null;
   }
@@ -583,8 +586,12 @@ export function resolveStrikeCore(
 
     // discard-item strike effect: enter discard-item-from-company phase so the
     // defender must choose one item to discard before combat continues.
+    // 'discard-item-character' (Pick-pocket tw-79) scopes the pool to items
+    // borne by the struck character alone, not the whole company.
     if (discardItemEffect) {
-      const companyCharIds = company?.characters ?? [];
+      const companyCharIds = combat.strikeEffect === 'discard-item-character'
+        ? [strike.characterId]
+        : company?.characters ?? [];
       const allItems: ItemInPlay[] = companyCharIds.flatMap(charId => {
         const ch = newPlayers[defPlayerIndex].characters[charId];
         return ch ? [...ch.items] : [];

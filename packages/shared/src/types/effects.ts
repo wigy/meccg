@@ -3943,20 +3943,26 @@ export interface CombatTapLowMindEffect extends EffectBase {
 
 /**
  * A successful strike of this attack does not wound the defending character;
- * instead the defending company must discard one item (defender's choice).
- * Self-bound to the creature — threaded onto `CombatState.strikeEffect` at
- * combat initiation and resolved by the generic `strikeEffect === 'discard-item'`
- * path in `combat-strike.ts` shared with the agent-attack precedent (Taladhan
- * dm-25, An Article Missing dm-43): the strike still "hits" (cancelable,
- * countable) but its result is replaced with a company item discard via the
- * `discard-item-from-company` combat phase; detainment attacks never trigger
- * it. Card text is "For each successful strike, an item held by the
- * defending company must be discarded (defender's choice); the defending
- * character is not harmed" (e.g. Thief tw-102).
+ * instead an item must be discarded (defender's choice). Self-bound to the
+ * creature — threaded onto `CombatState.strikeEffect` at combat initiation
+ * and resolved by the generic `strikeEffect` path in `combat-strike.ts`
+ * shared with the agent-attack precedent (Taladhan dm-25, An Article Missing
+ * dm-43): the strike still "hits" (cancelable, countable) but its result is
+ * replaced with an item discard via the `discard-item-from-company` combat
+ * phase; detainment attacks never trigger it.
+ *
+ * - `'discard-item'`: the discard pool is every item held anywhere in the
+ *   defending **company**. Card text is "For each successful strike, an item
+ *   held by the defending company must be discarded (defender's choice); the
+ *   defending character is not harmed" (e.g. Thief tw-102).
+ * - `'discard-item-character'`: the discard pool is scoped to items borne by
+ *   the **struck character** only. Card text is "For each successful strike,
+ *   an item the defending character bears must be discarded (defender's
+ *   choice); he is not harmed" (e.g. Pick-pocket tw-79/tw-80).
  */
 export interface CombatStrikeEffectEffect extends EffectBase {
   readonly type: 'combat-strike-effect';
-  readonly strikeEffect: 'discard-item';
+  readonly strikeEffect: 'discard-item' | 'discard-item-character';
 }
 
 /**

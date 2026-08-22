@@ -1690,8 +1690,12 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. One strike. Attacker chooses defending characters. For each successful strike, an item the defending character bears must be discarded (defender’s choice); he is not harmed."
+    "effects": [
+      { "type": "combat-attacker-chooses-defenders" },
+      { "type": "combat-strike-effect", "strikeEffect": "discard-item-character" }
+    ],
+    "text": "Men. One strike. Attacker chooses defending characters. For each successful strike, an item the defending character bears must be discarded (defender’s choice); he is not harmed.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",

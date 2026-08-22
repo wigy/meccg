@@ -5618,16 +5618,24 @@ strings to chase through the engine.
   `combat-finalize.ts`)
 - `combat-strike-effect` — self-bound creature version of the agent-attack
   `strikeEffect: "discard-item"` precedent (§40.1 `agent-attack-modifier`).
-  A successful strike does not wound the defending character; instead the
-  defending **company** must discard one item (defender's choice) via the
-  `discard-item-from-company` combat phase. Only field beyond `type` is
-  `strikeEffect: "discard-item"` (currently the only value). Threaded onto
+  A successful strike does not wound the defending character; instead an
+  item must be discarded (defender's choice) via the `discard-item-from-company`
+  combat phase. Only field beyond `type` is `strikeEffect`, one of:
+  `"discard-item"` (the discard pool is every item held anywhere in the
+  defending **company**) or `"discard-item-character"` (the pool is scoped
+  to items borne by the **struck character** alone). Threaded onto
   `CombatState.strikeEffect` at combat initiation (`initiateCreatureCombat`,
   `chain-reducer.ts`) and resolved by the same generic path in
   `combat-strike.ts` shared with agent attacks — detainment strikes never
-  trigger it. Card text is "For each successful strike, an item held by
+  trigger it. `combat-strike.ts` reads `combat.strikeEffect` to decide the
+  discard pool (whole company vs. `[strike.characterId]`) when building
+  `discardItemOptions`; the rest of the flow (legal actions, reducer) is
+  scope-agnostic. Card text is "For each successful strike, an item held by
   the defending company must be discarded (defender's choice); the
-  defending character is not harmed" (e.g. Thief, tw-102).
+  defending character is not harmed" (e.g. Thief, tw-102) for the company
+  variant, or "For each successful strike, an item the defending character
+  bears must be discarded (defender's choice); he is not harmed" (e.g.
+  Pick-pocket, tw-79) for the character-scoped variant.
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
@@ -5644,6 +5652,7 @@ strings to chase through the engine.
 { "type": "combat-detainment" }
 { "type": "combat-detainment", "awardsKillMp": true }
 { "type": "combat-strike-effect", "strikeEffect": "discard-item" }
+{ "type": "combat-strike-effect", "strikeEffect": "discard-item-character" }
 {
   "type": "combat-detainment",
   "when": {

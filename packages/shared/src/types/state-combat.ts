@@ -597,8 +597,10 @@ export interface CombatState {
   /**
    * Items available for the defender to choose from during the
    * 'discard-item-from-company' phase (An Article Missing, dm-43).
-   * Collected from all characters in the defending company when a
-   * successful agent strike with `strikeEffect: 'discard-item'` resolves.
+   * Collected from all characters in the defending company when
+   * `strikeEffect: 'discard-item'` resolves, or from the struck character
+   * alone when `strikeEffect: 'discard-item-character'` resolves
+   * (Pick-pocket tw-79/tw-80).
    */
   readonly discardItemOptions?: readonly ItemInPlay[];
   /**
@@ -824,13 +826,17 @@ export interface CombatState {
   readonly isolated?: boolean;
   /**
    * Special strike resolution override set by tap-agent-at-site hazard
-   * short-events (e.g. An Article Missing dm-43).
+   * short-events (e.g. An Article Missing dm-43) or a creature's own
+   * `combat-strike-effect` effect (e.g. Thief tw-102, Pick-pocket tw-79).
    *
    * `'discard-item'`: a successful strike does not wound the defending
    * character; instead the defending company must discard one item of
-   * their choice (defender picks).
+   * their choice (defender picks), pooled from every character in the
+   * company.
+   * `'discard-item-character'`: same, but the discard pool is scoped to
+   * items borne by the struck character alone (Pick-pocket tw-79/tw-80).
    */
-  readonly strikeEffect?: 'discard-item';
+  readonly strikeEffect?: 'discard-item' | 'discard-item-character';
   /**
    * When true, avatar characters (Wizards and Ringwraiths, mind === null) are
    * excluded from strike assignment. Set by `combat-one-strike-per-character`
