@@ -159,6 +159,30 @@ describe('attaching', () => {
     expect(observer.readyState).toBe(3);
   });
 
+  test('replacing an observer that has a question pending tells the asker it was replaced, not detached', () => {
+    const { alice, observer, session } = observedGame('h2');
+    // A question is now in flight to the first observer.
+    alice.message({ type: 'ask-ai', requestId: 'r1' });
+    expect(observer.latest('ai-question')).toMatchObject({ requestId: 'r1' });
+
+    // A second observer attaches, replacing the first while the question is
+    // still pending. The first socket's close fires synchronously (as the ws
+    // library can for an already-closing socket) — the asker must be told the
+    // observer was *replaced*, the reason the replacement path gives, not the
+    // generic "detached" the disconnect handler would report if it ran first.
+    const replacement = new FakeSocket();
+    session.addConnection(replacement as never);
+    replacement.observe('Observer', 'h2');
+
+    const explanation = alice.latest('ai-explanation');
+    expect(explanation).toMatchObject({ requestId: 'r1', status: 'unavailable' });
+    expect(explanation?.message).toContain('replaced');
+    expect(explanation?.message).not.toContain('detached');
+    // The replacement is the live observer and can field a fresh question.
+    alice.message({ type: 'ask-ai', requestId: 'r2' });
+    expect(replacement.latest('ai-question')).toMatchObject({ requestId: 'r2' });
+  });
+
   test('is refused for a name that plays in this game', () => {
     const { alice, session } = seatedGame();
     const impostor = new FakeSocket();
