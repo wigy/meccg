@@ -992,10 +992,10 @@ function runGrantApply(
       characters: c.characters.filter(ch => ch !== targetCharId),
     }));
 
-    // Build new discard pile: character + items + allies; hazards go to their owner
+    // Build new discard pile: character + items + allies; hazards go to their
+    // owner's discard pile (written directly into newPlayers in the hazard
+    // loop below).
     let newDiscard = [...targetPlayerData.discardPile];
-    const hazardPlayerIdx = 1 - targetPlayerIndex;
-    const newHazardDiscard = [...newPlayers[hazardPlayerIdx].discardPile];
     if (targetDefId) {
       newDiscard = [...newDiscard, { instanceId: targetCharId, definitionId: targetDefId }];
     }
@@ -1039,7 +1039,10 @@ function runGrantApply(
       characters: updatedChars,
       discardPile: newDiscard,
     };
-    newPlayers[hazardPlayerIdx] = { ...newPlayers[hazardPlayerIdx], discardPile: newHazardDiscard };
+    // NOTE: do not write the hazard owner's discard pile from a pre-loop
+    // snapshot here — the hazard loop above already appended each
+    // opponent-owned hazard directly to newPlayers[hazOwnerIdx]. A snapshot
+    // write-back clobbered those, dropping the hazards from the game.
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 

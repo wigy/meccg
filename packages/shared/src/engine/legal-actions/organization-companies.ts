@@ -22,7 +22,7 @@ import type {
   Alignment as AlignmentType,
 } from '../../index.js';
 import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, getReachableSites } from '../../movement-map.js';
+import { buildMovementMap, getReachableSites, withExtraRegionAdjacency } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
 import { SiteType, Race, RegionType } from '../../types/common.js';
@@ -42,6 +42,29 @@ import { isBalrogAvatarDef, companyContainsBalrogAvatar, companyContainsRingwrai
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
+
+/**
+ * The coastal regions Belegaer (td-100) connects by sea-crossing. The card
+ * lists the same regions for both the company's site of origin and its new
+ * destination — a company at a site in any one of these may move directly to
+ * a site in any other (or the same) region on the list, bypassing region
+ * adjacency.
+ */
+const BELEGAER_REGIONS: readonly string[] = [
+  'Lindon',
+  'Elven Shores',
+  'Eriadoran Coast',
+  'Andrast Coast',
+  'Bay of Belfalas',
+  'Mouths of the Anduin',
+  'Enedhwaith',
+  'Old Pûkel-land',
+  'Andrast',
+  'Anfalas',
+  'Belfalas',
+  'Lebennin',
+  'Harondor',
+];
 
 /** A `plan-movement` candidate: send `companyId` to the site-deck instance `destinationSite`. */
 function planMovement(playerId: PlayerId, companyId: CompanyId, destinationSite: CardInstanceId): GameAction {
@@ -750,6 +773,27 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
+    // Belegaer (td-100): sea-crossing special movement between the coastal
+    // regions it lists. The card's own play-target already required the
+    // company's origin to be in one of these regions; here we filter
+    // candidate destinations to sites in the same region list.
+    if (company.specialMovement === 'belegaer') {
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Belegaer special movement — filtering to coastal-region sites`);
+      for (const siteDef of candidateSites) {
+        if (siteDef.id === currentSiteDef.id) continue;
+        if (!siteDef.region || !BELEGAER_REGIONS.includes(siteDef.region)) continue;
+        const destInstId = siteInstMap.get(siteDef.id);
+        if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} in ${siteDef.region} reachable via Belegaer`);
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
+      }
+      continue;
+    }
+
     // CoE 3.44 / MEAS §3: region movement spans a maximum of 4 consecutive
     // regions, or 6 when an effect grants extra region distance. The total is
     // hard-capped at 6 no matter how much extra distance is granted.
@@ -790,9 +834,24 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     const evilHour = company.evilHourMovementBonus === true;
     const originHasOpp = evilHour && siteHasOpponentCompany(state, playerId, currentSiteDef.name);
     const planMax = originHasOpp ? effectiveMaxRegions + 2 : effectiveMaxRegions;
-    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, planMax);
+    // Anduin River (tw-191) and the "mountain-crossing" family: a
+    // region-adjacency-shortcut constraint on this company (from tapping a
+    // ranger to play the card) widens which region pairs count as adjacent,
+    // so a destination reachable only via the shortcut appears here too.
+    // Must be consulted here — plan-movement never re-runs once a
+    // destination is declared (see the early-continue above) — so this is
+    // the only chance for the shortcut to affect which sites this company
+    // may newly declare movement to.
+    const shortcutPairs = state.activeConstraints
+      .filter(c => c.kind.type === 'region-adjacency-shortcut'
+        && c.target.kind === 'company' && c.target.companyId === company.id)
+      .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+    const companyMovementMap = shortcutPairs.length > 0
+      ? withExtraRegionAdjacency(movementMap, shortcutPairs)
+      : movementMap;
+    let reachable = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, planMax);
     if (evilHour && !originHasOpp) {
-      const extended = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
+      const extended = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
       const seenExt = new Set(reachable.map(r => `${r.site.name}:${r.movementType}`));
       for (const r of extended) {
         if (r.movementType !== 'region') continue;

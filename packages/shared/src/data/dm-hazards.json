@@ -1329,8 +1329,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ScimitarsofSteel.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Men attacks receive +1 prowess."
+    "effects": [
+      {
+        "type": "play-discard-cost",
+        "source": "cards-in-play",
+        "filter": { "keywords": { "$includes": "Nazgûl" } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } }
+      }
+    ],
+    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Men attacks receive +1 prowess.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-event",

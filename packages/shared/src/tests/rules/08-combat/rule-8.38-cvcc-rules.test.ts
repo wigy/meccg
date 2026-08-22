@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardDefinitionId, Alignment, CompanyId, CardStatus, THE_MITHRIL_COAT } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
-  dispatch, viableActions,
+  dispatch, viableActions, assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { CharacterEntry } from '../../test-helpers.js';
 import type { SitePhaseState } from '../../../index.js';
@@ -467,5 +467,51 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     s = dispatch(s, bodyCheckActions[0].action);
     expect(s.players[0].characters[denethorId]).toBeUndefined();
     expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(true);
+  });
+
+  test('CvCC: eliminating an attacking character disposes its items, not drops them', () => {
+    // Regression: the attacker-character body-check elimination pushed only the
+    // character card to the defender's kill pile and deleted the character
+    // record — its attached items (which live only on that record) vanished
+    // from the game state entirely (no-card-disappears invariant violation).
+    const state = buildCvCCState({
+      siteEntered: true,
+      p1Characters: [{ defId: DENETHOR, items: [THE_MITHRIL_COAT] }],
+      p2Characters: [MAUHUR],
+    });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    const denethorId = s.players[0].companies[0].characters[0];
+    const coatId = s.players[0].characters[denethorId].items[0].instanceId;
+
+    // Defender passes, attacker pairs Denethor II against Mauhúr.
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+    const atkAssign = viableActions(s, PLAYER_1, 'assign-strike');
+    s = dispatch(s, atkAssign[0].action);
+
+    // Minimum attacker roll: Denethor II 2 + prowess 3 = 5 < Mauhúr 2 + 6 = 8 —
+    // the defender wins and Denethor II is wounded, then body-checked.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 2 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+    expect(s.combat?.bodyCheckTarget).toBe('attacker-character');
+
+    // Force the body check high enough to eliminate: Denethor II printed body 6,
+    // +3 Mithril-coat → effective 9; roll 12 > 9 → eliminated.
+    s = { ...s, cheatRollTotal: 12 };
+    const bodyCheckActions = viableActions(s, PLAYER_2, 'body-check-roll');
+    s = dispatch(s, bodyCheckActions[0].action);
+
+    // Denethor II eliminated to the defender's kill pile.
+    expect(s.players[0].characters[denethorId]).toBeUndefined();
+    expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(true);
+    // The Mithril-coat did not vanish — it lands in the attacker's discard pile.
+    expect(s.players[0].discardPile.some(c => c.instanceId === coatId)).toBe(true);
+    // Belt-and-braces: every minted instance is still reachable somewhere.
+    assertEveryInstanceReachable(s);
   });
 });

@@ -3621,8 +3621,42 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
     : deriveSiteFacedRaces(state);
   const defenderAlignment = defenderAlignmentLabel(state.players[activePlayerIndex].alignment);
+  // A creature's `keyedTo` can list several independent ways it may be
+  // played (e.g. Orc-watch: region type Shadow/Dark *or* site type
+  // Shadow-hold/Dark-hold). When the hazard player declared a specific
+  // match to justify this play (`keyedBy`), the attack is keyed *only* to
+  // that match — not to every alternative the card could have used. This
+  // matters for cards like Stinker ("keyed to Wilderness or Shadow-land",
+  // region types only): an Orc-watch played on the strength of its
+  // site-type match alone must not be cancelable as if it were also keyed
+  // to the Shadow-land region type. Falls back to the union of the card's
+  // `keyedTo` when no declared match is available (on-guard reveals, etc.).
+  // Computed here (before prowess/strikes/body resolution) so a creature's
+  // own self stat-modifier can gate on `attack.keying` — e.g. Pirates
+  // (le-88): "+2 prowess when keyed to Coastal Seas."
+  const declaredKeyedBy = entry.payload.type === 'creature' ? entry.payload.keyedBy : undefined;
+  const attackKeying = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'region-type' ? [declaredKeyedBy.value as RegionType] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
+      ));
+  const attackSiteKeyingTypes = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'site-type' ? [declaredKeyedBy.value as SiteType] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
+      ));
+  const attackKeyingRegionNames = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
+      ));
   const creatureSelf = creatureDef.effects?.length
-    ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
+    ? {
+        effects: creatureDef.effects,
+        companyFacedRaces,
+        defenderAlignment,
+        attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
+      }
     : undefined;
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
@@ -3728,32 +3762,6 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       ).length
     : 0;
 
-  // A creature's `keyedTo` can list several independent ways it may be
-  // played (e.g. Orc-watch: region type Shadow/Dark *or* site type
-  // Shadow-hold/Dark-hold). When the hazard player declared a specific
-  // match to justify this play (`keyedBy`), the attack is keyed *only* to
-  // that match — not to every alternative the card could have used. This
-  // matters for cards like Stinker ("keyed to Wilderness or Shadow-land",
-  // region types only): an Orc-watch played on the strength of its
-  // site-type match alone must not be cancelable as if it were also keyed
-  // to the Shadow-land region type. Falls back to the union of the card's
-  // `keyedTo` when no declared match is available (on-guard reveals, etc.).
-  const declaredKeyedBy = entry.payload.type === 'creature' ? entry.payload.keyedBy : undefined;
-  const attackKeying = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'region-type' ? [declaredKeyedBy.value as RegionType] : [])
-    : Array.from(new Set(
-        creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
-      ));
-  const attackSiteKeyingTypes = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'site-type' ? [declaredKeyedBy.value as SiteType] : [])
-    : Array.from(new Set(
-        creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
-      ));
-  const attackKeyingRegionNames = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value] : [])
-    : Array.from(new Set(
-        creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
-      ));
   // Scan for on-event: creature-attack-begins → offer-char-join-attack
   // (e.g. Alatar). If any pending offers match, force a cancel-window so
   // the defender has an explicit opt-in before strike assignment begins.

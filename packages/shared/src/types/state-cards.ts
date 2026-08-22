@@ -515,8 +515,12 @@ export interface Company {
    *   Only site-keyed hazard creatures may be played. No region path is traversed.
    * - `'paths-of-the-dead'`: Can move directly to the Vale of Erech site (CoE IE
    *   2018 erratum, tw-302). No region path is traversed.
+   * - `'belegaer'`: Can move directly between sites in the Belegaer coastal
+   *   regions (Lindon, Elven Shores, etc. — td-100), bypassing region
+   *   adjacency. The path is treated as three coastal-sea regions for hazard
+   *   keying purposes, and the hazard limit is reduced by 2 (floor 2).
    */
-  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead' | undefined;
+  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead' | 'belegaer' | undefined;
   /**
    * Extra region distance granted by a card effect (e.g. Cram).
    * Added to {@link BASE_MAX_REGION_DISTANCE} when computing maximum region

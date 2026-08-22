@@ -369,9 +369,18 @@ export function handleRevealNewSite(
       }
     }
   } else if (action.movementType === 'special') {
-    // Special movement (e.g. Gwaihir): no region path traversed.
-    // Only site-type keyed creatures can be played against this company.
-    logDetail(`Special movement: no region path — only site-keyed hazards apply`);
+    if (company.specialMovement === 'belegaer') {
+      // Belegaer (td-100): "The site path is [{c} {c} {c}]" — the sea
+      // crossing is treated as three coastal-sea regions for hazard keying
+      // and region-type-counting effects, even though no named region is
+      // actually traversed.
+      resolvedSitePath = [RegionType.Coastal, RegionType.Coastal, RegionType.Coastal];
+      logDetail(`Special movement (Belegaer): site path treated as [{c} {c} {c}] (3x coastal-sea)`);
+    } else {
+      // Special movement (e.g. Gwaihir): no region path traversed.
+      // Only site-type keyed creatures can be played against this company.
+      logDetail(`Special movement: no region path — only site-keyed hazards apply`);
+    }
   } else if (action.movementType === 'under-deeps') {
     // Under-deeps: no region path — only site-type keyed hazards apply.
     // Determine required roll and either advance directly or enter the roll step.
@@ -947,6 +956,37 @@ export function snapshotHazardLimit(
     logDetail(`Hazard limit modified by ${perCount * count} (${count}x ${regionType}, ${constraint.sourceDefinitionId as string}, floor ${floor}): ${prev} → ${limit}`);
   }
 
+  // hazard-limit-region-name-match constraints (Anduin River tw-191 and the
+  // "mountain-crossing" family, the "alternatively" no-tap mode): a flat,
+  // one-time reduction when the company's destination site's *named* region
+  // (its static `region` field, so this reads correctly regardless of
+  // starter/region/Under-deeps movement type) is one of the constraint's
+  // listed regions ("if the site moved to is in one of the regions listed
+  // above"), floored the same way as `hazard-limit-region-count`.
+  if (company.destinationSite) {
+    const destDefForRegionMatch = defById(state, company.destinationSite.definitionId);
+    const destRegionName = destDefForRegionMatch && isSiteCard(destDefForRegionMatch)
+      ? destDefForRegionMatch.region
+      : undefined;
+    if (destRegionName) {
+      for (const constraint of state.activeConstraints) {
+        if (constraint.kind.type !== 'hazard-limit-region-name-match'
+            || constraint.target.kind !== 'company'
+            || constraint.target.companyId !== company.id) continue;
+        const { regionNames, value, floor } = constraint.kind;
+        if (!regionNames.includes(destRegionName)) continue;
+        const prev = limit;
+        let next = limit + value;
+        if (value < 0 && next < floor) {
+          next = Math.min(prev, floor);
+        }
+        limit = next;
+        preRevealConstraintIds.push(constraint.id);
+        logDetail(`Hazard limit modified by ${value} (destination region ${destRegionName} matches ${constraint.sourceDefinitionId as string}, floor ${floor}): ${prev} → ${limit}`);
+      }
+    }
+  }
+
   // region-shortcut constraints (Ash Mountains tw-194 and its "movement
   // enhancer" family) still bound to this company at hazard-limit time: the
   // shortcut was NOT used for this move (a used shortcut removes the
@@ -1046,6 +1086,14 @@ export function snapshotHazardLimit(
       limit = Math.max(hazardRestriction.hazardLimitFloor, limit + hazardRestriction.hazardLimitModifier);
       logDetail(`Hazard limit modified by ${hazardRestriction.hazardLimitModifier} (movement-restriction, floor ${hazardRestriction.hazardLimitFloor}): ${prev} → ${limit}`);
     }
+  }
+
+  // Belegaer (td-100): "the hazard limit is decreased by two to a minimum of
+  // two" for the company using its sea-crossing special movement.
+  if (company.specialMovement === 'belegaer') {
+    const prev = limit;
+    limit = Math.max(2, limit - 2);
+    logDetail(`Hazard limit modified by -2 (Belegaer sea-crossing, floor 2): ${prev} → ${limit}`);
   }
 
   limit = Math.max(limit, 0);

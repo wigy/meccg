@@ -1027,6 +1027,27 @@ export function handlePlayHazardCard(
   // Remove card from hand — it now resides on the chain
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
 
+  // play-discard-cost sourced from cards-in-play (Scimitars of Steel dm-86):
+  // "Playable only if you have a Nazgûl permanent-event in play. Discard the
+  // Nazgûl when this card is brought into play." Paid at declaration, mirroring
+  // the hand-sourced discard cost above — the legal-action generator already
+  // guaranteed a matching candidate exists (that's the "playable only if" gate).
+  const cardsInPlayDiscardCost = getCardEffects(def).find(
+    (e): e is PlayDiscardCostEffect => e.type === 'play-discard-cost' && e.source === 'cards-in-play',
+  );
+  let discardedFromPlay: CardInstance | undefined;
+  if (cardsInPlayDiscardCost && action.type === 'play-hazard' && action.costDiscardInstanceId) {
+    const chosen = findById(hazardPlayer.cardsInPlay, action.costDiscardInstanceId);
+    const chosenDef = chosen ? defById(state, chosen.definitionId) : undefined;
+    if (chosen && chosenDef && matchesDefinition(chosenDef, cardsInPlayDiscardCost.filter)) {
+      discardedFromPlay = chosen;
+      logDetail(`Play-hazards: "${def.name}" discard cost paid — discarding "${chosenDef.name}" from play`);
+    }
+  }
+  if (cardsInPlayDiscardCost && !discardedFromPlay) {
+    return { state, error: `${def.name} requires discarding a matching card in play` };
+  }
+
   const eventTargetCharId = def.eventType === 'permanent' && action.type === 'play-hazard'
     ? action.targetCharacterId
     : undefined;
@@ -1035,8 +1056,16 @@ export function handlePlayHazardCard(
     ? { ...mhState.corruptionCardsPlayedPerChar, [eventTargetCharId as string]: true as const }
     : mhState.corruptionCardsPlayedPerChar;
 
+  const cardDiscardedFromPlay = discardedFromPlay;
   let newState: GameState = {
-    ...updatePlayer(state, hazardIndex, p => ({ ...p, hand: newHand })),
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      hand: newHand,
+      ...(cardDiscardedFromPlay ? {
+        cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== cardDiscardedFromPlay.instanceId),
+        discardPile: [...p.discardPile, cardDiscardedFromPlay],
+      } : {}),
+    })),
     phaseState: {
       ...mhState,
       hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,

@@ -1118,6 +1118,12 @@ function replaceCharacterInPlace(
     controlledBy: oldChar.controlledBy,
     effectiveStats: ZERO_EFFECTIVE_STATS,
     ...(oldChar.trophies !== undefined ? { trophies: oldChar.trophies } : {}),
+    // The rule-9.16 "in use" declaration is a set of pointers into the
+    // transferred `items` — its instance IDs stay valid across the swap, so it
+    // must ride along with the items it elects. Dropping it silently reverts a
+    // character with a declared non-first weapon/armor to first-carried,
+    // changing its effective prowess/body (item-slots pickActiveItems).
+    ...(oldChar.itemsInUse !== undefined ? { itemsInUse: oldChar.itemsInUse } : {}),
   };
 
   // Rebuild the characters map: drop the old instance, add the new one,

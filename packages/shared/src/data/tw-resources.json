@@ -2182,8 +2182,61 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Rohan and Dagorlad, Anórien and Dagorlad, Anórien and Ithilien, Lebennin and Ithilien, Lebennin and Harondor.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by two (to a minimum of 2). Cannot be duplicated on a given company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": { "company.skills": { "$includes": "ranger" } },
+        "cost": { "tap": "skilled-character-in-company", "skill": "ranger" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-adjacency-shortcut",
+          "scope": "turn",
+          "regionPairs": [
+            ["Rohan", "Dagorlad"],
+            ["Anórien", "Dagorlad"],
+            ["Anórien", "Ithilien"],
+            ["Lebennin", "Ithilien"],
+            ["Lebennin", "Harondor"]
+          ]
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": { "company.skills": { "$includes": "ranger" } }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-region-name-match",
+          "scope": "turn",
+          "regionNames": ["Rohan", "Dagorlad", "Anórien", "Ithilien", "Lebennin", "Harondor"],
+          "value": -2,
+          "floor": 2
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Rohan and Dagorlad, Anórien and Dagorlad, Anórien and Ithilien, Lebennin and Ithilien, Lebennin and Harondor.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by two (to a minimum of 2). Cannot be duplicated on a given company.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
@@ -4221,8 +4274,27 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "sage" } },
+            { "target.itemKeywords": { "$includes": "palantir" } }
+          ]
+        },
+        "itemFilter": { "keywords": { "$includes": "palantir" } },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "can-use-palantir", "scope": "turn" }
+      }
+    ],
+    "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-faction",
