@@ -3102,6 +3102,13 @@ function playHazardsActions(
                   itemKeywords,
                   itemSubtypes,
                 },
+                // `company.moving` (Gloom tw-41: "Playable only on a company
+                // that is moving this turn") mirrors the `target.moving` field
+                // already exposed to `play-target: "company"` filters
+                // (Heedless Revelry le-114).
+                company: {
+                  moving: !!targetCompany.destinationSite,
+                },
               };
               if (!matchesCondition(shortPlayTarget.filter, ctx)) {
                 logDetail(`Hazard short-event "${def.name}" filter excludes ${charDef.name}`);
@@ -3156,6 +3163,38 @@ function playHazardsActions(
                 action: { ...action, targetCharacterId: charId },
                 viable: true,
               });
+            }
+          }
+          // Gloom (tw-41): a `play-target: "character"` short event may also
+          // carry `on-event company-arrives-at-site` Doors-of-Night
+          // alternative modes ("Alternatively, if Doors of Night is in play,
+          // treat one Border-land as a Wilderness or one Border-hold as a
+          // Ruins & Lairs…"). Offer the single untargeted action the
+          // tap-character branch offers for the same shape (New Moon tw-68),
+          // so the two modes stay mutually exclusive via
+          // `applyShortEventArrivalTrigger`'s targetCharacterId check.
+          {
+            const arrivalModes = getCardEffects(def).filter(
+              (e): e is import('../../types/effects.js').OnEventEffect =>
+                e.type === 'on-event' && e.event === 'company-arrives-at-site',
+            );
+            if (arrivalModes.length > 0 && targetCompany.destinationSite) {
+              const inPlayNames = buildInPlayNames(state);
+              const arrivalCompany: Record<string, unknown> = {};
+              if (mhState.destinationSiteType) arrivalCompany.destinationSiteType = mhState.destinationSiteType;
+              if (mhState.destinationSiteName) arrivalCompany.destinationSiteName = mhState.destinationSiteName;
+              if (mhState.resolvedSitePath.length > 0) {
+                arrivalCompany.destinationRegionType = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
+              }
+              const arrivalCtx: Record<string, unknown> = {
+                company: arrivalCompany,
+                inPlay: inPlayNames,
+                environment: { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') },
+              };
+              if (arrivalModes.some(m => !m.when || matchesCondition(m.when, arrivalCtx))) {
+                logDetail(`Hazard short-event "${def.name}": arrival-override mode available`);
+                actions.push({ action, viable: true });
+              }
             }
           }
           continue;

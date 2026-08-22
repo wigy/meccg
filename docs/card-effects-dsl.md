@@ -14205,6 +14205,29 @@ whenever the resolving short-event carries both a `tap-character` effect and a
 Doors of Night is in play, treat one Free-domain as a Border-land or one Free-hold
 as a Border-hold until the end of the turn."
 
+The same "Alternatively" shape also composes with an ordinary `play-target:
+"character"` main mode (instead of `tap-character`) — e.g. a `character-stat-
+modifier` penalty rather than a tap. The short-event character-targeting branch
+(`legal-actions/movement-hazard.ts`, "Character-targeting short events") offers
+the arrival-override modes' single untargeted action alongside its per-character
+actions whenever the card also carries `on-event company-arrives-at-site`
+effects, using the same eligibility check as the `tap-character` branch above.
+`applyShortEventArrivalTrigger`'s mutual-exclusion guard checks for either
+`tap-character` **or** a `play-target` `target: "character"` effect, so a chosen
+`targetCharacterId` suppresses the arrival-override modes regardless of which
+shape the main mode takes. The character-targeting filter context also exposes
+`company.moving` (`!!targetCompany.destinationSite`), mirroring the `target.moving`
+field already exposed to `play-target: "company"` filters (Heedless Revelry
+le-114). Used by Gloom (tw-41): "Playable only on a company that is moving this
+turn. One character (attacker's choice) in that company suffers -1 to his
+prowess until the end of the turn. Alternatively, if Doors of Night is in play,
+treat one Border-land as a Wilderness or one Border-hold as a Ruins & Lairs
+until the end of the turn." — `play-target` character (`filter: { "company.moving":
+true }`), `on-event self-enters-play` → `character-stat-modifier` (prowess -1,
+scope turn), and the two `on-event company-arrives-at-site` → `region-type-
+override` (border→wilderness) / `site-type-override` (border-hold→ruins-and-
+lairs) modes.
+
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 
 The permanent-event mode (§56c) additionally supports `persistent: true` for
