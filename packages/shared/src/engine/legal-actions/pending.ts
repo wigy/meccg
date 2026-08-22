@@ -45,7 +45,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
@@ -1729,6 +1729,8 @@ function applyOneConstraint(
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
+    case 'only-creatures-keyed-to-site-if-safe-path':
+      return applyOnlyCreaturesKeyedToSiteIfSafePath(state, playerId, base, constraint);
     case 'only-race-creatures-on-company':
       return applyOnlyRaceCreaturesOnCompany(state, playerId, base, constraint);
     case 'extra-mh-phase':
@@ -2280,6 +2282,43 @@ function applyOnlyCreaturesKeyedToSiteAtRuinsLairs(
       return { allow: true, note: `"${def.name}" is site-keyed — allowed` };
     }
     return { allow: false, note: `dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}` };
+  });
+}
+
+/**
+ * Elf-path (td-111): like {@link applyOnlyCreaturesKeyedToSiteAtRuinsLairs},
+ * but the gate is the target company's resolved site path rather than its
+ * destination site type. "If his company's site path only has one or two
+ * regions with no Dark-domains [{d}] and no Shadow-lands [{s}]" — when the
+ * path is exactly one or two regions and contains neither region type, the
+ * opponent may only play hazard creatures keyed to the company's new site
+ * (by site-type or site-name); region-keyed creatures are dropped. Otherwise
+ * the card imposes nothing.
+ */
+function applyOnlyCreaturesKeyedToSiteIfSafePath(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  const protectedCompany = constraint.target.companyId;
+
+  const ps = state.phaseState;
+  if (ps.phase !== Phase.MovementHazard) return base;
+  const path = ps.resolvedSitePath;
+  const counts = regionTypeCounts(path);
+  const isSafePath = (path.length === 1 || path.length === 2) && counts.darkCount === 0 && counts.shadowCount === 0;
+  if (!isSafePath) {
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-if-safe-path): site path ${JSON.stringify(path)} is not a safe one/two-region path — no restriction`);
+    return base;
+  }
+
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-creatures-keyed-to-site-if-safe-path', def => {
+    if (isCreatureKeyedToDestinationSite(state, def)) {
+      return { allow: true, note: `"${def.name}" is site-keyed — allowed` };
+    }
+    return { allow: false, note: `dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}` };
   });
 }
 

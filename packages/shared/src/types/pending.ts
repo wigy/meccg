@@ -1411,6 +1411,19 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Elf-path (td-111): like `only-creatures-keyed-to-site-at-ruins-lairs`,
+         * but the restriction applies **only if** the target company's resolved
+         * site path is exactly one or two regions and contains no Dark-domain
+         * [{d}] or Shadow-land [{s}] regions. While active and the path is
+         * safe, the opponent may only play hazard creatures keyed to the
+         * company's new site (by site-type or site-name); region-keyed
+         * creatures are dropped. When the path is longer or crosses a
+         * Dark-domain/Shadow-land, the constraint imposes nothing.
+         */
+        readonly type: 'only-creatures-keyed-to-site-if-safe-path';
+      }
+    | {
+        /**
          * Paths of the Dead (tw-302): while active, the opponent may only play
          * hazard creatures of the given race against the target company ("The
          * only hazard creatures that may be played on this company are Undead,
