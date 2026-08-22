@@ -117,4 +117,40 @@ describe('Rule 10.52 — Alignment Item MP Values', () => {
     const expected = Math.ceil(baseMp / 2);
     expect(recomputed.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(expected);
   });
+
+  test('[BALROG] Balrog player holding a hero item gets half MP (rule 10.B1)', () => {
+    // Regression: crossAlignmentItemMpFactor implemented only 10.R1 (Ringwraith)
+    // and 10.W1 (Wizard); a Balrog player's hero item fell through to full MP.
+    // Rule 10.B1: a Balrog receives half (rounded up) for hero items — except
+    // those played at his own Darkhavens (scored 0; not covered here). The
+    // Balrog character sits at Rivendell, NOT a Balrog Darkhaven, so the
+    // half-MP clause governs.
+    const THE_BALROG = 'ba-3' as CardDefinitionId;
+    const base = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Balrog,
+          companies: [{ site: RIVENDELL, characters: [THE_BALROG] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+
+    // Glamdring (hero item, 2 MP) borne by the Balrog → ceil(2/2) = 1, not 2.
+    const withItem = attachItemToChar(base, RESOURCE_PLAYER, THE_BALROG, GLAMDRING);
+    const recomputed = recomputeDerived(withItem);
+    expect(recomputed.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(1);
+  });
 });

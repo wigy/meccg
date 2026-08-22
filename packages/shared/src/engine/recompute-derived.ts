@@ -61,15 +61,21 @@ import { logDetail } from './legal-actions/log.js';
 /**
  * Returns the MP multiplier for a cross-alignment item (MELE Part IV).
  *
- * A Ringwraith player's hero items and a Wizard player's minion items are
- * worth only half their normal marshalling points (rounded up). All other
- * combinations return 1.0 (full value).
+ * A Ringwraith player's hero items (10.R1), a Balrog player's hero items
+ * (10.B1), and a Wizard player's minion items (10.W1) are worth only half
+ * their normal marshalling points (rounded up). All other combinations return
+ * 1.0 (full value).
+ *
+ * NOTE: 10.B1's other clause — a Balrog scores ZERO MP for a hero item played
+ * at one of his own Darkhavens — is not applied here (this helper has no site
+ * context); it needs the bearer's site threaded in and is tracked separately.
  */
 function crossAlignmentItemMpFactor(
   playerAlignment: Alignment,
   itemCardType: string,
 ): number {
   if (playerAlignment === 'ringwraith' && itemCardType === 'hero-resource-item') return 0.5;
+  if (playerAlignment === 'balrog' && itemCardType === 'hero-resource-item') return 0.5;
   if (playerAlignment === 'wizard' && itemCardType === 'minion-resource-item') return 0.5;
   return 1.0;
 }
