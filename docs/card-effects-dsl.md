@@ -9684,6 +9684,29 @@ the dm-98 test). le-181's `play-target` is a `company` filtered by
 filter context exposes `company.moving` (the company has a declared destination
 or special movement this org phase) alongside `company.atHaven`.
 
+The `only-creatures-keyed-to-site-if-safe-path` constraint (added by *Elf-path*
+td-111 via `on-event: self-enters-play` → `add-constraint`, target
+`target-company` resolved from the tapped Elf's company) is the **safe-path-gated**
+variant: the same drop of non-site-keyed creatures applies, but **only when**
+the protected company's resolved site path (`phaseState.resolvedSitePath`) is
+exactly one or two regions and contains no Dark-domain [{d}] or Shadow-land
+[{s}] regions (`reducer-utils.ts` `regionTypeCounts`). When the path is longer
+or crosses either region type, the constraint imposes nothing
+(`applyOnlyCreaturesKeyedToSiteIfSafePath`). Elf-path's cost is `{ "tap":
+"character" }` on a `play-target` filtered to `{ "target.race": "elf",
+"company.moving": true }` — the tapped Elf's own company ("his company") is
+the target, not a separately declared company.
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "target.race": "elf", "company.moving": true },
+  "cost": { "tap": "character" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint",
+    "constraint": "only-creatures-keyed-to-site-if-safe-path", "scope": "turn" },
+  "target": "target-company" }
+```
+
 `set-company-special-movement` (§ "Actions" above, previously only reachable
 via a grant-action apply — e.g. Gwaihir's `gwaihir-special-movement`) is also
 supported directly on a **resource short-event's** `on-event: self-enters-play`

@@ -2557,6 +2557,9 @@ function applyShortEventOnEntersPlay(
         case 'only-creatures-keyed-to-site-at-ruins-lairs':
           kind = { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
           break;
+        case 'only-creatures-keyed-to-site-if-safe-path':
+          kind = { type: 'only-creatures-keyed-to-site-if-safe-path' };
+          break;
         case 'only-race-creatures-on-company': {
           const race = onEvent.apply.race;
           if (!race) {
