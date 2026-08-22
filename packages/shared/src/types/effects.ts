@@ -5179,6 +5179,22 @@ export interface PlayTargetEffect extends EffectBase {
    * and never see set-aside cards.
    */
   readonly targetsSetAside?: boolean;
+  /**
+   * Restricts a `target: "character"` play-target to a character bearing at
+   * least one item matching this condition, AND designates which of that
+   * character's items the played card resolves against when he bears more
+   * than one qualifying item (Use Palantír tw-355: "tap sage to enable him
+   * to use **one** Palantír he bears" — a sage bearing two Palantíri must
+   * pick one, not both). Evaluated per-item against the item's own card
+   * definition (`matchesDefinition`, e.g. `{ "keywords": { "$includes":
+   * "palantir" } }`), unlike `filter`, which is evaluated against the
+   * candidate *character's* aggregate context (`target.itemKeywords`). One
+   * legal action is emitted per (character, item) pair; the chosen item's
+   * instance flows into the resulting action as `targetItemInstanceId` so
+   * an `apply` can bind a constraint's `source` to that specific item
+   * instead of the playing card itself.
+   */
+  readonly itemFilter?: Condition;
 }
 
 /**

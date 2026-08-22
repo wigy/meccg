@@ -2440,6 +2440,21 @@ realizes ba-76's "untap all tapped characters in The Balrog's company; if then
 untapped, tap The Balrog" (the empty `cost` lets it fire even when the Balrog is
 already tapped).
 
+The same `target: "company"` shape is also reachable from a resource
+**short-event**'s `on-event: self-enters-play` (not just a `grant-action`
+apply): `applyShortEventOnEntersPlay` (`reducer-events.ts`) resolves the
+company from the played-on character (`action.targetCharacterId`, the card's
+own `play-target`) and applies the identical tapped-only gate — an
+`Inverted` (wounded) member or an already-`Untapped` member is left alone, so
+"untap all unwounded characters in the company" needs no separate
+wounded-exclusion clause. Used by Narya (tw-290): "Immediately untap all
+unwounded characters in Gandalf's company."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-character-status", "target": "company", "status": "untapped" } }
+```
+
 **Two exclusive modes sharing one action name.** A card granting a choice —
 "During your organization phase, you may: A **or** B" — declares **two**
 `grant-action` effects with the **same** `action` string, each `oncePerTurn:
@@ -6608,6 +6623,21 @@ Optional fields:
     non-follower possessions (The Roving Eye le-135).
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
+- `itemFilter` — restricts a `target: "character"` play-target to a
+  character bearing at least one item matching this condition, evaluated
+  per-item against the item's own card definition (`matchesDefinition`) —
+  distinct from `filter`, which is evaluated against the candidate
+  character's aggregate context (`target.itemKeywords`). Also designates
+  *which* of that character's items the played card resolves against: the
+  legal-action emitter (`long-event.ts` for the long-event phase,
+  `organization.ts`'s `playResourceShortEventActions` for every other
+  phase per CoE 2.1.1) crosses each eligible character with every item
+  matching `itemFilter`, emitting one `play-short-event` action per pair
+  and carrying the chosen item's instance as `targetItemInstanceId`. Used
+  by Use Palantír (tw-355): "Tap sage to enable him to use **one** Palantír
+  he bears" — a sage bearing two Palantíri is offered one action per item
+  instead of enabling both at once. `itemFilter: { "keywords": {
+  "$includes": "palantir" } }`.
 
 ### 16. `on-guard-reveal`
 

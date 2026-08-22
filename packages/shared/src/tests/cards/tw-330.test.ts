@@ -37,6 +37,7 @@ import {
   BARROW_WIGHT,
   MORIA, LORIEN, RIVENDELL, MINAS_TIRITH,
   RESOURCE_PLAYER,
+  pool,
 } from '../test-helpers.js';
 import { CardStatus, Race } from '../../index.js';
 import type { CardDefinitionId, CancelAttackAction, ModifyAttackAction } from '../../index.js';
@@ -351,5 +352,10 @@ describe('Star-glass (tw-330)', () => {
 
     const actions = viableActions(state, PLAYER_1, 'cancel-attack');
     expect(actions).toHaveLength(1);
+  });
+
+  test('carries 1 corruption point (authoritative card data)', () => {
+    const def = pool['tw-330'];
+    expect(def && 'corruptionPoints' in def && (def as { corruptionPoints?: number }).corruptionPoints).toBe(1);
   });
 });
