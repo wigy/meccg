@@ -548,7 +548,13 @@ export function uncertifiedCards(deck: FullDeck): string[] {
 /** Sort deck entries: favourites first, then known cards, then by card type, then by name. */
 export function sortDeckEntries(entries: DeckListEntry[]): DeckListEntry[] {
   return [...entries].sort((a, b) => {
-    if (a.favourite !== b.favourite) return a.favourite ? -1 : 1;
+    // Normalize to booleans: favourite is `true` | `false` | undefined (the
+    // latter two both mean "not a favourite", matching how the game and sim
+    // read it as `favourite === true`). Comparing the raw values with `!==`
+    // would order a `false` entry against an `undefined` one, making the
+    // comparator inconsistent — the same double-negation the `!defA` axis
+    // below already uses avoids that.
+    if (!a.favourite !== !b.favourite) return a.favourite ? -1 : 1;
     const defA = a.card ? cardPool[a.card] : undefined;
     const defB = b.card ? cardPool[b.card] : undefined;
     if (!defA !== !defB) return defA ? -1 : 1;
