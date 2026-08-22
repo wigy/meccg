@@ -659,6 +659,71 @@ describe('Mistress Lobelia-style grant-action deck fetch (bug 21880899decf2c40)'
   });
 });
 
+describe('Spectator redaction of draft hidden information', () => {
+  const LEGOLAS = 'tw-158' as CardDefinitionId;
+
+  function draftGame(): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN, BALIN], favourites: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [LEGOLAS, BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    return createGame(config, pool);
+  }
+
+  test('spectators do not see either player\'s favourites during the character draft', () => {
+    // Regression: the spectator redact helper spread the draft state and
+    // replaced only pool/currentPick, keeping `favourites` — the players'
+    // declared starting-company plan, which the player projection strips
+    // from the opponent's copy.
+    const state = draftGame();
+    const spec = projectSpectatorView(state);
+    const ps = spec.phaseState;
+    if (ps.phase !== 'setup' || ps.setupStep.step !== 'character-draft') throw new Error('not in draft');
+    expect(ps.setupStep.draftState[0].favourites).toBeUndefined();
+    expect(ps.setupStep.draftState[1].favourites).toBeUndefined();
+    // The pools stay hidden as before.
+    expect(ps.setupStep.draftState[0].pool.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+  });
+
+  test('spectators do not see either player\'s remaining pool during the character deck draft', () => {
+    // Regression: redactPhaseForSpectator early-returned unchanged for the
+    // character-deck-draft step, shipping both players' remainingPool with
+    // real definition IDs — hidden future play-deck contents the player
+    // projection hides from the opponent.
+    let state = draftGame();
+    state = run(state, [
+      { type: 'draft-pick', player: ALICE, characterInstanceId: draftInst(state, 0, ARAGORN) },
+      { type: 'draft-pick', player: BOB, characterInstanceId: draftInst(state, 1, LEGOLAS) },
+      { type: 'draft-stop', player: ALICE },
+      { type: 'draft-stop', player: BOB },
+    ]);
+    // Advance through the item draft if present (no pool items → may auto-skip).
+    if (state.phaseState.phase === 'setup' && state.phaseState.setupStep.step === 'item-draft') {
+      state = run(state, [
+        { type: 'pass', player: ALICE },
+        { type: 'pass', player: BOB },
+      ]);
+    }
+    if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'character-deck-draft') {
+      throw new Error(`expected character-deck-draft, got ${JSON.stringify(state.phaseState.phase)}`);
+    }
+
+    const spec = projectSpectatorView(state);
+    const ps = spec.phaseState;
+    if (ps.phase !== 'setup' || ps.setupStep.step !== 'character-deck-draft') throw new Error('projection changed step');
+    for (const seat of [0, 1] as const) {
+      const poolCards = ps.setupStep.deckDraftState[seat].remainingPool;
+      expect(poolCards.length).toBeGreaterThan(0);
+      expect(poolCards.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+    }
+  });
+});
+
 describe('Game ID exposed in the player view (for locating a save when filing a bug report)', () => {
   const config: GameConfig = {
     players: [

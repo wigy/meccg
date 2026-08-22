@@ -387,23 +387,46 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
 
 /**
  * Redacts draft state for spectators: both players' drafted and
- * set-aside are visible, but pools, picks, and starting items are hidden.
+ * set-aside are visible, but pools, picks, favourites, and the
+ * deck-draft remaining pools are hidden — a spectator sees at most what
+ * either player sees of the other, never more.
  */
 function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
-  if (phaseState.phase !== 'setup' || phaseState.setupStep.step !== 'character-draft') return phaseState;
+  if (phaseState.phase !== 'setup') return phaseState;
 
-  const step = phaseState.setupStep;
-  const redact = (d: DraftPlayerState): DraftPlayerState => ({
-    ...d,
-    pool: hiddenCardPile(d.pool),
-    // drafted stays visible — it's public after reveal
-    currentPick: null,
-  });
+  if (phaseState.setupStep.step === 'character-draft') {
+    const step = phaseState.setupStep;
+    const redact = (d: DraftPlayerState): DraftPlayerState => ({
+      ...d,
+      pool: hiddenCardPile(d.pool),
+      // drafted stays visible — it's public after reveal
+      currentPick: null,
+      // The players' plans, hidden from each other — and from spectators.
+      favourites: undefined,
+    });
 
-  return {
-    ...phaseState,
-    setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
-  };
+    return {
+      ...phaseState,
+      setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
+    };
+  }
+
+  // Leftover pool characters are shuffled into the play deck — knowing them is
+  // knowing hidden deck contents, so both players' remaining pools are hidden
+  // from spectators exactly as each is from the opponent.
+  if (phaseState.setupStep.step === 'character-deck-draft') {
+    const step = phaseState.setupStep;
+    const redact = (d: CharacterDeckDraftPlayerState): CharacterDeckDraftPlayerState => ({
+      ...d,
+      remainingPool: hiddenCardPile(d.remainingPool),
+    });
+    return {
+      ...phaseState,
+      setupStep: { ...step, deckDraftState: [redact(step.deckDraftState[0]), redact(step.deckDraftState[1])] },
+    };
+  }
+
+  return phaseState;
 }
 
 /**
