@@ -29,7 +29,7 @@ import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, play
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -462,10 +462,36 @@ export function heroResourceShortEventActions(
     // If the card has a play-target with a tap cost (e.g. Marvels Told taps
     // a sage), emit one action per eligible target. Otherwise emit a single
     // action with no target. When a discard-in-play target is also required,
-    // emit the cross-product of sage × discard-target.
+    // emit the cross-product of sage × discard-target. When the play-target
+    // declares an `itemFilter` (Use Palantír tw-355), emit the cross-product
+    // of sage × qualifying-item instead — the player picks which of the
+    // sage's matching items (e.g. which Palantír) the card resolves against.
     const playTarget = getPlayTargetEffect(def);
     const emitPlay = (sageId: CardInstanceId | undefined) => {
-      if (discardTargetIds) {
+      const itemFilter = playTarget?.itemFilter;
+      const sageChar = sageId ? player.characters[sageId] : undefined;
+      const itemIds = itemFilter && sageChar
+        ? itemsMatchingFilter(state, sageChar.items, itemFilter)
+        : null;
+      if (itemIds) {
+        if (itemIds.length === 0) {
+          logDetail(`${def.name}: sage ${String(sageId)} has no item matching itemFilter — skipping`);
+          return;
+        }
+        for (const itemId of itemIds) {
+          logDetail(`Resource short-event playable (sage ${String(sageId)}, item ${String(itemId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId,
+              targetScoutInstanceId: sageId,
+              targetItemInstanceId: itemId,
+            },
+            viable: true,
+          });
+        }
+      } else if (discardTargetIds) {
         for (const discardId of discardTargetIds) {
           logDetail(`Resource short-event playable (sage ${String(sageId)}, discard ${String(discardId)}): ${def.name}`);
           actions.push({

@@ -34,6 +34,7 @@ import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { hazardLimitStatus } from '../hazard-limit.js';
 import { cvccSides } from '../cvcc-sides.js';
+import { pickActiveItemsForCharacter } from '../item-slots.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -2550,6 +2551,16 @@ function cancelAttackActions(
       heroCompany = atkAlignment === Alignment.Wizard || atkAlignment === Alignment.FallenWizard;
     }
     attackCtx['heroCompany'] = heroCompany;
+    // `attack.minionCompany` is true only for a CvCC combat whose attacking
+    // company belongs to a Ringwraith (minion) player — the counterpart of
+    // `attack.heroCompany` above. Backs All the Bells Ringing (as-44): "if a
+    // minion company attacks" a hero company at a Free-hold/Border-hold.
+    let minionCompany = false;
+    if (combat.isCvCC) {
+      const atkAlignment = playerById(state, combat.attackingPlayerId)?.alignment;
+      minionCompany = atkAlignment === Alignment.Ringwraith;
+    }
+    attackCtx['minionCompany'] = minionCompany;
     // Whether the defending company is at, or moving to or from, an Under-deeps
     // site. Backs Great Fissure (ba-61): "cancel an attack against a company at,
     // or moving to or from, an Under-deeps site."
@@ -3948,10 +3959,20 @@ function companyCombatBoostActions(
   // specific-name exclusion.
   const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
   const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(state, enemyCreatureInstanceId) : undefined;
+  // `overt` is only meaningful for a CvCC attack (the enemy is a company, not
+  // a hazard creature) — resolved from the attacking company. Used by Biter
+  // and Beater! (as-46): "in combat with an overt company".
+  const attackingCompanyForOvert = combat.isCvCC && combat.attackSource.type === 'company-attack'
+    ? companyById(playerById(state, combat.attackingPlayerId)?.companies ?? [], combat.attackSource.attackingCompanyId)
+    : undefined;
+  const attackingPlayerForOvert = combat.isCvCC ? playerById(state, combat.attackingPlayerId) : undefined;
   const attackWhenContext = {
     enemy: {
       race: combat.creatureRace,
       name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+      ...(attackingCompanyForOvert && attackingPlayerForOvert
+        ? { overt: !isCovertCompany(attackingCompanyForOvert, attackingPlayerForOvert, state) }
+        : {}),
     },
   };
 
@@ -4017,13 +4038,37 @@ function companyCombatBoostActions(
       continue;
     }
 
-    // At least one boost effect must match a character in the defending
-    // company. A boost with neither `filter` nor `companyFilter` matches
-    // unconditionally; a `filter` matches when any character satisfies it
-    // (per-character grant); a `companyFilter` gates the whole company on a
-    // qualifying member (e.g. Foe Dismayed's leader-or-Balrog gate).
+    // At least one boost effect must match a character (or a borne item) in
+    // the defending company. A boost with neither `filter`/`companyFilter`
+    // nor `itemFilter` matches unconditionally; a `filter` matches when any
+    // character satisfies it (per-character grant); a `companyFilter` gates
+    // the whole company on a qualifying member (e.g. Foe Dismayed's
+    // leader-or-Balrog gate); an `itemFilter` matches when any character bears
+    // a qualifying item (Biter and Beater! as-46's named-weapon gate).
     let hasMatch = false;
     for (const effect of eligibleBoosts) {
+      if (effect.itemFilter) {
+        for (const charId of company.characters) {
+          const char = player.characters[charId];
+          if (!char) continue;
+          // Rule 9.15: only the "in use" item per slot (e.g. one weapon)
+          // contributes effects — a second borne sword sitting unused grants
+          // no bonus, from Biter and Beater! or otherwise.
+          const activeItemIds = pickActiveItemsForCharacter(state, char);
+          if (char.items.some(item => {
+            if (!activeItemIds.has(item.instanceId as string)) return false;
+            const itemDef = defById(state, item.definitionId);
+            return itemDef && matchesCondition(effect.itemFilter!, { item: {
+              name: (itemDef as { name?: string }).name ?? '',
+              keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+              cardType: itemDef.cardType,
+              subtype: (itemDef as { subtype?: string }).subtype,
+            } });
+          })) { hasMatch = true; break; }
+        }
+        if (hasMatch) break;
+        continue;
+      }
       const gate = effect.companyFilter ?? effect.filter;
       if (!gate) { hasMatch = true; break; }
       for (const charId of company.characters) {
@@ -4042,7 +4087,7 @@ function companyCombatBoostActions(
       if (hasMatch) break;
     }
     if (!hasMatch) {
-      logDetail(`${(cardDef as { name?: string }).name}: no matching characters in company — company-combat-boost not offered`);
+      logDetail(`${(cardDef as { name?: string }).name}: no matching characters/items in company — company-combat-boost not offered`);
       continue;
     }
 

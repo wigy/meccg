@@ -38,6 +38,15 @@ export interface PlayShortEventAction {
    */
   readonly targetScoutInstanceId?: CardInstanceId;
   /**
+   * For cards whose `play-target` declares an `itemFilter` (Use Palantír
+   * tw-355: "tap sage to enable him to use one Palantír he bears"), the
+   * specific item instance on the targeted character the card resolves
+   * against — chosen by the player when the character bears more than one
+   * item matching the filter. One legal action is emitted per (character,
+   * item) combination.
+   */
+  readonly targetItemInstanceId?: CardInstanceId;
+  /**
    * For cards whose `play-target` declares `target: "character"` with a
    * DSL `filter` (e.g. Halfling Strength filtering on
    * `target.race: hobbit`), the chosen character instance the short
