@@ -7,7 +7,7 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD, CardStatus, PALLANDO, THE_GREAT_HUNT,
+  createGame, reduce, loadCardPool, Alignment, UNKNOWN_SITE, UNKNOWN_CARD, CardStatus, PALLANDO, THE_GREAT_HUNT, Phase, SetupStep,
 } from '@meccg/shared';
 import type {
   GameState, GameConfig, GameAction, PlayerId, CardDefinitionId, CardInstanceId, ViewCard,
@@ -679,5 +679,52 @@ describe('Game ID exposed in the player view (for locating a save when filing a 
   test('a spectator view also carries the gameId', () => {
     const spectatorView = projectSpectatorView(state);
     expect(spectatorView.gameId).toBe(state.gameId);
+  });
+});
+
+/**
+ * A spectator may join during setup. In the character-deck-draft step each
+ * player still holds a `remainingPool` of undrafted characters — private
+ * information (engine/visibility.ts). The per-player projection hides the
+ * opponent's; the spectator projection must hide BOTH.
+ */
+describe('spectator deck-draft redaction', () => {
+  const ALICE_REMAIN = 'alice-remain' as CardInstanceId;
+  const BOB_REMAIN = 'bob-remain' as CardInstanceId;
+
+  function deckDraftState(): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard, draftPool: [ARAGORN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard, draftPool: [BALIN], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    const base = createGame(config, pool);
+    return {
+      ...base,
+      phaseState: {
+        phase: Phase.Setup,
+        setupStep: {
+          step: SetupStep.CharacterDeckDraft,
+          deckDraftState: [
+            { remainingPool: [{ instanceId: ALICE_REMAIN, definitionId: ARAGORN }], done: false },
+            { remainingPool: [{ instanceId: BOB_REMAIN, definitionId: BALIN }], done: false },
+          ],
+        },
+      },
+    } as unknown as GameState;
+  }
+
+  test('neither player\'s remaining draft pool is visible to a spectator', () => {
+    const spec = projectSpectatorView(deckDraftState());
+    const ps = spec.phaseState as unknown as {
+      setupStep: { deckDraftState: [{ remainingPool: ViewCard[] }, { remainingPool: ViewCard[] }] };
+    };
+    const [aliceRemain, bobRemain] = ps.setupStep.deckDraftState;
+    expect(aliceRemain.remainingPool[0].definitionId).toBe(UNKNOWN_CARD);
+    expect(bobRemain.remainingPool[0].definitionId).toBe(UNKNOWN_CARD);
+    // Instance IDs (opaque) are preserved so the count/positions still render.
+    expect(aliceRemain.remainingPool[0].instanceId).toBe(ALICE_REMAIN);
   });
 });

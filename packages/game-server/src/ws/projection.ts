@@ -388,22 +388,42 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
 /**
  * Redacts draft state for spectators: both players' drafted and
  * set-aside are visible, but pools, picks, and starting items are hidden.
+ *
+ * Covers both draft steps a spectator can join during. `character-draft`
+ * hides each player's pool and current pick; `character-deck-draft` hides
+ * each player's still-undrafted `remainingPool` — private per
+ * `engine/visibility.ts` (an opponent can't see it, and neither may a
+ * watcher). Only the `done` flag stays public.
  */
 function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
-  if (phaseState.phase !== 'setup' || phaseState.setupStep.step !== 'character-draft') return phaseState;
-
+  if (phaseState.phase !== 'setup') return phaseState;
   const step = phaseState.setupStep;
-  const redact = (d: DraftPlayerState): DraftPlayerState => ({
-    ...d,
-    pool: hiddenCardPile(d.pool),
-    // drafted stays visible — it's public after reveal
-    currentPick: null,
-  });
 
-  return {
-    ...phaseState,
-    setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
-  };
+  if (step.step === 'character-draft') {
+    const redact = (d: DraftPlayerState): DraftPlayerState => ({
+      ...d,
+      pool: hiddenCardPile(d.pool),
+      // drafted stays visible — it's public after reveal
+      currentPick: null,
+    });
+    return {
+      ...phaseState,
+      setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
+    };
+  }
+
+  if (step.step === 'character-deck-draft') {
+    const redact = (d: CharacterDeckDraftPlayerState): CharacterDeckDraftPlayerState => ({
+      ...d,
+      remainingPool: hiddenCardPile(d.remainingPool),
+    });
+    return {
+      ...phaseState,
+      setupStep: { ...step, deckDraftState: [redact(step.deckDraftState[0]), redact(step.deckDraftState[1])] },
+    };
+  }
+
+  return phaseState;
 }
 
 /**
