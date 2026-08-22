@@ -641,7 +641,7 @@
     "unique": true,
     "certified": "2026-07-31",
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -762,7 +762,8 @@
       },
       {
         "type": "storable-at",
-        "siteTypes": ["haven"]
+        "siteTypes": ["haven"],
+        "marshallingPoints": 1
       },
       {
         "type": "grant-action",
