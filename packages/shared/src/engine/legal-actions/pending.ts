@@ -1693,6 +1693,15 @@ function applyOneConstraint(
       // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
       // resolved site path — no broad legal-action filtering needed here.
       return base;
+    case 'hazard-limit-region-name-match':
+      // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
+      // destination site's region — no broad legal-action filtering needed here.
+      return base;
+    case 'region-adjacency-shortcut':
+      // Consulted directly by `planMovementActions` (organization-companies.ts)
+      // and the M/H declare-path region-path search (movement-hazard.ts) via
+      // `withExtraRegionAdjacency` — no broad legal-action filtering needed here.
+      return base;
     case 'cancel-return-and-site-tap':
       return base;
     case 'cancel-character-discard':

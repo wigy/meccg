@@ -11,7 +11,7 @@ import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffe
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
+import { buildMovementMap, findRegionPaths, getReachableSites, withExtraRegionAdjacency } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, requirePhaseState } from '../../state-utils.js';
 import { evilHourRegionBonus } from '../evil-hour.js';
@@ -558,7 +558,20 @@ function revealNewSiteActions(
     if (outHeSprangAllowance === null) {
       regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
     }
-    const paths = findRegionPaths(movementMap, originRegion, destRegion, regionCap);
+    // Anduin River (tw-191) and the "mountain-crossing" family: "tap the
+    // ranger to move as if the following pairs of regions were adjacent" —
+    // a region-adjacency-shortcut constraint on this company widens the
+    // graph pathfinding walks for its declared move ("if the company uses
+    // region cards for its site path"; a no-op if it ends up using starter
+    // or Under-deeps movement instead, since this branch is region-only).
+    const shortcutPairs = state.activeConstraints
+      .filter(c => c.kind.type === 'region-adjacency-shortcut'
+        && c.target.kind === 'company' && c.target.companyId === company.id)
+      .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+    const pathMovementMap = shortcutPairs.length > 0
+      ? withExtraRegionAdjacency(movementMap, shortcutPairs)
+      : movementMap;
+    const paths = findRegionPaths(pathMovementMap, originRegion, destRegion, regionCap);
     // Sort paths: shortest first, then fewest distinct regions as tiebreaker
     paths.sort((a, b) => {
       const lenDiff = a.length - b.length;

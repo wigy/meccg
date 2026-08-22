@@ -845,6 +845,37 @@ export function snapshotHazardLimit(
     logDetail(`Hazard limit modified by ${perCount * count} (${count}x ${regionType}, ${constraint.sourceDefinitionId as string}, floor ${floor}): ${prev} → ${limit}`);
   }
 
+  // hazard-limit-region-name-match constraints (Anduin River tw-191 and the
+  // "mountain-crossing" family, the "alternatively" no-tap mode): a flat,
+  // one-time reduction when the company's destination site's *named* region
+  // (its static `region` field, so this reads correctly regardless of
+  // starter/region/Under-deeps movement type) is one of the constraint's
+  // listed regions ("if the site moved to is in one of the regions listed
+  // above"), floored the same way as `hazard-limit-region-count`.
+  if (company.destinationSite) {
+    const destDefForRegionMatch = defById(state, company.destinationSite.definitionId);
+    const destRegionName = destDefForRegionMatch && isSiteCard(destDefForRegionMatch)
+      ? destDefForRegionMatch.region
+      : undefined;
+    if (destRegionName) {
+      for (const constraint of state.activeConstraints) {
+        if (constraint.kind.type !== 'hazard-limit-region-name-match'
+            || constraint.target.kind !== 'company'
+            || constraint.target.companyId !== company.id) continue;
+        const { regionNames, value, floor } = constraint.kind;
+        if (!regionNames.includes(destRegionName)) continue;
+        const prev = limit;
+        let next = limit + value;
+        if (value < 0 && next < floor) {
+          next = Math.min(prev, floor);
+        }
+        limit = next;
+        preRevealConstraintIds.push(constraint.id);
+        logDetail(`Hazard limit modified by ${value} (destination region ${destRegionName} matches ${constraint.sourceDefinitionId as string}, floor ${floor}): ${prev} → ${limit}`);
+      }
+    }
+  }
+
   // Apply site-rule hazard-limit-modifier from the destination site's effects.
   // Only for moving companies ("moving to this site" — non-moving companies stay).
   if (company.destinationSite) {

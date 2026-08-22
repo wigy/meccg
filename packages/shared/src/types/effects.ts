@@ -2049,9 +2049,21 @@ export interface ActionCost {
    * sage becomes the action's `characterId`, and (for a `place-item-on-character`
    * apply with `recipientScope: "bearer-company"`) also supplies the company
    * whose members are offered as recipients. Used by Reforging (tw-314).
+   * "skilled-character-in-company" is a `play-target: "company"` cost (not a
+   * grant-action bearer cost, unlike the others above): taps an untapped
+   * character bearing {@link skill} in the target company, chosen by the
+   * player from every eligible candidate — one legal action per candidate,
+   * carrying the chosen character as `targetScoutInstanceId`, exactly like a
+   * bare `"character"` tap cost. Generalizes `"sage-in-company"` to an
+   * arbitrary skill. Used by Anduin River (tw-191): "tap the ranger".
    */
   readonly tap?: 'self' | 'bearer' | 'character' | 'sage-in-company' | 'sage-in-company-excluding-bearer'
-    | 'sage-and-scout-in-company' | 'self-and-bearer' | 'sage-at-haven';
+    | 'sage-and-scout-in-company' | 'self-and-bearer' | 'sage-at-haven' | 'skilled-character-in-company';
+  /**
+   * For `tap: "skilled-character-in-company"`: the skill the tapped
+   * character must carry (printed or item-granted), e.g. `"ranger"`.
+   */
+  readonly skill?: string;
   /**
    * The entity to discard. "self" discards the source card from its bearer.
    * "bearer" and "character" are reserved for future use. "named-card"
@@ -2709,8 +2721,24 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * For a `hazard-limit-region-count` constraint: the floor the hazard
    * limit is never reduced below ("to a minimum of two"). {@link value}
    * carries the per-region delta.
+   *
+   * Also doubles as the floor for a `hazard-limit-region-name-match`
+   * constraint (Anduin River tw-191 and the "mountain-crossing" family).
    */
   readonly floor?: number;
+  /**
+   * For a `hazard-limit-region-name-match` constraint (Anduin River tw-191
+   * and the "mountain-crossing" family): the region names that trigger the
+   * flat {@link value} reduction when the target company's destination lies
+   * within one of them.
+   */
+  readonly regionNames?: readonly string[];
+  /**
+   * For a `region-adjacency-shortcut` constraint (Anduin River tw-191 and the
+   * "mountain-crossing" family): bidirectional region-name pairs treated as
+   * adjacent for the target company's region movement this turn.
+   */
+  readonly regionPairs?: readonly (readonly [string, string])[];
 }
 
 /**
