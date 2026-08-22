@@ -1019,7 +1019,13 @@ function computeEffectiveStats(
     const itemDef = resolveDef(state, item.instanceId);
     if (isItemCard(itemDef)) {
       const itemEffects = itemDef.effects ?? [];
-      const itemHasStatMod = itemEffects.some(e => e.type === 'stat-modifier');
+      // Per-stat, not per-item: a DSL `stat-modifier` for one stat must not
+      // suppress the structural fallback of a *different* stat. Wizard's Ring
+      // (tw-363) declares its +5 direct influence in DSL but its +2 prowess
+      // only structurally — a blanket any-stat-modifier check dropped the
+      // prowess bonus entirely.
+      const itemHasProwessMod = itemEffects.some(e => e.type === 'stat-modifier' && e.stat === 'prowess');
+      const itemHasBodyMod = itemEffects.some(e => e.type === 'stat-modifier' && e.stat === 'body');
       const weaponSuppressed = !!suppressedWeapons?.includes(item.instanceId);
       // MEWH §9: structural prowess/body bonuses from a hero item are ignored on
       // an Orc/Troll bearer (its corruption points still apply below).
@@ -1030,9 +1036,9 @@ function computeEffectiveStats(
         || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
         || bearerIsRingwraithAvatar
         || bearerCannotUseItems;
-      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
-        prowess += itemDef.prowessModifier;
-        body += itemDef.bodyModifier;
+      if (!heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
+        if (!itemHasProwessMod) prowess += itemDef.prowessModifier;
+        if (!itemHasBodyMod) body += itemDef.bodyModifier;
       }
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
@@ -1075,15 +1081,19 @@ function computeEffectiveStats(
         totalTrophyMp += (trophyDef as { killMarshallingPoints: number }).killMarshallingPoints;
       }
     }
+    // Rule 3.IV.3: "Prowess bonuses from trophies are applied to a maximum of
+    // 9" — the *bonus* cannot raise prowess above 9, but it must never lower a
+    // prowess that is already higher (e.g. boosted past 9 by other effects).
+    const trophyProwess = (bonus: number): number => Math.max(prowess, Math.min(prowess + bonus, 9));
     if (totalTrophyMp >= 4) {
       directInfluence += 2;
-      prowess = Math.min(prowess + 2, 9);
+      prowess = trophyProwess(2);
     } else if (totalTrophyMp === 3) {
       directInfluence += 2;
-      prowess = Math.min(prowess + 1, 9);
+      prowess = trophyProwess(1);
     } else if (totalTrophyMp === 2) {
       directInfluence += 1;
-      prowess = Math.min(prowess + 1, 9);
+      prowess = trophyProwess(1);
     } else if (totalTrophyMp === 1) {
       directInfluence += 1;
     }

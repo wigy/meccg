@@ -60,16 +60,30 @@ function stream(...values: number[]): () => number {
  * before The Moon Is Dead, so Corpse-candle got no benefit from it."
  */
 function context(random: () => number): AgentContext {
+  // The fixture view carries every zone the cycle guard's `viewSignature`
+  // fingerprints (empty where the scenario does not care), on top of the
+  // hand the scenario is actually about.
+  const emptySide = {
+    playDeck: [], discardPile: [], cardsInPlay: [], siteDeck: [],
+    killPile: [], outOfPlayPile: [], companies: [], characters: {},
+    generalInfluenceUsed: 0, marshallingPoints: {},
+  };
   return {
     view: {
+      turnNumber: 2,
+      activePlayer: 'p1',
       phaseState: { phase: 'movement-hazard' },
+      combat: null,
+      chain: null,
+      pendingEffects: [],
       self: {
+        ...emptySide,
         hand: [
           { instanceId: 'p2-46', definitionId: 'tw-23' },
           { instanceId: 'p2-58', definitionId: 'dm-71' },
         ],
       },
-      opponent: { companies: [], characters: {} },
+      opponent: { ...emptySide, hand: [] },
     } as unknown as PlayerView,
     cardPool: POOL,
     legalActions: [playHazard('p2-46'), playHazard('p2-58')],

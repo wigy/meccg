@@ -176,6 +176,58 @@ describe('Orders from Lugbúrz (as-94)', () => {
     expect(trollMerge).toBeDefined();
   });
 
+  test('merging the card-bearing company as source rebinds Orders from Lugbúrz to the surviving target', () => {
+    // Regression: handleMergeCompanies dissolved the source company but never
+    // rebound in-play cards whose companyId pointed at it, so a company-bound
+    // permanent event on the merged-away source was orphaned (its companyId
+    // pointing at a company that no longer exists) and silently disabled.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [
+            { site: MORIA_LE, characters: [GORBAG] },              // company 0 — the merge target
+            { site: MORIA_LE, characters: [LIEUTENANT_DOL_GULDUR] }, // company 1 — bears the card, merges in as source
+          ],
+          hand: [],
+          siteDeck: [VARIAG_CAMP],
+        },
+        { id: PLAYER_2, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [], siteDeck: [MINAS_MORGUL] },
+      ],
+    });
+
+    const sharedSite = built.players[0].companies[0].currentSite!;
+    const withSharedSite = {
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          companies: built.players[0].companies.map((c, i) =>
+            i === 1 ? { ...c, currentSite: sharedSite, siteCardOwned: false } : c,
+          ),
+        },
+        built.players[1],
+      ] as typeof built.players,
+    };
+
+    const targetCompanyId = companyIdAt(withSharedSite, RESOURCE_PLAYER);        // company 0
+    const sourceCompanyId = `company-${PLAYER_1 as string}-1` as CompanyId;      // company 1
+    // Bind the card to the SOURCE company (the one that will be dissolved).
+    const state = addCardInPlay(withSharedSite, RESOURCE_PLAYER, ORDERS_FROM_LUGBURZ, sourceCompanyId);
+
+    const after = dispatch(state, { type: 'merge-companies', player: PLAYER_1, sourceCompanyId, targetCompanyId });
+
+    // The card survives, rebound to the surviving target company — never left
+    // pointing at the dissolved source.
+    const card = after.players[RESOURCE_PLAYER].cardsInPlay.find(c => c.definitionId === ORDERS_FROM_LUGBURZ);
+    expect(card).toBeDefined();
+    expect(card?.companyId).toBe(targetCompanyId);
+    expect(after.players[RESOURCE_PLAYER].companies.some(c => c.id === sourceCompanyId)).toBe(false);
+  });
+
   test('merge-companies is blocked for two leaders without Orders from Lugbúrz', () => {
     // Same two companies with two leaders at Moria — without the event, the merge is blocked
     const built = buildTestState({

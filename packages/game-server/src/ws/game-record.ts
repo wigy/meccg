@@ -10,9 +10,9 @@
  * same id that names the replay log `~/.meccg/logs/games/<gameId>.jsonl`.
  */
 
-import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { writeFileAtomic } from './atomic-write.js';
 import {
   Phase, computeTournamentBreakdown, isAvatarCharacter, isCharacterCard,
 } from '@meccg/shared';
@@ -172,8 +172,7 @@ export function buildCompletedGameRecord(
  * file). Returns the path written.
  */
 export function writeCompletedGameRecord(record: CompletedGameRecord): string {
-  fs.mkdirSync(GAME_RECORDS_DIR, { recursive: true });
   const filePath = path.join(GAME_RECORDS_DIR, `${record.gameId}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(record, null, 2) + '\n', 'utf-8');
+  writeFileAtomic(filePath, JSON.stringify(record, null, 2) + '\n');
   return filePath;
 }

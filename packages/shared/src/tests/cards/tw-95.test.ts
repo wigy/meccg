@@ -17,7 +17,7 @@
  * | # | Entry                                          | Notes                        |
  * |---|------------------------------------------------|------------------------------|
  * | 1 | siteTypes: [dark-hold]                         | base cost from playable {D}  |
- * | 2 | regionNames: [High Pass]                       | region keying + sites-in-region (the destination site's own region appears in resolvedSitePathNames) |
+ * | 2 | regionNames + siteInRegionNames: [High Pass]   | "keyed to High Pass" (movement path) AND "at sites in High Pass" (destination site's own region) |
  * | 3 | movingBetweenSiteNames: [Rivendell, Lórien]    | either direction; origin and destination site names must both be listed and differ |
  *
  * Playable: YES
@@ -117,16 +117,18 @@ describe('The Great Goblin (tw-95)', () => {
     })).toBe(true);
   });
 
-  test('keyable at a site in High Pass (sites-in-region clause via region-name)', () => {
-    // Destination is Goblin-gate, a Shadow-hold located in High Pass. The
-    // destination site's own region appears in resolvedSitePathNames, so the
-    // regionNames entry covers the "at sites in High Pass" half of the text.
+  test('keyable at a site in High Pass even when the movement path never enters High Pass (site-in-region)', () => {
+    // "and at sites in High Pass" keys to the destination SITE's own region,
+    // independent of the movement path: Goblin-gate is a Shadow-hold whose
+    // region is High Pass, reached here through a path that names no High
+    // Pass region. Only the site-in-region method can key this — the earlier
+    // test masked the gap by putting High Pass in resolvedSitePathNames.
     const state = stateWithGoblin(RIVENDELL);
     const ready: GameState = {
       ...state,
       phaseState: makeMHState({
         resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
-        resolvedSitePathNames: ['Rhudaur', 'High Pass'],
+        resolvedSitePathNames: ['Rhudaur', 'Rhudaur'],
         destinationSiteType: SiteType.ShadowHold,
         destinationSiteName: 'Goblin-gate',
       }),
@@ -135,7 +137,7 @@ describe('The Great Goblin (tw-95)', () => {
     const plays = viableActions(ready, PLAYER_2, 'play-hazard');
     expect(plays.some(p => {
       const a = p.action as { keyedBy?: { method: string; value: string } };
-      return a.keyedBy?.method === 'region-name' && a.keyedBy?.value === 'High Pass';
+      return a.keyedBy?.method === 'site-in-region' && a.keyedBy?.value === 'High Pass';
     })).toBe(true);
   });
 

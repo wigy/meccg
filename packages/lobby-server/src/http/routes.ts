@@ -60,10 +60,10 @@ import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
 import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js';
-import { sendMail, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
+import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, isValidPlayerName, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -356,7 +356,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'Name must be 2-30 characters' });
         return;
       }
-      if (!/^[a-zA-Z0-9 _-]+$/.test(name)) {
+      if (!isValidPlayerName(name)) {
         sendJson(res, 400, { error: 'Name may only contain letters, numbers, spaces, hyphens, and underscores' });
         return;
       }
@@ -725,6 +725,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     await authedRoute(req, res, 'save-check', 'Failed to check save', (playerName) => {
       const opponent = url.searchParams.get('opponent');
       if (!opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
+      // opponent flows into the save-file path below — reject anything that is
+      // not a valid player name so a `../` segment can never escape SAVE_DIR.
+      if (!isValidPlayerName(opponent)) { sendJson(res, 400, { error: 'invalid opponent name' }); return; }
       const names = [playerName.toLowerCase(), opponent.toLowerCase()].sort();
       const key = names.join('_vs_');
       const saveExists = fs.existsSync(path.join(SAVE_DIR, `${key}.json`))
@@ -738,6 +741,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     await authedRoute(req, res, 'save-delete', 'Failed to delete save', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as { opponent?: string };
       if (!body.opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
+      // opponent flows into the unlink path below — reject anything that is not
+      // a valid player name so a `../` segment can never escape SAVE_DIR.
+      if (!isValidPlayerName(body.opponent)) { sendJson(res, 400, { error: 'invalid opponent name' }); return; }
       const names = [playerName.toLowerCase(), body.opponent.toLowerCase()].sort();
       const key = names.join('_vs_');
       for (const suffix of ['.json', '-autosave.json']) {
@@ -1004,8 +1010,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         topic?: MailTopic;
         body?: string;
       };
-      if (!body.recipients?.length || !body.subject || !body.topic || !body.body) {
-        sendJson(res, 400, { error: 'recipients, subject, topic, and body are required' });
+      if (!isRecipientList(body.recipients) || !body.subject || !body.topic || !body.body) {
+        sendJson(res, 400, { error: 'recipients (a non-empty array of player names), subject, topic, and body are required' });
         return;
       }
       const id = sendMail(body.recipients, {
@@ -1081,8 +1087,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           sentBy?: string;
           replyTo?: string;
         };
-        if (!body.recipients?.length || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
-          sendJson(res, 400, { error: 'recipients, from, sender, topic, body, and subject are required' });
+        if (!isRecipientList(body.recipients) || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
+          sendJson(res, 400, { error: 'recipients (a non-empty array of player names), from, sender, topic, body, and subject are required' });
           return;
         }
         const id = sendMail(body.recipients, {
