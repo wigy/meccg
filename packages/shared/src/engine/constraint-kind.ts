@@ -271,6 +271,11 @@ export function buildConstraintKind(
         detainmentAgainstOvert: true,
       };
     }
+    case 'hazard-limit-multiplier': {
+      const value = (onEvent.apply as { value?: number }).value;
+      if (typeof value !== 'number') return null;
+      return { type: 'hazard-limit-multiplier', value };
+    }
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
     case 'auto-attack-race-duplicate': {

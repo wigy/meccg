@@ -1856,6 +1856,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Lost in Dark-domains (tw-52): "If the company has a Dark-domain
+         * [{d}] in its site path, its hazard limit is doubled until the end
+         * of the turn." A hazard short-event played during the target
+         * company's own movement/hazard phase, once the site path is already
+         * resolved (unlike `hazard-limit-region-count`/`hazard-limit-modifier`,
+         * which are added before `set-hazard-limit` runs). Applied in
+         * `effectiveHazardLimit` (hazard-limit.ts) as a multiplier over the
+         * sum of `hazardLimitAtReveal` and every additive modifier, so it
+         * doubles whatever the company's live limit already is rather than
+         * a fixed base.
+         */
+        readonly type: 'hazard-limit-multiplier';
+        /** Factor the hazard limit is multiplied by (2 for "doubled"). */
+        readonly value: number;
+      }
+    | {
+        /**
          * Fair Sailing (tw-232) and the "Fair Travels in X" family: the
          * hazard limit for the target company decreases by {@link perCount}
          * for every region of {@link regionType} in its resolved site path,

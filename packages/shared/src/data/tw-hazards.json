@@ -1460,7 +1460,30 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinDarkdomains.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": { "moving": true }
+      },
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "sitePath.darkCount": { "$gte": 1 } },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-multiplier",
+          "scope": "turn",
+          "value": 2
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-08-23",
     "text": "Playable on a company that is moving this turn. If the company has a Dark-domain [{d}] in its site path, its hazard limit is doubled until the end of the turn."
   },
   {

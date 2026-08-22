@@ -4967,6 +4967,16 @@ function hasCreatureKeyingBypass(
  * - `inPlay` — names of all cards currently in play for both players,
  *   matching the shared `inPlay` condition semantics (e.g. Doors of
  *   Night as an alt-keying modifier).
+ * - `moving` — `true` when `targetCompany` actually has a declared
+ *   destination this turn (`company.destinationSite != null`), `false`
+ *   otherwise. Unlike `destinationSiteType` (which falls back to the
+ *   current site's type for a stationary company, see rule 2.IV — every
+ *   company's M/H phase runs all steps regardless of movement), this lets a
+ *   card's playability gate distinguish "moving on any path" from "moving
+ *   through/to a specific site type" — e.g. Lost in Dark-domains (tw-52):
+ *   "Playable on a company that is moving this turn" is the sole legality
+ *   requirement, while the Dark-domain check only decides whether the
+ *   card's own effect fires.
  */
 function checkSitePathCondition(
   mhState: MovementHazardPhaseState,
@@ -4974,7 +4984,10 @@ function checkSitePathCondition(
   state?: GameState,
   targetCompany?: Company,
 ): boolean {
-  const ctx: Record<string, unknown> = { sitePath: regionTypeCounts(mhState.resolvedSitePath) };
+  const ctx: Record<string, unknown> = {
+    sitePath: regionTypeCounts(mhState.resolvedSitePath),
+    moving: targetCompany?.destinationSite != null,
+  };
   if (mhState.destinationSiteType) {
     ctx['destinationSiteType'] = mhState.destinationSiteType;
   }
