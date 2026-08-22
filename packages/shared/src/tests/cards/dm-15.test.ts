@@ -171,19 +171,28 @@ describe('dm-15 — The Grimburgoth', () => {
       phaseState: makeMHState({ hazardLimitAtReveal: 5, hazardsPlayedThisCompany: 0, destinationSiteName: 'Dol Guldur' }),
     };
 
-    // Action should be offered with homeSiteInstanceId
+    // The agent's site card is already on top of its own stack (it holds the
+    // physical Dol Guldur copy), so the reveal needs no deck card: only the
+    // plain action is offered. Regression: a homeSiteInstanceId variant was
+    // offered here and executing it deleted the deck's home-site copy from
+    // the game state.
     const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
-    expect(attackActions.length).toBeGreaterThan(0);
-    const tapAction = attackActions.find(a => (a.action as { homeSiteInstanceId?: CardInstanceId }).homeSiteInstanceId === HOME_SITE_DECK_ID);
-    expect(tapAction).toBeDefined();
+    expect(attackActions.length).toBe(1);
+    expect((attackActions[0].action as { homeSiteInstanceId?: CardInstanceId }).homeSiteInstanceId).toBeUndefined();
 
-    const after = dispatch(withAgent, tapAction!.action);
+    const after = dispatch(withAgent, attackActions[0].action);
 
-    // Agent is now revealed and tapped
+    // Agent is now revealed and tapped, keeping its own site card.
     const agentAfter = after.players[1].agents.find(a => a.character.instanceId === AGENT_CHAR_ID);
     expect(agentAfter).toBeDefined();
     expect(agentAfter!.revealed).toBe(true);
     expect(agentAfter!.character.status).toBe(CardStatus.Tapped);
+    expect(agentAfter!.siteStack.map(s => s.instanceId)).toEqual([DOL_GULDUR_SITE_ID]);
+    // Not doomed: the rule 4.2.2/9.04 discard penalty applies only to reveals
+    // at a home site with no available site card — this agent has its site.
+    expect(agentAfter!.discardAtEndOfTurn).toBe(false);
+    // The deck's Dol Guldur copy is untouched — not deleted from the game.
+    expect(after.players[1].siteDeck.some(s => s.instanceId === HOME_SITE_DECK_ID)).toBe(true);
 
     // Prowess: 7 + 5 (face-down at-home) + 2 (bonus) = 14
     expect(after.combat!.strikeProwess).toBe(14);
