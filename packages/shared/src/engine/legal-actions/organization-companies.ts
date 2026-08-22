@@ -43,6 +43,29 @@ import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
 
+/**
+ * The coastal regions Belegaer (td-100) connects by sea-crossing. The card
+ * lists the same regions for both the company's site of origin and its new
+ * destination — a company at a site in any one of these may move directly to
+ * a site in any other (or the same) region on the list, bypassing region
+ * adjacency.
+ */
+const BELEGAER_REGIONS: readonly string[] = [
+  'Lindon',
+  'Elven Shores',
+  'Eriadoran Coast',
+  'Andrast Coast',
+  'Bay of Belfalas',
+  'Mouths of the Anduin',
+  'Enedhwaith',
+  'Old Pûkel-land',
+  'Andrast',
+  'Anfalas',
+  'Belfalas',
+  'Lebennin',
+  'Harondor',
+];
+
 /** A `plan-movement` candidate: send `companyId` to the site-deck instance `destinationSite`. */
 function planMovement(playerId: PlayerId, companyId: CompanyId, destinationSite: CardInstanceId): GameAction {
   return { type: 'plan-movement', player: playerId, companyId, destinationSite };
@@ -745,6 +768,27 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
           continue;
         }
         logDetail(`  ${siteDef.name} reachable via Paths of the Dead`);
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
+      }
+      continue;
+    }
+
+    // Belegaer (td-100): sea-crossing special movement between the coastal
+    // regions it lists. The card's own play-target already required the
+    // company's origin to be in one of these regions; here we filter
+    // candidate destinations to sites in the same region list.
+    if (company.specialMovement === 'belegaer') {
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Belegaer special movement — filtering to coastal-region sites`);
+      for (const siteDef of candidateSites) {
+        if (siteDef.id === currentSiteDef.id) continue;
+        if (!siteDef.region || !BELEGAER_REGIONS.includes(siteDef.region)) continue;
+        const destInstId = siteInstMap.get(siteDef.id);
+        if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} in ${siteDef.region} reachable via Belegaer`);
         actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
       }
       continue;

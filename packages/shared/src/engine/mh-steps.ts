@@ -368,9 +368,18 @@ export function handleRevealNewSite(
       }
     }
   } else if (action.movementType === 'special') {
-    // Special movement (e.g. Gwaihir): no region path traversed.
-    // Only site-type keyed creatures can be played against this company.
-    logDetail(`Special movement: no region path — only site-keyed hazards apply`);
+    if (company.specialMovement === 'belegaer') {
+      // Belegaer (td-100): "The site path is [{c} {c} {c}]" — the sea
+      // crossing is treated as three coastal-sea regions for hazard keying
+      // and region-type-counting effects, even though no named region is
+      // actually traversed.
+      resolvedSitePath = [RegionType.Coastal, RegionType.Coastal, RegionType.Coastal];
+      logDetail(`Special movement (Belegaer): site path treated as [{c} {c} {c}] (3x coastal-sea)`);
+    } else {
+      // Special movement (e.g. Gwaihir): no region path traversed.
+      // Only site-type keyed creatures can be played against this company.
+      logDetail(`Special movement: no region path — only site-keyed hazards apply`);
+    }
   } else if (action.movementType === 'under-deeps') {
     // Under-deeps: no region path — only site-type keyed hazards apply.
     // Determine required roll and either advance directly or enter the roll step.
@@ -912,6 +921,14 @@ export function snapshotHazardLimit(
       limit = Math.max(hazardRestriction.hazardLimitFloor, limit + hazardRestriction.hazardLimitModifier);
       logDetail(`Hazard limit modified by ${hazardRestriction.hazardLimitModifier} (movement-restriction, floor ${hazardRestriction.hazardLimitFloor}): ${prev} → ${limit}`);
     }
+  }
+
+  // Belegaer (td-100): "the hazard limit is decreased by two to a minimum of
+  // two" for the company using its sea-crossing special movement.
+  if (company.specialMovement === 'belegaer') {
+    const prev = limit;
+    limit = Math.max(2, limit - 2);
+    logDetail(`Hazard limit modified by -2 (Belegaer sea-crossing, floor 2): ${prev} → ${limit}`);
   }
 
   limit = Math.max(limit, 0);

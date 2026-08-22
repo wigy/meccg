@@ -2717,6 +2717,10 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *  - `target.inAvatarCompany` — `true` iff the character belongs to the
  *    same company as the player's avatar (wizard/ringwraith/etc.).
  *    Requires the `player` parameter to be passed.
+ *  - `company.siteRegion` — the name of the region containing the
+ *    character's company's current site (or `null` at sea/no site). Lets a
+ *    `play-target` filter gate on the origin's region by name (e.g. Belegaer
+ *    td-100: "moving from a site of origin in one of the following regions").
  *  - `company.containsDiplomat` — `true` iff the character's company
  *    contains at least one character with the `diplomat` skill.
  *    Enables cards like New Friendship to offer a corruption-check boost
@@ -2758,6 +2762,7 @@ export function buildPlayOptionContext(
   let isInfluencing = false;
   let companySiteType: string | null = null;
   let companySiteName: string | null = null;
+  let companySiteRegion: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
@@ -2799,6 +2804,7 @@ export function buildPlayOptionContext(
       const siteDef = defById(state, charCompany.currentSite.definitionId);
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
       if (siteDef) companySiteName = siteDef.name;
+      if (siteDef) companySiteRegion = (siteDef as { region?: string }).region ?? null;
     }
     // The region type containing the company's *declared* destination site
     // (Organization phase `plan-movement`, or a still-set destination during
@@ -2877,6 +2883,7 @@ export function buildPlayOptionContext(
     company: {
       siteType: companySiteType,
       siteName: companySiteName,
+      siteRegion: companySiteRegion,
       containsDiplomat,
       moving: companyMoving,
       destinationSiteType,

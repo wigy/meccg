@@ -9704,6 +9704,44 @@ handling as `'gwaihir'`.
   "target": "target-company" }
 ```
 
+A third `specialMovement` value, `"belegaer"`, backs *Belegaer* (td-100): "moving
+without region cards" between a fixed list of coastal regions (Lindon, Elven
+Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of the Anduin,
+Enedhwaith, Old Pûkel-land, Andrast, Anfalas, Belfalas, Lebennin, Harondor).
+Unlike `'gwaihir'`/`'paths-of-the-dead'`, this variant does not fall through to
+"no path traversed":
+
+- The card's own `play-target` filter gates the origin via `company.siteRegion`
+  (the region name of the target character's company's current site, exposed
+  by `buildPlayOptionContext` in `legal-actions/organization.ts` alongside
+  `company.siteName`/`company.siteType`), checked with `$in` against the
+  region list.
+- `organization-companies.ts` `planMovementActions` hardcodes the same region
+  list (`BELEGAER_REGIONS`) to filter destination candidates once
+  `company.specialMovement === 'belegaer'` — any site in the player's site deck
+  whose `region` is on the list (other than the current site) is offered,
+  regardless of region adjacency.
+- `legal-actions/movement-hazard.ts` offers `declare-path` with
+  `MovementType.Special` for `'belegaer'` exactly as for the other two modes.
+- `mh-steps.ts`'s `declare-path` handler special-cases `'belegaer'`: instead of
+  leaving `resolvedSitePath` empty, it sets it to three `RegionType.Coastal`
+  entries ("The site path is [{c} {c} {c}]"), so downstream region-type
+  consumers (hazard-creature keying, `hazard-limit-region-count`,
+  `ahunt-attack` type-matching) see the sea crossing as if it traversed three
+  coastal-sea regions.
+- `snapshotHazardLimit` (`mh-steps.ts`) applies a flat `-2` floored at `2` when
+  `company.specialMovement === 'belegaer'` ("the hazard limit is decreased by
+  two to a minimum of two"), applied after every other modifier alongside the
+  Going Ever Under Dark (ba-37) movement-restriction reduction.
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "company.siteRegion": { "$in": ["Lindon", "Elven Shores", "…"] } } }
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-company-special-movement", "specialMovement": "belegaer" },
+  "target": "target-company" }
+```
+
 The `only-race-creatures-on-company` constraint (added by *Paths of the Dead*
 tw-302 via `on-event: self-enters-play` → `add-constraint`, carrying a `race`
 field) restricts the opponent to playing only hazard creatures of the given
