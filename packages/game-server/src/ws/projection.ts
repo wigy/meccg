@@ -293,6 +293,34 @@ export function projectSpectatorView(state: GameState): PlayerView {
   const p1 = state.players[0];
   const p2 = state.players[1];
 
+  // The bottom player's companies are shown raw below (public info: sites,
+  // characters, planned movement), but their on-guard cards are the OPPONENT's
+  // face-down hazards — hidden information no one but that opponent may see.
+  // buildSelfView redacts these; the spectator "self" slot must too, or a
+  // watcher sees the face-down bluffs on p1's companies.
+  const p1Companies = p1.companies.map(c =>
+    c.onGuardCards.length > 0
+      ? { ...c, onGuardCards: c.onGuardCards.map(og => (og.revealed ? og : { ...og, definitionId: UNKNOWN_CARD })) }
+      : c,
+  );
+
+  // A face-down agent's identity, its carried cards, and the sites it has
+  // visited are all hidden information — the opponent view exposes only that
+  // one exists and how many sites it holds. The bottom player owns these
+  // agents, so buildSelfView shows them raw, but a spectator is not the owner:
+  // redact a face-down agent's card identity, attachments, and the identity of
+  // every site in its stack (the count, which is public, is preserved). A
+  // revealed agent is public and passes through.
+  const p1Agents = p1.agents.map(a =>
+    a.revealed
+      ? a
+      : {
+        ...a,
+        character: { ...a.character, definitionId: UNKNOWN_CARD, items: [], allies: [], hazards: [], followers: [] },
+        siteStack: a.siteStack.map(s => ({ ...s, definitionId: UNKNOWN_SITE })),
+      },
+  );
+
   const _self = buildOpponentView(state, p1);
   // Reveal the opponent-side player's planned movement to spectators. The
   // bottom player (p1, projected as "self" from raw companies) already carries
@@ -323,8 +351,8 @@ export function projectSpectatorView(state: GameState): PlayerView {
       sideboard: [],
       killPile: [],
       outOfPlayPile: [],
-      companies: p1.companies,
-      agents: p1.agents,
+      companies: p1Companies,
+      agents: p1Agents,
     },
     opponent,
     activePlayer: state.activePlayer,
