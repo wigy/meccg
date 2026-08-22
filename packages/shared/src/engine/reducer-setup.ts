@@ -448,7 +448,15 @@ function resolveDraftRound(
       || (isCharacterCard(def0Card) && isCharacterCard(def1Card)
         && def0Card.name === def1Card.name && def0Card.unique === true && def1Card.unique === true));
 
-  if (pick0 !== null && pick1 !== null && (def0 === def1 || entityCollision)) {
+  // Rule 1.9: only *unique* characters collide ("Players set aside duplicated
+  // unique characters with the same name or manifestation") — both players
+  // revealing the same non-unique character (three copies of the same Orc)
+  // must each keep theirs, matching the uniqueness requirement the same-name
+  // branch of entityCollision already carries.
+  const identicalCollision = def0 === def1 && def0Card !== undefined
+    && isCharacterCard(def0Card) && def0Card.unique === true;
+
+  if (pick0 !== null && pick1 !== null && (identicalCollision || entityCollision)) {
     // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
     // Remove each player's collided definition from their pool. (For an
     // identical-card collision the two definitions coincide; for a
@@ -459,8 +467,16 @@ function resolveDraftRound(
     }
     newSetAside[0].push(pick0);
     newSetAside[1].push(pick1);
-    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
-    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def1) };
+    // Any remaining pool copies of the collided definition are set aside too —
+    // filtering them out with no destination would delete the instances from
+    // the game state (a unique card has one copy per deck, so this is
+    // normally a no-op; it guards the no-card-disappears invariant).
+    for (const i of [0, 1] as const) {
+      const defX = i === 0 ? def0 : def1;
+      const extras = newDraft[i].pool.filter(c => c.definitionId === defX);
+      if (extras.length > 0) newSetAside[i].push(...extras);
+      newDraft[i] = { ...newDraft[i], pool: newDraft[i].pool.filter(c => c.definitionId !== defX) };
+    }
   } else {
     if (pick0 !== null) newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
     if (pick1 !== null) newDraft[1] = { ...newDraft[1], drafted: [...newDraft[1].drafted, pick1] };

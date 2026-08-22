@@ -334,4 +334,85 @@ describe('Smaug (tw-90)', () => {
     expect(afterPass.combat!.assignmentPhase).toBe('attacker');
     expect(viableActions(afterPass, PLAYER_2, 'assign-strike').length).toBeGreaterThan(0);
   });
+
+  // ─── "May also be played AT SITES in these regions" (site-in-region) ───────
+
+  test('keyable at a site IN Iron Hills with Doors of Night even when the movement path lacks the region', () => {
+    // The "at sites in these regions" clause keys to the destination SITE's
+    // own region, independent of the movement path: the company reaches Iron
+    // Hill Dwarf-hold (region "Iron Hills") through a path that names no
+    // listed region, and Smaug must still be playable via site-in-region.
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [SMAUG],
+          siteDeck: [RIVENDELL],
+          cardsInPlay: [donInPlay],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Wold & Foothills'],
+      destinationSiteType: SiteType.FreeHold,
+      destinationSiteName: 'Iron Hill Dwarf-hold',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'site-in-region' && a.keyedBy?.value === 'Iron Hills';
+    })).toBe(true);
+  });
+
+  test('NOT keyable at a site in Iron Hills via site-in-region without Doors of Night', () => {
+    // Same setup minus Doors of Night: the clause lives inside the DoN-gated
+    // keying entry, so the site-in-region play must vanish with it.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [SMAUG],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Wold & Foothills'],
+      destinationSiteType: SiteType.FreeHold,
+      destinationSiteName: 'Iron Hill Dwarf-hold',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays).toHaveLength(0);
+  });
 });

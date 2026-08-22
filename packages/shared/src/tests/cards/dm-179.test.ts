@@ -15,7 +15,12 @@
  *   - play-target with siteType filter (tapped or untapped border-hold): supported
  *   - strike-shield: enforced in assignStrikeActions (must assign to ally first)
  *   - alwaysCountsAsUntapped: ally offered even when tapped/wounded
- *   - cancel-prisoner-taking: type defined in DSL
+ *   - cancel-prisoner-taking: NOT IMPLEMENTED — the `cancel-prisoner-taking`
+ *     effect type is declared, but no legal action lets the player discard
+ *     Noble Hound to cancel a prisoner-taking, and `bindPrisoner`
+ *     (combat-hazard-play.ts) never consults it. Because this printed ability
+ *     is unimplemented, the card is NOT certified (project policy: no
+ *     certified date while any effect is deferred/stubbed/unimplemented).
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
