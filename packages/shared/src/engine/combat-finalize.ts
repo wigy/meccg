@@ -47,6 +47,7 @@ import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired,
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
+import { revealInstances } from './visibility.js';
 
 export function discardCardTriggeredCard(
   state: GameState,
@@ -990,6 +991,24 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
             updateCharacter(p, charId, c => ({ ...c, status: CardStatus.Tapped })),
           );
         }
+      }
+    }
+    // Crebain (tw-25): "After the attack, the defender must reveal one
+    // random card from his hand for each character in the defending
+    // company." Count is taken from the post-attack company (eliminated
+    // characters no longer count); the picked cards stay in hand, only
+    // their identity becomes public (revealInstances).
+    if (nce.apply.type === 'reveal-hand-cards-per-character') {
+      const revealDefIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+      const revealCompany = companyById(stateAfterCombat.players[revealDefIdx].companies, combat.companyId);
+      const revealCount = revealCompany?.characters.length ?? 0;
+      const defenderHand = stateAfterCombat.players[revealDefIdx].hand;
+      if (revealCount > 0 && defenderHand.length > 0) {
+        const [shuffledHand, revealRng] = shuffle(defenderHand, stateAfterCombat.rng);
+        const pick = Math.min(revealCount, shuffledHand.length);
+        const revealed = shuffledHand.slice(0, pick);
+        stateAfterCombat = revealInstances({ ...stateAfterCombat, rng: revealRng }, revealed);
+        logDetail(`Attack not canceled — defender reveals ${pick} random card(s) from hand (one per defending character)`);
       }
     }
   }

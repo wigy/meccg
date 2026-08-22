@@ -3212,10 +3212,16 @@ Events:
 - `attack-not-canceled` -- fires after combat finalization on the **attack source card** (creature, on-guard creature, or played auto-attack). Canceling an attack ends it before `finalizeCombat` runs (`combat-cancel.ts` returns straight to the enclosing phase), so reaching finalization *is* the "not canceled" test and the event fires unconditionally there. Models the "Unless this attack is canceled, …" clause. Implemented in `combat-finalize.ts`. Supported apply types:
   - `add-constraint` with `constraint: "creature-attack-boost"` — a turn-scoped `race`/`strikes`/`prowess` boost bound to the defending company.
   - `company-tap-characters` — taps every still-**untapped** character in the defending company (optional `filter`, context `{ target: { race, mind, name, skills, cardType } }`; no mind gate). Characters that tapped to face a strike are already tapped and wounded ones are `Inverted`, so only the survivors that stayed untapped and the bystanders who never faced a strike are affected. Used by *Wild Fell Beast* (td-81): "Unless this attack is canceled, all untapped characters in defending company are tapped following attack."
+  - `reveal-hand-cards-per-character` — picks `min(defending company's post-attack character count, defender's hand size)` random cards from the defending player's hand (seeded shuffle, same pattern as `reveal-remove-from-discard`) and reveals their identity via `revealInstances` (`GameState.handRevealedInstances`) — the cards stay in hand, only visibility changes. Zero defending characters or an empty hand reveals nothing (no error). Type-only marker; no fields. Used by *Crebain* (tw-25): "After the attack, the defender must reveal one random card from his hand for each character in the defending company."
 
   ```json
   { "type": "on-event", "event": "attack-not-canceled",
     "apply": { "type": "company-tap-characters" } }
+  ```
+
+  ```json
+  { "type": "on-event", "event": "attack-not-canceled",
+    "apply": { "type": "reveal-hand-cards-per-character" } }
   ```
 
 - `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`) and `attack.isAutomaticAttack` (`true` only when the defeated attack was a site automatic-attack or a played-auto-attack, not a hazard creature). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated, and by *Redoubled Force* (dm-83) to self-discard when an Orc/Troll **automatic**-attack is defeated (`when: { "attack.isAutomaticAttack": true, "enemy.race": { "$in": ["orc", "troll"] } }`).

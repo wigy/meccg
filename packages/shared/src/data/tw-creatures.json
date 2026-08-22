@@ -1149,8 +1149,20 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Animals. Each character in the company faces one strike.After the attack, the defender must reveal one random card from his hand for each character in the defending company."
+    "effects": [
+      {
+        "type": "combat-one-strike-per-character"
+      },
+      {
+        "type": "on-event",
+        "event": "attack-not-canceled",
+        "apply": {
+          "type": "reveal-hand-cards-per-character"
+        }
+      }
+    ],
+    "text": "Animals. Each character in the company faces one strike.After the attack, the defender must reveal one random card from his hand for each character in the defending company.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
