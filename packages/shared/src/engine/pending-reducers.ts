@@ -41,7 +41,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, removePrisonerFromHost, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, removePrisonerFromHost, roll2d6, rollDiceForPlayer, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -155,13 +155,11 @@ function removeFailedCorruptionCharacter(
     characters: c.characters.filter(id => id !== characterId),
   }));
 
-  // Followers lose their controller — promote to general influence
-  for (const followerId of char.followers) {
-    const follower = newCharacters[followerId as string];
-    if (follower) {
-      newCharacters[followerId as string] = { ...follower, controlledBy: 'general', ...ringwraithReclaimMark(state, follower) };
-    }
-  }
+  // Followers lose their controller — revert to general influence with the
+  // mind subtraction deferred to the player's next organization phase (CoE
+  // 2.II.2.2.3): a corruption check resolves mid-turn, not during org, so the
+  // freed follower is not charged to general influence on the spot.
+  freeOrDiscardFollowers(state, newCharacters, char, 'corruption-check-removal');
 
   // Separate hazards (owned by opponent) from non-hazard possessions
   const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
