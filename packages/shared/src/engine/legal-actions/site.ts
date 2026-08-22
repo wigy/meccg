@@ -1896,10 +1896,20 @@ function playResourcesActions(
         // major-item-unlocked also allows hoard items (items with keyword "hoard"
         // that have an item-play-site restriction requiring a hoard site)
         const isHoardItem = (itemDef.keywords as readonly string[] | undefined)?.includes('hoard') === true;
-        if (!allowed && !(majorItemUnlocked && isHoardItem)) {
+        // A hoard item is still an item of its own minor/major/greater/gold-ring
+        // subtype (rule 2.V.4) — the "hoard" keyword (glossary: "a type of item
+        // that is only playable at a site ... designated as containing a hoard")
+        // adds the requirement that the site contain a hoard, it doesn't waive
+        // the site's own printed `playableResources` tier. E.g. Enruned Shield
+        // (greater, hoard) isn't playable at Ovir Hollow, whose playableResources
+        // is only minor/major, even though Ovir Hollow contains a hoard.
+        const hoardTierAllowed = !isHoardItem || playableTypes.has(itemDef.subtype);
+        if ((!allowed || !hoardTierAllowed) && !(majorItemUnlocked && isHoardItem)) {
           const reason = siteRestriction.sites
             ? `only playable at ${siteRestriction.sites.join(', ')}`
-            : `${itemDef.name}: site does not satisfy play restriction`;
+            : !hoardTierAllowed
+              ? `${itemDef.name}: ${itemDef.subtype} items cannot be played at ${siteName}`
+              : `${itemDef.name}: site does not satisfy play restriction`;
           logDetail(`Item ${itemDef.name}: site ${siteName} does not satisfy play restriction`);
           actions.push(notPlayable(playerId, cardInstanceId, siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason));
           continue;

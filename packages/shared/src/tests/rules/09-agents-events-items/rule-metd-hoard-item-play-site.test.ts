@@ -24,6 +24,8 @@ import {
 
 const ADAMANT_HELMET = 'td-96' as CardDefinitionId;
 const LONELY_MOUNTAIN = 'tw-428' as CardDefinitionId; // Smaug's lair, hoard=true
+const ENRUNED_SHIELD = 'td-114' as CardDefinitionId; // greater, hoard
+const OVIR_HOLLOW = 'td-179' as CardDefinitionId; // hoard site; playableResources: minor, major only
 
 describe('METD §3 — Hoard item play-site gating', () => {
   beforeEach(() => resetMint());
@@ -50,6 +52,36 @@ describe('METD §3 — Hoard item play-site gating', () => {
       site: LONELY_MOUNTAIN,
       characters: [BILBO],
       hand: [ADAMANT_HELMET],
+    });
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(plays.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('greater hoard item is NOT playable at a hoard site whose playableResources excludes greater', () => {
+    // Ovir Hollow contains a hoard (Dragon automatic-attack) but its printed
+    // playableResources is only minor/major — the "hoard" keyword adds the
+    // hoard-site requirement, it doesn't waive the site's own tier gate.
+    const state = buildSitePhaseState({
+      site: OVIR_HOLLOW,
+      characters: [BILBO],
+      hand: [ENRUNED_SHIELD],
+    });
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    expect(plays).toHaveLength(0);
+    const handInst = handCardId(state, RESOURCE_PLAYER);
+    const tooltip = computeLegalActions(state, PLAYER_1).find(
+      ea => !ea.viable
+        && ea.action.type === 'not-playable'
+        && actionAs<NotPlayableAction>(ea.action).cardInstanceId === handInst,
+    );
+    expect(tooltip).toBeDefined();
+  });
+
+  test('greater hoard item IS playable at a hoard site whose playableResources includes greater', () => {
+    const state = buildSitePhaseState({
+      site: LONELY_MOUNTAIN, // playableResources: minor, major, greater, gold-ring
+      characters: [BILBO],
+      hand: [ENRUNED_SHIELD],
     });
     const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(plays.length).toBeGreaterThanOrEqual(1);
