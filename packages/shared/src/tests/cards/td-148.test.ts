@@ -31,7 +31,8 @@ import {
   buildTestState, resetMint,
   makeCancelWindowCombat,
   dispatch, resolveChain,
-  findHandCardId, charIdAt,
+  findHandCardId, charIdAt, findCharInstanceId,
+  eliminateCharacter,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, reduce, Race } from '../../index.js';
@@ -469,6 +470,50 @@ describe('Riddling Talk (td-148)', () => {
     expect(result.state.chain).toBeNull();
     expect(result.state.pendingResolutions).toHaveLength(0);
 
+    const anyViable = [
+      ...computeLegalActions(result.state, PLAYER_1),
+      ...computeLegalActions(result.state, PLAYER_2),
+    ].some(ea => ea.viable);
+    expect(anyViable).toBe(true);
+  });
+
+  // ── Attempting character leaves play while the roll is pending ────────────
+
+  test('character eliminated while the roll is pending: attempt fails, game not deadlocked', () => {
+    // Regression: the riddling-attempt emitter returned NO actions when the
+    // attempting character had left play before the roll, leaving the
+    // resolving chain stuck with no legal actions for either player — the
+    // same deadlock class as the faction-influence-roll fix (#1725).
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN, GANDALF] }], hand: [RIDDLING_TALK], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
+
+    const card = findHandCardId(state, RESOURCE_PLAYER, RIDDLING_TALK);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const s = resolveChain(dispatch(state, {
+      type: 'cancel-attack', player: PLAYER_1, cardInstanceId: card, targetCharacterId: aragornId,
+    }));
+    expect(s.pendingResolutions.find(r => r.kind.type === 'riddling-attempt')).toBeDefined();
+
+    // Aragorn leaves play while the roll is pending.
+    const gone = eliminateCharacter(s, RESOURCE_PLAYER, aragornId, s.players[RESOURCE_PLAYER].characters[aragornId]);
+
+    const rollAction = computeLegalActions(gone, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'riddling-attempt',
+    );
+    expect(rollAction).toBeDefined();
+
+    const result = reduce(gone, rollAction!.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain).toBeNull();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    expect(result.state.combat).not.toBeNull();
     const anyViable = [
       ...computeLegalActions(result.state, PLAYER_1),
       ...computeLegalActions(result.state, PLAYER_2),

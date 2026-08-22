@@ -20,10 +20,11 @@
  *   2. Company-wide discipline (`whip-discipline`, modifier -2) — every OTHER
  *      character in the bearer's company that is tapped, has a mind > 0, and
  *      has a lower effective prowess than the bearer makes a body check (2d6
- *      - 2 vs body, CoE 3.I.1). A failing Orc/Troll is discarded (CoE 3.I.3,
- *      approximated via the character's printed `discardBodyCheck` minimum,
- *      same approximation as Veils Flung Away le-146); any other race is
- *      wounded instead of eliminated (the card's own override).
+ *      - 2 vs body, CoE 3.I.1). A failing character of any race is wounded
+ *      instead of eliminated (the card's own override); an Orc/Troll whose
+ *      modified total matches a printed `discardBodyCheck` number is
+ *      discarded instead ("according to its card", CoE 3.I.3/3.I.4 — same
+ *      matchOutcome band as Veils Flung Away le-146).
  *   3. Exclusions — a member who is already untapped, has no mind, or whose
  *      prowess is not lower than the bearer's is never checked.
  *   4. "Each unwounded character in the company becomes untapped" — every
@@ -38,7 +39,8 @@
  * | 3 | NOT playable on a bearer without a Whip                                  | IMPLEMENTED |
  * | 4 | NOT playable on a non-Orc/Troll bearer                                   | IMPLEMENTED |
  * | 5 | Eligible followers are enqueued for a body check; excluded ones are not  | IMPLEMENTED |
- * | 6 | Failing Orc/Troll follower is discarded                                  | IMPLEMENTED |
+ * | 6 | Orc/Troll follower discarded on his printed discard number               | IMPLEMENTED |
+ * | 6b| Orc/Troll follower failing above the discard number is wounded           | IMPLEMENTED |
  * | 7 | Passing Orc/Troll follower stays in play and becomes untapped            | IMPLEMENTED |
  * | 8 | Failing non-Orc/Troll follower is wounded, not eliminated                | IMPLEMENTED |
  * | 9 | Passing non-Orc/Troll follower becomes untapped, unwounded               | IMPLEMENTED |
@@ -194,9 +196,10 @@ describe("Where There's a Whip (le-254)", () => {
 
   // ── Body check: Orc/Troll follower discard vs. survive ────────────────────
 
-  test('a failing Orc/Troll follower (Orc Captain) is discarded', () => {
-    // Orc Captain: discardBodyCheck [8] -> threshold 8. Roll modifier -2.
-    // Roll 11: effective 9 > 8 -> fails -> discarded.
+  test('an Orc/Troll follower whose total matches his discard number is discarded', () => {
+    // Orc Captain: body 8, discardBodyCheck [8], roll modifier -2.
+    // Roll 10: total 8 matches the printed discard number -> discarded
+    // ("An Orc or Troll is discarded according to its card").
     let state = whipState({ followers: [ORC_CAPTAIN] });
     state = setCharStatus(state, RESOURCE_PLAYER, ORC_CAPTAIN, CardStatus.Tapped);
     const bearerId = getCharacter(state, RESOURCE_PLAYER, LIEUT_ANGMAR).instanceId;
@@ -205,15 +208,36 @@ describe("Where There's a Whip (le-254)", () => {
     let s = dispatch(state, whipActionsForTarget(state, bearerId)[0]);
     const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && (r.kind as { targetCharacterId?: CardInstanceId }).targetCharacterId === orcId);
     expect(dc).toBeDefined();
-    if (dc?.kind.type === 'dice-check') expect(dc.kind.threshold).toBe(8);
+    if (dc?.kind.type === 'dice-check') {
+      expect(dc.kind.threshold).toBe(8);
+      expect(dc.kind.matchOutcome?.values).toEqual([8]);
+    }
 
-    s = { ...s, cheatRollTotal: 11 };
+    s = { ...s, cheatRollTotal: 10 };
     const rollActions = computeLegalActions(s, PLAYER_1).filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
     s = dispatch(s, rollActions[0].action as ResolveDiceCheckAction);
 
     expectCharNotInPlay(s, RESOURCE_PLAYER, orcId);
     expect(s.players[RESOURCE_PLAYER].discardPile.map(c => c.definitionId)).toContain(ORC_CAPTAIN);
+  });
+
+  test('an Orc/Troll follower failing above his discard number is wounded, not discarded', () => {
+    // Orc Captain: body 8, discard [8]. Roll 11: total 9 misses the discard
+    // number and exceeds body -> an ordinary failed check, which per the card
+    // text wounds but does not eliminate (or discard) the character.
+    let state = whipState({ followers: [ORC_CAPTAIN] });
+    state = setCharStatus(state, RESOURCE_PLAYER, ORC_CAPTAIN, CardStatus.Tapped);
+    const bearerId = getCharacter(state, RESOURCE_PLAYER, LIEUT_ANGMAR).instanceId;
+    const orcId = getCharacter(state, RESOURCE_PLAYER, ORC_CAPTAIN).instanceId;
+
+    let s = dispatch(state, whipActionsForTarget(state, bearerId)[0]);
+    s = { ...s, cheatRollTotal: 11 };
+    const rollActions = computeLegalActions(s, PLAYER_1).filter(a => a.viable && a.action.type === 'resolve-dice-check');
+    s = dispatch(s, rollActions[0].action as ResolveDiceCheckAction);
+
+    expectCharInPlay(s, RESOURCE_PLAYER, orcId);
+    expectCharStatus(s, RESOURCE_PLAYER, ORC_CAPTAIN, CardStatus.Inverted);
   });
 
   test('a passing Orc/Troll follower survives and becomes untapped', () => {

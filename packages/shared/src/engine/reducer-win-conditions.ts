@@ -27,6 +27,7 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { defById, diceRollEffect, findPlayerAvatar, getCardEffects, roll2d6, toCardInstance } from './reducer-utils.js';
 import { oneRingWin } from './reducer-free-council.js';
+import { eliminateCharacter } from './pending-reducers.js';
 import type { ReducerResult } from './reducer-utils.js';
 
 // `RollBand` / `RollModifier` now live with the card-effect schema in
@@ -90,36 +91,17 @@ function matchBand(total: number, bands: readonly RollBand[]): RollBand | undefi
 /**
  * Eliminate the avatar character: remove it from its company and the player's
  * character map, place it in the out-of-play pile (CoE 10.01 — eliminated, not
- * discarded), and move every attached item/ally to the player's discard pile so
- * no instance is lost.
+ * discarded), and disperse everything it held so no instance is lost.
+ * Delegates to the canonical {@link eliminateCharacter} machinery: items and
+ * allies go to the owner's discard pile, attached hazards (corruption cards)
+ * to the hazard owner's discard pile, and followers are freed to general
+ * influence or discarded.
  */
 function eliminateAvatar(state: GameState, playerIndex: number, avatarCharId: CardInstanceId): GameState {
   const player = state.players[playerIndex];
   const avatar = player.characters[avatarCharId];
   if (!avatar) return state;
-
-  const newCharacters = { ...player.characters };
-  delete newCharacters[avatarCharId];
-
-  const discarded = [
-    ...avatar.items.map(toCardInstance),
-    ...avatar.allies.map(toCardInstance),
-  ];
-
-  const newCompanies = player.companies.map(c => ({
-    ...c,
-    characters: c.characters.filter(id => id !== avatarCharId),
-  }));
-
-  const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-  newPlayers[playerIndex] = {
-    ...player,
-    characters: newCharacters,
-    companies: newCompanies,
-    outOfPlayPile: [...player.outOfPlayPile, toCardInstance(avatar)],
-    discardPile: [...player.discardPile, ...discarded],
-  };
-  return { ...state, players: newPlayers };
+  return eliminateCharacter(state, playerIndex, avatarCharId, avatar);
 }
 
 /** Move the source card (an item attached to the avatar) to the owner's discard pile. */

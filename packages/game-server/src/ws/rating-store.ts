@@ -21,6 +21,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { writeFileAtomic } from './atomic-write.js';
 import { applyRatedGame, initialRating } from './elo.js';
 import type { PlayerRating, RatedGameResult } from './elo.js';
 import type { CompletedGameRecord } from './game-record.js';
@@ -66,8 +67,7 @@ export function readRating(name: string, human: boolean): PlayerRating {
 /** Write a player's rating file, creating the account directory if needed. */
 export function writeRating(rating: PlayerRating): string {
   const filePath = ratingPath(rating.name);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(rating, null, 2) + '\n', 'utf-8');
+  writeFileAtomic(filePath, JSON.stringify(rating, null, 2) + '\n');
   return filePath;
 }
 

@@ -21,7 +21,8 @@ import { isCharacterCard } from '../../types/cards.js';
 import { SiteType } from '../../types/common.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail } from './log.js';
-import { characterEntries, companySiteDef, defById, findCharacterCompany, getCardEffects, playerById } from '../reducer-utils.js';
+import { characterEntries, companySiteDef, defById, findCharacterCompany, getCardEffects, isUniqueCharacterInPlay, playerById } from '../reducer-utils.js';
+import { manifestationOfEntityInPlay } from '../manifestations.js';
 
 /**
  * One action per (in-play recruit-carrying character, matching hand card)
@@ -62,6 +63,24 @@ export function discardToRecruitActions(state: GameState, playerId: PlayerId): E
       const handDef = defById(state, handCard.definitionId);
       if (!handDef || !isCharacterCard(handDef)) continue;
       if (recruit.filter && !matchesCondition(recruit.filter, { target: handDef })) continue;
+
+      // Bringing a character into play via this effect is still a character
+      // play, so the state-corrupting eligibility gates apply. (The
+      // home-site-only flag does NOT: Folco's text explicitly plays "any
+      // Hobbit ... at a Haven", and every Hobbit is home-site-only to Bag End,
+      // a free-hold — gating on it would make the ability permanently dead.)
+      // Uniqueness: a unique character already in play cannot be recruited.
+      if (handDef.unique && isUniqueCharacterInPlay(state, handDef.name)) {
+        logDetail(`discard-to-recruit: ${handDef.name} is unique and already in play`);
+        continue;
+      }
+      // Glossary g.man.1: an in-play manifestation of the same entity blocks it.
+      const blockingManifestation = manifestationOfEntityInPlay(state, handDef);
+      if (blockingManifestation !== null) {
+        logDetail(`discard-to-recruit: ${blockingManifestation}, a manifestation of the same entity as ${handDef.name}, is in play (g.man.1)`);
+        continue;
+      }
+
       logDetail(`discard-to-recruit available: ${handDef.name} may be brought in for discarded ${def.name}`);
       actions.push({
         action: {

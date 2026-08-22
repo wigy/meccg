@@ -60,12 +60,28 @@ describe('Rule 8.32 — Detainment Attacks', () => {
     expect(after.combat?.bodyCheckTarget).toBe('character');
   });
 
-  test('3.II.1 — successful strike vs bodied creature still runs creature body-check under detainment', () => {
-    // Character roll beats strike prowess; creature has body, so the creature
-    // body check must still fire — detainment suppresses only the *character*
-    // body check.
+  test('3.II.1 — successful strike vs bodied creature runs no body check under detainment', () => {
+    // Character roll beats strike prowess; creature has body. Rule 3.II.1:
+    // "no body checks are initiated at the end of [a detainment attack's]
+    // strike sequences ... the strike fails without a body check" — this
+    // applies regardless of whether the creature has body, so no creature
+    // body check fires either (bug report: Elladan vs Ent in Search of the
+    // Entwives, game mt3ymdiq-l4yqby seq 493).
     const { state } = makeDetainmentStrikeState({
       detainment: true,
+      strikeProwess: 5,
+      creatureBody: 9,
+    });
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 12, false);
+    expect(after.combat?.phase).not.toBe('body-check');
+    expect(after.combat).toBeNull();
+  });
+
+  test('3.II.1 — non-detainment baseline: successful strike vs bodied creature DOES run creature body-check', () => {
+    // Regression guard: without detainment, the same scenario triggers a
+    // creature body check (bodyCheckTarget = 'creature').
+    const { state } = makeDetainmentStrikeState({
+      detainment: false,
       strikeProwess: 5,
       creatureBody: 9,
     });

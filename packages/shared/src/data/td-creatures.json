@@ -134,7 +134,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Withered Heath",
+          "Gundabad",
+          "Anduin Vales",
+          "Grey Mountain Narrows"
+        ]
       }
     ],
     "effects": [
@@ -172,7 +178,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Andrast Coast",
+          "Bay of Belfalas",
+          "Eriadoran Coast",
+          "Andrast"
+        ]
       }
     ],
     "effects": [
@@ -210,7 +222,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Withered Heath",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Grey Mountain Narrows"
+        ]
       }
     ],
     "effects": [],
@@ -244,7 +262,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Withered Heath",
+          "Woodland Realm",
+          "Northern Rhovanion",
+          "Grey Mountain Narrows"
+        ]
       }
     ],
     "effects": [],

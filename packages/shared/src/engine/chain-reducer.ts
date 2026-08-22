@@ -3578,8 +3578,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail('Creature has tap-low-mind — facing characters with mind ≤ strike prowess tap after their strike');
   }
 
-  // combat-strike-effect (Thief tw-102): a successful strike discards a
-  // company item instead of wounding the defending character.
+  // combat-strike-effect (Thief tw-102, Pick-pocket tw-79): a successful
+  // strike discards an item instead of wounding the defending character —
+  // scope (company vs. struck character alone) depends on strikeEffect.
   const strikeEffect = creatureDef.effects?.find(
     (e): e is CombatStrikeEffectEffect => e.type === 'combat-strike-effect',
   )?.strikeEffect;

@@ -1150,8 +1150,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // parried this attacking character's strike, so a failed strike against the
     // defender raises the attacker's body check.
     const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike);
-    const effectiveRoll = rollTotal + itemBodyMod + bearerMod;
-    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll}`);
+    // CoE rule 3.I: +1 to the body check roll if the character was already
+    // wounded before whatever caused the check — the attacker's pre-strike
+    // status is recorded on the assignment by resolveStrikeCvCC (the character
+    // is Inverted by the lost strike itself, so it cannot be read from status
+    // here).
+    const woundedBonus = strike.attackerWasAlreadyWounded ? 1 : 0;
+    const effectiveRoll = rollTotal + woundedBonus + itemBodyMod + bearerMod;
+    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll}`);
 
     const newAssignments = combat.strikeAssignments.map((a, i) =>
       i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,
@@ -2324,9 +2330,11 @@ export function finishSalvage(state: GameState, combat: CombatState): ReducerRes
 }
 
 /**
- * Defender discards one item from the company after a successful agent strike
- * with strikeEffect: 'discard-item' (An Article Missing, dm-43).
- * Once the item is discarded, combat advances to the next strike or finalizes.
+ * Defender discards one item from the offered pool after a successful strike
+ * with a `strikeEffect` (An Article Missing dm-43, Thief tw-102, Pick-pocket
+ * tw-79) — `combat.discardItemOptions` was already scoped to the company or
+ * to the struck character alone when the phase was entered. Once the item is
+ * discarded, combat advances to the next strike or finalizes.
  */
 export function handleDiscardItemFromCompany(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'discard-item-from-company') return wrongActionType(state, action, 'discard-item-from-company');
@@ -2346,7 +2354,7 @@ export function handleDiscardItemFromCompany(state: GameState, action: GameActio
   const removed = removeAttachment(state.players[defIdx], 'items', item.instanceId);
   if (!removed) return { state, error: 'Item not found on any character in company' };
 
-  logDetail(`An Article Missing: discarding item ${item.instanceId as string} from company`);
+  logDetail(`discard-item strike effect: discarding item ${item.instanceId as string}`);
   const newPlayers = clonePlayers(state);
   newPlayers[defIdx] = {
     ...removed.player,
