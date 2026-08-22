@@ -841,6 +841,21 @@ no distinguishing data, so filtering by who they're attached to is what cards
 actually need ("remove one corruption card from an Elf or a Wizard under your
 control").
 
+**`targets.scope: "company-hazard-corruption-cards"`** (Athelas tw-195) is the
+company-scoped counterpart: it scans only characters in the *bearer's own
+company* for attached `hazard-corruption` cards, backing "remove a corruption
+card from a character in his company" (narrower than `own-hazard-corruption-cards`'s
+"any character under your control"). Pairs with the same
+`discard-target-corruption-card` apply.
+
+```json
+{ "type": "grant-action", "action": "athelas-remove-corruption",
+  "when": { "bearer.name": "Aragorn II" },
+  "cost": { "tap": "bearer", "discard": "self" },
+  "targets": { "scope": "company-hazard-corruption-cards" },
+  "apply": { "type": "discard-target-corruption-card" } }
+```
+
 **`player.inPlayNames`** is a grant-action `when`-context field (alongside
 `bearer`/`company`/`site`/`phase`) listing the names of every card the
 activating player has in play — their `cardsInPlay` **plus** items borne by
@@ -3197,10 +3212,16 @@ Events:
 - `attack-not-canceled` -- fires after combat finalization on the **attack source card** (creature, on-guard creature, or played auto-attack). Canceling an attack ends it before `finalizeCombat` runs (`combat-cancel.ts` returns straight to the enclosing phase), so reaching finalization *is* the "not canceled" test and the event fires unconditionally there. Models the "Unless this attack is canceled, …" clause. Implemented in `combat-finalize.ts`. Supported apply types:
   - `add-constraint` with `constraint: "creature-attack-boost"` — a turn-scoped `race`/`strikes`/`prowess` boost bound to the defending company.
   - `company-tap-characters` — taps every still-**untapped** character in the defending company (optional `filter`, context `{ target: { race, mind, name, skills, cardType } }`; no mind gate). Characters that tapped to face a strike are already tapped and wounded ones are `Inverted`, so only the survivors that stayed untapped and the bystanders who never faced a strike are affected. Used by *Wild Fell Beast* (td-81): "Unless this attack is canceled, all untapped characters in defending company are tapped following attack."
+  - `reveal-hand-cards-per-character` — picks `min(defending company's post-attack character count, defender's hand size)` random cards from the defending player's hand (seeded shuffle, same pattern as `reveal-remove-from-discard`) and reveals their identity via `revealInstances` (`GameState.handRevealedInstances`) — the cards stay in hand, only visibility changes. Zero defending characters or an empty hand reveals nothing (no error). Type-only marker; no fields. Used by *Crebain* (tw-25): "After the attack, the defender must reveal one random card from his hand for each character in the defending company."
 
   ```json
   { "type": "on-event", "event": "attack-not-canceled",
     "apply": { "type": "company-tap-characters" } }
+  ```
+
+  ```json
+  { "type": "on-event", "event": "attack-not-canceled",
+    "apply": { "type": "reveal-hand-cards-per-character" } }
   ```
 
 - `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`) and `attack.isAutomaticAttack` (`true` only when the defeated attack was a site automatic-attack or a played-auto-attack, not a hazard creature). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated, and by *Redoubled Force* (dm-83) to self-discard when an Orc/Troll **automatic**-attack is defeated (`when: { "attack.isAutomaticAttack": true, "enemy.race": { "$in": ["orc", "troll"] } }`).
@@ -5630,16 +5651,24 @@ strings to chase through the engine.
   `combat-finalize.ts`)
 - `combat-strike-effect` — self-bound creature version of the agent-attack
   `strikeEffect: "discard-item"` precedent (§40.1 `agent-attack-modifier`).
-  A successful strike does not wound the defending character; instead the
-  defending **company** must discard one item (defender's choice) via the
-  `discard-item-from-company` combat phase. Only field beyond `type` is
-  `strikeEffect: "discard-item"` (currently the only value). Threaded onto
+  A successful strike does not wound the defending character; instead an
+  item must be discarded (defender's choice) via the `discard-item-from-company`
+  combat phase. Only field beyond `type` is `strikeEffect`, one of:
+  `"discard-item"` (the discard pool is every item held anywhere in the
+  defending **company**) or `"discard-item-character"` (the pool is scoped
+  to items borne by the **struck character** alone). Threaded onto
   `CombatState.strikeEffect` at combat initiation (`initiateCreatureCombat`,
   `chain-reducer.ts`) and resolved by the same generic path in
   `combat-strike.ts` shared with agent attacks — detainment strikes never
-  trigger it. Card text is "For each successful strike, an item held by
+  trigger it. `combat-strike.ts` reads `combat.strikeEffect` to decide the
+  discard pool (whole company vs. `[strike.characterId]`) when building
+  `discardItemOptions`; the rest of the flow (legal actions, reducer) is
+  scope-agnostic. Card text is "For each successful strike, an item held by
   the defending company must be discarded (defender's choice); the
-  defending character is not harmed" (e.g. Thief, tw-102).
+  defending character is not harmed" (e.g. Thief, tw-102) for the company
+  variant, or "For each successful strike, an item the defending character
+  bears must be discarded (defender's choice); he is not harmed" (e.g.
+  Pick-pocket, tw-79) for the character-scoped variant.
 
 ```json
 { "type": "combat-attacker-chooses-defenders" }
@@ -5656,6 +5685,7 @@ strings to chase through the engine.
 { "type": "combat-detainment" }
 { "type": "combat-detainment", "awardsKillMp": true }
 { "type": "combat-strike-effect", "strikeEffect": "discard-item" }
+{ "type": "combat-strike-effect", "strikeEffect": "discard-item-character" }
 {
   "type": "combat-detainment",
   "when": {
@@ -9716,6 +9746,29 @@ the dm-98 test). le-181's `play-target` is a `company` filtered by
 `{ "company.moving": true }` ("on a moving company") — the org-phase company
 filter context exposes `company.moving` (the company has a declared destination
 or special movement this org phase) alongside `company.atHaven`.
+
+The `only-creatures-keyed-to-site-if-safe-path` constraint (added by *Elf-path*
+td-111 via `on-event: self-enters-play` → `add-constraint`, target
+`target-company` resolved from the tapped Elf's company) is the **safe-path-gated**
+variant: the same drop of non-site-keyed creatures applies, but **only when**
+the protected company's resolved site path (`phaseState.resolvedSitePath`) is
+exactly one or two regions and contains no Dark-domain [{d}] or Shadow-land
+[{s}] regions (`reducer-utils.ts` `regionTypeCounts`). When the path is longer
+or crosses either region type, the constraint imposes nothing
+(`applyOnlyCreaturesKeyedToSiteIfSafePath`). Elf-path's cost is `{ "tap":
+"character" }` on a `play-target` filtered to `{ "target.race": "elf",
+"company.moving": true }` — the tapped Elf's own company ("his company") is
+the target, not a separately declared company.
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "target.race": "elf", "company.moving": true },
+  "cost": { "tap": "character" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint",
+    "constraint": "only-creatures-keyed-to-site-if-safe-path", "scope": "turn" },
+  "target": "target-company" }
+```
 
 `set-company-special-movement` (§ "Actions" above, previously only reachable
 via a grant-action apply — e.g. Gwaihir's `gwaihir-special-movement`) is also
@@ -16110,3 +16163,88 @@ to Mithril if bearer is ever at Moria; this card never untaps. If Map to
 Mithril is at a Dwarf-hold and it is tapped, the bearer may tap himself and
 place this card with a non-unique weapon in his company. This gives the
 weapon a +3 prowess bonus."
+
+### 78. `add-constraint` `region-shortcut` (Ash Mountains)
+
+A company-bound `add-constraint` kind for the "movement enhancer" family of
+end-of-organization resource short-events (Ash Mountains tw-194, Mountains of
+Shadow tw-287, Anduin River tw-191, and their minion "Deeps" counterparts):
+"tap a ranger to move as if the following pairs of regions were adjacent …
+faces an attack at the beginning of its movement/hazard phase … alternatively,
+if the site moved to is in one of the regions listed above, the hazard limit
+is reduced by N."
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "company",
+  "filter": { "company.skills": { "$includes": "ranger" } } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "region-shortcut",
+    "scope": "turn",
+    "pairs": [["Dagorlad", "Gorgoroth"], ["Horse Plains", "Gorgoroth"]],
+    "requiredSkill": "ranger",
+    "race": "orc", "strikes": 4, "prowess": 8,
+    "value": -2, "floor": 2
+  },
+  "target": "target-company" },
+{ "type": "duplication-limit", "scope": "company", "max": 1 }
+```
+
+- **`company.skills`** — added to the end-of-org `play-target: "company"`
+  filter context (`endOfOrgEligibility`, `legal-actions/organization.ts`): the
+  union of every company member's effective skills, mirroring the
+  already-established `company.skills` field on the item/ally play-target
+  context (`organization-events.ts`, Palantír of Amon Sûl tw-296 family) so
+  `{ "company.skills": { "$includes": "ranger" } }` reads the same regardless
+  of which context builder resolves it.
+- **`region-shortcut`** constraint kind (`types/pending.ts`) — carries
+  `pairs` (region-name pairs), `requiredSkill`, an optional `attack`
+  (`race`/`strikes`/`prowess`, taken from the same generic `race`/`strikes`/
+  `prowess` `add-constraint` fields other kinds already use), and
+  `hazardLimitReduction` (`value`/`floor`, from the generic `value`/`floor`
+  fields `hazard-limit-region-count` uses). Built in `reducer-events.ts`'s
+  `add-constraint` switch.
+- **Path-finding widening** — `companyRegionShortcutPairs`
+  (`legal-actions/movement-hazard.ts`) finds an active `region-shortcut`
+  constraint bound to the declaring company and confirms it still has an
+  untapped character carrying `requiredSkill`; if so, the region-movement
+  `declare-path` enumeration searches `withVirtualAdjacency(movementMap,
+  pairs)` (`movement-map.ts`) instead of the plain map. That helper only
+  extends `regionGraph` (consulted by `findRegionPaths`) — it leaves
+  `regionPathEdges` (consulted by `getReachableSites` for org-phase
+  destination-candidate reachability) untouched, so the shortcut only widens
+  which *path* can justify an already-chosen destination, never which
+  destinations organization-phase planning offers in the first place.
+- **Tap cost + forced attack** — `checkRegionShortcutUsage` (`mh-steps.ts`,
+  called from `handleRevealNewSite`'s `declare-path` branch) checks whether
+  the just-resolved region path actually crosses one of the constraint's
+  pairs. If so, it taps the first untapped character with `requiredSkill`,
+  removes the constraint, and — when the constraint carries an `attack` —
+  injects a `region-shortcut-attack` combat (`makeCombatState`) before
+  `enterSetHazardLimitAndAutoAdvance` runs, via a new `region-shortcut-attack`
+  M/H step (`types/state-phases.ts` `MHStep`, dispatched in
+  `reducer-movement-hazard.ts`) that simply resumes at `set-hazard-limit` once
+  the injected combat resolves (mirrors the `order-effects`/
+  `set-hazard-limit` auto-advance shape, not a `site-entry-attack`-style
+  return-step field). Legal-action support for the new step is a bare `pass`
+  (`legal-actions/movement-hazard.ts`), exactly like `order-effects`.
+- **"Alternatively" hazard-limit reduction** — if the shortcut was *not* used
+  for this move, the constraint survives into `snapshotHazardLimit`
+  (`mh-steps.ts`), which applies `hazardLimitReduction` (floored, same
+  never-raise-to-floor semantics as `hazard-limit-region-count`) when the
+  company's resolved destination region (the last entry of its site path) is
+  one of the constraint's named regions. Because firing the attack removes
+  the constraint first, the two payoffs are mutually exclusive on a single
+  move without any extra bookkeeping.
+
+Used by Ash Mountains (tw-194): "Playable at the end of the organization
+phase on a company containing a ranger. If the company uses region cards for
+its site path, tap the ranger to move as if the following pairs of regions
+were adjacent: Dagorlad and Gorgoroth, Horse Plains and Gorgoroth. The
+company faces an attack at the beginning of its movement/hazard phase: Orcs —
+4 strikes with 8 prowess. Alternatively, if the site moved to is in one of
+the regions listed above, the hazard limit is reduced by 2 (to a minimum of
+2). Cannot be duplicated on a given company." (CRF 22: the printed
+"otherwise" should be read as "alternatively".)

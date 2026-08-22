@@ -697,6 +697,46 @@ function discardCanceledCreature(state: GameState, players: PlayerState[], comba
 }
 
 /**
+ * Shared tail for every path that ends a combat by cancellation once
+ * `state.combat` has been cleared (chain-resolved cancel-attack cards and
+ * the cancel-by-tap full cancels). Runs the same housekeeping as attack
+ * finalization:
+ *
+ * - card-triggered-attack sources continue their queued sequence or dispose
+ *   of the card, exactly as finalization would;
+ * - a canceled Great Hunt reveal-sequence attack still advances the reveal
+ *   queue; a canceled Hunt attack still taps the bearer afterwards;
+ * - attack-scoped constraints (short-event stat boosts, duplication-limit
+ *   markers) are swept — `scope: { kind: 'attack' }` is removed *only* by an
+ *   attack-end sweep, so skipping it leaks the modifiers into every later
+ *   check and the entire next combat;
+ * - per CoE 3.i.1 / CRF 22 Annotation 14 the company still "faced" the
+ *   canceled attack, so it is recorded in `hazardsEncountered`;
+ * - a Traitor attack queued mid-combat still fires.
+ *
+ * @param stateWithCombatCleared - State with `players` updated and `combat: null`.
+ * @param preCancelState - The state as it was before the cancellation (used
+ *   by `recordHazardEncountered` to read the M/H phase context).
+ * @param combat - The combat that was just canceled.
+ */
+function endCanceledCombat(
+  stateWithCombatCleared: GameState,
+  preCancelState: GameState,
+  combat: CombatState,
+): GameState {
+  let s = continueOrDisposeCardTriggeredAttack(stateWithCombatCleared, combat, true);
+  if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
+    s = advanceGreatHuntReveal(s, combat.attackSource.greatHuntInstanceId);
+  }
+  if (combat.attackSource.type === 'hunt-attack') {
+    s = tapHuntBearerAfterwards(s, combat.defendingPlayerId, combat.attackSource.bearerInstanceId);
+  }
+  s = sweepExpired(s, { kind: 'attack-end' });
+  s = recordHazardEncountered(s, preCancelState, combat);
+  return initiateQueuedTraitorAttack(s);
+}
+
+/**
  * Apply the cancel-attack effect when its chain entry resolves.
  *
  * Called from the chain resolver when a short-event entry with a
@@ -773,46 +813,8 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   // cardsInPlay to discard.
   discardCanceledCreature(state, newPlayers, combat);
 
-  // card-triggered-attack cancelled: the attack never resolved, but the card is
-  // still in play — continue the queued sequence or dispose of it, exactly as
-  // finalization would.
-  let stateWithCancelledPlayers: GameState = { ...state, players: newPlayers, combat: null };
-  stateWithCancelledPlayers = continueOrDisposeCardTriggeredAttack(stateWithCancelledPlayers, combat, true);
-
-  // The Great Hunt (wh-91): a canceled reveal-sequence attack still advances
-  // the reveal queue to the next creature (the creature never moved out of its
-  // pile, so nothing is disposed on cancel either).
-  if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
-    stateWithCancelledPlayers = advanceGreatHuntReveal(stateWithCancelledPlayers, combat.attackSource.greatHuntInstanceId);
-  }
-
-  // The Hunt (dm-143): "If untapped, tap [the bearer] afterwards" applies
-  // even when the attack is canceled — the forced-attack sequence still
-  // "happened", just without strikes.
-  if (combat.attackSource.type === 'hunt-attack') {
-    stateWithCancelledPlayers = tapHuntBearerAfterwards(stateWithCancelledPlayers, combat.defendingPlayerId, combat.attackSource.bearerInstanceId);
-  }
-
-  // Sweep attack-scoped constraints (e.g. duplication-limit markers from
-  // cancel-attack or modify-attack cards played on this attack) now that the
-  // attack has ended via cancellation.
-  stateWithCancelledPlayers = sweepExpired(stateWithCancelledPlayers, { kind: 'attack-end' });
-
-  // Per CoE 3.i.1 and CRF 22 Annotation 14, a company is still considered to
-  // have "faced" an attack once combat is initiated, even if the attack is
-  // then canceled. Record the canceled creature in hazardsEncountered so that
-  // subsequent creature self-effects see it — e.g. Orc-lieutenant's +4 prowess
-  // "if played on a company that has already faced an Orc attack this turn"
-  // must apply even when the prior Orc attack (e.g. Hobgoblins) was canceled.
-  // recordHazardEncountered is a no-op outside the M/H phase and for
-  // non-creature attack sources, so multi-attack partial cancels (which return
-  // earlier with combat still active) and card-triggered attacks are unaffected.
-  stateWithCancelledPlayers = recordHazardEncountered(stateWithCancelledPlayers, state, combat);
-
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
-  // A Traitor attack queued mid-combat still fires after the cancellation
-  // (no-op while a follow-up combat, e.g. a multi-attack card, is active).
-  return initiateQueuedTraitorAttack(stateWithCancelledPlayers);
+  return endCanceledCombat({ ...state, players: newPlayers, combat: null }, state, combat);
 }
 
 /**
@@ -983,10 +985,12 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     const newStrikesTotalW = combat.strikesTotal - 1;
 
     // All wounded-character strikes canceled → the attack is fully canceled.
+    // Same attack-end housekeeping as every other cancellation path: sweep
+    // attack-scoped constraints, record the faced attack, fire queued Traitors.
     if (newAssignmentsW.length === 0) {
       logDetail('All wounded-character strikes canceled — combat ends');
       discardCanceledCreature(state, newPlayersW, combat);
-      return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayersW, combat: null }) };
+      return { state: endCanceledCombat({ ...state, players: newPlayersW, combat: null }, state, combat) };
     }
 
     let newCombatW: CombatState = {
@@ -1046,23 +1050,13 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
 
   logDetail(`Strikes reduced: ${combat.strikesTotal} → ${newStrikesTotal}, cancels remaining: ${newCancelRemaining}`);
 
-  // If no strikes remain, cancel combat entirely
+  // If no strikes remain, cancel combat entirely — with the same attack-end
+  // housekeeping as every other cancellation path: sweep attack-scoped
+  // constraints, record the faced attack, fire queued Traitors.
   if (newAssignments.length === 0) {
     logDetail('All strikes canceled — combat ends');
-    // Move creature to discard
-    const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
-    const creatureInstanceId = attackSourceCreatureInstanceId(combat);
-    if (creatureInstanceId) {
-      const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
-      if (creatureInPlay) {
-        newPlayers[atkIdx] = {
-          ...newPlayers[atkIdx],
-          cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
-          discardPile: [...newPlayers[atkIdx].discardPile, toCardInstance(creatureInPlay)],
-        };
-      }
-    }
-    return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayers, combat: null }) };
+    discardCanceledCreature(state, newPlayers, combat);
+    return { state: endCanceledCombat({ ...state, players: newPlayers, combat: null }, state, combat) };
   }
 
   const newCombat: CombatState = {

@@ -1655,6 +1655,7 @@
     "name": "Amon Hen",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/AmonHen.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "shadow",
       "wilderness",
@@ -1698,6 +1699,7 @@
     "name": "Barrow-downs",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Barrowdowns.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "shadow",
       "wilderness",
@@ -1740,6 +1742,7 @@
     "name": "Blue Mountain Dwarf-hold",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BlueMountainDwarfhold.jpg",
     "siteType": "free-hold",
+    "unique": true,
     "sitePath": [
       "shadow",
       "wilderness",
@@ -1818,6 +1821,7 @@
     "name": "Buhr Widu",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/BuhrWidu.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "dark",
       "wilderness"
@@ -2047,6 +2051,7 @@
     "name": "Dunnish Clan-hold",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/DunnishClanhold.jpg",
     "siteType": "border-hold",
+    "unique": true,
     "sitePath": [
       "shadow",
       "wilderness",
@@ -2167,6 +2172,7 @@
     "name": "Glittering Caves",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/GlitteringCaves.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "wilderness",
       "shadow"
@@ -2275,6 +2281,7 @@
     "name": "Haudh-in-Gwanûr",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HaudhinGwanur.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "shadow",
       "wilderness",
@@ -2317,6 +2324,7 @@
     "name": "Henneth Annûn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HennethAnnun.jpg",
     "siteType": "border-hold",
+    "unique": true,
     "sitePath": [
       "shadow",
       "wilderness"
@@ -2354,6 +2362,7 @@
     "name": "Hermit’s Hill",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/HermitsHill.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "dark",
       "shadow",
@@ -2390,6 +2399,7 @@
     "name": "Iron Hill Dwarf-hold",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/IronHillDwarfhold.jpg",
     "siteType": "free-hold",
+    "unique": true,
     "sitePath": [
       "dark",
       "wilderness",
@@ -2545,6 +2555,7 @@
     "name": "Ost-in-Edhil",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OstinEdhil.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "shadow",
       "wilderness",
@@ -2625,6 +2636,7 @@
     "name": "Ruined Signal Tower",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/RuinedSignalTower.jpg",
     "siteType": "ruins-and-lairs",
+    "unique": true,
     "sitePath": [
       "wilderness",
       "wilderness"
@@ -2746,6 +2758,7 @@
     "name": "Urlurtsu Nurn",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/UrlurtsuNurn.jpg",
     "siteType": "dark-hold",
+    "unique": true,
     "sitePath": [
       "shadow",
       "dark",
@@ -2817,6 +2830,7 @@
     "name": "Wose Passage-hold",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/WosePassagehold.jpg",
     "siteType": "border-hold",
+    "unique": true,
     "sitePath": [
       "wilderness"
     ],

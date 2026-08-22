@@ -319,6 +319,15 @@ function bindPrisoner(
     logDetail(`${logPrefix}: discarding ${discardedItems.length} non-ring item(s) from prisoner ${charInstanceId as string}`);
   }
   const followerIds = charData.followers;
+  // If the prisoner was itself a direct-influence follower, its former
+  // controller must stop paying for it — every other revert-to-general path
+  // (handleMoveToInfluence, combat-strike elimination, press-gang) prunes the
+  // controller's `followers` list, and directInfluenceLedger charges DI for
+  // every id in that list regardless of the follower's own controlledBy. Left
+  // stale, the controller pays the prisoner's mind in DI for the rest of the
+  // game and is double-charged once the prisoner is rescued (its mind then
+  // also counts against general influence).
+  const formerControllerId = charData.controlledBy !== 'general' ? charData.controlledBy : null;
   const newCharData = {
     ...charData,
     items: retainedItems,
@@ -328,6 +337,12 @@ function bindPrisoner(
   let newState = updatePlayer(state, defPlayerIndex, p => {
     const updatedChars: Record<CardInstanceId, CharacterInPlay> = { ...p.characters };
     updatedChars[charInstanceId] = newCharData;
+    if (formerControllerId) {
+      const controller = updatedChars[formerControllerId];
+      if (controller) {
+        updatedChars[formerControllerId] = { ...controller, followers: controller.followers.filter(id => id !== charInstanceId) };
+      }
+    }
     for (const followerId of followerIds) {
       const follower = updatedChars[followerId];
       if (follower && follower.controlledBy === charInstanceId) {

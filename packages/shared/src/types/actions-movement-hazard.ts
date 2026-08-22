@@ -86,7 +86,7 @@ export interface CreatureKeyingMatch {
    * the creature play without satisfying any path-based keying — the
    * `value` records the race that was whitelisted.
    */
-  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
+  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-in-region' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
   /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs", "The Lonely Mountain", "Rivendell to Lórien"). */
   readonly value: string;
 }
@@ -917,8 +917,12 @@ export interface GoodwillAttemptRollAction {
   readonly player: PlayerId;
   /** The diplomat making the goodwill attempt. */
   readonly characterInstanceId: CardInstanceId;
-  /** The company item discarded to enable the roll. */
-  readonly itemInstanceId: CardInstanceId;
+  /**
+   * The company item discarded to enable the roll. Absent on the fizzle
+   * action offered when the diplomat, company, or every qualifying item has
+   * left play before the roll — the attempt then fails without a cost.
+   */
+  readonly itemInstanceId?: CardInstanceId;
   /** roll >= need means success (already accounts for unused DI). */
   readonly need: number;
   /** Human-readable breakdown of the check. */

@@ -91,6 +91,8 @@ export function buildConstraintKind(
       return { type: 'only-creatures-keyed-to-site' };
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
+    case 'only-creatures-keyed-to-site-if-safe-path':
+      return { type: 'only-creatures-keyed-to-site-if-safe-path' };
     case 'extra-mh-phase': {
       // Master of Esgaroth (td-135). The destination gate is stored on the
       // constraint and evaluated when the company's M/H phase ends, since the
