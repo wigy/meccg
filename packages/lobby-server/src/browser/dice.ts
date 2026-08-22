@@ -155,7 +155,7 @@ export function clearDice(): void {
   inflightAnimations.clear();
   for (const id of ['self-dice-tray', 'opponent-dice-tray']) {
     const tray = document.getElementById(id);
-    if (tray) tray.innerHTML = '';
+    if (tray) { tray.innerHTML = ''; tray.removeAttribute('data-roll'); }
   }
 }
 
@@ -223,7 +223,7 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
   // children and skips repopulating with the new values.
   const trayId = variant === 'black' ? 'self-dice-tray' : 'opponent-dice-tray';
   const tray = document.getElementById(trayId);
-  if (tray) tray.innerHTML = '';
+  if (tray) { tray.innerHTML = ''; tray.removeAttribute('data-roll'); }
 
   const overlay = document.createElement('div');
   overlay.className = 'dice-overlay';
@@ -307,9 +307,16 @@ export function restoreDice(): void {
     if (!tray) continue;
 
     // Clear tray and skip if no roll
-    if (!roll) { tray.innerHTML = ''; continue; }
-    // Already populated
-    if (tray.children.length > 0) continue;
+    if (!roll) { tray.innerHTML = ''; tray.removeAttribute('data-roll'); continue; }
+    // Skip the rebuild only when the tray already shows *this* roll. Testing
+    // `children.length > 0` alone is not enough: the stored roll can change
+    // while the tray is hidden. A dice-roll broadcast arriving while the debug
+    // view is showing runs seedDiceFromState() — which updates `lastRolls` —
+    // but not rollDice(), which is the only thing that clears the tray, so the
+    // tray still holds the previous roll's dice. Comparing a stored signature
+    // repaints those stale dice instead of leaving them.
+    const signature = `${roll.die1}-${roll.die2}`;
+    if (tray.children.length > 0 && tray.getAttribute('data-roll') === signature) continue;
 
     const dieEl1 = createDie(variant);
     const dieEl2 = createDie(variant);
@@ -329,6 +336,7 @@ export function restoreDice(): void {
     tray.innerHTML = '';
     tray.appendChild(dieEl1);
     tray.appendChild(dieEl2);
+    tray.setAttribute('data-roll', signature);
   }
 }
 
