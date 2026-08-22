@@ -39,7 +39,7 @@ import {
   viableActions, dispatch,
   findCharInstanceId, getCharacter, findHandCardId,
   expectCharItemCount, expectInDiscardPile,
-  attachItemToChar, recomputeDerived,
+  attachItemToChar, attachHazardToChar, recomputeDerived,
 } from '../test-helpers.js';
 import { Alignment, Phase, computeLegalActions } from '../../index.js';
 import type {
@@ -602,6 +602,50 @@ describe('The Arkenstone (le-418)', () => {
     // Both Gimli and his item land in PLAYER_2's discard pile.
     expectInDiscardPile(next, HAZARD_PLAYER, GIMLI);
     expectInDiscardPile(next, HAZARD_PLAYER, MINOR_ITEM);
+  });
+
+  test("a hazard borne by the discarded Dwarf returns to its owner's discard pile", () => {
+    // Regression: the hazard loop routed each opponent-owned hazard to its
+    // owner's discard pile, but a stale pre-loop snapshot was then written
+    // back over that pile — dropping the hazard from the game entirely
+    // (no-card-disappears invariant violation).
+    const LURE_OF_THE_SENSES = 'tw-60' as CardDefinitionId; // hazard borne on a character
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: LONELY_MOUNTAIN_MINION,
+            characters: [{ defId: THE_MOUTH, items: [THE_ARKENSTONE] }],
+          }],
+          hand: [],
+          siteDeck: [MORIA_MINION],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LONELY_MOUNTAIN_HERO, characters: [GIMLI] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    // The Ringwraith player (PLAYER_1) owns the hazard borne on the opponent's
+    // Gimli — it must return to PLAYER_1's discard pile when Gimli is discarded.
+    const state = recomputeDerived(attachHazardToChar(base, HAZARD_PLAYER, GIMLI, LURE_OF_THE_SENSES, RESOURCE_PLAYER));
+    const hazardId = state.players[HAZARD_PLAYER].characters[findCharInstanceId(state, HAZARD_PLAYER, GIMLI)].hazards[0].instanceId;
+
+    const action = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .find(ea => (ea.action as ActivateGrantedAction).actionId === 'force-discard-dwarf-at-site')!.action;
+    const next = dispatch(state, action);
+
+    // Gimli is discarded to his owner; the hazard returns to its owner
+    // (PLAYER_1) exactly once — not dropped from the game.
+    expectInDiscardPile(next, HAZARD_PLAYER, GIMLI);
+    expect(next.players[RESOURCE_PLAYER].discardPile.filter(c => c.instanceId === hazardId)).toHaveLength(1);
   });
 
   test("Dwarf's followers revert to general influence and are NOT discarded", () => {
