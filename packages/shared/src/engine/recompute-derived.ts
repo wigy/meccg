@@ -1019,7 +1019,13 @@ function computeEffectiveStats(
     const itemDef = resolveDef(state, item.instanceId);
     if (isItemCard(itemDef)) {
       const itemEffects = itemDef.effects ?? [];
-      const itemHasStatMod = itemEffects.some(e => e.type === 'stat-modifier');
+      // Per-stat, not per-item: a DSL `stat-modifier` for one stat must not
+      // suppress the structural fallback of a *different* stat. Wizard's Ring
+      // (tw-363) declares its +5 direct influence in DSL but its +2 prowess
+      // only structurally — a blanket any-stat-modifier check dropped the
+      // prowess bonus entirely.
+      const itemHasProwessMod = itemEffects.some(e => e.type === 'stat-modifier' && e.stat === 'prowess');
+      const itemHasBodyMod = itemEffects.some(e => e.type === 'stat-modifier' && e.stat === 'body');
       const weaponSuppressed = !!suppressedWeapons?.includes(item.instanceId);
       // MEWH §9: structural prowess/body bonuses from a hero item are ignored on
       // an Orc/Troll bearer (its corruption points still apply below).
@@ -1030,9 +1036,9 @@ function computeEffectiveStats(
         || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
         || bearerIsRingwraithAvatar
         || bearerCannotUseItems;
-      if (!itemHasStatMod && !heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
-        prowess += itemDef.prowessModifier;
-        body += itemDef.bodyModifier;
+      if (!heroItemOnOrcTroll && !bearerIsBalrogAvatar && !itemUnusableByAlignment && !weaponSuppressed && activeItems.has(item.instanceId as string)) {
+        if (!itemHasProwessMod) prowess += itemDef.prowessModifier;
+        if (!itemHasBodyMod) body += itemDef.bodyModifier;
       }
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
