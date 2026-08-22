@@ -1617,6 +1617,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
