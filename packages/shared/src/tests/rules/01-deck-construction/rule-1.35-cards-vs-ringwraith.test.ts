@@ -85,10 +85,11 @@ describe('Rule 1.35 — Cards Not Playable vs Ringwraith', () => {
     const plays = viableActions(gameState, PLAYER_2, 'play-hazard');
     expect(plays.some(a => 'cardInstanceId' in a.action && a.action.cardInstanceId === cardId)).toBe(false);
 
-    // Reported to the UI as explicitly not-playable, naming the Ringwraith opponent.
+    // Reported to the UI as explicitly not-playable, naming the minion opponent
+    // (the ban covers both Ringwraith and Balrog players).
     const notPlayable = nonViableOfType(actions, 'not-playable')
       .find(a => 'cardInstanceId' in a.action && a.action.cardInstanceId === cardId);
-    expect(notPlayable?.reason).toMatch(/Ringwraith/);
+    expect(notPlayable?.reason).toMatch(/minion player/);
   });
 
   // ── First bullet: hazards that require an agent ──────────────────────────

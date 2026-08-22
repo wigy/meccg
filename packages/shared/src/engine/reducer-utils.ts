@@ -4270,7 +4270,9 @@ function playableAtEntryMatchesSite(
  *
  * - **Items**: the item's subtype must appear in the site's printed
  *   `playableResources` list, or an `item-play-site` effect on the item
- *   must name the site (`sites`) / match it (`filter`).
+ *   must name the site (`sites`) / match it (`filter`) — except for hoard
+ *   items, whose `filter` (matching a hoard site) is an addition to the
+ *   `playableResources` tier gate, not a replacement for it.
  * - **Allies / factions**: some `playableAt` entry must match the site, or
  *   (when playability is expressed via a `play-target` DSL effect instead
  *   of `playableAt` entries, e.g. Noble Hound dm-179: "any tapped or
@@ -4287,7 +4289,12 @@ export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard, 
       (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site',
     );
     if (playSite?.sites?.includes(siteDef.name)) return true;
-    if (playSite?.filter) {
+    // A hoard item's own subtype must still appear in the site's printed
+    // playableResources list (already checked above and failed at this point) —
+    // the "hoard" keyword adds the requirement that the site contain a hoard,
+    // it doesn't waive the site's minor/major/greater/gold-ring tier gate.
+    const isHoardItem = (def.keywords as readonly string[] | undefined)?.includes('hoard') === true;
+    if (playSite?.filter && !isHoardItem) {
       const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
       return matchesContext(playSite.filter, { site: { ...siteDef, autoAttackRaces } });
     }
