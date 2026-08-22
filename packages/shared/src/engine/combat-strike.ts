@@ -304,8 +304,12 @@ export function resolveStrikeCore(
   let bodyCheckTarget: 'character' | 'creature' | null = null;
   if (characterTotal > effectiveProwess) {
     result = 'success';
-    if (combat.creatureBody !== null) bodyCheckTarget = 'creature';
-    logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
+    if (combat.detainment) {
+      logDetail('Character defeats strike — detainment: no body check vs creature (CoE 3.II.1)');
+    } else {
+      if (combat.creatureBody !== null) bodyCheckTarget = 'creature';
+      logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
+    }
   } else if (characterTotal < effectiveProwess) {
     result = 'wounded';
     if (combat.detainment) {
