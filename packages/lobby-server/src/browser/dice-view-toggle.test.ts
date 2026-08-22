@@ -33,6 +33,7 @@ class StubEl {
   tagName: string;
   children: StubEl[] = [];
   style: Record<string, string> = {};
+  attributes: Record<string, string> = {};
   classList = {
     classes: new Set<string>(),
     add: (...cs: string[]) => { for (const c of cs) this.classList.classes.add(c); },
@@ -45,6 +46,9 @@ class StubEl {
   set className(v: string) { this.classList.classes = new Set(v.split(/\s+/).filter(Boolean)); }
   get className(): string { return Array.from(this.classList.classes).join(' '); }
   remove(): void { /* detached from a parentless stub tree; no-op is fine */ }
+  getAttribute(name: string): string | null { return name in this.attributes ? this.attributes[name] : null; }
+  setAttribute(name: string, value: string): void { this.attributes[name] = value; }
+  removeAttribute(name: string): void { delete this.attributes[name]; }
   querySelector(selector: string): StubEl | null {
     const wantsClass = selector.startsWith('.') ? selector.slice(1) : selector;
     for (const child of this.children) {
@@ -110,5 +114,39 @@ describe('dice tray survives a debug-view toggle (game msq7niva-zys3dg, seq 832)
     restoreDice();
 
     expect(byId['self-dice-tray'].children.length).toBe(0);
+  });
+});
+
+describe('dice tray repaints when the roll changed while it was hidden', () => {
+  // The debug view hides the trays via CSS but leaves their DOM intact. A
+  // dice-roll broadcast arriving while the debug view is showing updates the
+  // stored roll through seedDiceFromState() but does not run rollDice() (which
+  // is guarded behind the visual view being visible and is the only thing that
+  // clears the tray). Restoring must then repaint the stale dice, not keep
+  // them — the pre-fix `children.length > 0` guard kept them.
+  //
+  // FACE_ROTATIONS maps die value → the resting cube transform: 3 → rotateY
+  // -90deg, 4 → rotateY +90deg, 1 → rotateY 0deg. Reading the first die's cube
+  // transform proves which value the tray actually shows.
+  const firstDieTransform = (): string =>
+    byId['self-dice-tray'].children[0]?.querySelector('.dice-cube')?.style.transform ?? '';
+
+  test('restoreDice() replaces the old dice when lastRolls changed under a hidden tray', () => {
+    // Roll 3+4 shows in the visual view.
+    seedDiceFromState(view({ die1: 3, die2: 4 }));
+    restoreDice();
+    expect(byId['self-dice-tray'].children.length).toBe(2);
+    expect(firstDieTransform()).toBe('rotateX(0deg) rotateY(-90deg)'); // die 3
+
+    // Switch to the debug view (tray DOM + lastRolls kept), then a fresh roll
+    // of 1+1 arrives while it is hidden: only seedDiceFromState() runs.
+    dismissDiceOverlays();
+    seedDiceFromState(view({ die1: 1, die2: 1 }));
+
+    // Switch back to the visual view.
+    restoreDice();
+
+    expect(byId['self-dice-tray'].children.length).toBe(2);
+    expect(firstDieTransform()).toBe('rotateX(0deg) rotateY(0deg)'); // die 1, not the stale 3
   });
 });
