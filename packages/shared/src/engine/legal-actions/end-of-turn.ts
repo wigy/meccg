@@ -352,6 +352,26 @@ function runHomeActions(state: GameState, playerId: PlayerId): GameAction[] {
       continue;
     }
 
+    // The reducer needs the haven card to be reachable: either a sibling
+    // company already stands at it, or it sits in the location deck
+    // (reducer-end-of-turn.ts). A deck need not carry the haven the site's
+    // `nearestHaven` names at all — e.g. a Fallen-wizard deck whose sites
+    // name "Rivendell" — and offering the action then guarantees the
+    // rejection "nearest haven not found in location deck".
+    const havenName = siteDef.nearestHaven;
+    const havenAvailable = player.companies.some(c => {
+      if (c.id === company.id || !c.currentSite) return false;
+      const d = defById(state, c.currentSite.definitionId);
+      return d !== undefined && isSiteCard(d) && d.name === havenName;
+    }) || player.siteDeck.some(entry => {
+      const d = defById(state, entry.definitionId);
+      return d !== undefined && isSiteCard(d) && d.siteType === 'haven' && d.name === havenName;
+    });
+    if (!havenAvailable) {
+      logDetail(`run-home: nearest haven ${havenName} is neither in the location deck nor under a sibling company — skipping`);
+      continue;
+    }
+
     const size = company.characters.length;
     for (const charId of company.characters) {
       const char = player.characters[charId];
