@@ -2745,8 +2745,40 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Wilderness [{w}] in its site path (to a minimum of two). Cannot be duplicated on the same company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-region-count",
+          "scope": "turn",
+          "regionType": "wilderness",
+          "value": -1,
+          "floor": 2
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Wilderness [{w}] in its site path (to a minimum of two). Cannot be duplicated on the same company.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
