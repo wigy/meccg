@@ -144,6 +144,15 @@ export type AttackSource =
    */
   | { readonly type: 'site-entry-attack'; readonly eventInstanceId: CardInstanceId }
   /**
+   * Triggered by a `region-shortcut` constraint (Ash Mountains tw-194 and its
+   * "movement enhancer" family): the company tapped its ranger to move as if
+   * two otherwise-unconnected regions were adjacent, and faces the printed
+   * forced attack for having done so. `eventInstanceId` is the resource
+   * short-event that placed the constraint (already discarded by the time the
+   * attack resolves — nothing to dispose of on finalization).
+   */
+  | { readonly type: 'region-shortcut-attack'; readonly eventInstanceId: CardInstanceId; readonly companyId: CompanyId }
+  /**
    * Triggered by The Great Hunt (wh-91) via the `reveal-and-attack` effect. A
    * revealed / discarded hazard-creature attacks the controller's Alatar
    * company. The creature card is never moved out of its pile (deck or discard)

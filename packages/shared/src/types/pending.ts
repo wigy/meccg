@@ -1865,6 +1865,40 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Ash Mountains (tw-194) and its "movement enhancer" family: an
+         * end-of-organization-phase resource short-event bound to a company
+         * containing a ranger. While active, `declare-path` region-movement
+         * enumeration (`legal-actions/movement-hazard.ts`) treats each named
+         * {@link pairs} entry as an extra adjacency edge, but only offers
+         * paths using it while the company still has an untapped character
+         * with {@link requiredSkill}. If the resolved path actually uses one
+         * of those virtual edges, `handleRevealNewSite` (mh-steps.ts) taps
+         * that character, removes this constraint, and injects
+         * {@link attack} as a `region-shortcut-attack` combat before the
+         * hazard limit is set. Otherwise the constraint survives to
+         * `snapshotHazardLimit`, which applies {@link hazardLimitReduction}
+         * if the company's resolved destination region is one of the
+         * (flattened) region names in {@link pairs} — the printed
+         * "alternatively" clause. The two payoffs are mutually exclusive on
+         * a single move because firing the attack removes the constraint
+         * before the hazard-limit check ever sees it.
+         */
+        readonly type: 'region-shortcut';
+        /** Region-name pairs treated as adjacent for path-finding purposes. */
+        readonly pairs: readonly (readonly [string, string])[];
+        /** Skill an untapped company member must have to use the shortcut. */
+        readonly requiredSkill: import('./common.js').Skill;
+        /** Forced attack faced when the shortcut is actually used. */
+        readonly attack?: {
+          readonly race: import('./common.js').Race;
+          readonly strikes: number;
+          readonly prowess: number;
+        };
+        /** Hazard-limit adjustment applied when the destination region matches, and the shortcut was not used. */
+        readonly hazardLimitReduction: { readonly value: number; readonly floor: number };
+      }
+    | {
+        /**
          * Roam the Waste (ba-73): each of the constrained player's companies is
          * "considered to have one fewer Wilderness / Shadow-land … in its site
          * path" for the rest of the turn. Player-targeted and turn-scoped; read

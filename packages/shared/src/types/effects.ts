@@ -2711,6 +2711,16 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * carries the per-region delta.
    */
   readonly floor?: number;
+  /**
+   * For a `region-shortcut` constraint (Ash Mountains tw-194): region-name
+   * pairs treated as adjacent for region-movement path-finding purposes.
+   */
+  readonly pairs?: readonly (readonly [string, string])[];
+  /**
+   * For a `region-shortcut` constraint: the skill an untapped company member
+   * must have to use the granted shortcut (tapped as its cost).
+   */
+  readonly requiredSkill?: Skill;
 }
 
 /**

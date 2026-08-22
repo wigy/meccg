@@ -1693,6 +1693,13 @@ function applyOneConstraint(
       // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
       // resolved site path — no broad legal-action filtering needed here.
       return base;
+    case 'region-shortcut':
+      // Consulted directly: `companyRegionShortcutPairs`
+      // (legal-actions/movement-hazard.ts) widens declare-path region
+      // enumeration, `checkRegionShortcutUsage`/`snapshotHazardLimit`
+      // (mh-steps.ts) apply its attack/hazard-limit payoffs — no broad
+      // legal-action filtering needed here.
+      return base;
     case 'cancel-return-and-site-tap':
       return base;
     case 'cancel-character-discard':

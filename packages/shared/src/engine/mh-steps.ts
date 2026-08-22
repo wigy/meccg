@@ -18,10 +18,11 @@
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, PlayerState } from '../index.js';
 import type { AhuntAttackEffect, UnderDeepsRollModifierEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
+import type { ActiveConstraint } from '../types/pending.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, companyContainsBalrogAvatar, isMinionOrBalrog } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
-import { RegionType, Race, Skill, Alignment, MovementType } from '../types/common.js';
+import { RegionType, Race, Skill, Alignment, MovementType, CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { collectCharacterEffects, collectPlayerInPlayEffects, resolveDrawModifier } from './effects/index.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
@@ -30,7 +31,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
+import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll, collectPassiveMovementBonus } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
@@ -513,8 +514,7 @@ export function handleRevealNewSite(
   // (creature keying, ahunt matching, force-return-to-origin, corruption counts).
   const reduced = applySitePathReduction(state, player.id, resolvedSitePath, resolvedSitePathNames);
 
-  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${reduced.path.length} region types: ${reduced.path.join(', ')}) → auto-advancing through set-hazard-limit`);
-  return enterSetHazardLimitAndAutoAdvance(state, {
+  const nextMhState: MovementHazardPhaseState = {
     ...mhState,
     movementType: action.movementType,
     declaredRegionPath: action.regionPath ?? [],
@@ -522,7 +522,107 @@ export function handleRevealNewSite(
     resolvedSitePathNames: reduced.names,
     destinationSiteType: destDef.siteType,
     destinationSiteName: destDef.name,
-  });
+  };
+
+  // Ash Mountains (tw-194) and its "movement enhancer" family: if this
+  // company's declared region path actually crosses one of a bound
+  // `region-shortcut` constraint's virtual adjacency pairs, tap the ranger
+  // that paid for it, consume the constraint, and face the printed forced
+  // attack before the hazard limit is set. `checkRegionShortcutUsage` returns
+  // null when the company holds no such constraint, the path is starter/
+  // under-deeps/special, or no matching pair was actually traversed.
+  if (action.movementType === 'region') {
+    const shortcut = checkRegionShortcutUsage(state, player, company, reduced.names);
+    if (shortcut) {
+      const rangerChar = playerById(state, player.id)!.characters[shortcut.rangerInstanceId];
+      logDetail(`Region shortcut (${shortcut.constraint.sourceDefinitionId as string}): path uses virtual adjacency ${shortcut.pair[0]} ↔ ${shortcut.pair[1]} — tapping ${rangerChar ? cardName(state, rangerChar.definitionId, 'ranger') : 'ranger'} and facing the forced attack`);
+      let nextState = updatePlayer(state, getPlayerIndex(state, player.id), p =>
+        updateCharacter(p, shortcut.rangerInstanceId, c => ({ ...c, status: CardStatus.Tapped })));
+      nextState = { ...nextState, activeConstraints: nextState.activeConstraints.filter(c => c.id !== shortcut.constraint.id) };
+      const attack = shortcut.constraint.kind.attack;
+      if (attack) {
+        const combat = makeCombatState({
+          attackSource: { type: 'region-shortcut-attack', eventInstanceId: shortcut.constraint.source, companyId: company.id },
+          companyId: company.id,
+          defendingPlayerId: player.id,
+          attackingPlayerId: hazardPlayer(nextState, player.id).id,
+          strikesTotal: attack.strikes,
+          strikeProwess: attack.prowess,
+          creatureBody: null,
+          creatureRace: attack.race,
+          assignmentPhase: 'defender',
+          detainment: false,
+        });
+        return {
+          state: {
+            ...nextState,
+            combat,
+            phaseState: { ...nextMhState, step: 'region-shortcut-attack' },
+          },
+        };
+      }
+      return enterSetHazardLimitAndAutoAdvance(nextState, nextMhState);
+    }
+  }
+
+  logDetail(`Movement/Hazard: path declared (${action.movementType}, ${reduced.path.length} region types: ${reduced.path.join(', ')}) → auto-advancing through set-hazard-limit`);
+  return enterSetHazardLimitAndAutoAdvance(state, nextMhState);
+}
+
+/**
+ * Find an untapped company member carrying `skill`, or null.
+ */
+function findUntappedCharacterWithSkill(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  skill: Skill,
+): CardInstanceId | null {
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char || char.status !== CardStatus.Untapped) continue;
+    const def = defById(state, char.definitionId);
+    if (!def || !isCharacterCard(def)) continue;
+    if (def.skills?.includes(skill)) return charId;
+  }
+  return null;
+}
+
+/**
+ * Check whether `company`'s just-resolved region-movement path (`pathNames`)
+ * actually crosses one of the region pairs granted by an active
+ * `region-shortcut` constraint bound to it, and whether the company still has
+ * an untapped character able to pay the tap cost. Returns the matching
+ * constraint, the pair it matched, and the character to tap — or null when
+ * no bound constraint exists, no pair is crossed, or no eligible character
+ * remains untapped (the shortcut then simply goes unused this move).
+ */
+type RegionShortcutConstraint = ActiveConstraint & { readonly kind: Extract<ActiveConstraint['kind'], { readonly type: 'region-shortcut' }> };
+
+function checkRegionShortcutUsage(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  pathNames: readonly string[],
+): { readonly constraint: RegionShortcutConstraint; readonly pair: readonly [string, string]; readonly rangerInstanceId: CardInstanceId } | null {
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'region-shortcut') continue;
+    if (constraint.target.kind !== 'company' || constraint.target.companyId !== company.id) continue;
+    const kind = constraint.kind;
+    for (let i = 0; i < pathNames.length - 1; i++) {
+      const a = pathNames[i];
+      const b = pathNames[i + 1];
+      const pair = kind.pairs.find(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
+      if (!pair) continue;
+      const rangerInstanceId = findUntappedCharacterWithSkill(state, player, company, kind.requiredSkill);
+      if (!rangerInstanceId) {
+        logDetail(`Region shortcut: path crosses ${pair[0]} ↔ ${pair[1]} but no untapped ${kind.requiredSkill as string} remains in company ${company.id as string} — shortcut not used`);
+        continue;
+      }
+      return { constraint: constraint as RegionShortcutConstraint, pair, rangerInstanceId };
+    }
+  }
+  return null;
 }
 
 /**
@@ -843,6 +943,36 @@ export function snapshotHazardLimit(
     limit = next;
     preRevealConstraintIds.push(constraint.id);
     logDetail(`Hazard limit modified by ${perCount * count} (${count}x ${regionType}, ${constraint.sourceDefinitionId as string}, floor ${floor}): ${prev} → ${limit}`);
+  }
+
+  // region-shortcut constraints (Ash Mountains tw-194 and its "movement
+  // enhancer" family) still bound to this company at hazard-limit time: the
+  // shortcut was NOT used for this move (a used shortcut removes the
+  // constraint and injects the printed attack instead — see
+  // `checkRegionShortcutUsage` in `handleRevealNewSite`), so the printed
+  // "alternatively" clause applies if the company's resolved destination
+  // region (the last entry of its site path) is one of the constraint's
+  // named regions.
+  {
+    const destinationRegion = regionNames[regionNames.length - 1];
+    if (destinationRegion) {
+      for (const constraint of state.activeConstraints) {
+        if (constraint.kind.type !== 'region-shortcut'
+            || constraint.target.kind !== 'company'
+            || constraint.target.companyId !== company.id) continue;
+        const { pairs, hazardLimitReduction } = constraint.kind;
+        const namedRegions = new Set(pairs.flat());
+        if (!namedRegions.has(destinationRegion)) continue;
+        const prev = limit;
+        let next = limit + hazardLimitReduction.value;
+        if (hazardLimitReduction.value < 0 && next < hazardLimitReduction.floor) {
+          next = Math.min(prev, hazardLimitReduction.floor);
+        }
+        limit = next;
+        preRevealConstraintIds.push(constraint.id);
+        logDetail(`Hazard limit modified by ${hazardLimitReduction.value} (region-shortcut destination ${destinationRegion}, ${constraint.sourceDefinitionId as string}, floor ${hazardLimitReduction.floor}): ${prev} → ${limit}`);
+      }
+    }
   }
 
   // Apply site-rule hazard-limit-modifier from the destination site's effects.
