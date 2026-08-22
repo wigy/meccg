@@ -21,7 +21,8 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay } from './reducer-utils.js';
+import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
@@ -1244,6 +1245,16 @@ export function handleDiscardToRecruit(state: GameState, action: GameAction): Re
   if (recruit.filter && !matchesCondition(recruit.filter, { target: newDef })) {
     return { state, error: `discard-to-recruit: ${newDef.name} does not match the recruit filter` };
   }
+  // Backstop the state-corrupting gates (uniqueness enforced only in emitters
+  // for normal character plays): two copies of a unique character — or two
+  // manifestations of one entity — must never both be in play.
+  if (newDef.unique && isUniqueCharacterInPlay(state, newDef.name)) {
+    return { state, error: `discard-to-recruit: ${newDef.name} is unique and already in play` };
+  }
+  const blockingManifestation = manifestationOfEntityInPlay(state, newDef);
+  if (blockingManifestation !== null) {
+    return { state, error: `discard-to-recruit: ${blockingManifestation}, a manifestation of the same entity as ${newDef.name}, is already in play` };
+  }
 
   logDetail(`Discard-to-recruit: ${newDef.name} enters play with ${oldDef.name}'s company; ${oldDef.name} is discarded and all cards on him transfer`);
 
@@ -2446,6 +2457,17 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
 
   let siteDeck = player.siteDeck;
 
+  // The source company is dissolved, so every in-play card bound to it by
+  // `companyId` (Ringwraith-mode cards Fell Rider le-183 etc., An Unexpected
+  // Party dm-114, extra-leader-slot cards, company-bound storables) must
+  // rebind to the surviving target — otherwise it points at a company that no
+  // longer exists and is silently disabled (e.g. `ringwraithHasModeCard`
+  // stops finding the mode). Mirrors the split path's rule 2.II.3.6.1 rebind,
+  // which the inverse operation omitted.
+  const cardsInPlay = player.cardsInPlay.map(card =>
+    card.companyId === action.sourceCompanyId ? { ...card, companyId: action.targetCompanyId } : card,
+  );
+
   // Rule 2.II.3.5.2: if the source and target each held their own physical
   // instance of the same haven, only one instance stays in play — the
   // now-redundant source instance returns to the site deck (unless another
@@ -2502,7 +2524,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   });
 
   let mergeResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck, cardsInPlay })),
     reverseActions: [...state.reverseActions, ...reverses],
   })), [action.sourceCompanyId, action.targetCompanyId]);
 

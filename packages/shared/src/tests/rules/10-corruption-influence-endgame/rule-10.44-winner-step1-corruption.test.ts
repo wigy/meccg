@@ -15,6 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase } from '../../../index.js';
+import { recomputeDerived } from '../../../engine/recompute-derived.js';
 import type { FreeCouncilPhaseState, CardDefinitionId, CorruptionCheckAction } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableFor,
@@ -143,7 +144,8 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
     // AND again inside each failure branch, so a defeated character's attached
     // hazards landed in the owner's discard pile twice — the same CardInstance
     // duplicated, violating the no-duplicate invariant.
-    const ORC_GUARD = 'tw-072' as CardDefinitionId; // a hazard-creature
+    const LURE_OF_THE_SENSES = 'tw-60' as CardDefinitionId; // +2 CP corruption card
+    const LURE_OF_NATURE = 'tw-58' as CardDefinitionId;     // +2 CP corruption card
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
@@ -152,8 +154,11 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
-    // Attach an opponent-owned hazard to Gandalf so it routes to PLAYER_2's discard.
-    const withHazard = attachHazardToChar(base, RESOURCE_PLAYER, GANDALF, ORC_GUARD, HAZARD_PLAYER);
+    // Attach opponent-owned corruption cards to Gandalf (CP 4 total after
+    // recompute) so they route to PLAYER_2's discard and the check can fail.
+    let withHazard = attachHazardToChar(base, RESOURCE_PLAYER, GANDALF, LURE_OF_THE_SENSES, HAZARD_PLAYER);
+    withHazard = attachHazardToChar(withHazard, RESOURCE_PLAYER, GANDALF, LURE_OF_NATURE, HAZARD_PLAYER);
+    withHazard = recomputeDerived(withHazard);
     const gandalfId = findCharInstanceId(withHazard, RESOURCE_PLAYER, GANDALF);
     const hazardId = withHazard.players[RESOURCE_PLAYER].characters[gandalfId].hazards[0].instanceId;
 
@@ -167,14 +172,20 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
       pendingCheck: null,
     };
 
-    // Gandalf (wizard, CP 5) rolls 5 == CP → fails → eliminated; his hazards discard.
-    const after = dispatch(
-      { ...withHazard, cheatRollTotal: 5, phaseState: fcState },
-      {
-        type: 'corruption-check', player: PLAYER_1, characterId: gandalfId,
-        corruptionPoints: 5, corruptionModifier: 0, possessions: [], need: 6, explanation: 'regression',
-      },
-    );
+    // Gandalf (CP 4, his own +1 check modifier) rolls 2 → total 3 == CP-1 →
+    // the check fails and he is discarded; his attached hazards discard too.
+    // Use the ENGINE-OFFERED action, whose `possessions` list is populated by
+    // characterPossessions (items + allies + hazards) — the original version of
+    // this test hand-crafted `possessions: []` (and modifier 0), which
+    // bypassed the second discard path and masked the surviving duplication.
+    const state = { ...withHazard, cheatRollTotal: 2, phaseState: fcState };
+    const checkActions = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'corruption-check')
+      .map(a => a.action as CorruptionCheckAction)
+      .filter(a => a.characterId === gandalfId);
+    expect(checkActions).toHaveLength(1);
+    expect(checkActions[0].possessions).toContain(hazardId);
+    const after = dispatch(state, checkActions[0]);
 
     const copies = after.players[HAZARD_PLAYER].discardPile.filter(c => c.instanceId === hazardId);
     expect(copies).toHaveLength(1);

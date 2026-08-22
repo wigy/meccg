@@ -102,6 +102,29 @@ describe('Rule 1.32 — Pool Rules', () => {
     expect(errors.some(e => e.section === 'pool' && e.message.includes('may not be included with a starting company'))).toBe(true);
   });
 
+  test('Pool with Forgotten Scrolls (dm-169) produces a pool error', () => {
+    // Regression: dm-169 prints "Cannot be included with a starting company"
+    // but lacked the `no-starting-company` play-flag its siblings (as-130,
+    // as-131) carry, so both this pool check and the item-draft refusal
+    // silently accepted it.
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Forgotten Scrolls', card: 'dm-169' as CardDefinitionId, qty: 1 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('may not be included with a starting company'))).toBe(true);
+  });
+
+  test('Pool with Lost Tome (dm-172) produces a pool error', () => {
+    // Same regression as dm-169 — the flag was missing from the data.
+    const deck: DeckList = {
+      ...baseDeck,
+      pool: [{ name: 'Lost Tome', card: 'dm-172' as CardDefinitionId, qty: 1 }],
+    };
+    const errors = validateDeck(deck, pool);
+    expect(errors.some(e => e.section === 'pool' && e.message.includes('may not be included with a starting company'))).toBe(true);
+  });
+
   test('Pool with an ordinary character has no starting-company error', () => {
     const deck: DeckList = {
       ...baseDeck,

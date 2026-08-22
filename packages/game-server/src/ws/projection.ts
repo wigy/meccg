@@ -112,10 +112,18 @@ function unmaskOwnDeckFetchCandidates(
  * identity of the top (most recently discarded) card. Used when the viewing
  * player controls Pallando (tw-175): CRF 22 rules that Pallando "can only see
  * the top card of an opponent's discard pile" — not the whole pile.
+ *
+ * Cards explicitly revealed via `handRevealedInstances` (e.g. Aware of their
+ * Ways dm-46 drawing buried discard cards for a pick) stay revealed: this
+ * override narrows the default redaction's *hidden* set only for the top
+ * card, it must never re-hide what an effect has already revealed.
  */
-function hiddenPileRevealTop(pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[]): readonly ViewCard[] {
+function hiddenPileRevealTop(
+  pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
+  revealed: GameState['handRevealedInstances'] | undefined,
+): readonly ViewCard[] {
   return pile.map((c, i) =>
-    i === pile.length - 1
+    i === pile.length - 1 || revealed?.[c.instanceId] !== undefined
       ? { instanceId: c.instanceId, definitionId: c.definitionId }
       : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
   );
@@ -285,6 +293,34 @@ export function projectSpectatorView(state: GameState): PlayerView {
   const p1 = state.players[0];
   const p2 = state.players[1];
 
+  // The bottom player's companies are shown raw below (public info: sites,
+  // characters, planned movement), but their on-guard cards are the OPPONENT's
+  // face-down hazards — hidden information no one but that opponent may see.
+  // buildSelfView redacts these; the spectator "self" slot must too, or a
+  // watcher sees the face-down bluffs on p1's companies.
+  const p1Companies = p1.companies.map(c =>
+    c.onGuardCards.length > 0
+      ? { ...c, onGuardCards: c.onGuardCards.map(og => (og.revealed ? og : { ...og, definitionId: UNKNOWN_CARD })) }
+      : c,
+  );
+
+  // A face-down agent's identity, its carried cards, and the sites it has
+  // visited are all hidden information — the opponent view exposes only that
+  // one exists and how many sites it holds. The bottom player owns these
+  // agents, so buildSelfView shows them raw, but a spectator is not the owner:
+  // redact a face-down agent's card identity, attachments, and the identity of
+  // every site in its stack (the count, which is public, is preserved). A
+  // revealed agent is public and passes through.
+  const p1Agents = p1.agents.map(a =>
+    a.revealed
+      ? a
+      : {
+        ...a,
+        character: { ...a.character, definitionId: UNKNOWN_CARD, items: [], allies: [], hazards: [], followers: [] },
+        siteStack: a.siteStack.map(s => ({ ...s, definitionId: UNKNOWN_SITE })),
+      },
+  );
+
   const _self = buildOpponentView(state, p1);
   // Reveal the opponent-side player's planned movement to spectators. The
   // bottom player (p1, projected as "self" from raw companies) already carries
@@ -315,8 +351,8 @@ export function projectSpectatorView(state: GameState): PlayerView {
       sideboard: [],
       killPile: [],
       outOfPlayPile: [],
-      companies: p1.companies,
-      agents: p1.agents,
+      companies: p1Companies,
+      agents: p1Agents,
     },
     opponent,
     activePlayer: state.activePlayer,
@@ -387,23 +423,46 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
 
 /**
  * Redacts draft state for spectators: both players' drafted and
- * set-aside are visible, but pools, picks, and starting items are hidden.
+ * set-aside are visible, but pools, picks, favourites, and the
+ * deck-draft remaining pools are hidden — a spectator sees at most what
+ * either player sees of the other, never more.
  */
 function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
-  if (phaseState.phase !== 'setup' || phaseState.setupStep.step !== 'character-draft') return phaseState;
+  if (phaseState.phase !== 'setup') return phaseState;
 
-  const step = phaseState.setupStep;
-  const redact = (d: DraftPlayerState): DraftPlayerState => ({
-    ...d,
-    pool: hiddenCardPile(d.pool),
-    // drafted stays visible — it's public after reveal
-    currentPick: null,
-  });
+  if (phaseState.setupStep.step === 'character-draft') {
+    const step = phaseState.setupStep;
+    const redact = (d: DraftPlayerState): DraftPlayerState => ({
+      ...d,
+      pool: hiddenCardPile(d.pool),
+      // drafted stays visible — it's public after reveal
+      currentPick: null,
+      // The players' plans, hidden from each other — and from spectators.
+      favourites: undefined,
+    });
 
-  return {
-    ...phaseState,
-    setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
-  };
+    return {
+      ...phaseState,
+      setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
+    };
+  }
+
+  // Leftover pool characters are shuffled into the play deck — knowing them is
+  // knowing hidden deck contents, so both players' remaining pools are hidden
+  // from spectators exactly as each is from the opponent.
+  if (phaseState.setupStep.step === 'character-deck-draft') {
+    const step = phaseState.setupStep;
+    const redact = (d: CharacterDeckDraftPlayerState): CharacterDeckDraftPlayerState => ({
+      ...d,
+      remainingPool: hiddenCardPile(d.remainingPool),
+    });
+    return {
+      ...phaseState,
+      setupStep: { ...step, deckDraftState: [redact(step.deckDraftState[0]), redact(step.deckDraftState[1])] },
+    };
+  }
+
+  return phaseState;
 }
 
 /**
@@ -473,7 +532,7 @@ function buildPlayerView(
     // Pallando (tw-175, CRF 22): the controlling player can see only the top
     // card of the opponent's discard pile (discards happen one at a time, so
     // this lets them see each card as it is discarded).
-    opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile) };
+    opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile, state.handRevealedInstances) };
   }
 
   const redactedPhase = redactPhaseForPlayer(state.phaseState, selfIndex);

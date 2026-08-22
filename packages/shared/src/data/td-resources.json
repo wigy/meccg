@@ -674,7 +674,32 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "elf",
+          "target.status": "untapped"
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "only-creatures-keyed-to-site-if-safe-path",
+          "scope": "turn"
+        }
+      }
+    ],
+    "certified": "2026-08-22",
     "text": "Playable only at the end of the organization phase. Tap an Elf. If his company’s site path only has one or two regions with no Dark-domains [{d}] and no Shadow-lands [{s}], opponent may only play hazard creatures this turn that are keyed to the company’s new site."
   },
   {

@@ -54,18 +54,33 @@ function sign(payload: Record<string, unknown>): string {
   return `${header}.${body}.${signature}`;
 }
 
-/** Verify and decode a JWT. Returns null if invalid or expired. */
+/**
+ * Verify and decode a JWT. Returns null if invalid or expired — for ANY
+ * malformed input. This must never throw: the WebSocket upgrade handler
+ * calls it synchronously outside every error scaffold, so an exception here
+ * (e.g. `timingSafeEqual`'s RangeError on a wrong-length signature, or
+ * JSON.parse on a garbage body) would take the whole lobby process down on
+ * one unauthenticated request.
+ */
 function verify<T>(token: string): T | null {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [header, body, sig] = parts;
-  const expected = crypto.createHmac('sha256', JWT_SECRET)
-    .update(`${header}.${body}`)
-    .digest('base64url');
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
-  const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as T & { exp: number };
-  if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-  return payload;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [header, body, sig] = parts;
+    const expected = crypto.createHmac('sha256', JWT_SECRET)
+      .update(`${header}.${body}`)
+      .digest('base64url');
+    const sigBuf = Buffer.from(sig);
+    const expectedBuf = Buffer.from(expected);
+    // timingSafeEqual THROWS on length mismatch rather than returning false.
+    if (sigBuf.length !== expectedBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as T & { exp: number };
+    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 /** Sign a lobby session token for the given player name. */
