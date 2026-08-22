@@ -31,6 +31,7 @@ import {
   viableActions, makeShadowMHState, makeMHState,
   P1_COMPANY,
   handCardId, charIdAt, findCharInstanceId, dispatch,
+  eliminateCharacter,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -290,5 +291,57 @@ describe('Seized by Terror (dm-88)', () => {
     expect(company.characters).toContain(aragornId);
     // destinationSite cleared — company stays at origin
     expect(company.destinationSite).toBeNull();
+  });
+
+  // ── Target leaves play while the roll is pending ──────────────────────────
+
+  test('target eliminated while the roll is pending: no effect, game not deadlocked', () => {
+    // Regression: the seized-by-terror-roll emitter returned NO actions when
+    // the target character had left play before the roll, leaving the
+    // resolving chain stuck with no legal actions for either player — the
+    // same deadlock class as the faction-influence-roll fix (#1725).
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [SEIZED_BY_TERROR], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const mhState: GameState = { ...state, phaseState: makeShadowMHState() };
+    const cardId = handCardId(mhState, HAZARD_PLAYER);
+
+    let s = dispatch(mhState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: cardId,
+      targetCompanyId: P1_COMPANY,
+      targetCharacterId: aragornId,
+    });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+    expect(s.pendingResolutions.find(r => r.kind.type === 'seized-by-terror-roll')).toBeDefined();
+
+    // Aragorn leaves play while the roll is pending.
+    const gone = eliminateCharacter(s, RESOURCE_PLAYER, aragornId, s.players[RESOURCE_PLAYER].characters[aragornId]);
+
+    const rollAction = computeLegalActions(gone, PLAYER_1).find(
+      a => a.viable && a.action.type === 'seized-by-terror-roll',
+    );
+    expect(rollAction).toBeDefined();
+
+    // Resolving fizzles: chain completes, the company is untouched.
+    const after = dispatch(gone, rollAction!.action);
+    expect(after.pendingResolutions).toHaveLength(0);
+    expect(after.chain).toBeNull();
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(1);
+    const anyViable = [
+      ...computeLegalActions(after, PLAYER_1),
+      ...computeLegalActions(after, PLAYER_2),
+    ].some(a => a.viable);
+    expect(anyViable).toBe(true);
   });
 });

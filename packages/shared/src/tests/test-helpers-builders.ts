@@ -1340,6 +1340,11 @@ export function buildForceReturnMHState(
           siteCardOwned: true,
           destinationSite: { instanceId: dest.instanceId, definitionId: dest.definitionId, status: CardStatus.Untapped },
         }],
+        // Match the real plan-movement reducer: the destination card leaves the
+        // site deck while the company holds it as `destinationSite`. Leaving it
+        // in the deck made "the site returned to the deck" assertions pass
+        // vacuously.
+        siteDeck: built.players[0].siteDeck.filter(c => c.instanceId !== dest.instanceId),
       },
       built.players[1],
     ] as unknown as typeof built.players,

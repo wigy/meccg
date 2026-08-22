@@ -20,7 +20,7 @@ import type { CardInstanceId, CompanyId, Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard } from '../types/cards.js';
-import { CardStatus } from '../types/common.js';
+import { Alignment, CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -580,12 +580,16 @@ function computeAgentAttackProwess(
   const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
 
   let prowess = agentDef.prowess;
+  let body = agentDef.body;
   if (isWounded) prowess -= 2;
   if (isFaceDown && !isAtHome) prowess += 2;
-  if (isFaceDown && isAtHome) prowess += 5;
-  if (!isFaceDown && isAtHome) prowess += 2;
+  // Rule 3.iv.6.1: at its home site the agent also gets +1 body (both
+  // face-down +5 and face-up +2 prowess tiers carry it) — mirrors the
+  // site-phase declare-agent-attack path in reducer-site.ts.
+  if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
+  if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
   prowess += prowessBonus;
-  return { prowess, body: agentDef.body, isFaceDown, isAtHome, destSiteInst, company };
+  return { prowess, body, isFaceDown, isAtHome, destSiteInst, company };
 }
 
 /**
@@ -688,6 +692,12 @@ export function handleAgentTapAttack(
   if ('error' in revealed) return { state, error: revealed.error };
   const newState = revealed;
 
+  // Rule 3.II.2.R3/B3: a Ringwraith or Balrog player treats agent hazard
+  // attacks against their companies as detainment — mirrors the site-phase
+  // declare-agent-attack path.
+  const defendingAlignment = state.players[getPlayerIndex(state, state.activePlayer!)].alignment;
+  const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
+
   // Build CombatState
   const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: agent.character.instanceId },
@@ -698,7 +708,7 @@ export function handleAgentTapAttack(
     strikeProwess: prowess,
     creatureBody: body,
     assignmentPhase: tapAttackEff.attackerAssigns ? 'attacker' : 'defender',
-    detainment: false,
+    detainment,
     ...(tapAttackEff.attackerAssigns ? { forceSingleTarget: true } : {}),
   });
 
@@ -1021,6 +1031,12 @@ export function handleTapAgentAtSite(
     ? mhState.hazardsPlayedThisCompany
     : mhState.hazardsPlayedThisCompany + 1;
 
+  // Rule 3.II.2.R3/B3: a Ringwraith or Balrog player treats agent hazard
+  // attacks against their companies as detainment — mirrors the site-phase
+  // declare-agent-attack path.
+  const defendingAlignment = state.players[getPlayerIndex(state, state.activePlayer!)].alignment;
+  const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
+
   // --- Build CombatState ---
   const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: agentInstanceId },
@@ -1031,7 +1047,7 @@ export function handleTapAgentAtSite(
     strikeProwess: prowess,
     creatureBody: body,
     assignmentPhase: tapAgentEff.attackerAssigns ? 'attacker' : 'defender',
-    detainment: false,
+    detainment,
     ...(tapAgentEff.attackerAssigns ? { forceSingleTarget: true } : {}),
     ...(tapAgentEff.strikeEffect ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
   });

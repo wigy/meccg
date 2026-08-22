@@ -543,7 +543,17 @@ function runGrantApply(
           if (!liveChain) return s;
           const newEntries = liveChain.entries.map((e, i) => i === entryIndex ? { ...e, negated: true } : e);
           let nextState: GameState = { ...s, chain: { ...liveChain, entries: newEntries } };
-          if (entry.card) {
+          // A hazard short event was already moved hand → discard at play time
+          // (mh-hazard-play), so pushing the chain entry's copy again would
+          // duplicate the instance — same guard as completeChain's
+          // negated-entry flush. Only cards that still live solely on the
+          // chain (creatures, permanent events) are routed here.
+          const alreadyDiscarded = entry.card !== null && nextState.players.some(p =>
+            p.discardPile.some(c => c.instanceId === entry.card!.instanceId),
+          );
+          if (alreadyDiscarded) {
+            logDetail(`cancel-chain-entry: card ${entry.card.instanceId as string} already in a discard pile — not discarding again`);
+          } else if (entry.card) {
             const hazardPlayerIndex = nextState.players.findIndex(p => p.id === entry.declaredBy);
             if (hazardPlayerIndex >= 0) {
               const hazardPlayer = nextState.players[hazardPlayerIndex];

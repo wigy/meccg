@@ -39,7 +39,7 @@ import {
   viablePlayCharacterActions, enqueueTransferCorruptionCheck,
   assertEveryInstanceReachable, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, BAG_END } from '../../index.js';
+import { computeLegalActions, reduce, BAG_END } from '../../index.js';
 import type { CorruptionCheckAction, DiscardToRecruitAction } from '../../index.js';
 
 const FOLCO = 'dm-180' as CardDefinitionId;
@@ -188,6 +188,46 @@ describe('Folco Boffin (dm-180)', () => {
   test('discard-to-recruit is also offered in the site phase (CRF: any normal-resource window)', () => {
     const state = buildSitePhaseState({ characters: [FOLCO], site: RIVENDELL, hand: [BILBO] });
     expect(viableActions(state, PLAYER_1, 'discard-to-recruit')).toHaveLength(1);
+  });
+
+  test('discard-to-recruit is NOT offered for a unique Hobbit already in play (uniqueness)', () => {
+    // Regression: the recruit is still a character play, so a unique character
+    // already in play cannot be brought in a second time — the sibling
+    // recruit-via-event path enforces this. Here the opponent already has
+    // Bilbo in play, so the controller may not recruit their own Bilbo.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [FOLCO] }], hand: [BILBO], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'discard-to-recruit')).toHaveLength(0);
+  });
+
+  test('the reducer rejects a recruit of a unique Hobbit already in play (backstop)', () => {
+    // Even if a client bypasses the emitter, the reducer must not put a second
+    // copy of a unique character into play.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [FOLCO] }], hand: [BILBO], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const folcoId = findCharInstanceId(state, RESOURCE_PLAYER, FOLCO);
+    const bilboInHand = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const result = reduce(state, {
+      type: 'discard-to-recruit', player: PLAYER_1, characterId: folcoId, cardInstanceId: bilboInHand,
+    });
+    // The illegal recruit is refused: Folco stays in play, Bilbo stays in hand.
+    expect(result.error).toBeDefined();
+    expect(result.state.players[RESOURCE_PLAYER].characters[folcoId]).toBeDefined();
+    expect(result.state.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === bilboInHand)).toBe(true);
   });
 
   test('resolving the recruit discards Folco and brings the Hobbit into his company with all cards transferred', () => {

@@ -89,6 +89,28 @@ describe('Obey Him or Die (ba-69)', () => {
     expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBe(gorbagId);
   });
 
+  test('NOT playable outside the organization phase ("Playable during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window (movement/hazard,
+    // site, end-of-turn) despite the printed restriction.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Balrog,
+          companies: [{ site: BARAD_DUR, characters: [THE_BALROG, GORBAG] }],
+          hand: [OBEY_HIM_OR_DIE],
+          siteDeck: [BARAD_DUR],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [], hand: [], siteDeck: [BARAD_DUR], playDeck: makePlayDeck() },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   test('NOT playable on a non-leader character in The Balrog\'s company', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
