@@ -787,6 +787,16 @@ function declareAgentAttackActions(
         continue;
       }
 
+      if (agent.siteStack.length > 0) {
+        // Traveled face-down agent: its current site card is already on top of
+        // its own stack — the reveal needs no deck card and carries no rule
+        // 4.2.2 / 9.04 penalty. Offer the plain attack; a homeSiteInstanceId
+        // variant would (wrongly) pull a home-site card from the deck.
+        logDetail(`Agent ${agent.id as string}: face-down with traveled site stack — offering attack without home site`);
+        actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+        continue;
+      }
+
       // Offer one action per home site in deck (for the reveal-at-declare)
       const seenHome = new Set<string>();
       let offeredAny = false;
