@@ -82,12 +82,15 @@ export function listPlayerDecks(name: string): unknown[] {
  * Returns null if the deck is not found in either location.
  */
 export function findDeckById(playerName: string, deckId: string): DeckList | null {
-  // Check player's personal collection
-  const dir = decksDir(playerName);
+  // Sanitize the id into a bare filename BEFORE it touches any path — a deckId
+  // reaches here from a caller-controlled current-deck selection, and the raw
+  // value ("../../../players/victim/info") would otherwise let path.join walk
+  // out of the deck directories and read any .json on disk (e.g. another
+  // player's password hash). Both the personal-collection and catalog lookups
+  // use the sanitized name; real deck ids are already `[a-z0-9-]`.
   const filename = deckId.replace(/[^a-z0-9-]/g, '-') + '.json';
-  const playerPath = path.join(dir, filename);
-  return readJson<DeckList>(playerPath)
-    ?? readJson<DeckList>(path.join(DECK_CATALOG_DIR, `${deckId}.json`));
+  return readJson<DeckList>(path.join(decksDir(playerName), filename))
+    ?? readJson<DeckList>(path.join(DECK_CATALOG_DIR, filename));
 }
 
 /** List all stock decks from the catalog directory. */
