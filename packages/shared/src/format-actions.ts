@@ -586,7 +586,7 @@ export function describeAction(
     case 'haven-return':
       return `${playerName(action.player)} returns company to its site of origin`;
     case 'run-home':
-      return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move company ${action.companyId} to its nearest haven (Bill the Pony)`;
+      return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move ${compName(action.companyId)} to its nearest haven (Bill the Pony)`;
     case 'pay-event-maintenance':
       switch (action.paymentType) {
         case 'discard-self':
@@ -659,7 +659,7 @@ export function describeAction(
     case 'tap-alt-permanent-event':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
     case 'attack-alt-permanent-event':
-      return `${playerName(action.player)} attacks with ${instName(action.cardInstanceId)} from its permanent-event state (against company ${action.targetCompanyId as string})`;
+      return `${playerName(action.player)} attacks with ${instName(action.cardInstanceId)} from its permanent-event state (against ${compName(action.targetCompanyId)})`;
     case 'play-agent-manifestation':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
     case 'arrange-deck-top-card':
@@ -696,13 +696,13 @@ export function describeAction(
     case 'choose-long-dark-reach-attacker':
       return `${playerName(action.player)} names ${defName(action.definitionId)} to attack (Long Dark Reach)`;
     case 'gangways-extra-move':
-      return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
+      return `${playerName(action.player)} sends ${compName(action.companyId)} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
     case 'extra-mh-move':
-      return `${playerName(action.player)} sends company ${action.companyId} on another movement to ${instName(action.destinationSite)} (extra movement/hazard phase)`;
+      return `${playerName(action.player)} sends ${compName(action.companyId)} on another movement to ${instName(action.destinationSite)} (extra movement/hazard phase)`;
     case 'ally-tap-extra-mh-phase':
-      return `${playerName(action.player)} taps ${instName(action.allyInstanceId)} to send company ${action.companyId} on another movement/hazard phase (Shadowfax)`;
+      return `${playerName(action.player)} taps ${instName(action.allyInstanceId)} to send ${compName(action.companyId)} on another movement/hazard phase (Shadowfax)`;
     case 'character-tap-extra-mh-phase':
-      return `${playerName(action.player)} taps ${instName(action.characterInstanceId)} to send company ${action.companyId} on another movement/hazard phase (Carambor)`;
+      return `${playerName(action.player)} taps ${instName(action.characterInstanceId)} to send ${compName(action.companyId)} on another movement/hazard phase (Carambor)`;
     case 'apply-attacker-attack-option':
       return `${playerName(action.player)} applies ${instName(action.cardInstanceId)} to the attack (+prowess / detainment)`;
     case 'voluntary-discard-in-play':
@@ -710,15 +710,15 @@ export function describeAction(
     case 'return-attached-to-hand':
       return `${playerName(action.player)} returns ${instName(action.cardInstanceId)} to hand`;
     case 'discard-for-evil-hour-movement':
-      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant company ${action.companyId} the region-movement bonus (A More Evil Hour)`;
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant ${compName(action.companyId)} the region-movement bonus (A More Evil Hour)`;
     case 'left-behind-rejoin':
-      return `${playerName(action.player)} rejoins the left-behind company ${action.companyId} with its original company (Left Behind)`;
+      return `${playerName(action.player)} rejoins the left-behind ${compName(action.companyId)} with its original company (Left Behind)`;
     case 'cancel-weapon-effects':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} to cancel all effects of weapon ${instName(action.weaponInstanceId)} until end of combat (Whip of Many Thongs)`;
     case 'pay-site-tax':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to pay the site tax before playing an ally or item (Eddy in Fate's Tide)`;
     case 'pay-movement-tax':
-      return `${playerName(action.player)} taps ${instName(action.characterId)} to pay company ${action.companyId}'s movement tax (Enchanted Stream)`;
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to pay ${compName(action.companyId)}'s movement tax (Enchanted Stream)`;
     case 'reanimate-from-discard':
       return `${playerName(action.player)} taps Ringwraith ${instName(action.ringwraithInstanceId)} to bring ${instName(action.characterInstanceId)} from the discard pile into play as a new company (Urlurtsu Nurn)`;
     case 'company-tap-roll':
