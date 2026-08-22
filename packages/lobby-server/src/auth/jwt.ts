@@ -54,7 +54,14 @@ function sign(payload: Record<string, unknown>): string {
   return `${header}.${body}.${signature}`;
 }
 
-/** Verify and decode a JWT. Returns null if invalid or expired. */
+/**
+ * Verify and decode a JWT. Returns null if invalid or expired — for ANY
+ * malformed input. This must never throw: the WebSocket upgrade handler
+ * calls it synchronously outside every error scaffold, so an exception here
+ * (e.g. `timingSafeEqual`'s RangeError on a wrong-length signature, or
+ * JSON.parse on a garbage body) would take the whole lobby process down on
+ * one unauthenticated request.
+ */
 function verify<T>(token: string): T | null {
   try {
     const parts = token.split('.');
@@ -63,19 +70,15 @@ function verify<T>(token: string): T | null {
     const expected = crypto.createHmac('sha256', JWT_SECRET)
       .update(`${header}.${body}`)
       .digest('base64url');
-    // The signature segment is attacker-controlled: guard the length before
-    // timingSafeEqual, which throws RangeError on mismatched buffer lengths.
-    // A malformed token must return null (the documented contract), never
-    // throw — an unguarded throw here crashes the WS-upgrade handler (no
-    // try/catch around it) and takes down the whole lobby process.
     const sigBuf = Buffer.from(sig);
-    const expBuf = Buffer.from(expected);
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+    const expectedBuf = Buffer.from(expected);
+    // timingSafeEqual THROWS on length mismatch rather than returning false.
+    if (sigBuf.length !== expectedBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString()) as T & { exp: number };
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
     return payload;
   } catch {
-    // Malformed base64url / JSON / any other decoding failure → not authenticated.
     return null;
   }
 }

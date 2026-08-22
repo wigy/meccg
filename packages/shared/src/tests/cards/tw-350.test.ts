@@ -178,6 +178,49 @@ describe('Tom Bombadil (tw-350)', () => {
     expect(result.players[0].characters[aragornId].status).toBe(CardStatus.Untapped);
   });
 
+  test('canceling a hazard short event does not duplicate it in the discard pile', () => {
+    // Regression: a hazard short event is moved hand → discard at play time
+    // and rides the chain entry; the cancel-chain-entry apply unconditionally
+    // pushed the entry's card to the declarer's discard pile again, creating
+    // a second copy of the same instance (completeChain's negated-entry flush
+    // carries the guard, this path did not). Play Call of Home (tw-18, short
+    // event) through the real play-hazard path and cancel it with Tom.
+    const CALL_OF_HOME = 'tw-18' as CardDefinitionId;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: BREE }], hand: [], siteDeck: [BREE] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CALL_OF_HOME], siteDeck: [MORIA] },
+      ],
+    });
+    const withTom = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TOM_BOMBADIL);
+    const state = { ...withTom, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    const hazardInstId = state.players[1].hand[0].instanceId;
+
+    const playActions = computeLegalActions(state, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard');
+    expect(playActions.length).toBeGreaterThan(0);
+    const afterPlay = dispatch(state, playActions[0].action);
+
+    // Short event: discarded at play time, riding the open chain.
+    expect(afterPlay.players[1].discardPile.filter(c => c.instanceId === hazardInstId)).toHaveLength(1);
+    expect(afterPlay.chain).not.toBeNull();
+
+    const cancels = tomCancelActions(afterPlay);
+    expect(cancels.length).toBe(1);
+    const afterCancel = dispatch(afterPlay, cancels[0]);
+
+    // The entry is negated and the instance still exists exactly once.
+    expect(afterCancel.chain!.entries[0].negated).toBe(true);
+    expect(afterCancel.players[1].discardPile.filter(c => c.instanceId === hazardInstId)).toHaveLength(1);
+
+    // And it stays a single copy after the chain completes.
+    const done = dispatch(dispatch(afterCancel, { type: 'pass-chain-priority', player: PLAYER_1 }), { type: 'pass-chain-priority', player: PLAYER_2 });
+    expect(done.players[1].discardPile.filter(c => c.instanceId === hazardInstId)).toHaveLength(1);
+  });
+
   // ─── Discard on move to a disallowed region ──────────────────────────────
 
   test('is discarded when his company moves to a site outside the allowed regions (Minas Tirith)', () => {

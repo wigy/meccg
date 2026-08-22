@@ -369,6 +369,22 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         // the ranking is whichever candidate sorted first, not a preferred
         // one, and choosing uniformly removes the false preference without
         // inventing one.
+        //
+        // "Uniformly" means over the *choices* on offer, not over the raw
+        // action list: `transfer-item` and `store-item` name a destination
+        // character that the `health` module explicitly has no opinion about
+        // ("no marshalling-point preference is invented for it here"), so a
+        // tie between one `plan-movement` and an item sitting on four
+        // possible bearers is four action records for one real alternative
+        // and one for the other. Sampling that pool directly hands the draw
+        // to whichever action type happens to have the most equivalent
+        // targets — which is how a company organizing under CoE 2.II.3.6 (no
+        // `pass` until all but one company has declared movement) toured an
+        // item from bearer to bearer before ever reaching the movement
+        // declaration it still owed (game mt3e57h3-9f79dh, turn 1). Drawing
+        // the action *type* first, and only then a target within it, keeps
+        // every real alternative equally likely regardless of how many
+        // interchangeable targets it happens to have.
         const tied = evaluations.filter(e => e.utility >= best.utility - TIE_EPSILON);
         const legalPass = legalActions.find(a => a.type === 'pass');
         const passEvaluation = evaluations.find(e => e.action.type === 'pass');
@@ -383,10 +399,13 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         }
         const pool = tied.map(e => e.action);
         const options = pool.length > 0 ? pool : legalActions;
-        const chosen = options[Math.min(options.length - 1, Math.floor(context.random() * options.length))];
+        const types = [...new Set(options.map(a => a.type))];
+        const chosenType = types[Math.min(types.length - 1, Math.floor(context.random() * types.length))];
+        const withinType = options.filter(a => a.type === chosenType);
+        const chosen = withinType[Math.min(withinType.length - 1, Math.floor(context.random() * withinType.length))];
         return {
           action: chosen,
-          note: `no opinion — one of ${options.length} tied at random: ${chosen.type} `
+          note: `no opinion — one of ${types.length} action type(s) tied at random: ${chosen.type} `
             + `(${evaluations.length} candidate(s) scored)`,
         };
       }

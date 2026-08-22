@@ -71,7 +71,7 @@ const WAY_IS_SHUT = 'dm-98' as CardDefinitionId;
 const SECRET_ENTRANCE = 'tw-324' as CardDefinitionId;
 const SECRET_PASSAGE = 'tw-325' as CardDefinitionId;
 const UNDER_GATES = 'dm-38' as CardDefinitionId; // The Under-gates (Under-deeps, adjacent to Moria)
-const HUORN = 'tw-45' as CardDefinitionId; // hazard creature keyed to a single Wilderness (no site keying)
+const HUORN = 'tw-45' as CardDefinitionId; // hazard creature region-keyed to a plain Wilderness; not keyed to Rivendell (its own site/region-name entries name other sites/regions)
 
 describe('The Way is Shut (dm-98)', () => {
   beforeEach(() => resetMint());

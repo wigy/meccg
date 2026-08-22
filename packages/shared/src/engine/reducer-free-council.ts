@@ -357,11 +357,19 @@ function resolveCorruptionCheck(
     newPlayers[safeIdx] = { ...newPlayers[safeIdx], discardPile: [...newPlayers[safeIdx].discardPile, toCardInstance(hazard)] };
   }
 
-  // Separate hazards (owned by opponent) from non-hazard possessions (owned by resource player)
+  // Separate hazards (owned by opponent) from non-hazard possessions (owned by
+  // resource player). The character's *attached* hazards were already routed
+  // to their owner's discard pile by the char.hazards loop above — and the
+  // engine's own legal action populates `pending.possessions` with
+  // characterPossessions (items + allies + hazards), so those same instance
+  // IDs appear here too. Skip them, or each attached hazard would be pushed
+  // to the discard pile twice (duplicating the instance).
+  const attachedHazardIds = new Set(char.hazards.map(h => h.instanceId as string));
   const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
   const hazardPossessions: CardInstance[] = [];
   const nonHazardPossessions: CardInstance[] = [];
   for (const id of pending.possessions) {
+    if (attachedHazardIds.has(id as string)) continue;
     const hazOwner = ownerOf(id) as string;
     const defId = resolveInstanceId(state, id)!;
     if (hazOwner === (state.players[hazardPlayerIndex].id as string)) {

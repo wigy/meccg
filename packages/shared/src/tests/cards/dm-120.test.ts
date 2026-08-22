@@ -179,6 +179,8 @@ describe('Choice of Lúthien (dm-120)', () => {
     expect(bearer.effectiveStats.directInfluence).toBe(arwenDef.directInfluence + 2);
     expect(bearer.effectiveStats.mind).toBe(arwenDef.mind! + 2);
     expect(bearer.items.some(i => i.definitionId === CHOICE_OF_LUTHIEN)).toBe(true);
+    // The attached permanent event is worth its printed 1 misc marshalling point.
+    expect(recomputeDerived(after).players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
     assertEveryInstanceReachable(after);
   });
 

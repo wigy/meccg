@@ -10,6 +10,7 @@
 
 import { autoMergeNonHavenCompanies as _autoMergeNonHavenCompanies } from '../engine/reducer-utils.js';
 import { discardNonRingwraithCompaniesAtSharedSite as _discardNonRingwraithCompaniesAtSharedSite } from '../engine/mh-hazard-play.js';
+import { eliminateCharacter as _eliminateCharacter } from '../engine/pending-reducers.js';
 
 export * from './test-helpers-constants.js';
 export * from './test-helpers-queries.js';
@@ -33,3 +34,11 @@ export const autoMergeNonHavenCompanies = _autoMergeNonHavenCompanies;
  * tests for that transition can invoke it directly.
  */
 export const discardNonRingwraithCompaniesAtSharedSite = _discardNonRingwraithCompaniesAtSharedSite;
+
+/**
+ * CoE 7.1 primitive: eliminate a character mid-state (out-of-play pile,
+ * possessions discarded, followers freed). Re-exported so regression tests
+ * can simulate a character leaving play while a pending resolution that
+ * references them is still queued (the "roller left play" deadlock class).
+ */
+export const eliminateCharacter = _eliminateCharacter;

@@ -42,6 +42,7 @@ import {
   playCreatureHazardAndResolve,
   handCardId, companyIdAt,
   viableActions,
+  buildSitePhaseTwoPlayer, placeOnGuard, makeSitePhase,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
@@ -49,7 +50,7 @@ import {
   computeLegalActions,
   BARROW_DOWNS,
 } from '../../index.js';
-import type { CardDefinitionId, GameState } from '../../index.js';
+import type { CardDefinitionId, GameState, RevealOnGuardAction } from '../../index.js';
 
 const RAIN_DRAKE = 'td-57' as CardDefinitionId;
 
@@ -502,5 +503,32 @@ describe('Rain-drake (td-57)', () => {
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikesTotal).toBe(1);
     expect(afterChain.combat!.strikeProwess).toBe(15);
+  });
+
+  // ─── On-guard reveal honors the site-type entry's `when` gate ─────────────
+
+  test('on-guard copy is revealable at a qualifying Ruins & Lairs (2 Wildernesses in site path)', () => {
+    // Barrow-downs: R&L, sitePath [w,w] → wildernessCount 2 satisfies the
+    // site-type entry's `when` gate, so the on-guard Rain-drake may be
+    // revealed exactly as it could be played from hand.
+    const base = buildSitePhaseTwoPlayer({ site: BARROW_DOWNS, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, RAIN_DRAKE);
+    const testState: GameState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const reveals = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    expect(reveals).toHaveLength(1);
+    expect((reveals[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
+  });
+
+  test('on-guard copy is NOT revealable at a Ruins & Lairs that misses the site-path condition', () => {
+    // Bandit Lair: R&L, sitePath [w,s] → wildernessCount 1, coastalCount 0 —
+    // the `when` gate fails, so the site-type entry must not key the reveal
+    // even though the site type itself matches.
+    const base = buildSitePhaseTwoPlayer({ site: BANDIT_LAIR, heroChars: [ARAGORN] });
+    const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, 0, RAIN_DRAKE);
+    const testState: GameState = { ...withOG, phaseState: makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false }) };
+
+    const reveals = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    expect(reveals).toHaveLength(0);
   });
 });
