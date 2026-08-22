@@ -255,6 +255,13 @@ export interface StrikeAssignment {
    */
   readonly wasAlreadyWounded?: boolean;
   /**
+   * CvCC only: whether the *attacking* character was already wounded before
+   * this strike was resolved. The same CoE rule 3.I +1 applies to the body
+   * check the attacker makes after losing the dual roll; the defender's
+   * pre-strike status is in {@link wasAlreadyWounded}.
+   */
+  readonly attackerWasAlreadyWounded?: boolean;
+  /**
    * Whether a dodge-strike card was played for this strike. When true,
    * the character fights at full prowess but does not tap on success/tie.
    * If wounded, the character still gets wounded.

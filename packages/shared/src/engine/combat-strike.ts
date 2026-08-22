@@ -891,6 +891,7 @@ export function resolveStrikeCvCC(
   let atkResult: 'success' | 'wounded' | 'eliminated';
   let bodyCheckTarget: 'character' | 'attacker-character' | null = null;
   const defWasAlreadyWounded = defCharData.status === CardStatus.Inverted;
+  const atkWasAlreadyWounded = atkCharData.status === CardStatus.Inverted;
 
   if (atkTotal > defTotal) {
     // Attacker wins: defender wounded, attacker taps (unless -3)
@@ -944,6 +945,7 @@ export function resolveStrikeCvCC(
           result: defResult,
           attackerResult: atkResult,
           wasAlreadyWounded: defWasAlreadyWounded,
+          attackerWasAlreadyWounded: atkWasAlreadyWounded,
         }
       : a,
   );

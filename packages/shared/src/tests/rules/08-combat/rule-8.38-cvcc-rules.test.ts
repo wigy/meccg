@@ -381,4 +381,51 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     expect(s.players[0].characters[denethorId].status).toBe(CardStatus.Inverted);
     expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(false);
   });
+
+  test('CvCC: already-wounded attacking character gets +1 on its body check (CoE 3.I)', () => {
+    // Regression: resolveStrikeCvCC recorded the pre-strike wounded status
+    // only for the defender, so the attacker-character body check never got
+    // the CoE rule 3.I +1 for a character that was already wounded before the
+    // strike — a roll exactly at the attacker's body wrongly let them survive.
+    const state = buildCvCCState({
+      siteEntered: true,
+      p1Characters: [{ defId: DENETHOR, status: CardStatus.Inverted }],
+      p2Characters: [MAUHUR],
+    });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender assigns untapped Mauhúr against the wounded attacker.
+    const defAssign = viableActions(s, PLAYER_2, 'assign-strike');
+    expect(defAssign.length).toBeGreaterThan(0);
+    s = dispatch(s, defAssign[0].action);
+
+    const denethorId = s.players[0].companies[0].characters[0];
+
+    // Force the attacker's roll to the minimum: wounded Denethor II totals
+    // 2 + (prowess 3 - 2 wounded) = 3, while Mauhúr's worst case is
+    // 2 + prowess 6 = 8 — the defender wins regardless of RNG.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 2 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    expect(s.combat?.phase).toBe('body-check');
+    expect(s.combat?.bodyCheckTarget).toBe('attacker-character');
+
+    // The quoted need accounts for the +1: body 6 → need 6+ instead of 7+.
+    s = { ...s, cheatRollTotal: 6 };
+    const bodyCheckActions = viableActions(s, PLAYER_2, 'body-check-roll');
+    expect(bodyCheckActions.length).toBeGreaterThan(0);
+    expect((bodyCheckActions[0].action as { need: number }).need).toBe(6);
+
+    // Roll 6 + 1 (already wounded) = 7 > body 6 → eliminated, kill MP to the
+    // defender. Without the +1 the roll would tie the body and wrongly spare
+    // the attacker.
+    s = dispatch(s, bodyCheckActions[0].action);
+    expect(s.players[0].characters[denethorId]).toBeUndefined();
+    expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(true);
+  });
 });
