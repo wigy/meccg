@@ -1824,6 +1824,9 @@
       {
         "regionNames": [
           "High Pass"
+        ],
+        "siteInRegionNames": [
+          "High Pass"
         ]
       },
       {
