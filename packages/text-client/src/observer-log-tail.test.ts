@@ -104,6 +104,36 @@ describe('following a log', () => {
     expect(tail.at(3)).toBeNull();
   });
 
+  test('re-reads after a rewrite that regrows past the old tail', () => {
+    fs.writeFileSync(logPath, record(1) + record(2) + record(3));
+    const tail = openLogTail(logPath);
+    expect(tail.newest()?.stateSeq).toBe(3);
+
+    // A dev `undo` truncates after seq 1, then play continues and rewrites the
+    // file with *more* new content than was thrown away — so the file ends
+    // larger than what the tail had already consumed. A size-only check reads
+    // this as an append: it slices from the old offset (mid new-file), keeps
+    // the stale seq 2/3 records, and can miss the fresh ones.
+    fs.writeFileSync(logPath, record(1) + record(2, 7) + record(3, 7) + record(4) + record(5));
+
+    expect(tail.newest()?.stateSeq).toBe(5);
+    expect(tail.at(2)?.turn).toBe(7); // the rewritten seq 2, not the stale turn-1 copy
+    expect(tail.at(4)?.stateSeq).toBe(4);
+  });
+
+  test('re-reads after a same-size rewrite (equal length, different content)', () => {
+    fs.writeFileSync(logPath, record(1) + record(2)); // turn defaults to 1
+    const tail = openLogTail(logPath);
+    expect(tail.at(2)?.turn).toBe(1);
+
+    // Undo to seq 1 then replay a different seq 2 whose single-digit turn keeps
+    // every line exactly as long, so the file size never changes — the blind
+    // spot of a size-only comparison.
+    fs.writeFileSync(logPath, record(1) + record(2, 7));
+
+    expect(tail.at(2)?.turn).toBe(7);
+  });
+
   test('keeps the newest copy of a re-recorded sequence number', () => {
     fs.writeFileSync(logPath, record(4, 1));
     const tail = openLogTail(logPath);

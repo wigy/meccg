@@ -29,6 +29,15 @@ import { resolveGameLogPath } from '@meccg/sim';
 /** How many recent records are kept — enough to answer about a position a few moves back. */
 const RING_SIZE = 400;
 
+/**
+ * Bytes just before {@link offset} kept as a fingerprint of what has already
+ * been consumed. A rewrite that leaves the file the same size or larger cannot
+ * be told from an append by size alone, so each poll re-reads this window and a
+ * mismatch means the history was rewritten under us. `truncateAfterSeq` always
+ * rewinds and rewrites the *tail*, so the change lands inside this window.
+ */
+const ANCHOR_BYTES = 256;
+
 /** A live tail over one game's log. */
 export interface LogTail {
   /** The record at `stateSeq`, or null when the log does not have it (yet). */
@@ -54,6 +63,7 @@ export function openLogTail(gameIdOrPath: string): LogTail {
   let order: number[] = [];
   let offset = 0;
   let carry = '';
+  let anchor = Buffer.alloc(0);
 
   const remember = (record: GameLogRecord): void => {
     if (!records.has(record.stateSeq)) order.push(record.stateSeq);
@@ -73,6 +83,7 @@ export function openLogTail(gameIdOrPath: string): LogTail {
     order = [];
     offset = 0;
     carry = '';
+    anchor = Buffer.alloc(0);
   };
 
   const poll = (): void => {
@@ -83,9 +94,25 @@ export function openLogTail(gameIdOrPath: string): LogTail {
       // Not written yet — the game may still be starting.
       return;
     }
-    // A shrunk file is a rewritten history (`undo`, `load`), not an append:
-    // everything after the truncation point is gone, so start over.
-    if (size < offset) reset();
+    // The log is not append-only: `undo`/`load` truncate it (via
+    // `truncateAfterSeq`) and keep writing, so a poll can arrive after the file
+    // was rewound *and* grew back to or past what we had already consumed. A
+    // size that shrank is an obvious rewrite; when it did not, the bytes just
+    // before `offset` are re-read and compared — if that anchor no longer
+    // matches, the history under us was rewritten, not appended, and the cached
+    // tail must be thrown away rather than continued.
+    if (size < offset) {
+      reset();
+    } else if (offset > 0 && anchor.length > 0) {
+      const check = Buffer.allocUnsafe(anchor.length);
+      const anchorFd = fs.openSync(path, 'r');
+      try {
+        fs.readSync(anchorFd, check, 0, anchor.length, offset - anchor.length);
+      } finally {
+        fs.closeSync(anchorFd);
+      }
+      if (!check.equals(anchor)) reset();
+    }
     if (size === offset) return;
 
     const fd = fs.openSync(path, 'r');
@@ -94,6 +121,9 @@ export function openLogTail(gameIdOrPath: string): LogTail {
       const buffer = Buffer.allocUnsafe(length);
       fs.readSync(fd, buffer, 0, length, offset);
       offset = size;
+      // Keep the last ANCHOR_BYTES ending at the new offset as the next
+      // fingerprint (copied out so the large read buffer is not retained).
+      anchor = Buffer.from(Buffer.concat([anchor, buffer]).subarray(-ANCHOR_BYTES));
       const text = carry + buffer.toString('utf-8');
       const lines = text.split('\n');
       // Whatever follows the final newline is an incomplete line; hold it back
