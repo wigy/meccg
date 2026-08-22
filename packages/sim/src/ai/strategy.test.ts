@@ -5,6 +5,7 @@
 import { describe, test, expect } from 'vitest';
 import type { GameAction } from '@meccg/shared';
 import { pickBest, sampleWeighted } from './strategy.js';
+import { pickBest as pickBestFromPackage } from '../index.js';
 import type { WeightedAction } from './strategy.js';
 
 /** A distinguishable stand-in action; the pickers never inspect the contents. */
@@ -65,5 +66,17 @@ describe('pickBest', () => {
     // r = 0.05 lands in a's slice of the normalized interval; the argmax does not care.
     expect(sampleWeighted(weighted, stream(0.05)).type).toBe('a');
     expect(pickBest(weighted, stream(0.05)).type).toBe('b');
+  });
+
+  // The console-client (and any external consumer) imports pickBest from the
+  // package barrel; guard that re-export so its argmax selection can't silently
+  // regress to sampling by the export being dropped.
+  test('pickBest is re-exported from the package index and is the same argmax', () => {
+    const weighted: WeightedAction[] = [
+      { action: act('a'), weight: 1 },
+      { action: act('b'), weight: 9 },
+    ];
+    expect(typeof pickBestFromPackage).toBe('function');
+    expect(pickBestFromPackage(weighted, stream(0.05)).type).toBe('b');
   });
 });

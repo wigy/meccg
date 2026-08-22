@@ -87,7 +87,7 @@ export {
 export type { CardVocab, StateFeatures, ActionFeatures } from './features/index.js';
 
 // AI strategy module (lifted from the text client; shared by all clients).
-export { loadAiStrategy, sampleWeighted } from './ai/index.js';
+export { loadAiStrategy, sampleWeighted, pickBest } from './ai/index.js';
 export type { AiStrategy, AiContext, WeightedAction } from './ai/index.js';
 export { heuristicStrategy } from './ai/heuristic.js';
 
