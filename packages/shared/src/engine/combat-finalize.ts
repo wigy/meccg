@@ -40,6 +40,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -1710,6 +1711,13 @@ function discardWoundedCharacters(
       logDetail(`${sourceName}: discarding hazard ${hazard.instanceId as string} from discarded character`);
       cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
     }
+    // CoE 3.IV.4: the leaving character's trophies go to the marshalling-point
+    // pile (worth MP) or out of play (worthless) — never silently dropped.
+    {
+      const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(stateOut, charData, `${sourceName} wounded discard`);
+      newPlayerData.killPile = [...newPlayerData.killPile, ...toKillPile];
+      newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, ...toOutOfPlay];
+    }
     const { [charId]: _removed, ...remainingChars } = newPlayerData.characters;
     // Revert followers to general influence with the mind subtraction
     // deferred to the player's next organization phase (CoE rule 3.13 —
@@ -1718,6 +1726,13 @@ function discardWoundedCharacters(
     for (const followerId of charData.followers) {
       const follower = updatedChars[followerId];
       if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateOut, follower) };
+    }
+    // If the discarded character was itself a follower, drop it from its
+    // leader's followers list so nothing stale references it (same pruning
+    // as the sibling body-check and rule-3.22 discard paths).
+    if (charData.controlledBy !== 'general') {
+      const leader = updatedChars[charData.controlledBy];
+      if (leader) updatedChars[charData.controlledBy] = { ...leader, followers: leader.followers.filter(f => f !== charId) };
     }
     newPlayerData.characters = updatedChars;
 

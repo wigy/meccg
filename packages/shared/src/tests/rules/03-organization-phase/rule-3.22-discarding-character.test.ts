@@ -15,10 +15,11 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase } from '../../../index.js';
-import type { DiscardCharacterOrgAction } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId, DiscardCharacterOrgAction } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableActions,
   findCharInstanceId, attachItemToChar, expectInDiscardPile,
+  assertEveryInstanceReachable,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, LEGOLAS, GIMLI, GANDALF,
   RIVENDELL, BREE, LORIEN, MINAS_TIRITH, DAGGER_OF_WESTERNESSE,
@@ -50,6 +51,41 @@ describe('Rule 3.22 — Discarding a Character', () => {
     expect(after.players[RESOURCE_PLAYER].characters[legolasId]).toBeUndefined();
     expect(after.players[RESOURCE_PLAYER].companies[0].characters).not.toContain(legolasId);
     expectInDiscardPile(after, RESOURCE_PLAYER, LEGOLAS);
+  });
+
+  test('discarding a character disperses its trophies per CoE 3.IV.4 (no card instance vanishes)', () => {
+    // Regression: the voluntary-discard path deleted the character record
+    // without touching `trophies`, so a trophy's card instance disappeared
+    // from every collection and its MP silently evaporated.
+    const ORC_GUARD = 'tw-072' as CardDefinitionId; // creature worth kill MP
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const legolasId = findCharInstanceId(base, RESOURCE_PLAYER, LEGOLAS);
+    const trophy = { instanceId: 'p1-trophy-inst' as CardInstanceId, definitionId: ORC_GUARD };
+    const state = {
+      ...base,
+      players: base.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [legolasId as string]: { ...p.characters[legolasId], trophies: [trophy] },
+        },
+      }) as unknown as typeof base.players,
+    };
+
+    const discardLegolas = viableActions(state, PLAYER_1, 'discard-character')
+      .find(ea => (ea.action as DiscardCharacterOrgAction).characterInstanceId === legolasId)!;
+    const after = dispatch(state, discardLegolas.action);
+
+    // The trophy (worth kill MP) lands in the marshalling-point pile.
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophy.instanceId)).toBe(true);
+    assertEveryInstanceReachable(after);
   });
 
   test('at a non-haven site only a character at its home site can be discarded', () => {
