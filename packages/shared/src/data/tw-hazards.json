@@ -1136,8 +1136,21 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArouseDenizens.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site."
+    "effects": [
+      {
+        "type": "auto-attack-boost",
+        "siteTypes": ["ruins-and-lairs"],
+        "prowessBonus": 3,
+        "uncancelable": false
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ],
+    "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-event",
