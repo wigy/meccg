@@ -8,7 +8,7 @@
  */
 
 import type { PlayerView, GameAction } from '@meccg/shared';
-import { Phase, buildCompanyNames } from '@meccg/shared';
+import { Phase, getTitleCharacter } from '@meccg/shared';
 import { appState, cardPool } from './app-state.js';
 import { passButtonLabel } from './pass-button-label.js';
 
@@ -262,15 +262,16 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       panel?.appendChild(skipBtn);
     } else if (attackEvals.length > 1) {
       // Several opponent companies share the site: label each button with the
-      // target company's name so the player can tell them apart.
-      const companyNames = buildCompanyNames(view.opponent.companies, view.opponent.characters, cardPool);
+      // target company's title character so the player can tell them apart.
       for (const atk of attackEvals) {
-        if (atk.action.type !== 'declare-company-attack') continue;
-        const targetName = companyNames[atk.action.targetCompanyId as string];
+        const action = atk.action;
+        if (action.type !== 'declare-company-attack') continue;
+        const target = view.opponent.companies.find(c => c.id === action.targetCompanyId);
+        const titleChar = target ? getTitleCharacter(target.characters, view.opponent.characters, cardPool) : undefined;
+        const titleName = titleChar ? cardPool[titleChar.definitionId as string]?.name : undefined;
         const attackBtn = document.createElement('button');
         attackBtn.className = 'enter-site-btn cvcc-attack-btn';
-        attackBtn.textContent = targetName ? `Attack ${targetName}` : 'Attack';
-        const action = atk.action;
+        attackBtn.textContent = titleName ? `Attack ${titleName}'s company` : 'Attack';
         attackBtn.onclick = () => onAction(action);
         panel?.appendChild(attackBtn);
       }
