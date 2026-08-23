@@ -270,32 +270,38 @@ function renderMessage(messageEl: HTMLElement, full: InboxMessage): void {
     messageEl.appendChild(btnContainer);
   }
 
-  // Delete button
-  const deleteContainer = document.createElement('div');
-  deleteContainer.className = 'inbox-review-actions';
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'inbox-delete-btn';
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.addEventListener('click', () => {
-    void (async () => {
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = 'Deleting...';
-      const resp = await apiSend(`/api/mail/inbox/${full.id}`, 'DELETE');
-      if (resp.ok) {
-        deleteBtn.textContent = 'Deleted';
-        const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
-        if (listRow) listRow.remove();
-        // A row was removed — the last read message may now be gone.
-        refreshDeleteReadState();
-        messageEl.innerHTML = '';
-      } else {
-        deleteBtn.textContent = 'Failed';
-        deleteBtn.disabled = false;
-      }
-    })();
-  });
-  deleteContainer.appendChild(deleteBtn);
-  messageEl.appendChild(deleteContainer);
+  // Delete button — inbox messages only. The delete endpoint is
+  // DELETE /api/mail/inbox/:id and no sent-mail counterpart exists, so on
+  // the Sent tab (whose messages live in the sender's sent store, not the
+  // inbox) the button could never succeed: every click went "Deleting..."
+  // → "Failed". Same tab gate as the "Delete Read" bulk button.
+  if (appState.activeMailTab === 'inbox') {
+    const deleteContainer = document.createElement('div');
+    deleteContainer.className = 'inbox-review-actions';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'inbox-delete-btn';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+      void (async () => {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = 'Deleting...';
+        const resp = await apiSend(`/api/mail/inbox/${full.id}`, 'DELETE');
+        if (resp.ok) {
+          deleteBtn.textContent = 'Deleted';
+          const listRow = document.querySelector(`.inbox-item[data-msg-id="${full.id}"]`);
+          if (listRow) listRow.remove();
+          // A row was removed — the last read message may now be gone.
+          refreshDeleteReadState();
+          messageEl.innerHTML = '';
+        } else {
+          deleteBtn.textContent = 'Failed';
+          deleteBtn.disabled = false;
+        }
+      })();
+    });
+    deleteContainer.appendChild(deleteBtn);
+    messageEl.appendChild(deleteContainer);
+  }
 }
 
 /** Render a list of messages into the list panel. */
