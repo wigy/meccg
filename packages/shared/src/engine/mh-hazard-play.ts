@@ -2699,12 +2699,34 @@ export function extraMHMoveDestinations(
   // candidate-building in `planMovementActions`.
   const seenSiteDefIds = new Set<string>();
   const allSites: SiteCard[] = [];
+  const siteInstMap = new Map<CardDefinitionId, CardInstanceId>();
   for (const siteInst of player.siteDeck) {
     if (seenSiteDefIds.has(siteInst.definitionId as string)) continue;
     const siteDef = defById(state, siteInst.definitionId);
     if (!siteDef || !isSiteCard(siteDef)) continue;
     seenSiteDefIds.add(siteInst.definitionId as string);
     allSites.push(siteDef);
+    siteInstMap.set(siteDef.id, siteInst.instanceId);
+  }
+
+  // CoE rule 2.II.7 / 3.37 / 3.39: this extra move may also target a site
+  // the player already has in play via a different company (that sibling's
+  // currentSite or its pending destinationSite) — such a destination isn't
+  // drawn from the site deck, so it can be offered even when no unused copy
+  // of the card remains. Mirrors the sibling-in-play candidate-building in
+  // `planMovementActions`.
+  for (const sibling of player.companies) {
+    if (sibling.id === company.id) continue;
+    for (const siblingSite of [sibling.currentSite, sibling.destinationSite]) {
+      if (!siblingSite) continue;
+      if (siblingSite.instanceId === company.currentSite!.instanceId) continue;
+      const siblingDef = defById(state, siblingSite.definitionId);
+      if (!siblingDef || !isSiteCard(siblingDef)) continue;
+      if (siteInstMap.has(siblingDef.id)) continue;
+      allSites.push(siblingDef);
+      siteInstMap.set(siblingDef.id, siblingSite.instanceId);
+      logDetail(`Extra M/H phase: company ${company.id as string} may target sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);
+    }
   }
   let reachable = getReachableSites(movementMap, currentDef, allSites);
 
@@ -2737,9 +2759,15 @@ export function extraMHMoveDestinations(
   const requiresRegionTypes = requiresSitePathIncludes && requiresSitePathIncludes.length > 0
     ? requiresSitePathIncludes
     : undefined;
-  return siteDeckDestinations(state, player, destDef =>
-    reachableNames.has(destDef.name)
-    && (!requiresRegionTypes || requiresRegionTypes.some(rt => destDef.sitePath.includes(rt))));
+  const dests: CardInstance[] = [];
+  for (const siteDef of allSites) {
+    if (!reachableNames.has(siteDef.name)) continue;
+    if (requiresRegionTypes && !requiresRegionTypes.some(rt => siteDef.sitePath.includes(rt))) continue;
+    const instanceId = siteInstMap.get(siteDef.id);
+    if (!instanceId) continue;
+    dests.push({ instanceId, definitionId: siteDef.id });
+  }
+  return dests;
 }
 
 /**
