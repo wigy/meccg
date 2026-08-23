@@ -7531,8 +7531,12 @@ Forces a "Call of Home" style roll check on the targeted character. When
 the hazard short event resolves against a character (selected via
 `play-target`), the character's player rolls 2d6. If roll + unused
 general influence < `threshold`, the character returns to the player's
-hand. All items, allies, and hazards attached to the character are
-discarded; followers fall to GI if room, otherwise are discarded.
+hand. Allies and hazards attached to the character are discarded;
+followers fall to GI if room, otherwise are discarded. One item may
+automatically be transferred to another character in the company (the
+"Pilfer Anything Unwatched" `transfer-returned-item` primitive, §6i
+analog — see `allowItemTransfer` on the `return-character-to-hand`
+dice-check branch); the rest of the character's items are discarded.
 
 Used with a `play-target` effect that selects the target character.
 
@@ -7540,9 +7544,28 @@ Used with a `play-target` effect that selects the target character.
 { "type": "call-of-home-check", "threshold": 10 }
 ```
 
+An optional `rollModifiers` list adds conditional adjustments to the roll,
+evaluated at enqueue time against `{ company: { sitePathRegionTypes:
+RegionType[] } }` — the region types on the target's company's resolved
+site path this turn (`MovementHazardPhaseState.resolvedSitePath`, read
+directly since the target always belongs to the company currently in its
+M/H sub-phase). The values of all matching entries sum into a `constant`
+`DiceCheckModifier` alongside the `unused-gi` one. Used by Call of the Sea
+(tw-19): "playable on an Elf character … modified by -3 if the character's
+company moved this turn using a site path containing a Coastal Sea":
+
+```json
+{ "type": "call-of-home-check", "threshold": 10,
+  "rollModifiers": [
+    { "when": { "company.sitePathRegionTypes": { "$includes": "coastal" } }, "value": -3 }
+  ] }
+```
+
 Implemented in `chain-reducer.ts` (enqueue pending resolution on
 short-event resolution), `legal-actions/pending.ts` (generate roll
 action), and `pending-reducers.ts` (execute roll and apply consequences).
+Used by Call of Home (tw-18, le-105), Tookish Blood (tw-104), and Call of
+the Sea (tw-19).
 
 ### 23a. `protect-from-removal`
 
@@ -8188,6 +8211,84 @@ Implemented in `legal-actions/movement-hazard.ts` (action generation,
 `hasCreatureKeyingBypass`, keying-bypass fallthrough),
 `reducer-movement-hazard.ts` (constraint creation + consumption via
 `consumeCreatureKeyingBypass`).
+
+### 24a. `nazgul-boost-pending` — a pre-play boost for the next Nazgûl creature
+
+An `add-constraint` kind for a hazard short-event played *standalone*
+(no target), before the boosted creature is even in play. Installed via
+the ordinary `on-event: self-enters-play` → `add-constraint` path — no
+special dispatcher support needed, just a new `constraintKind` case in
+`buildConstraintKind` (`constraint-kind.ts`) — targeting the company the
+short event was played against, scope `company-mh-phase`:
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "nazgul-boost-pending",
+    "scope": "company-mh-phase",
+    "race": "ringwraith",
+    "strikesModifier": 1,
+    "prowessModifier": -2,
+    "grantAttackerChoosesDefenders": true,
+    "keyingRegionTypes": ["shadow"],
+    "keyingSiteTypes": ["shadow-hold"]
+  } }
+```
+
+Consumed the moment a hazard-creature of the matching `race` is actually
+played against that company: `mh-hazard-play.ts`'s creature-play handler
+looks up the constraint, removes it, and folds `strikesModifier`/
+`prowessModifier`/`grantAttackerChoosesDefenders` into the `creature`
+`ChainEntryPayload` as `strikesBonus`/`prowessBonus`/
+`grantAttackerChoosesDefenders` — consumed in `chain-reducer.ts` the same
+way Summons from Long Sleep's (as-39) `prowessBonus` already is, and
+OR'd into the `resolveAttackerChoosesDefenders` call that already
+honours a creature's own `combat-attacker-chooses-defenders` effect.
+`keyingRegionTypes`/`keyingSiteTypes` (both optional) let the boosted
+creature additionally be keyed via those region/site types, on top of
+its own printed `keyedTo` — implemented as a synthetic extra
+`CreatureKeyRestriction` entry appended to `def.keyedTo` at both
+`findCreatureKeyingMatches` (`legal-actions/movement-hazard.ts`, the
+offer side) and `checkCreatureKeying` (`mh-hazard-play.ts`, the
+validation side), so the two can never disagree.
+
+If the target company's M/H phase ends with the constraint still
+unconsumed (no matching creature was ever played), `finalizeCompanyMH`
+returns the short event's own card instance from its owner's discard
+pile back to hand instead of just letting the constraint's
+`company-mh-phase` scope silently drop it — CRF ruling for Fell Beast
+(tw-33): "A Nazgûl must be played as the first declared action ... or
+else this card is returned to its player's hand."
+
+A companion **permanent** constraint kind, `nazgul-boost-used`
+(`until-cleared` scope, target the creature's owning player, payload
+`creatureDefinitionId`), marks a specific unique Nazgûl as having already
+received this boost — `hasNazgulBoostBeenUsed`/`markNazgulBoostUsed`
+(`engine/pending.ts`) gate both the keying grant and the bonus
+consumption, so "Cannot be duplicated on a given Nazgûl" holds even
+across the creature cycling through the discard pile and being replayed
+later in the game (an ordinary `duplication-limit` scope cannot express
+this, since the card providing the boost never stays in play).
+
+A card offering this Mode A pre-play boost may *also* carry an ordinary
+`modify-attack` (`fromHand: true`) Mode B for playing on an attack
+already in progress — see §10e-quater. The pre-existing "a short event
+whose only M/H-relevant effect is a from-hand `modify-attack` has no
+open M/H play" suppression (`legal-actions/movement-hazard.ts`) skips
+itself when the card also carries an `on-event self-enters-play` →
+`add-constraint` effect, so the two modes coexist without either
+starving the other. Used by Fell Beast (tw-33): "The number of strikes
+of one Nazgûl hazard creature is increased by one and its prowess is
+decreased by 2. Attacker chooses defending characters. Additionally,
+target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold
+[{S}]. Cannot be duplicated on a given Nazgûl." — paired with
+`{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+"strikesModifier": 1, "prowessModifier": -2,
+"grantAttackerChoosesDefenders": true, "when": { "enemy.race": "ringwraith" } }`
+for Mode B (CRF: "playable on an existing Nazgûl attack, but the extra
+playability this card provides would not apply" — the keying grant is
+Mode-A only) and `{ "type": "duplication-limit", "scope": "attack", "max": 1 }`.
 
 ### 25. `ahunt-attack`
 
@@ -8935,6 +9036,66 @@ body `-1`, for `-4`/`-2` total while Gates of Morning is in play). The
 turn-scoped constraints stack in the effective-stats resolver, and the
 `duplication-limit` `scope: "turn"` (counting active constraints left by a
 resolved copy) enforces "Cannot be duplicated on a given turn".
+
+**Company-targeting mode.** `play-option` is also honoured on
+**company**-targeting hazard short-events (`play-target: "company"`, e.g.
+Drowning Seas tw-30). The company branch of `playHazardsActions`
+(`legal-actions/movement-hazard.ts`) emits one `play-hazard` action per
+matching option (carrying `optionId`), evaluating each option's `when`
+against the same company filter context used for the card's `play-target`
+filter, extended with `inPlay` — so an alternative gated on a permanent-event
+(e.g. Doors of Night) is only offered while it's actually in play. A card
+whose play-options *all* fail their `when` is offered as a single non-viable
+action. `chain-reducer.ts`'s `applyCompanyPlayOption` dispatches the chosen
+option's `apply` once the entry resolves un-negated; it only fires for cards
+whose own `play-target` is `"company"`, so it never collides with the
+existing untargeted-mode dispatch (`optionId && !targetCharacterId`) — every
+hazard short-event's chain payload carries `targetCompanyId` regardless of
+its actual target kind, so that field alone can't tell the two families
+apart.
+
+Three apply kinds resolve against the chain's active movement/hazard company:
+
+- `company-return-to-origin` — the same CoE rule 2.IV.4 mechanism described
+  in §56b, reused here as a `play-option` apply instead of a top-level card
+  effect.
+- `force-discard-one-company-item` — reused outside combat. Normally an
+  `on-event: character-wounded-by-self` verb (Brigands le-64/tw-17); as a
+  `play-option` apply it directly enqueues the same `discard-one-company-item`
+  pending resolution (no `characterId` narrowing, so every item in the
+  company is a candidate), actored by the company's controller — "the
+  company loses one item of its choice".
+- `random-discard-hand` (`{ "count": <n> }`) — the company controller
+  discards `count` cards drawn **at random** from hand (capped at hand
+  size). A seeded `shuffle` (same pattern as `reveal-hand-cards-per-character`
+  §3-ish/Crebain tw-25) picks the discarded slice; `state.rng` advances.
+
+`sequence` composes multiple applies (e.g. item loss + random hand discard)
+for a single option.
+
+```json
+"effects": [
+  { "type": "play-target", "target": "company" },
+  { "type": "play-condition", "requires": "site-path",
+    "condition": { "sitePath.coastalCount": { "$gte": 1 } } },
+  { "type": "play-option", "id": "item-loss-and-discard",
+    "apply": { "type": "sequence", "apps": [
+      { "type": "force-discard-one-company-item" },
+      { "type": "random-discard-hand", "count": 2 }
+    ] } },
+  { "type": "play-option", "id": "return-to-origin",
+    "when": { "inPlay": "Doors of Night" },
+    "apply": { "type": "company-return-to-origin" } }
+]
+```
+
+Used by *Drowning Seas* (tw-30): "Environment. Playable on a company that
+moved this turn to a site with a Coastal Sea [{c}] in its site path. Target
+company loses one item of its choice and its player must randomly discard two
+cards from his hand. Alternatively, if Doors of Night is in play, target
+company must immediately return to its site of origin." The Coastal-Sea
+clause reuses the `play-condition` site-path gate (`sitePath.coastalCount`,
+the Lost at Sea tw-50 shape).
 
 ### Weariness of the Heart
 

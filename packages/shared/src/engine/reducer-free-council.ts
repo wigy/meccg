@@ -24,6 +24,7 @@ import { modifyCorruptionCheckGrantActions } from './legal-actions/organization.
 import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
 import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
 import { removeConstraint } from './pending.js';
 
@@ -340,13 +341,11 @@ function resolveCorruptionCheck(
     characters: c.characters.filter(id => id !== pending.characterId),
   }));
 
-  // Followers promoted to general influence
-  for (const followerId of char.followers) {
-    const follower = newCharacters[followerId];
-    if (follower) {
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-    }
-  }
+  // Followers revert to general influence with the mind subtraction deferred
+  // to the player's next organization phase (CoE 2.II.2.2.3). The Free Council
+  // (CoE 7.1) is not the organization phase, so — like every other mid-turn
+  // controller loss — the freed follower is not charged on the spot.
+  freeOrDiscardFollowers(state, newCharacters, char, 'free-council-corruption-removal');
 
   // Dispatch hazards on this character to their owner's discard pile
   for (const hazard of char.hazards) {

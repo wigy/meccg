@@ -26,9 +26,9 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
-import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
+import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
@@ -2994,6 +2994,36 @@ function playHazardsActions(
             actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company at this site` });
             continue;
           }
+          // play-option (Drowning Seas tw-30): the hazard player picks one of
+          // several mutually-exclusive company-level options at play time.
+          // Each option's `when` is evaluated against the same company
+          // context used for the play-target filter above, extended with
+          // `inPlay` so an alternative gated on a permanent-event (Doors of
+          // Night) is only offered while it's actually in play. One action
+          // per matching option, carrying `optionId`; a card without
+          // play-option effects falls through to the single-action path
+          // below.
+          const compPlayOptions = getCardEffects(def).filter(
+            (e): e is import('../../types/effects.js').PlayOptionEffect => e.type === 'play-option',
+          );
+          if (compPlayOptions.length > 0) {
+            const optionCtx = { ...companyCtx, inPlay: buildInPlayNames(state) };
+            let offeredAnyOption = false;
+            for (const opt of compPlayOptions) {
+              if (opt.when && !matchesCondition(opt.when, optionCtx)) {
+                logDetail(`Hazard short-event "${def.name}": company option "${opt.id}" when-condition rejected`);
+                continue;
+              }
+              logDetail(`Hazard short-event "${def.name}": company option "${opt.id}" available`);
+              actions.push({ action: { ...action, optionId: opt.id }, viable: true });
+              offeredAnyOption = true;
+            }
+            if (!offeredAnyOption) {
+              logDetail(`Hazard short-event "${def.name}": no company option's when-condition matched`);
+              actions.push({ action, viable: false, reason: `${def.name}: no available option for this company` });
+            }
+            continue;
+          }
           // play-discard-cost (The Reek ba-23): must discard a matching card from
           // hand as a cost. Gather candidates; if none match, the card is not
           // playable at all. One action per matching cost card.
@@ -3094,7 +3124,10 @@ function playHazardsActions(
               const itemSubtypes = itemSubtypesOf(state, charData.items);
               const ctx = {
                 target: {
-                  race: charDef.race,
+                  // g.wiz.F1: a Fallen-wizard avatar matches "Wizard" in card
+                  // text (e.g. Seized by Terror dm-88's "non-Wizard character"),
+                  // not "fallen-wizard" — mirror the permanent-hazard path.
+                  race: raceForCardTextFilter(charDef),
                   skills: charDef.skills,
                   name: charDef.name,
                   status: charData.status,
@@ -3135,7 +3168,7 @@ function playHazardsActions(
             }
             if (shortPlayOptions.length > 0) {
               const optionCtx = charDef && isCharacterCard(charDef)
-                ? { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, status: charData?.status } }
+                ? { target: { race: raceForCardTextFilter(charDef), skills: charDef.skills, name: charDef.name, status: charData?.status } }
                 : { target: {} };
               for (const opt of shortPlayOptions) {
                 if (opt.when && !matchesCondition(opt.when, optionCtx)) {
@@ -3463,7 +3496,17 @@ function playHazardsActions(
         const fromHandModifyAttack = getCardEffects(def).some(
           (e): boolean => e.type === 'modify-attack' && !!(e as { fromHand?: boolean }).fromHand,
         );
-        if (fromHandModifyAttack) {
+        // Fell Beast (tw-33): a card may carry a from-hand modify-attack mode
+        // (played on an existing Nazgûl attack) *alongside* a genuine
+        // standalone `on-event self-enters-play → add-constraint` mode
+        // (played before any Nazgûl, per CRF: "can be played and resolved
+        // before any Nazgûl is played with it"). The modify-attack-only
+        // suppression above must not swallow that second, independently
+        // legitimate open-play mode.
+        const hasSelfEntersPlayAddConstraint = getCardEffects(def).some(
+          e => e.type === 'on-event' && e.event === 'self-enters-play' && e.apply.type === 'add-constraint',
+        );
+        if (fromHandModifyAttack && !hasSelfEntersPlayAddConstraint) {
           logDetail(`Hazard short-event "${def.name}": from-hand modify-attack is a combat modifier — not playable openly in M/H (play it on the attack or place it on-guard)`);
           actions.push({ action, viable: false, reason: `${def.name} must be played on the attack it modifies or placed on-guard` });
           continue;
@@ -4461,7 +4504,29 @@ function findCreatureKeyingMatches(
   const candidateRegionPaths = computeCandidateRegionPaths(
     state, mhState.resolvedSitePath, mhState.resolvedSitePathNames, inPlayNames,
   );
-  for (const key of def.keyedTo) {
+  // Fell Beast (tw-33): "target Nazgûl may also be played keyed to a
+  // Shadow-land [{s}] or Shadow-hold [{S}]" — a `nazgul-boost-pending`
+  // constraint on this company grants one extra synthetic `keyedTo` entry for
+  // the matching race, tried alongside the creature's own printed keying.
+  const extraKeyedTo: import('../../types/cards-hazards.js').CreatureKeyRestriction[] = [];
+  if ('id' in targetCompany) {
+    const boost = state.activeConstraints.find(
+      (c): c is import('../../types/pending.js').ActiveConstraint & { kind: { type: 'nazgul-boost-pending' } } =>
+        c.kind.type === 'nazgul-boost-pending'
+        && c.target.kind === 'company'
+        && c.target.companyId === (targetCompany as Company).id
+        && c.kind.race === def.race,
+    );
+    if (boost
+      && (boost.kind.keyingRegionTypes?.length || boost.kind.keyingSiteTypes?.length)
+      && !hasNazgulBoostBeenUsed(state, hazardPlayer(state, state.activePlayer).id, def.id)) {
+      extraKeyedTo.push({
+        ...(boost.kind.keyingRegionTypes ? { regionTypes: boost.kind.keyingRegionTypes } : {}),
+        ...(boost.kind.keyingSiteTypes ? { siteTypes: boost.kind.keyingSiteTypes } : {}),
+      });
+    }
+  }
+  for (const key of [...def.keyedTo, ...extraKeyedTo]) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
     // Region type matches — try the effective path plus each boosted variant.
     if (key.regionTypes && key.regionTypes.length > 0) {

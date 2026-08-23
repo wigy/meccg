@@ -1090,8 +1090,22 @@ export type ChainEntryPayload =
       /**
        * For Summons from Long Sleep (as-39): prowess bonus (+2) applied on
        * top of the creature's resolved prowess when initiating combat.
+       * Also carries Fell Beast's (tw-33) -2 penalty when a consumed
+       * `nazgul-boost-pending` constraint boosted this creature's play.
        */
       readonly prowessBonus?: number;
+      /**
+       * For Fell Beast (tw-33): strikes bonus (+1) applied on top of the
+       * creature's resolved strike count when a consumed `nazgul-boost-pending`
+       * constraint boosted this creature's play.
+       */
+      readonly strikesBonus?: number;
+      /**
+       * For Fell Beast (tw-33): when a consumed `nazgul-boost-pending`
+       * constraint boosted this creature's play, the resulting attack gets
+       * "attacker chooses defending characters".
+       */
+      readonly grantAttackerChoosesDefenders?: true;
       /**
        * For Summons from Long Sleep (as-39): the permanent-event instance to
        * discard after this creature's combat resolves.
