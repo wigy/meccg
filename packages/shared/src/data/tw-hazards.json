@@ -1618,8 +1618,42 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": {
+          "sitePath.wildernessCount": {
+            "$gte": 2
+          }
+        },
+        "rangerException": true
+      },
+      {
+        "type": "tap-sites-in-play",
+        "requiresInPlay": "Doors of Night",
+        "condition": {
+          "$and": [
+            {
+              "site.type": {
+                "$ne": "haven"
+              }
+            },
+            {
+              "sitePath.wildernessCount": {
+                "$gte": 2
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
