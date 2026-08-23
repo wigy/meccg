@@ -4,7 +4,8 @@
  * Card test: Lost in the Wilderness (tw-55)
  * Type: hazard-event (short, company-targeting)
  * Effects: 3
- *   1. play-condition site-path, `movementType` $exists (company is genuinely moving)
+ *   1. play-condition site-path, condition `{ moving: true }` (company is
+ *      genuinely moving this turn)
  *   2. play-target company
  *   3. on-event self-enters-play -> add-constraint `hazard-limit-region-count`,
  *      scope:turn, target:target-company, regionType:wilderness, value:1,
@@ -26,17 +27,17 @@
  * company's already-resolved `resolvedSitePath`, rather than being baked
  * into `hazardLimitAtReveal` at snapshot time.
  *
- * The one piece of engine work this card adds is its "moving company" gate:
- * `checkSitePathCondition` now exposes `mhState.movementType`, which is set
- * only when the resource player actually declared a path for the active
- * company. Its sibling tw-51 gates on `destinationSiteType` instead, which
- * is backfilled from the *current* site for a stationary company and so
- * cannot distinguish moving from non-moving on its own.
+ * The "moving company" half likewise needs no new engine work: it reuses the
+ * `moving` context field (`targetCompany.destinationSite != null`) that Lost
+ * in Dark-domains (tw-52) added to `checkSitePathCondition`. Its sibling
+ * tw-51 gates on `destinationSiteType` instead, which is backfilled from the
+ * *current* site for a stationary company and so cannot distinguish moving
+ * from non-moving on its own.
  *
  * Engine Support:
  * | # | Rule (card text)                                     | Status      | Mechanism |
  * |---|-------------------------------------------------------|-------------|-----------|
- * | 1 | Playable on a moving company                          | IMPLEMENTED | play-condition site-path, `movementType` $exists |
+ * | 1 | Playable on a moving company                          | IMPLEMENTED | play-condition site-path, condition `{ moving: true }` |
  * | 2 | Hazard limit increases by one per Wilderness in path   | IMPLEMENTED | hazard-limit-region-count constraint, counted against resolvedSitePath |
  * | 3 | The increase is live for the rest of the company's M/H | IMPLEMENTED | effectiveHazardLimit (hazard-limit.ts) |
  *
@@ -58,18 +59,28 @@ import { RegionType, currentHazardLimit } from '../../index.js';
 import type {
   CardDefinitionId, GameState, MovementHazardPhaseState, PlayHazardAction,
 } from '../../index.js';
-import { MovementType } from '../../types/common.js';
 import { sweepExpired } from '../../engine/pending.js';
 
 const LOST_IN_THE_WILDERNESS = 'tw-55' as CardDefinitionId;
 
-function baseState(): GameState {
+/**
+ * PLAYER_1 (the resource player) owns the targeted company. `moving` controls
+ * whether it declared a destination this turn — the card's `{ moving: true }`
+ * play-condition reads exactly that (`company.destinationSite != null`).
+ */
+function baseState(opts: { moving?: boolean } = {}): GameState {
+  const moving = opts.moving ?? true;
   return buildTestState({
     activePlayer: PLAYER_1,
     phase: Phase.MovementHazard,
     recompute: true,
     players: [
-      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+      {
+        id: PLAYER_1,
+        companies: [{ site: RIVENDELL, characters: [ARAGORN], ...(moving ? { destinationSite: MORIA } : {}) }],
+        hand: [],
+        siteDeck: [MORIA],
+      },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [LOST_IN_THE_WILDERNESS], siteDeck: [] },
     ],
   });
@@ -95,7 +106,6 @@ describe('Lost in the Wilderness (tw-55)', () => {
     const cardId = handCardId(base, HAZARD_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      movementType: MovementType.Region,
       resolvedSitePath: [RegionType.Wilderness],
     });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
@@ -110,9 +120,9 @@ describe('Lost in the Wilderness (tw-55)', () => {
   });
 
   test('NOT offered against a company that has not declared movement', () => {
-    const base = baseState();
+    const base = baseState({ moving: false });
     const cardId = handCardId(base, HAZARD_PLAYER);
-    // movementType stays null (the default) — the company never declared a path.
+    // No `destinationSite` — the company never declared a path this turn.
     const mhState = makeMHState({ activeCompanyIndex: 0 });
     const stateAtPlayHazards = { ...base, phaseState: mhState };
 
@@ -128,7 +138,6 @@ describe('Lost in the Wilderness (tw-55)', () => {
     const cardId = handCardId(base, HAZARD_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      movementType: MovementType.Region,
       resolvedSitePath: [RegionType.Wilderness, RegionType.Free, RegionType.Wilderness],
       hazardLimitAtReveal: 2,
     });
@@ -171,7 +180,6 @@ describe('Lost in the Wilderness (tw-55)', () => {
     const cardId = handCardId(base, HAZARD_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      movementType: MovementType.Region,
       resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
       hazardLimitAtReveal: 2,
     });
@@ -198,7 +206,6 @@ describe('Lost in the Wilderness (tw-55)', () => {
     const cardId = handCardId(base, HAZARD_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      movementType: MovementType.Region,
       resolvedSitePath: [RegionType.Free, RegionType.Coastal],
       hazardLimitAtReveal: 2,
     });
@@ -224,7 +231,6 @@ describe('Lost in the Wilderness (tw-55)', () => {
     const cardId = handCardId(base, HAZARD_PLAYER);
     const mhState = makeMHState({
       activeCompanyIndex: 0,
-      movementType: MovementType.Region,
       resolvedSitePath: [RegionType.Wilderness],
       hazardLimitAtReveal: 2,
     });
