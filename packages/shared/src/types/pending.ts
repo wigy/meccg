@@ -2300,6 +2300,18 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Morgul-knife (tw-64) / The Pale Sword (tw-97): "a character with
+         * this card may attempt to remove it instead of untapping or
+         * healing." Added by the corruption card's `grant-action` the
+         * instant it is activated — regardless of the removal roll's
+         * outcome, attempting it costs the bearer this untap phase's untap
+         * and heal. Scoped to `turn` (it only ever needs to survive from
+         * activation to the same untap phase's `performUntap` sweep).
+         */
+        readonly type: 'skip-untap-and-heal';
+      }
+    | {
+        /**
          * Marker placed when a `modify-attack` (fromHand) card with
          * `duplication-limit scope "attack"` is played. Stored with
          * `scope: { kind: 'attack' }` so it is swept when combat

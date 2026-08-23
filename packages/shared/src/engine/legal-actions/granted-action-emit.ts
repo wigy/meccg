@@ -76,12 +76,18 @@ export function grantedAction(
 /**
  * The effective 2d6 threshold for a roll-based granted action: the effect's
  * own `rollThreshold` when it declares one, else the threshold of a
- * `roll-then-apply` apply, else 0 (no roll — the ability just happens).
+ * `roll-then-apply` apply (unwrapping one level of `sequence` — e.g.
+ * Morgul-knife tw-64's `add-constraint` + `roll-then-apply` pair — so a
+ * gated roll still surfaces its threshold), else 0 (no roll — the ability
+ * just happens).
  */
 export function rollThresholdFor(effect: GrantActionEffect): number {
   if (effect.rollThreshold !== undefined) return effect.rollThreshold;
-  if (effect.apply?.type === 'roll-then-apply' && typeof effect.apply.threshold === 'number') {
-    return effect.apply.threshold;
+  const apply = effect.apply?.type === 'sequence'
+    ? effect.apply.apps?.find(a => a.type === 'roll-then-apply')
+    : effect.apply;
+  if (apply?.type === 'roll-then-apply' && typeof apply.threshold === 'number') {
+    return apply.threshold;
   }
   return 0;
 }

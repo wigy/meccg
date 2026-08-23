@@ -1974,6 +1974,11 @@ function applyOneConstraint(
       // `applyTapOnStrikeAssignment` in `reducer-combat.ts`'s `assign-strike`
       // handler — no broad legal-action filtering needed here.
       return base;
+    case 'skip-untap-and-heal':
+      // Morgul-knife (tw-64) / The Pale Sword (tw-97): consumed directly by
+      // `performUntap` in `reducer-untap.ts` — no broad legal-action
+      // filtering needed here.
+      return base;
   }
 }
 
