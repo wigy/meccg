@@ -26,6 +26,7 @@
 import {
   loadCardPool,
   Phase,
+  UNKNOWN_CARD,
 } from '@meccg/shared';
 import type {
   CardDefinition,
@@ -38,6 +39,7 @@ import type {
 } from '@meccg/shared';
 import type { LoadedDeck } from '../decks.js';
 import { createRandomStream } from '../random-stream.js';
+import { UNKNOWN_CARD_DEFINITION } from './determinize-null.js';
 import { isHidden, widenView, type WidenedOnGuardCard } from './widen-view.js';
 
 /** Options for {@link determinize}. */
@@ -110,7 +112,15 @@ function unseenPool(
  */
 export function determinize(options: DeterminizeOptions): GameState {
   const { view } = options;
-  const cardPool = options.cardPool ?? loadCardPool();
+  // The sentinel definition must resolve: pool exhaustion (deck-list
+  // accounting drift, e.g. cards moved into the sideboard mid-game) leaves
+  // `unknown-card` instances in the state, and without a definition every
+  // legal-action generator that reads one throws instead of deciding the
+  // card is unplayable — the same backstop determinize-null installs.
+  const cardPool: Record<string, CardDefinition> = {
+    ...(options.cardPool ?? loadCardPool()),
+    [UNKNOWN_CARD as string]: UNKNOWN_CARD_DEFINITION,
+  };
   const random = createRandomStream(options.seed ^ 0x51ac3d);
   const s = view.self;
   const o = view.opponent;
@@ -138,9 +148,20 @@ export function determinize(options: DeterminizeOptions): GameState {
     ...ch.items.map(i => ({ instanceId: i.instanceId, definitionId: i.definitionId })),
     ...ch.allies.map(a => ({ instanceId: a.instanceId, definitionId: a.definitionId })),
   ]);
+  // Revealed cards in the hand and among the on-guard slots are observations
+  // too: without deducting them the same copy could be sampled a second time
+  // into another hidden slot.
+  const oppOnGuardCards = o.companies.flatMap(c => c.onGuardCards);
   const oppPool = unseenPool(oppPlayIds, [
-    o.discardPile, o.killPile, o.outOfPlayPile, o.cardsInPlay, oppCharacterCards,
+    o.hand, oppOnGuardCards, o.discardPile, o.killPile, o.outOfPlayPile,
+    o.cardsInPlay, oppCharacterCards,
   ], random);
+  // The hidden sideboard is its own zone with its own known composition —
+  // the deck list's sideboard. It used to be filled from `oppPool`, whose
+  // identities (play deck + draft pool) and size never accounted for it:
+  // by the time widenView reached the sideboard the pool was exhausted and
+  // all ~20 cards kept the `unknown-card` sentinel.
+  const oppSideboardPool = shuffle([...options.opponentDeck.sideboard], random);
   const oppSiteIds = [...options.opponentDeck.siteDeck];
   const oppSitePool = unseenPool(oppSiteIds, [
     o.siteDiscardPile,
@@ -162,6 +183,7 @@ export function determinize(options: DeterminizeOptions): GameState {
     fillers: {
       selfPlayDeck: zone => fillZone(zone, ownPool),
       opponentPlayZone: zone => fillZone(zone, oppPool),
+      opponentSideboard: zone => fillZone(zone, oppSideboardPool),
       opponentSiteDeck: zone => fillZone(zone, oppSitePool),
       opponentOnGuard: fillOnGuard,
     },
