@@ -203,8 +203,56 @@ describe('Rule 1.38 — Character Draft', () => {
     // ...and P1's two unassigned daggers went there at the item-draft pass.
     expect(state.players[0].outOfPlayPile.length).toBeGreaterThanOrEqual(2 + itemLeftovers1);
 
+    // ...flagged `removedFromGame`, per CoE 1.9's "removed from the game"
+    // (docs/coe-rules.md's glossary distinguishes this from ordinary
+    // elimination — only eliminated copies still count toward uniqueness).
+    const p2GimliOut = state.players[1].outOfPlayPile.find(c => c.instanceId === p2Gimli);
+    expect(p2GimliOut?.removedFromGame).toBe(true);
+
     // The no-card-disappears invariant holds across the whole state.
     assertEveryInstanceReachable(state);
+  });
+
+  test('undrafted unique-character leftover in out-of-play does not block a fresh copy from being played', () => {
+    // Regression: an AI opponent passed out of the character deck draft
+    // still holding an undrafted unique character (Elrohir) in its pool. The
+    // leftover was sunk into outOfPlayPile per CoE 1.9 ("removed from the
+    // game"), but the uniqueness check treated that pile as if it only ever
+    // holds genuinely eliminated cards — which per the "unique" and "remove
+    // from the game" glossary entries (docs/coe-rules.md) still count for
+    // uniqueness only when eliminated, not when merely removed from the
+    // game. That falsely blocked the human player's own copy from ever
+    // being played, for the rest of the game.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [GIMLI],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const gimliInstId = state.players[0].hand[0].instanceId;
+    const leftoverState = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], outOfPlayPile: [{ instanceId: mint(), definitionId: GIMLI, removedFromGame: true as const }] },
+      ] as typeof state.players,
+    };
+
+    const viable = viablePlayCharacterActions(leftoverState, PLAYER_1);
+    expect(viable.some(a => a.characterInstanceId === gimliInstId)).toBe(true);
   });
 
   test('identical NON-unique reveals do NOT collide — each player keeps their copy', () => {

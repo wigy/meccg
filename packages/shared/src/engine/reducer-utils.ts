@@ -4105,14 +4105,11 @@ export function siteFactionLockedByAgentHomeSite(
  * permanently occupies the "in play and/or removed-from-play" slot, so no
  * other copy (including the opponent's) may enter play afterward. A merely
  * discarded (not eliminated) copy does not block replay, so `discardPile` is
- * deliberately not scanned. (The `.unique` gate lives at the call site; this
- * only tests name-in-play-or-eliminated.)
- *
- * `outOfPlayPile` entries stamped `removedFromGame` (e.g. undrafted
- * character-deck-draft pool characters, CoE rule 1.9) are skipped: per the
- * glossary's "remove from the game" entry, such cards are "no longer
- * considered for purposes of uniqueness" and a unique copy may be played
- * again by either player.
+ * deliberately not scanned. Entries flagged `removedFromGame` (undrafted
+ * starting-pool leftovers, CoE 1.9) are also skipped: those are "removed from
+ * the game," not eliminated, and the glossary's "unique" entry says such a
+ * card "may be played again by either player." (The `.unique` gate lives at
+ * the call site; this only tests name-in-play-or-eliminated.)
  */
 export function isUniqueCharacterInPlay(state: GameState, charName: string): boolean {
   for (const p of state.players) {

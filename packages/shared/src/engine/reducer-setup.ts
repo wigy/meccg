@@ -595,14 +595,16 @@ function handleItemDraft(
     newItemDraftState[playerIndex] = { unassignedItems: [], done: true };
 
     // Rule 1.9: unused pool items are "removed from the game" — sink them to
-    // the out-of-play pile. Clearing the phase-state array alone would leave
+    // the out-of-play pile, flagged `removedFromGame` so uniqueness checks
+    // don't treat them as still blocking (unlike genuinely eliminated cards
+    // in the same pile). Clearing the phase-state array alone would leave
     // the instances unreachable (no-card-disappears invariant).
     let stateAfterPass = state;
     if (itemDraft.unassignedItems.length > 0) {
       logDetail(`Item draft: player ${playerIndex} passes — ${itemDraft.unassignedItems.length} unused pool item(s) removed from the game`);
       stateAfterPass = updatePlayer(state, playerIndex, p => ({
         ...p,
-        outOfPlayPile: [...p.outOfPlayPile, ...itemDraft.unassignedItems],
+        outOfPlayPile: [...p.outOfPlayPile, ...itemDraft.unassignedItems.map(c => ({ ...c, removedFromGame: true as const }))],
       }));
     }
 
@@ -828,7 +830,9 @@ function handleCharacterDeckDraft(
     newDeckDraftState[playerIndex] = { remainingPool: [], done: true };
 
     // Rule 1.9: undrafted pool characters are "removed from the game" — sink
-    // them to the out-of-play pile. Clearing the phase-state array alone would
+    // them to the out-of-play pile, flagged `removedFromGame` so uniqueness
+    // checks don't treat them as still blocking (unlike genuinely eliminated
+    // characters in the same pile). Clearing the phase-state array alone would
     // leave the instances unreachable (no-card-disappears invariant); the
     // Fallen-wizard Stage-resource rescue in init.ts already does this for its
     // own card class for exactly that reason.
