@@ -142,4 +142,28 @@ describe('Stone of Erech (tw-334)', () => {
     const after = applyDiscardOnCardLeaves(withCards, withCards);
     expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === STONE_OF_ERECH)).toBe(true);
   });
+
+  // ── Printed marshalling points: 2 (misc) ──
+
+  test('scores 2 misc marshalling points while in play', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LORIEN, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+          cardsInPlay: [
+            { instanceId: mint(), definitionId: STONE_OF_ERECH, status: CardStatus.Untapped },
+            menOfLamedonCard('m1'),
+          ],
+        },
+        { id: PLAYER_2, companies: [{ site: MORIA, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
+  });
 });
