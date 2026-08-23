@@ -1827,8 +1827,29 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinShadowlands.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a moving company. Its hazard limit increases by one for every Shadow-land [{s}] in its site path."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": { "destinationSiteType": { "$exists": true } }
+      },
+      { "type": "play-target", "target": "company" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-region-count",
+          "scope": "turn",
+          "regionType": "shadow",
+          "value": 1,
+          "floor": 0
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Shadow-land [{s}] in its site path.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
