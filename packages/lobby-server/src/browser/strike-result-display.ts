@@ -39,3 +39,18 @@ export function strikeResultDisplay(result: string | undefined): StrikeResultDis
       return null;
   }
 }
+
+/**
+ * Marker id + modifier class for a *resolved* strike's combat arrow. The
+ * arrow line used to test the raw `result === 'success'` instead of going
+ * through {@link strikeResultDisplay}, so the no-harm outcomes (`'tie'`,
+ * `'survived'`, `'canceled'`, `'absorbed'`) got the red wound arrowhead
+ * while the card border and overlay — which do use the mapper — showed
+ * success. Routing the arrow through the same mapper keeps the three
+ * renderings consistent by construction.
+ */
+export function strikeArrowStyle(result: string | undefined): { marker: string; className: string } {
+  return strikeResultDisplay(result) === 'success'
+    ? { marker: 'combat-arrowhead-success', className: 'combat-arrow--success' }
+    : { marker: 'combat-arrowhead-wound', className: 'combat-arrow--wound' };
+}
