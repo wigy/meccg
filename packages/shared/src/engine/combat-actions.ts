@@ -2405,7 +2405,6 @@ export function handleCancelPrisonerTaking(state: GameState, action: GameAction,
   if (action.player !== combat.defendingPlayerId) return { state, error: 'Only the defending player can cancel prisoner-taking' };
   if (combat.cancelPrisonerTakingOffer?.allyId !== action.cardInstanceId) return { state, error: 'Ally not offered for cancel-prisoner-taking' };
 
-  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
   const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
 
   const removed = removeAttachment(state.players[defIdx], 'allies', action.cardInstanceId);
