@@ -8,7 +8,7 @@
  */
 
 import type { PlayerView, GameAction } from '@meccg/shared';
-import { Phase } from '@meccg/shared';
+import { Phase, buildCompanyNames } from '@meccg/shared';
 import { appState, cardPool } from './app-state.js';
 import { passButtonLabel } from './pass-button-label.js';
 
@@ -29,6 +29,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.querySelectorAll('.great-hunt-choice-btn').forEach(b => b.remove());
   document.querySelectorAll('.hunt-target-choice-btn').forEach(b => b.remove());
   document.querySelectorAll('.influence-overflow-discard-btn').forEach(b => b.remove());
+  document.querySelectorAll('.cvcc-attack-btn').forEach(b => b.remove());
 
   // Spectators never act: hide both the pass button and the "Waiting…" box
   // (which would otherwise show permanently, since they have no legal actions).
@@ -260,11 +261,17 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       skipBtn.onclick = () => onAction(passAction);
       panel?.appendChild(skipBtn);
     } else if (attackEvals.length > 1) {
+      // Several opponent companies share the site: label each button with the
+      // target company's name so the player can tell them apart.
+      const companyNames = buildCompanyNames(view.opponent.companies, view.opponent.characters, cardPool);
       for (const atk of attackEvals) {
+        if (atk.action.type !== 'declare-company-attack') continue;
+        const targetName = companyNames[atk.action.targetCompanyId as string];
         const attackBtn = document.createElement('button');
-        attackBtn.className = 'enter-site-btn';
-        attackBtn.textContent = 'Attack';
-        attackBtn.onclick = () => onAction(atk.action);
+        attackBtn.className = 'enter-site-btn cvcc-attack-btn';
+        attackBtn.textContent = targetName ? `Attack ${targetName}` : 'Attack';
+        const action = atk.action;
+        attackBtn.onclick = () => onAction(action);
         panel?.appendChild(attackBtn);
       }
     }
