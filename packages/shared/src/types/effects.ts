@@ -5193,6 +5193,18 @@ export interface PlayTargetEffect extends EffectBase {
    */
   readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent' | 'nazgul-permanent-event';
   /**
+   * Per-mode phase gate: when set, the *targeted* play mode is only offered
+   * while the current phase is one of these values (e.g. `["organization"]`).
+   * Unlike `play-condition requires:phase` — which gates the whole card —
+   * this leaves any untargeted `play-option` fallback on the same card with
+   * its rule-2.1.1 any-phase allowance. Used by Bade to Rule (le-167):
+   * "Playable at a Darkhaven during the organization phase on your
+   * Ringwraith. … Alternatively, playable if your Ringwraith is not in play."
+   * — the targeted Darkhaven/Ringwraith mode is organization-phase-only while
+   * the alternative mode may be played during any phase of the turn.
+   */
+  readonly phases?: readonly string[];
+  /**
    * Widens a `character` target beyond the default own-characters scope. When
    * `'any-player'`, candidates are drawn from **both** players' characters so a
    * resource event may target an opponent's character (A Malady Without Healing

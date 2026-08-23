@@ -827,8 +827,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // avatar rather than being it — `findPlayerAvatar` returns only the
       // generally-controlled one, so followers never match.
       const revealedAvatarId = findPlayerAvatar(state, player)?.instanceId;
+      // play-target `phases` — a per-mode phase gate (Bade to Rule le-167:
+      // "Playable at a Darkhaven during the organization phase on your
+      // Ringwraith. … Alternatively, playable if your Ringwraith is not in
+      // play."). Outside the named phases the targeted candidates are not
+      // offered, but the untargeted play-option fallback below keeps its
+      // rule-2.1.1 any-phase allowance — so this cannot use the card-level
+      // `play-condition requires:phase` gate, which would suppress both modes.
+      const targetModeAllowed = !playTarget.phases
+        || playTarget.phases.includes(state.phaseState.phase);
+      if (!targetModeAllowed) {
+        logDetail(`Permanent event ${def.name}: targeted mode playable only during [${playTarget.phases.join(', ')}] (current phase ${state.phaseState.phase}) — only the untargeted fallback may apply`);
+      }
       let anyTarget = false;
-      for (const company of player.companies) {
+      for (const company of targetModeAllowed ? player.companies : []) {
         if (companyContextCondition?.condition
           && !matchesCompanyContextCondition(state, player, company, companyContextCondition.condition, false)) {
           logDetail(`Permanent event ${def.name}: company ${company.id as string} does not satisfy company-context play-condition`);

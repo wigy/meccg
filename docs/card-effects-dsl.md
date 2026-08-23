@@ -6512,8 +6512,22 @@ Used by *The Burden of Time* (tw-94): "Playable on an Elf not in a
 Haven/Darkhaven" — `filter: { "$and": [ { "target.race": "elf" },
 { "company.atHaven": false } ] }`.
 
+**Per-mode phase gate.** An optional `phases` array restricts the *targeted*
+play mode to the named phases (e.g. `["organization"]`). Unlike the card-level
+`play-condition requires:phase` — which suppresses the card in every other
+phase — this gates only the per-target candidates; an `untargeted: true`
+`play-option` on the same card keeps its rule-2.1.1 any-phase allowance. Used
+by *Bade to Rule* (le-167): "Playable at a Darkhaven during the organization
+phase on your Ringwraith. … Alternatively, playable if your Ringwraith is not
+in play." — the targeted mode is organization-phase-only while the alternative
+mode may be played during any phase of the turn. Enforced in
+`legal-actions/organization-events.ts` (the character-target candidate loop).
+
 ```json
 { "type": "play-target", "target": "character" }
+{ "type": "play-target", "target": "character",
+  "phases": ["organization"],
+  "filter": { "target.race": "ringwraith" } }
 { "type": "play-target", "target": "character",
   "filter": { "target.race": "hobbit" } }
 { "type": "play-target", "target": "character",
