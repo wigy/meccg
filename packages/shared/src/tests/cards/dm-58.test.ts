@@ -182,6 +182,68 @@ describe('dm-58: Flies and Spiders', () => {
     expect(result.players[HAZARD_PLAYER].siteDeck.some(s => s.definitionId === BANDIT_LAIR)).toBe(false);
   });
 
+  test('a captured character is not treated as wounded by finalize-time wound triggers', () => {
+    // Regression: the strike assignment kept result 'wounded' for a
+    // take-prisoner outcome, so finalizeCombat's wound bookkeeping fired on
+    // the un-wounded prisoner — e.g. woundedByRaceThisTurn was stamped,
+    // enabling "on a character wounded by a [race] attack this turn" hazards
+    // (Pale Dream-maker dm-78) against a character who was never wounded
+    // (CoE 8.35: taken prisoner, not wounded).
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [BANDIT_LAIR] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+    const hostId = `${PLAYER_2 as string}-host1` as CardInstanceId;
+    const withHazard = {
+      ...base,
+      players: base.players.map((p, i) => {
+        if (i !== RESOURCE_PLAYER) return p;
+        return {
+          ...p,
+          characters: {
+            ...p.characters,
+            [aragornId as string]: {
+              ...p.characters[aragornId],
+              hazards: [{ instanceId: hostId, definitionId: FLIES_AND_SPIDERS, status: 'Untapped' as const }],
+            },
+          },
+        };
+      }) as unknown as readonly [PlayerState, PlayerState],
+    };
+    const combat = {
+      attackSource: { type: 'creature' as const, instanceId: 'fake-spider' as CardInstanceId },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 1,
+      strikeProwess: 99,
+      creatureBody: null,
+      creatureRace: Race.Spider,
+      strikeAssignments: [{ characterId: aragornId, excessStrikes: 0, resolved: false }],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike' as const,
+      assignmentPhase: 'done' as const,
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+    const combatState = { ...withHazard, combat, phaseState: makeShadowMHState(), cheatRollTotal: 2 };
+    const resolveActions = viableActions(combatState, PLAYER_1, 'resolve-strike');
+    const tapAction = resolveActions.find(a => (a.action as { tapToFight?: boolean }).tapToFight === true) ?? resolveActions[0];
+    const result = dispatch(combatState, tapAction.action);
+
+    // Taken prisoner…
+    expect(result.hazardHosts[0]?.prisoners).toContain(aragornId);
+    // …and NOT marked as wounded by the Spider attack this turn.
+    const aragorn = result.players[RESOURCE_PLAYER].characters[aragornId];
+    expect(aragorn.woundedByRaceThisTurn ?? []).not.toContain(Race.Spider);
+  });
+
   test('taking a direct-influence follower prisoner frees it from its controller\'s follower list', () => {
     // Regression: bindPrisoner set the prisoner's controlledBy to 'general'
     // and released the prisoner's OWN followers, but left the prisoner's id in
