@@ -96,6 +96,27 @@ describe('Going Ever Under Dark (ba-37)', () => {
     expect(plays[0].targetCompanyId).toBe(companyId);
   });
 
+  test('NOT playable outside the organization phase ("during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window (movement/hazard,
+    // site, end-of-turn) despite the printed restriction.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }], hand: [GOING_EVER_UNDER_DARK], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const handInst = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const plays = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-permanent-event')
+      .map(a => a.action as PlayPermanentEventAction)
+      .filter(a => a.cardInstanceId === handInst);
+    expect(plays).toHaveLength(0);
+  });
+
   // ─── Rule 2: cannot be duplicated on a given company ──────────────────────
 
   test('a second copy is NOT offered on a company already bearing one', () => {

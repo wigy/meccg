@@ -79,6 +79,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       { "type": "play-target", "target": "company" },
       { "type": "company-movement-restriction", "noStarterMovement": true, "noUnderDeepsMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 },
       { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "skillBonus": "ranger" } },
@@ -287,6 +292,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       { "type": "play-target", "target": "company" },
       { "type": "company-movement-restriction", "noStarterMovement": true, "regionMovementMax": 3, "hazardLimitModifier": -1, "hazardLimitFloor": 2 },
       { "type": "cancel-attack", "requiresCvCC": true, "cost": { "discard": "self" }, "roll": { "threshold": 7, "comparison": "gt", "skillBonus": "scout" } },
@@ -835,6 +845,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "site",
