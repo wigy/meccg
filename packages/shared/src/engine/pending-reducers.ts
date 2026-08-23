@@ -2610,6 +2610,17 @@ export function applyOpposedRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // A pass abandons the contest, but ONLY while a roller has left play (the
+  // stale case the legal-action emitter offers the pass for) — with both
+  // rollers present the opposed roll is mandatory.
+  if (top.kind.type === 'opposed-roll' && action.type === 'pass' && action.player === top.actor) {
+    const passPlayer = state.players[getPlayerIndex(state, action.player)];
+    if (!passPlayer.characters[top.kind.challengerId] || !passPlayer.characters[top.kind.opponentId]) {
+      logDetail(`${defById(state, top.kind.sourceDefinitionId)?.name ?? '?'}: a roller has left play — opposed roll abandoned`);
+      return { state: dequeueResolution(state, top.id) };
+    }
+    return { state, error: 'opposed-roll: both rollers are in play — the roll must be made' };
+  }
   const g = guardResolution(state, action, top, 'opposed-roll', 'opposed-roll');
   if (!g.ok) return g.result;
   const { actorIndex, player, kind } = g;
