@@ -4097,11 +4097,16 @@ function matchRaceThresholdEffect<E extends FlatteryCancelAttackEffect | Riddlin
   const cardDef = defById(state, entry.card.definitionId);
   const effect = getCardEffects(cardDef).find((e): e is E => e.type === effectType);
   if (!effect) return undefined;
-  const creatureRace = state.combat.creatureRace;
-  const matchedEntry = creatureRace === undefined
-    ? undefined
-    : effect.thresholds.find(t => t.races.includes(creatureRace));
-  if (!matchedEntry || creatureRace === undefined) return undefined;
+  // An attack counts as EVERY race it carries — primary plus additionalRaces
+  // ("Orcs. Men." creatures like Goblin-faces wh-13 populate
+  // `combat.creatureRaces`) — so match the thresholds against the full list
+  // and, when several entries match, use the most favorable (lowest) one.
+  const races = state.combat.creatureRaces
+    ?? (state.combat.creatureRace !== undefined ? [state.combat.creatureRace] : []);
+  const matching = effect.thresholds.filter(t => t.races.some(r => races.includes(r)));
+  if (matching.length === 0) return undefined;
+  const matchedEntry = matching.reduce((best, t) => (t.threshold < best.threshold ? t : best));
+  const creatureRace = matchedEntry.races.find(r => races.includes(r))!;
   return {
     effect,
     creatureRace,
