@@ -1763,8 +1763,29 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LostinBorderlands.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a moving company. Its hazard limit increases by one for every Border-land [{b}] in its site path."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": { "destinationSiteType": { "$exists": true } }
+      },
+      { "type": "play-target", "target": "company" },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-region-count",
+          "scope": "turn",
+          "regionType": "border",
+          "value": 1,
+          "floor": 0
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable on a moving company. Its hazard limit increases by one for every Border-land [{b}] in its site path.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
@@ -1803,7 +1824,57 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/LureofCreation.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "removalNumber": 6,
+    "certified": "2026-08-23",
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "wizard"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2
+      },
+      {
+        "type": "on-event",
+        "event": "company-mh-end-at-site",
+        "when": {
+          "bearer.atHaven": true
+        },
+        "apply": {
+          "type": "force-check",
+          "check": "corruption"
+        },
+        "target": "bearer"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 7,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
     "text": "Corruption. A revealed Wizard receives 2 corruption points and makes a corruption check at the end of any movement/hazard phase in a turn during which his company moved to a Haven [{H}]. Cannot be duplicated on a given Wizard.During his organization phase, a Wizard with this card may tap to attempt to remove it. Make a roll: if this result is greater than 6, discard this card."
   },
   {
@@ -1996,7 +2067,46 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Morgulknife.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "removalNumber": 4,
+    "certified": "2026-08-23",
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifier": 2,
+        "attachCorruptionOnWound": true,
+        "when": { "enemy.race": "ringwraith" }
+      },
+      { "type": "duplication-limit", "scope": "attack", "max": 1 },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 4 },
+      {
+        "type": "grant-action",
+        "action": "remove-corruption-instead-of-untap",
+        "cost": {},
+        "anyPhase": true,
+        "oncePerTurn": true,
+        "when": {
+          "$and": [
+            { "phase": "untap" },
+            { "bearer.atHaven": true },
+            { "untap.resourcePlayerUntapped": false }
+          ]
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "roll-then-apply",
+              "threshold": 5,
+              "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+            },
+            { "type": "add-constraint", "constraint": "skip-untap-and-heal", "scope": "turn", "target": "bearer" }
+          ]
+        }
+      }
+    ],
     "text": "Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +2. Discard if attack doesn’t wound a character. Cannot be duplicated on a company facing such an attack.Corruption. One character of attacker’s choice wounded by the attack (on whom a corruption card has not already been played this turn) receives 4 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 4, discard this card."
   },
   {

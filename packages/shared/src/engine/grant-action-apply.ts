@@ -1127,6 +1127,8 @@ function constraintKindWithoutPayload(
       return { type: 'auto-attack-duplicate' };
     case 'can-use-palantir':
       return { type: 'can-use-palantir' };
+    case 'skip-untap-and-heal':
+      return { type: 'skip-untap-and-heal' };
     default:
       return null;
   }

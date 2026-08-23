@@ -40,7 +40,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, moveSideboardCard, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -1899,6 +1899,11 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
   // turn advances to reset-hand or to the next sub-phase).
   updatedState = fireHavenRestoreTriggers(updatedState, mhStateLocal);
 
+  // Lure of Creation (tw-56) and similar character-attached corruption
+  // cards: fire once the company's M/H phase has ended, gated on the
+  // bearer's company having arrived at a Haven this turn.
+  updatedState = fireCharacterCorruptionAtSiteTriggers(updatedState, mhStateLocal);
+
   if (needsDiscard) {
     logDetail(`Step 8: player(s) over hand size — entering reset-hand for discard`);
     return {
@@ -1975,6 +1980,71 @@ export function fireHavenRestoreTriggers(
           sourceDefinitionId: card.definitionId,
         },
       });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Fire `company-mh-end-at-site` on-event effects declared on **character-
+ * attached** hazards, once the active company's movement/hazard phase has
+ * ended — the character-bound counterpart to {@link fireHavenRestoreTriggers}
+ * (which handles the site-attached Hall of Fire form of the same event).
+ *
+ * Used by corruption cards such as Lure of Creation (tw-56): "A revealed
+ * Wizard receives 2 corruption points and makes a corruption check at the
+ * end of any movement/hazard phase in a turn during which his company moved
+ * to a Haven [{H}]." The effect's `when` condition is evaluated against the
+ * same `{ bearer: { atHaven } }` context shape used by `untap-phase-end`
+ * (`reducer-untap.ts`), computed via `isHavenForPlayer` so a Fallen-wizard
+ * bearer's Wizardhavens count as "{H}" like everywhere else in the engine.
+ * Only `apply: { type: "force-check", check: "corruption" }` is supported.
+ */
+export function fireCharacterCorruptionAtSiteTriggers(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+): GameState {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company?.currentSite) return state;
+
+  const siteDef = defById(state, company.currentSite.definitionId);
+  const atHaven = isHavenForPlayer(siteDef, player.alignment, {
+    state,
+    siteDefinitionId: company.currentSite.definitionId,
+    playerId: player.id,
+  });
+  const ctx = { bearer: { atHaven } };
+
+  let result = state;
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    for (const hazard of char.hazards) {
+      const hDef = defById(result, hazard.definitionId);
+      for (const e of getOnEventEffects(hDef, 'company-mh-end-at-site')) {
+        if (e.apply?.type !== 'force-check' || e.apply.check !== 'corruption') continue;
+        if (e.when && !matchesCondition(e.when, ctx)) {
+          logDetail(`company-mh-end-at-site: skipping "${hDef?.name ?? '?'}" on ${charId as string} — when not met (atHaven=${atHaven})`);
+          continue;
+        }
+        const modifier = e.apply.modifier ?? 0;
+        logDetail(`company-mh-end-at-site: enqueuing corruption check for "${hDef?.name ?? '?'}" on ${charId as string} (atHaven=${atHaven}, modifier=${modifier})`);
+        result = enqueueCorruptionCheck(result, {
+          source: hazard.instanceId,
+          actor: player.id,
+          scope: { kind: 'phase', phase: Phase.MovementHazard },
+          characterId: char.instanceId,
+          modifier,
+          reason: hDef?.name ?? 'company-mh-end-at-site',
+          // CoE 7.1.1: a resource player may tap other characters in the
+          // same company as the checking character to apply +1 to the roll
+          // each, for any corruption check that hasn't resolved yet.
+          allowSupport: true,
+        });
+      }
     }
   }
 
