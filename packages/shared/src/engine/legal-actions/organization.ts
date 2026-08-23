@@ -2246,7 +2246,16 @@ export function buildGrantActionContext(
   // is legal only during the movement/hazard phase). Combine with
   // `anyPhase: true` so the M/H scanner offers the ability at all.
   const phase = state.phaseState.phase;
-  return { bearer, self, company: companyCtx, player: playerCtx, site: siteCtx, phase };
+  // Whether the active player has already taken their bulk `untap` action
+  // this phase — exposed only while `phase === "untap"`. Morgul-knife
+  // (tw-64) / The Pale Sword (tw-97) offer a removal roll "instead of
+  // untapping or healing": once the bulk untap sweep (`performUntap`) has
+  // already run, the window to forgo it has passed, so their `when` clause
+  // also requires `"untap.resourcePlayerUntapped": false`.
+  const untap = state.phaseState.phase === Phase.Untap
+    ? { resourcePlayerUntapped: state.phaseState.untapped }
+    : null;
+  return { bearer, self, company: companyCtx, player: playerCtx, site: siteCtx, phase, untap };
 }
 
 /**

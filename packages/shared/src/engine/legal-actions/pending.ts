@@ -1974,6 +1974,23 @@ function applyOneConstraint(
       // `applyTapOnStrikeAssignment` in `reducer-combat.ts`'s `assign-strike`
       // handler — no broad legal-action filtering needed here.
       return base;
+    case 'skip-untap-and-heal':
+      // Morgul-knife (tw-64) / The Pale Sword (tw-97): consumed directly by
+      // `performUntap` in `reducer-untap.ts` — no broad legal-action
+      // filtering needed here.
+      return base;
+    case 'nazgul-boost-pending':
+      // Fell Beast (tw-33): consulted directly by `findCreatureKeyingMatches`/
+      // `checkCreatureKeying` (extra keying grant) and consumed by the
+      // creature-play handler in `mh-hazard-play.ts` (strikes/prowess/
+      // attacker-chooses-defenders bonus) — no broad legal-action filtering
+      // needed here.
+      return base;
+    case 'nazgul-boost-used':
+      // Fell Beast (tw-33): a permanent marker consulted directly by
+      // `hasNazgulBoostBeenUsed` wherever the pending boost above is offered
+      // or consumed — no broad legal-action filtering needed here.
+      return base;
   }
 }
 

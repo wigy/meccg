@@ -267,6 +267,11 @@ function performUntap(state: GameState): GameState {
   // fires. Treated like `cannot-untap` for the tap logic below, then consumed
   // (constraint removed, card discarded) after the untap sweep.
   const skipNextUntap = new Map<string, { constraintId: string; cardInstanceId: string }>();
+  // Morgul-knife (tw-64) / The Pale Sword (tw-97): a character who attempted
+  // to remove their attached corruption card "instead of untapping or
+  // healing" this untap phase forgoes BOTH — unlike bearer-cannot-untap,
+  // which still allows healing (see comment below).
+  const skipUntapAndHealIds = new Set<string>();
   for (const c of state.activeConstraints) {
     if (c.target.kind !== 'character') continue;
     // This is the untapping player's own phase: a constraint on the other
@@ -295,6 +300,9 @@ function performUntap(state: GameState): GameState {
         constraintId: c.id as string,
         cardInstanceId: c.kind.cardInstanceId as string,
       });
+    }
+    if (c.kind.type === 'skip-untap-and-heal') {
+      skipUntapAndHealIds.add(c.target.characterId as string);
     }
   }
 
@@ -329,7 +337,12 @@ function performUntap(state: GameState): GameState {
       return ally;
     });
     let newStatus = ch.status;
-    if (prisonerIds.has(key)) {
+    if (skipUntapAndHealIds.has(key)) {
+      // Morgul-knife / The Pale Sword: the bearer attempted removal "instead
+      // of untapping or healing" — both are forgone this untap phase,
+      // regardless of the removal roll's outcome.
+      logDetail(`Untap: skipping untap and healing for ${key} (attempted corruption-card removal instead)`);
+    } else if (prisonerIds.has(key)) {
       // Prisoners cannot untap or heal (CoE rule 8.35: cannot take any actions
       // including healing or untapping).
       logDetail(`Untap: skipping ${key} — character is a prisoner`);
