@@ -9,8 +9,8 @@
  */
 
 import type { WebSocket } from 'ws';
-import type { ClientMessage, DeckList, JoinMessage, ServerMessage } from '@meccg/shared';
-import { Alignment } from '@meccg/shared';
+import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
+import { Alignment, buildInstanceLookup, formatCardList } from '@meccg/shared';
 import { loadDeck, listDecks } from '@meccg/sim';
 
 // ---- Deck catalog (shared with the sim harness in @meccg/sim) ----
@@ -106,6 +106,56 @@ export function spawnedJoinPayload(clientArgs: SpawnedClientArgs, logPrefix: str
   // seats; the interactive console client builds its join elsewhere.
   const msg: ClientMessage = { ...joinMsg, ai: true, token: clientArgs.token } as ClientMessage;
   return JSON.stringify(msg);
+}
+
+// ---- Character-draft display (console client) ----
+
+/**
+ * Render the character-draft status lines (round, pools, drafted lists,
+ * set-aside) that the console client prints between the state dump and the
+ * action menu. Returns an empty list outside the character-draft setup step.
+ *
+ * The two `draftState` entries are indexed by player order, not by viewer;
+ * `view.selfIndex` identifies the viewing player's entry. An earlier version
+ * guessed the entry by probing which pool held non-redacted cards, which
+ * mislabeled the two sides ("Your"/"Opponent" swapped) as soon as the
+ * viewer's own pool ran empty — reachable when a player is auto-stopped on
+ * an exhausted pool while the opponent keeps drafting.
+ */
+export function formatDraftLines(
+  view: PlayerView,
+  isSpectator: boolean,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string[] {
+  if (view.phaseState.phase !== 'setup' || view.phaseState.setupStep.step !== 'character-draft') return [];
+  const draft = view.phaseState.setupStep;
+  const instanceLookup = buildInstanceLookup(view);
+  const resolve = (instanceIds: readonly CardInstanceId[]) =>
+    instanceIds.map(id => instanceLookup(id) ?? id as unknown as CardDefinitionId);
+  const list = (instanceIds: readonly CardInstanceId[]) => formatCardList(resolve(instanceIds), cardPool);
+  const ids = (cards: readonly { readonly instanceId: CardInstanceId }[]) =>
+    cards.map(c => c.instanceId);
+
+  const lines: string[] = [`Draft round: ${draft.round}`];
+  if (isSpectator) {
+    lines.push(`${view.self.name} pool: ${list(ids(draft.draftState[0].pool))}`);
+    lines.push(`${view.self.name} drafted: ${list(ids(draft.draftState[0].drafted))}`);
+    lines.push(`${view.opponent.name} pool: ${list(ids(draft.draftState[1].pool))}`);
+    lines.push(`${view.opponent.name} drafted: ${list(ids(draft.draftState[1].drafted))}`);
+  } else {
+    const selfIdx = view.selfIndex;
+    const oppIdx = 1 - selfIdx;
+    lines.push(`Your pool: ${list(ids(draft.draftState[selfIdx].pool))}`);
+    lines.push(`Your drafted: ${list(ids(draft.draftState[selfIdx].drafted))}`);
+    lines.push(`Opponent pool: ${list(ids(draft.draftState[oppIdx].pool))}`);
+    lines.push(`Opponent drafted: ${list(ids(draft.draftState[oppIdx].drafted))}`);
+  }
+
+  const flatSetAside = [...draft.setAside[0], ...draft.setAside[1]];
+  if (flatSetAside.length > 0) {
+    lines.push(`Set aside: ${list(ids(flatSetAside))}`);
+  }
+  return lines;
 }
 
 /** Parse a raw WebSocket message buffer into a {@link ServerMessage}. */

@@ -11,7 +11,9 @@
 import { EventEmitter } from 'events';
 import type { WebSocket } from 'ws';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installReconnect, resetReconnectAttempts } from './client-common.js';
+import type { CardDefinition, PlayerView } from '@meccg/shared';
+import { stripCardMarkers } from '@meccg/shared';
+import { formatDraftLines, installReconnect, resetReconnectAttempts } from './client-common.js';
 
 /** Stand-in for a `ws` socket: only the event surface matters here. */
 function fakeSocket(): EventEmitter & WebSocket {
@@ -141,5 +143,105 @@ describe('installReconnect', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(reconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---- formatDraftLines ----
+
+// The character-draft display used to guess which `draftState` entry is the
+// viewing player's by probing which pool still held non-redacted cards
+// (opponent pools arrive as 'unknown-instance' placeholders), defaulting to
+// entry 0 when neither probe matched. A player seated at index 1 whose own
+// pool has run empty — the engine auto-stops a player on an exhausted pool
+// while the opponent keeps drafting — failed both probes, so the display
+// swapped sides: the opponent's redacted pool printed as "Your pool" and the
+// opponent's drafted list as "Your drafted". `view.selfIndex` exists
+// precisely to index these player-ordered phase-state arrays.
+describe('formatDraftLines', () => {
+  /** Card pool where each fixture instance ID doubles as its definition ID. */
+  const draftCardPool: Record<string, CardDefinition> = {
+    'own-hero': { id: 'own-hero', name: 'Own Hero' } as CardDefinition,
+    'opp-hero': { id: 'opp-hero', name: 'Opp Hero' } as CardDefinition,
+  };
+
+  /** A card reference as it appears in a draft pool or drafted list. */
+  const card = (instanceId: string): { instanceId: string; definitionId: string } =>
+    ({ instanceId, definitionId: instanceId });
+
+  /** Empty per-player piles, enough for buildInstanceLookup to walk. */
+  const emptySide = (name: string): Record<string, unknown> => ({
+    name,
+    hand: [], playDeck: [], siteDeck: [], discardPile: [], siteDiscardPile: [],
+    sideboard: [], killPile: [], outOfPlayPile: [], cardsInPlay: [],
+    characters: {}, companies: [], agents: [],
+  });
+
+  function draftView(selfIndex: number, draftState: readonly unknown[]): PlayerView {
+    return {
+      selfIndex,
+      self: emptySide('Alice'),
+      opponent: emptySide('Bob'),
+      chain: null,
+      phaseState: {
+        phase: 'setup',
+        setupStep: {
+          step: 'character-draft',
+          round: 2,
+          draftState,
+          setAside: [[], []],
+        },
+      },
+    } as unknown as PlayerView;
+  }
+
+  it('labels the seats by selfIndex when the own pool is exhausted', () => {
+    // Viewer is player index 1 with an empty pool; entry 0 is the opponent,
+    // whose pool is redacted and whose drafted characters are public.
+    const view = draftView(1, [
+      { pool: [card('unknown-instance')], drafted: [card('opp-hero')], draftedStageResources: [], currentPick: null },
+      { pool: [], drafted: [card('own-hero')], draftedStageResources: [], currentPick: null },
+    ]);
+
+    const lines = formatDraftLines(view, false, draftCardPool).map(stripCardMarkers);
+
+    expect(lines).toContain('Your drafted: Own Hero');
+    expect(lines).toContain('Opponent drafted: Opp Hero');
+    expect(lines).toContain('Your pool: (empty)');
+  });
+
+  it('labels the seats by selfIndex for a player at index 0', () => {
+    const view = draftView(0, [
+      { pool: [card('own-hero')], drafted: [], draftedStageResources: [], currentPick: null },
+      { pool: [card('unknown-instance')], drafted: [card('opp-hero')], draftedStageResources: [], currentPick: null },
+    ]);
+
+    const lines = formatDraftLines(view, false, draftCardPool).map(stripCardMarkers);
+
+    expect(lines).toContain('Your pool: Own Hero');
+    expect(lines).toContain('Opponent drafted: Opp Hero');
+  });
+
+  it('shows both players by name for a spectator', () => {
+    const view = draftView(0, [
+      { pool: [card('own-hero')], drafted: [], draftedStageResources: [], currentPick: null },
+      { pool: [card('opp-hero')], drafted: [], draftedStageResources: [], currentPick: null },
+    ]);
+
+    const lines = formatDraftLines(view, true, draftCardPool).map(stripCardMarkers);
+
+    expect(lines).toContain('Alice pool: Own Hero');
+    expect(lines).toContain('Bob pool: Opp Hero');
+  });
+
+  it('returns no lines outside the character draft', () => {
+    const view = {
+      selfIndex: 0,
+      self: emptySide('Alice'),
+      opponent: emptySide('Bob'),
+      chain: null,
+      phaseState: { phase: 'organization' },
+    } as unknown as PlayerView;
+
+    expect(formatDraftLines(view, false, draftCardPool)).toEqual([]);
   });
 });
