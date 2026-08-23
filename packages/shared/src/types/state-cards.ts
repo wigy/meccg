@@ -51,6 +51,18 @@ export interface CardInstance {
    * until played).
    */
   readonly pendingDraftStagePoints?: true;
+  /**
+   * Stamped when a card is sunk into `outOfPlayPile` because it was "removed
+   * from the game" rather than eliminated/removed-from-play — e.g. undrafted
+   * character-deck-draft pool characters (CoE rule 1.9). Per the glossary's
+   * "unique" and "remove from the game" entries, cards removed from the game
+   * entirely are "no longer considered for purposes of uniqueness" and a
+   * unique copy may be played again by either player, unlike a genuinely
+   * eliminated character (which continues to occupy the unique's
+   * in-play-or-removed-from-play slot). Read by `isUniqueCharacterInPlay` to
+   * skip these entries when scanning `outOfPlayPile`.
+   */
+  readonly removedFromGame?: true;
 }
 
 // ---- Characters in play ----
