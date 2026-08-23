@@ -65,6 +65,17 @@ export function effectiveHazardLimit(
       limit = next;
     }
   }
+  // Lost in Dark-domains (tw-52): "hazard limit is doubled until the end of
+  // the turn" — a multiplier over the limit as computed so far (base plus
+  // every additive modifier), not a flat delta. Always added after reveal
+  // (the card is played once the site path is already resolved), so there is
+  // no pre-reveal exclusion to mirror.
+  for (const constraint of activeConstraints) {
+    if (constraint.kind.type !== 'hazard-limit-multiplier') continue;
+    if (constraint.target.kind !== 'company') continue;
+    if (constraint.target.companyId !== companyId) continue;
+    limit *= constraint.kind.value;
+  }
   return Math.max(limit, 0);
 }
 
