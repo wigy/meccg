@@ -296,6 +296,24 @@ export function buildConstraintKind(
         apply: payload.apply,
       };
     }
+    case 'hazard-limit-region-count': {
+      // Lost in the Wilderness/Border-lands/Shadow-lands family (tw-55 and
+      // siblings): a hazard short-event played *during* the target company's
+      // own movement/hazard phase, after its site path is already resolved —
+      // unlike Fair Sailing's identically-named organization-phase constraint
+      // (whose count is deferred to `snapshotHazardLimit` because the path
+      // isn't known yet), the count here is already knowable at
+      // add-constraint time. Resolves straight into a flat
+      // `hazard-limit-modifier`, whose value the live `effectiveHazardLimit`
+      // picks up for the rest of this company's M/H phase (added after the
+      // reveal snapshot, so it is never baked into `hazardLimitAtReveal`).
+      const regionType = (onEvent.apply as { regionType?: import('../types/common.js').RegionType }).regionType;
+      const perCount = (onEvent.apply as { value?: number }).value;
+      if (!regionType || typeof perCount !== 'number') return null;
+      if (state.phaseState.phase !== Phase.MovementHazard) return null;
+      const count = state.phaseState.resolvedSitePath.filter(rt => rt === regionType).length;
+      return { type: 'hazard-limit-modifier', value: perCount * count };
+    }
     default:
       return null;
   }
