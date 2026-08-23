@@ -110,6 +110,26 @@ describe('Caverns Unchoked (ba-51)', () => {
     expect((plays[0].action as { targetSiteDefinitionId?: CardDefinitionId }).targetSiteDefinitionId).toBe(THE_UNDER_VAULTS);
   });
 
+  test('NOT playable outside the organization phase ("during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window (movement/hazard,
+    // site, end-of-turn) despite the printed restriction.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Balrog, companies: [{ site: THE_UNDER_VAULTS, characters: [CROOK_LEGGED_ORC] }], hand: [CAVERNS_UNCHOKED], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MOUNT_GRAM, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const id = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === CAVERNS_UNCHOKED)!.instanceId;
+    const plays = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'play-permanent-event'
+        && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === id,
+    );
+    expect(plays).toHaveLength(0);
+  });
+
   test('NOT offered when the company is at a non-Under-deeps site', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

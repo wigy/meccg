@@ -15,6 +15,7 @@ import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer, resolveDef } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
@@ -4684,6 +4685,11 @@ function discardInfluencedCard(
   const newCharacters = { ...opponent.characters };
   freeOrDiscardFollowers(state, newCharacters, targetChar, 'discardInfluencedCard');
 
+  // Relocate trophies per CoE 3.IV.4 — worth MP → the holder's marshalling-
+  // point pile, otherwise removed from play — or the creature CardInstance
+  // would vanish with the deleted character.
+  const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(state, targetChar, 'influenced character');
+
   // Remove the target character
   delete newCharacters[pending.targetInstanceId];
 
@@ -4699,6 +4705,8 @@ function discardInfluencedCard(
     characters: newCharacters,
     companies: newCompanies,
     discardPile: newDiscard,
+    killPile: [...opponent.killPile, ...toKillPile],
+    outOfPlayPile: [...opponent.outOfPlayPile, ...toOutOfPlay],
   };
   players[hazardPlayerIndex] = { ...players[hazardPlayerIndex], discardPile: newHazardDiscard };
 }

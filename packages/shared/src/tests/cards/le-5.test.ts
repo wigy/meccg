@@ -183,6 +183,60 @@ describe('Carambor (le-5)', () => {
   // location deck legally includes them (CoE 1.4.F1: one copy of each hero site
   // and each minion site), so they must still be offered as extra-mh-move
   // destinations even though their alignment field doesn't equal 'fallen-wizard'.
+  // Bug report (game mt4mes68-zk42ok, stateSeq 365): the extra-move offer only
+  // scanned the site deck for candidates, so a site the player already has in
+  // play via a different company (no unused copy left in the deck) was never
+  // offered — even though CoE rule 2.II.7 lets a company declare movement to
+  // "a specific site card at which the player already has a different
+  // company". Mirrors the sibling-in-play candidate the org-phase
+  // `plan-movement` offer already grants (rule 3.37 / 3.39).
+  test('offers a site the player already has in play via a sibling company even with no copy left in the site deck', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [
+            { site: CARN_DUM, characters: [{ defId: CARAMBOR, status: CardStatus.Untapped }] },
+            { site: BAG_END, characters: [] },
+          ],
+          hand: [],
+          // No Bag End copy left in the site deck — the sibling company
+          // already used the only physical copy to reach Bag End.
+          siteDeck: [ZARAK_DUM],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const siblingCompanyId = base.players[0].companies[1].id;
+    const offered = passToAdvance({
+      ...base,
+      phaseState: makeMHState({ activeCompanyIndex: 0, handledCompanyIds: [siblingCompanyId] }),
+    });
+    expect((offered.phaseState as MovementHazardPhaseState).step).toBe('character-tap-mh-offer');
+
+    const caramborId = offered.players[0].companies[0].characters[0];
+    const companyId = offered.players[0].companies[0].id;
+    const tapped = dispatch(offered, {
+      type: 'character-tap-extra-mh-phase', player: PLAYER_1, companyId, characterInstanceId: caramborId,
+    });
+
+    const bagEndSiblingInst = tapped.players[0].companies[1].currentSite!;
+    const extraMoves = viableActions(tapped, PLAYER_1, 'extra-mh-move')
+      .map(ea => ea.action as ExtraMHMoveAction);
+
+    expect(extraMoves.some(a => a.destinationSite === bagEndSiblingInst.instanceId)).toBe(true);
+
+    const moved = dispatch(tapped, {
+      type: 'extra-mh-move', player: PLAYER_1, companyId, destinationSite: bagEndSiblingInst.instanceId,
+    });
+    expect(moved.players[0].companies[0].destinationSite?.instanceId).toBe(bagEndSiblingInst.instanceId);
+    // The shared instance isn't drawn from the deck — it wasn't there.
+    expect(moved.players[0].siteDeck.some(s => s.definitionId === BAG_END)).toBe(false);
+  });
+
   test('offers Wilderness-path destinations to a Fallen-wizard company despite its mixed-alignment site deck', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
