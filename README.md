@@ -23,11 +23,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 293 | 340 | 86.2% |
-| Card tests | 1199 | 1199 | 100.0% |
+| Rule tests | 295 | 342 | 86.3% |
+| Card tests | 1215 | 1215 | 100.0% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 1250 | 1683 | 74.3% |
-| **Total** | **4425** | **4905** | **90.2%** |
+| Cards certified | 1267 | 1683 | 75.3% |
+| **Total** | **4460** | **4923** | **90.6%** |
 
 ### Deck Catalog
 
@@ -38,7 +38,7 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (A) Stewards of Gondor | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (B) Release the Prisoners | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
-| (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 108 (98.2%) |
+| (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (E) Return of the King | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (F) Spies and Traitors | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 110 (100.0%) |
@@ -49,10 +49,10 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (L) Wolves! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (M) It's magic! | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (N) Smoke on the Water | minion | 110 | 110 (100.0%) | 110 (100.0%) |
-| (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 108 (98.2%) |
-| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 108 (98.2%) |
-| (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 109 (99.1%) |
-| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 108 (98.2%) |
+| (O) Men of Skill | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
+| (P) Join the Hunt | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
+| (Q) Prophet of Doom | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
+| (R) The Ally-Armada | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (S) Await the Onset | fallen-wizard | 110 | 110 (100.0%) | 110 (100.0%) |
 | (T) Feel Free | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (U) Come by Night upon them | minion | 110 | 110 (100.0%) | 110 (100.0%) |

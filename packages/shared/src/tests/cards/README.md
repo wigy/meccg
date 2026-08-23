@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1199 | 1199 | 0 | 100.0% |
+| 1215 | 1215 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -17,7 +17,7 @@
 | DM | 112 | 112 | 100.0% |
 | LE | 310 | 310 | 100.0% |
 | TD | 99 | 99 | 100.0% |
-| TW | 376 | 376 | 100.0% |
+| TW | 392 | 392 | 100.0% |
 | WH | 93 | 93 | 100.0% |
 
 ## Detailed Test Matrix
@@ -163,12 +163,12 @@
 | ba-26 | Unabated in Malice | — | 12 | ☑ |
 | ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
-| ba-29 | Crept Along Carefully | — | 17 | ☑ |
+| ba-29 | Crept Along Carefully | — | 18 | ☑ |
 | ba-30 | Longbottom Leaf | — | 8 | ☑ |
 | ba-33 | To Fealty Sworn | — | 11 | ☑ |
 | ba-35 | Cave Troll | — | 9 | ☑ |
 | ba-36 | Ancient Secrets | — | 13 | ☑ |
-| ba-37 | Going Ever Under Dark | — | 16 | ☑ |
+| ba-37 | Going Ever Under Dark | — | 17 | ☑ |
 | ba-38 | Great Army of the North | — | 10 | ☑ |
 | ba-40 | Long Grievous Siege | — | 12 | ☑ |
 | ba-42 | Prone to Violence | — | 8 | ☑ |
@@ -179,7 +179,7 @@
 | ba-48 | A More Evil Hour | — | 13 | ☑ |
 | ba-49 | Angband Revisited | — | 5 | ☑ |
 | ba-50 | Breach the Hold | — | 14 | ☑ |
-| ba-51 | Caverns Unchoked | — | 12 | ☑ |
+| ba-51 | Caverns Unchoked | — | 13 | ☑ |
 | ba-52 | Challenge the Power | — | 6 | ☑ |
 | ba-53 | Cloaked by Darkness | — | 9 | ☑ |
 | ba-54 | Crowned with Storm | — | 13 | ☑ |
@@ -292,7 +292,7 @@
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
 | dm-86 | Scimitars of Steel | — | 6 | ☑ |
-| dm-88 | Seized by Terror | — | 9 | ☑ |
+| dm-88 | Seized by Terror | — | 10 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-96 | Twisted Tales | — | 15 | ☑ |
@@ -341,14 +341,14 @@
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-178 | Mistress Lobelia | — | 16 | ☑ |
-| dm-179 | Noble Hound | — | 10 | ☑ |
+| dm-179 | Noble Hound | — | 13 | ☑ |
 | dm-180 | Folco Boffin | — | 11 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
 | dm-182 | Freca | — | 3 | ☑ |
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
 | le-3 | Bróin | — | 7 | ☑ |
-| le-5 | Carambor | — | 8 | ☑ |
+| le-5 | Carambor | — | 9 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 2 | ☑ |
@@ -496,7 +496,7 @@
 | le-190 | Heralded Lord | — | 10 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
-| le-195 | I’ll Be At Your Heels | — | 14 | ☑ |
+| le-195 | I’ll Be At Your Heels | — | 15 | ☑ |
 | le-196 | I’ll Report You | — | 18 | ☑ |
 | le-203-the-lidless-eye | The Lidless Eye | — | 11 | ☑ |
 | le-210 | No More Nonsense | — | 12 | ☑ |
@@ -515,7 +515,7 @@
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
 | le-235 | Sudden Call | — | 10 | ☑ |
-| le-237 | Swarm of Bats | — | 13 | ☑ |
+| le-237 | Swarm of Bats | — | 14 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 12 | ☑ |
 | le-240 | That Ain’t No Secret | — | 15 | ☑ |
@@ -759,9 +759,12 @@
 | tw-3 | Agburanar | — | 6 | ☑ |
 | tw-4 | Akhôrahil | — | 17 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
+| tw-6 | Arouse Denizens | — | 9 | ☑ |
+| tw-7 | Arouse Minions | — | 10 | ☑ |
 | tw-008 | — | — | 13 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
+| tw-011 | — | — | 14 | ☑ |
 | tw-12 | Balrog of Moria | — | 11 | ☑ |
 | tw-13 | Bane of the Ithil-stone | — | 15 | ☑ |
 | tw-14 | Barrow-wight | — | 6 | ☑ |
@@ -769,6 +772,7 @@
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
 | tw-17 | Brigands | — | 7 | ☑ |
 | tw-18 | Call of Home | — | 9 | ☑ |
+| tw-19 | Call of the Sea | — | 6 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
 | tw-021 | — | — | 15 | ☑ |
 | tw-22 | Clouds | — | 7 | ☑ |
@@ -779,14 +783,17 @@
 | tw-27 | Despair of the Heart | — | 9 | ☑ |
 | tw-028 | — | — | 7 | ☑ |
 | tw-29 | Dragon’s Desolation | — | 15 | ☑ |
+| tw-30 | Drowning Seas | — | 8 | ☑ |
 | tw-31 | Dwar of Waw | — | 15 | ☑ |
 | tw-032 | — | — | 6 | ☑ |
+| tw-33 | Fell Beast | — | 13 | ☑ |
 | tw-34 | Fell Turtle | — | 5 | ☑ |
 | tw-35 | Fell Winter | — | 3 | ☑ |
 | tw-36 | Foul Fumes | — | 10 | ☑ |
 | tw-37 | Ghosts | — | 6 | ☑ |
 | tw-38 | Ghouls | — | 9 | ☑ |
 | tw-40 | Giant Spiders | — | 8 | ☑ |
+| tw-041 | — | — | 7 | ☑ |
 | tw-42 | Greed | — | 11 | ☑ |
 | tw-43 | Half-trolls of Far Harad | — | 4 | ☑ |
 | tw-44 | Hoarmûrath of Dír | — | 11 | ☑ |
@@ -794,8 +801,14 @@
 | tw-46 | Indûr Dawndeath | — | 15 | ☑ |
 | tw-47 | Khamûl the Easterling | — | 11 | ☑ |
 | tw-48 | Leucaruth | — | 6 | ☑ |
+| tw-49 | Long Winter | — | 8 | ☑ |
 | tw-050 | — | — | 7 | ☑ |
+| tw-051 | — | — | 7 | ☑ |
+| tw-052 | — | — | 5 | ☑ |
 | tw-053 | — | — | 7 | ☑ |
+| tw-054 | — | — | 7 | ☑ |
+| tw-055 | — | — | 6 | ☑ |
+| tw-56 | Lure of Creation | — | 7 | ☑ |
 | tw-57 | Lure of Expedience | — | 13 | ☑ |
 | tw-58 | Lure of Nature | — | 14 | ☑ |
 | tw-59 | Lure of Power | — | 7 | ☑ |
@@ -803,6 +816,7 @@
 | tw-60 | Lure of the Senses | — | 2 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
+| tw-64 | Morgul-knife | — | 17 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
 | tw-66 | Mûmak (Oliphant) | — | 11 | ☑ |
 | tw-067 | — | — | 7 | ☑ |
@@ -883,6 +897,7 @@
 | tw-150 | Fíli | — | 5 | ☑ |
 | tw-151 | Forlong | — | 2 | ☑ |
 | tw-152 | Frodo | — | 5 | ☑ |
+| tw-153 | Galadriel | — | 4 | ☑ |
 | tw-154 | Galva | — | 9 | ☑ |
 | tw-155 | Gamling the Old | — | 3 | ☑ |
 | tw-156 | Gandalf | — | 12 | ☑ |
@@ -939,10 +954,11 @@
 | tw-211 | Dunlendings | — | 4 | ☑ |
 | tw-212 | Durin’s Axe | — | 9 | ☑ |
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 15 | ☑ |
+| tw-220 | Eagle-mounts | — | 9 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |
 | tw-223 | Elf-song | — | 6 | ☑ |
 | tw-224 | Elf-stone | — | 7 | ☑ |
-| tw-225 | Elven Cloak | — | 6 | ☑ |
+| tw-225 | Elven Cloak | — | 7 | ☑ |
 | tw-226 | Elves of Lindon | — | 3 | ☑ |
 | tw-227 | Ent-draughts | — | 10 | ☑ |
 | tw-228 | Ents of Fangorn | — | 2 | ☑ |

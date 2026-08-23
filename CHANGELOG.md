@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.127.0 — 2026-08-23
+
+Seventeen certifications and a wave of engine fixes
+
+### Game Engine
+
+- Certified 17 more cards, most from The Wizards hazard pool: Arouse Denizens (tw-6), Arouse Minions (tw-7), Awaken the Earth's Fire (tw-11), Call of the Sea (tw-19), Drowning Seas (tw-30), Fell Beast (tw-33), Gloom (tw-41), Long Winter (tw-49), the "Lost in X" family (tw-51, tw-52, tw-54, tw-55), Recovery (tw-56), Morgul-knife (tw-64), Galadriel (tw-153), Bill the Pony sibling Noble Hound (dm-179), and Eagle-mounts (tw-220).
+- New primitives along the way: `auto-attack-boost` (single automatic-attack prowess/uncancelable boost), company-targeting `play-option` with `random-discard-hand`, `nazgul-boost-pending` (Fell Beast keying/boost grants), hazard-limit modifiers keyed to site-path region counts and multipliers, `skip-untap-and-heal` (Morgul-knife wounds), and an `eagle-mounts` special-movement mode.
+- Fixed undrafted unique draft leftovers blocking replay of the card — both the owner's copy (CoE 1.9 "removed from the game", #2747) and the opponent's own copy (#2722).
+- Trophies now relocate when their bearer leaves play (CoE 3.IV.4) instead of disappearing.
+- A dissolved company's planned destination site is returned to the location deck instead of leaking out of the game.
+- Corruption-check death now defers the freed follower's mind bookkeeping correctly (CoE 2.II.2.2.3).
+- Added the missing organization-phase gate to five more certified permanent events, and applied the g.wiz.F1 ruling to short hazard-event character-target filters.
+- Fixed extra-M/H movement offering no destination when a sibling company already occupies the site.
+
+### Web Client
+
+- The opponent's revealed movement destination is now shown in the player view.
+- The hazard-limit box is hidden during pre-limit M/H steps instead of showing a misleading value.
+- Deck editor pool browser no longer excludes valid starting items (including Elven Cloak in the hero starting-company pool).
+
+### Infrastructure
+
+- `summarizeDistribution` percentiles use nearest-rank interpolation instead of collapsing to the maximum.
+
 ## 0.126.0 — 2026-08-22
 
 Four more certifications and combat bookkeeping fixes
