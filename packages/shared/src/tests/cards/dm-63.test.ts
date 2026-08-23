@@ -283,6 +283,34 @@ describe('Great Secrets Buried There (dm-63)', () => {
     assertEveryInstanceReachable(played);
   });
 
+  test('an item set aside by a different host (Armory) is NOT offered at an Under-deeps site', () => {
+    // Regression: the Under-deeps replay offered EVERY owned set-aside item,
+    // regardless of which host set it aside. Only items under a Great-Secrets
+    // host gain the replay — an Armory (dm-116) cache is playable solely at
+    // the site types its own effect lists (Border-hold/Free-hold/Haven),
+    // never via the dm-63 Under-deeps window.
+    const ARMORY = 'dm-116' as CardDefinitionId;
+    const hostId = 'p1-600' as CardInstanceId;
+    const itemId = 'p1-601' as CardInstanceId;
+    const hostAndChild: CardInPlay[] = [
+      { instanceId: hostId, definitionId: ARMORY, status: CardStatus.Untapped, setAside: [itemId] },
+      { instanceId: itemId, definitionId: DAGGER_OF_WESTERNESSE, status: CardStatus.Untapped, setAsideHost: hostId, setAsideNoMp: true },
+    ];
+
+    const base = buildSitePhaseState({ site: UNDER_GATES, characters: [ARAGORN], hand: [] });
+    const state: GameState = {
+      ...base,
+      players: [
+        { ...base.players[0], cardsInPlay: [...base.players[0].cardsInPlay, ...hostAndChild] },
+        base.players[1],
+      ],
+    };
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource')
+      .filter(a => (a.action as PlayHeroResourceAction).cardInstanceId === itemId);
+    expect(plays).toHaveLength(0);
+  });
+
   test('control: the set-aside item is NOT offered at a non-Under-deeps site', () => {
     const hostId = 'p2-500' as CardInstanceId;
     const itemId = 'p1-501' as CardInstanceId;
