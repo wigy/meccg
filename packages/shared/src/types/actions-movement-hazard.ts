@@ -726,6 +726,22 @@ export interface ForceDiscardCardAction {
 }
 
 /**
+ * Discard an ally carrying `cancel-prisoner-taking` (e.g. Noble Hound dm-179)
+ * to cancel the current strike's prisoner-taking outcome. Available during
+ * the 'cancel-prisoner-taking-choice' combat phase; the struck character is
+ * resolved as a normal wound instead of being taken prisoner. Declining
+ * (letting the prisoner-taking proceed) is a `pass` action instead.
+ */
+export interface CancelPrisonerTakingAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-prisoner-taking';
+  /** The defending player discarding the ally. */
+  readonly player: PlayerId;
+  /** The ally being discarded to cancel the prisoner-taking. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Cancel a strike against a character by having another character in
  * the same company pay a cost (e.g. Fatty Bolger taps to cancel a
  * strike against another hobbit).

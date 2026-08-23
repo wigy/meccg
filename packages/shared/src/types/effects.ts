@@ -2182,6 +2182,7 @@ export type TriggeredActionType =
   | 'enqueue-opponent-elimination-roll'
   | 'discard-target-character'
   | 'force-discard-one-company-item'
+  | 'random-discard-hand'
   | 'enqueue-corruption-check'
   | 'enqueue-body-check'
   | 'whip-discipline'
@@ -2756,6 +2757,35 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * must have to use the granted shortcut (tapped as its cost).
    */
   readonly requiredSkill?: Skill;
+  /**
+   * For a `nazgul-boost-pending` constraint (Fell Beast tw-33): the strikes
+   * delta applied to the next matching hazard-creature card played against
+   * the target company (e.g. `1` for "increased by one").
+   */
+  readonly strikesModifier?: number;
+  /**
+   * For a `nazgul-boost-pending` constraint: the prowess delta applied to the
+   * next matching hazard-creature card played against the target company
+   * (e.g. `-2` for "decreased by 2").
+   */
+  readonly prowessModifier?: number;
+  /**
+   * For a `nazgul-boost-pending` constraint: when true, the boosted creature's
+   * resulting attack gets "attacker chooses defending characters".
+   */
+  readonly grantAttackerChoosesDefenders?: true;
+  /**
+   * For a `nazgul-boost-pending` constraint: region types the next matching
+   * creature may additionally be keyed to, on top of its own printed
+   * `keyedTo` (Fell Beast tw-33: "may also be played keyed to a Shadow-land").
+   */
+  readonly keyingRegionTypes?: readonly RegionType[];
+  /**
+   * For a `nazgul-boost-pending` constraint: site types the next matching
+   * creature may additionally be keyed to, on top of its own printed
+   * `keyedTo` (Fell Beast tw-33: "...or Shadow-hold").
+   */
+  readonly keyingSiteTypes?: readonly SiteType[];
 }
 
 /**
@@ -2865,6 +2895,18 @@ export interface ForceDiscardOneCompanyItemAction extends TriggeredActionBase {
    * one item of attacker's choice".
    */
   readonly chooser?: 'attacker' | 'defender';
+}
+
+/**
+ * `random-discard-hand` — the target player discards `count` cards drawn at
+ * random from their hand (capped at hand size). Used by hazard short-events
+ * that force a company's controller to "randomly discard" cards, as opposed
+ * to `force-opponent-discard`'s player-chosen discard.
+ */
+export interface RandomDiscardHandAction extends TriggeredActionBase {
+  readonly type: 'random-discard-hand';
+  /** How many cards to discard at random (capped at hand size). */
+  readonly count: number;
 }
 
 /**
@@ -3479,6 +3521,7 @@ export type TriggeredAction =
   | EnqueueOpponentEliminationRollAction
   | DiscardTargetCharacterAction
   | ForceDiscardOneCompanyItemAction
+  | RandomDiscardHandAction
   | SetCharacterStatusAction
   | HealTargetCharacterAction
   | ReturnCharacterToHandAction
@@ -6920,12 +6963,25 @@ export interface CreatureRaceChoiceEffect extends EffectBase {
  * be transferred to another character in the company; all other
  * non-follower cards the character controls are discarded.
  *
- * Used by Call of Home (tw-18).
+ * Used by Call of Home (tw-18, le-105), Tookish Blood (tw-104), and Call of
+ * the Sea (tw-19).
  */
 export interface CallOfHomeCheckEffect extends EffectBase {
   readonly type: 'call-of-home-check';
   /** Roll + unused GI must meet or exceed this to keep the character. */
   readonly threshold: number;
+  /**
+   * Optional roll adjustments evaluated at enqueue time against
+   * `{ company: { sitePathRegionTypes: RegionType[] } }` — the region types
+   * traveled by the target's company on its resolved path this turn. The
+   * values of all matching entries are added to the roll. Used by Call of
+   * the Sea (tw-19): "modified by -3 if the character's company moved this
+   * turn using a site path containing a Coastal Sea."
+   */
+  readonly rollModifiers?: readonly {
+    readonly when: Condition;
+    readonly value: number;
+  }[];
 }
 
 /**

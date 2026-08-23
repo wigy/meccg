@@ -51,6 +51,22 @@ export interface CardInstance {
    * until played).
    */
   readonly pendingDraftStagePoints?: true;
+  /**
+   * Stamped on pool leftovers (unassigned minor items, undrafted starting
+   * characters) sunk into `outOfPlayPile` at the end of the item/character
+   * draft — CoE 1.9: "All other unused or duplicated cards in each player's
+   * pool are removed from the game." The glossary distinguishes this from
+   * ordinary elimination: "remove from play" (removed-from-play pile) cards
+   * still count for uniqueness (docs/coe-rules.md's "remove from play" entry),
+   * but cards "removed from the game" no longer do (docs/coe-rules.md's
+   * "remove from the game" entry) — "if a unique card is discarded... or
+   * removed from the game entirely, it may be played again by either player"
+   * (the "unique" glossary entry). `outOfPlayPile` otherwise holds genuinely
+   * eliminated cards, which must still block replay of their unique name, so
+   * `isUniqueCharacterInPlay` checks this flag to tell the two apart within
+   * the same pile.
+   */
+  readonly removedFromGame?: true;
 }
 
 // ---- Characters in play ----

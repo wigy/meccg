@@ -495,6 +495,8 @@ export function describeAction(
       return `Strike event: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'cancel-strike':
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
+    case 'cancel-prisoner-taking':
+      return `Discard ${instName(action.cardInstanceId)} to cancel prisoner-taking (Noble Hound)`;
     case 'dodge-strike':
       return `Tap ${instName(action.cardInstanceId)} so ${instName(action.characterInstanceId)} dodges the strike — ${action.explanation}`;
     case 'flee-from-strike':

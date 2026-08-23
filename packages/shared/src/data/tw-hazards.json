@@ -1136,8 +1136,21 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArouseDenizens.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site."
+    "effects": [
+      {
+        "type": "auto-attack-boost",
+        "siteTypes": ["ruins-and-lairs"],
+        "prowessBonus": 3,
+        "uncancelable": false
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ],
+    "text": "Playable on a Ruins & Lairs [{R}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated on a given site.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-event",
@@ -1146,8 +1159,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ArouseMinions.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Shadow-hold [{S}] or Dark-hold [{D}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated at a given site."
+    "effects": [
+      {
+        "type": "auto-attack-boost",
+        "siteTypes": [
+          "shadow-hold",
+          "dark-hold"
+        ],
+        "prowessBonus": 3,
+        "uncancelable": false
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ],
+    "text": "Playable on a Shadow-hold [{S}] or Dark-hold [{D}]. This turn, the prowess of one automatic-attack (your choice) at target site is increased by 3.Cannot be duplicated at a given site.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-event",
@@ -1201,7 +1230,106 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "$or": [
+            {
+              "destinationSiteType": { "$in": ["shadow-hold", "dark-hold"] }
+            },
+            {
+              "$and": [
+                {
+                  "inPlay": {
+                    "$includes": "Doors of Night"
+                  }
+                },
+                {
+                  "destinationRegionType": "shadow"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationSiteType": "shadow-hold"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "dark-hold",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationRegionType": "shadow"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "dark",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "company.destinationSiteType": "shadow-hold"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "value": 2,
+          "siteType": "shadow-hold",
+          "scope": "company-site-phase"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "company.destinationSiteType": "dark-hold"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "auto-attack-prowess-boost",
+          "value": 2,
+          "siteType": "dark-hold",
+          "scope": "company-site-phase"
+        }
+      }
+    ],
+    "certified": "2026-08-23",
     "text": "Environment. Modify the prowess of one automatic-attack at a Shadow-hold [{S}] or Dark-hold [{D}] site by +2.Alternatively, if Doors of Night is in play, treat one Shadow-land [{s}] as a Dark-domain [{d}] or one Shadow-hold [{S}] as a Dark-hold [{D}] until the end of the turn.Cannot be duplicated."
   },
   {
@@ -1244,7 +1372,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CalloftheSea.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": "elf" }
+      },
+      {
+        "type": "call-of-home-check",
+        "threshold": 10,
+        "rollModifiers": [
+          {
+            "when": { "company.sitePathRegionTypes": { "$includes": "coastal" } },
+            "value": -3
+          }
+        ]
+      }
+    ],
+    "certified": "2026-08-23",
     "text": "Playable on a Elf character. The character’s player makes a roll. Return the character to the player’s hand if this result plus his unused general influence is less than 10. This result is modified by -3 if the character’s company moved this turn using a site path containing a Coastal Sea [{c}].Any one item held by a character removed in this fashion may automatically be transferred to another character in his company (all other non-follower cards target character controls are discarded)."
   },
   {
@@ -1290,8 +1435,49 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Playable on a company that moved this turn to a site with a Coastal Sea [{c}] in its site path. Target company loses one item of its choice and its player must randomly discard two cards from his hand.Alternatively, if Doors of Night is in play, target company must immediately return to its site of origin."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company"
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-path",
+        "condition": {
+          "sitePath.coastalCount": {
+            "$gte": 1
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "item-loss-and-discard",
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "force-discard-one-company-item"
+            },
+            {
+              "type": "random-discard-hand",
+              "count": 2
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "return-to-origin",
+        "when": {
+          "inPlay": "Doors of Night"
+        },
+        "apply": {
+          "type": "company-return-to-origin"
+        }
+      }
+    ],
+    "text": "Environment. Playable on a company that moved this turn to a site with a Coastal Sea [{c}] in its site path. Target company loses one item of its choice and its player must randomly discard two cards from his hand.Alternatively, if Doors of Night is in play, target company must immediately return to its site of origin.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
@@ -1300,8 +1486,35 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FellBeast.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "The number of strikes of one Nazgûl hazard creature is increased by one and its prowess is decreased by 2. Attacker chooses defending characters.Additionally, target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold [{S}].Cannot be duplicated on a given Nazgûl."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "nazgul-boost-pending",
+          "scope": "company-mh-phase",
+          "race": "ringwraith",
+          "strikesModifier": 1,
+          "prowessModifier": -2,
+          "grantAttackerChoosesDefenders": true,
+          "keyingRegionTypes": ["shadow"],
+          "keyingSiteTypes": ["shadow-hold"]
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "strikesModifier": 1,
+        "prowessModifier": -2,
+        "grantAttackerChoosesDefenders": true,
+        "when": { "enemy.race": "ringwraith" }
+      },
+      { "type": "duplication-limit", "scope": "attack", "max": 1 }
+    ],
+    "text": "The number of strikes of one Nazgûl hazard creature is increased by one and its prowess is decreased by 2. Attacker chooses defending characters.Additionally, target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold [{S}].Cannot be duplicated on a given Nazgûl.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
@@ -1359,8 +1572,74 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Playable only on a company that is moving this turn. One character (attacker’s choice) in that company suffers -1 to his prowess until the end of the turn.Alternatively, if Doors of Night is in play, treat one Border-land [{b}] as a Wilderness [{w}] or one Border-hold [{B}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": -1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationRegionType": "border"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "wilderness",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationSiteType": "border-hold"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "ruins-and-lairs",
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Environment. Playable only on a company that is moving this turn. One character (attacker’s choice) in that company suffers -1 to his prowess until the end of the turn.Alternatively, if Doors of Night is in play, treat one Border-land [{b}] as a Wilderness [{w}] or one Border-hold [{B}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
@@ -1405,8 +1684,42 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": {
+          "sitePath.wildernessCount": {
+            "$gte": 2
+          }
+        },
+        "rangerException": true
+      },
+      {
+        "type": "tap-sites-in-play",
+        "requiresInPlay": "Doors of Night",
+        "condition": {
+          "$and": [
+            {
+              "site.type": {
+                "$ne": "haven"
+              }
+            },
+            {
+              "sitePath.wildernessCount": {
+                "$gte": 2
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",

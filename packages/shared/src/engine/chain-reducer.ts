@@ -1023,16 +1023,18 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   );
   if (onEvents.length === 0) return state;
 
-  // New Moon (tw-68): a card offering a `tap-character` mode alongside these
-  // arrival-override modes. The two are mutually exclusive ("Alternatively"):
-  // when the player chose the tap mode (a targetCharacterId rides on the
-  // payload), the arrival-override modes must not also fire.
+  // New Moon (tw-68): a card offering a `tap-character` (or, Gloom tw-41,
+  // a `play-target: "character"` + `character-stat-modifier`) mode alongside
+  // these arrival-override modes. The two are mutually exclusive
+  // ("Alternatively"): when the player chose the character-targeted mode (a
+  // targetCharacterId rides on the payload), the arrival-override modes must
+  // not also fire.
   if (
     entry.payload.type === 'short-event'
     && entry.payload.targetCharacterId
-    && getCardEffects(def).some(e => e.type === 'tap-character')
+    && getCardEffects(def).some(e => e.type === 'tap-character' || (e.type === 'play-target' && e.target === 'character'))
   ) {
-    logDetail(`Short-event "${def.name}" tap-character mode chosen — skipping arrival-override modes`);
+    logDetail(`Short-event "${def.name}" character-targeted mode chosen — skipping arrival-override modes`);
     return state;
   }
 
@@ -1454,6 +1456,134 @@ function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): Ga
   }
 
   return next;
+}
+
+/**
+ * Forces the active M/H company back to its site of origin as a `play-option`
+ * apply (rather than the card's own top-level `company-return-to-origin`
+ * effect handled by {@link applyCompanyReturnToOrigin}). Shares the same CoE
+ * rule 2.IV.4 mechanism: keeps the origin site and blocks the site phase.
+ * Idempotent — a no-op if the company already returned this turn or isn't
+ * moving.
+ */
+function performCompanyReturnToOriginOption(state: GameState, cardName: string, sourceInstanceId: import('../types/common.js').CardInstanceId, sourceDefinitionId: import('../types/common.js').CardDefinitionId): GameState {
+  if (state.phaseState.phase !== Phase.MovementHazard) return state;
+  const mhState = state.phaseState;
+  if (mhState.returnedToOrigin) return state;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company || !company.destinationSite) return state;
+
+  logDetail(`${cardName}: option resolved — company ${company.id as string} must return to its site of origin`);
+  let next: GameState = { ...state, phaseState: { ...mhState, returnedToOrigin: true } };
+  next = addConstraint(next, {
+    source: sourceInstanceId,
+    sourceDefinitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
+  return next;
+}
+
+/**
+ * Resolves one `TriggeredAction` apply from a company-targeting hazard
+ * short-event's `play-option` (see {@link applyCompanyPlayOption}). Recurses
+ * into `sequence`'s sub-applies. Unsupported apply kinds are a no-op.
+ */
+function applyCompanyPlayOptionApply(
+  state: GameState,
+  apply: import('../types/effects.js').TriggeredAction,
+  cardName: string,
+  sourceInstanceId: import('../types/common.js').CardInstanceId,
+  sourceDefinitionId: import('../types/common.js').CardDefinitionId,
+): GameState {
+  let current = state;
+  if (apply.type === 'sequence') {
+    for (const sub of apply.apps ?? []) {
+      current = applyCompanyPlayOptionApply(current, sub, cardName, sourceInstanceId, sourceDefinitionId);
+    }
+    return current;
+  }
+
+  if (apply.type === 'company-return-to-origin') {
+    return performCompanyReturnToOriginOption(current, cardName, sourceInstanceId, sourceDefinitionId);
+  }
+
+  if (apply.type === 'force-discard-one-company-item') {
+    if (current.phaseState.phase !== Phase.MovementHazard) return current;
+    const mhState = current.phaseState;
+    const resourceIndex = getPlayerIndex(current, current.activePlayer!);
+    const resourcePlayer = current.players[resourceIndex];
+    const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+    if (!company) return current;
+    const hasItems = company.characters.some(charId => {
+      const ch = resourcePlayer.characters[charId];
+      return ch && ch.items.length > 0;
+    });
+    if (!hasItems) {
+      logDetail(`${cardName}: option resolved — company ${company.id as string} has no items to discard`);
+      return current;
+    }
+    logDetail(`${cardName}: option resolved — company ${company.id as string} must discard one item, its choice`);
+    return enqueueResolution(current, {
+      source: sourceInstanceId,
+      actor: resourcePlayer.id,
+      scope: companySubphaseScope(current.phaseState.phase, company.id),
+      kind: { type: 'discard-one-company-item', companyId: company.id },
+    });
+  }
+
+  if (apply.type === 'random-discard-hand') {
+    if (current.phaseState.phase !== Phase.MovementHazard) return current;
+    const mhState = current.phaseState;
+    const resourceIndex = getPlayerIndex(current, current.activePlayer!);
+    const resourcePlayer = current.players[resourceIndex];
+    const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+    if (!company) return current;
+    const [shuffled, nextRng] = shuffle(resourcePlayer.hand, current.rng);
+    const discardCount = Math.min(apply.count, shuffled.length);
+    const toDiscard = shuffled.slice(0, discardCount);
+    const kept = shuffled.slice(discardCount);
+    logDetail(`${cardName}: option resolved — ${resourcePlayer.name} randomly discards ${discardCount}/${resourcePlayer.hand.length} hand card(s)`);
+    current = { ...current, rng: nextRng };
+    current = updatePlayer(current, resourceIndex, p => ({
+      ...p,
+      hand: kept,
+      discardPile: [...p.discardPile, ...toDiscard],
+    }));
+    return current;
+  }
+
+  return current;
+}
+
+/**
+ * Dispatches the chosen `play-option` on a company-targeting hazard
+ * short-event (e.g. Drowning Seas tw-30) once its chain entry resolves
+ * un-negated. The option was chosen at play time (`entry.payload.optionId`);
+ * this only fires for cards whose `play-target` is `"company"` — character-
+ * and untargeted-mode `play-option` dispatch live in their own blocks above.
+ */
+function applyCompanyPlayOption(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event' || !entry.payload.optionId) return state;
+  const def = defById(state, card.definitionId);
+  const playTarget = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target',
+  );
+  if (playTarget?.target !== 'company') return state;
+
+  const optionId = entry.payload.optionId;
+  const opt = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').PlayOptionEffect => e.type === 'play-option' && e.id === optionId,
+  );
+  if (!opt) return state;
+
+  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  return applyCompanyPlayOptionApply(state, opt.apply, cardName, card.instanceId, card.definitionId);
 }
 
 /**
@@ -3524,9 +3654,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // Hunter as-7 carries both).
   const attackerChooses = resolveAttackerChoosesDefenders(
     state,
-    creatureDef.effects?.some(
+    (creatureDef.effects?.some(
       e => e.type === 'combat-attacker-chooses-defenders' && e.scope !== 'all-attacks',
-    ) ?? false,
+    ) ?? false)
+      // Fell Beast (tw-33): a consumed `nazgul-boost-pending` constraint
+      // grants "attacker chooses defending characters" to this creature's
+      // play, on top of any rule the card itself carries.
+      || (entry.payload.type === 'creature' && entry.payload.grantAttackerChoosesDefenders === true),
     creatureDef.race,
   );
   if (attackerChooses) {
@@ -3660,8 +3794,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     : undefined;
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
+  const strikesBonus = entry.payload.type === 'creature' ? (entry.payload.strikesBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx) + strikesBonus;
   let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
   // combat-body-per-defender-skill (Little Snuffler dm-108): "Each ranger in
@@ -4097,6 +4232,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // prowess > 4) is met.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyCompanyReturnToOrigin(current, entry);
+  }
+
+  // Company-targeting short events declaring play-option modes (e.g. Drowning
+  // Seas tw-30): the hazard player chose one mutually-exclusive option at
+  // play time, carried on the chain entry as `optionId`. Dispatch the chosen
+  // option's `apply` now that the entry resolved un-negated.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card && entry.payload.optionId) {
+    current = applyCompanyPlayOption(current, entry);
   }
 
   // Short events that forbid the active M/H company from acting during its site
@@ -4951,6 +5094,25 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const cohCharDefId = resolveInstanceId(current, entry.payload.targetCharacterId);
       const cohCharDef = cohCharDefId ? defById(current, cohCharDefId) : undefined;
       const cohCharName = cohCharDef && 'name' in cohCharDef ? cohCharDef.name : (entry.payload.targetCharacterId as string);
+      const cohModifiers: import('../types/pending.js').DiceCheckModifier[] = [
+        { kind: 'unused-gi', player: resourcePlayerId },
+      ];
+      // Call of the Sea (tw-19): roll modified by -3 if the target's company
+      // moved this turn using a site path containing a Coastal Sea. Evaluated
+      // against the active company's resolved path (the target always belongs
+      // to the company currently in its M/H sub-phase).
+      if (cohEffect.rollModifiers && cohEffect.rollModifiers.length > 0) {
+        const cohMhState = current.phaseState as import('../index.js').MovementHazardPhaseState;
+        const cohCtx = { company: { sitePathRegionTypes: cohMhState.resolvedSitePath } };
+        let cohModTotal = 0;
+        for (const m of cohEffect.rollModifiers) {
+          if (matchesCondition(m.when, cohCtx)) cohModTotal += m.value;
+        }
+        if (cohModTotal !== 0) {
+          logDetail(`Call of Home roll modifier: ${cohModTotal} (site path: ${cohMhState.resolvedSitePath.join(', ')})`);
+          cohModifiers.push({ kind: 'constant', value: cohModTotal });
+        }
+      }
       logDetail(`Enqueuing dice-check (call-of-home) pending resolution for character ${entry.payload.targetCharacterId as string}`);
       current = enqueueResolution(current, {
         source: entry.card.instanceId,
@@ -4959,11 +5121,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         kind: {
           type: 'dice-check',
           label: `Call of Home: ${cohCharName}`,
-          modifiers: [{ kind: 'unused-gi', player: resourcePlayerId }],
+          modifiers: cohModifiers,
           threshold: cohEffect.threshold,
           comparison: 'gte',
           // roll + unused GI < threshold → character returns to hand.
-          onFail: { type: 'return-character-to-hand' },
+          // One item may transfer to a company-mate (Pilfer Anything
+          // Unwatched precedent); the rest of the character's cards discard.
+          onFail: { type: 'return-character-to-hand', allowItemTransfer: true },
           continuation: { kind: 'chain-entry', match: 'target-character' },
           requireTargetPresent: true,
           targetCharacterId: entry.payload.targetCharacterId,

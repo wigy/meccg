@@ -100,6 +100,27 @@ describe('Crept Along Carefully (ba-29)', () => {
     expect(plays[0].targetCompanyId).toBe(companyId);
   });
 
+  test('NOT playable outside the organization phase ("during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window (movement/hazard,
+    // site, end-of-turn) despite the printed restriction.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [NON_RANGER_1] }], hand: [CREPT_ALONG_CAREFULLY], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const handInst = state.players[RESOURCE_PLAYER].hand[0].instanceId;
+    const plays = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-permanent-event')
+      .map(a => a.action as PlayPermanentEventAction)
+      .filter(a => a.cardInstanceId === handInst);
+    expect(plays).toHaveLength(0);
+  });
+
   // ─── Rule 2: the company cannot use starter movement ───────────────────────
 
   /** Rivendell → Ettenmoors is a hero starter adjacency; declare-path offers a starter path. */

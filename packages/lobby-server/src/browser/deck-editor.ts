@@ -199,7 +199,7 @@ interface BrowserToggle {
 /** Extract loosely-typed filter traits from any card definition. */
 const traits = (def: CardDefinition) => def as unknown as {
   cardType: string; race?: Race; alignment?: string; keywords?: readonly string[];
-  subtype?: string; marshallingPoints?: number; siteType?: string;
+  subtype?: string; marshallingPoints?: number; siteType?: string; unique?: boolean;
 };
 
 /** Which deck section a card browser was opened from; decides toggle defaults. */
@@ -260,7 +260,7 @@ function alignmentToggles(alignment: string): BrowserToggle[] {
  * categories, and the hazards section with the hazard categories. The
  * sideboard holds anything but sites, so it enables every category.
  */
-function typeToggles(preset: TogglePreset): BrowserToggle[] {
+export function typeToggles(preset: TogglePreset): BrowserToggle[] {
   const isAgent = (def: CardDefinition) => (traits(def).keywords ?? []).includes('agent');
   // Avatars are identified by their race; everyone else is an ordinary character.
   const AVATAR_RACES: readonly Race[] = [Race.Wizard, Race.Ringwraith, Race.FallenWizard, Race.Balrog];
@@ -272,6 +272,16 @@ function typeToggles(preset: TogglePreset): BrowserToggle[] {
   const isItem = (def: CardDefinition) => traits(def).cardType.endsWith('-resource-item');
   const isEvent = (def: CardDefinition) => traits(def).cardType.endsWith('-resource-event');
   const hasMp = (def: CardDefinition) => (traits(def).marshallingPoints ?? 0) > 0;
+  // CoE 1.7: any non-unique, non-hoard minor item qualifies as a starting
+  // item, whether or not it carries the `starting-item` keyword — that
+  // keyword instead marks non-item cards (Stage resources, resource-events)
+  // that may be placed with a starting company in lieu of a minor item.
+  const isStartingItem = (def: CardDefinition) => {
+    const t = traits(def);
+    const isNonUniqueMinorItem = isItem(def) && t.subtype === 'minor' && t.unique === false
+      && !(t.keywords ?? []).includes('hoard');
+    return isNonUniqueMinorItem || (t.keywords ?? []).includes('starting-item');
+  };
   const sbOn = preset === 'sideboard';
   const charsOn = preset === 'characters' || preset === 'pool' || sbOn;
   const resOn = preset === 'resources' || sbOn;
@@ -284,11 +294,9 @@ function typeToggles(preset: TogglePreset): BrowserToggle[] {
       match: d => isCharacter(d) && isAgent(d) && !isAvatar(d) },
     { icon: '\u{1F9D9}', title: 'Avatars', group: 'type', active: preset === 'characters' || sbOn,
       match: d => isCharacter(d) && isAvatar(d) },
-    // Legitimate starting cards (events included) are explicitly marked
-    // with the starting-item keyword; other minor items don't qualify.
     { icon: '\u{1F6E1}\u{FE0F}', title: 'Starting items', group: 'type', active: preset === 'pool' || sbOn,
       separatorBefore: true,
-      match: d => (traits(d).keywords ?? []).includes('starting-item') },
+      match: isStartingItem },
     { icon: '\u{1F48D}', title: 'Rings', group: 'type', active: resOn,
       match: d => isRing(d) },
     { icon: '\u{1F48E}', title: 'Items (non-ring)', group: 'type', active: resOn,
