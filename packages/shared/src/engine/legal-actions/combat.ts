@@ -3131,6 +3131,10 @@ function protectFromStrikeAssignmentActions(
 ): EvaluatedAction[] {
   if (playerId !== combat.defendingPlayerId) return [];
   if (combat.phase !== 'assign-strikes') return [];
+  // Pre-assignment window only ("playable before strikes are assigned",
+  // Sojourn in Shadows wh-49) — once any strike is assigned the play is too
+  // late, matching every other pre-assignment scanner.
+  if (combat.strikeAssignments.length > 0) return [];
 
   const player = playerById(state, playerId);
   if (!player) return [];
