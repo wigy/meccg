@@ -194,9 +194,12 @@ describe('Deep Mines (wh-55)', () => {
   });
 
   test('reveal offers no descent path once stage points drop to 6 — the company stays put', () => {
-    const declares = computeLegalActions(revealState(6), PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'declare-path');
-    expect(declares).toHaveLength(0);
+    const legal = computeLegalActions(revealState(6), PLAYER_1).filter(ea => ea.viable);
+    expect(legal.filter(ea => ea.action.type === 'declare-path')).toHaveLength(0);
+    // Regression (deadlock): the Deep Mines branch returned an empty action
+    // list, skipping the rule-5.04 fallback — the reveal-new-site step had no
+    // legal action at all. A pass must be offered to negate the movement.
+    expect(legal.some(ea => ea.action.type === 'pass')).toBe(true);
   });
 
   // --- Stage points from occupancy ------------------------------------------

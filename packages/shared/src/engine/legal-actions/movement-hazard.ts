@@ -518,10 +518,13 @@ function revealNewSiteActions(
     if (descentLegal || ascentLegal) {
       logDetail(`Deep Mines ${descentLegal ? 'descent' : 'ascent'} available: ${originDef.name} → ${destDef.name} (roll 0)`);
       actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
-    } else {
-      logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — no path offered`);
+      return actions;
     }
-    return actions;
+    // Rule 5.04, same as the no-path fallback below: the movement is illegal,
+    // so a pass must be offered for `handleRevealNewSite` to negate it —
+    // returning an empty list here would leave the step with no legal action.
+    logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — movement illegal (rule 5.04), offering pass to negate it`);
+    return [{ type: 'pass', player: playerId }];
   }
 
   const movementMap = buildMovementMap(state.cardPool, player.alignment);
