@@ -3615,6 +3615,35 @@ export function applyDiscardOneCompanyItemResolution(
   rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  if (top.kind.type !== 'discard-one-company-item') return null;
+
+  // A pass dismisses the resolution ONLY when the forced discard is
+  // unsatisfiable — the company is gone, or none of its characters bears a
+  // genuine item passing the source card's filter (attachments may be
+  // permanent events placed "with" a character, e.g. Thrall of the Voice).
+  // The emitter offers the pass exactly in those situations; with an eligible
+  // item present the discard stays forced and a pass is rejected.
+  if (rawAction.type === 'pass' && rawAction.player === top.actor) {
+    const { companyId: passCompanyId, characterId: passCharacterId, itemFilter: passItemFilter } = top.kind;
+    const passPlayer = state.players.find(p => p.companies.some(co => co.id === passCompanyId));
+    const passCompany = passPlayer ? companyById(passPlayer.companies, passCompanyId) : undefined;
+    const eligibleItemExists = !!passPlayer && !!passCompany && passCompany.characters.some(charId => {
+      if (passCharacterId && charId !== passCharacterId) return false;
+      const ch = passPlayer.characters[charId];
+      if (!ch) return false;
+      return ch.items.some(item => {
+        const itemDef = defById(state, item.definitionId);
+        if (!isItemCard(itemDef)) return false;
+        return !passItemFilter || matchesDefinition(itemDef, passItemFilter);
+      });
+    });
+    if (eligibleItemExists) {
+      return { state, error: 'An eligible item exists — the forced discard cannot be declined' };
+    }
+    logDetail(`discard-one-company-item: no eligible item in company ${passCompanyId as string} — resolution dismissed`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+
   const g = guardResolution(state, rawAction, top, 'discard-item-from-company', 'discard-one-company-item');
   if (!g.ok) return g.result;
   const { action, kind } = g;

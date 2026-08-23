@@ -2661,10 +2661,21 @@ export function discardOneCompanyItemActions(
   if (top.kind.type !== 'discard-one-company-item') return [];
   const { companyId, characterId, itemFilter } = top.kind;
 
+  // The company may have vanished while this resolution waited in the queue
+  // (every member eliminated). Only the pass can consume the resolution then —
+  // returning no actions would deadlock the game outright, since this
+  // resolution heads the queue and nothing else can act until it is consumed.
+  // Same failure class as the select-card-bearer fix (PR #2653 audit family).
   const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
-  if (!defPlayer) return [];
+  if (!defPlayer) {
+    logDetail(`discard-one-company-item: company ${companyId as string} no longer exists — only pass is offered`);
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  }
   const company = companyById(defPlayer.companies, companyId);
-  if (!company) return [];
+  if (!company) {
+    logDetail(`discard-one-company-item: company ${companyId as string} no longer exists — only pass is offered`);
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  }
 
   const actions: EvaluatedAction[] = [];
   for (const charId of company.characters) {
@@ -2697,6 +2708,17 @@ export function discardOneCompanyItemActions(
         viable: true,
       });
     }
+  }
+
+  // No eligible item at all — every attachment is a non-item (permanent
+  // events placed "with" the character, e.g. Thrall of the Voice) or excluded
+  // by the source card's item filter. The forced discard is unsatisfiable, so
+  // the actor passes to dismiss it (q/d bench seed 10800010: Brigands wounded
+  // a character whose only attachments were two permanent events — zero
+  // actions were offered and the game deadlocked).
+  if (actions.length === 0) {
+    logDetail(`discard-one-company-item: company ${companyId as string} has no eligible item — only pass is offered`);
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
   }
 
   return actions;
