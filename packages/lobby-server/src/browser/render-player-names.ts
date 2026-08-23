@@ -286,6 +286,7 @@ export function getHazardLimitLabel(view: PlayerView): string | null {
         view.phaseState.hazardLimitAtReveal,
         view.phaseState.preRevealHazardLimitConstraintIds,
         activeCompany.id,
+        view.phaseState.resolvedSitePath,
       )
     : view.phaseState.hazardLimitAtReveal;
   const remaining = limit - view.phaseState.hazardsPlayedThisCompany;
