@@ -1372,7 +1372,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/CalloftheSea.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.race": "elf" }
+      },
+      {
+        "type": "call-of-home-check",
+        "threshold": 10,
+        "rollModifiers": [
+          {
+            "when": { "company.sitePathRegionTypes": { "$includes": "coastal" } },
+            "value": -3
+          }
+        ]
+      }
+    ],
+    "certified": "2026-08-23",
     "text": "Playable on a Elf character. The character’s player makes a roll. Return the character to the player’s hand if this result plus his unused general influence is less than 10. This result is modified by -3 if the character’s company moved this turn using a site path containing a Coastal Sea [{c}].Any one item held by a character removed in this fashion may automatically be transferred to another character in his company (all other non-follower cards target character controls are discarded)."
   },
   {

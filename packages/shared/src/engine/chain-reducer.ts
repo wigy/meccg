@@ -4951,6 +4951,25 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const cohCharDefId = resolveInstanceId(current, entry.payload.targetCharacterId);
       const cohCharDef = cohCharDefId ? defById(current, cohCharDefId) : undefined;
       const cohCharName = cohCharDef && 'name' in cohCharDef ? cohCharDef.name : (entry.payload.targetCharacterId as string);
+      const cohModifiers: import('../types/pending.js').DiceCheckModifier[] = [
+        { kind: 'unused-gi', player: resourcePlayerId },
+      ];
+      // Call of the Sea (tw-19): roll modified by -3 if the target's company
+      // moved this turn using a site path containing a Coastal Sea. Evaluated
+      // against the active company's resolved path (the target always belongs
+      // to the company currently in its M/H sub-phase).
+      if (cohEffect.rollModifiers && cohEffect.rollModifiers.length > 0) {
+        const cohMhState = current.phaseState as import('../index.js').MovementHazardPhaseState;
+        const cohCtx = { company: { sitePathRegionTypes: cohMhState.resolvedSitePath } };
+        let cohModTotal = 0;
+        for (const m of cohEffect.rollModifiers) {
+          if (matchesCondition(m.when, cohCtx)) cohModTotal += m.value;
+        }
+        if (cohModTotal !== 0) {
+          logDetail(`Call of Home roll modifier: ${cohModTotal} (site path: ${cohMhState.resolvedSitePath.join(', ')})`);
+          cohModifiers.push({ kind: 'constant', value: cohModTotal });
+        }
+      }
       logDetail(`Enqueuing dice-check (call-of-home) pending resolution for character ${entry.payload.targetCharacterId as string}`);
       current = enqueueResolution(current, {
         source: entry.card.instanceId,
@@ -4959,11 +4978,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         kind: {
           type: 'dice-check',
           label: `Call of Home: ${cohCharName}`,
-          modifiers: [{ kind: 'unused-gi', player: resourcePlayerId }],
+          modifiers: cohModifiers,
           threshold: cohEffect.threshold,
           comparison: 'gte',
           // roll + unused GI < threshold → character returns to hand.
-          onFail: { type: 'return-character-to-hand' },
+          // One item may transfer to a company-mate (Pilfer Anything
+          // Unwatched precedent); the rest of the character's cards discard.
+          onFail: { type: 'return-character-to-hand', allowItemTransfer: true },
           continuation: { kind: 'chain-entry', match: 'target-character' },
           requireTargetPresent: true,
           targetCharacterId: entry.payload.targetCharacterId,

@@ -6920,12 +6920,25 @@ export interface CreatureRaceChoiceEffect extends EffectBase {
  * be transferred to another character in the company; all other
  * non-follower cards the character controls are discarded.
  *
- * Used by Call of Home (tw-18).
+ * Used by Call of Home (tw-18, le-105), Tookish Blood (tw-104), and Call of
+ * the Sea (tw-19).
  */
 export interface CallOfHomeCheckEffect extends EffectBase {
   readonly type: 'call-of-home-check';
   /** Roll + unused GI must meet or exceed this to keep the character. */
   readonly threshold: number;
+  /**
+   * Optional roll adjustments evaluated at enqueue time against
+   * `{ company: { sitePathRegionTypes: RegionType[] } }` — the region types
+   * traveled by the target's company on its resolved path this turn. The
+   * values of all matching entries are added to the roll. Used by Call of
+   * the Sea (tw-19): "modified by -3 if the character's company moved this
+   * turn using a site path containing a Coastal Sea."
+   */
+  readonly rollModifiers?: readonly {
+    readonly when: Condition;
+    readonly value: number;
+  }[];
 }
 
 /**

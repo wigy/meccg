@@ -7531,8 +7531,12 @@ Forces a "Call of Home" style roll check on the targeted character. When
 the hazard short event resolves against a character (selected via
 `play-target`), the character's player rolls 2d6. If roll + unused
 general influence < `threshold`, the character returns to the player's
-hand. All items, allies, and hazards attached to the character are
-discarded; followers fall to GI if room, otherwise are discarded.
+hand. Allies and hazards attached to the character are discarded;
+followers fall to GI if room, otherwise are discarded. One item may
+automatically be transferred to another character in the company (the
+"Pilfer Anything Unwatched" `transfer-returned-item` primitive, §6i
+analog — see `allowItemTransfer` on the `return-character-to-hand`
+dice-check branch); the rest of the character's items are discarded.
 
 Used with a `play-target` effect that selects the target character.
 
@@ -7540,9 +7544,28 @@ Used with a `play-target` effect that selects the target character.
 { "type": "call-of-home-check", "threshold": 10 }
 ```
 
+An optional `rollModifiers` list adds conditional adjustments to the roll,
+evaluated at enqueue time against `{ company: { sitePathRegionTypes:
+RegionType[] } }` — the region types on the target's company's resolved
+site path this turn (`MovementHazardPhaseState.resolvedSitePath`, read
+directly since the target always belongs to the company currently in its
+M/H sub-phase). The values of all matching entries sum into a `constant`
+`DiceCheckModifier` alongside the `unused-gi` one. Used by Call of the Sea
+(tw-19): "playable on an Elf character … modified by -3 if the character's
+company moved this turn using a site path containing a Coastal Sea":
+
+```json
+{ "type": "call-of-home-check", "threshold": 10,
+  "rollModifiers": [
+    { "when": { "company.sitePathRegionTypes": { "$includes": "coastal" } }, "value": -3 }
+  ] }
+```
+
 Implemented in `chain-reducer.ts` (enqueue pending resolution on
 short-event resolution), `legal-actions/pending.ts` (generate roll
 action), and `pending-reducers.ts` (execute roll and apply consequences).
+Used by Call of Home (tw-18, le-105), Tookish Blood (tw-104), and Call of
+the Sea (tw-19).
 
 ### 23a. `protect-from-removal`
 
