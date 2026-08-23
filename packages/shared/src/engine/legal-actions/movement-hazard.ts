@@ -496,8 +496,8 @@ function revealNewSiteActions(
 
   const actions: GameAction[] = [];
 
-  // --- Special movement (e.g. Gwaihir, Paths of the Dead, Belegaer) ---
-  if (company.specialMovement === 'gwaihir' || company.specialMovement === 'paths-of-the-dead' || company.specialMovement === 'belegaer') {
+  // --- Special movement (e.g. Gwaihir, Eagle-mounts, Paths of the Dead, Belegaer) ---
+  if (company.specialMovement === 'gwaihir' || company.specialMovement === 'eagle-mounts' || company.specialMovement === 'paths-of-the-dead' || company.specialMovement === 'belegaer') {
     logDetail(`Special movement (${company.specialMovement}): ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Special });
     return actions;

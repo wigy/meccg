@@ -9896,6 +9896,34 @@ Unlike `'gwaihir'`/`'paths-of-the-dead'`, this variant does not fall through to
   "target": "target-company" }
 ```
 
+A fourth `specialMovement` value, `"eagle-mounts"`, backs *Eagle-mounts*
+(tw-220): "Company may move to any site that is not a Shadow-hold [{S}],
+Dark-hold [{D}], or Under-deeps." This is a **SITE-type** exclusion, distinct
+from `'gwaihir'`'s **REGION-type** exclusion (Shadow-land [{s}] / Dark-domain
+[{d}]) even though both cards are printed near-identically and share the "any
+site not X, only site-keyed hazards" shape — e.g. Moria is a Shadow-hold
+sitting in a wilderness region, so it is reachable via `'gwaihir'` but not via
+`'eagle-mounts'`. `organization-companies.ts` `planMovementActions` carries a
+separate `'eagle-mounts'` branch alongside `'gwaihir'`'s, filtering candidate
+destinations on `siteDef.siteType !== 'shadow-hold' && siteDef.siteType !==
+'dark-hold'` instead of the destination region's type; both branches apply the
+same MEAS §6(b) Under-deeps exclusion (origin and destination). Falls through
+to the shared "no path traversed" handling in `legal-actions/movement-hazard.ts`
+(`MovementType.Special`) and `mh-steps.ts` (empty `resolvedSitePath`, so only
+site-keyed hazard creatures match) exactly like `'gwaihir'`/`'paths-of-the-dead'`.
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.skills": { "$includes": "diplomat" } },
+    { "company.siteName": "Eagles’ Eyrie" }
+  ] } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-company-special-movement", "specialMovement": "eagle-mounts" },
+  "target": "target-company" }
+```
+
 The `only-race-creatures-on-company` constraint (added by *Paths of the Dead*
 tw-302 via `on-event: self-enters-play` → `add-constraint`, carrying a `race`
 field) restricts the opponent to playing only hazard creatures of the given

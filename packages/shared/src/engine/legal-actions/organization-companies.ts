@@ -720,7 +720,9 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       }
     }
 
-    // Gwaihir special movement: can reach any non-shadow/dark site
+    // Gwaihir special movement (tw-251): can reach any site not in a
+    // Shadow-land [{s}] or Dark-domain [{d}] region — a REGION-type
+    // exclusion, per the card's printed lowercase symbols.
     if (company.specialMovement === 'gwaihir') {
       // MEAS §6(b): Eagle-mounts and Gwaihir cannot move to or from an
       // Under-deeps site. When the origin is Under-deeps, special movement is
@@ -750,6 +752,43 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
           continue;
         }
         logDetail(`  ${siteDef.name} in ${siteDef.region ?? '?'} (${regionType ?? '?'}) — reachable via Gwaihir`);
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
+      }
+      continue;
+    }
+
+    // Eagle-mounts special movement (tw-220): can reach any site that is not
+    // itself a Shadow-hold [{S}] or Dark-hold [{D}] — a SITE-type exclusion,
+    // per the card's printed uppercase symbols. Distinct from Gwaihir's
+    // region-type exclusion above: e.g. Moria is a Shadow-hold sitting in a
+    // wilderness region, so it is reachable via Gwaihir but not Eagle-mounts.
+    if (company.specialMovement === 'eagle-mounts') {
+      // MEAS §6(b): Eagle-mounts and Gwaihir cannot move to or from an
+      // Under-deeps site. When the origin is Under-deeps, special movement is
+      // unavailable entirely.
+      if (currentSiteDef.keywords?.includes('under-deeps')) {
+        logDetail(`Company ${company.id as string} at ${currentSiteDef.name} is under-deeps — excluded from Eagle/Gwaihir movement`);
+        continue;
+      }
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Eagle-mounts special movement — filtering sites`);
+      for (const siteDef of candidateSites) {
+        const destInstId = siteInstMap.get(siteDef.id);
+        if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        // MEAS §6(b): an Under-deeps destination is never reachable by Eagle/Gwaihir.
+        if (siteDef.keywords?.includes('under-deeps')) {
+          logDetail(`  ${siteDef.name} is under-deeps — excluded from Eagle-mounts movement`);
+          continue;
+        }
+        // Exclude sites that are themselves a Shadow-hold or Dark-hold
+        if (siteDef.siteType === 'shadow-hold' || siteDef.siteType === 'dark-hold') {
+          logDetail(`  ${siteDef.name} is a ${siteDef.siteType} — excluded by Eagle-mounts`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} (${siteDef.siteType}) — reachable via Eagle-mounts`);
         actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
       }
       continue;

@@ -2598,8 +2598,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable only at the end of the organization phase on a company with a diplomat that begins the turn at Eagles’ Eyrie. Company may move to any site that is not a Shadow-hold [{S}], Dark-hold [{D}], or Under-deeps. Opponent may only play hazard creatures that are keyed to the company’s new site."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "diplomat" } },
+            { "company.siteName": "Eagles’ Eyrie" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "eagle-mounts"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable only at the end of the organization phase on a company with a diplomat that begins the turn at Eagles’ Eyrie. Company may move to any site that is not a Shadow-hold [{S}], Dark-hold [{D}], or Under-deeps. Opponent may only play hazard creatures that are keyed to the company’s new site.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hero-resource-event",
