@@ -20,7 +20,7 @@ import type { GameState, CombatState, GameAction, GameEffect, CardInstanceId, Ca
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
-import type { AbsorbWoundEffect } from '../types/effects.js';
+import type { AbsorbWoundEffect, CancelPrisonerTakingEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isItemCard } from '../types/cards.js';
@@ -176,6 +176,26 @@ export function creatureDefenderProwessDelta(
     }
   }
   return delta;
+}
+
+/**
+ * Search a character's own allies for one carrying `cancel-prisoner-taking`
+ * (`scope: "controlling-character"`) — the ally the player may discard to
+ * cancel a prisoner-taking outcome against this character (Noble Hound
+ * dm-179). Returns the ally's card instance, or `null` if none qualifies.
+ */
+export function findCancelPrisonerTakingAlly(
+  state: GameState,
+  charData: CharacterInPlay,
+): { instanceId: CardInstanceId } | null {
+  for (const ally of charData.allies) {
+    const def = defById(state, ally.definitionId);
+    const hasCancelEffect = getCardEffects(def).some(
+      (e): e is CancelPrisonerTakingEffect => e.type === 'cancel-prisoner-taking' && e.scope === 'controlling-character',
+    );
+    if (hasCancelEffect) return { instanceId: ally.instanceId };
+  }
+  return null;
 }
 
 /**
@@ -472,6 +492,23 @@ export function resolveStrikeCore(
     }
   } else {
     if (takePrisonerResult || trollPursePrisoner) {
+      // cancel-prisoner-taking (Noble Hound dm-179): the controlling character
+      // may carry an ally the player can discard to cancel the prisoner-taking
+      // outcome and resolve the strike as a normal wound instead. Pause here
+      // and let the defending player decide rather than applying prisoner
+      // status immediately — applyTakePrisoner/applyTakePrisonerAtSite draw a
+      // rescue site and add constraints that are not easily undone.
+      const cancelAlly = findCancelPrisonerTakingAlly(state, charData);
+      if (cancelAlly) {
+        logDetail(`cancel-prisoner-taking: ${cancelAlly.instanceId as string} may be discarded to cancel prisoner-taking of ${strike.characterId as string}`);
+        const pausedCombat: CombatState = {
+          ...combat,
+          strikeAssignments: newAssignments,
+          phase: 'cancel-prisoner-taking-choice',
+          cancelPrisonerTakingOffer: { allyId: cancelAlly.instanceId },
+        };
+        return { state: { ...state, rng, cheatRollTotal, combat: pausedCombat }, effects };
+      }
       // take-prisoner: character is not wounded; instead they become a prisoner.
       // Status stays as-is (not tapped, not wounded). Rule 8.35.
       const captor = takePrisonerResult?.hostCard.instanceId ?? trollPursePrisoner?.hostInstanceId;
