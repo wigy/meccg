@@ -185,7 +185,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // pending-effects gate below. Without this guard the pending fetch was skipped
   // by the combat `pass` branch and lost (Smoke Rings dm-159 "disappeared
   // without effect", game mrs06zup-du4wde seq 128).
-  if (state.combat != null && state.pendingEffects.length === 0 && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer')))) {
+  if (state.combat != null && state.pendingEffects.length === 0 && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer' || state.combat.phase === 'cancel-prisoner-taking-choice')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {

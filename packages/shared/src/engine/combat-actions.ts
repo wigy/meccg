@@ -40,7 +40,7 @@ import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
-import { getAttackSourceCard } from './combat-hazard-play.js';
+import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
@@ -2404,6 +2404,69 @@ export function handleDiscardItemFromCompany(state: GameState, action: GameActio
 
   const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', discardItemOptions: undefined };
   return advanceStrikeOrFinalize({ ...state, players: newPlayers }, cleanCombat);
+}
+
+/**
+ * Handle a `cancel-prisoner-taking` action during the
+ * `cancel-prisoner-taking-choice` combat phase (Noble Hound dm-179): the
+ * defending player discards the protecting ally, canceling this strike's
+ * prisoner-taking outcome. The struck character is wounded normally instead
+ * (the card's "resolved normally... per combat result") and the combat
+ * continues to the ordinary body check, exactly as any other wounded
+ * character would.
+ */
+export function handleCancelPrisonerTaking(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'cancel-prisoner-taking') return wrongActionType(state, action, 'cancel-prisoner-taking');
+  if (combat.phase !== 'cancel-prisoner-taking-choice') return { state, error: 'Not in cancel-prisoner-taking-choice phase' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only the defending player can cancel prisoner-taking' };
+  if (combat.cancelPrisonerTakingOffer?.allyId !== action.cardInstanceId) return { state, error: 'Ally not offered for cancel-prisoner-taking' };
+
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+
+  const removed = removeAttachment(state.players[defIdx], 'allies', action.cardInstanceId);
+  if (!removed) return { state, error: 'Ally not found on any character in company' };
+
+  logDetail(`cancel-prisoner-taking: discarding ${action.cardInstanceId as string} — ${removed.charId as string} is wounded instead of taken prisoner`);
+
+  const woundedChar = { ...removed.player.characters[removed.charId], status: CardStatus.Inverted };
+  const newPlayers = clonePlayers(state);
+  newPlayers[defIdx] = {
+    ...removed.player,
+    characters: { ...removed.player.characters, [removed.charId as string]: woundedChar },
+    discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
+  };
+
+  const newCombat: CombatState = { ...combat, phase: 'body-check', bodyCheckTarget: 'character', cancelPrisonerTakingOffer: undefined };
+  return { state: { ...state, players: newPlayers, combat: newCombat } };
+}
+
+/**
+ * Handle a `pass` action during the `cancel-prisoner-taking-choice` combat
+ * phase (Noble Hound dm-179): the defending player declines to discard the
+ * protecting ally, so the prisoner-taking proceeds normally — the character
+ * is bound as a prisoner (CoE rule 8.35) instead of a body check.
+ */
+export function finalizeCombatFromCancelPrisonerTakingOffer(state: GameState, combat: CombatState): ReducerResult {
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  const charData = state.players[defPlayerIndex].characters[strike.characterId];
+
+  let newState = state;
+  if (charData) {
+    const takePrisonerResult = findTakePrisonerHazard(state, defPlayerIndex, charData.hazards);
+    if (takePrisonerResult) {
+      newState = applyTakePrisoner(state, defPlayerIndex, strike.characterId, takePrisonerResult);
+    } else if (combat.trollPursePrisoner) {
+      newState = applyTakePrisonerAtSite(
+        state, defPlayerIndex, strike.characterId,
+        combat.trollPursePrisoner.hostInstanceId, combat.trollPursePrisoner.siteInstanceId,
+      );
+    }
+  }
+
+  logDetail(`cancel-prisoner-taking declined — ${strike.characterId as string} is taken prisoner`);
+  const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', cancelPrisonerTakingOffer: undefined };
+  return advanceStrikeOrFinalize(newState, cleanCombat);
 }
 
 /**

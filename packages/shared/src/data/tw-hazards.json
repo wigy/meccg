@@ -1572,8 +1572,74 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Playable only on a company that is moving this turn. One character (attacker’s choice) in that company suffers -1 to his prowess until the end of the turn.Alternatively, if Doors of Night is in play, treat one Border-land [{b}] as a Wilderness [{w}] or one Border-hold [{B}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "turn",
+        "max": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": -1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationRegionType": "border"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-type-override",
+          "overrideType": "wilderness",
+          "regionName": "destination",
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "when": {
+          "$and": [
+            {
+              "environment.doorsOfNightInPlay": true
+            },
+            {
+              "company.destinationSiteType": "border-hold"
+            }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "ruins-and-lairs",
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Environment. Playable only on a company that is moving this turn. One character (attacker’s choice) in that company suffers -1 to his prowess until the end of the turn.Alternatively, if Doors of Night is in play, treat one Border-land [{b}] as a Wilderness [{w}] or one Border-hold [{B}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
@@ -1618,8 +1684,42 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
-    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "force-return-to-origin",
+        "condition": {
+          "sitePath.wildernessCount": {
+            "$gte": 2
+          }
+        },
+        "rangerException": true
+      },
+      {
+        "type": "tap-sites-in-play",
+        "requiresInPlay": "Doors of Night",
+        "condition": {
+          "$and": [
+            {
+              "site.type": {
+                "$ne": "haven"
+              }
+            },
+            {
+              "sitePath.wildernessCount": {
+                "$gte": 2
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. Each moving company that has at least two Wildernesses [{w}] in its site path must return to its site of origin unless it contains a ranger. Additionally, if Doors of Night is in play, each non-Haven/non-Darkhaven site in play with at least two Wildernesses [{w}] in its site path is tapped. Cannot be duplicated.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hazard-event",
