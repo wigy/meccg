@@ -263,4 +263,23 @@ describe('Elven Cloak (tw-225)', () => {
     expect(actions.length).toBeGreaterThan(0);
     expect(actions.some(ea => ea.viable)).toBe(true);
   });
+
+  // Elven Cloak is a non-unique, non-hoard minor item, so CoE rule 1.7 makes
+  // it eligible for a player's pool. The deck editor's pool card browser (and
+  // the `starting-item` keyword's documented semantics, types/common.ts) key
+  // off this keyword to decide which minor items may be offered for the
+  // starting-company pool; it was missing from this card's data, silently
+  // hiding an otherwise-legal card from that picker.
+  test('Elven Cloak carries the starting-item keyword (CoE rule 1.7 pool eligibility)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MORIA, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const def = base.cardPool[ELVEN_CLOAK] as { keywords?: readonly string[] };
+    expect(def.keywords ?? []).toContain('starting-item');
+  });
 });

@@ -303,6 +303,25 @@ export function buildConstraintKind(
       const { regionType, value: perCount, floor } = apply;
       if (!regionType || typeof perCount !== 'number' || typeof floor !== 'number') return null;
       return { type: 'hazard-limit-region-count', regionType, perCount, floor };
+    case 'nazgul-boost-pending': {
+      const apply = onEvent.apply as {
+        race?: Race;
+        strikesModifier?: number;
+        prowessModifier?: number;
+        grantAttackerChoosesDefenders?: true;
+        keyingRegionTypes?: import('../types/common.js').RegionType[];
+        keyingSiteTypes?: import('../types/common.js').SiteType[];
+      };
+      if (!apply.race || apply.strikesModifier === undefined || apply.prowessModifier === undefined) return null;
+      return {
+        type: 'nazgul-boost-pending',
+        race: apply.race,
+        strikesModifier: apply.strikesModifier,
+        prowessModifier: apply.prowessModifier,
+        grantAttackerChoosesDefenders: true,
+        ...(apply.keyingRegionTypes ? { keyingRegionTypes: apply.keyingRegionTypes } : {}),
+        ...(apply.keyingSiteTypes ? { keyingSiteTypes: apply.keyingSiteTypes } : {}),
+      };
     }
     case 'granted-action': {
       const payload = (onEvent.apply as { grantedAction?: import('../types/effects.js').GrantedActionConstraintPayload }).grantedAction;

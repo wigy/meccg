@@ -36,7 +36,15 @@ export function summarizeDistribution(values: readonly number[]): DistributionSu
     return { count: 0, min: 0, max: 0, mean: 0, p50: 0, p90: 0, p99: 0 };
   }
   const sorted = [...values].sort((a, b) => a - b);
-  const pct = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
+  // Nearest-rank percentile: the p-th percentile is the value at 1-based rank
+  // ceil(p/100 · n), i.e. 0-based index ceil(p/100 · n) − 1. Using `n` in the
+  // index arithmetic (`floor(p/100 · n)`) instead put p90 of a 10-sample at
+  // index 9 — the maximum — collapsing the whole upper tail onto the largest
+  // observation.
+  const pct = (p: number) => {
+    const rank = Math.ceil((p / 100) * sorted.length);
+    return sorted[Math.min(sorted.length - 1, Math.max(0, rank - 1))];
+  };
   const sum = sorted.reduce((s, v) => s + v, 0);
   return {
     count: sorted.length,
