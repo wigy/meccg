@@ -330,9 +330,33 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       return itemSalvageActions(state, playerId, combat);
     case 'discard-item-from-company':
       return discardItemFromCompanyActions(state, playerId, combat);
+    case 'cancel-prisoner-taking-choice':
+      return cancelPrisonerTakingActions(state, playerId, combat);
     default:
       return [];
   }
+}
+
+/**
+ * Legal actions during the `cancel-prisoner-taking-choice` combat phase
+ * (Noble Hound dm-179): the defending player may discard the offered ally to
+ * cancel this strike's prisoner-taking outcome, or pass to decline and let
+ * the prisoner-taking proceed.
+ */
+function cancelPrisonerTakingActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  const offer = combat.cancelPrisonerTakingOffer;
+  if (!offer) return [];
+
+  logDetail(`cancel-prisoner-taking: defender may discard ${offer.allyId as string} to cancel prisoner-taking, or pass`);
+  return [
+    { action: { type: 'cancel-prisoner-taking' as const, player: playerId, cardInstanceId: offer.allyId }, viable: true },
+    { action: { type: 'pass' as const, player: playerId }, viable: true },
+  ];
 }
 
 /**
