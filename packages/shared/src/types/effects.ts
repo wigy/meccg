@@ -2182,6 +2182,7 @@ export type TriggeredActionType =
   | 'enqueue-opponent-elimination-roll'
   | 'discard-target-character'
   | 'force-discard-one-company-item'
+  | 'random-discard-hand'
   | 'enqueue-corruption-check'
   | 'enqueue-body-check'
   | 'whip-discipline'
@@ -2868,6 +2869,18 @@ export interface ForceDiscardOneCompanyItemAction extends TriggeredActionBase {
 }
 
 /**
+ * `random-discard-hand` — the target player discards `count` cards drawn at
+ * random from their hand (capped at hand size). Used by hazard short-events
+ * that force a company's controller to "randomly discard" cards, as opposed
+ * to `force-opponent-discard`'s player-chosen discard.
+ */
+export interface RandomDiscardHandAction extends TriggeredActionBase {
+  readonly type: 'random-discard-hand';
+  /** How many cards to discard at random (capped at hand size). */
+  readonly count: number;
+}
+
+/**
  * `set-character-status` — set the target character's status. Distinct from
  * the {@link SetCharacterStatusEffect} card-effect (which requires `status`):
  * as a triggered apply, `status` may be omitted (some handlers default to
@@ -3479,6 +3492,7 @@ export type TriggeredAction =
   | EnqueueOpponentEliminationRollAction
   | DiscardTargetCharacterAction
   | ForceDiscardOneCompanyItemAction
+  | RandomDiscardHandAction
   | SetCharacterStatusAction
   | HealTargetCharacterAction
   | ReturnCharacterToHandAction
