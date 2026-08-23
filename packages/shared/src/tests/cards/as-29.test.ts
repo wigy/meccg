@@ -165,6 +165,39 @@ describe('FEAR! FIRE! FOES! (as-29)', () => {
     expect(combatState.combat!.detainment).toBe(true);
   });
 
+  test('Mode A: the raceless created attack is NOT boosted by a race-restricted creature-attack-boost', () => {
+    // Regression: a boost restricted to specific races (Dwar of Waw tw-31,
+    // Wolf/Spider/Animal only) still applied to an attack with no printed
+    // type — the raceless FFF attack resolved at 9 prowess instead of 8. A
+    // raceless attack matches no race condition.
+    const state = buildSitePhaseState({ site: MINAS_TIRITH, characters: [ARAGORN] });
+    const company = state.players[0].companies[0];
+    let withConstraints = addConstraint(state, {
+      source: 'as29-src' as CardInstanceId,
+      sourceDefinitionId: FEAR_FIRE_FOES,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId: company.id },
+      kind: {
+        type: 'extra-automatic-attack',
+        siteInstanceId: company.currentSite!.instanceId,
+        attack: { creatureType: '', strikes: 5, prowess: 8, forceDetainment: true },
+      },
+    });
+    withConstraints = addConstraint(withConstraints, {
+      source: 'dwar-instance-1' as CardInstanceId,
+      sourceDefinitionId: 'tw-31' as CardDefinitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: PLAYER_1 },
+      kind: { type: 'creature-attack-boost', race: [Race.Wolf, Race.Spider, Race.Animal], strikes: 0, prowess: 1 },
+    });
+
+    const atAutoAttacks = setupAutoAttackStep(withConstraints);
+    const combatState = dispatch(atAutoAttacks, { type: 'pass', player: PLAYER_1 });
+
+    expect(combatState.combat).not.toBeNull();
+    expect(combatState.combat!.strikeProwess).toBe(8); // NOT 9
+  });
+
   test('Mode A: with no constraint, the Free-hold has no automatic-attacks (control)', () => {
     const state = buildSitePhaseState({ site: MINAS_TIRITH, characters: [ARAGORN] });
     const atAutoAttacks = setupAutoAttackStep(state);
