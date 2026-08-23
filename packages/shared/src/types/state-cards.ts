@@ -527,8 +527,15 @@ export interface Company {
   /**
    * Special movement granted by a card effect (e.g. Gwaihir, Paths of the Dead).
    * When set, the company uses special movement rules during planning and M/H phase:
-   * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site.
+   * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site
+   *   (region-type exclusion — tw-251's printed {s}/{d} symbols).
    *   Only site-keyed hazard creatures may be played. No region path is traversed.
+   * - `'eagle-mounts'`: Can move to any site that is not itself a Shadow-hold/
+   *   Dark-hold/Under-deeps (site-type exclusion — tw-220's printed {S}/{D}
+   *   symbols, distinct from Gwaihir's region-type exclusion — e.g. Moria is a
+   *   Shadow-hold sitting in a wilderness region: reachable via Gwaihir, not
+   *   via Eagle-mounts). Only site-keyed hazard creatures may be played. No
+   *   region path is traversed.
    * - `'paths-of-the-dead'`: Can move directly to the Vale of Erech site (CoE IE
    *   2018 erratum, tw-302). No region path is traversed.
    * - `'belegaer'`: Can move directly between sites in the Belegaer coastal
@@ -536,7 +543,7 @@ export interface Company {
    *   adjacency. The path is treated as three coastal-sea regions for hazard
    *   keying purposes, and the hazard limit is reduced by 2 (floor 2).
    */
-  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead' | 'belegaer' | undefined;
+  readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer' | undefined;
   /**
    * Extra region distance granted by a card effect (e.g. Cram).
    * Added to {@link BASE_MAX_REGION_DISTANCE} when computing maximum region
