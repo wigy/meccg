@@ -303,6 +303,7 @@ export function buildConstraintKind(
       const { regionType, value: perCount, floor } = apply;
       if (!regionType || typeof perCount !== 'number' || typeof floor !== 'number') return null;
       return { type: 'hazard-limit-region-count', regionType, perCount, floor };
+    }
     case 'nazgul-boost-pending': {
       const apply = onEvent.apply as {
         race?: Race;
