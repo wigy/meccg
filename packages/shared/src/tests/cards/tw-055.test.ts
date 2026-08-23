@@ -7,7 +7,8 @@
  *   1. play-condition site-path, `movementType` $exists (company is genuinely moving)
  *   2. play-target company
  *   3. on-event self-enters-play -> add-constraint `hazard-limit-region-count`,
- *      scope:turn, target:target-company, regionType:wilderness, value:1
+ *      scope:turn, target:target-company, regionType:wilderness, value:1,
+ *      floor:0 (floor is inert for a positive `value`)
  *
  * Text:
  *   "Playable on a moving company. Its hazard limit increases by one for
@@ -17,17 +18,26 @@
  * count is deferred to `snapshotHazardLimit` because the site path isn't
  * known yet -- Lost in the Wilderness is a hazard short-event played during
  * the target company's own M/H phase, *after* its path is already resolved.
- * The engine counts the Wilderness occurrences at add-constraint time
- * (`buildConstraintKind`, constraint-kind.ts) and installs a flat
- * `hazard-limit-modifier`, which the live `effectiveHazardLimit` picks up
- * for the rest of that company's M/H phase (it is added after the reveal
- * snapshot, so it is never baked into `hazardLimitAtReveal`).
+ * It therefore reuses verbatim the primitive Lost in Border-lands (tw-51)
+ * introduced: the `hazard-limit-region-count` constraint installed through
+ * the chain's generic self-enters-play add-constraint path
+ * (`buildConstraintKind`, constraint-kind.ts) is read *live* by
+ * `effectiveHazardLimit`/`currentHazardLimit` (hazard-limit.ts) against the
+ * company's already-resolved `resolvedSitePath`, rather than being baked
+ * into `hazardLimitAtReveal` at snapshot time.
+ *
+ * The one piece of engine work this card adds is its "moving company" gate:
+ * `checkSitePathCondition` now exposes `mhState.movementType`, which is set
+ * only when the resource player actually declared a path for the active
+ * company. Its sibling tw-51 gates on `destinationSiteType` instead, which
+ * is backfilled from the *current* site for a stationary company and so
+ * cannot distinguish moving from non-moving on its own.
  *
  * Engine Support:
  * | # | Rule (card text)                                     | Status      | Mechanism |
  * |---|-------------------------------------------------------|-------------|-----------|
  * | 1 | Playable on a moving company                          | IMPLEMENTED | play-condition site-path, `movementType` $exists |
- * | 2 | Hazard limit increases by one per Wilderness in path   | IMPLEMENTED | hazard-limit-region-count -> hazard-limit-modifier at play time |
+ * | 2 | Hazard limit increases by one per Wilderness in path   | IMPLEMENTED | hazard-limit-region-count constraint, counted against resolvedSitePath |
  * | 3 | The increase is live for the rest of the company's M/H | IMPLEMENTED | effectiveHazardLimit (hazard-limit.ts) |
  *
  * Playable: YES
@@ -112,7 +122,7 @@ describe('Lost in the Wilderness (tw-55)', () => {
     expect(plays).toHaveLength(0);
   });
 
-  test('playing it through reduce adds a hazard-limit-modifier sized to the Wilderness count', () => {
+  test('playing it through reduce adds a hazard-limit-region-count constraint to the target company', () => {
     const base = baseState();
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
     const cardId = handCardId(base, HAZARD_PLAYER);
@@ -135,15 +145,24 @@ describe('Lost in the Wilderness (tw-55)', () => {
     expect(discarded?.definitionId).toBe(LOST_IN_THE_WILDERNESS);
 
     const constraints = resolved.activeConstraints.filter(
-      c => c.kind.type === 'hazard-limit-modifier'
+      c => c.kind.type === 'hazard-limit-region-count'
         && c.target.kind === 'company'
         && c.target.companyId === companyId,
     );
     expect(constraints).toHaveLength(1);
-    // Two Wildernesses in the path -> +2 to the hazard limit.
-    expect(constraints[0].kind).toEqual({ type: 'hazard-limit-modifier', value: 2 });
+    expect(constraints[0].kind).toEqual({
+      type: 'hazard-limit-region-count',
+      regionType: RegionType.Wilderness,
+      perCount: 1,
+      floor: 0,
+    });
     expect(constraints[0].source).toBe(cardId);
     expect(constraints[0].scope.kind).toBe('turn');
+
+    // Two Wildernesses in the path -> +2 to the live hazard limit.
+    expect(currentHazardLimit(
+      resolved, resolved.phaseState as MovementHazardPhaseState, companyId,
+    )).toBe(4);
   });
 
   test('the increase is live for the rest of the company\'s M/H phase, raising the effective hazard limit', () => {
@@ -191,10 +210,9 @@ describe('Lost in the Wilderness (tw-55)', () => {
     const resolved = resolveChain(afterPlay);
 
     const constraints = resolved.activeConstraints.filter(
-      c => c.kind.type === 'hazard-limit-modifier' && c.target.kind === 'company' && c.target.companyId === companyId,
+      c => c.kind.type === 'hazard-limit-region-count' && c.target.kind === 'company' && c.target.companyId === companyId,
     );
     expect(constraints).toHaveLength(1);
-    expect(constraints[0].kind).toEqual({ type: 'hazard-limit-modifier', value: 0 });
 
     const resolvedMhState = resolved.phaseState as MovementHazardPhaseState;
     expect(currentHazardLimit(resolved, resolvedMhState, companyId)).toBe(2);
@@ -216,9 +234,9 @@ describe('Lost in the Wilderness (tw-55)', () => {
       type: 'play-hazard', player: PLAYER_2, cardInstanceId: cardId, targetCompanyId: companyId,
     });
     const resolved = resolveChain(afterPlay);
-    expect(resolved.activeConstraints.filter(c => c.kind.type === 'hazard-limit-modifier')).toHaveLength(1);
+    expect(resolved.activeConstraints.filter(c => c.kind.type === 'hazard-limit-region-count')).toHaveLength(1);
 
     const swept = sweepExpired(resolved, { kind: 'turn-end' });
-    expect(swept.activeConstraints.filter(c => c.kind.type === 'hazard-limit-modifier')).toHaveLength(0);
+    expect(swept.activeConstraints.filter(c => c.kind.type === 'hazard-limit-region-count')).toHaveLength(0);
   });
 });

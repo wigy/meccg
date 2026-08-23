@@ -283,6 +283,47 @@ export function buildConstraintKind(
       if (!race) return null;
       return { type: 'only-race-creatures-on-company', race };
     }
+    case 'hazard-limit-modifier': {
+      const value = (onEvent.apply as { value?: number }).value;
+      if (typeof value !== 'number') return null;
+      return { type: 'hazard-limit-modifier', value };
+    }
+    case 'hazard-limit-region-count': {
+      // Lost in Border-lands (tw-51/le-118) and its "Lost in X" siblings: a
+      // hazard-event short event ("its hazard limit increases by one for
+      // every <region type> in its site path"), unlike Fair Sailing
+      // (tw-232, a resource short event routed through
+      // `applyShortEventOnEntersPlay` in reducer-events.ts). Hazard short
+      // events resolve through the chain's generic self-enters-play
+      // add-constraint path (`applyAddConstraintFromOnEvent`), which builds
+      // its constraint kind here — so this kind needs its own case in this
+      // builder even though the constraint itself (and its consumption in
+      // `snapshotHazardLimit`/`effectiveHazardLimit`) is shared.
+      const apply = onEvent.apply as { regionType?: import('../types/common.js').RegionType; value?: number; floor?: number };
+      const { regionType, value: perCount, floor } = apply;
+      if (!regionType || typeof perCount !== 'number' || typeof floor !== 'number') return null;
+      return { type: 'hazard-limit-region-count', regionType, perCount, floor };
+    }
+    case 'nazgul-boost-pending': {
+      const apply = onEvent.apply as {
+        race?: Race;
+        strikesModifier?: number;
+        prowessModifier?: number;
+        grantAttackerChoosesDefenders?: true;
+        keyingRegionTypes?: import('../types/common.js').RegionType[];
+        keyingSiteTypes?: import('../types/common.js').SiteType[];
+      };
+      if (!apply.race || apply.strikesModifier === undefined || apply.prowessModifier === undefined) return null;
+      return {
+        type: 'nazgul-boost-pending',
+        race: apply.race,
+        strikesModifier: apply.strikesModifier,
+        prowessModifier: apply.prowessModifier,
+        grantAttackerChoosesDefenders: true,
+        ...(apply.keyingRegionTypes ? { keyingRegionTypes: apply.keyingRegionTypes } : {}),
+        ...(apply.keyingSiteTypes ? { keyingSiteTypes: apply.keyingSiteTypes } : {}),
+      };
+    }
     case 'granted-action': {
       const payload = (onEvent.apply as { grantedAction?: import('../types/effects.js').GrantedActionConstraintPayload }).grantedAction;
       if (!payload) return null;
@@ -295,24 +336,6 @@ export function buildConstraintKind(
         when: payload.when,
         apply: payload.apply,
       };
-    }
-    case 'hazard-limit-region-count': {
-      // Lost in the Wilderness/Border-lands/Shadow-lands family (tw-55 and
-      // siblings): a hazard short-event played *during* the target company's
-      // own movement/hazard phase, after its site path is already resolved —
-      // unlike Fair Sailing's identically-named organization-phase constraint
-      // (whose count is deferred to `snapshotHazardLimit` because the path
-      // isn't known yet), the count here is already knowable at
-      // add-constraint time. Resolves straight into a flat
-      // `hazard-limit-modifier`, whose value the live `effectiveHazardLimit`
-      // picks up for the rest of this company's M/H phase (added after the
-      // reveal snapshot, so it is never baked into `hazardLimitAtReveal`).
-      const regionType = (onEvent.apply as { regionType?: import('../types/common.js').RegionType }).regionType;
-      const perCount = (onEvent.apply as { value?: number }).value;
-      if (!regionType || typeof perCount !== 'number') return null;
-      if (state.phaseState.phase !== Phase.MovementHazard) return null;
-      const count = state.phaseState.resolvedSitePath.filter(rt => rt === regionType).length;
-      return { type: 'hazard-limit-modifier', value: perCount * count };
     }
     default:
       return null;

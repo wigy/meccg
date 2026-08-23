@@ -35,10 +35,11 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import { Phase, RegionType } from '../../index.js';
+import { Phase, RegionType, Alignment } from '../../index.js';
 import type { GameState, CardDefinitionId, PlayHazardAction, SeizedByTerrorRollAction } from '../../index.js';
 
 const SEIZED_BY_TERROR = 'dm-88' as CardDefinitionId;
+const ALATAR_FW = 'wh-1' as CardDefinitionId; // Fallen-wizard avatar (race fallen-wizard, mind null)
 
 describe('Seized by Terror (dm-88)', () => {
   beforeEach(() => resetMint());
@@ -107,6 +108,34 @@ describe('Seized by Terror (dm-88)', () => {
     const mhState: GameState = { ...state, phaseState: makeShadowMHState() };
     const actions = viableActions(mhState, PLAYER_2, 'play-hazard');
     // Only Aragorn is eligible — Gandalf is filtered out
+    expect(actions).toHaveLength(1);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    expect((actions[0].action as PlayHazardAction).targetCharacterId).toBe(aragornId);
+  });
+
+  test('NOT playable on a Fallen-wizard avatar (g.wiz.F1: it counts as "Wizard")', () => {
+    // A Fallen-wizard avatar's race is "fallen-wizard", but by CoE glossary
+    // g.wiz.F1 it matches "Wizard" in card text — so "non-Wizard character"
+    // (dm-88) may not target it. Aragorn (a non-Wizard hero in the same
+    // company) remains eligible; the FW avatar must be excluded.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, ARAGORN] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [SEIZED_BY_TERROR], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhState: GameState = { ...state, phaseState: makeShadowMHState() };
+    const actions = viableActions(mhState, PLAYER_2, 'play-hazard');
+    // Only Aragorn is eligible — the Fallen-wizard avatar is filtered out.
     expect(actions).toHaveLength(1);
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     expect((actions[0].action as PlayHazardAction).targetCharacterId).toBe(aragornId);

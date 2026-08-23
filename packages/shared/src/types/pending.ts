@@ -1806,6 +1806,49 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Fell Beast (tw-33): played standalone (no existing attack) against a
+         * company's M/H phase — "A Nazgûl must be played as the first declared
+         * action ... or else this card is returned to its player's hand"
+         * (CRF). Targets the company Fell Beast was played against; consumed
+         * by the next hazard-creature card of `race` played against that same
+         * company (`handlePlayHazard`/`handlePlayReservedCreature`-adjacent
+         * creature-play path), which folds `strikesModifier`/`prowessModifier`/
+         * `grantAttackerChoosesDefenders` into the resulting attack and may use
+         * `keyingRegionTypes`/`keyingSiteTypes` to satisfy keying beyond the
+         * creature's own printed `keyedTo`. If the company's M/H phase ends
+         * with the constraint still unconsumed, `finalizeCompanyMH` returns
+         * the source card from discard to its owner's hand instead of merely
+         * dropping the constraint.
+         */
+        readonly type: 'nazgul-boost-pending';
+        /** The creature race this boost applies to (`"ringwraith"`). */
+        readonly race: Race;
+        /** Strikes delta applied to the boosted creature's attack. */
+        readonly strikesModifier: number;
+        /** Prowess delta applied to the boosted creature's attack. */
+        readonly prowessModifier: number;
+        /** Whether the boosted creature's attack grants attacker-chooses-defenders. */
+        readonly grantAttackerChoosesDefenders: true;
+        /** Extra region types the boosted creature may additionally be keyed to. */
+        readonly keyingRegionTypes?: readonly import('./common.js').RegionType[];
+        /** Extra site types the boosted creature may additionally be keyed to. */
+        readonly keyingSiteTypes?: readonly import('./common.js').SiteType[];
+      }
+    | {
+        /**
+         * Fell Beast (tw-33): "Cannot be duplicated on a given Nazgûl." Marks a
+         * specific unique Nazgûl creature definition as having already received
+         * a Fell Beast boost (Mode A), forever — `until-cleared` scope, never
+         * auto-cleared. Checked before offering/consuming a `nazgul-boost-pending`
+         * constraint for the same creature; a matching marker makes that
+         * creature ineligible while any *other* Nazgûl remains eligible.
+         */
+        readonly type: 'nazgul-boost-used';
+        /** The boosted creature's definition id (unique, so 1:1 with the named Nazgûl). */
+        readonly creatureDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Withered Lands (td-85): a turn-scoped environment that softens
          * creature keying. Each boost lets one region of type `from` in a
          * company's site path count as `count` regions of type `asType`
@@ -2297,6 +2340,18 @@ export interface ActiveConstraint {
         readonly type: 'skip-next-untap';
         /** The `flee-from-strike` card instance to discard when the skip fires. */
         readonly cardInstanceId: import('./common.js').CardInstanceId;
+      }
+    | {
+        /**
+         * Morgul-knife (tw-64) / The Pale Sword (tw-97): "a character with
+         * this card may attempt to remove it instead of untapping or
+         * healing." Added by the corruption card's `grant-action` the
+         * instant it is activated — regardless of the removal roll's
+         * outcome, attempting it costs the bearer this untap phase's untap
+         * and heal. Scoped to `turn` (it only ever needs to survive from
+         * activation to the same untap phase's `performUntap` sweep).
+         */
+        readonly type: 'skip-untap-and-heal';
       }
     | {
         /**

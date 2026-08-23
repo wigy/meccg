@@ -3269,7 +3269,7 @@ Events:
 
 - `company-arrives-at-site` -- fires when a hazard short-event resolves against a company in M/H. The handler (`applyShortEventArrivalTrigger` in `chain-reducer.ts`) iterates every `add-constraint` effect on the card with this event, evaluates the optional `when` against the arrival context, and applies the first matching one. This allows a single card to declare multiple mutually-exclusive modes (e.g. *Choking Shadows*). The arrival context exposes `company.destinationSiteType`, `company.destinationSiteName`, `company.destinationRegionType`, `environment.doorsOfNightInPlay`, and the standard `inPlay` card-name list.
 - `end-of-company-mh` -- fires when a company's movement/hazard sub-phase ends (both players pass). For each character with an attached hazard carrying this event, enqueues one `corruption-check` pending resolution per region traversed in the site path. The `perRegion: true` flag on the effect enables the per-region behavior. An optional `regionTypeFilter: [...]` array restricts the iteration to regions whose type appears in the list — e.g. *Lure of Nature* uses `regionTypeFilter: ["wilderness"]` to enqueue a check only for each wilderness in the path. Used by *Alone and Unadvised* and *Lure of Nature*. Implemented in `reducer-movement-hazard.ts`.
-- `company-mh-end-at-site` -- fires when a company finishes its movement/hazard phase (`endCompanyMH`, after movement is committed) while at the Haven a permanent event is bound to (`attachedToSite` = the company's final `currentSite` definition id). Scanned over the active player's `cardsInPlay` in `reducer-movement-hazard.ts` (`fireHavenRestoreTriggers`). Supports `apply: { type: "offer-restore-character" }`: when the company has at least one tapped or wounded character, a `haven-restore-character` pending resolution is enqueued for the controlling player, scoped to the upcoming Site phase (the M/H sub-phase boundary would otherwise sweep it before the player acts; pending resolutions short-circuit every phase action, so it is resolved at the very next decision point — immediately following the company's M/H phase). The player may choose one character to untap (tapped → untapped) or heal one step (wounded/inverted → tapped) via a `restore-character-by-effect` action, or pass — the improvement is determined by the chosen character's current status. Used by *Hall of Fire* (dm-134).
+- `company-mh-end-at-site` -- fires when a company finishes its movement/hazard phase (`endCompanyMH`, after movement is committed) while at the Haven a permanent event is bound to (`attachedToSite` = the company's final `currentSite` definition id). Scanned over the active player's `cardsInPlay` in `reducer-movement-hazard.ts` (`fireHavenRestoreTriggers`). Supports `apply: { type: "offer-restore-character" }`: when the company has at least one tapped or wounded character, a `haven-restore-character` pending resolution is enqueued for the controlling player, scoped to the upcoming Site phase (the M/H sub-phase boundary would otherwise sweep it before the player acts; pending resolutions short-circuit every phase action, so it is resolved at the very next decision point — immediately following the company's M/H phase). The player may choose one character to untap (tapped → untapped) or heal one step (wounded/inverted → tapped) via a `restore-character-by-effect` action, or pass — the improvement is determined by the chosen character's current status. Used by *Hall of Fire* (dm-134). The same event name also fires for **character-attached** hazards (as opposed to Hall of Fire's site-attached `attachedToSite` form): `fireCharacterCorruptionAtSiteTriggers` in `mh-hazard-play.ts` (called from `endCompanyMH` immediately after `fireHavenRestoreTriggers`) scans every character in the company that just ended its M/H phase for attached hazards carrying this event, and supports `apply: { type: "force-check", check: "corruption" }` gated by an optional `when` evaluated against `{ bearer: { atHaven } }` (the same context shape `untap-phase-end` uses, via `isHavenForPlayer`). Used by *Lure of Creation* (tw-56): "…makes a corruption check at the end of any movement/hazard phase in a turn during which his company moved to a Haven [{H}]" — `when: { "bearer.atHaven": true }`.
 - `company-composition-changed` -- fires against every attached hazard whenever a company's character roster changes (play-character, move-to-company, merge-companies, auto-merge at end of MH). The sweeper evaluates the effect's `when` against the bearer's company context and applies the self-discard `move` when the condition is met. Used by *Alone and Unadvised* (discards when company has 4+ characters). Implemented in `reducer-utils.ts` `sweepAutoDiscardHazards()`.
 - `bearer-company-moves` -- fires when the company containing the bearer completes movement (M/H step 8). For each character in the moving company, the reducer scans attached **items and allies** for this event and applies the self-discard `move`, moving the card to the owner's discard pile. An effect with no `when` discards unconditionally (e.g. *Align Palantír*, an item that leaves play the moment its company moves). An effect carrying a `when` clause discards only when the clause matches the context `{ movementType, destination: { name, region, siteType }, sitePath: { regionTypes }, company: { characterCount } }`, where `movementType` is the movement kind used (`"starter"` / `"region"` / `"special"` / `"under-deeps"`) and `company.characterCount` is how many characters the moving company holds on completing the move. Used by *Mistress Lobelia* (dm-178), an ally discarded whenever her company moves to a site outside her allowed set (`when: { $not: { $or: [ { "destination.name": { $in: [...] } }, { "destination.region": "The Shire" } ] } }`); and by *Evil Things Lingering* (ba-45), "Discard this ally if its company moves using region or starter movement" — `when: { "movementType": { "$in": ["region", "starter"] } }` (so Under-deeps/special moves keep it); and by the *Palantír of Amon Sûl* (tw-296 / le-330) and *Palantír of Osgiliath* (tw-301 / le-335), "If the bearer's company is ever below 2 (resp. 4) characters and it moves, discard this item" — `when: { "company.characterCount": { "$lt": 2 } }`. Implemented in `reducer-movement-hazard.ts` (step 8a-2 of `mh-hazard-play.ts`).
 - `host-item-stored` -- fires from `handleStoreItem` (`reducer-organization.ts`) when an item is stored at a Haven. After removing the target item from the bearer, the reducer scans the bearer's **remaining items** for this event and applies the self-store `move` (`apply: { type: "move", select: "self", to: "kill-pile" }`), moving the companion card into the same marshalling point pile alongside the stored item (with the same `storedAtSite` binding). An effect carrying a `when` clause fires only when it matches the context `{ storedItem: { itemKeywords } }`, where `itemKeywords` is the combined `keywords` of the item being stored (via `itemKeywordsOf`). Used by *Align Palantír* (tw-190), CRF 22 errata "If the Palantír is stored, this card is stored too" — `when: { "storedItem.itemKeywords": { "$includes": "palantir" } }` so it follows only a Palantír-keyword item into storage, not an unrelated item stored from the same bearer. Skipped entirely when the item is stored via the item-cache alternate destination (Armory dm-116) — that path is scoped to true minor items, not their companion permanent events.
@@ -7531,8 +7531,12 @@ Forces a "Call of Home" style roll check on the targeted character. When
 the hazard short event resolves against a character (selected via
 `play-target`), the character's player rolls 2d6. If roll + unused
 general influence < `threshold`, the character returns to the player's
-hand. All items, allies, and hazards attached to the character are
-discarded; followers fall to GI if room, otherwise are discarded.
+hand. Allies and hazards attached to the character are discarded;
+followers fall to GI if room, otherwise are discarded. One item may
+automatically be transferred to another character in the company (the
+"Pilfer Anything Unwatched" `transfer-returned-item` primitive, §6i
+analog — see `allowItemTransfer` on the `return-character-to-hand`
+dice-check branch); the rest of the character's items are discarded.
 
 Used with a `play-target` effect that selects the target character.
 
@@ -7540,9 +7544,28 @@ Used with a `play-target` effect that selects the target character.
 { "type": "call-of-home-check", "threshold": 10 }
 ```
 
+An optional `rollModifiers` list adds conditional adjustments to the roll,
+evaluated at enqueue time against `{ company: { sitePathRegionTypes:
+RegionType[] } }` — the region types on the target's company's resolved
+site path this turn (`MovementHazardPhaseState.resolvedSitePath`, read
+directly since the target always belongs to the company currently in its
+M/H sub-phase). The values of all matching entries sum into a `constant`
+`DiceCheckModifier` alongside the `unused-gi` one. Used by Call of the Sea
+(tw-19): "playable on an Elf character … modified by -3 if the character's
+company moved this turn using a site path containing a Coastal Sea":
+
+```json
+{ "type": "call-of-home-check", "threshold": 10,
+  "rollModifiers": [
+    { "when": { "company.sitePathRegionTypes": { "$includes": "coastal" } }, "value": -3 }
+  ] }
+```
+
 Implemented in `chain-reducer.ts` (enqueue pending resolution on
 short-event resolution), `legal-actions/pending.ts` (generate roll
 action), and `pending-reducers.ts` (execute roll and apply consequences).
+Used by Call of Home (tw-18, le-105), Tookish Blood (tw-104), and Call of
+the Sea (tw-19).
 
 ### 23a. `protect-from-removal`
 
@@ -8188,6 +8211,84 @@ Implemented in `legal-actions/movement-hazard.ts` (action generation,
 `hasCreatureKeyingBypass`, keying-bypass fallthrough),
 `reducer-movement-hazard.ts` (constraint creation + consumption via
 `consumeCreatureKeyingBypass`).
+
+### 24a. `nazgul-boost-pending` — a pre-play boost for the next Nazgûl creature
+
+An `add-constraint` kind for a hazard short-event played *standalone*
+(no target), before the boosted creature is even in play. Installed via
+the ordinary `on-event: self-enters-play` → `add-constraint` path — no
+special dispatcher support needed, just a new `constraintKind` case in
+`buildConstraintKind` (`constraint-kind.ts`) — targeting the company the
+short event was played against, scope `company-mh-phase`:
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "nazgul-boost-pending",
+    "scope": "company-mh-phase",
+    "race": "ringwraith",
+    "strikesModifier": 1,
+    "prowessModifier": -2,
+    "grantAttackerChoosesDefenders": true,
+    "keyingRegionTypes": ["shadow"],
+    "keyingSiteTypes": ["shadow-hold"]
+  } }
+```
+
+Consumed the moment a hazard-creature of the matching `race` is actually
+played against that company: `mh-hazard-play.ts`'s creature-play handler
+looks up the constraint, removes it, and folds `strikesModifier`/
+`prowessModifier`/`grantAttackerChoosesDefenders` into the `creature`
+`ChainEntryPayload` as `strikesBonus`/`prowessBonus`/
+`grantAttackerChoosesDefenders` — consumed in `chain-reducer.ts` the same
+way Summons from Long Sleep's (as-39) `prowessBonus` already is, and
+OR'd into the `resolveAttackerChoosesDefenders` call that already
+honours a creature's own `combat-attacker-chooses-defenders` effect.
+`keyingRegionTypes`/`keyingSiteTypes` (both optional) let the boosted
+creature additionally be keyed via those region/site types, on top of
+its own printed `keyedTo` — implemented as a synthetic extra
+`CreatureKeyRestriction` entry appended to `def.keyedTo` at both
+`findCreatureKeyingMatches` (`legal-actions/movement-hazard.ts`, the
+offer side) and `checkCreatureKeying` (`mh-hazard-play.ts`, the
+validation side), so the two can never disagree.
+
+If the target company's M/H phase ends with the constraint still
+unconsumed (no matching creature was ever played), `finalizeCompanyMH`
+returns the short event's own card instance from its owner's discard
+pile back to hand instead of just letting the constraint's
+`company-mh-phase` scope silently drop it — CRF ruling for Fell Beast
+(tw-33): "A Nazgûl must be played as the first declared action ... or
+else this card is returned to its player's hand."
+
+A companion **permanent** constraint kind, `nazgul-boost-used`
+(`until-cleared` scope, target the creature's owning player, payload
+`creatureDefinitionId`), marks a specific unique Nazgûl as having already
+received this boost — `hasNazgulBoostBeenUsed`/`markNazgulBoostUsed`
+(`engine/pending.ts`) gate both the keying grant and the bonus
+consumption, so "Cannot be duplicated on a given Nazgûl" holds even
+across the creature cycling through the discard pile and being replayed
+later in the game (an ordinary `duplication-limit` scope cannot express
+this, since the card providing the boost never stays in play).
+
+A card offering this Mode A pre-play boost may *also* carry an ordinary
+`modify-attack` (`fromHand: true`) Mode B for playing on an attack
+already in progress — see §10e-quater. The pre-existing "a short event
+whose only M/H-relevant effect is a from-hand `modify-attack` has no
+open M/H play" suppression (`legal-actions/movement-hazard.ts`) skips
+itself when the card also carries an `on-event self-enters-play` →
+`add-constraint` effect, so the two modes coexist without either
+starving the other. Used by Fell Beast (tw-33): "The number of strikes
+of one Nazgûl hazard creature is increased by one and its prowess is
+decreased by 2. Attacker chooses defending characters. Additionally,
+target Nazgûl may be played keyed to a Shadow-land [{s}] or Shadow-hold
+[{S}]. Cannot be duplicated on a given Nazgûl." — paired with
+`{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+"strikesModifier": 1, "prowessModifier": -2,
+"grantAttackerChoosesDefenders": true, "when": { "enemy.race": "ringwraith" } }`
+for Mode B (CRF: "playable on an existing Nazgûl attack, but the extra
+playability this card provides would not apply" — the keying grant is
+Mode-A only) and `{ "type": "duplication-limit", "scope": "attack", "max": 1 }`.
 
 ### 25. `ahunt-attack`
 
@@ -8935,6 +9036,66 @@ body `-1`, for `-4`/`-2` total while Gates of Morning is in play). The
 turn-scoped constraints stack in the effective-stats resolver, and the
 `duplication-limit` `scope: "turn"` (counting active constraints left by a
 resolved copy) enforces "Cannot be duplicated on a given turn".
+
+**Company-targeting mode.** `play-option` is also honoured on
+**company**-targeting hazard short-events (`play-target: "company"`, e.g.
+Drowning Seas tw-30). The company branch of `playHazardsActions`
+(`legal-actions/movement-hazard.ts`) emits one `play-hazard` action per
+matching option (carrying `optionId`), evaluating each option's `when`
+against the same company filter context used for the card's `play-target`
+filter, extended with `inPlay` — so an alternative gated on a permanent-event
+(e.g. Doors of Night) is only offered while it's actually in play. A card
+whose play-options *all* fail their `when` is offered as a single non-viable
+action. `chain-reducer.ts`'s `applyCompanyPlayOption` dispatches the chosen
+option's `apply` once the entry resolves un-negated; it only fires for cards
+whose own `play-target` is `"company"`, so it never collides with the
+existing untargeted-mode dispatch (`optionId && !targetCharacterId`) — every
+hazard short-event's chain payload carries `targetCompanyId` regardless of
+its actual target kind, so that field alone can't tell the two families
+apart.
+
+Three apply kinds resolve against the chain's active movement/hazard company:
+
+- `company-return-to-origin` — the same CoE rule 2.IV.4 mechanism described
+  in §56b, reused here as a `play-option` apply instead of a top-level card
+  effect.
+- `force-discard-one-company-item` — reused outside combat. Normally an
+  `on-event: character-wounded-by-self` verb (Brigands le-64/tw-17); as a
+  `play-option` apply it directly enqueues the same `discard-one-company-item`
+  pending resolution (no `characterId` narrowing, so every item in the
+  company is a candidate), actored by the company's controller — "the
+  company loses one item of its choice".
+- `random-discard-hand` (`{ "count": <n> }`) — the company controller
+  discards `count` cards drawn **at random** from hand (capped at hand
+  size). A seeded `shuffle` (same pattern as `reveal-hand-cards-per-character`
+  §3-ish/Crebain tw-25) picks the discarded slice; `state.rng` advances.
+
+`sequence` composes multiple applies (e.g. item loss + random hand discard)
+for a single option.
+
+```json
+"effects": [
+  { "type": "play-target", "target": "company" },
+  { "type": "play-condition", "requires": "site-path",
+    "condition": { "sitePath.coastalCount": { "$gte": 1 } } },
+  { "type": "play-option", "id": "item-loss-and-discard",
+    "apply": { "type": "sequence", "apps": [
+      { "type": "force-discard-one-company-item" },
+      { "type": "random-discard-hand", "count": 2 }
+    ] } },
+  { "type": "play-option", "id": "return-to-origin",
+    "when": { "inPlay": "Doors of Night" },
+    "apply": { "type": "company-return-to-origin" } }
+]
+```
+
+Used by *Drowning Seas* (tw-30): "Environment. Playable on a company that
+moved this turn to a site with a Coastal Sea [{c}] in its site path. Target
+company loses one item of its choice and its player must randomly discard two
+cards from his hand. Alternatively, if Doors of Night is in play, target
+company must immediately return to its site of origin." The Coastal-Sea
+clause reuses the `play-condition` site-path gate (`sitePath.coastalCount`,
+the Lost at Sea tw-50 shape).
 
 ### Weariness of the Heart
 
@@ -9893,6 +10054,34 @@ Unlike `'gwaihir'`/`'paths-of-the-dead'`, this variant does not fall through to
   "filter": { "company.siteRegion": { "$in": ["Lindon", "Elven Shores", "…"] } } }
 { "type": "on-event", "event": "self-enters-play",
   "apply": { "type": "set-company-special-movement", "specialMovement": "belegaer" },
+  "target": "target-company" }
+```
+
+A fourth `specialMovement` value, `"eagle-mounts"`, backs *Eagle-mounts*
+(tw-220): "Company may move to any site that is not a Shadow-hold [{S}],
+Dark-hold [{D}], or Under-deeps." This is a **SITE-type** exclusion, distinct
+from `'gwaihir'`'s **REGION-type** exclusion (Shadow-land [{s}] / Dark-domain
+[{d}]) even though both cards are printed near-identically and share the "any
+site not X, only site-keyed hazards" shape — e.g. Moria is a Shadow-hold
+sitting in a wilderness region, so it is reachable via `'gwaihir'` but not via
+`'eagle-mounts'`. `organization-companies.ts` `planMovementActions` carries a
+separate `'eagle-mounts'` branch alongside `'gwaihir'`'s, filtering candidate
+destinations on `siteDef.siteType !== 'shadow-hold' && siteDef.siteType !==
+'dark-hold'` instead of the destination region's type; both branches apply the
+same MEAS §6(b) Under-deeps exclusion (origin and destination). Falls through
+to the shared "no path traversed" handling in `legal-actions/movement-hazard.ts`
+(`MovementType.Special`) and `mh-steps.ts` (empty `resolvedSitePath`, so only
+site-keyed hazard creatures match) exactly like `'gwaihir'`/`'paths-of-the-dead'`.
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.skills": { "$includes": "diplomat" } },
+    { "company.siteName": "Eagles’ Eyrie" }
+  ] } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-company-special-movement", "specialMovement": "eagle-mounts" },
   "target": "target-company" }
 ```
 
@@ -14204,6 +14393,29 @@ whenever the resolving short-event carries both a `tap-character` effect and a
 `targetCharacterId`. New Moon (tw-68): "Tap one Elf character. Alternatively, if
 Doors of Night is in play, treat one Free-domain as a Border-land or one Free-hold
 as a Border-hold until the end of the turn."
+
+The same "Alternatively" shape also composes with an ordinary `play-target:
+"character"` main mode (instead of `tap-character`) — e.g. a `character-stat-
+modifier` penalty rather than a tap. The short-event character-targeting branch
+(`legal-actions/movement-hazard.ts`, "Character-targeting short events") offers
+the arrival-override modes' single untargeted action alongside its per-character
+actions whenever the card also carries `on-event company-arrives-at-site`
+effects, using the same eligibility check as the `tap-character` branch above.
+`applyShortEventArrivalTrigger`'s mutual-exclusion guard checks for either
+`tap-character` **or** a `play-target` `target: "character"` effect, so a chosen
+`targetCharacterId` suppresses the arrival-override modes regardless of which
+shape the main mode takes. The character-targeting filter context also exposes
+`company.moving` (`!!targetCompany.destinationSite`), mirroring the `target.moving`
+field already exposed to `play-target: "company"` filters (Heedless Revelry
+le-114). Used by Gloom (tw-41): "Playable only on a company that is moving this
+turn. One character (attacker's choice) in that company suffers -1 to his
+prowess until the end of the turn. Alternatively, if Doors of Night is in play,
+treat one Border-land as a Wilderness or one Border-hold as a Ruins & Lairs
+until the end of the turn." — `play-target` character (`filter: { "company.moving":
+true }`), `on-event self-enters-play` → `character-stat-modifier` (prowess -1,
+scope turn), and the two `on-event company-arrives-at-site` → `region-type-
+override` (border→wilderness) / `site-type-override` (border-hold→ruins-and-
+lairs) modes.
 
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 
