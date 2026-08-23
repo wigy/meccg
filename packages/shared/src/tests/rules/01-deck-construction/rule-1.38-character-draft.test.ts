@@ -22,6 +22,8 @@ import {
   runActions, makePlayDeck, makeDraftConfig, pool, draftInstId,
   PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS, BILBO, FRODO, FARAMIR, GIMLI, RIVENDELL, Alignment,
   createGame, assertEveryInstanceReachable,
+  buildTestState, addToPile, mint, viablePlayCharacterActions,
+  BALIN, BLUE_MOUNTAIN_DWARF_HOLD, LORIEN,
 } from '../../test-helpers.js';
 import type { GameConfig } from '../../test-helpers.js';
 import { Phase } from '../../../index.js';
@@ -260,5 +262,33 @@ describe('Rule 1.38 — Character Draft', () => {
 
     // Player 0's second copy is still in the pool — not deleted from the game.
     expect(draftStep.draftState[0].pool.length).toBe(1);
+  });
+
+  test('a unique character removed from the game via rule 1.9 (undrafted pool) does not block the opponent from playing their own copy', () => {
+    // Bug report (game mt4dmiij-8h0fy4, turn 9): P2's Balin was never drafted
+    // and was sunk to their out-of-play pile when they passed the
+    // character-deck-draft step. P1's own, unrelated Balin in hand was then
+    // reported "unique character already in play" — `isUniqueCharacterInPlay`
+    // scanned P2's out-of-play pile without distinguishing an undrafted
+    // "removed from the game" card (glossary: "no longer considered for
+    // purposes of uniqueness") from a genuinely eliminated one.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, hand: [BALIN], siteDeck: [BLUE_MOUNTAIN_DWARF_HOLD], companies: [] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [{ site: LORIEN, characters: [LEGOLAS] }] },
+      ],
+      recompute: true,
+    });
+
+    const stateWithUndraftedGhost = addToPile(state, 1, 'outOfPlayPile', {
+      instanceId: mint(),
+      definitionId: BALIN,
+      removedFromGame: true,
+    });
+
+    const viable = viablePlayCharacterActions(stateWithUndraftedGhost, PLAYER_1);
+    expect(viable.length).toBe(1);
   });
 });

@@ -3094,7 +3094,10 @@ function playHazardsActions(
               const itemSubtypes = itemSubtypesOf(state, charData.items);
               const ctx = {
                 target: {
-                  race: charDef.race,
+                  // g.wiz.F1: a Fallen-wizard avatar matches "Wizard" in card
+                  // text (e.g. Seized by Terror dm-88's "non-Wizard character"),
+                  // not "fallen-wizard" — mirror the permanent-hazard path.
+                  race: raceForCardTextFilter(charDef),
                   skills: charDef.skills,
                   name: charDef.name,
                   status: charData.status,
@@ -3128,7 +3131,7 @@ function playHazardsActions(
             }
             if (shortPlayOptions.length > 0) {
               const optionCtx = charDef && isCharacterCard(charDef)
-                ? { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, status: charData?.status } }
+                ? { target: { race: raceForCardTextFilter(charDef), skills: charDef.skills, name: charDef.name, status: charData?.status } }
                 : { target: {} };
               for (const opt of shortPlayOptions) {
                 if (opt.when && !matchesCondition(opt.when, optionCtx)) {
