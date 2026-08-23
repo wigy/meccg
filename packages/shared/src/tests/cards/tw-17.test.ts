@@ -224,6 +224,45 @@ describe('Brigands (tw-17)', () => {
     expect(resolveInstanceId(s, offeredId)).toBe(GLAMDRING);
   });
 
+  test('no pending resolution when the company\'s only "item" entry is a non-item card', () => {
+    // Regression (deadlock): the enqueue guard counted raw `items.length`, so
+    // a company whose only `items` entry was Thrall of the Voice (a permanent
+    // resource-event placed *with* a character, never a discard target) got a
+    // discard-one-company-item resolution with an empty action menu — no
+    // player had any legal action.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [THRALL_OF_THE_VOICE] }, BILBO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BRIGANDS], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeBorderMHState() };
+
+    const brigandId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    let s = playCreatureHazardAndResolve(ready, PLAYER_2, brigandId, companyId, BORDER_KEYING);
+
+    // Assign, choose order, resolve: ARAGORN wounded, BILBO wins
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'choose-strike-order');
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2);  // ARAGORN wounded
+    s = executeAction(s, PLAYER_2, 'body-check-roll', 2); // survives (2 < body 9)
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 12); // BILBO wins
+
+    expect(s.combat).toBeNull();
+    // No discardable item in the company → no resolution enqueued.
+    expect(s.pendingResolutions.filter(r => r.actor === PLAYER_1)).toHaveLength(0);
+  });
+
   test('no pending resolution when no character is wounded', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

@@ -63,7 +63,7 @@ import {
 import { autoResolve } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
-import { eligibleRingCategories, opposedRollStat } from './legal-actions/pending.js';
+import { eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -3615,6 +3615,18 @@ export function applyDiscardOneCompanyItemResolution(
   rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // The forced discard is mandatory while an eligible item exists, but the
+  // company's eligible items can vanish between enqueue and resolution (or
+  // every `items` entry may be a non-item card like Thrall of the Voice).
+  // Accept a pass ONLY in that stale case so the game cannot deadlock on a
+  // resolution with no legal action.
+  if (top.kind.type === 'discard-one-company-item' && rawAction.type === 'pass' && rawAction.player === top.actor) {
+    if (eligibleCompanyDiscardItems(state, top.kind).length === 0) {
+      logDetail('discard-one-company-item: no eligible item remains — stale resolution dismissed by pass');
+      return { state: dequeueResolution(state, top.id) };
+    }
+    return { state, error: 'An eligible item must be discarded' };
+  }
   const g = guardResolution(state, rawAction, top, 'discard-item-from-company', 'discard-one-company-item');
   if (!g.ok) return g.result;
   const { action, kind } = g;
