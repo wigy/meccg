@@ -42,6 +42,7 @@ import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.j
 import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, initiateQueuedTraitorAttack } from './combat-finalize.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { pruneLeaderFollowers, nextStrikePhase, advanceStrikeOrFinalize, eliminateCombatantFromStrike } from './combat-strike.js';
@@ -717,6 +718,14 @@ function discardCharacterAfterBodyCheck(
     hazardDiscard = [...hazardDiscard, toCardInstance(hazard)];
   }
   newPlayers[1 - defPlayerIndex] = { ...newPlayers[1 - defPlayerIndex], discardPile: hazardDiscard };
+  // Relocate trophies per CoE 3.IV.4 — worth MP → the holder's marshalling-
+  // point pile, otherwise removed from play — or the creature CardInstance
+  // would vanish with the deleted character.
+  {
+    const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(state, charData, 'discarded character');
+    newPlayerData.killPile = [...newPlayerData.killPile, ...toKillPile];
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, ...toOutOfPlay];
+  }
   const { [strike.characterId]: _removed, ...remainingChars } = newPlayerData.characters;
   const updatedChars = { ...remainingChars };
   for (const followerId of charData.followers) {
@@ -1202,12 +1211,19 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
           const follower = atkRemaining[followerId];
           if (follower) atkRemaining[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateWithRoll, follower) };
         }
+        // Trophies borne by the eliminated attacker are relocated per CoE
+        // 3.IV.4 — worth MP → the attacker's marshalling-point pile, otherwise
+        // removed from play — or the creature CardInstance would disappear.
+        const { toKillPile: atkTrophyKill, toOutOfPlay: atkTrophyOop } =
+          partitionLeavingTrophies(stateWithRoll, charData, 'eliminated attacker');
         newPlayers[atkPlayerIdx] = {
           ...newPlayers[atkPlayerIdx],
           characters: pruneLeaderFollowers(atkRemaining, strike.attackingCharacterId, charData.controlledBy),
           companies: newPlayers[atkPlayerIdx].companies.map(c => c.id === atkCompany.id ? updatedCompany : c),
           hand: [...newPlayers[atkPlayerIdx].hand, ...toHand],
           discardPile: [...newPlayers[atkPlayerIdx].discardPile, ...toDiscard, ...atkItemsToDiscard],
+          killPile: [...newPlayers[atkPlayerIdx].killPile, ...atkTrophyKill],
+          outOfPlayPile: [...newPlayers[atkPlayerIdx].outOfPlayPile, ...atkTrophyOop],
         };
         // Defender gets kill MP (character card) and the eliminated character's
         // hazards (owned by the opposing/hazard player) return to their discard.

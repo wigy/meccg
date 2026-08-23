@@ -108,6 +108,33 @@ describe("I'll Be At Your Heels (le-195)", () => {
     expect(target).toBe(leaderId);
   });
 
+  test('NOT playable outside the organization phase ("during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window (movement/hazard,
+    // site, end-of-turn) despite the printed restriction.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: CIRITH_GORGOR, characters: [LIEUTENANT_DOL_GULDUR] }],
+          hand: [ILL_BE_AT_YOUR_HEELS],
+          siteDeck: [CIRITH_GORGOR],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: ETTENMOORS, characters: [THE_MOUTH] }],
+          hand: [],
+          siteDeck: [ETTENMOORS],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   test('NOT playable on a character without the Leader keyword', () => {
     const state = orgState({ leader: THE_MOUTH });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');

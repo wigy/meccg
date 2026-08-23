@@ -36,6 +36,7 @@ import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } fr
 import { enemyRaceContext } from './effects/index.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { finalizeCombat } from './combat-finalize.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 
 /**
  * When a follower character leaves play, removes their ID from their leader's
@@ -708,6 +709,14 @@ export function eliminateCombatantFromStrike(
     if (toHand.length > 0) logDetail(`${toHand.length} ally(ies) return to hand from eliminated character`);
     newPlayerData.hand = [...newPlayerData.hand, ...toHand];
     newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
+  }
+  // Trophies on the eliminated Orc/Troll are relocated per CoE 3.IV.4 — worth
+  // MP → the holder's marshalling-point pile, otherwise removed from play — or
+  // the creature CardInstance would vanish with the deleted character.
+  {
+    const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(state, charData, 'eliminated character');
+    newPlayerData.killPile = [...newPlayerData.killPile, ...toKillPile];
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, ...toOutOfPlay];
   }
   newPlayers2[defPlayerIndex] = newPlayerData;
   const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];

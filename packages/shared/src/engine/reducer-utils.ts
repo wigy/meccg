@@ -4743,6 +4743,34 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
         }
       }
     }
+
+    // Return each empty company's *planned* destination too. `plan-movement`
+    // draws the destination out of the site deck and stores it only on the
+    // company (reducer-organization.ts), so dropping the company without
+    // returning it deletes that site instance from the game — the leak the
+    // docstring above records. Mirror `clearPlannedMovement`: return it unless a
+    // surviving company still holds the same instance (as its current or its own
+    // destination site), and dedupe against the current sites already queued so a
+    // shared instance is returned once. Destinations are never entered, so they
+    // are untapped and go back to the location deck.
+    const returningSiteIds = new Set<string>(
+      [...untappedSites, ...tappedSites].map(s => s.instanceId as string),
+    );
+    for (const c of emptyCompanies) {
+      const dest = c.destinationSite;
+      if (!dest) continue;
+      const id = dest.instanceId as string;
+      if (occupiedSiteIds.has(id) || returningSiteIds.has(id)) continue;
+      if (keptCompanies.some(k => k.destinationSite?.instanceId === dest.instanceId)) continue;
+      returningSiteIds.add(id);
+      const destInst = toCardInstance(dest);
+      if (dest.status === CardStatus.Tapped) {
+        tappedSites.push(destInst);
+      } else {
+        untappedSites.push(destInst);
+      }
+    }
+
     const newSiteDeck = [...player.siteDeck, ...untappedSites];
 
     // CoE rule 2.07: permanent-events bound to a now-empty company are discarded.
