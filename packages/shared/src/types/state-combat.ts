@@ -457,7 +457,7 @@ export interface CombatState {
    * - `'discard-item-from-company'`: defender must discard one item
    * - `'trophy-offer'`: Orc/Troll characters may take the defeated creature as a trophy (MELE §8.37)
    */
-  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer' | 'shield-discard-roll';
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer' | 'shield-discard-roll' | 'cancel-prisoner-taking-choice';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
@@ -498,6 +498,17 @@ export interface CombatState {
    * discarded. Absent in all other phases.
    */
   readonly shieldAbsorbItemId?: CardInstanceId;
+  /**
+   * During the 'cancel-prisoner-taking-choice' phase: the ally the defending
+   * player may discard to cancel the current strike's prisoner-taking outcome
+   * (e.g. Noble Hound dm-179 — "Discard Noble Hound to cancel any effect that
+   * would take its controlling character prisoner"). The struck character is
+   * `combat.strikeAssignments[combat.currentStrikeIndex].characterId`. If the
+   * player discards the ally (`cancel-prisoner-taking` action), the character
+   * is wounded normally instead of taken prisoner; a `pass` declines and the
+   * prisoner-taking proceeds. Absent outside this phase.
+   */
+  readonly cancelPrisonerTakingOffer?: { readonly allyId: CardInstanceId };
   /**
    * Whether this is a detainment attack. Detainment attacks tap characters
    * instead of wounding/eliminating them. Any attack can be detainment —
@@ -1090,8 +1101,22 @@ export type ChainEntryPayload =
       /**
        * For Summons from Long Sleep (as-39): prowess bonus (+2) applied on
        * top of the creature's resolved prowess when initiating combat.
+       * Also carries Fell Beast's (tw-33) -2 penalty when a consumed
+       * `nazgul-boost-pending` constraint boosted this creature's play.
        */
       readonly prowessBonus?: number;
+      /**
+       * For Fell Beast (tw-33): strikes bonus (+1) applied on top of the
+       * creature's resolved strike count when a consumed `nazgul-boost-pending`
+       * constraint boosted this creature's play.
+       */
+      readonly strikesBonus?: number;
+      /**
+       * For Fell Beast (tw-33): when a consumed `nazgul-boost-pending`
+       * constraint boosted this creature's play, the resulting attack gets
+       * "attacker chooses defending characters".
+       */
+      readonly grantAttackerChoosesDefenders?: true;
       /**
        * For Summons from Long Sleep (as-39): the permanent-event instance to
        * discard after this creature's combat resolves.

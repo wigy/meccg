@@ -20,7 +20,7 @@ import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from '.
 import { findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
-import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
+import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer, handleCancelPrisonerTaking, finalizeCombatFromCancelPrisonerTakingOffer } from './combat-actions.js';
 import { finalizeCombat } from './combat-finalize.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 
@@ -70,6 +70,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'apply-attacker-attack-option': handleApplyAttackerAttackOption,
   'salvage-item': handleSalvageItem,
   'discard-item-from-company': handleDiscardItemFromCompany,
+  'cancel-prisoner-taking': handleCancelPrisonerTaking,
   'play-hazard': handleCombatPlayHazard,
   'haven-join-attack': handleHavenJoinAttack,
   // Rule 3.iv / 3.iv.5: resource short-events may be played between strike
@@ -505,6 +506,12 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
   // Pass during trophy-offer: defending player declines to take a trophy.
   if (combat.phase === 'trophy-offer') {
     return finalizeCombatFromTrophyOffer(state, combat);
+  }
+
+  // Pass during cancel-prisoner-taking-choice: defending player declines to
+  // discard the protecting ally (Noble Hound dm-179) — prisoner-taking proceeds.
+  if (combat.phase === 'cancel-prisoner-taking-choice') {
+    return finalizeCombatFromCancelPrisonerTakingOffer(state, combat);
   }
 
   // Pass during item-salvage: player declines further transfers, discard remaining items
