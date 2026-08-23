@@ -40,12 +40,12 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, moveSideboardCard, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isSelfDiscardMove, matchesDefinition, moveSideboardCard, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, characterPossessions, enqueueResolution, hasCancelReturnAndSiteTap } from './pending.js';
+import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, characterPossessions, enqueueResolution, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed, markNazgulBoostUsed } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -806,10 +806,35 @@ export function handlePlayHazardCard(
       newState = consumeCreatureKeyingBypass(newState, action.targetCompanyId, def.race);
     }
 
+    // Fell Beast (tw-33): a `nazgul-boost-pending` constraint on the target
+    // company, matching this creature's race, boosts this play — consumed
+    // (removed) the moment a matching creature is actually played, folding
+    // its strikes/prowess/attacker-chooses-defenders bonus into the chain
+    // payload for combat initiation.
+    const nazgulBoost = !hasNazgulBoostBeenUsed(newState, action.player, def.id)
+      ? newState.activeConstraints.find(
+        (c): c is import('../types/pending.js').ActiveConstraint & { kind: { type: 'nazgul-boost-pending' } } =>
+          c.kind.type === 'nazgul-boost-pending'
+          && c.target.kind === 'company'
+          && c.target.companyId === action.targetCompanyId
+          && c.kind.race === def.race,
+      )
+      : undefined;
+    if (nazgulBoost) {
+      logDetail(`Creature "${def.name}": consuming Fell Beast boost (${nazgulBoost.kind.strikesModifier >= 0 ? '+' : ''}${nazgulBoost.kind.strikesModifier} strikes, ${nazgulBoost.kind.prowessModifier} prowess, attacker chooses defenders)`);
+      newState = removeConstraint(newState, nazgulBoost.id);
+      newState = markNazgulBoostUsed(newState, nazgulBoost.source, nazgulBoost.sourceDefinitionId, action.player, def.id);
+    }
+
     // Initiate chain — when creature entry resolves, combat will start (TODO)
     const creaturePayload: import('../index.js').ChainEntryPayload = {
       type: 'creature',
       ...(action.keyedBy ? { keyedBy: action.keyedBy } : {}),
+      ...(nazgulBoost ? {
+        prowessBonus: nazgulBoost.kind.prowessModifier,
+        strikesBonus: nazgulBoost.kind.strikesModifier,
+        grantAttackerChoosesDefenders: true as const,
+      } : {}),
     };
     newState = initiateChain(newState, action.player, handCard, creaturePayload, 'normal', !raceExempt);
 
@@ -2488,6 +2513,25 @@ export function discardNonRingwraithCompaniesAtSharedSite(state: GameState, play
 }
 
 /**
+ * Fell Beast (tw-33): move the source card of an unconsumed
+ * `nazgul-boost-pending` constraint from its owner's discard pile back to
+ * hand — CRF: "or else this card is returned to its player's hand." A no-op
+ * if the card is not (or no longer) in the discard pile.
+ */
+function returnCardFromDiscardToHand(state: GameState, cardInstanceId: CardInstanceId): GameState {
+  const ownerIndex = getPlayerIndex(state, ownerOf(cardInstanceId));
+  const player = state.players[ownerIndex];
+  const card = findById(player.discardPile, cardInstanceId);
+  if (!card) return state;
+  logDetail(`Fell Beast: no Nazgûl played this company's M/H phase — returning "${card.definitionId as string}" to ${player.name}'s hand`);
+  return updatePlayer(state, ownerIndex, p => ({
+    ...p,
+    discardPile: removeById(p.discardPile, cardInstanceId),
+    hand: [...p.hand, toCardInstance(card)],
+  }));
+}
+
+/**
  * Finalize the current company's movement/hazard phase: sweep company-scoped
  * constraints, then advance to the next company's M/H sub-phase or to the Site
  * phase once every company is handled.
@@ -2498,6 +2542,19 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
   // eliminated); finish the slot without the company-scoped bookkeeping.
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex] as (typeof state.players)[number]['companies'][number] | undefined;
   const updatedHandled = currentCompany ? [...mhState.handledCompanyIds, currentCompany.id] : mhState.handledCompanyIds;
+
+  // Fell Beast (tw-33): "A Nazgûl must be played as the first declared action
+  // ... or else this card is returned to its player's hand" (CRF). If the
+  // company's M/H phase ends with a `nazgul-boost-pending` constraint still
+  // unconsumed, no matching Nazgûl was ever played — return the source card
+  // from discard to its owner's hand before the constraint sweep drops it.
+  if (currentCompany) {
+    for (const boost of state.activeConstraints) {
+      if (boost.kind.type !== 'nazgul-boost-pending') continue;
+      if (boost.target.kind !== 'company' || boost.target.companyId !== currentCompany.id) continue;
+      state = returnCardFromDiscardToHand(state, boost.source);
+    }
+  }
 
   // Sweep any active constraints / pending resolutions scoped to the
   // company that just finished its M/H sub-phase.
@@ -3040,7 +3097,29 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     state, targetCompany ?? {}, mhState.destinationSiteName, mhState.destinationSiteType, moverAlignment,
   );
 
-  for (const key of def.keyedTo) {
+  // Fell Beast (tw-33): mirror of the offering side (findCreatureKeyingMatches)
+  // — a `nazgul-boost-pending` constraint on this company grants one extra
+  // synthetic `keyedTo` entry for the matching race.
+  const extraKeyedTo: import('../types/cards-hazards.js').CreatureKeyRestriction[] = [];
+  if (targetCompany) {
+    const boost = state.activeConstraints.find(
+      (c): c is import('../types/pending.js').ActiveConstraint & { kind: { type: 'nazgul-boost-pending' } } =>
+        c.kind.type === 'nazgul-boost-pending'
+        && c.target.kind === 'company'
+        && c.target.companyId === targetCompany.id
+        && c.kind.race === def.race,
+    );
+    if (boost
+      && (boost.kind.keyingRegionTypes?.length || boost.kind.keyingSiteTypes?.length)
+      && !hasNazgulBoostBeenUsed(state, hazardPlayerOf(state, state.activePlayer).id, def.id)) {
+      extraKeyedTo.push({
+        ...(boost.kind.keyingRegionTypes ? { regionTypes: boost.kind.keyingRegionTypes } : {}),
+        ...(boost.kind.keyingSiteTypes ? { siteTypes: boost.kind.keyingSiteTypes } : {}),
+      });
+    }
+  }
+
+  for (const key of [...def.keyedTo, ...extraKeyedTo]) {
     // When-condition guards the entry (DoN, sitePath-count conditions, etc.)
     if (key.when) {
       if (!matchesCondition(key.when, whenCtxBase)) continue;

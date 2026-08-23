@@ -3652,9 +3652,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // Hunter as-7 carries both).
   const attackerChooses = resolveAttackerChoosesDefenders(
     state,
-    creatureDef.effects?.some(
+    (creatureDef.effects?.some(
       e => e.type === 'combat-attacker-chooses-defenders' && e.scope !== 'all-attacks',
-    ) ?? false,
+    ) ?? false)
+      // Fell Beast (tw-33): a consumed `nazgul-boost-pending` constraint
+      // grants "attacker chooses defending characters" to this creature's
+      // play, on top of any rule the card itself carries.
+      || (entry.payload.type === 'creature' && entry.payload.grantAttackerChoosesDefenders === true),
     creatureDef.race,
   );
   if (attackerChooses) {
@@ -3788,8 +3792,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     : undefined;
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
+  const strikesBonus = entry.payload.type === 'creature' ? (entry.payload.strikesBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx) + strikesBonus;
   let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
   // combat-body-per-defender-skill (Little Snuffler dm-108): "Each ranger in
