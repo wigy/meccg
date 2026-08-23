@@ -12,6 +12,15 @@
     "text": "Playable on your Fallen-wizard if he has The One Ring at one of your Wizardhavens. Only one A New Ringlord may be played in a given turn. Make a roll during each of your end-of-turn phases if your Fallen-wizard is bearing The One Ring and is at a Ruins & Lairs where Information is playable. Add 1 for each A New Ringlord you have in play. If the result is less than 6, your Fallen-wizard is eliminated. If the result is greater than 9, you win the game.",
     "effects": [
       {
+        "type": "stage-points",
+        "value": 3
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-condition",
         "requires": "site-type",
         "siteTypes": [
@@ -1846,6 +1855,11 @@
         "value": 2
       },
       {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "Alatar" }
@@ -1929,6 +1943,11 @@
     "effects": [
       {
         "type": "stage-points",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
         "value": 1
       },
       {
@@ -2581,6 +2600,11 @@
         "value": 1
       },
       {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
@@ -2868,6 +2892,11 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
       },
       {
         "type": "play-target",

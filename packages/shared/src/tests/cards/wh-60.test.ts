@@ -27,9 +27,10 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, LORIEN, MORIA,
   resetMint, buildTestState, attachItemToChar, attachHazardToChar, findCharInstanceId,
-  dispatch, expectCharNotInPlay,
+  dispatch, expectCharNotInPlay, getCharacter,
   Phase, Alignment, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
+import type { PlayerSetup } from '../test-helpers.js';
 import type { CardDefinitionId, EndOfTurnPhaseState, GameOverPhaseState, GameState } from '../../index.js';
 
 const A_NEW_RINGLORD = 'wh-60' as CardDefinitionId;
@@ -208,5 +209,43 @@ describe('A New Ringlord (wh-60)', () => {
       ?? after.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === gandalfId);
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gandalfId)).toBe(false);
     expect(stillInPlay).toBeDefined();
+  });
+
+  // ── Printed attributes: 3 stage points, 1 corruption point ─────────────────
+
+  test('contributes 3 stage points and 1 corruption point while attached', () => {
+    const playersWithItems = (items: CardDefinitionId[]): [PlayerSetup, PlayerSetup] => [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.FallenWizard,
+        companies: [{ site: AMON_HEN, characters: [{ defId: GANDALF, items }] }],
+        hand: [],
+        siteDeck: [RIVENDELL],
+      },
+      {
+        id: PLAYER_2,
+        alignment: Alignment.Wizard,
+        companies: [{ site: LORIEN, characters: ['tw-120' as CardDefinitionId] }],
+        hand: [],
+        siteDeck: [MORIA],
+      },
+    ];
+    const without = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: playersWithItems([THE_ONE_RING]),
+    });
+    const withCard = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: playersWithItems([THE_ONE_RING, A_NEW_RINGLORD]),
+    });
+
+    expect(withCard.players[RESOURCE_PLAYER].stagePoints)
+      .toBe(without.players[RESOURCE_PLAYER].stagePoints + 3);
+    expect(getCharacter(withCard, RESOURCE_PLAYER, GANDALF).effectiveStats.corruptionPoints)
+      .toBe(getCharacter(without, RESOURCE_PLAYER, GANDALF).effectiveStats.corruptionPoints + 1);
   });
 });
