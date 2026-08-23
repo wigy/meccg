@@ -2783,7 +2783,10 @@ function playHazardsActions(
           // targets the opponent (resource) player's characters (any company),
           // mirroring Adûnaphel tw-2's "causes any one character to tap".
           for (const [charId, charData] of Object.entries(resourcePlayer.characters)) {
-            if (charData.status === CardStatus.Tapped) continue;
+            // Only untapped characters may be tapped — a wounded (Inverted)
+            // character is not a legal target, and resolving the tap would
+            // overwrite the wound with Tapped.
+            if (charData.status !== CardStatus.Untapped) continue;
             const charDef = defById(state, charData.definitionId);
             if (!charDef || !isCharacterCard(charDef)) continue;
             if (tapCharacterEffect.filter && !matchesDefinition(charDef, tapCharacterEffect.filter)) continue;
@@ -4227,7 +4230,10 @@ function tapAltPermanentEventActions(
       // opponent — it may only tap the resource (active) player's characters, never
       // the hazard player's own. Restrict targets to the resource player.
       for (const [charId, ch] of Object.entries(state.players[activeIdx].characters)) {
-        if (ch.status === CardStatus.Tapped) continue;
+        // Only untapped characters may be tapped — a wounded (Inverted)
+        // character is not a legal target, and resolving the tap would
+        // overwrite the wound with Tapped.
+        if (ch.status !== CardStatus.Untapped) continue;
         const charDef = defById(state, ch.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
