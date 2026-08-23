@@ -1242,6 +1242,11 @@ function agentInfluenceActions(
 
   type TapInfluenceEffect = { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] };
   forEachEligibleAgent<TapInfluenceEffect>(state, hazardPlayer, 'agent-tap-influence', (agent, agentDef, tapInfluenceEff, agentSiteName) => {
+    // Tap-cost ability: only an untapped agent can pay the tap (rule 10.14).
+    if (agent.character.status !== CardStatus.Untapped) {
+      logDetail(`Agent tap-influence ${agentDef.name}: not untapped — cannot pay the tap cost, skipping`);
+      return;
+    }
     // The target company's site this turn.
     const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
@@ -1366,6 +1371,12 @@ function agentTapAttackActions(
   const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
   forEachEligibleAgent<AgentTapAttackEffect>(state, hazardPlayer, 'agent-tap-attack', (agent, agentDef, _tapAttackEff, agentSiteName) => {
+    // Tap-cost ability: only an untapped agent can pay the tap ("may tap to
+    // attack"), so a spent agent cannot attack again this phase.
+    if (agent.character.status !== CardStatus.Untapped) {
+      logDetail(`Agent tap-attack ${agentDef.name}: not untapped — cannot pay the tap cost, skipping`);
+      return;
+    }
     const isAgentAtCompanySite =
       agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
     if (!isAgentAtCompanySite) {
