@@ -1118,8 +1118,12 @@ export function opposedRollActions(
   const player = playerById(state, playerId);
   const charInPlay = player?.characters[rolling];
   if (!player || !charInPlay) {
-    logDetail(`Pending opposed-roll: roller ${rolling as string} is no longer in play — no action`);
-    return [];
+    // The due roller has left play since the card was played. The contest is
+    // forfeited (see applyOpposedRollResolution's abandon branch) — offer a
+    // pass so the stale resolution can be dismissed; returning no action at
+    // all would deadlock the game on the unresolvable resolution.
+    logDetail(`Pending opposed-roll: roller ${rolling as string} is no longer in play — offering pass to abandon the contest`);
+    return [{ action: { type: 'pass', player: playerId }, viable: true }];
   }
 
   const sourceName = defById(state, kind.sourceDefinitionId)?.name ?? '?';
