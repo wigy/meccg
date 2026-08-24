@@ -67,7 +67,7 @@ import { eligibleRingCategories, opposedRollStat } from './legal-actions/pending
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
-import { revealInstances } from './visibility.js';
+import { revealInstances, forgetDeckReveals } from './visibility.js';
 import { handleRevealAgent } from './mh-hazard-play.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
@@ -4196,7 +4196,13 @@ export function applyArrangeDeckTopResolution(
   const rest = player.playDeck.slice(count);
   const newDeck = [...orderedCards, ...rest];
   logDetail(`arrange-deck-top: placed "${chosenName}" at position ${count}/${count} — deck top finalized`);
-  const newState = updatePlayer(state, playerIdx, p => ({ ...p, playDeck: newDeck }));
+  // The cards go face-down in an order the player chose in secret (dm-85) —
+  // their reveal-time identities must not stay unmasked at these exact deck
+  // positions in the opponent's projected view.
+  const newState = forgetDeckReveals(
+    updatePlayer(state, playerIdx, p => ({ ...p, playDeck: newDeck })),
+    playerIdx,
+  );
   return { state: dequeueResolution(newState, top.id) };
 }
 
@@ -4237,11 +4243,14 @@ export function applyRevealChooseToHandResolution(
     `reveal-choose-to-hand: ${action.player as string} takes "${chosenName}" into hand, ` +
     `shuffling ${shuffledDeck.length} card(s) back into the play deck`,
   );
-  const newState = updatePlayer({ ...state, rng: nextRng }, playerIdx, p => ({
-    ...p,
-    hand: [...p.hand, chosen],
-    playDeck: shuffledDeck,
-  }));
+  const newState = forgetDeckReveals(
+    updatePlayer({ ...state, rng: nextRng }, playerIdx, p => ({
+      ...p,
+      hand: [...p.hand, chosen],
+      playDeck: shuffledDeck,
+    })),
+    playerIdx,
+  );
   return { state: dequeueResolution(newState, top.id) };
 }
 

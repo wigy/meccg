@@ -47,7 +47,7 @@ import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired,
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
-import { revealInstances } from './visibility.js';
+import { revealInstances, forgetDeckReveals } from './visibility.js';
 
 export function discardCardTriggeredCard(
   state: GameState,
@@ -1231,10 +1231,15 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       logDetail(`Lucky Search: no item found in deck`);
     }
 
-    // Reshuffle non-item revealed cards back into the remaining deck
+    // Reshuffle non-item revealed cards back into the remaining deck. The
+    // shuffle destroys positional reveal knowledge of the folded-back cards
+    // (forgetDeckReveals).
     const [reshuffled, newRng] = shuffle([...nonItemRevealed, ...remainingDeck], stateAfterCombat.rng);
     logDetail(`Lucky Search: reshuffling ${nonItemRevealed.length} revealed card(s) back into deck (${remainingDeck.length} remaining)`);
-    stateAfterCombat = { ...updatePlayer(stateAfterCombat, defIdx, p => ({ ...p, playDeck: reshuffled })), rng: newRng };
+    stateAfterCombat = forgetDeckReveals(
+      { ...updatePlayer(stateAfterCombat, defIdx, p => ({ ...p, playDeck: reshuffled })), rng: newRng },
+      defIdx,
+    );
   }
 
   // The Great Hunt (wh-91): after a reveal-sequence attack finalizes, advance

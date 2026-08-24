@@ -22,6 +22,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
+import { completeDeckExhaust } from '../../../engine/reducer-utils.js';
 import type { CardDefinitionId, CardInstance, CardInstanceId, GameState } from '../../../index.js';
 
 // Safe from the Shadow (as-54): permanent event that discards when any play deck is exhausted
@@ -59,6 +60,51 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(state.players[0].playDeck).toHaveLength(1);
     expect(state.players[0].discardPile).toHaveLength(3);
     expect(state.players[0].deckExhaustionCount).toBe(0);
+  });
+
+  test('the exhaustion reshuffle forgets hand-reveal knowledge of the shuffled-in cards', () => {
+    // Regression (hidden-information leak): handRevealedInstances was
+    // append-only, and the opponent's projected hand/play-deck view unmasks
+    // its entries at their true positions. With The Great Hunt (wh-91)
+    // sweeping every discard into the map, a routine deck exhaustion turned
+    // the reshuffled play deck effectively face-up in draw order. A shuffle
+    // destroys that knowledge, so the map must be pruned.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [],
+          discardPile: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        { id: PLAYER_2, hand: [], siteDeck: [MINAS_TIRITH], companies: [{ site: LORIEN, characters: [LEGOLAS] }] },
+      ],
+    });
+    // Simulate the Great Hunt sweep: both discard instances face-up.
+    const discard = base.players[0].discardPile;
+    const revealedMap = Object.fromEntries(discard.map(c => [c.instanceId as string, c.definitionId]));
+    const state: GameState = {
+      ...base,
+      handRevealedInstances: revealedMap,
+      revealedInstances: { ...base.revealedInstances, ...revealedMap },
+    };
+
+    const after = completeDeckExhaust(state, 0);
+
+    // The discard became the new play deck…
+    expect(after.players[0].playDeck).toHaveLength(2);
+    // …and the positional reveal knowledge is forgotten…
+    for (const c of discard) {
+      expect(after.handRevealedInstances[c.instanceId]).toBeUndefined();
+    }
+    // …while the broad once-public map (toast identity) is untouched.
+    for (const c of discard) {
+      expect(after.revealedInstances[c.instanceId]).toBe(c.definitionId);
+    }
   });
 
   test('End-of-Turn reset-hand: drawing the card that both fills the hand and empties the play deck still triggers immediate reshuffle', () => {
