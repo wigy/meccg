@@ -23,6 +23,7 @@ import {
   CardStatus,
 } from '../../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../test-helpers.js';
+import { Alignment } from '../../../index.js';
 
 const ECHO_OF_ALL_JOY = 'td-110' as CardDefinitionId;
 
@@ -70,6 +71,51 @@ describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
     expect(nextState.players[0].cardsInPlay).toHaveLength(0);
     expect(nextState.players[0].discardPile.map(c => c.instanceId))
       .toContain('sun-1' as CardInstanceId);
+  });
+
+  test('Minion player\'s minion resource long-events are discarded too (not only hero ones)', () => {
+    // Regression: the sweep matched cardType 'hero-resource-event' literally,
+    // so the four minion long-events (The Great Eye as-85, The Under-roads
+    // as-106, Old Prejudice le-214, Tidings of Death le-245) never expired —
+    // this pass is the engine's only resource long-event expiry path, so a
+    // played minion long-event acted as a permanent event for the whole game.
+    const THE_GREAT_EYE = 'as-85' as CardDefinitionId;
+    const GORBAG = 'le-11' as CardDefinitionId;
+    const CARN_DUM = 'le-359' as CardDefinitionId;
+    const MINAS_MORGUL = 'le-390' as CardDefinitionId;
+    const eyeInPlay: CardInPlay = {
+      instanceId: 'eye-1' as CardInstanceId,
+      definitionId: THE_GREAT_EYE,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+          companies: [{ site: CARN_DUM, characters: [GORBAG] }],
+          cardsInPlay: [eyeInPlay],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+
+    expect(nextState.phaseState.phase).toBe(Phase.LongEvent);
+    expect(nextState.players[0].cardsInPlay).toHaveLength(0);
+    expect(nextState.players[0].discardPile.map(c => c.instanceId))
+      .toContain('eye-1' as CardInstanceId);
   });
 
   test('Resource permanent events stay in play (only long-events are discarded)', () => {
