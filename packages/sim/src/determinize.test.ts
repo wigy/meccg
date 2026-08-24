@@ -26,7 +26,11 @@ import type { Agent } from './types.js';
  * parallel: these pass in isolation and fail together, which reads as a
  * flaky suite rather than as a slow test.
  */
-const GAME_TIMEOUT = 30000;
+// The capture pass plays a real game through the agent seam; the 2026-08-24
+// wave of engine deadlock fixes legitimately lengthened random games, and
+// under full-suite parallel load 30s started flaking. 120s matches the other
+// full-game sim tests (mc-agent.test.ts).
+const GAME_TIMEOUT = 120_000;
 
 const DECK_A = loadDeck('challenge-deck-a');
 const DECK_B = loadDeck('challenge-deck-b');
