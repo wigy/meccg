@@ -324,6 +324,46 @@ describe('Flatter a Foe (td-116)', () => {
     expect(actions).toHaveLength(1);
   });
 
+  test('multi-race attacks match on ANY of their races and use the lowest threshold', () => {
+    // Regression: only the primary race was consulted, ignoring
+    // combat.creatureRaces. An "Orcs. Men." attacker (Goblin-faces wh-13)
+    // got the orc threshold 12 instead of the man line 11, and an attacker
+    // whose primary race is in no threshold list (Beorning Skin-changers
+    // ba-10, "animal" + man) was not offered the cancel at all.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // Animal (in no threshold list) + Man (threshold 11).
+    const withCombat = makeCancelWindowCombat(base, { creatureRace: Race.Animal });
+    const state = {
+      ...withCombat,
+      combat: { ...withCombat.combat!, creatureRaces: [Race.Animal, Race.Man] },
+    };
+
+    // The cancel is offered (previously skipped: "animal" matched nothing).
+    const offers = computeLegalActions(state, PLAYER_1).filter(
+      ea => ea.viable && ea.action.type === 'cancel-attack',
+    );
+    expect(offers.length).toBeGreaterThan(0);
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const afterChain = resolveChain(dispatch(state, {
+      type: 'cancel-attack', player: PLAYER_1,
+      cardInstanceId: flatCard, targetCharacterId: aragornId,
+    }));
+    const pending = afterChain.pendingResolutions.find(r => r.kind.type === 'flattery-attempt');
+    expect(pending).toBeDefined();
+    // Matched via the Man line, threshold 11.
+    expect(pending!.kind.type === 'flattery-attempt' && pending!.kind.threshold).toBe(11);
+    expect(pending!.kind.type === 'flattery-attempt' && pending!.kind.creatureRace).toBe(Race.Man);
+  });
+
   // ── Pending action computation ────────────────────────────────────────────
 
   test('need value accounts for unused DI (non-diplomat Aragorn vs Dragon)', () => {

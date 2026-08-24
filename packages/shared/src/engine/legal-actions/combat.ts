@@ -2444,13 +2444,18 @@ function raceThresholdCancelAttackActions(
     );
     if (!effect) continue;
 
-    if (!combat.creatureRace) {
+    // An attack counts as EVERY race it carries — primary plus
+    // additionalRaces ("Orcs. Men." creatures like Goblin-faces wh-13
+    // populate `combat.creatureRaces`) — so match against the full list.
+    const attackRaces = combat.creatureRaces
+      ?? (combat.creatureRace !== undefined ? [combat.creatureRace] : []);
+    if (attackRaces.length === 0) {
       logDetail(`${label} ${handCard.definitionId as string}: no creature race — skipping`);
       continue;
     }
-    const matchedEntry = effect.thresholds.find(t => t.races.includes(combat.creatureRace!));
+    const matchedEntry = effect.thresholds.find(t => t.races.some(r => attackRaces.includes(r)));
     if (!matchedEntry) {
-      logDetail(`${label} ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
+      logDetail(`${label} ${handCard.definitionId as string}: race(s) "${attackRaces.join('/')}" not in thresholds — skipping`);
       continue;
     }
 
