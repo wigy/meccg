@@ -27,7 +27,7 @@ import type {
   StateMessage,
   ActionMessage,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs, redactActionForAudience, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry } from '@meccg/shared';
 import { TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK, TUTORIAL_BEATS } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
@@ -1810,6 +1810,12 @@ export class GameSession {
     // because their own projected view resolves instances in private
     // piles they can see (their hand, their draft pool, etc.).
     const lastActionCardDefs = lastAction ? extractActionCardDefs(this.state, lastAction) : undefined;
+    // The raw action may carry private fields (a face-down movement
+    // destination, a fetched card's identity — see PRIVATE_ACTION_FIELDS).
+    // Stripping them from the defs map alone is not enough: instance ids are
+    // stable and often resolvable from earlier public broadcasts, so every
+    // recipient other than the acting player gets a redacted copy.
+    const audienceAction = lastAction ? redactActionForAudience(lastAction) : undefined;
 
     this.lastLegalActionsPerPlayer.clear();
     for (const [, { ws, playerId }] of this.players.entries()) {
@@ -1831,7 +1837,12 @@ export class GameSession {
       }
       this.lastLegalActionsPerPlayer.set(playerId, legalSet);
       const msg: StateMessage = lastAction
-        ? { type: 'state', view, lastAction, lastActionCardDefs }
+        ? {
+            type: 'state',
+            view,
+            lastAction: playerId === lastAction.player ? lastAction : audienceAction!,
+            lastActionCardDefs,
+          }
         : { type: 'state', view };
       this.send(ws, msg);
     }
@@ -1840,7 +1851,7 @@ export class GameSession {
       const spectatorView = projectSpectatorView(this.state);
       for (const ws of this.spectators.keys()) {
         const msg: StateMessage = lastAction
-          ? { type: 'state', view: spectatorView, lastAction, lastActionCardDefs }
+          ? { type: 'state', view: spectatorView, lastAction: audienceAction!, lastActionCardDefs }
           : { type: 'state', view: spectatorView };
         this.send(ws, msg);
       }
