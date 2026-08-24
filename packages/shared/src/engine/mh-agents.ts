@@ -503,12 +503,27 @@ export function handleAgentInfluenceAttempt(
   const opponentGI = effectiveGeneralInfluence(state, resourcePlayer.id) - resourcePlayer.generalInfluenceUsed;
   const crossAlignmentPenalty = crossAlignmentInfluencePenalty(hazardPlayer.alignment, resourcePlayer.alignment);
 
-  // Reveal and tap the agent (not actedThisTurn — this is NOT an agent action)
-  let newState = updateAgent(state, hazardIndex, agentIdx, a => ({
-    ...a,
-    revealed: true,
-    character: { ...a.character, status: CardStatus.Tapped },
-  }));
+  // Reveal and tap the agent (not actedThisTurn — this is NOT an agent action).
+  // A face-down agent's reveal runs the full rule 9.04 bookkeeping via
+  // revealAgentForAttack, exactly like the sibling tap-attack path: a traveled
+  // agent keeps only its top stack site (prior sites return to the site deck),
+  // an at-home agent binds its home site card from the site deck, and a reveal
+  // with no site card available is flagged discardAtEndOfTurn. The influence
+  // action carries no home-site choice, so bind the site the offer located the
+  // agent at (agentSiteName).
+  const isFaceDown = !agent.revealed;
+  const homeSiteInstanceId = isFaceDown && agent.siteStack.length === 0 && agentSiteName !== null
+    ? hazardPlayer.siteDeck.find(s => {
+        const d = defById(state, s.definitionId);
+        return d && isSiteCard(d) && d.name === agentSiteName;
+      })?.instanceId
+    : undefined;
+  const revealed = revealAgentForAttack(
+    state, hazardIndex, hazardPlayer, agent, agent.character.instanceId,
+    isFaceDown, null, homeSiteInstanceId, false,
+  );
+  if ('error' in revealed) return { state, error: revealed.error };
+  let newState = revealed;
 
   // Roll attacker 2d6 and apply roll bonus
   const { roll, rng, cheatRollTotal } = roll2d6(newState);

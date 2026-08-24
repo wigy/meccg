@@ -24,7 +24,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   SCROLL_OF_ISILDUR,
   RESOURCE_PLAYER,
-  dispatch,
+  dispatch, assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { StoreItemAction } from '../../../types/actions-organization.js';
 import type { CorruptionCheckAction } from '../../../types/actions-universal.js';
@@ -286,6 +286,56 @@ describe('Rule 3.32 — Storing Cards', () => {
     expect(corruptionChecks.some(a =>
       a.action.characterId === bilboId && a.action.corruptionPoints === 3,
     )).toBe(true);
+  });
+
+  test('Failed store corruption check pulls the item back out of the MP pile (no duplicate instance)', () => {
+    // Regression: handleStoreItem moves the item to the marshalling-point
+    // pile before the check resolves. On a failed check the item was pushed
+    // into the discard pile via the check's possessions WITHOUT being removed
+    // from the kill pile — the same CardInstance sat in both piles, and the
+    // failed store kept scoring the item's MP.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: GIMLI, items: [SCROLL_OF_ISILDUR] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const scrollInstId = state.players[RESOURCE_PLAYER].characters[gimliId].items[0].instanceId;
+
+    const storeAction = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item')
+      .find(a => (a.action as StoreItemAction).itemInstanceId === scrollInstId);
+    const afterStore = dispatch(state, storeAction!.action);
+
+    const checkAction = (viableFor(afterStore, PLAYER_1)
+      .filter(a => a.action.type === 'corruption-check') as { action: CorruptionCheckAction }[])
+      .find(a => a.action.characterId === gimliId)!.action;
+
+    // Roll 2 vs CP 3 (the scroll's own CP) → CP-1 → hero soft fail: Gimli is
+    // discarded and the store does not stick.
+    const after = dispatch({ ...afterStore, cheatRollTotal: 2 }, checkAction);
+
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === gimliId)).toBe(true);
+    // The scroll left the marshalling-point pile and exists exactly once, in
+    // the discard pile.
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === scrollInstId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.filter(c => c.instanceId === scrollInstId)).toHaveLength(1);
+    assertEveryInstanceReachable(after);
   });
 
   test('Corruption check for storing an item counts a bearer-conditional CP bonus declared on the item', () => {

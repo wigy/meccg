@@ -39,6 +39,7 @@ import {
   buildTestState, resetMint, dispatch, viableActions,
   findCharInstanceId, attachItemToChar, attachAllyToChar, addCardInPlay, makeMHState,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
+  SCROLL_OF_ISILDUR,
 } from '../test-helpers.js';
 import { Phase, RegionType } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, DiscardCharacterOrgAction, GameState } from '../../index.js';
@@ -124,6 +125,38 @@ describe('Press-gang (ba-22)', () => {
   });
 
   // ─── 2 + 3. Discard all cards on him; followers are not discarded ─────────────
+
+  test('a failed transfer check intercepted by Press-gang still pulls the item off the new bearer', () => {
+    // Regression: the Press-gang branch of the corruption-check resolver
+    // returned before the transferred-item pull-back, so the failed transfer
+    // "stuck" — the item stayed on the new bearer even though with no
+    // Press-gang in play the same failure pulls it off and discards it.
+    let state = buildOrgWithPressGang([ARAGORN, LEGOLAS]);
+    state = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, SCROLL_OF_ISILDUR);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+    const scrollId = state.players[RESOURCE_PLAYER].characters[aragornId].items[0].instanceId;
+
+    const afterTransfer = dispatch(state, {
+      type: 'transfer-item',
+      player: PLAYER_1,
+      itemInstanceId: scrollId,
+      fromCharacterId: aragornId,
+      toCharacterId: legolasId,
+    });
+    const checkAction = viableActions(afterTransfer, PLAYER_1, 'corruption-check')
+      .find(ea => (ea.action as { characterId?: CardInstanceId }).characterId === aragornId)!.action;
+
+    // Roll 2 vs CP 3 (the transferred Scroll counts toward Aragorn's check) →
+    // hero soft fail → discard, intercepted by Press-gang: Aragorn is pressed.
+    const after = dispatch({ ...afterTransfer, cheatRollTotal: 2 }, checkAction);
+
+    expect(pressedConstraint(after, aragornId)).toBeDefined();
+    // ...but the failed transfer still does not stick: the Scroll is pulled
+    // off Legolas and discarded (exactly once).
+    expect(after.players[RESOURCE_PLAYER].characters[legolasId].items.some(i => i.instanceId === scrollId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].discardPile.filter(c => c.instanceId === scrollId)).toHaveLength(1);
+  });
 
   test('captures discard the character\'s items and allies but free (not discard) his followers', () => {
     let state = buildOrgWithPressGang([{ defId: ARAGORN }, { defId: LEGOLAS, followerOf: 0 }]);
