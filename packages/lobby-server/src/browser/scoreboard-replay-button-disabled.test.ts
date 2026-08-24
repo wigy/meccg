@@ -32,16 +32,25 @@ vi.mock('./lazy-load.js', () => ({ loadGameBundle }));
 // scoreboard-page.ts picks up the mocked api.js / lazy-load.js.
 import { openPlayerGamesPage } from './scoreboard-page.js';
 
-/** Minimal element stub: enough to hold the delegated click listener. */
+/**
+ * Minimal element stub: enough to hold the delegated click listener. Like
+ * real DOM — and unlike an earlier Map-keyed version of this stub, which
+ * masked a listener-stacking bug by deduplicating per event type —
+ * `addEventListener` accumulates every registered listener and `dispatch`
+ * fires them in registration order.
+ */
 class StubEl {
   id = '';
+  dataset: Record<string, string> = {};
   private _innerHTML = '';
   set innerHTML(v: string) { this._innerHTML = v; }
   get innerHTML(): string { return this._innerHTML; }
-  private listeners = new Map<string, (event: unknown) => void>();
-  addEventListener(type: string, cb: (event: unknown) => void): void { this.listeners.set(type, cb); }
+  private listeners: { type: string; cb: (event: unknown) => void }[] = [];
+  addEventListener(type: string, cb: (event: unknown) => void): void { this.listeners.push({ type, cb }); }
   removeEventListener(): void { /* no-op */ }
-  dispatch(type: string, event: unknown): void { this.listeners.get(type)?.(event); }
+  dispatch(type: string, event: unknown): void {
+    for (const l of this.listeners) { if (l.type === type) l.cb(event); }
+  }
   querySelector(): null { return null; }
 }
 
@@ -135,5 +144,36 @@ describe('clicking Replay on a player game card', () => {
     elements['scoreboard-page-list'].dispatch('click', { target: btn });
 
     expect(loadGameBundle).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Regression test: `openPlayerGamesPage` used to add a fresh delegated
+   * click listener to the persistent `#scoreboard-page-list` container on
+   * every visit, each closing over that visit's player name. Real DOM does
+   * not deduplicate listeners (the earlier Map-keyed stub did, masking
+   * this), and the oldest handler fires first: it passes the `disabled`
+   * guard, disables the button, and starts the replay seated as the FIRST
+   * player ever viewed, while the newer, correct handler sees the disabled
+   * button and returns. Scoreboard → Alice → back → Bob → Replay therefore
+   * opened the replay seated as Alice — the wrong perspective's hand and
+   * hidden information shown as "self".
+   */
+  test('opens the replay seated as the currently viewed player after visiting another player first', async () => {
+    await openPlayerGamesPage('Alice');
+
+    apiGet.mockResolvedValue({
+      ok: true,
+      data: { ...GAMES_RESPONSE, name: 'Bob', games: [{ ...GAMES_RESPONSE.games[0], gameId: 'game-77' }] },
+    });
+    await openPlayerGamesPage('Bob');
+
+    loadGameBundle.mockResolvedValue(undefined);
+    const btn = new StubReplayButton('game-77');
+    elements['scoreboard-page-list'].dispatch('click', { target: btn });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const ns = (globalThis as unknown as { window: { __meccg: { startReplay: ReturnType<typeof vi.fn> } } }).window.__meccg;
+    expect(ns.startReplay).toHaveBeenCalledTimes(1);
+    expect(ns.startReplay).toHaveBeenCalledWith('game-77', 'Bob');
   });
 });
