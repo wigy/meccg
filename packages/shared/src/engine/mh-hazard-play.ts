@@ -3127,12 +3127,24 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // losing the override and rejecting a play the legal-action list had
   // offered as legal.
   const targetCompany = state.players[moverIndex]?.companies[mhState.activeCompanyIndex];
-  const destSiteDef = mhState.destinationSiteName
-    ? Object.values(state.cardPool).find(
-        c => isSiteCard(c) && c.name === mhState.destinationSiteName
-          && (moverAlignment === undefined || c.alignment === moverAlignment),
-      )
-    : undefined;
+  // Resolve the destination from the company's destinationSite instance first,
+  // mirroring the offering side (`findCreatureKeyingMatches`) — a Fallen-wizard
+  // or Balrog mover routinely stands on a site card printed in another
+  // alignment (their location decks legitimately mix printings), which the
+  // alignment-filtered by-name fallback below can never find. Falling through
+  // to the by-name lookup keeps the stationary-company case working.
+  const destByInstanceDefId = targetCompany?.destinationSite?.instanceId
+    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
+    : null;
+  const destByInstance = destByInstanceDefId ? defById(state, destByInstanceDefId) : undefined;
+  const destSiteDef = destByInstance && isSiteCard(destByInstance)
+    ? destByInstance
+    : mhState.destinationSiteName
+      ? Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        )
+      : undefined;
   const destSiteCard = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef : undefined;
 
   // Build sitePath counts from the destination site's own sitePath (for Rain-drake

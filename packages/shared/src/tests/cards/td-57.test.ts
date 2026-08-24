@@ -46,7 +46,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
-  Phase, RegionType, SiteType,
+  Phase, RegionType, SiteType, Alignment,
   computeLegalActions,
   BARROW_DOWNS,
 } from '../../index.js';
@@ -503,6 +503,64 @@ describe('Rain-drake (td-57)', () => {
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikesTotal).toBe(1);
     expect(afterChain.combat!.strikeProwess).toBe(15);
+  });
+
+  test('offered site-type play is also accepted by the reducer for a Fallen-wizard mover at a hero-printed R&L (bug regression)', () => {
+    // A Fallen-wizard's location deck legitimately mixes hero, minion, and
+    // FW site printings (CoE rule 1.28). Barrow-downs (tw-375) is a hero
+    // printing with no fallen-wizard version. The reducer-side keying
+    // validator used to resolve the destination site by name filtered to
+    // the mover's alignment, find nothing, lose the site's own sitePath —
+    // and reject the exact site-type play the legal-action list had
+    // offered (offer/validator disagreement).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [
+            { site: RIVENDELL, characters: [ARAGORN], destinationSite: BARROW_DOWNS },
+          ],
+          hand: [],
+          siteDeck: [BARROW_DOWNS],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [RAIN_DRAKE],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Cardolan', 'Eriador'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Barrow-downs',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    // The site-type play is offered (the offering side resolves the
+    // destination via the site card instance)…
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'site-type' && a.keyedBy?.value === SiteType.RuinsAndLairs;
+    })).toBe(true);
+
+    // …and the reducer must accept that same offered play: combat initiates
+    // instead of the play erroring out with a keying rejection.
+    const drakeId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, drakeId, companyId,
+      { method: 'site-type' as const, value: SiteType.RuinsAndLairs },
+    );
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikesTotal).toBe(1);
   });
 
   // ─── On-guard reveal honors the site-type entry's `when` gate ─────────────
