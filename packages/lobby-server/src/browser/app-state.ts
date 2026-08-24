@@ -74,8 +74,19 @@ function createDefaultAppState() {
   lobbyPlayerIsAdmin: false,
   /** Current player's credit balance. */
   lobbyPlayerCredits: 0,
-  /** Name of the player who sent us a challenge (lobby mode). */
+  /**
+   * Name of the player whose challenge the incoming-challenge prompt is
+   * currently showing (lobby mode). Kept in sync with the head of
+   * `pendingChallenges` by the challenge-queue module.
+   */
   challengeFrom: null as string | null,
+  /**
+   * FIFO of unanswered incoming challenges. The server tracks pending
+   * challenges as a per-player set and any of them can be accepted by name,
+   * so a second challenger must queue behind the shown prompt rather than
+   * overwrite it (see challenge-queue.ts).
+   */
+  pendingChallenges: [] as { from: string; display: string }[],
   /** Names of players we have an outstanding (sent, not yet answered) challenge to. */
   sentChallenges: new Set<string>(),
 
