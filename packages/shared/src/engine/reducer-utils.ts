@@ -4427,8 +4427,14 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
 
   const exhaustingPlayer = result.players[playerIndex];
   const newExhaustionCount = exhaustingPlayer.deckExhaustionCount + 1;
-  const [newPlayDeck, newRng] = shuffle([...exhaustingPlayer.discardPile], result.rng);
-  logDetail(`Shuffled ${exhaustingPlayer.discardPile.length} card(s) from discard into new play deck`);
+  // The play deck is normally empty here, but the exchange sub-flow
+  // (`deckExhaustPending`) is an interactive window: a card can legally enter
+  // the play deck before the exhaust completes (Sudden Call le-235's
+  // mandatory "reveal and reshuffle into play deck" from hand). Shuffling
+  // only the discard pile would silently destroy such a card — every minted
+  // instance must stay reachable in state.
+  const [newPlayDeck, newRng] = shuffle([...exhaustingPlayer.playDeck, ...exhaustingPlayer.discardPile], result.rng);
+  logDetail(`Shuffled ${exhaustingPlayer.discardPile.length} card(s) from discard (and ${exhaustingPlayer.playDeck.length} already in the play deck) into new play deck`);
 
   const newPlayers = clonePlayers(result);
   newPlayers[playerIndex] = {
