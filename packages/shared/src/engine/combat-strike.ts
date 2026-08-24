@@ -489,7 +489,12 @@ export function resolveStrikeCore(
         }
         if (result === 'wounded' && !combat.detainment) {
           newAllyStatus = CardStatus.Inverted;
-        } else if (result === 'wounded' && combat.detainment) {
+        } else if (result === 'wounded' && combat.detainment && !wasAlreadyWounded) {
+          // CoE rule 3.II.1.1: a detainment strike never wounds — it taps an
+          // untapped target instead. "tap" requires the card be initially
+          // upright (glossary: "tap"), so an already-wounded (inverted) ally
+          // stays wounded rather than being healed to tapped (mirrors the
+          // character branch below).
           newAllyStatus = CardStatus.Tapped;
         }
         const newAllies = hostChar.allies.map(a =>
