@@ -744,6 +744,64 @@ describe('Spectator redaction of draft hidden information', () => {
   });
 });
 
+describe('Item-draft redaction of undrafted pool characters', () => {
+  const LEGOLAS = 'tw-158' as CardDefinitionId;
+
+  const DAGGER = 'tw-206' as CardDefinitionId; // minor item — keeps the item-draft step from auto-skipping
+
+  /** Game advanced to the item-draft step with one undrafted pool character each. */
+  function itemDraftGame(): GameState {
+    const config: GameConfig = {
+      players: [
+        { id: ALICE, name: 'Alice', alignment: Alignment.Wizard,
+          draftPool: [ARAGORN, BALIN, DAGGER], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+        { id: BOB, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [LEGOLAS, BALIN, DAGGER], playDeck: [], siteDeck: [RIVENDELL], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    state = run(state, [
+      { type: 'draft-pick', player: ALICE, characterInstanceId: draftInst(state, 0, ARAGORN) },
+      { type: 'draft-pick', player: BOB, characterInstanceId: draftInst(state, 1, LEGOLAS) },
+      { type: 'draft-stop', player: ALICE },
+      { type: 'draft-stop', player: BOB },
+    ]);
+    if (state.phaseState.phase !== 'setup' || state.phaseState.setupStep.step !== 'item-draft') {
+      throw new Error(`expected item-draft, got ${JSON.stringify(state.phaseState)}`);
+    }
+    return state;
+  }
+
+  test("the opponent's undrafted pool characters are hidden during the item draft", () => {
+    // Regression: redactPhaseForPlayer had no item-draft branch, so the
+    // step-level remainingPool — the very cards the next step shuffles into
+    // the opponent's play deck (CoE 1.8) — was shipped with real definition
+    // IDs. The previous step hid them as the draft pool and the next step
+    // hides them as the deck-draft remainingPool; this step must too.
+    const state = itemDraftGame();
+    const aliceView = projectPlayerView(state, ALICE);
+    const ps = aliceView.phaseState;
+    if (ps.phase !== 'setup' || ps.setupStep.step !== 'item-draft') throw new Error('projection changed step');
+    // Bob's leftover pool (seat 1) is hidden…
+    expect(ps.setupStep.remainingPool[1].length).toBeGreaterThan(0);
+    expect(ps.setupStep.remainingPool[1].every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+    // …while Alice still sees her own.
+    expect(ps.setupStep.remainingPool[0].some(c => c.definitionId === BALIN)).toBe(true);
+  });
+
+  test('spectators see neither remaining pool during the item draft', () => {
+    const state = itemDraftGame();
+    const spec = projectSpectatorView(state);
+    const ps = spec.phaseState;
+    if (ps.phase !== 'setup' || ps.setupStep.step !== 'item-draft') throw new Error('projection changed step');
+    for (const seat of [0, 1] as const) {
+      expect(ps.setupStep.remainingPool[seat].length).toBeGreaterThan(0);
+      expect(ps.setupStep.remainingPool[seat].every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+    }
+  });
+});
+
 describe('Game ID exposed in the player view (for locating a save when filing a bug report)', () => {
   const config: GameConfig = {
     players: [
