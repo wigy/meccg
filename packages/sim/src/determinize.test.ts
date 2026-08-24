@@ -68,6 +68,19 @@ describe('determinizer', () => {
         if (card.definitionId === UNKNOWN_CARD) continue; // exhausted-pool fallback
         expect(oppDeckIds.has(card.definitionId as unknown as string)).toBe(true);
       }
+
+      // Hidden opponent sideboard cards receive identities from the deck
+      // list's own sideboard. They used to be filled from the play-deck
+      // pool, whose identities and size never accounted for the sideboard —
+      // by the time it was reached the pool was exhausted, so all ~20 cards
+      // kept the `unknown-card` sentinel (with no definition in the pool to
+      // resolve it, unlike determinize-null's).
+      const oppSideboardIds = new Set<string>(DECK_B.sideboard as readonly string[]);
+      expect(world.players[oppIndex].sideboard.length).toBeGreaterThan(0);
+      for (const card of world.players[oppIndex].sideboard) {
+        expect(card.definitionId).not.toBe(UNKNOWN_CARD);
+        expect(oppSideboardIds.has(card.definitionId as unknown as string)).toBe(true);
+      }
     }
     expect(comparedViews).toBeGreaterThan(3);
 
