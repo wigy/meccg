@@ -620,9 +620,18 @@ function buildHazardPlan(
       let best = 0;
       for (const target of targets) {
         if (target.slots <= 0 || target.roster.length === 0) continue;
+        // `target.harm` is the company's *contribution* — its attacks less a
+        // card for each support played there — while the candidate arm below
+        // is attacks-only. Subtracting the net figure from the gross one
+        // credited the candidate with the supports' card prices (one full
+        // provisionalCardPrice per support), inflating every quote taken
+        // from a company the allocation gave a support to. Add those prices
+        // back so both arms are attacks-only.
+        const attacksOnly = target.harm
+          + tunables.provisionalCardPrice * target.supports.length;
         const marginal = harmOf(
           target, cardPool, [...target.assigned, candidate], tunables, plannedBoost, attackerChoice,
-        ) - target.harm;
+        ) - attacksOnly;
         if (marginal > best) best = marginal;
       }
       return best;
