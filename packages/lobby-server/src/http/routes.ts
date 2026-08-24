@@ -60,7 +60,7 @@ import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
 import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js';
-import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
+import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, peekMessage, readMessage, reviewFinalizeDisposition, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, isValidPlayerName, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
@@ -924,10 +924,24 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           // the original terminal, approving here must NOT send it again — it
           // only records the reviewer's verdict on the review-request.
           const originalId = pending.replyTo ?? pending.keywords?.originalMessageId ?? '';
-          const original = originalId ? readMessage('ai', originalId) : null;
-          const alreadyFinalized = original?.status === 'success' || original?.status === 'failed';
-          if (alreadyFinalized) {
-            lobbyLog.log('review-reply-skipped', { msgId, originalId, reason: `original already ${original?.status}` });
+          // peekMessage, not readMessage: readMessage flips a 'new' message
+          // to 'read', and a request the admin just RENEWED back into the AI
+          // work queue is exactly status 'new' — reading it here silently
+          // dropped it from the queue (listUnhandledRequests filters on
+          // status === 'new'), and the finalize below then stamped it
+          // 'success', fully undoing the renew with no error anywhere. Same
+          // rule the admin request-view route documents. A renewed original
+          // also must not be finalized: the admin asked for it to run again.
+          const original = originalId ? peekMessage('ai', originalId) : null;
+          const disposition = reviewFinalizeDisposition(original);
+          if (disposition !== 'send-and-finalize') {
+            lobbyLog.log('review-reply-skipped', {
+              msgId,
+              originalId,
+              reason: disposition === 'skip-requeued'
+                ? 'original re-queued for the AI'
+                : `original already ${original?.status}`,
+            });
           } else if (pending.recipient && pending.topic) {
             sendMail([pending.recipient], {
               from: getDisplayName('ai'),

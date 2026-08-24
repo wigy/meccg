@@ -156,6 +156,45 @@ export function listInbox(playerName: string): MailMessage[] {
 }
 
 /**
+ * Side-effect-free single-message lookup. Unlike {@link readMessage}, this
+ * never flips a 'new' message to 'read' — use it wherever code is
+ * *inspecting* a message rather than a player reading their mail. The flip
+ * matters for the AI work queue: {@link listUnhandledRequests} and the
+ * `/api/system/ai-requests` feed only see `status === 'new'`, so an
+ * incidental `readMessage` on a queued request silently drops it from the
+ * queue.
+ */
+export function peekMessage(playerName: string, msgId: string): MailMessage | null {
+  try {
+    return loadMail(path.join(inboxDir(playerName), `${msgId}.json`));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What a review-request approval should do with the ORIGINAL AI request its
+ * pending requestor-reply points at.
+ *
+ * - `skip-already-finalized`: the run-ai PR-finalize sweep got there first —
+ *   the reply was already sent; approving only records the verdict.
+ * - `skip-requeued`: the original is back at status 'new', which means the
+ *   admin RENEWED it into the AI work queue after this review-request went
+ *   stale. Sending the stale reply and stamping 'success' here would undo
+ *   that renew — and even touching it with `readMessage` would flip it to
+ *   'read' and silently drop it from the queue.
+ * - `send-and-finalize`: deliver the pending reply and mark the original
+ *   'success' so the sweep skips it.
+ */
+export function reviewFinalizeDisposition(
+  original: MailMessage | null,
+): 'send-and-finalize' | 'skip-already-finalized' | 'skip-requeued' {
+  if (original?.status === 'success' || original?.status === 'failed') return 'skip-already-finalized';
+  if (original?.status === 'new') return 'skip-requeued';
+  return 'send-and-finalize';
+}
+
+/**
  * Read a message from a player's inbox. If the message has status 'new',
  * it is updated to 'read' on disk.
  *
