@@ -61,6 +61,17 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
     logDetail(`M/H step '${mhState.step as string}' rejected play-short-event (${result.error}) — dispatching via shared short-event flow`);
     return dispatchShortEventByCardType(state, action);
   }
+  // Granted-action constraints (River's ranger-cancel and friends) are offered
+  // by the constraint pass-through in *every* step, so every step must accept
+  // one. `play-hazards` and `reset-hand` route it themselves — `play-hazards`
+  // has bookkeeping to do afterwards (rule 5.27's hazard-pass reset), so this
+  // fallback deliberately runs only after the step handler has refused. Without
+  // it, reveal-new-site answered an action the engine had just advertised with
+  // "Expected 'pass' or 'declare-path'".
+  if (result.error && action.type === 'activate-granted-action') {
+    logDetail(`M/H step '${mhState.step as string}' rejected activate-granted-action (${result.error}) — applying the grant`);
+    return handleGrantActionApply(state, action);
+  }
   return result;
 }
 

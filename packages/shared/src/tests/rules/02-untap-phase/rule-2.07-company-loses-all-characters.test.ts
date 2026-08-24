@@ -15,12 +15,12 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, Phase,
+  buildTestState, buildSitePhaseState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  ARAGORN, LEGOLAS,
+  ARAGORN, BILBO, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   GATES_OF_MORNING,
-  CardStatus, addCardInPlay,
+  CardStatus, addCardInPlay, setCharStatus, expectCharNotInPlay,
   makeShadowMHState, makeBodyCheckCombat, findCharInstanceId, companyIdAt,
 } from '../../test-helpers.js';
 import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
@@ -76,6 +76,37 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     // Company permanent-event must be in discard pile after the company empties
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventInstId)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === eventInstId)).toBe(false);
+  });
+
+  test('A company emptied by combat dissolves as that combat ends', () => {
+    // Rule 2.07 is not limited to corruption checks: a company whose last
+    // character dies to a strike loses all its characters just the same, and
+    // must dissolve there and then. Combat had no such cleanup — every other
+    // caller (corruption checks, influence attempts, the end of the site
+    // phase) pruned empty companies, so the phases' dissolved-company guards,
+    // which look for a *missing* company at `activeCompanyIndex`, sailed past
+    // the empty husk combat left behind. The site phase then offered that
+    // husk a company-vs-company attack, which the reducer refused ("Attacking
+    // company has no characters"), and pointed the site's remaining automatic
+    // attacks at it, producing a zero-strike combat neither player could act on.
+    const base = buildSitePhaseState({ site: MORIA, characters: [BILBO] });
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+
+    // Bilbo is alone and already wounded; the body check (12 > body 9)
+    // eliminates him, so the strike empties the company.
+    const wounded = setCharStatus(base, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...wounded,
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
+    };
+
+    const after = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+
+    expect(after.combat).toBeNull();
+    expectCharNotInPlay(after, RESOURCE_PLAYER, bilboId);
+    expect(after.players[RESOURCE_PLAYER].companies).toEqual([]);
   });
 
   test('Another company at same site: site remains in play', () => {

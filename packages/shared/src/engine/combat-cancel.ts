@@ -30,7 +30,7 @@ import { applyCost } from './cost-evaluator.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase, advanceStrikeOrFinalize } from './combat-strike.js';
-import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalizeCombat, initiateQueuedTraitorAttack } from './combat-finalize.js';
+import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalizeCombat, completeCombat } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
 import { cvccSides } from './cvcc-sides.js';
@@ -809,7 +809,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
   // A Traitor attack queued mid-combat still fires after the cancellation
   // (no-op while a follow-up combat, e.g. a multi-attack card, is active).
-  return initiateQueuedTraitorAttack(stateWithCancelledPlayers);
+  return completeCombat(stateWithCancelledPlayers);
 }
 
 /**
@@ -925,7 +925,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     if (newAssignmentsW.length === 0) {
       logDetail('All wounded-character strikes canceled — combat ends');
       discardCanceledCreature(state, newPlayersW, combat);
-      return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayersW, combat: null }) };
+      return { state: completeCombat({ ...state, players: newPlayersW, combat: null }) };
     }
 
     let newCombatW: CombatState = {
@@ -991,7 +991,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
         };
       }
     }
-    return { state: initiateQueuedTraitorAttack({ ...state, players: newPlayers, combat: null }) };
+    return { state: completeCombat({ ...state, players: newPlayers, combat: null }) };
   }
 
   const newCombat: CombatState = {
