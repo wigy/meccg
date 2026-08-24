@@ -131,6 +131,20 @@ describe('Open to the Summons (wh-46)', () => {
     expect((plays[0].action as { viaRecruitmentInstanceId?: CardInstanceId }).viaRecruitmentInstanceId).toBe(cardId);
   });
 
+  test('the summon still works while Thrall of the Voice sits earlier in hand', () => {
+    // Regression: the vehicle lookup returned only the FIRST recruitment-
+    // vehicle card in hand order. With Thrall of the Voice (wh-82, the
+    // non-agent variant) before Open to the Summons, the agent-summons mode
+    // was silently disabled — hand order must not matter, and the summon
+    // must ride on the wh-46 instance, not the Thrall.
+    const THRALL_OF_THE_VOICE = 'wh-82' as CardDefinitionId;
+    const state = rwOrgState(MINAS_MORGUL, [THRALL_OF_THE_VOICE, BILL_FERNY, OPEN_TO_THE_SUMMONS]);
+    const summonsId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === OPEN_TO_THE_SUMMONS)!.instanceId;
+    const plays = summonPlays(state, BILL_FERNY);
+    expect(plays.length).toBeGreaterThan(0);
+    expect((plays[0].action as { viaRecruitmentInstanceId?: CardInstanceId }).viaRecruitmentInstanceId).toBe(summonsId);
+  });
+
   // ── Rule 6: only a Ringwraith/Fallen-wizard, only at a Darkhaven ────────────
 
   test('the summon is NOT offered when no Darkhaven is available', () => {
