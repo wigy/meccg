@@ -2466,7 +2466,15 @@ export function finalizeCombatFromCancelPrisonerTakingOffer(state: GameState, co
   }
 
   logDetail(`cancel-prisoner-taking declined — ${strike.characterId as string} is taken prisoner`);
-  const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', cancelPrisonerTakingOffer: undefined };
+  const cleanCombat: CombatState = {
+    ...combat,
+    phase: 'resolve-strike',
+    cancelPrisonerTakingOffer: undefined,
+    // The paused assignment was recorded 'wounded' pending this choice — the
+    // decline resolves it as a capture, so wound triggers must not fire.
+    strikeAssignments: combat.strikeAssignments.map((a, i) =>
+      i === combat.currentStrikeIndex ? { ...a, result: 'captured' as const } : a),
+  };
   return advanceStrikeOrFinalize(newState, cleanCombat);
 }
 

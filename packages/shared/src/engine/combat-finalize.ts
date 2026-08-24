@@ -223,7 +223,9 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return state;
 
-  const attackSucceeded = combat.strikeAssignments.some(a => a.result === 'wounded' || a.result === 'eliminated');
+  const attackSucceeded = combat.strikeAssignments.some(
+    a => a.result === 'wounded' || a.result === 'eliminated' || a.result === 'captured',
+  );
 
   if (attackSucceeded && outcome.onSuccessVsRing) {
     const ringIds: CardInstanceId[] = [];
