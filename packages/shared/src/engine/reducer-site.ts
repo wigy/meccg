@@ -5111,6 +5111,15 @@ function handleDeclareCompanyAttack(
   const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];
 
+  // The company may have dissolved on its way to this step (every character
+  // died to one of the site's automatic attacks). Its CvCC declaration is
+  // moot — finish its site-phase slot and move on, the same way every other
+  // per-company site step handles a dangling active-company index.
+  if (!company) {
+    logDetail('Site declare-company-attack: active company dissolved — finishing its site-phase slot');
+    return finishDissolvedCompanySlot(state, siteState);
+  }
+
   // Pass — end this company's site phase
   if (action.type === 'pass') {
     logDetail(`Site: company ${company.id} passed CvCC declaration → advancing to next company`);

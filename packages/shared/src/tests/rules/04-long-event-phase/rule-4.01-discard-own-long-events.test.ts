@@ -23,8 +23,15 @@ import {
   CardStatus,
 } from '../../test-helpers.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../test-helpers.js';
+import { Alignment } from '../../../index.js';
 
 const ECHO_OF_ALL_JOY = 'td-110' as CardDefinitionId;
+/** The Great Eye (as-85) — a minion resource long-event. */
+const GREAT_EYE = 'as-85' as CardDefinitionId;
+/** Minion fixtures for the minion long-event sweep test. */
+const THE_MOUTH = 'le-24' as CardDefinitionId;
+const DOL_GULDUR = 'le-367' as CardDefinitionId;
+const CARN_DUM = 'le-359' as CardDefinitionId;
 
 describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
   beforeEach(() => resetMint());
@@ -200,6 +207,47 @@ describe('Rule 4.01 — Discard Own Resource Long-Events', () => {
     const discardIds = nextState.players[0].discardPile.map(c => c.instanceId);
     expect(discardIds).toContain('sun-1' as CardInstanceId);
     expect(discardIds).toContain('sun-2' as CardInstanceId);
+  });
+
+  test('Minion resource long-events are discarded when entering long-event phase (bug regression)', () => {
+    // The sweep must match minion-resource-event long-events, not only
+    // hero-resource-event ones: a Ringwraith player's The Great Eye (as-85)
+    // is discarded when they pass out of their organization phase.
+    const greatEyeInPlay: CardInPlay = {
+      instanceId: 'great-eye-1' as CardInstanceId,
+      definitionId: GREAT_EYE,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          hand: [],
+          siteDeck: [CARN_DUM],
+          companies: [{ site: DOL_GULDUR, characters: [THE_MOUTH] }],
+          cardsInPlay: [greatEyeInPlay],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    const nextState = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(nextState.phaseState.phase).toBe(Phase.LongEvent);
+
+    // The Great Eye was removed from cardsInPlay and put in the discard pile
+    expect(nextState.players[0].cardsInPlay.map(c => c.instanceId))
+      .not.toContain('great-eye-1' as CardInstanceId);
+    expect(nextState.players[0].discardPile.map(c => c.instanceId))
+      .toContain('great-eye-1' as CardInstanceId);
   });
 
   test('A resource long-event attached to an in-play Echo of All Joy is not discarded (bug regression)', () => {

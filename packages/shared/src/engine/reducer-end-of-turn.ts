@@ -679,9 +679,11 @@ export function triggerCouncilCall(
   const nextActive = opponent;
   const lastTurnFor = direction === 'opponent' ? opponent : caller;
 
-  // Calling the Council still ends the caller's turn: sweep turn-scoped
-  // pending resolutions and constraints exactly like a normal pass does.
+  // The caller's turn ends here just as it does on a plain signal-end pass,
+  // so sweep turn-scoped resolutions and constraints — "rest of the turn"
+  // effects from the caller's turn must not leak into the next turn.
   const swept = sweepExpired(state, { kind: 'turn-end' });
+
   return enterUntapPhase({
     ...updatePlayer(swept, callerIndex, p => ({ ...p, freeCouncilCalled: true })),
     activePlayer: nextActive,
@@ -757,8 +759,14 @@ export function reshuffleCardFromHand(
  */
 function transitionToFreeCouncil(state: GameState, lastTurnPlayer: PlayerId): GameState {
   logHeading('Transitioning to Free Council phase');
+  // The last turn ends here — sweep turn-scoped resolutions and constraints
+  // so "rest of the turn" effects (e.g. check-modifiers from hazards) do not
+  // modify the game-deciding Free Council corruption checks. Effects created
+  // DURING the Council rightly last until the end of the game (rule 10.44):
+  // they are created after this sweep and no later turn-end sweep runs.
+  const swept = sweepExpired(state, { kind: 'turn-end' });
   return {
-    ...state,
+    ...swept,
     activePlayer: lastTurnPlayer,
     phaseState: {
       phase: Phase.FreeCouncil,

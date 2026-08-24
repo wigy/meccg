@@ -15,12 +15,12 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, Phase,
+  buildTestState, buildSitePhaseState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  ARAGORN, LEGOLAS,
+  ARAGORN, BILBO, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  GATES_OF_MORNING,
-  CardStatus, addCardInPlay,
+  GATES_OF_MORNING, ORC_PATROL, SUN,
+  CardStatus, addCardInPlay, setCharStatus, expectCharNotInPlay, placeOnGuard, mint,
   makeShadowMHState, makeBodyCheckCombat, findCharInstanceId, companyIdAt,
 } from '../../test-helpers.js';
 import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
@@ -76,6 +76,37 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     // Company permanent-event must be in discard pile after the company empties
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventInstId)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === eventInstId)).toBe(false);
+  });
+
+  test('A company emptied by combat dissolves as that combat ends', () => {
+    // Rule 2.07 is not limited to corruption checks: a company whose last
+    // character dies to a strike loses all its characters just the same, and
+    // must dissolve there and then. Combat had no such cleanup — every other
+    // caller (corruption checks, influence attempts, the end of the site
+    // phase) pruned empty companies, so the phases' dissolved-company guards,
+    // which look for a *missing* company at `activeCompanyIndex`, sailed past
+    // the empty husk combat left behind. The site phase then offered that
+    // husk a company-vs-company attack, which the reducer refused ("Attacking
+    // company has no characters"), and pointed the site's remaining automatic
+    // attacks at it, producing a zero-strike combat neither player could act on.
+    const base = buildSitePhaseState({ site: MORIA, characters: [BILBO] });
+    const bilboId = findCharInstanceId(base, RESOURCE_PLAYER, BILBO);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+
+    // Bilbo is alone and already wounded; the body check (12 > body 9)
+    // eliminates him, so the strike empties the company.
+    const wounded = setCharStatus(base, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...wounded,
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
+    };
+
+    const after = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+
+    expect(after.combat).toBeNull();
+    expectCharNotInPlay(after, RESOURCE_PLAYER, bilboId);
+    expect(after.players[RESOURCE_PLAYER].companies).toEqual([]);
   });
 
   test('Another company at same site: site remains in play', () => {
@@ -151,6 +182,79 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === rivendellSite.instanceId)).toBe(false);
     // The site remains in play with the surviving company
     expect(after.players[RESOURCE_PLAYER].companies.some(c => c.currentSite?.instanceId === rivendellSite.instanceId)).toBe(true);
+  });
+
+  test('site claimed as a sibling company\'s destination is not returned when its company empties', () => {
+    // Regression (card-duplication): the empty-company cleanup returned the
+    // dissolved company's current site to the location deck whenever no kept
+    // company was AT that site — but a kept company merely HEADING there
+    // (destinationSite holds the same instance) still claims the physical
+    // card, which was drawn from the location deck exactly once. Returning
+    // it duplicated the instance: once in the site deck, once in play as the
+    // sibling's destination (seen in random self-play when a lone character
+    // was discarded during the organization phase while another company was
+    // moving to his site).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: LORIEN, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    // The second company is moving to the first company's site — the SAME
+    // site instance, as plan-movement produces when heading to an
+    // already-occupied site.
+    const p1 = base.players[RESOURCE_PLAYER];
+    const moriaSite = p1.companies[0].currentSite!;
+    const state = {
+      ...base,
+      players: [
+        {
+          ...p1,
+          companies: [p1.companies[0], { ...p1.companies[1], destinationSite: moriaSite }],
+        },
+        base.players[1],
+      ] as typeof base.players,
+    };
+
+    const aragornId = state.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5',
+        supportCount: 0,
+      },
+    };
+    const after = dispatch({ ...state, cheatRollTotal: 2, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 });
+
+    // Aragorn's company dissolved, but the site instance must NOT be
+    // returned to the location deck — the surviving company still claims it
+    // as its destination.
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(1);
+    expect(after.players[RESOURCE_PLAYER].companies[0].destinationSite?.instanceId).toBe(moriaSite.instanceId);
+    expect(after.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === moriaSite.instanceId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].siteDiscardPile.some(c => c.instanceId === moriaSite.instanceId)).toBe(false);
   });
 
   test('No other company at same site and site untapped: site returned to location deck', () => {
@@ -310,6 +414,70 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
 
     expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(0);
     expect(sitesOf(after.players[RESOURCE_PLAYER])).toBe(before);
+  });
+
+  test('on-guard cards and company hazards survive the company dissolving', () => {
+    // Regression (card-disappears invariant): cleanupEmptyCompanies returned
+    // the dissolved company's sites and discarded its bound permanent-events,
+    // but dropped the company's onGuardCards and hazards arrays on the floor.
+    // In a self-play game the hazard player's face-down on-guard bluff
+    // (Orcrist, tw-295) vanished from the game when the company's last
+    // character failed a corruption check. On-guard cards must return to the
+    // hazard player's hand — exactly what the site-phase cleanup
+    // (returnOnGuardCardsToHand) would have done — and company-targeting
+    // hazards must go to the hazard player's discard pile.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    // P2 has a face-down on-guard card at Aragorn's company…
+    const { state: withOnGuard, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, ORC_PATROL);
+    // …and a hazard permanent-event targeting the company as a whole.
+    const companyHazard = { instanceId: mint(), definitionId: SUN, status: CardStatus.Untapped };
+    const company = withOnGuard.players[RESOURCE_PLAYER].companies[0];
+    const state = {
+      ...withOnGuard,
+      players: [
+        {
+          ...withOnGuard.players[RESOURCE_PLAYER],
+          companies: [{ ...company, hazards: [companyHazard] }],
+        },
+        withOnGuard.players[HAZARD_PLAYER],
+      ] as typeof withOnGuard.players,
+    };
+
+    const aragornId = state.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5',
+        supportCount: 0,
+      },
+    };
+    const after = dispatch({ ...state, cheatRollTotal: 2, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 });
+
+    // The company dissolved…
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(0);
+    // …the on-guard card is back in the hazard player's hand…
+    expect(after.players[HAZARD_PLAYER].hand.some(c => c.instanceId === ogCard.instanceId)).toBe(true);
+    // …and the company hazard is in the hazard player's discard pile.
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === companyHazard.instanceId)).toBe(true);
   });
 
   test('During movement/hazard phase: site stays until end of all M/H phases', () => {

@@ -30,7 +30,7 @@ import { applyCost } from './cost-evaluator.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase, advanceStrikeOrFinalize } from './combat-strike.js';
-import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalizeCombat, initiateQueuedTraitorAttack } from './combat-finalize.js';
+import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalizeCombat, completeCombat } from './combat-finalize.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
 import { cvccSides } from './cvcc-sides.js';
@@ -712,7 +712,9 @@ function discardCanceledCreature(state: GameState, players: PlayerState[], comba
  *   check and the entire next combat;
  * - per CoE 3.i.1 / CRF 22 Annotation 14 the company still "faced" the
  *   canceled attack, so it is recorded in `hazardsEncountered`;
- * - a Traitor attack queued mid-combat still fires.
+ * - a company the combat emptied is dissolved and a Traitor attack queued
+ *   mid-combat still fires, both via {@link completeCombat} (a no-op for the
+ *   pruning while a follow-up combat, e.g. a multi-attack card, is active).
  *
  * @param stateWithCombatCleared - State with `players` updated and `combat: null`.
  * @param preCancelState - The state as it was before the cancellation (used
@@ -733,7 +735,7 @@ function endCanceledCombat(
   }
   s = sweepExpired(s, { kind: 'attack-end' });
   s = recordHazardEncountered(s, preCancelState, combat);
-  return initiateQueuedTraitorAttack(s);
+  return completeCombat(s);
 }
 
 /**

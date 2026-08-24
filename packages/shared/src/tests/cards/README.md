@@ -45,7 +45,7 @@
 | as-23 | A Lie in Your Eyes | — | 7 | ☑ |
 | as-24 | Alone and Unadvised | — | 16 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
-| as-29 | FEAR! FIRE! FOES! | — | 13 | ☑ |
+| as-29 | FEAR! FIRE! FOES! | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-33 | Pilfer Anything Unwatched | — | 13 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
@@ -84,14 +84,14 @@
 | as-98 | Riven Gate | — | 6 | ☑ |
 | as-101 | Tokens to Show | — | 8 | ☑ |
 | as-102 | The Tormented Earth | — | 9 | ☑ |
-| as-106 | The Under-roads | — | 7 | ☑ |
+| as-106 | The Under-roads | — | 8 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
 | as-110 | World Gnawed by the Nameless | — | 12 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
 | as-121 | Orcs of Dol Guldur | — | 12 | ☑ |
-| as-122 | Ancient Black Axe | — | 14 | ☑ |
+| as-122 | Ancient Black Axe | — | 15 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
 | as-125 | Goblin Earth-plumb | — | 6 | ☑ |
@@ -156,7 +156,7 @@
 | ba-18 | Fled into Darkness | — | 9 | ☑ |
 | ba-19 | Glance of Arien | — | 8 | ☑ |
 | ba-21 | Monstrosity of Diverse Shape | — | 13 | ☑ |
-| ba-22 | Press-gang | — | 8 | ☑ |
+| ba-22 | Press-gang | — | 9 | ☑ |
 | ba-23 | The Reek | — | 8 | ☑ |
 | ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
 | ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |
@@ -176,7 +176,7 @@
 | ba-45 | Evil Things Lingering | — | 7 | ☑ |
 | ba-46 | Great Troll | — | 12 | ☑ |
 | ba-47 | Nasty Slimy Thing | — | 10 | ☑ |
-| ba-48 | A More Evil Hour | — | 13 | ☑ |
+| ba-48 | A More Evil Hour | — | 14 | ☑ |
 | ba-49 | Angband Revisited | — | 5 | ☑ |
 | ba-50 | Breach the Hold | — | 14 | ☑ |
 | ba-51 | Caverns Unchoked | — | 13 | ☑ |
@@ -242,7 +242,7 @@
 | dm-10 | Firiel | — | 3 | ☑ |
 | dm-11 | Fori the Beardless | — | 5 | ☑ |
 | dm-14 | Golodhros | — | 10 | ☑ |
-| dm-15 | The Grimburgoth | — | 6 | ☑ |
+| dm-15 | The Grimburgoth | — | 7 | ☑ |
 | dm-16 | Herion | — | 4 | ☑ |
 | dm-17 | Ivic | — | 4 | ☑ |
 | dm-22 | Pôn-ora-Pôn | — | 3 | ☑ |
@@ -274,15 +274,15 @@
 | dm-55 | Exhalation of Decay | — | 7 | ☑ |
 | dm-56 | Eyes of the Shadow | — | 10 | ☑ |
 | dm-57 | Faces of the Dead | — | 8 | ☑ |
-| dm-58 | Flies and Spiders | — | 6 | ☑ |
+| dm-58 | Flies and Spiders | — | 7 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
-| dm-63 | Great Secrets Buried There | — | 9 | ☑ |
+| dm-63 | Great Secrets Buried There | — | 10 | ☑ |
 | dm-64 | Helms of Iron | — | 16 | ☑ |
 | dm-67 | In the Heart of his Realm | — | 15 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
 | dm-70 | Long Dark Reach | — | 12 | ☑ |
 | dm-71 | The Moon Is Dead | — | 9 | ☑ |
-| dm-72 | Mordor in Arms | — | 10 | ☑ |
+| dm-72 | Mordor in Arms | — | 11 | ☑ |
 | dm-73 | Neither so Ancient Nor so Potent | — | 7 | ☑ |
 | dm-74 | Never Seen Him | — | 10 | ☑ |
 | dm-75 | No Way Forward | — | 8 | ☑ |
@@ -301,7 +301,7 @@
 | dm-106 | Chill Douser | — | 6 | ☑ |
 | dm-107 | Durin's Bane | — | 11 | ☑ |
 | dm-108 | Little Snuffler | — | 7 | ☑ |
-| dm-109 | Nameless Thing | — | 12 | ☑ |
+| dm-109 | Nameless Thing | — | 13 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
 | dm-114 | An Unexpected Party | — | 15 | ☑ |
@@ -312,7 +312,7 @@
 | dm-119 | Barrow-blade | — | 11 | ☑ |
 | dm-120 | Choice of Lúthien | — | 14 | ☑ |
 | dm-121 | Crown of Flowers | — | 8 | ☑ |
-| dm-123 | Dark Numbers | — | 14 | ☑ |
+| dm-123 | Dark Numbers | — | 15 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
@@ -424,7 +424,7 @@
 | le-91 | Sons of Kings | — | 5 | ☑ |
 | le-92 | Stirring Bones | — | 8 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |
-| le-97 | Wandering Eldar | — | 12 | ☑ |
+| le-97 | Wandering Eldar | — | 13 | ☑ |
 | le-98 | Wargs | — | 5 | ☑ |
 | le-99 | Watcher in the Water | — | 9 | ☑ |
 | le-100 | Wild Trolls | — | 5 | ☑ |
@@ -476,7 +476,7 @@
 | le-161 | Adûnaphel Unleashed | — | 10 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
 | le-165 | Awaiting the Call | — | 11 | ☑ |
-| le-167 | Bade to Rule | — | 14 | ☑ |
+| le-167 | Bade to Rule | — | 16 | ☑ |
 | le-170 | Black Rider | — | 10 | ☑ |
 | le-171 | Blow Turned | — | 6 | ☑ |
 | le-172 | Bold Thrust | — | 7 | ☑ |
@@ -499,7 +499,7 @@
 | le-195 | I’ll Be At Your Heels | — | 15 | ☑ |
 | le-196 | I’ll Report You | — | 18 | ☑ |
 | le-203-the-lidless-eye | The Lidless Eye | — | 11 | ☑ |
-| le-210 | No More Nonsense | — | 12 | ☑ |
+| le-210 | No More Nonsense | — | 13 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
 | le-212 | Not Slay Needlessly | — | 13 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
@@ -681,7 +681,7 @@
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-49 | Morgul-rats | — | 8 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
-| td-57 | Rain-drake | — | 13 | ☑ |
+| td-57 | Rain-drake | — | 14 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
 | td-60 | Scatha | — | 8 | ☑ |
 | td-61 | Scatha Ahunt | — | 16 | ☑ |
@@ -722,7 +722,7 @@
 | td-111 | Elf-path | — | 8 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
-| td-116 | Flatter a Foe | — | 22 | ☑ |
+| td-116 | Flatter a Foe | — | 23 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
@@ -732,7 +732,7 @@
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
-| td-143 | Not at Home | — | 11 | ☑ |
+| td-143 | Not at Home | — | 12 | ☑ |
 | td-144 | Pledge of Conduct | — | 8 | ☑ |
 | td-148 | Riddling Talk | — | 16 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
@@ -754,8 +754,8 @@
 | td-179 | Ovir Hollow | — | 7 | ☑ |
 | td-180 | Tharbad | — | 7 | ☑ |
 | td-181 | Zarak Dûm | — | 10 | ☑ |
-| tw-1 | Abductor | — | 7 | ☑ |
-| tw-2 | Adûnaphel | — | 10 | ☑ |
+| tw-1 | Abductor | — | 8 | ☑ |
+| tw-2 | Adûnaphel | — | 11 | ☑ |
 | tw-3 | Agburanar | — | 6 | ☑ |
 | tw-4 | Akhôrahil | — | 17 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
@@ -770,7 +770,7 @@
 | tw-14 | Barrow-wight | — | 6 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
 | tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
-| tw-17 | Brigands | — | 7 | ☑ |
+| tw-17 | Brigands | — | 10 | ☑ |
 | tw-18 | Call of Home | — | 9 | ☑ |
 | tw-19 | Call of the Sea | — | 6 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
@@ -825,7 +825,7 @@
 | tw-70 | Old Man Willow | — | 9 | ☑ |
 | tw-71 | Olog-hai (Trolls) | — | 8 | ☑ |
 | tw-072 | Orc-guard | — | 3 | ☑ |
-| tw-073 | Orc-lieutenant | — | 4 | ☑ |
+| tw-073 | Orc-lieutenant | — | 5 | ☑ |
 | tw-074 | Orc-patrol | — | 3 | ☑ |
 | tw-75 | Orc-raiders | — | 8 | ☑ |
 | tw-076 | Orc-warband | — | 3 | ☑ |
@@ -1030,7 +1030,7 @@
 | tw-316 | Return of the King | — | 9 | ☑ |
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 8 | ☑ |
-| tw-321 | Sacrifice of Form | — | 16 | ☑ |
+| tw-321 | Sacrifice of Form | — | 17 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-324 | Secret Entrance | — | 8 | ☑ |
@@ -1041,7 +1041,7 @@
 | tw-330 | Star-glass | — | 15 | ☑ |
 | tw-332 | Stealth | — | 11 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
-| tw-334 | Stone of Erech | — | 6 | ☑ |
+| tw-334 | Stone of Erech | — | 7 | ☑ |
 | tw-335 | Sun | — | 7 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
@@ -1178,19 +1178,19 @@
 | wh-40 | Wild Hounds | — | 15 | ☑ |
 | wh-43 | Crept Along Cleverly | — | 6 | ☑ |
 | wh-45 | Govern the Storms | — | 9 | ☑ |
-| wh-46 | Open to the Summons | — | 11 | ☑ |
+| wh-46 | Open to the Summons | — | 12 | ☑ |
 | wh-47 | Piercing All Shadows | — | 8 | ☑ |
-| wh-49 | Sojourn in Shadows | — | 8 | ☑ |
+| wh-49 | Sojourn in Shadows | — | 9 | ☑ |
 | wh-51 | Blasting Fire | — | 10 | ☑ |
 | wh-52 | Liquid Fire | — | 10 | ☑ |
 | wh-53 | Mechanical Bow | — | 8 | ☑ |
 | wh-54 | Vile Fumes | — | 12 | ☑ |
-| wh-55 | Deep Mines | — | 14 | ☑ |
+| wh-55 | Deep Mines | — | 15 | ☑ |
 | wh-56 | Isengard | — | 3 | ☑ |
 | wh-57 | Rhosgobel | — | 10 | ☑ |
 | wh-58 | The White Towers | — | 3 | ☑ |
 | wh-59 | A Merrier World | — | 8 | ☑ |
-| wh-60 | A New Ringlord | — | 5 | ☑ |
+| wh-60 | A New Ringlord | — | 6 | ☑ |
 | wh-61 | A Strident Spawn | — | 11 | ☑ |
 | wh-62 | An Untimely Brood | — | 15 | ☑ |
 | wh-63 | Bad Company | — | 11 | ☑ |

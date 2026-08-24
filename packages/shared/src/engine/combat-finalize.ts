@@ -39,7 +39,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1405,9 +1405,52 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   }
 
   return {
-    state: initiateQueuedTraitorAttack(stateWithRule8_22),
+    state: completeCombat(stateWithRule8_22),
     effects,
   };
+}
+
+/**
+ * Close out a finished combat: dissolve any company the fighting emptied,
+ * then start a Traitor attack that was queued while it ran.
+ *
+ * Every combat-completion exit routes through here — normal finalization,
+ * trophy taken or declined, and each of the cancellation paths — because a
+ * strike that eliminates the last character of a company leaves an empty
+ * husk behind otherwise. Nothing else prunes it: `cleanupEmptyCompanies`
+ * runs at the end of the site phase, after corruption checks, and after
+ * influence attempts, but combat had no such call, so the husk survived to
+ * the next step of the phase that was running.
+ *
+ * The phases guard against exactly this — every per-company step of the site
+ * and movement/hazard phases tests `!companies[activeCompanyIndex]` and
+ * finishes the vanished company's slot — but those guards look for a
+ * *missing* company, and an empty one is still present. The site phase then
+ * offered a CvCC declaration for a company with no characters (which the
+ * reducer refuses: "Attacking company has no characters"), and started the
+ * site's remaining automatic-attacks against it, producing a combat with
+ * zero strikes that no player could act on.
+ *
+ * Rule 2.07 wants the dissolution immediate in any case: the empty company's
+ * site card returns to its location deck or site discard pile there and then,
+ * which `cleanupEmptyCompanies` is what does.
+ *
+ * Two exceptions keep their own timing:
+ *
+ * - The movement/hazard phase. Rule 2.07's own proviso holds the site in play
+ *   "until the end of all movement/hazard phases for the turn" when a company
+ *   empties during its M/H phase, and the engine models that by keeping the
+ *   empty company (it is what holds the site); `advanceAfterCompanyMH` prunes
+ *   it when the phase ends. The M/H steps guard for an empty active company
+ *   rather than a missing one, so nothing there depends on this pruning.
+ * - A follow-up combat (a multi-attack card's next attack) still running at a
+ *   cancellation exit: the pruning waits for it to end, so a company whose
+ *   last character dies mid-sequence is not dissolved out from under the
+ *   attack still being resolved against it.
+ */
+export function completeCombat(state: GameState): GameState {
+  const keepEmptyCompanies = state.combat !== null || state.phaseState.phase === Phase.MovementHazard;
+  return initiateQueuedTraitorAttack(keepEmptyCompanies ? state : cleanupEmptyCompanies(state));
 }
 
 /**

@@ -251,6 +251,25 @@ describe('Sacrifice of Form (tw-321)', () => {
     expect(afterBodyCheck.combat!.strikeAssignments[0].resolved).toBe(true);
   });
 
+  test('a tie roll is still a forced defeat — recorded as success, not tie (bug regression)', () => {
+    // Gandalf's combat prowess against an Orc is 9 (6 base + 3 from
+    // Glamdring, capped at 9 vs Orcs), so with strike prowess 12 a roll of 3
+    // is an exact tie (3 + 9 = 12). "Every strike is defeated regardless of
+    // the roll" must win over the tie: the assignment records 'success', or
+    // finalizeCombat's all-defeated check would deny the creature's defeat.
+    const base = gandalfFacingAttack({ strikeProwess: 12, creatureBody: null });
+
+    // Control: without Sacrifice of Form the same roll resolves as a tie.
+    const control = executeAction(chooseStrike(base, 0), PLAYER_1, 'resolve-strike', 3, true);
+    expect(control.combat!.strikeAssignments[0].result).toBe('tie');
+
+    // With Sacrifice of Form in effect the forced defeat overrides the tie.
+    const action = viableActions(base, PLAYER_1, 'play-sacrifice-of-form')[0].action;
+    const afterPlay = chooseStrike(dispatch(base, action), 0);
+    const afterStrike = executeAction(afterPlay, PLAYER_1, 'resolve-strike', 3, true);
+    expect(afterStrike.combat!.strikeAssignments[0].result).toBe('success');
+  });
+
   // ── Deferred discard once the whole attack has resolved ─────────────────────
 
   /** Play Sacrifice of Form and resolve both strikes of the attack to completion. */

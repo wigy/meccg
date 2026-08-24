@@ -25,6 +25,8 @@ import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
 import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
 import { removeConstraint } from './pending.js';
 
@@ -258,25 +260,37 @@ function resolveCorruptionCheck(
     }
   }
 
-  // Company-scoped corruption check-modifier constraints (Ren the Ringwraith
-  // le-56: "modify all corruption checks made this turn by minions in any one
-  // of your companies by +2"): applied to every corruption check by a minion
-  // character in the *targeted* company, and NOT consumed (they persist for
-  // their turn scope).
+  // Company-scoped corruption check-modifier constraints: applied to every
+  // matching corruption check by a character in the *targeted* company, and
+  // NOT consumed (they persist for their scope). The constraint's optional
+  // `when` narrows which of the company's characters benefit, evaluated
+  // against the checking character — Ren the Ringwraith (le-56) modifies
+  // checks "by minions" and carries a `minion-character` gate; Shifter of
+  // Hues (wh-115) aids "the characters in one company" wholesale and carries
+  // none. Mirror of the generic corruption-check path (legal-actions/pending.ts).
   const fcCompany = findCharacterCompany(
     state.players[playerIndex].companies, pending.characterId,
   );
   const fcCharDef = resolveDef(state, pending.characterId);
-  const fcIsMinion = isCharacterCard(fcCharDef) && fcCharDef.cardType === 'minion-character';
-  if (fcCompany && fcIsMinion) {
+  if (fcCompany && isCharacterCard(fcCharDef)) {
+    const fcTargetCtx = {
+      target: {
+        cardType: fcCharDef.cardType,
+        race: fcCharDef.race,
+        name: fcCharDef.name,
+      },
+    } as Record<string, unknown>;
     for (const constraint of state.activeConstraints) {
-      if (constraint.kind.type === 'check-modifier'
-          && constraint.kind.check === 'corruption'
-          && constraint.target.kind === 'company'
-          && constraint.target.companyId === fcCompany.id) {
-        effectModifier += constraint.kind.value;
-        logDetail(`Free Council: company-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}`);
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'corruption') continue;
+      if (constraint.target.kind !== 'company') continue;
+      if (constraint.target.companyId !== fcCompany.id) continue;
+      if (constraint.kind.when && !matchesCondition(constraint.kind.when, fcTargetCtx)) {
+        logDetail(`Free Council: company-wide corruption check-modifier from constraint ${constraint.id as string} does not apply to ${fcCharDef.name}`);
+        continue;
       }
+      effectModifier += constraint.kind.value;
+      logDetail(`Free Council: company-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}`);
     }
   }
 
@@ -387,6 +401,14 @@ function resolveCorruptionCheck(
     };
   }
 
+  // Trophies live only on the bearer's `trophies` list — disperse them per
+  // CoE 3.IV.4 (MP-worth → marshalling-point pile, otherwise removed from
+  // play), or the creature CardInstance would vanish with the removed
+  // character (violating the "no card instance may ever disappear" invariant)
+  // and its kill MP would be lost from the final score.
+  const { toKillPile: trophyKill, toOutOfPlay: trophyOop } =
+    partitionLeavingTrophies(state, char, 'free-council corruption removal');
+
   if (outcome === 'discard') {
     // Roll == CP or CP-1 on a hero character: it and its possessions are discarded
     logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
@@ -399,6 +421,8 @@ function resolveCorruptionCheck(
       characters: newCharacters,
       companies: newCompanies,
       discardPile: [...newPlayers[playerIndex].discardPile, ...toDiscard],
+      killPile: [...newPlayers[playerIndex].killPile, ...trophyKill],
+      outOfPlayPile: [...newPlayers[playerIndex].outOfPlayPile, ...trophyOop],
     };
     // (Attached hazards were already discarded to their owners above.)
   } else {
@@ -409,7 +433,8 @@ function resolveCorruptionCheck(
       ...newPlayers[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
+      outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }, ...trophyOop],
+      killPile: [...newPlayers[playerIndex].killPile, ...trophyKill],
       discardPile: [...newPlayers[playerIndex].discardPile, ...nonHazardPossessions],
     };
     // (Attached hazards were already discarded to their owners above.)

@@ -45,10 +45,12 @@ export function updatePlayControls(): void {
   if (playModularAiBtn) playModularAiBtn.disabled = !hasDeck;
   const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiDeckSelect) aiDeckSelect.disabled = !hasDeck;
-  // Disable challenge buttons on online player list
-  for (const btn of document.querySelectorAll<HTMLButtonElement>('.lobby-player-item button')) {
-    btn.disabled = !hasDeck;
-  }
+  // The online list's Challenge buttons gate on deck selection, but its items
+  // also hold Watch buttons (watching needs no deck; a clicked one stays
+  // disabled as "Joining...") and Cancel-challenge buttons, which carry their
+  // own disabled rules. Re-render the list so every button re-derives its own
+  // state instead of blanket-toggling each button in it.
+  window.__meccg?.renderOnlineList?.();
   const acceptBtn = document.getElementById('accept-challenge-btn') as HTMLButtonElement | null;
   if (acceptBtn) acceptBtn.disabled = !hasDeck;
 }

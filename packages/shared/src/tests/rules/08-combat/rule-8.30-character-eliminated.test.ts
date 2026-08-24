@@ -27,6 +27,7 @@ import {
   Phase, companyIdAt, CardStatus, RESOURCE_PLAYER,
   expectCharNotInPlay,
 } from '../../test-helpers.js';
+import { resolveInstanceId } from '../../../index.js';
 
 describe('Rule 8.30 — Character Eliminated from Body Check', () => {
   beforeEach(() => resetMint());
@@ -84,6 +85,13 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     // Bilbo should be in eliminated pile, not in characters
     expectCharNotInPlay(nextState, RESOURCE_PLAYER, bilboId);
     expect(nextState.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === bilboId)).toBe(true);
+
+    // Regression: during the item-salvage phase the eliminated character's
+    // items live only in combat.salvageItems — they must still be resolvable
+    // (the no-card-disappears invariant says resolveInstanceId always
+    // succeeds; projection and effects rely on it mid-combat).
+    const salvagedItem = nextState.combat!.salvageItems![0];
+    expect(resolveInstanceId(nextState, salvagedItem.instanceId)).toBe(salvagedItem.definitionId);
   });
 
   test('salvage-item action transfers item to unwounded companion', () => {

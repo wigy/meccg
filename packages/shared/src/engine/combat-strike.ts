@@ -425,8 +425,11 @@ export function resolveStrikeCore(
   // it as 'tie' rather than 'success' so finalizeCombat does not count the strike as
   // defeating the creature and award kill-MP for it. Note: absorb-wound and the
   // wounded-derived overrides (discard-item) only fire when result was 'wounded',
-  // so they never coincide with a tie.
-  const isTie = characterTotal === effectiveProwess;
+  // so they never coincide with a tie. A forced strike defeat (Liquid Fire wh-52,
+  // Sacrifice of Form tw-321, Arrows Shorn of Ebony cascade) DOES fire on any
+  // roll — the strike is defeated "regardless of the roll", so a tie must still
+  // be recorded as 'success' or finalizeCombat would deny the defeat.
+  const isTie = characterTotal === effectiveProwess && !combat.forcedStrikeDefeat;
   // take-prisoner: the character is captured, not wounded (CoE 8.35) — record
   // 'captured' so finalize-time wound triggers do not fire on the prisoner.
   // When a cancel-prisoner-taking ally can still intervene, keep 'wounded'
@@ -489,7 +492,12 @@ export function resolveStrikeCore(
         }
         if (result === 'wounded' && !combat.detainment) {
           newAllyStatus = CardStatus.Inverted;
-        } else if (result === 'wounded' && combat.detainment) {
+        } else if (result === 'wounded' && combat.detainment && !wasAlreadyWounded) {
+          // CoE rule 3.II.1.1: a detainment strike never wounds — it taps an
+          // untapped target instead. "tap" requires the card be initially
+          // upright (glossary: "tap"), so an already-wounded (inverted) ally
+          // stays wounded rather than being healed to tapped (mirrors the
+          // character branch below).
           newAllyStatus = CardStatus.Tapped;
         }
         const newAllies = hostChar.allies.map(a =>

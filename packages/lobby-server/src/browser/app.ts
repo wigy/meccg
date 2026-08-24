@@ -29,6 +29,7 @@ import { openScoreboardPage, setScoreboardPageCallbacks } from './scoreboard-pag
 import { openChangelogPage, setChangelogPageCallbacks } from './changelog-page.js';
 import { openAdminPage, setAdminPageCallbacks } from './admin-page.js';
 import { showAlert, showConfirm } from './dialog.js';
+import { shownChallengeResolved } from './challenge-queue.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
   connectLobbyWs, initLobby, showAuthTab, selectRandomAuthHero,
@@ -380,16 +381,16 @@ document.addEventListener('DOMContentLoaded', () => {
     acceptChallengeBtn.addEventListener('click', () => {
       if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN && appState.challengeFrom) {
         appState.lobbyWs.send(JSON.stringify({ type: 'accept-challenge', from: appState.challengeFrom }));
-        document.getElementById('challenge-incoming')!.classList.add('hidden');
-        appState.challengeFrom = null;
+        // Reveal the next queued challenge (or hide the prompt when none).
+        shownChallengeResolved();
       }
     });
 
     declineChallengeBtn.addEventListener('click', () => {
       if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN && appState.challengeFrom) {
         appState.lobbyWs.send(JSON.stringify({ type: 'decline-challenge', from: appState.challengeFrom }));
-        document.getElementById('challenge-incoming')!.classList.add('hidden');
-        appState.challengeFrom = null;
+        // Reveal the next queued challenge (or hide the prompt when none).
+        shownChallengeResolved();
       }
     });
 

@@ -478,7 +478,10 @@ export async function openSent(): Promise<void> {
     return;
   }
 
-  updateMailBadge(0);
+  // Note: the unread badge is NOT touched here. It tracks the INBOX unread
+  // count (seeded by the server's mail-notification on connect and by
+  // openInbox); viewing the Sent tab reads nothing, so zeroing the badge
+  // here showed "no unread mail" while unread messages remained.
 
   renderMailList(listEl, messageEl, r.data.messages, {});
 }
