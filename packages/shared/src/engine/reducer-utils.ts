@@ -25,7 +25,7 @@ import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
-import { revealInstances } from './visibility.js';
+import { revealInstances, forgetDeckReveals } from './visibility.js';
 import { evaluateRules } from '../rules/evaluator.js';
 import { STAGE_RESOURCE_DRAFT_RULES } from '../rules/definitions/character-draft.js';
 
@@ -4440,7 +4440,11 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     deckExhaustExchangeCount: 0,
   };
 
-  return { ...result, players: newPlayers, rng: newRng };
+  // The shuffle destroys any positional reveal knowledge of the cards now in
+  // the new play deck (see forgetDeckReveals) — without this, every discard
+  // ever revealed (e.g. swept by The Great Hunt wh-91) stayed unmasked at
+  // its exact shuffled position in the opponent's projected deck view.
+  return forgetDeckReveals({ ...result, players: newPlayers, rng: newRng }, playerIndex);
 }
 
 /**
