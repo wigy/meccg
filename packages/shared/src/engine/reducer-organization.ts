@@ -123,7 +123,7 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
   const discardedEvents: CardInstance[] = [];
   const remainingCards = player.cardsInPlay.filter(card => {
     const def = defById(state, card.definitionId);
-    if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
+    if (def && isResourceEventCard(def) && def.eventType === 'long') {
       // Echo of All Joy (td-110): a long-event attached to an in-play
       // protector is exempt from this sweep for as long as the protector
       // stays in play.
