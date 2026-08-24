@@ -198,16 +198,18 @@ describe('Glove of Radagast (wh-111)', () => {
 
   // ── Rule 3: contributes 2 stage points while attached ──────────────────────
 
-  test('placing the card on Radagast adds it to his items and yields 2 stage points', () => {
+  test('placing the card on Radagast adds it to his items and yields 2 stage points and 1 corruption point', () => {
     const base = radagastOrgState();
     const radagastId = findCharInstanceId(base, RESOURCE_PLAYER, RADAGAST);
     const gloveId = findHandCardId(base, RESOURCE_PLAYER, GLOVE);
+    const cpBefore = getCharacter(base, RESOURCE_PLAYER, RADAGAST).effectiveStats.corruptionPoints;
 
     expect(base.players[RESOURCE_PLAYER].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, gloveId, radagastId);
 
     expect(getCharacter(after, RESOURCE_PLAYER, RADAGAST).items.some(i => i.definitionId === GLOVE)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+    expect(getCharacter(after, RESOURCE_PLAYER, RADAGAST).effectiveStats.corruptionPoints).toBe(cpBefore + 1);
   });
 
   // ── Rule 4: grant makes a non-unique 1-mind ally playable at Radagast's site ─

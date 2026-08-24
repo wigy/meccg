@@ -53,7 +53,7 @@ import {
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
   viableActions, viablePlayCharacterActions,
-  findCharInstanceId, findHandCardId,
+  findCharInstanceId, findHandCardId, getCharacter,
   playPermanentEventAndResolve,
   makeSingleCharCombatState, attachItemToChar,
   dispatch, executeAction,
@@ -181,14 +181,16 @@ describe('Bow of Alatar (wh-90)', () => {
 
   // ── Rule 5: stage points ───────────────────────────────────────────────────
 
-  test('contributes 2 stage points while attached to Alatar', () => {
+  test('contributes 2 stage points and 1 corruption point while attached to Alatar', () => {
     const base = alatarOrgState([ALATAR, BOROMIR]);
     const alatarId = findCharInstanceId(base, RESOURCE_PLAYER, ALATAR);
     const cardId = findHandCardId(base, RESOURCE_PLAYER, BOW_OF_ALATAR);
+    const cpBefore = getCharacter(base, RESOURCE_PLAYER, ALATAR).effectiveStats.corruptionPoints;
 
     expect(base.players[RESOURCE_PLAYER].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, alatarId);
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+    expect(getCharacter(after, RESOURCE_PLAYER, ALATAR).effectiveStats.corruptionPoints).toBe(cpBefore + 1);
   });
 
   // ── Rule 2/3: tap to let Alatar face a strike regardless of status ─────────

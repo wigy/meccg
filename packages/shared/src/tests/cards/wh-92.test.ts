@@ -203,16 +203,18 @@ describe("Huntsman's Garb (wh-92)", () => {
 
   // ── Rule 3: contributes 1 stage point while attached ───────────────────────
 
-  test('placing the card on Alatar adds it to his items and yields 1 stage point', () => {
+  test('placing the card on Alatar adds it to his items and yields 1 stage point and 1 corruption point', () => {
     const base = alatarOrgState();
     const alatarId = findCharInstanceId(base, RESOURCE_PLAYER, ALATAR);
     const garbId = findHandCardId(base, RESOURCE_PLAYER, HUNTSMANS_GARB);
+    const cpBefore = getCharacter(base, RESOURCE_PLAYER, ALATAR).effectiveStats.corruptionPoints;
 
     expect(base.players[RESOURCE_PLAYER].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, garbId, alatarId);
 
     expect(getCharacter(after, RESOURCE_PLAYER, ALATAR).items.some(i => i.definitionId === HUNTSMANS_GARB)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+    expect(getCharacter(after, RESOURCE_PLAYER, ALATAR).effectiveStats.corruptionPoints).toBe(cpBefore + 1);
   });
 
   // ── Rules 4–5: end-of-turn fetch of the three named cards ──────────────────

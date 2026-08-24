@@ -518,13 +518,19 @@ function revealNewSiteActions(
     if (descentLegal || ascentLegal) {
       logDetail(`Deep Mines ${descentLegal ? 'descent' : 'ascent'} available: ${originDef.name} → ${destDef.name} (roll 0)`);
       actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
-      return actions;
+    } else {
+      // Rule 5.04: the planned move is no longer legal (e.g. the descent's
+      // >6-stage-point requirement lapsed between plan-movement and reveal).
+      // The player must still get an action — `pass` negates the movement
+      // (handleRevealNewSite returns the destination to the location deck and
+      // the company conducts its M/H phase at its current site), exactly like
+      // the Ringwraith-composition branch above. Returning no action here
+      // deadlocked the game (r/1 bench seed 10600011: FW company planned
+      // Rhosgobel → Deep Mines at ≥7 stage points, dropped to 6 by reveal).
+      logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — offering pass to negate the movement (rule 5.04)`);
+      actions.push({ type: 'pass', player: playerId });
     }
-    // Rule 5.04, same as the no-path fallback below: the movement is illegal,
-    // so a pass must be offered for `handleRevealNewSite` to negate it —
-    // returning an empty list here would leave the step with no legal action.
-    logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — movement illegal (rule 5.04), offering pass to negate it`);
-    return [{ type: 'pass', player: playerId }];
+    return actions;
   }
 
   const movementMap = buildMovementMap(state.cardPool, player.alignment);
