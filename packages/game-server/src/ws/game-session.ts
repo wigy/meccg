@@ -141,6 +141,33 @@ export const IDLE_EXIT_GRACE_MS = 60_000;
  */
 export const ASK_AI_TIMEOUT_MS = 90_000;
 
+/**
+ * The seat that is actually to act: the one a spectator's Ask AI question is
+ * about.
+ *
+ * `activePlayer` answers that in most sequential moments, but not all of
+ * them: through the hazard windows of the movement/hazard phase and every
+ * chain-priority response, `activePlayer` stays the mover while every viable
+ * action belongs to the NON-active player — and it is null outright through
+ * the simultaneous phases (character draft, organisation). Returning
+ * `activePlayer` unconditionally made a spectator's question during the
+ * opponent's hazard play — the moment people watch most — explain the seat
+ * with zero viable actions. The rule therefore mirrors the sim runner's
+ * `acting()`: the active player only when they hold a viable action,
+ * otherwise whichever player does.
+ */
+export function seatWithViableActions(
+  state: { readonly activePlayer: PlayerId | null; readonly players: readonly { readonly id: PlayerId }[] },
+  hasViableAction: (playerId: PlayerId) => boolean,
+): PlayerId | null {
+  if (state.activePlayer && hasViableAction(state.activePlayer)) return state.activePlayer;
+  for (const player of state.players) {
+    if (player.id === state.activePlayer) continue;
+    if (hasViableAction(player.id)) return player.id;
+  }
+  return null;
+}
+
 export interface GameSessionOptions {
   /** Enable development-mode operations (undo, save, load, reseed). */
   dev?: boolean;
@@ -763,19 +790,16 @@ export class GameSession {
   /**
    * The seat a spectator's question is about: whoever is to act.
    *
-   * `activePlayer` answers that in every sequential phase, but it is null
-   * through the simultaneous ones — the character draft, organisation — where a
-   * spectator asking "what would h2 do here" is asking about whichever player
-   * still *can* move. Without this fallback the answer during setup would
-   * always be "nothing to decide", which is the phase people watch most.
+   * See {@link seatWithViableActions} for the rule; the session supplies the
+   * engine's legal-action check for its current state.
    */
   private seatToExplain(): PlayerId | null {
-    if (!this.state) return null;
-    if (this.state.activePlayer) return this.state.activePlayer;
-    for (const player of this.state.players) {
-      if (computeLegalActions(this.state, player.id).some(e => e.viable)) return player.id;
-    }
-    return null;
+    const state = this.state;
+    if (!state) return null;
+    return seatWithViableActions(
+      state,
+      playerId => computeLegalActions(state, playerId).some(e => e.viable),
+    );
   }
 
   /**
