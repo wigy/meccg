@@ -425,8 +425,11 @@ export function resolveStrikeCore(
   // it as 'tie' rather than 'success' so finalizeCombat does not count the strike as
   // defeating the creature and award kill-MP for it. Note: absorb-wound and the
   // wounded-derived overrides (discard-item) only fire when result was 'wounded',
-  // so they never coincide with a tie.
-  const isTie = characterTotal === effectiveProwess;
+  // so they never coincide with a tie. A forced strike defeat (Liquid Fire wh-52,
+  // Sacrifice of Form tw-321, Arrows Shorn of Ebony cascade) DOES fire on any
+  // roll — the strike is defeated "regardless of the roll", so a tie must still
+  // be recorded as 'success' or finalizeCombat would deny the defeat.
+  const isTie = characterTotal === effectiveProwess && !combat.forcedStrikeDefeat;
   const assignmentResult = absorbWoundItem
     ? ('absorbed' as const)
     : isTie
