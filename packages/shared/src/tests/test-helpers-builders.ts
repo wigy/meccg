@@ -2638,6 +2638,12 @@ export interface DetainmentStrikeOpts {
    * card lands after `finalizeCombat`.
    */
   creatureInPlay?: CardDefinitionId;
+  /**
+   * If set, attach this ally (with the given pre-strike status, default
+   * Untapped) to Aragorn and assign the strike to the ally instead of the
+   * character — for the ally branch of the detainment wound/tap rules.
+   */
+  allyTarget?: { defId: CardDefinitionId; status?: CardStatus };
 }
 
 /**
@@ -2653,6 +2659,8 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
   state: GameState;
   characterId: CardInstanceId;
   creatureInstanceId: CardInstanceId;
+  /** Instance id of the struck ally — set only when `allyTarget` was given. */
+  allyId?: CardInstanceId;
 } {
   const base = buildTestState({
     phase: Phase.MovementHazard,
@@ -2667,8 +2675,29 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
   const companyId = companyIdAt(base, RESOURCE_PLAYER);
   const withStatus = opts.charStatus ? setCharStatus(base, RESOURCE_PLAYER, ARAGORN, opts.charStatus) : base;
 
+  // Optionally attach an ally to Aragorn and make it the strike target.
+  let allyId: CardInstanceId | undefined;
+  let withAlly: GameState = withStatus;
+  if (opts.allyTarget) {
+    withAlly = attachAllyToChar(withStatus, RESOURCE_PLAYER, ARAGORN, opts.allyTarget.defId);
+    const host = withAlly.players[RESOURCE_PLAYER].characters[characterId];
+    const attached = host.allies[host.allies.length - 1];
+    allyId = attached.instanceId;
+    if (opts.allyTarget.status && opts.allyTarget.status !== attached.status) {
+      const updatedHost = {
+        ...host,
+        allies: host.allies.map(a => a.instanceId === allyId ? { ...a, status: opts.allyTarget!.status! } : a),
+      };
+      const players: [PlayerState, PlayerState] = [
+        { ...withAlly.players[0], characters: { ...withAlly.players[0].characters, [characterId as string]: updatedHost } },
+        withAlly.players[1],
+      ];
+      withAlly = { ...withAlly, players };
+    }
+  }
+
   let creatureInstanceId: CardInstanceId = 'fake-creature' as CardInstanceId;
-  let stateWithCreature: GameState = withStatus;
+  let stateWithCreature: GameState = withAlly;
   if (opts.creatureInPlay) {
     creatureInstanceId = mint();
     const hazardIdx = stateWithCreature.players.findIndex(p => p.id === PLAYER_2);
@@ -2695,7 +2724,7 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
     strikeProwess: opts.strikeProwess,
     creatureBody: opts.creatureBody ?? null,
     creatureRace: Race.Orc,
-    strikeAssignments: [{ characterId, excessStrikes: 0, resolved: false }],
+    strikeAssignments: [{ characterId: allyId ?? characterId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',
     assignmentPhase: 'done',
@@ -2707,6 +2736,7 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
     state: { ...stateWithCreature, phaseState: makeShadowMHState(), combat },
     characterId,
     creatureInstanceId,
+    allyId,
   };
 }
 

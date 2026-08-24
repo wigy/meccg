@@ -28,6 +28,7 @@ import {
   executeAction,
   makeDetainmentStrikeState,
   CardStatus, RESOURCE_PLAYER,
+  GWAIHIR,
 } from '../../test-helpers.js';
 
 describe('Rule 8.32 — Detainment Attacks', () => {
@@ -117,5 +118,37 @@ describe('Rule 8.32 — Detainment Attacks', () => {
     // An already-wounded character stays Inverted — a detainment strike must
     // not heal it to Tapped (see Neeker-Breekers bug report).
     expect(after.players[RESOURCE_PLAYER].characters[characterId].status).toBe(CardStatus.Inverted);
+  });
+
+  test('3.II.1 — failed strike under detainment taps an untapped ally instead of wounding it', () => {
+    // Gwaihir prowess 4 vs strike prowess 15: roll 3 → 7 < 15 → wound path.
+    // Under detainment the ally is tapped, not inverted.
+    const { state, characterId, allyId } = makeDetainmentStrikeState({
+      detainment: true,
+      strikeProwess: 15,
+      allyTarget: { defId: GWAIHIR },
+    });
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 3, false);
+
+    const ally = after.players[RESOURCE_PLAYER].characters[characterId].allies
+      .find(a => a.instanceId === allyId);
+    expect(ally!.status).toBe(CardStatus.Tapped);
+  });
+
+  test('3.II.1.1 — pre-Inverted ally hit by detainment strike stays wounded, not healed to tapped (bug regression)', () => {
+    // Same rule as the pre-Inverted character case above: "tap" requires the
+    // card be initially upright, so a detainment strike against an
+    // already-wounded (Inverted) ally must leave it Inverted — flipping it
+    // to Tapped would heal the wound.
+    const { state, characterId, allyId } = makeDetainmentStrikeState({
+      detainment: true,
+      strikeProwess: 15,
+      allyTarget: { defId: GWAIHIR, status: CardStatus.Inverted },
+    });
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 3, false);
+
+    const ally = after.players[RESOURCE_PLAYER].characters[characterId].allies
+      .find(a => a.instanceId === allyId);
+    expect(ally!.status).toBe(CardStatus.Inverted);
   });
 });
