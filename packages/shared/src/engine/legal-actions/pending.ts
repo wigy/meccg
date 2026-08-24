@@ -2652,6 +2652,10 @@ export function selectCardBearerActions(
  * (Indûr Dawndeath tw-46): `characterId` limits the choice to one character's
  * items, and `itemFilter` is matched against each item's card definition
  * ("but not a ring").
+ *
+ * When no eligible item remains the discard is unsatisfiable and a `pass` is
+ * offered instead, so the resolution can be dismissed rather than deadlocking
+ * the game. See {@link eligibleCompanyDiscardItems}.
  */
 export function discardOneCompanyItemActions(
   state: GameState,
@@ -2659,25 +2663,58 @@ export function discardOneCompanyItemActions(
   top: PendingResolution,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'discard-one-company-item') return [];
-  const { companyId, characterId, itemFilter } = top.kind;
+
+  const actions: EvaluatedAction[] = eligibleCompanyDiscardItems(state, top.kind).map(instanceId => ({
+    action: {
+      type: 'discard-item-from-company' as const,
+      player: actor,
+      itemInstanceId: instanceId,
+    },
+    viable: true,
+  }));
+
+  if (actions.length === 0) {
+    // The forced discard is unsatisfiable: the company is gone (every member
+    // eliminated while the resolution waited in the queue), or none of its
+    // characters bears a genuine item passing the source card's filter
+    // (q/d bench seed 10800010: Brigands wounded a character whose only
+    // attachments were two permanent events). Returning no actions would
+    // deadlock the game outright — this resolution heads the queue and
+    // nothing else can act until it is consumed — so offer a pass instead.
+    // The reducer accepts that pass only while no eligible item exists.
+    logDetail('discard-one-company-item: no eligible item in the company — only pass is offered');
+    actions.push({ action: { type: 'pass', player: actor }, viable: true });
+  }
+
+  return actions;
+}
+
+/**
+ * The instance ids of the items a pending `discard-one-company-item`
+ * resolution may currently discard. A character's `items` list may hold
+ * non-item cards placed "with" the character (e.g. the permanent event
+ * Thrall of the Voice) — the forced discard targets one *item*, so only
+ * genuine item cards qualify; the resolution's optional `characterId` and
+ * `itemFilter` narrowings (Indûr Dawndeath tw-46) restrict it further.
+ * Shared by {@link discardOneCompanyItemActions} and the reducer's
+ * stale-resolution pass check.
+ */
+export function eligibleCompanyDiscardItems(
+  state: GameState,
+  kind: Extract<PendingResolution['kind'], { readonly type: 'discard-one-company-item' }>,
+): CardInstanceId[] {
+  const { companyId, characterId, itemFilter } = kind;
 
   // The company may have vanished while this resolution waited in the queue
-  // (every member eliminated). Only the pass can consume the resolution then —
-  // returning no actions would deadlock the game outright, since this
-  // resolution heads the queue and nothing else can act until it is consumed.
-  // Same failure class as the select-card-bearer fix (PR #2653 audit family).
+  // (every member eliminated), leaving nothing to discard.
   const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
-  if (!defPlayer) {
-    logDetail(`discard-one-company-item: company ${companyId as string} no longer exists — only pass is offered`);
-    return [{ action: { type: 'pass', player: actor }, viable: true }];
-  }
-  const company = companyById(defPlayer.companies, companyId);
-  if (!company) {
-    logDetail(`discard-one-company-item: company ${companyId as string} no longer exists — only pass is offered`);
-    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  const company = defPlayer ? companyById(defPlayer.companies, companyId) : undefined;
+  if (!defPlayer || !company) {
+    logDetail(`discard-one-company-item: company ${companyId as string} no longer exists`);
+    return [];
   }
 
-  const actions: EvaluatedAction[] = [];
+  const eligible: CardInstanceId[] = [];
   for (const charId of company.characters) {
     if (characterId && charId !== characterId) continue;
     const ch = defPlayer.characters[charId];
@@ -2685,10 +2722,6 @@ export function discardOneCompanyItemActions(
     for (const item of ch.items) {
       const itemDef = defById(state, item.definitionId);
       const itemName = itemDef?.name ?? (item.instanceId as string);
-      // A character's `items` list may hold non-item cards placed "with" the
-      // character (e.g. the permanent event Thrall of the Voice). Brigands' text
-      // forces the company to discard one *item*, so only genuine item cards are
-      // valid discard targets — skip anything that is not an item.
       if (!isItemCard(itemDef)) {
         logDetail(`discard-one-company-item: skipping ${itemName} (not an item)`);
         continue;
@@ -2699,29 +2732,10 @@ export function discardOneCompanyItemActions(
         continue;
       }
       logDetail(`discard-one-company-item: offering ${itemName}`);
-      actions.push({
-        action: {
-          type: 'discard-item-from-company' as const,
-          player: actor,
-          itemInstanceId: item.instanceId,
-        },
-        viable: true,
-      });
+      eligible.push(item.instanceId);
     }
   }
-
-  // No eligible item at all — every attachment is a non-item (permanent
-  // events placed "with" the character, e.g. Thrall of the Voice) or excluded
-  // by the source card's item filter. The forced discard is unsatisfiable, so
-  // the actor passes to dismiss it (q/d bench seed 10800010: Brigands wounded
-  // a character whose only attachments were two permanent events — zero
-  // actions were offered and the game deadlocked).
-  if (actions.length === 0) {
-    logDetail(`discard-one-company-item: company ${companyId as string} has no eligible item — only pass is offered`);
-    return [{ action: { type: 'pass', player: actor }, viable: true }];
-  }
-
-  return actions;
+  return eligible;
 }
 
 /**
