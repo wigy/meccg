@@ -14,7 +14,7 @@ import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findById, removeById, updatePlayer, wrongActionType, playerById, defById } from './reducer-utils.js';
 import { isResourceEventCard } from '../types/cards.js';
-import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
+import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer, handleAllyTapExtraMHOffer, handleCharacterTapExtraMHOffer } from './mh-hazard-play.js';
 import { enterSetHazardLimitAndAutoAdvance, handleSelectCompany, handleRevealNewSite, handleUnderDeepsRoll, handleOrderEffects, handleDrawCards } from './mh-steps.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -61,6 +61,26 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
   if (result.error && action.type === 'play-short-event') {
     logDetail(`M/H step '${mhState.step as string}' rejected play-short-event (${result.error}) — dispatching via shared short-event flow`);
     return dispatchShortEventByCardType(state, action);
+  }
+  // Rule 2.1.1 lets the active player play resource permanent-events during
+  // any phase of their turn, and an open chain offers them as responses in
+  // EVERY M/H step (chain.ts's resourceEventChainActions) — including rigid
+  // pass-only steps like order-effects (q/2 bench seed 11400048: A More Evil
+  // Hour ba-48 offered as a chain response during order-effects, rejected by
+  // handleOrderEffectsStep). Route the rejected play exactly like the
+  // short-event fallback above; handlePlayPermanentEvent pushes the card
+  // onto the open chain.
+  if (result.error && action.type === 'play-permanent-event') {
+    logDetail(`M/H step '${mhState.step as string}' rejected play-permanent-event (${result.error}) — dispatching via the shared permanent-event flow`);
+    return handlePlayPermanentEvent(state, action);
+  }
+  // The granted-action constraint pass-through (phase-less constraints like
+  // River tw-84) offers `activate-granted-action` in every step too — same
+  // engine-gap class, same fallback (select-company and reset-hand already
+  // route it in-handler; this covers the rigid pass-only steps).
+  if (result.error && action.type === 'activate-granted-action') {
+    logDetail(`M/H step '${mhState.step as string}' rejected activate-granted-action (${result.error}) — dispatching via handleGrantActionApply`);
+    return handleGrantActionApply(state, action);
   }
   return result;
 }
