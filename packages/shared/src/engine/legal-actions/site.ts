@@ -3465,7 +3465,15 @@ function declareCompanyAttackActions(
   const player = playerById(state, playerId);
   if (!player) return [];
   const company = player.companies[siteState.activeCompanyIndex];
-  if (!company?.currentSite) return [];
+  if (!company?.currentSite) {
+    // The active company dissolved before reaching the CvCC declaration (its
+    // last character died to an automatic attack at the site it had just
+    // entered). Pass is the one action left, and it finishes the dissolved
+    // company's site-phase slot — without it neither player has a viable
+    // action and the game deadlocks. Mirror of the play-resources step.
+    logDetail('CvCC: active company no longer exists — only pass is available');
+    return [{ type: 'pass', player: playerId }];
+  }
 
   const actions: GameAction[] = [];
 

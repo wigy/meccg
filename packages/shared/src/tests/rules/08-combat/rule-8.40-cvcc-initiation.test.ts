@@ -94,6 +94,36 @@ describe('Rule 8.40 — CvCC Initiation Conditions', () => {
     expect(actions.length).toBe(1);
   });
 
+  test('CvCC step offers a pass when the active company dissolved on its way there', () => {
+    // The site's automatic attacks can kill the last character of the company
+    // that just entered, and the company dissolves (rule 2.07) while the site
+    // phase is still working through its steps. `activeCompanyIndex` then
+    // points past the end of the companies array — the dangling index every
+    // per-company site step guards for. This step offered nothing at all for
+    // it, so neither player had a viable action and the game deadlocked; the
+    // reducer, for its part, read `company.id` off `undefined` on the pass.
+    const state = buildSiteState({ siteEntered: true, opponentInteraction: null });
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect((afterPass.phaseState as SitePhaseState).step).toBe('declare-company-attack');
+
+    // Dissolve P1's only company, exactly as cleanupEmptyCompanies leaves it.
+    const dissolved = {
+      ...afterPass,
+      players: [
+        { ...afterPass.players[0], companies: [], characters: {} },
+        afterPass.players[1],
+      ] as typeof afterPass.players,
+    };
+
+    expect(viableActions(dissolved, PLAYER_1, 'declare-company-attack')).toHaveLength(0);
+    expect(viableActions(dissolved, PLAYER_1, 'pass')).toHaveLength(1);
+
+    // The pass finishes the dissolved company's slot; no company is left
+    // unhandled, so the site phase ends (rule 6.20).
+    const afterDissolvedPass = dispatch(dissolved, { type: 'pass', player: PLAYER_1 });
+    expect(afterDissolvedPass.phaseState.phase).toBe(Phase.EndOfTurn);
+  });
+
   test('CvCC not allowed: company has not entered the site', () => {
     const state = buildSiteState({ siteEntered: false, opponentInteraction: null });
     const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
