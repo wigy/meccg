@@ -19,13 +19,16 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, viableFor, Phase,
-  PLAYER_1, PLAYER_2,
+  buildTestState, resetMint, viableFor, dispatch, Phase,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
+  companyIdAt,
 } from '../../test-helpers.js';
 import { formatGameState } from '../../../index.js';
 import type { EndOfTurnPhaseState } from '../../../index.js';
+import type { CardInstanceId, CardDefinitionId } from '../../../index.js';
+import { addConstraint } from '../../../engine/pending.js';
 
 describe('Rule 10.40 — Calling the Game', () => {
   beforeEach(() => resetMint());
@@ -114,5 +117,80 @@ describe('Rule 10.40 — Calling the Game', () => {
 
     const text = formatGameState(state);
     expect(text).toContain('33 MP (25 unmodified)');
+  });
+
+  test('call-free-council ends the turn like a plain pass: turn-scoped constraints are swept', () => {
+    // Regression: triggerCouncilCall entered the opponent's last turn without
+    // the turn-end sweep the plain signal-end pass applies, so "rest of the
+    // turn" constraints from the caller's turn leaked into the last turn.
+    const eotSignalEnd: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 25 }, deckExhaustionCount: 1 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+    const withTurnScoped = addConstraint({ ...base, phaseState: eotSignalEnd }, {
+      source: 'p1-turn-src' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId },
+      kind: { type: 'no-creature-hazards-on-company' },
+    });
+    const withBoth = addConstraint(withTurnScoped, {
+      source: 'p1-phase-src' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
+      scope: { kind: 'phase', phase: Phase.Site },
+      target: { kind: 'company', companyId },
+      kind: { type: 'no-creature-hazards-on-company' },
+    });
+
+    const after = dispatch(withBoth, { type: 'call-free-council', player: PLAYER_1 });
+
+    // Turn-scoped constraint swept; the non-turn-scoped one survives.
+    expect(after.activeConstraints.map(c => c.scope.kind)).toEqual(['phase']);
+  });
+
+  test('the last turn ending into the Free Council sweeps turn-scoped constraints before the checks', () => {
+    // Regression: transitionToFreeCouncil skipped the turn-end sweep, so
+    // turn-scoped effects (e.g. a hazard's check-modifier "for the rest of
+    // the turn") stayed active and wrongly modified the game-deciding Free
+    // Council corruption checks. (Effects created DURING the Council rightly
+    // last to game end per rule 10.44 — they arise after this boundary.)
+    const eotSignalEnd: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const withConstraint = addConstraint({ ...base, phaseState: eotSignalEnd, lastTurnFor: PLAYER_1 }, {
+      source: 'p1-turn-src' as CardInstanceId,
+      sourceDefinitionId: 'test-def' as CardDefinitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId: companyIdAt(base, RESOURCE_PLAYER) },
+      kind: { type: 'no-creature-hazards-on-company' },
+    });
+
+    const after = dispatch(withConstraint, { type: 'pass', player: PLAYER_1 });
+
+    expect(after.phaseState.phase).toBe(Phase.FreeCouncil);
+    expect(after.activeConstraints).toHaveLength(0);
   });
 });
