@@ -430,6 +430,7 @@ export async function initLobby(): Promise<void> {
   // Register lobby callbacks on window.__meccg so game and deck-editor bundles can call back.
   window.__meccg!.showScreen = showScreen;
   window.__meccg!.connectLobbyWs = connectLobbyWs;
+  window.__meccg!.renderOnlineList = renderOnlineList;
 
   try {
     const resp = await fetch('/api/me');

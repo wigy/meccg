@@ -209,6 +209,13 @@ export type MeccgSharedState = {
   showScreen: ((id: ScreenId) => void) | undefined;
   /** Open or reconnect the lobby WebSocket (registered by lobby-screens). */
   connectLobbyWs: (() => void) | undefined;
+  /**
+   * Re-render the online players/games list from the last snapshot
+   * (registered by lobby-screens). Lets other bundles refresh the list's
+   * buttons — each derives its own disabled state — instead of toggling
+   * them blindly.
+   */
+  renderOnlineList: (() => void) | undefined;
 
   // ---- Registered by the game bundle ----
   /** Connect to the game server WebSocket. */
@@ -272,6 +279,7 @@ const _shared: MeccgSharedState = window.__meccg ?? {
   cardPool: loadCardPool(),
   showScreen: undefined,
   connectLobbyWs: undefined,
+  renderOnlineList: undefined,
   connect: undefined,
   disconnect: undefined,
   resetVisualBoard: undefined,
