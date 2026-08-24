@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { strikeResultDisplay } from './strike-result-display.js';
+import { strikeResultDisplay, strikeArrowStyle } from './strike-result-display.js';
 
 /**
  * Regression test for the combat result overlay (game msj2v5nq-5tf6mg, seq 898):
@@ -43,5 +43,32 @@ describe('strikeResultDisplay', () => {
 
   it('returns null for an unresolved/missing result', () => {
     expect(strikeResultDisplay(undefined)).toBeNull();
+  });
+});
+
+/**
+ * Regression tests for the combat arrows: `renderStrikeArrows` used to test
+ * the raw `sa.result === 'success'` instead of the mapper, so the no-harm
+ * outcomes (tie / survived / canceled / absorbed) got the red wound
+ * arrowhead while the card border and overlay — which do use the mapper —
+ * showed success on the same strike. The arrow style now routes through
+ * `strikeArrowStyle`, which collapses results with `strikeResultDisplay`.
+ */
+describe('strikeArrowStyle', () => {
+  it.each(['success', 'tie', 'survived', 'canceled', 'absorbed'])(
+    'gives the success arrowhead for the no-harm outcome %s',
+    (result) => {
+      expect(strikeArrowStyle(result)).toEqual({
+        marker: 'combat-arrowhead-success',
+        className: 'combat-arrow--success',
+      });
+    },
+  );
+
+  it.each(['wounded', 'eliminated'])('gives the wound arrowhead for %s', (result) => {
+    expect(strikeArrowStyle(result)).toEqual({
+      marker: 'combat-arrowhead-wound',
+      className: 'combat-arrow--wound',
+    });
   });
 });

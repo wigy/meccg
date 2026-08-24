@@ -55,14 +55,17 @@ export interface Exposure {
   /** Cards in the opponent's discard pile: what they have already spent. */
   readonly opponentDiscardSize: number;
   /**
-   * The live hazard limit for a company, or null outside the movement/hazard
-   * phase where the notion does not apply.
+   * The live hazard limit for a company, or null when no snapshot applies to
+   * it — outside the movement/hazard phase, and for every company other than
+   * the one currently resolving its M/H sub-phase.
    *
-   * The engine snapshots this when the company reveals its movement and
-   * accumulates post-reveal modifiers on top, so before the reveal it reads 0
-   * — which means "not yet fixed", not "the opponent may spend nothing".
-   * Consumers that care about the difference must check the phase step; this
-   * service reports the engine's number rather than guessing at intent.
+   * The engine snapshots `hazardLimitAtReveal` per company as it reveals its
+   * movement; the phase state holds only the ACTIVE company's number. It used
+   * to be handed out for whatever company was asked about, so during a
+   * mover's M/H phase every other company inherited the mover's limit (a
+   * 5-character company's 5 applied to a singleton that would snapshot 2).
+   * Consumers must treat null as "not fixed for this company" and fall back
+   * to their own prediction (`max(size, 2)`), not as "nothing may be spent".
    */
   hazardLimit(companyId: CompanyId): number | null;
   /** The exposure of a site definition, if it is one. */
@@ -121,11 +124,20 @@ function buildComputeExposure(
     hazardLimit(companyId: CompanyId): number | null {
       if (view.phaseState.phase !== Phase.MovementHazard) return null;
       const mh = view.phaseState as unknown as {
+        activeCompanyIndex?: number;
         hazardLimitAtReveal?: number;
         preRevealHazardLimitConstraintIds?: readonly string[];
         resolvedSitePath?: readonly RegionType[];
       };
       if (typeof mh.hazardLimitAtReveal !== 'number') return null;
+      // The snapshot on the phase state belongs to the one company currently
+      // resolving its M/H sub-phase — the active player's company at
+      // `activeCompanyIndex`. For any other company it is someone else's
+      // number: report null and let the caller predict, rather than giving a
+      // singleton the mover's limit.
+      const activeSide = view.activePlayer === view.self.id ? view.self : view.opponent;
+      const activeCompany = activeSide.companies[mh.activeCompanyIndex ?? -1];
+      if (!activeCompany || activeCompany.id !== companyId) return null;
       return effectiveHazardLimit(
         view.activeConstraints,
         mh.hazardLimitAtReveal,

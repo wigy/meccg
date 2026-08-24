@@ -39,7 +39,7 @@ import {
   makeMHState, makeWildernessMHState,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt, findCharInstanceId,
-  viableActions,
+  viableActions, attachAllyToChar, GWAIHIR,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
@@ -224,6 +224,63 @@ describe('Wandering Eldar (le-97)', () => {
       )),
     );
     // The attacker never gets an assignment step either.
+    expect(viableActions(passed.state, PLAYER_2, 'assign-strike')).toHaveLength(0);
+  });
+
+  test('company with an ally: pass assigns strikes to both characters AND the ally (no attacker fallback)', () => {
+    // Regression: the auto-assign guard compared strikesTotal (= characters
+    // only at combat creation) against characters + allies, so any company
+    // with an ally spuriously fell back to manual ATTACKER assignment with
+    // too few strikes — the hazard player picked which 2 of the 3 combatants
+    // faced strikes, and one escaped entirely (contradicting CoE 3.ii.2 /
+    // 2.V.2.2: the count is unmodifiable and allies face strikes too).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN, BILBO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [WANDERING_ELDAR],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
+    const ready: GameState = { ...withAlly, phaseState: makeWildernessMHState() };
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, creatureId, companyId, WILDERNESS_KEYING,
+    );
+    expect(afterChain.combat!.eachCharacterFacesOneStrike).toBe(true);
+    // Defender has no assignment choice — only the window-closing pass.
+    expect(viableActions(afterChain, PLAYER_1, 'assign-strike')).toHaveLength(0);
+
+    const passed = reduce(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(passed.error).toBeUndefined();
+    const combat = passed.state.combat!;
+    expect(combat.assignmentPhase).toBe('done');
+    expect(combat.strikesTotal).toBe(3);
+    const aragornId = findCharInstanceId(passed.state, RESOURCE_PLAYER, ARAGORN);
+    const allyId = passed.state.players[RESOURCE_PLAYER].characters[aragornId].allies[0].instanceId;
+    expect(new Set(combat.strikeAssignments.map(a => a.characterId as string))).toEqual(
+      new Set([
+        aragornId as string,
+        findCharInstanceId(passed.state, RESOURCE_PLAYER, BILBO) as string,
+        allyId as string,
+      ]),
+    );
+    // The attacker never gets an assignment step.
     expect(viableActions(passed.state, PLAYER_2, 'assign-strike')).toHaveLength(0);
   });
 

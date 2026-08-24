@@ -1191,7 +1191,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Mallorn.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Playable at Bag End only if Earth of Galadriel’s Orchard is stored there. Bag End becomes a Haven [{H}] for the purposes of healing and bringing characters into play. Bag End can untap during its owner’s untap phase. If Bag End is discarded, return it to its location deck. All Hobbit factions are worth +1 marshalling points."

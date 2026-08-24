@@ -26,8 +26,40 @@ const GAME_SERVER_ENTRY = path.join(__dirname, '../../../game-server/src/ws/serv
  */
 const GAME_SERVER_TSCONFIG = path.join(__dirname, '../../../game-server/tsconfig.dev.json');
 
-/** Next available port for game servers. */
-let nextPort = GAME_PORT_BASE;
+/**
+ * Build a port allocator over a shared cursor: each call claims a candidate
+ * port SYNCHRONOUSLY before probing it, and only returns a port its own
+ * probe saw free.
+ *
+ * The order matters under concurrency. The old shape — probe `nextPort` in
+ * a loop, then claim with `nextPort++` — read the shared cursor across the
+ * probe's await: two overlapping launches both probed the same value, the
+ * first claimed it, and the second claimed the NEXT port without ever
+ * probing it. If that port was held by an orphaned game server from a
+ * previous lobby instance (exactly the state the probe loop exists for),
+ * the spawned server failed to bind and the caller hit the 15 s startup
+ * timeout. Overlapping launches are routine: both players of a crashed
+ * game rejoin at once, or two players start AI games together.
+ *
+ * Exported for tests; the module uses one instance over the real probe.
+ */
+export function createPortAllocator(
+  startPort: number,
+  probe: (port: number) => Promise<boolean>,
+): () => Promise<number> {
+  let next = startPort;
+  return async (): Promise<number> => {
+    let port = next++;
+    while (!await probe(port)) {
+      lobbyLog.log('port-in-use', { port });
+      port = next++;
+    }
+    return port;
+  };
+}
+
+/** The lobby's game-server port allocator, probing with {@link isPortFree}. */
+const allocatePort = createPortAllocator(GAME_PORT_BASE, port => isPortFree(port));
 
 /** Active game processes keyed by port. */
 const activeGames = new Map<number, ChildProcess>();
@@ -177,12 +209,10 @@ function killAiClient(aiChild: ChildProcess): void {
 }
 
 export async function launchGame(player1: string, player2: string, options?: LaunchOptions): Promise<LaunchResult> {
-  // Skip ports that are still in use (e.g. orphaned game servers from a previous lobby instance)
-  while (!await isPortFree(nextPort)) {
-    lobbyLog.log('port-in-use', { port: nextPort });
-    nextPort++;
-  }
-  const port = nextPort++;
+  // Skips ports that are still in use (e.g. orphaned game servers from a
+  // previous lobby instance) — see createPortAllocator for why the claim
+  // must precede the probe.
+  const port = await allocatePort();
   const gameId = `${player1}-vs-${player2}-${Date.now()}`;
   const tokens: [string, string] = [
     signGameToken(player1, gameId),

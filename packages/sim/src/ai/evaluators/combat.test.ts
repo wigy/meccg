@@ -151,6 +151,86 @@ describe('combatEvaluator convert-creature-to-ally', () => {
   });
 });
 
+describe('combatEvaluator assign-strike', () => {
+  // Bug: the assign-strike case scored every target by `prowess + 5`
+  // ("higher prowess absorbs strikes better") without checking whose
+  // character the target is. That is defender logic — but the engine also
+  // offers assign-strike to the ATTACKING player, who assigns a creature's
+  // remaining strikes to the defender's characters (legal-actions/combat.ts,
+  // attacker assignment phase). As the attacker, the AI therefore assigned
+  // its hazard's strikes to the opponent's STRONGEST character — the target
+  // least likely to be wounded — systematically wasting its own attacks.
+  const assignTo = (characterId: string): GameAction =>
+    ({ type: 'assign-strike', player: 'p1', characterId, tapped: false, explanation: '' } as unknown as GameAction);
+
+  function makeAttackerContext(): AiContext {
+    const view = {
+      self: { hand: [], companies: [], characters: {} },
+      opponent: {
+        companies: [{ id: 'company-p2-0', characters: ['p2-10', 'p2-11'] }],
+        characters: {
+          'p2-10': {
+            instanceId: 'p2-10',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 9, body: 9, directInfluence: 0, corruptionPoints: 0 },
+          },
+          'p2-11': {
+            instanceId: 'p2-11',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 1, body: 8, directInfluence: 0, corruptionPoints: 0 },
+          },
+        },
+      },
+      combat: {
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+      },
+    } as unknown as PlayerView;
+    return { view, cardPool: POOL, legalActions: [] };
+  }
+
+  function makeDefenderContext(): AiContext {
+    const view = {
+      self: {
+        hand: [],
+        companies: [{ id: 'company-p2-0', characters: ['p2-10', 'p2-11'] }],
+        characters: {
+          'p2-10': {
+            instanceId: 'p2-10',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 9, body: 9, directInfluence: 0, corruptionPoints: 0 },
+          },
+          'p2-11': {
+            instanceId: 'p2-11',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 1, body: 8, directInfluence: 0, corruptionPoints: 0 },
+          },
+        },
+      },
+      opponent: { companies: [], characters: {} },
+      combat: {
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+      },
+    } as unknown as PlayerView;
+    return { view, cardPool: POOL, legalActions: [] };
+  }
+
+  test('as the attacker, prefers assigning the strike to the weakest opposing character', () => {
+    const context = makeAttackerContext();
+    const strongScore = combatEvaluator.score(assignTo('p2-10'), context)!;
+    const weakScore = combatEvaluator.score(assignTo('p2-11'), context)!;
+    expect(weakScore).toBeGreaterThan(strongScore);
+  });
+
+  test('as the defender, still prefers absorbing the strike with the strongest own character', () => {
+    const context = makeDefenderContext();
+    const strongScore = combatEvaluator.score(assignTo('p2-10'), context)!;
+    const weakScore = combatEvaluator.score(assignTo('p2-11'), context)!;
+    expect(strongScore).toBeGreaterThan(weakScore);
+  });
+});
+
 describe('combatEvaluator resolve-strike', () => {
   // Bug report: AI-Heuristic (auto-attack at a site) chose to stay untapped
   // (tapToFight: false) for every character in a 3-member company, even

@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardEffect, SiteCard } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardInstanceId, CardEffect, SiteCard } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -1087,10 +1087,22 @@ function playResourcesActions(
   // Under-deeps; when it is not, no candidates are injected and the loop below
   // behaves exactly as before.
   const siteIsUnderDeepsForSetAside = !!(siteDef && isSiteCard(siteDef) && (siteDef.keywords ?? []).includes('under-deeps'));
+  // Only items set aside UNDER a Great-Secrets-style host (the
+  // `reveal-deck-choose-set-aside` effect) gain the Under-deeps replay —
+  // items set aside by other means (an Armory cache dm-116, a sacrificed
+  // Wizard's possessions) are governed by their own hosts' rules and must
+  // not become playable here.
+  const allCardsInPlay = state.players.flatMap(p => p.cardsInPlay);
+  const hostGrantsUnderDeepsReplay = (hostInstanceId: CardInstanceId | undefined): boolean => {
+    if (hostInstanceId === undefined) return false;
+    const host = allCardsInPlay.find(c => c.instanceId === hostInstanceId);
+    return getCardEffects(defById(state, host?.definitionId ?? ('' as CardDefinitionId)))
+      .some(e => e.type === 'reveal-deck-choose-set-aside');
+  };
   const underDeepsSetAsideCandidates = siteIsUnderDeepsForSetAside
-    ? state.players
-      .flatMap(p => p.cardsInPlay)
+    ? allCardsInPlay
       .filter(c => isSetAsideCard(c) && ownerOf(c.instanceId) === playerId)
+      .filter(c => hostGrantsUnderDeepsReplay(c.setAsideHost))
       .filter(c => isItemCard(defById(state, c.definitionId)))
       .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }))
     : [];

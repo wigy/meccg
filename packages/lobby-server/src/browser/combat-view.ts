@@ -42,7 +42,7 @@ import { buildTakeTrophyMap, trophyOfferBannerText } from './trophy-offer-target
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
 import { resolveFaceStrikeOnTapAction } from './combat-face-strike-action.js';
-import { strikeResultDisplay } from './strike-result-display.js';
+import { strikeResultDisplay, strikeArrowStyle } from './strike-result-display.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, inPlayCardDefs, findIsolatingEventName } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
@@ -1296,13 +1296,9 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
     const isCurrent = i === combat.currentStrikeIndex && !sa.resolved && combat.phase === 'resolve-strike';
     if (sa.resolved) {
       line.classList.add('combat-arrow--resolved');
-      if (sa.result === 'success') {
-        line.setAttribute('marker-end', 'url(#combat-arrowhead-success)');
-        line.classList.add('combat-arrow--success');
-      } else {
-        line.setAttribute('marker-end', 'url(#combat-arrowhead-wound)');
-        line.classList.add('combat-arrow--wound');
-      }
+      const arrow = strikeArrowStyle(sa.result);
+      line.setAttribute('marker-end', `url(#${arrow.marker})`);
+      line.classList.add(arrow.className);
     } else if (isCurrent) {
       line.classList.add('combat-arrow--active');
       line.setAttribute('marker-end', 'url(#combat-arrowhead)');

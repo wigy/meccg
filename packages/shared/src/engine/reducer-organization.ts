@@ -21,7 +21,8 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay } from './reducer-utils.js';
+import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies } from './reducer-utils.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -122,7 +123,7 @@ function handleOrganizationPass(state: GameState, action: GameAction): ReducerRe
   const discardedEvents: CardInstance[] = [];
   const remainingCards = player.cardsInPlay.filter(card => {
     const def = defById(state, card.definitionId);
-    if (def && def.cardType === 'hero-resource-event' && def.eventType === 'long') {
+    if (def && isResourceEventCard(def) && def.eventType === 'long') {
       // Echo of All Joy (td-110): a long-event attached to an in-play
       // protector is exempt from this sweep for as long as the protector
       // stays in play.
@@ -2358,7 +2359,22 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
     ownDiscard = [...ownDiscard, removedCharCard];
   }
   for (const item of char.items) ownDiscard = [...ownDiscard, toCardInstance(item)];
-  for (const ally of char.allies) ownDiscard = [...ownDiscard, toCardInstance(ally)];
+  // Allies follow the shared disposition: most are discarded, but one that
+  // "may return to hand" when its controller leaves play (Radagast's Black
+  // Bird wh-114) does so — same as every other character-removal path.
+  const { toHand: alliesToHand, toDiscard: alliesToDiscard } = partitionLeavingAllies(state, char.allies);
+  ownDiscard = [...ownDiscard, ...alliesToDiscard];
+  const ownHand = alliesToHand.length > 0
+    ? [...newPlayers[playerIndex].hand, ...alliesToHand]
+    : newPlayers[playerIndex].hand;
+  // CoE 3.IV.4: the leaving character's trophies go to the marshalling-point
+  // pile (worth MP) or out of play (worthless) — never silently dropped.
+  const { toKillPile: trophiesToKill, toOutOfPlay: trophiesToOop } =
+    partitionLeavingTrophies(state, char, 'discard character (rule 3.22)');
+  const ownKill = trophiesToKill.length > 0
+    ? [...newPlayers[playerIndex].killPile, ...trophiesToKill]
+    : newPlayers[playerIndex].killPile;
+  if (trophiesToOop.length > 0) ownOutOfPlay = [...ownOutOfPlay, ...trophiesToOop];
 
   // Attached hazards return to their owner's discard pile.
   let opponentDiscard = [...newPlayers[opponentIndex].discardPile];
@@ -2392,7 +2408,7 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
   const companies = newPlayers[playerIndex].companies
     .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c);
 
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard, outOfPlayPile: ownOutOfPlay };
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, hand: ownHand, killPile: ownKill, discardPile: ownDiscard, outOfPlayPile: ownOutOfPlay };
   newPlayers[opponentIndex] = { ...newPlayers[opponentIndex], discardPile: opponentDiscard };
 
   // CoE rule 2.II.2: playing or discarding a character is the same

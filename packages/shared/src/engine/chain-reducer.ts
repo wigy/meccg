@@ -3765,9 +3765,21 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const creatureRaces = creatureDef.additionalRaces?.length
     ? [creatureRace, ...creatureDef.additionalRaces]
     : undefined;
-  const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
+  // Union the phase-local derivation with the turn-scoped races stamped on
+  // the company itself (`facedHazardRaces`, recorded at every attack
+  // teardown) — the persisted set is what survives the M/H → Site phase
+  // transition and covers on-guard attacks faced earlier in the site phase.
+  const derivedFacedRaces = state.phaseState.phase === 'movement-hazard'
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
     : deriveSiteFacedRaces(state);
+  const targetCompanyForFacedRaces = state.players[activePlayerIndex]
+    .companies[state.phaseState.phase === 'movement-hazard' || state.phaseState.phase === 'site'
+      ? state.phaseState.activeCompanyIndex
+      : -1];
+  const companyFacedRaces = Array.from(new Set([
+    ...derivedFacedRaces,
+    ...(targetCompanyForFacedRaces?.facedHazardRaces ?? []),
+  ]));
   const defenderAlignment = defenderAlignmentLabel(state.players[activePlayerIndex].alignment);
   // A creature's `keyedTo` can list several independent ways it may be
   // played (e.g. Orc-watch: region type Shadow/Dark *or* site type
@@ -4097,11 +4109,16 @@ function matchRaceThresholdEffect<E extends FlatteryCancelAttackEffect | Riddlin
   const cardDef = defById(state, entry.card.definitionId);
   const effect = getCardEffects(cardDef).find((e): e is E => e.type === effectType);
   if (!effect) return undefined;
-  const creatureRace = state.combat.creatureRace;
-  const matchedEntry = creatureRace === undefined
-    ? undefined
-    : effect.thresholds.find(t => t.races.includes(creatureRace));
-  if (!matchedEntry || creatureRace === undefined) return undefined;
+  // An attack counts as EVERY race it carries — primary plus additionalRaces
+  // ("Orcs. Men." creatures like Goblin-faces wh-13 populate
+  // `combat.creatureRaces`) — so match the thresholds against the full list
+  // and, when several entries match, use the most favorable (lowest) one.
+  const races = state.combat.creatureRaces
+    ?? (state.combat.creatureRace !== undefined ? [state.combat.creatureRace] : []);
+  const matching = effect.thresholds.filter(t => t.races.some(r => races.includes(r)));
+  if (matching.length === 0) return undefined;
+  const matchedEntry = matching.reduce((best, t) => (t.threshold < best.threshold ? t : best));
+  const creatureRace = matchedEntry.races.find(r => races.includes(r))!;
   return {
     effect,
     creatureRace,

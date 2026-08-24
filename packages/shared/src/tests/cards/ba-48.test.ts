@@ -349,4 +349,43 @@ describe('A More Evil Hour (ba-48)', () => {
       expect(declarePathActions(state).some(a => a.movementType === MovementType.Region)).toBe(false);
     });
   });
+
+  describe('rule 2.1.1: playable during any step of its owner\'s M/H phase', () => {
+    test('accepted during the rigid order-effects step — regression: the step handler rejected an offered chain-response play', () => {
+      // q/2 bench seed 11400048: with a chain open during order-effects, the
+      // chain emitter legally offered A More Evil Hour as a rule-2.1.1
+      // permanent-event response, but handleOrderEffectsStep only accepted
+      // 'pass' — an offered action was rejected and the game engine-errored.
+      // The M/H step dispatcher must route a rejected play-permanent-event
+      // to the shared permanent-event flow, like the play-short-event
+      // fallback right above it.
+      const base = buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Balrog,
+            companies: [{ site: BARAD_DUR, characters: [CROOK_LEGGED_ORC] }],
+            hand: [A_MORE_EVIL_HOUR],
+            siteDeck: [BARAD_DUR],
+          },
+          {
+            id: PLAYER_2,
+            alignment: Alignment.Wizard,
+            companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+            hand: [],
+            siteDeck: [RIVENDELL],
+          },
+        ],
+      });
+      const state = { ...base, phaseState: makeMHState({ step: 'order-effects' }) };
+      const cardId = findHandCardId(state, RESOURCE_PLAYER, A_MORE_EVIL_HOUR);
+
+      const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: cardId });
+      expect(result.error).toBeUndefined();
+      // The card left the hand (it now sits on the chain awaiting resolution).
+      expect(result.state.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === cardId)).toBe(false);
+    });
+  });
 });

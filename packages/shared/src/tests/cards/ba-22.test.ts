@@ -142,10 +142,13 @@ describe('Press-gang (ba-22)', () => {
     // The captured character is stripped of possessions.
     expect(after.players[RESOURCE_PLAYER].characters[aragornId].items).toHaveLength(0);
     expect(after.players[RESOURCE_PLAYER].characters[aragornId].allies).toHaveLength(0);
-    // The follower is NOT discarded (CRF) — it reverts to general influence.
+    // The follower is NOT discarded (CRF) — it reverts to general influence
+    // with the mind subtraction deferred to the owner's next organization
+    // phase (CoE 2.II.2.2.3), like every other freed follower.
     const legolas = after.players[RESOURCE_PLAYER].characters[legolasId];
     expect(legolas).toBeDefined();
     expect(legolas.controlledBy).toBe('general');
+    expect(legolas.influenceUnsubtracted).toBe(true);
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === legolasId)).toBe(false);
   });
 

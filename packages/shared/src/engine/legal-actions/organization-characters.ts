@@ -102,22 +102,27 @@ function orcTrollPlayPermission(
 }
 
 /**
- * Find an in-hand recruitment vehicle (Thrall of the Voice, wh-82) for this
- * player, returning its card instance and `maxMind`. A recruitment vehicle lets
- * a Fallen-wizard bring one otherwise-ineligible character into play; see
- * {@link RecruitmentVehicleEffect}. Returns the first such card, or undefined.
+ * Find every in-hand recruitment vehicle for this player, returning each
+ * card's instance, `maxMind`, and whether it is the agent-summons variant. A
+ * recruitment vehicle lets a Fallen-wizard bring one otherwise-ineligible
+ * character into play; see {@link RecruitmentVehicleEffect}. The two variants
+ * (Thrall of the Voice wh-82, `agentRecruit` false; Open to the Summons wh-46,
+ * `agentRecruit` true) drive independent play modes, so the caller must pick
+ * the vehicle matching the mode — returning only the first card in hand order
+ * would disable whichever mode the other card enables.
  */
-function recruitmentVehicleInHand(
+function recruitmentVehiclesInHand(
   state: GameState,
   player: { readonly hand: readonly { readonly instanceId: CardInstanceId; readonly definitionId: import('../../index.js').CardDefinitionId }[] },
-): { instanceId: CardInstanceId; maxMind: number; agentRecruit: boolean } | undefined {
+): { instanceId: CardInstanceId; maxMind: number; agentRecruit: boolean }[] {
+  const out: { instanceId: CardInstanceId; maxMind: number; agentRecruit: boolean }[] = [];
   for (const card of player.hand) {
     const def = defById(state, card.definitionId);
     const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects ?? [];
     const eff = effects.find((e): e is RecruitmentVehicleEffect => e.type === 'recruitment-vehicle');
-    if (eff) return { instanceId: card.instanceId, maxMind: eff.maxMind, agentRecruit: eff.agentRecruit === true };
+    if (eff) out.push({ instanceId: card.instanceId, maxMind: eff.maxMind, agentRecruit: eff.agentRecruit === true });
   }
-  return undefined;
+  return out;
 }
 
 /**
@@ -772,14 +777,18 @@ export function playCharacterActions(
       continue;
     }
 
-    // Recruitment vehicle in hand (Thrall of the Voice wh-82; Open to the
+    // Recruitment vehicles in hand (Thrall of the Voice wh-82; Open to the
     // Summons wh-46). Detected before site selection because the agent-summons
     // variant (wh-46) widens an agent's playable sites to include Darkhavens.
-    const vehicle = recruitmentVehicleInHand(state, player);
+    // The two variants drive independent modes, so each is looked up on its
+    // own — holding both cards must not disable either mode.
+    const vehicles = recruitmentVehiclesInHand(state, player);
+    const recruitVehicle = vehicles.find(v => !v.agentRecruit);
+    const summonsVehicle = vehicles.find(v => v.agentRecruit);
     // Open to the Summons (wh-46): a Ringwraith or Fallen-wizard may summon one
     // agent into a company at a Darkhaven, placing the card with the agent.
     const isAgentSummonsCandidate = !isAvatar
-      && vehicle?.agentRecruit === true
+      && summonsVehicle !== undefined
       && isAgentCharacter(cardDef)
       && (player.alignment === Alignment.Ringwraith || player.alignment === Alignment.FallenWizard);
 
@@ -841,18 +850,17 @@ export function playCharacterActions(
       // by placing the vehicle with it. Per the CRF this cannot bring an Orc or
       // Troll into play. The recruit may be a minion agent. When recruiting, the
       // vehicle's "-1 to his mind" reduces the influence cost (min 1).
-      const recruitViaVehicle = vehicle !== undefined
-        && vehicle.agentRecruit === false
+      const recruitViaVehicle = recruitVehicle !== undefined
         && player.alignment === Alignment.FallenWizard
         && charMind > 5
-        && charMind <= vehicle.maxMind
+        && charMind <= recruitVehicle.maxMind
         && cardDef.race !== Race.Orc
         && cardDef.race !== Race.Troll;
       // Open to the Summons (wh-46): the reduced cost applies only at Darkhavens
       // (computed per-site below). Thrall's reduction is site-independent.
       const summonsCostMind = Math.max(1, charMind - 1);
       const costMind = recruitViaVehicle ? Math.max(1, charMind - 1) : charMind;
-      const recruitField = recruitViaVehicle && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : {};
+      const recruitField = recruitViaVehicle && recruitVehicle ? { viaRecruitmentInstanceId: recruitVehicle.instanceId } : {};
       // Affordability gate below must use the *lowest* achievable cost so an
       // agent affordable only at its Darkhaven (mind − 1) is not filtered out by
       // the home-site cost (full mind).
@@ -873,9 +881,9 @@ export function playCharacterActions(
       // any character with a mind greater than 5 — unless a recruitment vehicle
       // lifts the limit for this one character.
       if (player.alignment === 'fallen-wizard' && charMind > 5 && !recruitViaVehicle) {
-        const reason = (vehicle && charMind > vehicle.maxMind)
-          ? `${charName}: mind ${charMind} exceeds Thrall of the Voice's maximum of ${vehicle.maxMind}`
-          : (vehicle && (cardDef.race === Race.Orc || cardDef.race === Race.Troll))
+        const reason = (recruitVehicle && charMind > recruitVehicle.maxMind)
+          ? `${charName}: mind ${charMind} exceeds Thrall of the Voice's maximum of ${recruitVehicle.maxMind}`
+          : (recruitVehicle && (cardDef.race === Race.Orc || cardDef.race === Race.Troll))
             ? `${charName}: Thrall of the Voice cannot bring an Orc or Troll into play`
             : `${charName}: mind ${charMind} exceeds the Fallen-wizard maximum of 5`;
         logDetail(`  → blocked: ${reason}`);
@@ -956,7 +964,7 @@ export function playCharacterActions(
         // general influence for free, never as somebody's direct-influence
         // follower at a discount.
         const giCostHere = influenceFreeHere ? 0 : costHere;
-        const recruitFieldHere = summonHere && vehicle ? { viaRecruitmentInstanceId: vehicle.instanceId } : recruitField;
+        const recruitFieldHere = summonHere && summonsVehicle ? { viaRecruitmentInstanceId: summonsVehicle.instanceId } : recruitField;
         // Bree (le-356) `allow-agent-play` grants direct-influence play only;
         // never offer the agent under general influence at such a site.
         if (site.directInfluenceOnly) {

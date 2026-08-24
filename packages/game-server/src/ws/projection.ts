@@ -406,6 +406,20 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
     return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
   }
 
+  // The item-draft step carries both players' undrafted pool characters
+  // (`remainingPool`) — the very cards the NEXT step shuffles into each
+  // player's play deck (CoE 1.8). Their identities are hidden deck contents
+  // already during this step (see engine/visibility.ts), so the opponent's
+  // half must be hidden exactly like the character-deck-draft pool below.
+  if (step.step === 'item-draft') {
+    const newRemainingPool: [readonly CardInstance[], readonly CardInstance[]] = [
+      step.remainingPool[0],
+      step.remainingPool[1],
+    ];
+    newRemainingPool[opponentIndex] = hiddenCardPile(step.remainingPool[opponentIndex]);
+    return { ...phaseState, setupStep: { ...step, remainingPool: newRemainingPool } };
+  }
+
   if (step.step === 'character-deck-draft') {
     const newDeckDraftState: [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState] = [
       step.deckDraftState[0],
@@ -449,7 +463,19 @@ function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
 
   // Leftover pool characters are shuffled into the play deck — knowing them is
   // knowing hidden deck contents, so both players' remaining pools are hidden
-  // from spectators exactly as each is from the opponent.
+  // from spectators exactly as each is from the opponent. The item-draft step
+  // carries the same pools at step level.
+  if (phaseState.setupStep.step === 'item-draft') {
+    const step = phaseState.setupStep;
+    return {
+      ...phaseState,
+      setupStep: {
+        ...step,
+        remainingPool: [hiddenCardPile(step.remainingPool[0]), hiddenCardPile(step.remainingPool[1])],
+      },
+    };
+  }
+
   if (phaseState.setupStep.step === 'character-deck-draft') {
     const step = phaseState.setupStep;
     const redact = (d: CharacterDeckDraftPlayerState): CharacterDeckDraftPlayerState => ({

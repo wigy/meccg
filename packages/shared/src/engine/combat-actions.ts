@@ -1508,6 +1508,7 @@ export function handleHalveStrikes(state: GameState, action: GameAction, combat:
 export function handleProtectFromStrikeAssignment(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'protect-from-assignment') return wrongActionType(state, action, 'protect-from-assignment');
   if (combat.phase !== 'assign-strikes') return { state, error: 'Can only protect from strike assignment before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to protect from assignment' };
   if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can protect a character from strike assignment' };
 
   const defPlayerIndex = getPlayerIndex(state, action.player);
@@ -2465,7 +2466,15 @@ export function finalizeCombatFromCancelPrisonerTakingOffer(state: GameState, co
   }
 
   logDetail(`cancel-prisoner-taking declined — ${strike.characterId as string} is taken prisoner`);
-  const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', cancelPrisonerTakingOffer: undefined };
+  const cleanCombat: CombatState = {
+    ...combat,
+    phase: 'resolve-strike',
+    cancelPrisonerTakingOffer: undefined,
+    // The paused assignment was recorded 'wounded' pending this choice — the
+    // decline resolves it as a capture, so wound triggers must not fire.
+    strikeAssignments: combat.strikeAssignments.map((a, i) =>
+      i === combat.currentStrikeIndex ? { ...a, result: 'captured' as const } : a),
+  };
   return advanceStrikeOrFinalize(newState, cleanCombat);
 }
 

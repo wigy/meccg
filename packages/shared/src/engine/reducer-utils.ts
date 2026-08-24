@@ -25,7 +25,7 @@ import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
-import { revealInstances } from './visibility.js';
+import { revealInstances, forgetDeckReveals } from './visibility.js';
 import { evaluateRules } from '../rules/evaluator.js';
 import { STAGE_RESOURCE_DRAFT_RULES } from '../rules/definitions/character-draft.js';
 
@@ -4427,8 +4427,14 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
 
   const exhaustingPlayer = result.players[playerIndex];
   const newExhaustionCount = exhaustingPlayer.deckExhaustionCount + 1;
-  const [newPlayDeck, newRng] = shuffle([...exhaustingPlayer.discardPile], result.rng);
-  logDetail(`Shuffled ${exhaustingPlayer.discardPile.length} card(s) from discard into new play deck`);
+  // The play deck is normally empty here, but the exchange sub-flow
+  // (`deckExhaustPending`) is an interactive window: a card can legally enter
+  // the play deck before the exhaust completes (Sudden Call le-235's
+  // mandatory "reveal and reshuffle into play deck" from hand). Shuffling
+  // only the discard pile would silently destroy such a card — every minted
+  // instance must stay reachable in state.
+  const [newPlayDeck, newRng] = shuffle([...exhaustingPlayer.playDeck, ...exhaustingPlayer.discardPile], result.rng);
+  logDetail(`Shuffled ${exhaustingPlayer.discardPile.length} card(s) from discard (and ${exhaustingPlayer.playDeck.length} already in the play deck) into new play deck`);
 
   const newPlayers = clonePlayers(result);
   newPlayers[playerIndex] = {
@@ -4440,7 +4446,11 @@ export function completeDeckExhaust(state: GameState, playerIndex: 0 | 1): GameS
     deckExhaustExchangeCount: 0,
   };
 
-  return { ...result, players: newPlayers, rng: newRng };
+  // The shuffle destroys any positional reveal knowledge of the cards now in
+  // the new play deck (see forgetDeckReveals) — without this, every discard
+  // ever revealed (e.g. swept by The Great Hunt wh-91) stayed unmasked at
+  // its exact shuffled position in the opponent's projected deck view.
+  return forgetDeckReveals({ ...result, players: newPlayers, rng: newRng }, playerIndex);
 }
 
 /**
@@ -4715,7 +4725,13 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
  * alike. That one is located but not diagnosed.
  */
 export function cleanupEmptyCompanies(state: GameState): GameState {
-  const newPlayers = state.players.map(player => {
+  // Cross-player transfers collected while scanning each owner's empty
+  // companies and applied after the per-player rebuild below: on-guard cards
+  // and company-attached hazards belong to the dissolving company's OPPONENT,
+  // so they cannot be routed inside the owner's own map callback.
+  const handReturns: [CardInstance[], CardInstance[]] = [[], []];
+  const hazardDiscards: [CardInstance[], CardInstance[]] = [[], []];
+  const newPlayers = state.players.map((player, playerIdx) => {
     const emptyCompanies = player.companies.filter(c => c.characters.length === 0);
     const keptCompanies = player.companies.filter(c => c.characters.length > 0);
 
@@ -4773,6 +4789,27 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
 
     const newSiteDeck = [...player.siteDeck, ...untappedSites];
 
+    // A dissolving company can still carry the opponent's cards, and dropping
+    // the company must not drop them (no card instance may ever disappear):
+    // - On-guard cards return to the hazard player's hand, exactly as the
+    //   site-phase cleanup (`returnOnGuardCardsToHand`) would have done had
+    //   the company survived to the end of its site phase.
+    // - Company-targeting hazards in play are discarded to the hazard
+    //   player's discard pile, the company they targeted having ceased to
+    //   exist. Both routes go to the dissolving company owner's opponent —
+    //   the player who placed them there.
+    const opponentIdx = playerIdx === 0 ? 1 : 0;
+    for (const c of emptyCompanies) {
+      for (const og of c.onGuardCards) {
+        logDetail(`cleanupEmptyCompanies: returning on-guard card ${og.instanceId as string} from dissolved company ${c.id as string} to the hazard player's hand`);
+        handReturns[opponentIdx].push(toCardInstance(og));
+      }
+      for (const hz of c.hazards) {
+        logDetail(`cleanupEmptyCompanies: discarding company hazard ${hz.instanceId as string} from dissolved company ${c.id as string} to the hazard player's discard pile`);
+        hazardDiscards[opponentIdx].push(toCardInstance(hz));
+      }
+    }
+
     // CoE rule 2.07: permanent-events bound to a now-empty company are discarded.
     const emptyCompanyIds = new Set(emptyCompanies.map(c => c.id as string));
     const boundToEmpty = player.cardsInPlay.filter(c => c.companyId && emptyCompanyIds.has(c.companyId as string));
@@ -4794,7 +4831,13 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
     };
   });
 
-  const cleanedState: GameState = { ...state, players: [newPlayers[0], newPlayers[1]] };
+  const mergedPlayers = newPlayers.map((p, i) => (
+    handReturns[i].length === 0 && hazardDiscards[i].length === 0
+      ? p
+      : { ...p, hand: [...p.hand, ...handReturns[i]], discardPile: [...p.discardPile, ...hazardDiscards[i]] }
+  ));
+
+  const cleanedState: GameState = { ...state, players: [mergedPlayers[0], mergedPlayers[1]] };
   return reindexActiveCompanyAfterCleanup(state, cleanedState);
 }
 

@@ -26,7 +26,11 @@ import type { Agent } from './types.js';
  * parallel: these pass in isolation and fail together, which reads as a
  * flaky suite rather than as a slow test.
  */
-const GAME_TIMEOUT = 30000;
+// The capture pass plays a real game through the agent seam; the 2026-08-24
+// wave of engine deadlock fixes legitimately lengthened random games, and
+// under full-suite parallel load 30s started flaking. 120s matches the other
+// full-game sim tests (mc-agent.test.ts).
+const GAME_TIMEOUT = 120_000;
 
 const DECK_A = loadDeck('challenge-deck-a');
 const DECK_B = loadDeck('challenge-deck-b');
@@ -67,6 +71,19 @@ describe('determinizer', () => {
       for (const card of world.players[oppIndex].hand) {
         if (card.definitionId === UNKNOWN_CARD) continue; // exhausted-pool fallback
         expect(oppDeckIds.has(card.definitionId as unknown as string)).toBe(true);
+      }
+
+      // Hidden opponent sideboard cards receive identities from the deck
+      // list's own sideboard. They used to be filled from the play-deck
+      // pool, whose identities and size never accounted for the sideboard —
+      // by the time it was reached the pool was exhausted, so all ~20 cards
+      // kept the `unknown-card` sentinel (with no definition in the pool to
+      // resolve it, unlike determinize-null's).
+      const oppSideboardIds = new Set<string>(DECK_B.sideboard as readonly string[]);
+      expect(world.players[oppIndex].sideboard.length).toBeGreaterThan(0);
+      for (const card of world.players[oppIndex].sideboard) {
+        expect(card.definitionId).not.toBe(UNKNOWN_CARD);
+        expect(oppSideboardIds.has(card.definitionId as unknown as string)).toBe(true);
       }
     }
     expect(comparedViews).toBeGreaterThan(3);

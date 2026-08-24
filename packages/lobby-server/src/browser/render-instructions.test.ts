@@ -595,3 +595,86 @@ describe('renderPassButton — influence-overflow-discard (CoE 3.47 general-infl
     expect(visualPanel.children.map(c => c.textContent)).not.toContain('Remove Erkenbrand');
   });
 });
+
+/**
+ * Regression tests for the multi-target CvCC attack buttons. With several
+ * opponent companies at the site (one `declare-company-attack` per target),
+ * the buttons were created with only the shared `enter-site-btn` class — no
+ * id and no dedicated class — so the stale-button cleanup preamble at the top
+ * of {@link renderPassButton} never matched them: every state re-render
+ * appended a fresh set, and once the step ended the buttons stayed on screen
+ * for the rest of the game, dispatching a stale `declare-company-attack` if
+ * clicked. They were also indistinguishable — every button was labeled just
+ * "Attack", with no way to tell which company it targets. They now carry the
+ * `cvcc-attack-btn` cleanup class and the target company's name.
+ */
+const declareAttack = (targetCompanyId: string): EvaluatedAction => ({
+  action: {
+    type: 'declare-company-attack',
+    player: 'p1',
+    attackingCompanyId: 'company-p1-0',
+    targetCompanyId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+const cvccViewWith = (legalActions: EvaluatedAction[]): PlayerView =>
+  ({
+    phaseState: { phase: Phase.Site, step: 'declare-company-attack' },
+    legalActions,
+    self: { id: 'p1', companies: [] },
+    opponent: {
+      id: 'p2',
+      companies: [
+        { id: 'company-p2-0', characters: ['p2-1'] },
+        { id: 'company-p2-1', characters: ['p2-2'] },
+      ],
+      characters: {
+        'p2-1': { instanceId: 'p2-1', definitionId: 'tw-148', effectiveStats: { prowess: 4 } }, // Erkenbrand
+        'p2-2': { instanceId: 'p2-2', definitionId: 'tw-159', effectiveStats: { prowess: 5 } }, // Gimli
+      },
+    },
+    activePlayer: 'p1',
+  } as unknown as PlayerView);
+
+describe('renderPassButton — multi-target CvCC attack buttons', () => {
+  test('labels each Attack button with its target company and dispatches that target', () => {
+    passBtn.parentElement = visualPanel;
+    let sent: unknown = null;
+    renderPassButton(
+      cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]),
+      action => { sent = action; },
+    );
+
+    const labels = visualPanel.children.map(c => c.textContent);
+    expect(labels).toContain("Attack Erkenbrand's company");
+    expect(labels).toContain("Attack Gimli's company");
+
+    const gimliBtn = visualPanel.children.find(c => c.textContent === "Attack Gimli's company");
+    gimliBtn?.onclick?.();
+    expect(sent).toEqual(declareAttack('company-p2-1').action);
+  });
+
+  test('does not accumulate duplicate Attack buttons across re-renders', () => {
+    passBtn.parentElement = visualPanel;
+    const view = cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]);
+
+    renderPassButton(view, () => { /* no-op */ });
+    renderPassButton(view, () => { /* no-op */ });
+
+    const attackButtons = visualPanel.children.filter(c => c.textContent.startsWith('Attack'));
+    expect(attackButtons).toHaveLength(2);
+  });
+
+  test('removes the Attack buttons once the step is over', () => {
+    passBtn.parentElement = visualPanel;
+    renderPassButton(
+      cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]),
+      () => { /* no-op */ },
+    );
+
+    renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
+
+    expect(visualPanel.children.filter(c => c.textContent.startsWith('Attack'))).toHaveLength(0);
+  });
+});

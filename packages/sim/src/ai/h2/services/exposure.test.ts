@@ -51,15 +51,19 @@ function viewWith(options: {
       cardsInPlay: [],
     },
     opponent: {
+      id: 'p2',
       characters: {},
       cardsInPlay: [],
+      companies: [],
       hand: new Array(options.opponentHand ?? 0).fill({ instanceId: 'x', definitionId: 'unknown' }),
       discardPile: new Array(options.opponentDiscard ?? 0).fill({ instanceId: 'y', definitionId: 'unknown' }),
     },
+    activePlayer: 'p1',
     activeConstraints: [],
     phaseState: options.movementHazard
       ? {
         phase: Phase.MovementHazard,
+        activeCompanyIndex: 0,
         hazardLimitAtReveal: options.movementHazard.limitAtReveal,
         preRevealHazardLimitConstraintIds: [],
       }
@@ -118,5 +122,25 @@ describe('the hazard limit', () => {
 
   test('is null outside the phase, where the notion does not apply', () => {
     expect(computeExposure(viewWith(), POOL).hazardLimit(COMPANY)).toBeNull();
+  });
+
+  test('belongs only to the company resolving its M/H sub-phase', () => {
+    // The phase state carries one hazardLimitAtReveal — the snapshot taken
+    // when the ACTIVE company revealed its movement (state-phases.ts). It
+    // used to be handed out for whatever company was asked about, so during
+    // a 5-character company's move every other company inherited that 5:
+    // computeHazardPlan then gave a singleton company five hazard slots
+    // instead of the max(size, 2) = 2 it would snapshot, inflating the plan
+    // totals that on-guard pricing and card quotes consume. For any company
+    // other than the active one the honest answer is null ("not fixed for
+    // this company"), which callers already treat as "predict it yourself".
+    const view = viewWith({ movementHazard: { limitAtReveal: 5 } });
+    (view.self.companies as unknown as unknown[]).push({
+      id: 'other', characters: [], currentSite: null, destinationSite: null,
+    });
+    const exposure = computeExposure(view, POOL);
+
+    expect(exposure.hazardLimit(COMPANY)).toBe(5);
+    expect(exposure.hazardLimit('other' as unknown as CompanyId)).toBeNull();
   });
 });

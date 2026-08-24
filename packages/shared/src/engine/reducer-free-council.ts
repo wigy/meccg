@@ -26,6 +26,7 @@ import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmpt
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
 import { removeConstraint } from './pending.js';
 
@@ -400,6 +401,14 @@ function resolveCorruptionCheck(
     };
   }
 
+  // Trophies live only on the bearer's `trophies` list — disperse them per
+  // CoE 3.IV.4 (MP-worth → marshalling-point pile, otherwise removed from
+  // play), or the creature CardInstance would vanish with the removed
+  // character (violating the "no card instance may ever disappear" invariant)
+  // and its kill MP would be lost from the final score.
+  const { toKillPile: trophyKill, toOutOfPlay: trophyOop } =
+    partitionLeavingTrophies(state, char, 'free-council corruption removal');
+
   if (outcome === 'discard') {
     // Roll == CP or CP-1 on a hero character: it and its possessions are discarded
     logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
@@ -412,6 +421,8 @@ function resolveCorruptionCheck(
       characters: newCharacters,
       companies: newCompanies,
       discardPile: [...newPlayers[playerIndex].discardPile, ...toDiscard],
+      killPile: [...newPlayers[playerIndex].killPile, ...trophyKill],
+      outOfPlayPile: [...newPlayers[playerIndex].outOfPlayPile, ...trophyOop],
     };
     // (Attached hazards were already discarded to their owners above.)
   } else {
@@ -422,7 +433,8 @@ function resolveCorruptionCheck(
       ...newPlayers[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
+      outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }, ...trophyOop],
+      killPile: [...newPlayers[playerIndex].killPile, ...trophyKill],
       discardPile: [...newPlayers[playerIndex].discardPile, ...nonHazardPossessions],
     };
     // (Attached hazards were already discarded to their owners above.)
@@ -451,17 +463,44 @@ function collectUniqueNamesInPlay(state: GameState, player: GameState['players']
   const names = new Set<string>();
   const addIfUnique = (definitionId: CardDefinitionId): void => {
     const def = defById(state, definitionId);
-    if (def && 'name' in def && 'unique' in def && (def as { unique: boolean }).unique) {
-      names.add((def as { name: string }).name);
-    }
+    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) return;
+    // CoE 10.3.v: the match must be against a unique card "that is giving
+    // their opponent at least one marshalling point" — a 0-MP unique
+    // (a permanent event, a misc resource) can never cost its controller a
+    // deduction.
+    const mp = 'marshallingPoints' in def ? (def as { marshallingPoints: number }).marshallingPoints : 0;
+    if (mp < 1) return;
+    names.add((def as { name: string }).name);
   };
   for (const card of player.cardsInPlay) addIfUnique(card.definitionId);
-  for (const character of Object.values(player.characters)) {
-    addIfUnique(character.definitionId);
+  for (const [charId, character] of Object.entries(player.characters)) {
+    // A pressed character (Press-gang ba-22) gives its player NEGATIVE
+    // character MP (CoE 8.35 scoring) — it is not "giving at least one
+    // marshalling point", so it cannot be matched either.
+    const pressed = state.activeConstraints.some(
+      c => c.kind.type === 'character-pressed'
+        && c.target.kind === 'character' && (c.target.characterId as string) === charId,
+    );
+    if (!pressed) addIfUnique(character.definitionId);
     for (const item of character.items) addIfUnique(item.definitionId);
     for (const ally of character.allies) addIfUnique(ally.definitionId);
   }
   return names;
+}
+
+/**
+ * True when a hand card qualifies for the CoE 10.3.v reveal: a unique card
+ * "that would normally give the revealing player marshalling points when
+ * played" — i.e. it carries a positive printed MP value of its own. Hazards
+ * never qualify (CoE 10.4: a player gets no MP from hazards they play), and
+ * neither do 0-MP uniques.
+ */
+function qualifiesForUniqueReveal(state: GameState, definitionId: CardDefinitionId): string | undefined {
+  const def = defById(state, definitionId);
+  if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) return undefined;
+  const mp = 'marshallingPoints' in def ? (def as { marshallingPoints: number }).marshallingPoints : 0;
+  if (mp < 1) return undefined;
+  return (def as { name: string }).name;
 }
 
 /**
@@ -492,20 +531,16 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
   const uniqueNamesInPlay0 = collectUniqueNamesInPlay(state, p0);
   const uniqueNamesInPlay1 = collectUniqueNamesInPlay(state, p1);
   for (const handCard of p0.hand) {
-    const def = defById(state, handCard.definitionId);
-    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) continue;
-    const name = (def as { name: string }).name;
-    if (uniqueNamesInPlay1.has(name)) {
-      logDetail(`Unique card reveal: ${p0.name} has unplayed "${name}" matching opponent's in-play — opponent -1 MP`);
+    const name = qualifiesForUniqueReveal(state, handCard.definitionId);
+    if (name !== undefined && uniqueNamesInPlay1.has(name)) {
+      logDetail(`Unique card reveal: ${p0.name} has unplayed "${name}" matching opponent's MP-giving in-play copy — opponent -1 MP`);
       score1 -= 1;
     }
   }
   for (const handCard of p1.hand) {
-    const def = defById(state, handCard.definitionId);
-    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) continue;
-    const name = (def as { name: string }).name;
-    if (uniqueNamesInPlay0.has(name)) {
-      logDetail(`Unique card reveal: ${p1.name} has unplayed "${name}" matching opponent's in-play — opponent -1 MP`);
+    const name = qualifiesForUniqueReveal(state, handCard.definitionId);
+    if (name !== undefined && uniqueNamesInPlay0.has(name)) {
+      logDetail(`Unique card reveal: ${p1.name} has unplayed "${name}" matching opponent's MP-giving in-play copy — opponent -1 MP`);
       score0 -= 1;
     }
   }

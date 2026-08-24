@@ -46,7 +46,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
-  Phase, RegionType, SiteType,
+  Phase, RegionType, SiteType, Alignment,
   computeLegalActions,
   BARROW_DOWNS,
 } from '../../index.js';
@@ -503,6 +503,63 @@ describe('Rain-drake (td-57)', () => {
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikesTotal).toBe(1);
     expect(afterChain.combat!.strikeProwess).toBe(15);
+  });
+
+  test('combat initiates end-to-end for a FALLEN-WIZARD company at a hero-printed R&L (regression: reducer resolved the destination by name + mover alignment)', () => {
+    // Barrow-downs is printed only as wizard and ringwraith site cards. The
+    // reducer's `checkCreatureKeying` used to resolve the destination site by
+    // name restricted to the MOVER's alignment — for a fallen-wizard company
+    // that lookup found no card, so the sitePath-count `when` gate on the
+    // alt-keying entry evaluated against empty counts and the reducer
+    // rejected a play the legal-action list had offered (u/p bench seeds
+    // 10000013+ — 20/100 games ended in engine-error). The destination must
+    // be resolved from the company's site INSTANCE, as the offering side does.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [
+            { site: RIVENDELL, characters: [ARAGORN], destinationSite: BARROW_DOWNS },
+          ],
+          hand: [],
+          siteDeck: [BARROW_DOWNS],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [RAIN_DRAKE],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Cardolan', 'Eriador'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Barrow-downs',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    // The offer must exist AND the reducer must accept it — the bug was an
+    // offered-then-rejected asymmetry, so the dispatch is the assertion.
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'site-type' && a.keyedBy?.value === SiteType.RuinsAndLairs;
+    })).toBe(true);
+
+    const drakeId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, drakeId, companyId,
+      { method: 'site-type' as const, value: SiteType.RuinsAndLairs },
+    );
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikesTotal).toBe(1);
   });
 
   // ─── On-guard reveal honors the site-type entry's `when` gate ─────────────

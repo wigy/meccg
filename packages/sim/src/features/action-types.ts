@@ -188,6 +188,38 @@ export const ACTION_TYPES: readonly string[] = [
   'ally-tap-extra-mh-phase',
   // Added with the CoE 1.8.2 Balrog-banned-card sideboard trade (rule 1.36).
   'swap-banned-vs-balrog',
+  // Batch appended 2026-08-24: the list had drifted 25 types behind the
+  // engine (the coverage test samples one real game and never reached
+  // them), so distinct decisions — a dodge offer, a burglary attempt, a
+  // riddling guess — all featurized as the reserved unknown row 0. Found by
+  // diffing every `readonly type: '…'` discriminant in
+  // packages/shared/src/types/actions-*.ts against this list; a
+  // completeness test in features.test.ts now performs that diff.
+  'attack-alt-permanent-event',
+  'burglary-attempt',
+  'cancel-hazard-event',
+  'cancel-prisoner-taking',
+  'character-tap-extra-mh-phase',
+  'choose-gold-ring-test-roll',
+  'choose-hunt-target',
+  'choose-long-dark-reach-attacker',
+  'choose-set-aside-item',
+  'choose-tap-or-roll',
+  'company-tap-roll',
+  'declare-burglary',
+  'dodge-strike',
+  'goodwill-attempt',
+  'opposed-roll',
+  'play-revealed-card',
+  'play-sacrifice-of-form',
+  'remove-corruption-offer',
+  'reveal-hazard-for-snake',
+  'riddling-attempt',
+  'riddling-guess',
+  'store-item-in-cache',
+  'tap-discard-in-play',
+  'tap-reveal-agent-for-snake',
+  'use-discard-substitute',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

@@ -57,7 +57,7 @@ import {
   viableActions,
   makeMHState,
   playCreatureHazardAndResolve,
-  handCardId, companyIdAt, dispatch, expectInDiscardPile,
+  handCardId, companyIdAt, dispatch, reduce, expectInDiscardPile,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
@@ -174,6 +174,31 @@ describe('Sojourn in Shadows (wh-49)', () => {
     const strikeTargetIds = assignActions.map(ea => (ea.action as { characterId?: unknown }).characterId);
     expect(strikeTargetIds).not.toContain(lagduf);
     expect(strikeTargetIds).toContain(ciryaher);
+  });
+
+  test('NOT playable after a strike has been assigned ("playable before strikes are assigned")', () => {
+    const combatState = setUpCombat([CIRYAHER, LAGDUF]);
+    const sojournId = handCardId(combatState, RESOURCE_PLAYER);
+    const lagduf = findInstanceId(combatState, RESOURCE_PLAYER, LAGDUF);
+
+    // Assign the first strike; the pre-assignment window closes.
+    const assignActions = viableActions(combatState, PLAYER_1, 'assign-strike');
+    expect(assignActions.length).toBeGreaterThan(0);
+    const mid = dispatch(combatState, assignActions[0].action);
+    expect(mid.combat).toBeDefined();
+    expect(mid.combat!.strikeAssignments.length).toBeGreaterThan(0);
+
+    // Regression: Sojourn was still offered (and accepted) mid-assignment,
+    // making already-assigned strikes potentially unassignable.
+    expect(viableActions(mid, PLAYER_1, 'protect-from-assignment')).toHaveLength(0);
+
+    // Even a forged action is rejected by the reducer.
+    const forged = reduce(mid, {
+      type: 'protect-from-assignment', player: PLAYER_1,
+      cardInstanceId: sojournId, targetCharacterId: lagduf,
+    });
+    expect(forged.error).toBeDefined();
+    expect(forged.state.combat!.protectedFromStrikeAssignment ?? []).not.toContain(lagduf);
   });
 
   test('enqueues a corruption check (-4) on the non-Ringwraith shadow-magic user (Ciryaher)', () => {

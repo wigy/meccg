@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.129.0 — 2026-08-24
+
+Forty-five fix batch: combat and movement rules, AI planning, UI polish, lobby hardening
+
+### Game Engine
+
+- Combat: discriminated every attack source in `sameAttack` for the CoE 8.03 response window (#2762), chain-resolved multi-attack cancels now remove the full per-attack strikes (#2785), take-prisoner strikes are recorded as captured rather than wounded (#2787), the protect-from-strike-assignment window closes once strikes are assigned (#2757), race-restricted creature-attack boosts no longer touch raceless attacks (#2782), and Flattery/Riddling thresholds match every race a multi-race attack carries (#2781).
+- Movement and hazards: hazard-limit snapshots no longer bleed onto companies they don't belong to (#2772), faced-attack races carry across the M/H → Site transition (#2789), negating a movement no longer duplicates a sibling company's site instance (#2791), the Under-deeps set-aside replay is gated on a Great Secrets host (#2773), and two mh-steps gates now treat the Balrog player as a minion (#2797).
+- Rules and cards: Press-gang capture defers the follower influence charge (CoE 2.II.2.2.3, #2748), tap-character emitters exclude wounded characters (#2750), tap-cost agent abilities require untapped agents (#2752), Ancient Black Axe matches "same site" targets by name (#2769), recruitment-vehicle variants are looked up independently (#2766), trophies disperse on the wounded-discard and rule-3.22 paths (#2778), both CoE 10.3.v conditions apply to the unique-card-reveal deduction (#2796), and an opposed roll whose roller left play can be abandoned with a pass (#2771).
+- Hidden information: undrafted pool identities are hidden during the item-draft step (#2793), positional deck reveals are forgotten when cards shuffle back into a play deck (#2798), a discarded agent reveal keeps the chosen home site in the deck (#2776), and private action fields are redacted from the lastAction broadcast (#2795).
+- Follow-ups to the v0.128.0 deadlock fixes: the no-eligible-item discard logic is now shared between emitter and reducer (#2760), and the Deep Mines lapsed-descent regression test also asserts the rule-5.04 pass (#2764).
+
+### AI & Simulation
+
+- Fixed the AI assigning attacker strikes to the opponent's strongest character (#2749), boostGain crediting support events with plans they cannot improve (#2770), and marginalFor crediting candidates with support-event card prices (#2775).
+- The determinizer no longer leaves the opponent sideboard as unresolvable sentinels (#2786), ACTION_TYPES caught up the 25 action types it had drifted behind the engine (#2788), and the capture-game determinize test got a realistic 120s timeout (#2799).
+- Cancel-attack contexts no longer misreport region-name-keyed attacks as site-keyed (#2754).
+
+### Web Client
+
+- Fixed multi-target CvCC Attack buttons never being cleaned up (#2755), strike arrows showing the wound arrowhead for no-harm outcomes (#2763), followers rendering twice when winning the title-character tie-break (#2765), the on-guard placement glow appearing on every rendered site (#2780), the pile-browser modal leaking keystrokes to the game behind it (#2761), scoreboard replays opening seated as a previously viewed player (#2758), spectator Ask AI explaining the idle seat during hazard windows (#2783), the Sent-tab Delete button that could never succeed (#2767), and the markdown auto-linker nesting an anchor inside a URL-text link (#2777).
+- Fixed the console draft display swapping seats when the own pool is exhausted (#2753).
+
+### Infrastructure
+
+- Lobby hardening: dual rejoin after a game-server crash no longer launches two servers (#2790), port allocation no longer races between check and take (#2794), and review approval no longer silently drops a renewed AI request (#2792).
+
+## 0.128.0 — 2026-08-24
+
+Bug-hunt sweep: engine deadlock and keying fixes, printed-attribute data fixes
+
+### Game Engine
+
+- Fixed two game-freezing deadlocks found by random self-play over alignment-diverse deck pairings: a planned Deep Mines (wh-55) move whose >6-stage-point descent requirement lapsed by reveal time left the game with no legal action (#2774), and Brigands' forced company-item discard was unsatisfiable when the wounded character's only attachments were permanent events placed "with" him (#2779 — now guarded at enqueue, in the emitter, and in the reducer).
+- Fixed two offered-then-rejected asymmetries: `checkCreatureKeying` resolved the destination site by name restricted to the mover's alignment, so fallen-wizard and balrog companies at sites printed for other alignments rejected legal creature keyings — Rain-drake, Nameless Thing, and Shelob's Brood (#2768); and rigid pass-only M/H step handlers (order-effects et al.) rejected rule-2.1.1 permanent-event chain responses and granted-action activations, now routed by the step dispatcher's shared fallback (#2784).
+- Gated Bade to Rule's (le-167) targeted Darkhaven/Ringwraith mode to the organization phase via a new per-mode `play-target.phases` gate, while its untargeted alternative keeps the any-phase allowance — closing the last known org-phase-gate audit gap (#2751).
+
+### Card Data
+
+- Restored printed miscellaneous marshalling points on six permanent-events imported as 0 — Dragon-lore (td-108), Map to Mithril (td-133), Stone of Erech (tw-334), Mallorn (dm-148), Stabbed Him in His Sleep (le-234), King under the Mountain (td-126) (#2756).
+- Restored printed corruption points on five certified Fallen-wizard cards (A New Ringlord wh-60 — which also regained its 3 stage points — Bow of Alatar wh-90, Huntsman's Garb wh-92, Pallando's Hood wh-105, Glove of Radagast wh-111) (#2759).
+
+### Infrastructure
+
+- All fixes verified by deterministic seed repros, red→green regression tests, and full re-benches: ~1,100 random/heuristic self-play games and ~236k probed offered actions now pass with zero engine errors, deadlocks, or decision-limit hits.
+
 ## 0.127.0 — 2026-08-23
 
 Seventeen certifications and a wave of engine fixes

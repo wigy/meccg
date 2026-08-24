@@ -2444,13 +2444,18 @@ function raceThresholdCancelAttackActions(
     );
     if (!effect) continue;
 
-    if (!combat.creatureRace) {
+    // An attack counts as EVERY race it carries — primary plus
+    // additionalRaces ("Orcs. Men." creatures like Goblin-faces wh-13
+    // populate `combat.creatureRaces`) — so match against the full list.
+    const attackRaces = combat.creatureRaces
+      ?? (combat.creatureRace !== undefined ? [combat.creatureRace] : []);
+    if (attackRaces.length === 0) {
       logDetail(`${label} ${handCard.definitionId as string}: no creature race — skipping`);
       continue;
     }
-    const matchedEntry = effect.thresholds.find(t => t.races.includes(combat.creatureRace!));
+    const matchedEntry = effect.thresholds.find(t => t.races.some(r => attackRaces.includes(r)));
     if (!matchedEntry) {
-      logDetail(`${label} ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
+      logDetail(`${label} ${handCard.definitionId as string}: race(s) "${attackRaces.join('/')}" not in thresholds — skipping`);
       continue;
     }
 
@@ -2565,9 +2570,14 @@ function cancelAttackActions(
     if (combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0) {
       attackCtx['keyingRegionNames'] = combat.attackKeyingRegionNames;
     }
+    // "Keyed to a site" means no *regional* keying of either kind: a creature
+    // keyed by region type OR by region name (a roaming dragon such as Smaug)
+    // is not site-keyed. A declared site-name keying (Bairanax at Ovir Hollow)
+    // populates none of the keying arrays and correctly stays site-keyed.
     const isSiteKeyedCreature = (
       combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
-    ) && !(combat.attackKeying && combat.attackKeying.length > 0);
+    ) && !(combat.attackKeying && combat.attackKeying.length > 0)
+      && !(combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0);
     attackCtx['siteKeyed'] = isSiteKeyedCreature;
     // `attack.heroCompany` is true only for character-vs-character combat in
     // which the attacking company belongs to a hero-side player (Wizard or
@@ -3131,6 +3141,10 @@ function protectFromStrikeAssignmentActions(
 ): EvaluatedAction[] {
   if (playerId !== combat.defendingPlayerId) return [];
   if (combat.phase !== 'assign-strikes') return [];
+  // Pre-assignment window only ("playable before strikes are assigned",
+  // Sojourn in Shadows wh-49) — once any strike is assigned the play is too
+  // late, matching every other pre-assignment scanner.
+  if (combat.strikeAssignments.length > 0) return [];
 
   const player = playerById(state, playerId);
   if (!player) return [];

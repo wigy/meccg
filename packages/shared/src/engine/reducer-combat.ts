@@ -404,8 +404,13 @@ function autoAssignEachCharacterStrikes(state: GameState, combat: CombatState): 
       .map(({ ally }) => ally.instanceId)
     : [];
 
-  if (company && combat.strikesTotal < company.characters.length + facingAllies.length) {
-    logDetail(`Each character faces one strike: only ${combat.strikesTotal} strike(s) left for ${company.characters.length} character(s) and ${facingAllies.length} ally/allies — falling back to manual assignment`);
+  // halve-strikes fallback: combat creation counts one strike per CHARACTER
+  // (allies face one too, but they are added during the recount below, not in
+  // the creation-time strikesTotal). Compare against the same character-only
+  // base — counting the allies here made any company with an ally spuriously
+  // fall back to manual attacker assignment with too few strikes.
+  if (company && combat.strikesTotal < company.characters.length) {
+    logDetail(`Each character faces one strike: only ${combat.strikesTotal} strike(s) left for ${company.characters.length} character(s) — falling back to manual assignment`);
     return null;
   }
   const facing = (company?.characters ?? []).filter(charId => {

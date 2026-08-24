@@ -22,6 +22,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
+import { completeDeckExhaust } from '../../../engine/reducer-utils.js';
 import type { CardDefinitionId, CardInstance, CardInstanceId, GameState } from '../../../index.js';
 
 // Safe from the Shadow (as-54): permanent event that discards when any play deck is exhausted
@@ -59,6 +60,51 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(state.players[0].playDeck).toHaveLength(1);
     expect(state.players[0].discardPile).toHaveLength(3);
     expect(state.players[0].deckExhaustionCount).toBe(0);
+  });
+
+  test('the exhaustion reshuffle forgets hand-reveal knowledge of the shuffled-in cards', () => {
+    // Regression (hidden-information leak): handRevealedInstances was
+    // append-only, and the opponent's projected hand/play-deck view unmasks
+    // its entries at their true positions. With The Great Hunt (wh-91)
+    // sweeping every discard into the map, a routine deck exhaustion turned
+    // the reshuffled play deck effectively face-up in draw order. A shuffle
+    // destroys that knowledge, so the map must be pruned.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [],
+          discardPile: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        { id: PLAYER_2, hand: [], siteDeck: [MINAS_TIRITH], companies: [{ site: LORIEN, characters: [LEGOLAS] }] },
+      ],
+    });
+    // Simulate the Great Hunt sweep: both discard instances face-up.
+    const discard = base.players[0].discardPile;
+    const revealedMap = Object.fromEntries(discard.map(c => [c.instanceId as string, c.definitionId]));
+    const state: GameState = {
+      ...base,
+      handRevealedInstances: revealedMap,
+      revealedInstances: { ...base.revealedInstances, ...revealedMap },
+    };
+
+    const after = completeDeckExhaust(state, 0);
+
+    // The discard became the new play deck…
+    expect(after.players[0].playDeck).toHaveLength(2);
+    // …and the positional reveal knowledge is forgotten…
+    for (const c of discard) {
+      expect(after.handRevealedInstances[c.instanceId]).toBeUndefined();
+    }
+    // …while the broad once-public map (toast identity) is untouched.
+    for (const c of discard) {
+      expect(after.revealedInstances[c.instanceId]).toBe(c.definitionId);
+    }
   });
 
   test('End-of-Turn reset-hand: drawing the card that both fills the hand and empties the play deck still triggers immediate reshuffle', () => {
@@ -119,6 +165,48 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(completedP1.deckExhaustPending).toBe(false);
     expect(completedP1.playDeck.length).toBeGreaterThan(0);
     expect(completedP1.deckExhaustionCount).toBe(1);
+  });
+
+  test('a card entering the play deck during the exhaust exchange window survives the reshuffle', () => {
+    // Regression (card-disappears invariant): completeDeckExhaust built the
+    // new play deck from the discard pile alone. The play deck is normally
+    // empty at that point, but the exchange sub-flow (`deckExhaustPending`)
+    // is an interactive window in which a card can legally enter the play
+    // deck first — Sudden Call (le-235) must be revealed and reshuffled
+    // into the play deck from hand when it cannot be played. Completing the
+    // exhaust then replaced the play deck wholesale, destroying the card:
+    // in a livelocked self-play game the minion player's only
+    // council-calling card vanished this way and the game could never end.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [DAGGER_OF_WESTERNESSE], // entered during the exchange window
+          discardPile: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+    const daggerInstance = state.players[0].playDeck[0].instanceId;
+
+    const after = completeDeckExhaust(state, 0);
+
+    // The reshuffled play deck holds the discard pile AND the card that was
+    // already in the play deck — no instance may disappear from the game.
+    const p1 = after.players[0];
+    expect(p1.discardPile).toHaveLength(0);
+    expect(p1.playDeck).toHaveLength(3);
+    expect(p1.playDeck.some(c => c.instanceId === daggerInstance)).toBe(true);
   });
 
   test('Exhaustion discards cards in play that trigger on deck exhaustion', () => {
