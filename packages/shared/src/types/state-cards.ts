@@ -525,6 +525,17 @@ export interface Company {
   /** Hazard cards targeting this company as a whole (not a specific character). */
   readonly hazards: readonly CardInPlay[];
   /**
+   * Races of the attacks this company has faced this turn (CoE 8.03: an
+   * attack is "faced" once combat is initiated, even if later canceled).
+   * Stamped at every attack teardown ({@link recordHazardEncountered}) and
+   * cleared for every company at the start of each new turn
+   * (`enterUntapPhase`). Backs "played on a company that has already faced a
+   * [race] attack this turn" self-effects (Orc-lieutenant tw-073,
+   * Orc-warband tw-076) across phase boundaries — the M/H phase state's
+   * `hazardsEncountered` list does not survive into the site phase.
+   */
+  readonly facedHazardRaces?: readonly Race[];
+  /**
    * Special movement granted by a card effect (e.g. Gwaihir, Paths of the Dead).
    * When set, the company uses special movement rules during planning and M/H phase:
    * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site
