@@ -23,7 +23,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, makeMHState, viableActions,
+  buildTestState, resetMint, dispatch, makeMHState, viableActions, reduce,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   LORIEN, MORIA,
@@ -296,6 +296,60 @@ describe('dm-15 — The Grimburgoth', () => {
 
     const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
     expect(attackActions).toHaveLength(0);
+  });
+
+  test('action not offered when agent is already tapped (no repeat attacks in one phase)', () => {
+    // "May tap to attack" is a tap-cost ability: a spent (Tapped) agent cannot
+    // pay it again, so it must not be offered a second attack this phase.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LORIEN, characters: [ARAGORN], destinationSite: DOL_GULDUR }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const tappedAgent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: { ...AGENT_CHAR, status: CardStatus.Tapped },
+      revealed: true,
+      siteStack: [DOL_GULDUR_SITE],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+
+    const withAgent = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], agents: [tappedAgent] },
+      ] as unknown as typeof state.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 5, hazardsPlayedThisCompany: 0, destinationSiteName: 'Dol Guldur' }),
+    };
+
+    const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
+    expect(attackActions).toHaveLength(0);
+
+    // Even a forged action is rejected by the reducer.
+    const forged = reduce(withAgent, {
+      type: 'agent-tap-attack', player: PLAYER_2, agentId: tappedAgent.id,
+    });
+    expect(forged.error).toBeDefined();
+    expect(forged.state.combat).toBeNull();
   });
 
   test('action not offered when agent was not in play at turn start', () => {
