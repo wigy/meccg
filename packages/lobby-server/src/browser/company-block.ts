@@ -137,6 +137,35 @@ export function hazardVariantLabel(action: PlayHazardAction): string {
  * Get the display name for a company based on its title character and current site.
  * Returns e.g. "Aragorn's Company at Rivendell" or "Company" if no title character found.
  */
+/**
+ * The company's title character, picked among standalone characters only. A
+ * follower renders nested under its controller's column (and the company
+ * name should match the leftmost column), so a follower must not win the
+ * (mind, MP, prowess, name) tie-break — e.g. Dori (prowess 3) under
+ * Halbarad (prowess 0, both mind 1) used to be picked as title character
+ * and rendered twice: once as the title column and once nested under her
+ * controller. Falls back to the full character list when every member is a
+ * follower (not reachable in practice — a follower's controller is in the
+ * same list and is itself standalone).
+ */
+function titleCharacterOf(
+  company: { readonly characters: readonly CardInstanceId[] },
+  charMap: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): CharacterInPlay | undefined {
+  const present = new Set(company.characters as readonly string[]);
+  const followers = new Set<string>();
+  for (const id of company.characters) {
+    const char = charMap[id as string];
+    if (!char) continue;
+    for (const fId of char.followers) {
+      if (present.has(fId as string)) followers.add(fId as string);
+    }
+  }
+  const standalone = company.characters.filter(id => !followers.has(id as string));
+  return getTitleCharacter(standalone.length > 0 ? standalone : company.characters, charMap, cardPool);
+}
+
 function getCompanyName(
   company: Company | OpponentCompanyView,
   charMap: Readonly<Record<string, CharacterInPlay>>,
@@ -144,7 +173,7 @@ function getCompanyName(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+  const titleChar = titleCharacterOf(company, charMap, cardPool);
   if (!titleChar) return 'Company';
   const def = cardPool[titleChar.definitionId as string];
   if (!def) return 'Company';
@@ -446,7 +475,7 @@ export function renderCompanyBlock(
       ? { ...char, followers: char.followers.filter(fId => companyCharacterIds.has(fId as string)) }
       : char;
 
-  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+  const titleChar = titleCharacterOf(company, charMap, cardPool);
 
   /** Build the influence click handler for a character, if applicable. */
   const buildInfluenceClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
