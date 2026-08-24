@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.128.0 — 2026-08-24
+
+Bug-hunt sweep: engine deadlock and keying fixes, printed-attribute data fixes
+
+### Game Engine
+
+- Fixed two game-freezing deadlocks found by random self-play over alignment-diverse deck pairings: a planned Deep Mines (wh-55) move whose >6-stage-point descent requirement lapsed by reveal time left the game with no legal action (#2774), and Brigands' forced company-item discard was unsatisfiable when the wounded character's only attachments were permanent events placed "with" him (#2779 — now guarded at enqueue, in the emitter, and in the reducer).
+- Fixed two offered-then-rejected asymmetries: `checkCreatureKeying` resolved the destination site by name restricted to the mover's alignment, so fallen-wizard and balrog companies at sites printed for other alignments rejected legal creature keyings — Rain-drake, Nameless Thing, and Shelob's Brood (#2768); and rigid pass-only M/H step handlers (order-effects et al.) rejected rule-2.1.1 permanent-event chain responses and granted-action activations, now routed by the step dispatcher's shared fallback (#2784).
+- Gated Bade to Rule's (le-167) targeted Darkhaven/Ringwraith mode to the organization phase via a new per-mode `play-target.phases` gate, while its untargeted alternative keeps the any-phase allowance — closing the last known org-phase-gate audit gap (#2751).
+
+### Card Data
+
+- Restored printed miscellaneous marshalling points on six permanent-events imported as 0 — Dragon-lore (td-108), Map to Mithril (td-133), Stone of Erech (tw-334), Mallorn (dm-148), Stabbed Him in His Sleep (le-234), King under the Mountain (td-126) (#2756).
+- Restored printed corruption points on five certified Fallen-wizard cards (A New Ringlord wh-60 — which also regained its 3 stage points — Bow of Alatar wh-90, Huntsman's Garb wh-92, Pallando's Hood wh-105, Glove of Radagast wh-111) (#2759).
+
+### Infrastructure
+
+- All fixes verified by deterministic seed repros, red→green regression tests, and full re-benches: ~1,100 random/heuristic self-play games and ~236k probed offered actions now pass with zero engine errors, deadlocks, or decision-limit hits.
+
 ## 0.127.0 — 2026-08-23
 
 Seventeen certifications and a wave of engine fixes
