@@ -2565,9 +2565,14 @@ function cancelAttackActions(
     if (combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0) {
       attackCtx['keyingRegionNames'] = combat.attackKeyingRegionNames;
     }
+    // "Keyed to a site" means no *regional* keying of either kind: a creature
+    // keyed by region type OR by region name (a roaming dragon such as Smaug)
+    // is not site-keyed. A declared site-name keying (Bairanax at Ovir Hollow)
+    // populates none of the keying arrays and correctly stays site-keyed.
     const isSiteKeyedCreature = (
       combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
-    ) && !(combat.attackKeying && combat.attackKeying.length > 0);
+    ) && !(combat.attackKeying && combat.attackKeying.length > 0)
+      && !(combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0);
     attackCtx['siteKeyed'] = isSiteKeyedCreature;
     // `attack.heroCompany` is true only for character-vs-character combat in
     // which the attacking company belongs to a hero-side player (Wizard or

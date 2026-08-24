@@ -38,13 +38,13 @@ import {
   viableActions,
   makeMHState,
   playCreatureHazardAndResolve,
-  buildSitePhaseState, setupAutoAttackStep, addP1CardsInPlay,
+  buildSitePhaseState, setupAutoAttackStep, addP1CardsInPlay, addCardInPlay,
   CardStatus,
   handCardId, companyIdAt, dispatch, expectInDiscardPile,
   resolveChain, reduce, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
-import { RegionType, SiteType, ETTENMOORS_HERO } from '../../index.js';
+import { RegionType, SiteType, ETTENMOORS_HERO, DOORS_OF_NIGHT } from '../../index.js';
 import type { CardInPlay, CardDefinitionId, CardInstanceId } from '../../index.js';
 
 const NOT_AT_HOME = 'td-143' as CardDefinitionId;
@@ -121,6 +121,48 @@ describe('Not at Home (td-143)', () => {
     expect(cancelActions).toHaveLength(1);
     const cancelAction = cancelActions[0].action as CancelAttackAction;
     expect(cancelAction.scoutInstanceId).toBeUndefined();
+  });
+
+  test('cancel-attack NOT available against a roaming Dragon keyed by region name (Smaug)', () => {
+    // Smaug (tw-90) roaming: with Doors of Night in play he may be keyed by
+    // region NAME (Withered Heath), not to a site. → attackKeyingRegionNames
+    // is populated → attack.siteKeyed = false → NOT eligible ("this attack
+    // must be either an automatic-attack or keyed to a site"). Regression:
+    // the cancel-attack context ignored region-name keying and offered the
+    // cancel.
+    const SMAUG = 'tw-90' as CardDefinitionId;
+    const base = addCardInPlay(buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [NOT_AT_HOME], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [SMAUG], siteDeck: [RIVENDELL] },
+      ],
+    }), HAZARD_PLAYER, DOORS_OF_NIGHT);
+
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Withered Heath'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const smaugId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const combatState = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, smaugId, targetCompanyId,
+      { method: 'region-name', value: 'Withered Heath' },
+    );
+
+    expect(combatState.combat).toBeDefined();
+    expect(combatState.combat!.creatureRace).toBe('dragon');
+    expect(combatState.combat!.attackKeyingRegionNames).toEqual(['Withered Heath']);
+
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(0);
   });
 
   test('cancel-attack NOT available against region-keyed Drake (Cave-drake)', () => {
