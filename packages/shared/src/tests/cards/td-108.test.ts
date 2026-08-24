@@ -138,6 +138,8 @@ describe('Dragon-lore (td-108)', () => {
     expect(after.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Tapped);
     expect(after.players[RESOURCE_PLAYER].characters[bilboId].items
       .some(i => i.definitionId === DRAGON_LORE)).toBe(true);
+    // Printed marshalling points: 1 (misc) — scored while the card is in play.
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
   });
 
   // ── Rule 4: grant-action offered only at a tapped Dragon's lair ──────────
