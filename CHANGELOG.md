@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.130.0 — 2026-08-24
+
+Card-conservation sweep: nineteen engine and lobby fixes for vanishing and duplicated cards
+
+### Game Engine
+
+- Preserve play-deck cards through the deck-exhaust reshuffle (#2807)
+- Return on-guard cards and company hazards when a company dissolves (#2811)
+- Dissolve the company that combat empties, and stop refusing offered actions (#2819)
+- Keep a site in play when a kept company still heads there (#2818)
+- Return the destination site when Seized by Terror cancels movement (#2814)
+- Fix failed transfer/store corruption checks mishandling the moved item (#2820)
+- Make `resolveInstanceId` see items held in combat item stores (#2816)
+- Fix Free Council corruption failure dropping the character's trophies (#2802)
+- Fix Free Council dropping company-scoped corruption modifiers for non-minions (#2821)
+- Sweep turn-scoped effects when a turn ends via the Free Council paths (#2806)
+- Fix minion resource long-events never expiring at long-event phase entry (#2801)
+- Fix agent influence attempt skipping the rule 9.04 reveal bookkeeping (#2815)
+- Fix creature-keying validator losing the destination site for FW/Balrog movers (#2809)
+- Fix each-character strike auto-assign bailing when the company has an ally (#2808)
+- Fix forced strike defeat being negated by a tie roll (#2803)
+- Fix detainment strike healing an already-wounded ally to Tapped (#2800)
+
+### Lobby / Web Client
+
+- Fix second incoming challenge overwriting the first, deadlocking it (#2812)
+- Fix Sent tab wiping the unread-mail badge (#2810)
+- Fix online-list Watch/Cancel buttons blanket-disabled when no deck selected (#2804)
+
 ## 0.129.0 — 2026-08-24
 
 Forty-five fix batch: combat and movement rules, AI planning, UI polish, lobby hardening
