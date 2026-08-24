@@ -18,11 +18,11 @@ import { Phase } from '../../../index.js';
 import { recomputeDerived } from '../../../engine/recompute-derived.js';
 import type { FreeCouncilPhaseState, CardDefinitionId, CorruptionCheckAction } from '../../../index.js';
 import {
-  buildTestState, resetMint, dispatch, viableFor,
+  buildTestState, resetMint, dispatch, viableFor, mint,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS, GANDALF,
   RIVENDELL, LORIEN, MINAS_TIRITH,
-  findCharInstanceId, attachHazardToChar,
+  findCharInstanceId, attachHazardToChar, assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 
 // Minion character sharing a company with the Ringwraith avatar.
@@ -189,6 +189,72 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
 
     const copies = after.players[HAZARD_PLAYER].discardPile.filter(c => c.instanceId === hazardId);
     expect(copies).toHaveLength(1);
+  });
+
+  test('A failed check relocates the character\'s trophies to the marshalling-point pile instead of dropping them (bug regression)', () => {
+    // A trophy CardInstance lives only on the bearer's `trophies` list. The
+    // Free Council resolver removed the failed character without relocating
+    // its trophies (CoE 3.IV.4: MP-worth → marshalling-point pile, else out
+    // of play), so the trophy instance vanished from the game state — and its
+    // kill-MP were silently lost from the final score computed right after.
+    const LURE_OF_THE_SENSES = 'tw-60' as CardDefinitionId; // +2 CP corruption card
+    const LURE_OF_NATURE = 'tw-58' as CardDefinitionId;     // +2 CP corruption card
+    const ORC_GUARD = 'tw-072' as CardDefinitionId;         // creature, 1 kill MP
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    let withHazard = attachHazardToChar(base, RESOURCE_PLAYER, GANDALF, LURE_OF_THE_SENSES, HAZARD_PLAYER);
+    withHazard = attachHazardToChar(withHazard, RESOURCE_PLAYER, GANDALF, LURE_OF_NATURE, HAZARD_PLAYER);
+    withHazard = recomputeDerived(withHazard);
+    const gandalfId = findCharInstanceId(withHazard, RESOURCE_PLAYER, GANDALF);
+
+    // Give Gandalf a creature trophy (rule 8.37 pattern) directly in state.
+    const trophyId = mint();
+    const gandalf = withHazard.players[RESOURCE_PLAYER].characters[gandalfId];
+    const withTrophy = {
+      ...withHazard,
+      players: [
+        {
+          ...withHazard.players[0],
+          characters: {
+            ...withHazard.players[0].characters,
+            [gandalfId as string]: { ...gandalf, trophies: [{ instanceId: trophyId, definitionId: ORC_GUARD }] },
+          },
+        },
+        withHazard.players[1],
+      ] as typeof withHazard.players,
+    };
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+
+    // Gandalf (CP 4) rolls 2 → the check fails; a Wizard avatar is
+    // eliminated on any failure.
+    const state = { ...withTrophy, cheatRollTotal: 2, phaseState: fcState };
+    const checkActions = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'corruption-check')
+      .map(a => a.action as CorruptionCheckAction)
+      .filter(a => a.characterId === gandalfId);
+    expect(checkActions).toHaveLength(1);
+    const after = dispatch(state, checkActions[0]);
+
+    // Gandalf is gone from play; the 1-MP trophy must land in his player's
+    // marshalling-point pile, not vanish from the game state.
+    expect(after.players[RESOURCE_PLAYER].characters[gandalfId]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophyId)).toBe(true);
+    assertEveryInstanceReachable(after);
   });
 
   test('Ringwraith and Balrog avatars are skipped — only their non-Ringwraith, non-Balrog company mate is checked', () => {
