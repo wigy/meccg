@@ -16,7 +16,7 @@
  * • If the modified roll is less than two or lower than the character's corruption point total, the character fails the corruption check, it is immediately eliminated, and all of its non-follower cards are immediately discarded.
  */
 
-import { describe, test, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, dispatch, Phase,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
@@ -24,10 +24,10 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH, MORIA,
   charIdAt, findCharInstanceId, expectCharInPlay, expectCharNotInPlay, expectInPile, expectNotInPile,
   expectInDiscardPile, expectNotInDiscardPile,
-  enqueueCorruptionCheck,
+  enqueueCorruptionCheck, assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { FreeCouncilPhaseState } from '../../../index.js';
-import type { CardInstanceId } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId } from '../../../index.js';
 
 describe('Rule 10.01 — Corruption Check', () => {
   beforeEach(() => resetMint());
@@ -97,6 +97,70 @@ describe('Rule 10.01 — Corruption Check', () => {
     expectCharNotInPlay(afterElim, RESOURCE_PLAYER, aragornId);
     expectInPile(afterElim, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
     expectNotInDiscardPile(afterElim, RESOURCE_PLAYER, aragornId);
+  });
+
+  test('Failed Free Council check disperses the character\'s trophies per CoE 3.IV.4 (no card instance vanishes)', () => {
+    // Regression: the Free Council failed-check branch deleted the character
+    // record without touching `trophies` — the only character-removal path in
+    // the engine that skipped partitionLeavingTrophies. The trophy's card
+    // instance disappeared from every collection and its kill MP silently
+    // evaporated from the final score.
+    const ORC_GUARD = 'tw-072' as CardDefinitionId; // creature worth kill MP
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GANDALF] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const trophy = { instanceId: 'p1-trophy-inst' as CardInstanceId, definitionId: ORC_GUARD };
+    const withTrophy = {
+      ...base,
+      players: base.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [aragornId as string]: { ...p.characters[aragornId], trophies: [trophy] },
+        },
+      }) as unknown as typeof base.players,
+    };
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5, modifier 0',
+        supportCount: 0,
+      },
+    };
+
+    // Discard branch (roll 4 == CP-1): trophy (worth kill MP) relocates to
+    // the marshalling-point pile; every instance stays reachable.
+    const afterDiscard = dispatch(
+      { ...withTrophy, cheatRollTotal: 4, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 },
+    );
+    expect(afterDiscard.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophy.instanceId)).toBe(true);
+    assertEveryInstanceReachable(afterDiscard);
+
+    // Eliminate branch (roll 3 == CP-2): same trophy relocation.
+    const afterElim2 = dispatch(
+      { ...withTrophy, cheatRollTotal: 3, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 },
+    );
+    expect(afterElim2.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophy.instanceId)).toBe(true);
+    assertEveryInstanceReachable(afterElim2);
   });
 
   test('Wizard avatar is eliminated (not discarded) on soft-fail corruption check', () => {
