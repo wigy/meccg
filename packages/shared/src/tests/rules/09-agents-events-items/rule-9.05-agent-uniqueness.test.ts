@@ -121,6 +121,10 @@ describe('Rule 9.05 — Agent Uniqueness', () => {
     expect(after.players[HAZARD_PLAYER].agents).toHaveLength(0);
     // Character card goes to hazard player's discard pile
     expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === AGENT_CHAR_ID)).toBe(true);
+    // Regression: the chosen home site was never taken out of the location
+    // deck, so the discard must leave it there — it used to be deleted from
+    // the deck entirely, vanishing the card instance from the game state.
+    expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === MORIA_SITE_ID)).toBe(true);
   });
 
   test('revealing a unique agent that duplicates another revealed agent immediately discards the newer one', () => {

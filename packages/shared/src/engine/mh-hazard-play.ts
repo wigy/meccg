@@ -544,8 +544,11 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
         ...p,
         agents: p.agents.filter((_, i) => i !== agentIdx),
         discardPile: [...p.discardPile, toCardInstance(agent.character)],
-        // Return old stack sites + home site to deck
-        siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
+        // Return old stack sites to the deck. The chosen home site was never
+        // taken out of the deck (that only happens on the success path), so
+        // it must NOT be removed here — removing it would make the card
+        // instance vanish from the game state.
+        siteDeck: [...p.siteDeck, ...agent.siteStack],
       })),
     };
   }
@@ -573,8 +576,10 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
           ...p,
           agents: p.agents.filter((_, i) => i !== agentIdx),
           discardPile: [...p.discardPile, toCardInstance(agent.character)],
-          // Return old stack sites + home site to deck
-          siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
+          // Return old stack sites to the deck; the chosen home site was
+          // never taken out of the deck, so it simply stays (removing it
+          // here would make the card instance vanish from the game state).
+          siteDeck: [...p.siteDeck, ...agent.siteStack],
         })),
       };
     }

@@ -176,5 +176,11 @@ describe('Rule 9.07 — Agent Haven Movement Restriction', () => {
     // Agent discarded (moved through a Haven)
     expect(after.players[HAZARD_PLAYER].agents).toHaveLength(0);
     expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === AGENT_CHAR_ID)).toBe(true);
+    // Regression: the chosen home site was never taken out of the location
+    // deck, so the discard must leave it there, and the stack site returns to
+    // the deck — the home-site instance used to be deleted from the deck
+    // entirely, vanishing from the game state.
+    expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === MORIA_SITE_ID)).toBe(true);
+    expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === RIVENDELL_SITE_ID)).toBe(true);
   });
 });
