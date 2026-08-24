@@ -7,7 +7,8 @@
  * rolls.
  *
  * Strategy:
- * - Assign strikes to high-prowess characters first.
+ * - Assign strikes to high-prowess characters first when defending; to the
+ *   weakest defending characters when attacking.
  * - Tap to fight when the unmodified need is hard (>= 8) and the character
  *   is still untapped.
  * - Never play a Dodge-style (no-tap) strike event on a character that's
@@ -41,9 +42,13 @@ export const combatEvaluator: ActionEvaluator = {
       case 'assign-strike': {
         const found = findCharacterInPlay(view, action.characterId);
         if (!found) return 1;
-        // Higher prowess characters absorb strikes better.
         const prowess = found.character.effectiveStats.prowess;
-        return Math.max(1, prowess + 5);
+        // Defending: higher prowess characters absorb strikes better.
+        // Attacking (the engine also asks the attacker to assign leftover
+        // strikes to the defender's characters): target the weakest defender,
+        // so the scale inverts.
+        if (found.isSelf) return Math.max(1, prowess + 5);
+        return Math.max(1, 25 - prowess);
       }
 
       case 'choose-strike-order': {

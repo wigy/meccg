@@ -149,6 +149,9 @@ describe('Orc-lieutenant (tw-073)', () => {
     expect(s.phaseState.phase).toBe(Phase.MovementHazard);
     const mh = s.phaseState as typeof mhState;
     expect(mh.hazardsEncountered).toContain('Orc-lieutenant');
+    // …and the faced race stamped on the company itself (turn-scoped, so it
+    // survives into the site phase — see the cross-phase test below).
+    expect(s.players[RESOURCE_PLAYER].companies[0].facedHazardRaces).toContain(Race.Orc);
 
     // --- Second attack: play second Orc-lieutenant ---
     const secondLtId = handCardId(s, HAZARD_PLAYER, 0);
@@ -254,5 +257,33 @@ describe('Orc-lieutenant (tw-073)', () => {
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikeProwess).toBe(11);
     expect(afterChain.combat!.strikesTotal).toBe(1);
+  });
+
+  test('+4 prowess when the Orc attack was faced during the SAME TURN\'s M/H phase (cross-phase)', () => {
+    // Regression: "this turn" is turn-scoped, but the M/H hazardsEncountered
+    // list dies at the phase transition and the site derivation counted only
+    // the site's own resolved automatic-attacks — an on-guard Orc-lieutenant
+    // revealed at a site with no Orc auto-attack lost the +4 even though the
+    // company faced an Orc creature during its M/H phase. The faced race is
+    // now stamped on the company (facedHazardRaces) at combat teardown.
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN] });
+    const { state: withOG } = placeOnGuard(base, RESOURCE_PLAYER, 0, ORC_LIEUTENANT, { revealed: true });
+    const state = {
+      ...withOG,
+      players: withOG.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        companies: p.companies.map(c => ({ ...c, facedHazardRaces: [Race.Orc] })),
+      }) as unknown as typeof withOG.players,
+      phaseState: makeSitePhase({
+        step: 'resolve-attacks',
+        automaticAttacksResolved: 0, // NO site auto-attack faced
+        siteEntered: true,
+      }),
+    };
+
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterChain = resolveChain(afterPass);
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikeProwess).toBe(11); // NOT 7
   });
 });

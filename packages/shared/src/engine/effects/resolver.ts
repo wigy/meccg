@@ -1033,13 +1033,17 @@ function collectCreatureAttackBoostEffects(
       continue;
     }
     if (ctx.creatureInstanceId && constraint.source === ctx.creatureInstanceId) continue;
-    // An absent `race` (Wizard's Flame tw-361) matches every attack race.
+    // An absent `race` on the CONSTRAINT (Wizard's Flame tw-361) matches
+    // every attack. A race-restricted boost, however, never matches an
+    // attack with no printed type (creatureRace undefined, e.g. the FEAR!
+    // FIRE! FOES! as-29 injected attack) — a raceless attack matches no
+    // race condition, same as the `when: enemy.race` DSL path.
     const boostedRaces = constraint.kind.race === undefined
       ? undefined
       : Array.isArray(constraint.kind.race)
         ? constraint.kind.race
         : [constraint.kind.race as Race];
-    if (creatureRace && boostedRaces && !boostedRaces.includes(creatureRace)) continue;
+    if (boostedRaces && (creatureRace === undefined || !boostedRaces.includes(creatureRace))) continue;
     const value = stat === 'prowess' ? constraint.kind.prowess : constraint.kind.strikes;
     if (value === 0) continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];

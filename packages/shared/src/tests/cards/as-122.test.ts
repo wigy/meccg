@@ -298,6 +298,39 @@ describe('Ancient Black Axe (as-122)', () => {
     expect(actions[0].targetCardId).toBe(luitprandId);
   });
 
+  test('offered targeting an opponent character at the same location (alignment-specific site versions)', () => {
+    // Regression: "the same site" was matched by site definition id, but each
+    // location exists as alignment-specific site cards — the minion company
+    // stands at Moria (le-392) while the hero company stands at Moria
+    // (tw-413). Same location, different definition ids: the opponent's
+    // character was never offered as a target.
+    const MORIA_MINION = 'le-392' as CardDefinitionId;
+    const MORIA_HERO = 'tw-413' as CardDefinitionId;
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA_MINION, characters: [{ defId: ORC_CAPTAIN, items: [ANCIENT_BLACK_AXE] }] }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MORIA_HERO, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const aragornId = findCharInstanceId(state, HAZARD_PLAYER, ARAGORN);
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(ea => ea.action as ActivateGrantedAction)
+      .filter(a => a.actionId === 'auto-pass-corruption-check');
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].targetCardId).toBe(aragornId);
+  });
+
   test('NOT offered targeting the bearer itself, and not offered when alone at the site', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,

@@ -544,8 +544,11 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
         ...p,
         agents: p.agents.filter((_, i) => i !== agentIdx),
         discardPile: [...p.discardPile, toCardInstance(agent.character)],
-        // Return old stack sites + home site to deck
-        siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
+        // Return old stack sites to the deck. The chosen home site was never
+        // taken out of the deck (that only happens on the success path), so
+        // it must NOT be removed here — removing it would make the card
+        // instance vanish from the game state.
+        siteDeck: [...p.siteDeck, ...agent.siteStack],
       })),
     };
   }
@@ -573,8 +576,10 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
           ...p,
           agents: p.agents.filter((_, i) => i !== agentIdx),
           discardPile: [...p.discardPile, toCardInstance(agent.character)],
-          // Return old stack sites + home site to deck
-          siteDeck: removeById([...p.siteDeck, ...agent.siteStack], homeSiteCard.instanceId),
+          // Return old stack sites to the deck; the chosen home site was
+          // never taken out of the deck, so it simply stays (removing it
+          // here would make the card instance vanish from the game state).
+          siteDeck: [...p.siteDeck, ...agent.siteStack],
         })),
       };
     }
@@ -3127,24 +3132,27 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // losing the override and rejecting a play the legal-action list had
   // offered as legal.
   const targetCompany = state.players[moverIndex]?.companies[mhState.activeCompanyIndex];
-  // Resolve the destination from the company's destinationSite instance first,
-  // mirroring the offering side (`findCreatureKeyingMatches`) — a Fallen-wizard
-  // or Balrog mover routinely stands on a site card printed in another
-  // alignment (their location decks legitimately mix printings), which the
-  // alignment-filtered by-name fallback below can never find. Falling through
-  // to the by-name lookup keeps the stationary-company case working.
-  const destByInstanceDefId = targetCompany?.destinationSite?.instanceId
+  // Resolve the destination site by INSTANCE first, exactly as the offering
+  // side (`findCreatureKeyingMatches`) does. The alignment-restricted by-name
+  // fallback below fails whenever the moving player's own alignment differs
+  // from the printed site card's alignment — a Fallen-wizard moving to a
+  // hero-printed site (e.g. Barrow-downs, printed only as wizard/ringwraith)
+  // resolved to NO site card, emptying `destSitePath`/keywords/adjacency and
+  // rejecting keyings the legal-action list had offered (Rain-drake td-57's
+  // sitePath-count `when`, Nameless Thing dm-109's under-deeps keyword and
+  // adjacency entries — u/p bench seeds 10000001+, 20/100 engine-errors).
+  const destSiteInstDefId = targetCompany?.destinationSite?.instanceId
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
-  const destByInstance = destByInstanceDefId ? defById(state, destByInstanceDefId) : undefined;
-  const destSiteDef = destByInstance && isSiteCard(destByInstance)
-    ? destByInstance
-    : mhState.destinationSiteName
+  const destSiteInstDef = destSiteInstDefId ? defById(state, destSiteInstDefId) : undefined;
+  const destSiteDef = (destSiteInstDef && isSiteCard(destSiteInstDef))
+    ? destSiteInstDef
+    : (mhState.destinationSiteName
       ? Object.values(state.cardPool).find(
           c => isSiteCard(c) && c.name === mhState.destinationSiteName
             && (moverAlignment === undefined || c.alignment === moverAlignment),
         )
-      : undefined;
+      : undefined);
   const destSiteCard = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef : undefined;
 
   // Build sitePath counts from the destination site's own sitePath (for Rain-drake

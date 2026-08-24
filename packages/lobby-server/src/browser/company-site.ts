@@ -116,17 +116,38 @@ export function getPathRegionTypes(
 }
 
 /**
+ * True when `company` is the one currently resolving its movement/hazard
+ * sub-phase — the active player's company at `activeCompanyIndex`.
+ */
+function isActiveMovementCompany(view: PlayerView, company: Company | OpponentCompanyView): boolean {
+  if (view.phaseState.phase !== Phase.MovementHazard) return false;
+  const idx = (view.phaseState as unknown as { activeCompanyIndex?: number }).activeCompanyIndex ?? -1;
+  const activeSide = view.activePlayer === view.self.id ? view.self : view.opponent;
+  return activeSide.companies[idx]?.id === company.id;
+}
+
+/**
  * If a hazard is selected for character targeting, make a site card clickable
  * to place the hazard on-guard instead. Returns true if the handler was applied.
+ *
+ * Only the site of the company resolving its M/H sub-phase gets the
+ * affordance: `place-on-guard` names no target — the engine places the card
+ * at the ACTIVE company's site — so the glow used to appear on every
+ * rendered site (other companies' sites, hidden destination backs, even the
+ * hazard player's own sites), and clicking one of those read as "place it
+ * here" while the card actually landed at the active company.
  */
 function applyHazardOnGuardClick(
   img: HTMLImageElement,
+  view: PlayerView,
+  company: Company | OpponentCompanyView,
   onAction?: (action: GameAction) => void,
 ): boolean {
   const selectedHazard = getSelectedHazardForPlay();
   if (!selectedHazard || !onAction) return false;
   const ogAction = getSelectedHazardOnGuardAction();
   if (!ogAction) return false;
+  if (!isActiveMovementCompany(view, company)) return false;
   img.classList.add('company-card--influence-target');
   img.style.cursor = 'pointer';
   img.addEventListener('click', (e) => {
@@ -250,7 +271,7 @@ export function renderSiteArea(
               onAction(havenReturnAction);
             });
           } else {
-            applyHazardOnGuardClick(img, options?.onAction);
+            applyHazardOnGuardClick(img, view, company, options?.onAction);
           }
 
           // Cards bound to this site location (e.g. Hidden Haven) render beneath
@@ -456,7 +477,7 @@ export function renderSiteArea(
               onAction(cancelAction);
             });
           } else {
-            applyHazardOnGuardClick(img, options?.onAction);
+            applyHazardOnGuardClick(img, view, company, options?.onAction);
           }
           area.appendChild(img);
         }
@@ -477,14 +498,14 @@ export function renderSiteArea(
     if (revealedDefId && revealedDef && revealedImg) {
       const revealedElId = siteElementInstanceId(company.id as string, revealedSite.instanceId, options?.renderedSiteInstances);
       const siteImg = createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedElId);
-      applyHazardOnGuardClick(siteImg, options?.onAction);
+      applyHazardOnGuardClick(siteImg, view, company, options?.onAction);
       area.appendChild(siteImg);
     } else {
       const back = document.createElement('img');
       back.src = '/images/site-back.jpg';
       back.alt = 'Hidden destination';
       back.className = 'company-card company-card--site';
-      applyHazardOnGuardClick(back, options?.onAction);
+      applyHazardOnGuardClick(back, view, company, options?.onAction);
       area.appendChild(back);
     }
   }

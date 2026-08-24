@@ -31,7 +31,7 @@ import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { isSiteCard, isCharacterCard, isHalfOrc, printedMind } from '../types/cards.js';
+import { isSiteCard, isCharacterCard, isHalfOrc, isItemCard, printedMind } from '../types/cards.js';
 import { CardStatus, Alignment, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -40,6 +40,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -47,7 +48,7 @@ import { enqueueCorruptionCheck, addConstraint, enqueueResolution, sweepExpired,
 import { getAttackSourceCard } from './combat-hazard-play.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
-import { revealInstances } from './visibility.js';
+import { revealInstances, forgetDeckReveals } from './visibility.js';
 
 export function discardCardTriggeredCard(
   state: GameState,
@@ -222,7 +223,9 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
   const company = companyById(defPlayer.companies, combat.companyId);
   if (!company) return state;
 
-  const attackSucceeded = combat.strikeAssignments.some(a => a.result === 'wounded' || a.result === 'eliminated');
+  const attackSucceeded = combat.strikeAssignments.some(
+    a => a.result === 'wounded' || a.result === 'eliminated' || a.result === 'captured',
+  );
 
   if (attackSucceeded && outcome.onSuccessVsRing) {
     const ringIds: CardInstanceId[] = [];
@@ -661,9 +664,14 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         const defendingIndex = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
         const defPlayer = stateAfterCombat.players[defendingIndex];
         const company = companyById(defPlayer?.companies ?? [], companyId);
+        // Count only genuine item cards — a character's `items` list may also
+        // hold permanent events placed "with" the character (e.g. Thrall of
+        // the Voice), which the resolution's emitter rightly refuses to offer.
+        // Counting those enqueued an unsatisfiable forced discard with zero
+        // legal actions and deadlocked the game (q/d bench seed 10800010).
         const hasItems = (company?.characters ?? []).some(charId => {
           const ch = defPlayer.characters[charId];
-          return ch && ch.items.length > 0;
+          return !!ch && ch.items.some(item => isItemCard(defById(stateAfterCombat, item.definitionId)));
         });
         if (hasItems) {
           const scope = companySubphaseScope(state.phaseState.phase, companyId);
@@ -1231,10 +1239,15 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       logDetail(`Lucky Search: no item found in deck`);
     }
 
-    // Reshuffle non-item revealed cards back into the remaining deck
+    // Reshuffle non-item revealed cards back into the remaining deck. The
+    // shuffle destroys positional reveal knowledge of the folded-back cards
+    // (forgetDeckReveals).
     const [reshuffled, newRng] = shuffle([...nonItemRevealed, ...remainingDeck], stateAfterCombat.rng);
     logDetail(`Lucky Search: reshuffling ${nonItemRevealed.length} revealed card(s) back into deck (${remainingDeck.length} remaining)`);
-    stateAfterCombat = { ...updatePlayer(stateAfterCombat, defIdx, p => ({ ...p, playDeck: reshuffled })), rng: newRng };
+    stateAfterCombat = forgetDeckReveals(
+      { ...updatePlayer(stateAfterCombat, defIdx, p => ({ ...p, playDeck: reshuffled })), rng: newRng },
+      defIdx,
+    );
   }
 
   // The Great Hunt (wh-91): after a reveal-sequence attack finalizes, advance
@@ -1710,6 +1723,13 @@ function discardWoundedCharacters(
       logDetail(`${sourceName}: discarding hazard ${hazard.instanceId as string} from discarded character`);
       cloned[1 - defIdx] = { ...cloned[1 - defIdx], discardPile: [...cloned[1 - defIdx].discardPile, toCardInstance(hazard)] };
     }
+    // CoE 3.IV.4: the leaving character's trophies go to the marshalling-point
+    // pile (worth MP) or out of play (worthless) — never silently dropped.
+    {
+      const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(stateOut, charData, `${sourceName} wounded discard`);
+      newPlayerData.killPile = [...newPlayerData.killPile, ...toKillPile];
+      newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, ...toOutOfPlay];
+    }
     const { [charId]: _removed, ...remainingChars } = newPlayerData.characters;
     // Revert followers to general influence with the mind subtraction
     // deferred to the player's next organization phase (CoE rule 3.13 —
@@ -1718,6 +1738,13 @@ function discardWoundedCharacters(
     for (const followerId of charData.followers) {
       const follower = updatedChars[followerId];
       if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateOut, follower) };
+    }
+    // If the discarded character was itself a follower, drop it from its
+    // leader's followers list so nothing stale references it (same pruning
+    // as the sibling body-check and rule-3.22 discard paths).
+    if (charData.controlledBy !== 'general') {
+      const leader = updatedChars[charData.controlledBy];
+      if (leader) updatedChars[charData.controlledBy] = { ...leader, followers: leader.followers.filter(f => f !== charId) };
     }
     newPlayerData.characters = updatedChars;
 
@@ -1738,20 +1765,44 @@ export function recordHazardEncountered(
   originalState: GameState,
   combat: CombatState,
 ): GameState {
-  if (originalState.phaseState.phase !== Phase.MovementHazard) return stateAfterCombat;
-  if (combat.attackSource.type !== 'creature') return stateAfterCombat;
+  // Stamp the faced attack's race(s) on the defending company — turn-scoped
+  // (cleared in enterUntapPhase). Unlike the M/H `hazardsEncountered` list
+  // below, this survives the M/H → Site phase transition, so "played on a
+  // company that has already faced a [race] attack this turn" self-effects
+  // (Orc-lieutenant tw-073, Orc-warband tw-076) still see attacks faced
+  // earlier in the turn when an on-guard creature is revealed at the site.
+  let s = stateAfterCombat;
+  const facedRaces = combat.creatureRaces
+    ?? (combat.creatureRace !== undefined ? [combat.creatureRace] : []);
+  if (facedRaces.length > 0) {
+    const defIdx = getPlayerIndex(s, combat.defendingPlayerId);
+    s = updatePlayer(s, defIdx, p => ({
+      ...p,
+      companies: p.companies.map(c => {
+        if (c.id !== combat.companyId) return c;
+        const existing = c.facedHazardRaces ?? [];
+        const added = facedRaces.filter(r => !existing.includes(r));
+        if (added.length === 0) return c;
+        logDetail(`Recording faced attack race(s) ${added.join('/')} on company ${c.id as string} (turn-scoped)`);
+        return { ...c, facedHazardRaces: [...existing, ...added] };
+      }),
+    }));
+  }
+
+  if (originalState.phaseState.phase !== Phase.MovementHazard) return s;
+  if (combat.attackSource.type !== 'creature') return s;
 
   const creatureDefId = resolveInstanceId(originalState, combat.attackSource.instanceId);
-  if (!creatureDefId) return stateAfterCombat;
+  if (!creatureDefId) return s;
 
   const creatureDef = originalState.cardPool[creatureDefId] as { name?: string } | undefined;
   const creatureName = creatureDef?.name;
-  if (!creatureName) return stateAfterCombat;
+  if (!creatureName) return s;
 
-  const mhState = stateAfterCombat.phaseState as MovementHazardPhaseState;
+  const mhState = s.phaseState as MovementHazardPhaseState;
   logDetail(`Recording hazard "${creatureName}" in hazardsEncountered`);
   return {
-    ...stateAfterCombat,
+    ...s,
     phaseState: {
       ...mhState,
       hazardsEncountered: [...mhState.hazardsEncountered, creatureName],

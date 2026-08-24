@@ -519,7 +519,16 @@ function revealNewSiteActions(
       logDetail(`Deep Mines ${descentLegal ? 'descent' : 'ascent'} available: ${originDef.name} → ${destDef.name} (roll 0)`);
       actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
     } else {
-      logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — no path offered`);
+      // Rule 5.04: the planned move is no longer legal (e.g. the descent's
+      // >6-stage-point requirement lapsed between plan-movement and reveal).
+      // The player must still get an action — `pass` negates the movement
+      // (handleRevealNewSite returns the destination to the location deck and
+      // the company conducts its M/H phase at its current site), exactly like
+      // the Ringwraith-composition branch above. Returning no action here
+      // deadlocked the game (r/1 bench seed 10600011: FW company planned
+      // Rhosgobel → Deep Mines at ≥7 stage points, dropped to 6 by reveal).
+      logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — offering pass to negate the movement (rule 5.04)`);
+      actions.push({ type: 'pass', player: playerId });
     }
     return actions;
   }
@@ -1242,6 +1251,11 @@ function agentInfluenceActions(
 
   type TapInfluenceEffect = { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] };
   forEachEligibleAgent<TapInfluenceEffect>(state, hazardPlayer, 'agent-tap-influence', (agent, agentDef, tapInfluenceEff, agentSiteName) => {
+    // Tap-cost ability: only an untapped agent can pay the tap (rule 10.14).
+    if (agent.character.status !== CardStatus.Untapped) {
+      logDetail(`Agent tap-influence ${agentDef.name}: not untapped — cannot pay the tap cost, skipping`);
+      return;
+    }
     // The target company's site this turn.
     const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
@@ -1366,6 +1380,12 @@ function agentTapAttackActions(
   const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
   forEachEligibleAgent<AgentTapAttackEffect>(state, hazardPlayer, 'agent-tap-attack', (agent, agentDef, _tapAttackEff, agentSiteName) => {
+    // Tap-cost ability: only an untapped agent can pay the tap ("may tap to
+    // attack"), so a spent agent cannot attack again this phase.
+    if (agent.character.status !== CardStatus.Untapped) {
+      logDetail(`Agent tap-attack ${agentDef.name}: not untapped — cannot pay the tap cost, skipping`);
+      return;
+    }
     const isAgentAtCompanySite =
       agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
     if (!isAgentAtCompanySite) {
@@ -2783,7 +2803,10 @@ function playHazardsActions(
           // targets the opponent (resource) player's characters (any company),
           // mirroring Adûnaphel tw-2's "causes any one character to tap".
           for (const [charId, charData] of Object.entries(resourcePlayer.characters)) {
-            if (charData.status === CardStatus.Tapped) continue;
+            // Only untapped characters may be tapped — a wounded (Inverted)
+            // character is not a legal target, and resolving the tap would
+            // overwrite the wound with Tapped.
+            if (charData.status !== CardStatus.Untapped) continue;
             const charDef = defById(state, charData.definitionId);
             if (!charDef || !isCharacterCard(charDef)) continue;
             if (tapCharacterEffect.filter && !matchesDefinition(charDef, tapCharacterEffect.filter)) continue;
@@ -4227,7 +4250,10 @@ function tapAltPermanentEventActions(
       // opponent — it may only tap the resource (active) player's characters, never
       // the hazard player's own. Restrict targets to the resource player.
       for (const [charId, ch] of Object.entries(state.players[activeIdx].characters)) {
-        if (ch.status === CardStatus.Tapped) continue;
+        // Only untapped characters may be tapped — a wounded (Inverted)
+        // character is not a legal target, and resolving the tap would
+        // overwrite the wound with Tapped.
+        if (ch.status !== CardStatus.Untapped) continue;
         const charDef = defById(state, ch.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;

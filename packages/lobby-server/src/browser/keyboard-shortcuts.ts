@@ -502,9 +502,15 @@ function handlePileBrowserKey(e: KeyboardEvent): boolean {
   }
 
   if (items.length === 0) {
-    // Still swallow keys so no underlying shortcut fires behind the modal.
-    if (e.key === 'Enter' || e.key?.startsWith('Arrow')) e.preventDefault();
-    return e.key === 'Enter' || e.key?.startsWith('Arrow') === true;
+    // Browse-only view (no selectable cards, e.g. viewing a discard pile):
+    // swallow every key so no underlying shortcut fires behind the modal,
+    // matching the selectable path below. Only Enter and the arrows used to
+    // be consumed here, so digits still clicked hand cards and Backspace /
+    // Delete / Home still clicked action buttons hidden behind the modal —
+    // an unseen game action. Escape was already handled above and closes
+    // the browser.
+    e.preventDefault();
+    return true;
   }
 
   let marked = getPileBrowserMarker(items);

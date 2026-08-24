@@ -150,20 +150,55 @@ function matchingHandCards(
 }
 
 /**
+ * A string identifying one attack within its source type, built from the
+ * source's own discriminating fields. Two consecutive attacks of the same
+ * source type against the same company must map to different identities, or
+ * the after-attack window between them is silently skipped — so multi-attack
+ * sources carry their per-attack discriminator (`attackIndex`, the revealed
+ * creature, the remaining-attack count). The switch is exhaustive over
+ * {@link AttackSource} so a new source type fails the build until it states
+ * its identity here.
+ */
+function attackIdentity(c: CombatState): string {
+  const s = c.attackSource;
+  switch (s.type) {
+    case 'creature': return s.instanceId as string;
+    case 'on-guard-creature': return s.cardInstanceId as string;
+    case 'automatic-attack': return `${s.siteInstanceId as string}#${s.attackIndex}`;
+    case 'tidings-attack': return `${s.eventInstanceId as string}#${s.attackIndex}`;
+    case 'great-hunt-attack': return `${s.greatHuntInstanceId as string}#${s.creatureInstanceId as string}`;
+    case 'hunt-attack': return `${s.huntInstanceId as string}#${s.creatureInstanceId as string}`;
+    case 'long-dark-reach-attack': return `${s.sourceInstanceId as string}#${s.creatureInstanceId as string}`;
+    case 'card-triggered-attack': return `${s.cardInstanceId as string}#${s.remainingAttacks?.length ?? 0}`;
+    case 'played-auto-attack': return s.instanceId as string;
+    case 'agent': return s.instanceId as string;
+    case 'company-attack': return s.attackingCompanyId as string;
+    case 'ahunt': return s.longEventInstanceId as string;
+    case 'stay-her-appetite-attack': return s.allyInstanceId as string;
+    case 'lucky-search-attack': return s.scoutInstanceId as string;
+    case 'siege-attack': return s.cardInstanceId as string;
+    case 'company-strike-event': return s.eventInstanceId as string;
+    case 'site-entry-attack': return s.eventInstanceId as string;
+    case 'region-shortcut-attack': return s.eventInstanceId as string;
+    case 'traitor-attack': return s.eventInstanceId as string;
+  }
+}
+
+/**
  * True when the combat active in `next` is the *same* attack that was active in
  * `prev` — i.e. the attack has not ended and no window should open. Combats
  * carry no identity of their own, so the defending company plus the attack
- * source discriminator (and, for creature attacks, the creature instance)
- * identify the attack well enough for this diff.
+ * source type and its per-attack identity ({@link attackIdentity}) identify
+ * the attack for this diff. Discriminating every source type matters:
+ * multi-attack sequences install the next attack in the same reduce step that
+ * finalizes the previous one (The Great Hunt's next creature, Tidings of Bold
+ * Spies' next `attackIndex`), and conflating them would skip the CoE 8.03
+ * after-attack window between the attacks.
  */
 export function sameAttack(a: CombatState, b: CombatState): boolean {
   if (a.companyId !== b.companyId) return false;
   if (a.attackSource.type !== b.attackSource.type) return false;
-  const idOf = (c: CombatState): string | null =>
-    c.attackSource.type === 'creature' ? c.attackSource.instanceId as string
-      : c.attackSource.type === 'on-guard-creature' ? c.attackSource.cardInstanceId as string
-        : null;
-  return idOf(a) === idOf(b);
+  return attackIdentity(a) === attackIdentity(b);
 }
 
 /**

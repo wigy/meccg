@@ -505,14 +505,15 @@ describe('Rain-drake (td-57)', () => {
     expect(afterChain.combat!.strikeProwess).toBe(15);
   });
 
-  test('offered site-type play is also accepted by the reducer for a Fallen-wizard mover at a hero-printed R&L (bug regression)', () => {
-    // A Fallen-wizard's location deck legitimately mixes hero, minion, and
-    // FW site printings (CoE rule 1.28). Barrow-downs (tw-375) is a hero
-    // printing with no fallen-wizard version. The reducer-side keying
-    // validator used to resolve the destination site by name filtered to
-    // the mover's alignment, find nothing, lose the site's own sitePath —
-    // and reject the exact site-type play the legal-action list had
-    // offered (offer/validator disagreement).
+  test('combat initiates end-to-end for a FALLEN-WIZARD company at a hero-printed R&L (regression: reducer resolved the destination by name + mover alignment)', () => {
+    // Barrow-downs is printed only as wizard and ringwraith site cards. The
+    // reducer's `checkCreatureKeying` used to resolve the destination site by
+    // name restricted to the MOVER's alignment — for a fallen-wizard company
+    // that lookup found no card, so the sitePath-count `when` gate on the
+    // alt-keying entry evaluated against empty counts and the reducer
+    // rejected a play the legal-action list had offered (u/p bench seeds
+    // 10000013+ — 20/100 games ended in engine-error). The destination must
+    // be resolved from the company's site INSTANCE, as the offering side does.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -543,16 +544,14 @@ describe('Rain-drake (td-57)', () => {
     });
     const ready: GameState = { ...state, phaseState: mh };
 
-    // The site-type play is offered (the offering side resolves the
-    // destination via the site card instance)…
+    // The offer must exist AND the reducer must accept it — the bug was an
+    // offered-then-rejected asymmetry, so the dispatch is the assertion.
     const plays = viableActions(ready, PLAYER_2, 'play-hazard');
     expect(plays.some(p => {
       const a = p.action as { keyedBy?: { method: string; value: string } };
       return a.keyedBy?.method === 'site-type' && a.keyedBy?.value === SiteType.RuinsAndLairs;
     })).toBe(true);
 
-    // …and the reducer must accept that same offered play: combat initiates
-    // instead of the play erroring out with a keying rejection.
     const drakeId = handCardId(ready, HAZARD_PLAYER);
     const companyId = companyIdAt(ready, RESOURCE_PLAYER);
     const afterChain = playCreatureHazardAndResolve(

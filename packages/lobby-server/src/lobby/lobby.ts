@@ -544,6 +544,23 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         break;
       }
 
+      // The OPPONENT'S relaunch may equally be in flight: when a
+      // human-vs-human game server crashes, both clients' sockets close at
+      // once and both send a symmetric rejoin within milliseconds. The
+      // per-player guards above all pass for the second arrival (the first
+      // launch has not yet stored anyone's activeGame), so without this
+      // check both rejoins launched a server each — two processes restoring
+      // the same save and racing each other's autosaves. Drop the duplicate:
+      // if the in-flight launch includes us, startGame answers both seats
+      // with 'game-starting' when it lands; if it turns out to be a game
+      // with someone else, the client's retry timer re-asks and then gets
+      // the "already in another game" answer above.
+      const opponentPlayer = isAi || opponentName === 'Mentor' ? undefined : onlinePlayers.get(opponentName);
+      if (opponentPlayer?.rejoining) {
+        lobbyLog.log('rejoin-ignored', { name: fromName, opponent: opponentName, reason: 'opponent relaunch already in progress' });
+        break;
+      }
+
       // Capture AI deck and model before clearing state, so the rejoin can reuse them
       const storedAiDeckId = from.activeGame?.aiDeckId;
       const storedAiModelFile = from.activeGame?.aiModelFile;

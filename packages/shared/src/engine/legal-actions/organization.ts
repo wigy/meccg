@@ -1632,11 +1632,22 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not at a site`);
             continue;
           }
-          const siteDefId = company.currentSite.definitionId as string;
+          // Match "the same site" by NAME, not definition id: each location
+          // exists as alignment-specific site cards (hero Moria tw-413 vs
+          // minion Moria le-392), so an opponent's company at the same
+          // location carries a different definition id. Same convention as
+          // force-discard-dwarf-at-site above and eligibleMaladyTargets.
+          const axeSiteName = defById(state, company.currentSite.definitionId)?.name ?? '';
+          if (!axeSiteName) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer's site definition unresolvable`);
+            continue;
+          }
           const siteTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
           for (const p of state.players) {
             for (const co of p.companies) {
-              if (!co.currentSite || (co.currentSite.definitionId as string) !== siteDefId) continue;
+              if (!co.currentSite) continue;
+              const coSiteName = defById(state, co.currentSite.definitionId)?.name ?? '';
+              if (coSiteName !== axeSiteName) continue;
               for (const memberId of co.characters) {
                 if (memberId === charId) continue;
                 const member = p.characters[memberId];

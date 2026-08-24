@@ -194,9 +194,32 @@ describe('Deep Mines (wh-55)', () => {
   });
 
   test('reveal offers no descent path once stage points drop to 6 — the company stays put', () => {
-    const declares = computeLegalActions(revealState(6), PLAYER_1)
-      .filter(ea => ea.viable && ea.action.type === 'declare-path');
-    expect(declares).toHaveLength(0);
+    const legal = computeLegalActions(revealState(6), PLAYER_1).filter(ea => ea.viable);
+    expect(legal.filter(ea => ea.action.type === 'declare-path')).toHaveLength(0);
+    // Regression (deadlock): the Deep Mines branch returned an empty action
+    // list, skipping the rule-5.04 fallback — the reveal-new-site step had no
+    // legal action at all. A pass must be offered to negate the movement.
+    expect(legal.some(ea => ea.action.type === 'pass')).toBe(true);
+  });
+
+  test('reveal with a lapsed descent still offers pass, which negates the movement (rule 5.04) — regression: no action at all deadlocked the game', () => {
+    // r/1 bench seed 10600011: the company planned Rhosgobel → Deep Mines at
+    // ≥7 stage points, dropped to 6 by reveal time, and the reveal-new-site
+    // step offered NOTHING — neither player had a viable action and the game
+    // deadlocked. The illegal move must be negated via `pass` exactly like the
+    // Ringwraith-composition branch: destination returns to the location deck
+    // and the company conducts its M/H phase at its current site.
+    const state = revealState(6);
+    const viable = computeLegalActions(state, PLAYER_1).filter(ea => ea.viable);
+    expect(viable.length).toBeGreaterThan(0);
+    const pass = viable.find(ea => ea.action.type === 'pass');
+    expect(pass).toBeDefined();
+
+    const result = reduce(state, pass!.action);
+    expect(result.error).toBeUndefined();
+    const company = result.state.players[0].companies[0];
+    expect(company.destinationSite).toBeNull();
+    expect(result.state.players[0].siteDeck.some(c => c.definitionId === DEEP_MINES)).toBe(true);
   });
 
   // --- Stage points from occupancy ------------------------------------------

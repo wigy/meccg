@@ -43,6 +43,7 @@
 import type { GameState, CardInstance } from '../types/state.js';
 import { Phase } from '../types/state.js';
 import type { CardInstanceId, CardDefinitionId } from '../types/common.js';
+import { logDetail } from './legal-actions/log.js';
 import { activePlayerState } from './reducer-utils.js';
 
 /**
@@ -94,6 +95,38 @@ export function revealInstances(
     revealedInstances: changed ? next : state.revealedInstances,
     handRevealedInstances: handChanged ? nextHand : state.handRevealedInstances,
   };
+}
+
+/**
+ * Forgets the hand/deck-reveal knowledge for every instance currently in
+ * `playerIndex`'s play deck — call after shuffling cards into that deck (deck
+ * exhaustion, a search's reshuffle, revealed cards folding back in) or after
+ * placing a card face-down onto it in a secret order (Revealed to all
+ * Watchers dm-85).
+ *
+ * The opponent's hand/play-deck projection unmasks `handRevealedInstances`
+ * entries at their true positions. A shuffle (or secret placement) destroys
+ * the audience's knowledge of where a previously-revealed card sits — keeping
+ * the entries would render the reshuffled deck effectively face-up in draw
+ * order (e.g. every discard swept by The Great Hunt wh-91 after a routine
+ * deck exhaustion) and pre-announce every future draw. The broad
+ * {@link GameState.revealedInstances} map is intentionally untouched: it
+ * feeds once-public identity for toasts, not positional deck views.
+ */
+export function forgetDeckReveals(state: GameState, playerIndex: number): GameState {
+  const deck = state.players[playerIndex]?.playDeck ?? [];
+  if (deck.length === 0) return state;
+  let changed = false;
+  const next: Record<string, CardDefinitionId> = { ...state.handRevealedInstances };
+  for (const c of deck) {
+    if (next[c.instanceId as string] !== undefined) {
+      delete next[c.instanceId as string];
+      changed = true;
+    }
+  }
+  if (!changed) return state;
+  logDetail(`Forgetting hand-reveal knowledge for shuffled-in play-deck cards of player ${playerIndex}`);
+  return { ...state, handRevealedInstances: next };
 }
 
 /**

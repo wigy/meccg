@@ -55,7 +55,7 @@ import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, resolveD
 import { isDetainmentAttack } from './detainment.js';
 import { isAvatarCharacter } from '../types/cards.js';
 import { addConstraint, removeConstraint, enqueueResolution } from './pending.js';
-import { revealInstances } from './visibility.js';
+import { revealInstances, forgetDeckReveals } from './visibility.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -318,7 +318,10 @@ export function startGreatHuntReveal(
 function reshuffleOpponentDeck(state: GameState, opponentIndex: number): GameState {
   const [reshuffled, rng] = shuffle(state.players[opponentIndex].playDeck, state.rng);
   logDetail(`The Great Hunt: reshuffling ${reshuffled.length}-card play deck`);
-  return { ...updatePlayer(state, opponentIndex, p => ({ ...p, playDeck: reshuffled })), rng };
+  return forgetDeckReveals(
+    { ...updatePlayer(state, opponentIndex, p => ({ ...p, playDeck: reshuffled })), rng },
+    opponentIndex,
+  );
 }
 
 /**

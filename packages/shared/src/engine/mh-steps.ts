@@ -297,11 +297,20 @@ export function handleRevealNewSite(
     if (nonMovingCompany.destinationSite) {
       const destInst = nonMovingCompany.destinationSite;
       const destName = cardName(state, destInst.definitionId, '?');
-      logDetail(`Movement/Hazard: rule 5.04 — movement to ${destName} is illegal (no legal path remains), negating it and returning the site to the location deck`);
+      // The destination may be a SIBLING company's in-play site instance
+      // (rules 3.37/3.39 — the card instance is shared). Mirror
+      // clearPlannedMovement: return it to the deck only when no surviving
+      // company still holds the same instance, or the one card instance
+      // would exist both in play and in the location deck.
+      const siblingStillHasIt = state.players[playerIdx].companies.some((c, idx) =>
+        idx !== mhState.activeCompanyIndex
+        && (c.currentSite?.instanceId === destInst.instanceId
+          || c.destinationSite?.instanceId === destInst.instanceId));
+      logDetail(`Movement/Hazard: rule 5.04 — movement to ${destName} is illegal (no legal path remains), negating it${siblingStillHasIt ? ' (site instance stays with its sibling company)' : ' and returning the site to the location deck'}`);
       stateForAdvance = updatePlayer(state, playerIdx, p => ({
         ...p,
         companies: p.companies.map((c, idx) => idx !== mhState.activeCompanyIndex ? c : { ...c, destinationSite: null }),
-        siteDeck: [...p.siteDeck, toCardInstance(destInst)],
+        siteDeck: siblingStillHasIt ? p.siteDeck : [...p.siteDeck, toCardInstance(destInst)],
       }));
       nonMovingCompany = stateForAdvance.players[playerIdx].companies[mhState.activeCompanyIndex];
     }
@@ -456,7 +465,11 @@ export function handleRevealNewSite(
             if (eff.type !== 'under-deeps-roll-modifier') continue;
             if (eff.scope === 'all-companies') {
               allCompaniesBonus += eff.value;
-            } else if (eff.scope === 'minion-companies' && player.alignment === Alignment.Ringwraith) {
+            // "Minion" clauses cover the Balrog player too (the codebase's
+            // canonical isMinionOrBalrog reading — same as this file's
+            // draw-modifier context below): The Under-roads (as-106) lowers
+            // the Under-deeps roll for the alignment that moves there most.
+            } else if (eff.scope === 'minion-companies' && isMinionOrBalrog(player)) {
               minionCompaniesBonus += eff.value;
             }
           }
@@ -777,7 +790,20 @@ export function handleUnderDeepsRoll(state: GameState, action: GameAction, mhSta
 
   let newSiteDeck = activePlayer.siteDeck;
   if (destInst) {
-    newSiteDeck = [...activePlayer.siteDeck, toCardInstance(destInst)];
+    // The destination may be a SIBLING company's in-play site instance
+    // (rules 3.37/3.39 — the card instance is shared). Mirror
+    // clearPlannedMovement: only return it to the deck when no other company
+    // still holds the same instance, or the one card instance would exist
+    // both in play and in the location deck.
+    const siblingStillHasIt = activePlayer.companies.some((c, idx) =>
+      idx !== mhState.activeCompanyIndex
+      && (c.currentSite?.instanceId === destInst.instanceId
+        || c.destinationSite?.instanceId === destInst.instanceId));
+    if (siblingStillHasIt) {
+      logDetail(`Under-deeps roll failure: destination instance ${destInst.instanceId as string} still in play at a sibling company — not returning it to the site deck`);
+    } else {
+      newSiteDeck = [...activePlayer.siteDeck, toCardInstance(destInst)];
+    }
   }
 
   newPlayers[activeIndex] = {
@@ -1150,9 +1176,11 @@ export function collectMatchingAhuntAttacks(
   if (pathNames.length === 0) return [];
 
   // The moving (defending) player. A card that "has no effect on a minion
-  // player" (noEffectOnMinion) is skipped when this player is a Ringwraith/Sauron.
+  // player" (noEffectOnMinion, e.g. Mordor in Arms dm-72) is skipped when
+  // this player is a Ringwraith OR the Balrog — the same isMinionOrBalrog
+  // reading the card's own faction-influence clause already uses.
   const movingPlayer = state.players[getPlayerIndex(state, state.activePlayer!)];
-  const movingPlayerIsMinion = movingPlayer.alignment === Alignment.Ringwraith;
+  const movingPlayerIsMinion = isMinionOrBalrog(movingPlayer);
 
   const inPlayNames = buildInPlayNames(state);
   const results: { instanceId: CardInstanceId; effect: AhuntAttackEffect }[] = [];

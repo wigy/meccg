@@ -383,6 +383,7 @@ export function handleAgentInfluenceAttempt(
     (e): e is AgentTapInfluenceEffect => e.type === 'agent-tap-influence',
   );
   if (!tapInfluenceEff) return { state, error: 'Agent does not have agent-tap-influence effect' };
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
 
   logDetail(`Agent influence attempt: ${agentDef.name} (agent-${agent.id as string}) → ${action.targetKind} ${action.targetInstanceId as string}`);
 
@@ -697,6 +698,7 @@ export function handleAgentTapAttack(
     (e): e is AgentTapAttackEffect => e.type === 'agent-tap-attack',
   );
   if (!tapAttackEff) return { state, error: 'Agent does not have agent-tap-attack effect' };
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
 
   const { prowess, body, isFaceDown, isAtHome, destSiteInst, company } =
     computeAgentAttackProwess(state, mhState, agent, agentDef, tapAttackEff.prowessBonus);

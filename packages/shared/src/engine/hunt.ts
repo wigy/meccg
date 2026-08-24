@@ -55,6 +55,7 @@ import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody } from '.
 import { isDetainmentAttack } from './detainment.js';
 import { shuffle } from '../rng.js';
 import { logDetail } from './legal-actions/log.js';
+import { forgetDeckReveals } from './visibility.js';
 
 /** One candidate hazard-creature The Hunt may name. */
 export interface HuntCandidate {
@@ -102,7 +103,10 @@ export function findHuntCandidates(state: GameState, opponentId: PlayerId): read
 function reshuffleOpponentDeck(state: GameState, opponentIndex: number): GameState {
   const [reshuffled, rng] = shuffle(state.players[opponentIndex].playDeck, state.rng);
   logDetail(`The Hunt: reshuffling ${reshuffled.length}-card play deck (searched, not found in discard)`);
-  return { ...updatePlayer(state, opponentIndex, p => ({ ...p, playDeck: reshuffled })), rng };
+  return forgetDeckReveals(
+    { ...updatePlayer(state, opponentIndex, p => ({ ...p, playDeck: reshuffled })), rng },
+    opponentIndex,
+  );
 }
 
 /**

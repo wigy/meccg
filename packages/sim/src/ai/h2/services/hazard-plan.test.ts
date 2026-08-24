@@ -142,7 +142,7 @@ describe('a support event in hand', () => {
    * Swapping definitions under the hand's own instances is the trick the module
    * tests use — the position keeps its shape and only the cards change.
    */
-  function withSupport() {
+  function withSupport(supportName = 'Full of Froth and Rage') {
     const scenario = loadScenario(SCENARIO);
     const view = scenarioView(scenario);
     const cardPool = loadCardPool();
@@ -157,10 +157,11 @@ describe('a support event in hand', () => {
     for (const creature of creatures) creature.definitionId = definitionOf('Lesser Spiders');
     const slot = hand.find(card =>
       (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType !== 'hazard-creature')!;
-    slot.definitionId = definitionOf('Full of Froth and Rage');
+    slot.definitionId = definitionOf(supportName);
     const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
     return {
       support: slot as unknown as { instanceId: string },
+      definitionOf,
       plan: computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES),
     };
   }
@@ -191,6 +192,31 @@ describe('a support event in hand', () => {
     const { plan } = withSupport();
     const summed = plan.assignments.reduce((sum, a) => sum + a.marginal, 0);
     expect(summed).toBeCloseTo(plan.totalHarm, 6);
+  });
+
+  test('does not inflate the quote of a creature the support never reaches', () => {
+    // `marginalFor` subtracts the company's *contribution* — attacks less a
+    // card per support played there — from an attacks-only candidate arm.
+    // Mixed like that, the difference credited every candidate with the
+    // supports' card prices: with one support adopted, each quote from that
+    // company came out a full provisionalCardPrice too high, skewing the
+    // exchange/fetch/draft comparisons `card-price` feeds (routinely decided
+    // by sub-price differences). An Orc pins it cleanly: the Spider/Animal
+    // boost never touches an Orc attack, and appending it behind *boosted*
+    // spiders can only find a softer roster — so its quote with the support
+    // adopted must not exceed its quote from the boost-free twin by the
+    // price the old subtraction leaked.
+    const boosted = withSupport();
+    // Doors of Night alone declares no attack modifier the plan can read
+    // (see "an unreadable event does not [get an answer]" above), so this
+    // twin position adopts no support.
+    const bare = withSupport('Doors of Night');
+    const orc = boosted.definitionOf('Hobgoblins');
+
+    const inflated = boosted.plan.marginalFor(orc);
+    const honest = bare.plan.marginalFor(orc);
+    expect(honest).toBeGreaterThan(0);
+    expect(inflated).toBeLessThanOrEqual(honest + DEFAULT_TUNABLES.provisionalCardPrice / 2);
   });
 });
 

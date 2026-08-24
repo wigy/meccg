@@ -14,7 +14,7 @@
  * | # | Rule                                                          | Mechanism                                             |
  * |---|--------------------------------------------------------------|-------------------------------------------------------|
  * | 1 | Under-deeps movement roll for minions decreased by 3          | under-deeps-roll-modifier value:3 scope:minion-companies |
- * | 2 | Reduction applies only to minion (Ringwraith) companies       | gated in mh-steps on player.alignment === Ringwraith  |
+ * | 2 | Reduction applies only to minion (RW/Balrog) companies       | gated in mh-steps on isMinionOrBalrog(player)         |
  * | 3 | Multiple copies stack                                          | modifier summed across cardsInPlay                    |
  * | 4 | Playing it discards The Way is Shut already in play           | prohibit-card-play discard on resolveLongEvent        |
  * | 5 | While in play, The Way is Shut may not be (re)played          | prohibit-card-play play-lock in playHazardsActions    |
@@ -124,6 +124,26 @@ describe('The Under-roads (as-106)', () => {
     });
     const mhState = declareUnderDeeps(state);
     expect(mhState.underDeepsRollRequired).toBe(8);
+  });
+
+  test('the Balrog player is a minion too: The Under-roads lowers their roll by 3', () => {
+    // Regression: the minion-companies gate tested only Ringwraith alignment,
+    // so the Balrog player — the alignment that does the most Under-deeps
+    // movement — never received the -3.
+    const withoutRoads = underDeepsMoveState({
+      moverAlignment: Alignment.Balrog,
+      moverChar: ORC_CAPTAIN,
+      underRoadsCopies: 0,
+    });
+    const baseline = declareUnderDeeps(withoutRoads).underDeepsRollRequired!;
+
+    const withRoads = underDeepsMoveState({
+      moverAlignment: Alignment.Balrog,
+      moverChar: ORC_CAPTAIN,
+      underRoadsOwner: RESOURCE_PLAYER,
+      underRoadsCopies: 1,
+    });
+    expect(declareUnderDeeps(withRoads).underDeepsRollRequired).toBe(Math.max(0, baseline - 3));
   });
 
   // ─── Rule 3: multiple copies stack ────────────────────────────────────────

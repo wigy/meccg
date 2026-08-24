@@ -788,10 +788,14 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
 
   const newPlayers = clonePlayers(state);
 
-  // For multi-attack creatures (e.g. Assassin), cancelling one attack
-  // removes one strike rather than ending the entire combat.
-  if (combat.forceSingleTarget && combat.strikesTotal > 1) {
-    const newStrikesTotal = combat.strikesTotal - 1;
+  // For multi-attack creatures (e.g. Assassin), cancelling one attack removes
+  // that attack's full strike allotment (`strikesPerAttack` — Nameless Thing
+  // dm-109 is 3 attacks × 2 strikes) rather than ending the entire combat.
+  // Mirrors handleCancelByTap; when the canceled attack is the last one, fall
+  // through to the full-cancel path below.
+  const strikesPerCanceledAttack = combat.strikesPerAttack ?? 1;
+  if (combat.forceSingleTarget && combat.strikesTotal > strikesPerCanceledAttack) {
+    const newStrikesTotal = combat.strikesTotal - strikesPerCanceledAttack;
     logDetail(`Multi-attack: one attack canceled, strikes reduced ${combat.strikesTotal} → ${newStrikesTotal}`);
     const newCancelByTap = combat.cancelByTapRemaining !== undefined
       ? Math.min(combat.cancelByTapRemaining, newStrikesTotal)

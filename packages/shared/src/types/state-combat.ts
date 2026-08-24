@@ -256,8 +256,14 @@ export interface StrikeAssignment {
    * - `'wounded'` -- The character survived but is wounded (reduced capability).
    * - `'eliminated'` -- The character was killed and removed from play.
    * - `'canceled'` -- The strike was canceled before resolution (e.g. Fatty Bolger).
+   * - `'captured'` -- The strike succeeded but the character was taken prisoner
+   *   instead of wounded (take-prisoner hazards like Flies and Spiders dm-58,
+   *   Troll-purse dm-95; CoE 8.35: "is not wounded — instead taken prisoner").
+   *   Distinct from `'wounded'` so finalize-time wound triggers (bearer-wounded
+   *   discards, wounded-by-race stamps, character-wounded-by-self effects) do
+   *   not fire on an un-wounded prisoner.
    */
-  readonly result?: 'success' | 'survived' | 'tie' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed';
+  readonly result?: 'success' | 'survived' | 'tie' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed' | 'captured';
   /**
    * Whether the character was already wounded before this strike was resolved.
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
