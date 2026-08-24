@@ -131,6 +131,23 @@ describe('Mordor in Arms (dm-72)', () => {
     expect(next.combat).toBeNull();
   });
 
+  test('a Balrog company moving in Nurn faces no attacks either (the Balrog is a minion player)', () => {
+    // Regression: the ahunt "no effect on a minion player" gate tested only
+    // Ringwraith alignment, so a Balrog company faced all three attacks —
+    // while the SAME card's -6 influence clause already exempted the Balrog
+    // via the canonical isMinionOrBalrog reading.
+    const base = buildAhuntOrderEffectsState({ ahuntDefId: MORDOR_IN_ARMS, ...PATH_NURN });
+    const state: GameState = {
+      ...base,
+      players: [
+        { ...base.players[0], alignment: Alignment.Balrog },
+        base.players[1],
+      ] as typeof base.players,
+    };
+    const next = dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
+    expect(next.combat).toBeNull();
+  });
+
   // ── Rule 2: -6 faction influence at named regions ─────────────────────────
 
   test('faction influence at a named region is modified by -6 (raises need)', () => {

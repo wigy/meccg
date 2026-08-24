@@ -430,11 +430,21 @@ export function resolveStrikeCore(
   // roll — the strike is defeated "regardless of the roll", so a tie must still
   // be recorded as 'success' or finalizeCombat would deny the defeat.
   const isTie = characterTotal === effectiveProwess && !combat.forcedStrikeDefeat;
+  // take-prisoner: the character is captured, not wounded (CoE 8.35) — record
+  // 'captured' so finalize-time wound triggers do not fire on the prisoner.
+  // When a cancel-prisoner-taking ally can still intervene, keep 'wounded'
+  // for now: an accepted cancel wounds the character normally, and the
+  // decline handler rewrites the assignment to 'captured'.
+  const cancelPrisonerAlly = (takePrisonerResult || trollPursePrisoner) && charData
+    ? findCancelPrisonerTakingAlly(state, charData)
+    : null;
   const assignmentResult = absorbWoundItem
     ? ('absorbed' as const)
-    : isTie
-      ? ('tie' as const)
-      : result;
+    : (takePrisonerResult || trollPursePrisoner) && !cancelPrisonerAlly
+      ? ('captured' as const)
+      : isTie
+        ? ('tie' as const)
+        : result;
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
       ? {
@@ -501,7 +511,7 @@ export function resolveStrikeCore(
       // and let the defending player decide rather than applying prisoner
       // status immediately — applyTakePrisoner/applyTakePrisonerAtSite draw a
       // rescue site and add constraints that are not easily undone.
-      const cancelAlly = findCancelPrisonerTakingAlly(state, charData);
+      const cancelAlly = cancelPrisonerAlly;
       if (cancelAlly) {
         logDetail(`cancel-prisoner-taking: ${cancelAlly.instanceId as string} may be discarded to cancel prisoner-taking of ${strike.characterId as string}`);
         const pausedCombat: CombatState = {

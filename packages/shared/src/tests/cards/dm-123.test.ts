@@ -36,9 +36,10 @@ import {
 } from '../test-helpers.js';
 import { Phase, RegionType, Race, computeLegalActions, CardStatus } from '../../index.js';
 import type {
-  CardDefinitionId, GameState, PlayPermanentEventAction,
+  CardDefinitionId, CardInstanceId, GameState, PlayPermanentEventAction,
   ActivateGrantedAction, InfluenceAttemptAction,
 } from '../../index.js';
+import { enqueuePostAttackPlayOffers } from '../../engine/post-attack-play.js';
 
 const DARK_NUMBERS = 'dm-123' as CardDefinitionId;
 
@@ -167,6 +168,33 @@ describe('Dark Numbers (dm-123)', () => {
     const after = runCreatureCombat(withCombat, ARAGORN, 12, null);
     expect(after.combat).toBeNull();
     expect(offerFor(after)).toBeDefined();
+  });
+
+  test('a site\'s NEXT automatic-attack opens the window between the two attacks', () => {
+    // Regression: multi-attack sequences install the next attack in the same
+    // reduce step that finalizes the previous one, so the prev/next diff sees
+    // two live combats. sameAttack() discriminated only creature sources —
+    // two different automatic-attacks of one site (attackIndex 0 → 1) compared
+    // as "the same attack" and the CoE 8.03 window between them was skipped.
+    const base = mhBase({ characters: [ARAGORN], hand: [DARK_NUMBERS] });
+    const prev = makeCancelWindowCombat(base, {
+      creatureRace: Race.Orc,
+      attackSourceType: 'automatic-attack',
+      strikesTotal: 1,
+    });
+    const siteInstanceId = (prev.combat!.attackSource as { siteInstanceId: CardInstanceId }).siteInstanceId;
+    const next: GameState = {
+      ...prev,
+      combat: {
+        ...prev.combat!,
+        attackSource: { type: 'automatic-attack', siteInstanceId, attackIndex: 1 },
+      },
+    };
+
+    // Attack 0 ended, attack 1 of the same site began → the window opens.
+    expect(offerFor(enqueuePostAttackPlayOffers(prev, next))).toBeDefined();
+    // Control: the same attack still running opens no window.
+    expect(offerFor(enqueuePostAttackPlayOffers(prev, prev))).toBeUndefined();
   });
 
   test('no window opens when the company has no scout at all', () => {

@@ -625,10 +625,16 @@ function boostGain(
     // unboosted value. Comparing the sliver against a creature's full bundle
     // total is why the event always lost that comparison and got played
     // second, after the attack it was supposed to improve had already
-    // resolved. `Math.max(before, ...)` is the same beam-noise guard as
-    // before: a boost never makes the plan worse, so `after` dipping under
-    // `before` is search noise, not a real loss.
-    tsd: Math.max(before, after),
+    // resolved.
+    //
+    // But only when the boosted arm actually beats the baseline. `after` is
+    // built with this card's own slot reserved, so `after <= before` is the
+    // real "no room / nothing left to improve" case — flooring it at
+    // `before` (as an earlier beam-noise guard did) credited the event with
+    // the whole existing plan it takes no part in, while the reason below
+    // simultaneously reported that nothing would improve. The honest value
+    // of that play is zero, exactly what the empty-hand case reports.
+    tsd: after - before > 0 ? after : 0,
     reason: after - before > 0
       ? `${shift} — the best bundle against this company goes from ${before.toFixed(1)} to `
         + `${after.toFixed(1)}`

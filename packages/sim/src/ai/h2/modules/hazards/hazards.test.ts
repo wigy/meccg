@@ -702,6 +702,26 @@ describe('a support event whose modifier names several races', () => {
     );
   });
 
+  test('with no room left, is worth no more than the card it burns', () => {
+    // The counterfactual arm reserves this card's own slot, so with the last
+    // slot left `after` legitimately collapses below `before` — that is the
+    // real "no room for the boosted attack" case, not beam noise. A
+    // `Math.max(before, after)` floor used to hand the event the full value
+    // of the unboosted plan it takes no part in (the reason string saying
+    // "no attack left it would improve" all the while), so the deterministic
+    // event could outrank the risky creature bundle and the last slot went
+    // to a modifier with nothing to modify. The honest credit is zero: the
+    // play scores just the card it spends.
+    const cramped = spiderPosition();
+    (cramped.context.view.phaseState as unknown as { hazardsPlayedThisCompany: number })
+      .hazardsPlayedThisCompany = 3;
+
+    const evaluation = hazardsModule.evaluate(cramped.boost, cramped.context)!;
+
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
+  });
+
   test('outranks the attack it boosts, so it is played first', () => {
     const { boost, spider, context } = spiderPosition();
     const boostTsd = hazardsModule.evaluate(boost, context)!.expectedTsd;

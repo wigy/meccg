@@ -189,6 +189,26 @@ const PRIVATE_ACTION_FIELDS: Partial<Record<GameAction['type'], readonly string[
   'plan-movement': ['destinationSite'],
 };
 
+/**
+ * A copy of `action` with its {@link PRIVATE_ACTION_FIELDS} removed — the
+ * form safe to broadcast to recipients other than the acting player.
+ *
+ * Dropping the fields from the card-defs map alone is not enough: instance
+ * ids are stable for the whole game and many identity mappings are public
+ * from earlier broadcasts (a site the company once stood at, a hazard once
+ * played), so shipping the raw action would let the audience resolve e.g. a
+ * `plan-movement.destinationSite` instance id to a site name even though the
+ * destination is placed face-down (CoE 2.II.7). Actions without private
+ * fields are returned unchanged.
+ */
+export function redactActionForAudience(action: GameAction): GameAction {
+  const hidden = PRIVATE_ACTION_FIELDS[action.type];
+  if (!hidden) return action;
+  return Object.fromEntries(
+    Object.entries(action).filter(([k]) => !hidden.includes(k)),
+  ) as unknown as GameAction;
+}
+
 // ---- Action description ----
 
 /**

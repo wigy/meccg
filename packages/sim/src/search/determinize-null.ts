@@ -186,6 +186,7 @@ export function determinizeNull(options: DetermizeNullOptions): NullWorld {
     fillers: {
       selfPlayDeck: zone => fillZone(zone, unknown, null, random),
       opponentPlayZone: zone => fillZone(zone, unknown, null, random),
+      opponentSideboard: zone => fillZone(zone, unknown, null, random),
       opponentSiteDeck: zone => fillZone(zone, unknown, oppSites, random),
       opponentOnGuard: fillOnGuard,
     },

@@ -41,6 +41,7 @@ import { addConstraint, removeConstraint } from './pending.js';
 import { toCardInstance, defById, getCardEffects, cleanupEmptyCompanies } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 
 /**
  * Return the instance id of a Press-gang (`press-gang-capture` effect) in play
@@ -110,7 +111,9 @@ export function returnPressedCharacter(state: GameState, characterId: CardInstan
  * 2. Discards all items/allies on the character to its owner's discard pile and
  *    all attached hazards to their owners' discard piles ("discard all cards on
  *    him").
- * 3. Reverts the character's followers to general influence (CRF: not discarded).
+ * 3. Reverts the character's followers to general influence (CRF: not
+ *    discarded), with the mind subtraction deferred to the follower's player's
+ *    next organization phase per CoE 2.II.2.2.3 ({@link freeOrDiscardFollowers}).
  * 4. Removes the character from every company and strips its possessions, but
  *    keeps the bare card in its owner's `characters` map (off to the side).
  * 5. Adds a `character-pressed` constraint tying it to the host.
@@ -163,18 +166,15 @@ export function capturePressGang(
       // Owner of the pressed character: strip it to a bare off-to-the-side card,
       // free its followers to general influence, and drop it from its company.
       const stripped: CharacterInPlay = { ...char, items: [], allies: [], hazards: [], followers: [], trophies: [] };
-      const next: Record<string, CharacterInPlay> = { ...p.characters, [characterId as string]: stripped };
-      for (const followerId of char.followers) {
-        const follower = next[followerId as string];
-        if (follower) next[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
+      const next: Record<CardInstanceId, CharacterInPlay> = { ...p.characters, [characterId as string]: stripped };
+      freeOrDiscardFollowers(s, next, char, 'Press-gang capture');
       // The pressed character is off to the side in no company — if it was itself
       // a follower, drop it from its leader's follower list so nothing stale
       // references it as a company member.
       for (const [cid, cdata] of Object.entries(next)) {
         if (cid === (characterId as string)) continue;
         if (cdata.followers.includes(characterId)) {
-          next[cid] = { ...cdata, followers: cdata.followers.filter(id => id !== characterId) };
+          next[cid as CardInstanceId] = { ...cdata, followers: cdata.followers.filter(id => id !== characterId) };
         }
       }
       characters = next;

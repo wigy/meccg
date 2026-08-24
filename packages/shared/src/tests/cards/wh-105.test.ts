@@ -202,16 +202,18 @@ describe("Pallando's Hood (wh-105)", () => {
 
   // ── Rule 3: contributes 1 stage point while attached ───────────────────────
 
-  test('placing the card on Pallando adds it to his items and yields 1 stage point', () => {
+  test('placing the card on Pallando adds it to his items and yields 1 stage point and 1 corruption point', () => {
     const base = pallandoOrgState();
     const pallandoId = findCharInstanceId(base, RESOURCE_PLAYER, PALLANDO);
     const hoodId = findHandCardId(base, RESOURCE_PLAYER, PALLANDOS_HOOD);
+    const cpBefore = getCharacter(base, RESOURCE_PLAYER, PALLANDO).effectiveStats.corruptionPoints;
 
     expect(base.players[RESOURCE_PLAYER].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, hoodId, pallandoId);
 
     expect(getCharacter(after, RESOURCE_PLAYER, PALLANDO).items.some(i => i.definitionId === PALLANDOS_HOOD)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+    expect(getCharacter(after, RESOURCE_PLAYER, PALLANDO).effectiveStats.corruptionPoints).toBe(cpBefore + 1);
   });
 
   // ── Rules 4–5: end-of-turn fetch of the three named cards ──────────────────

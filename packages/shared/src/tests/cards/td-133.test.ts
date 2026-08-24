@@ -112,6 +112,8 @@ describe('Map to Mithril (td-133)', () => {
     const borne = gimli.items.find(i => i.definitionId === MAP_TO_MITHRIL);
     expect(borne).toBeDefined();
     expect(borne?.status).toBe(CardStatus.Untapped);
+    // Printed marshalling points: 2 (misc) — scored while the card is in play.
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
   });
 
   // ── "Tap Map to Mithril if bearer is ever at Moria" ─────────────────────────

@@ -63,11 +63,11 @@ import {
 import { autoResolve } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
-import { eligibleRingCategories, opposedRollStat } from './legal-actions/pending.js';
+import { eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
-import { revealInstances } from './visibility.js';
+import { revealInstances, forgetDeckReveals } from './visibility.js';
 import { handleRevealAgent } from './mh-hazard-play.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
@@ -2610,6 +2610,17 @@ export function applyOpposedRollResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // A pass abandons the contest, but ONLY while a roller has left play (the
+  // stale case the legal-action emitter offers the pass for) — with both
+  // rollers present the opposed roll is mandatory.
+  if (top.kind.type === 'opposed-roll' && action.type === 'pass' && action.player === top.actor) {
+    const passPlayer = state.players[getPlayerIndex(state, action.player)];
+    if (!passPlayer.characters[top.kind.challengerId] || !passPlayer.characters[top.kind.opponentId]) {
+      logDetail(`${defById(state, top.kind.sourceDefinitionId)?.name ?? '?'}: a roller has left play — opposed roll abandoned`);
+      return { state: dequeueResolution(state, top.id) };
+    }
+    return { state, error: 'opposed-roll: both rollers are in play — the roll must be made' };
+  }
   const g = guardResolution(state, action, top, 'opposed-roll', 'opposed-roll');
   if (!g.ok) return g.result;
   const { actorIndex, player, kind } = g;
@@ -3615,6 +3626,24 @@ export function applyDiscardOneCompanyItemResolution(
   rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  if (top.kind.type !== 'discard-one-company-item') return null;
+
+  // A pass dismisses the resolution ONLY when the forced discard is
+  // unsatisfiable — the company is gone, or none of its characters bears a
+  // genuine item passing the source card's filter (attachments may be
+  // permanent events placed "with" a character, e.g. Thrall of the Voice).
+  // The emitter offers the pass in exactly those situations, and shares
+  // `eligibleCompanyDiscardItems` with this check so the two cannot drift.
+  // With an eligible item present the discard stays forced and a pass is
+  // rejected.
+  if (rawAction.type === 'pass' && rawAction.player === top.actor) {
+    if (eligibleCompanyDiscardItems(state, top.kind).length > 0) {
+      return { state, error: 'An eligible item exists — the forced discard cannot be declined' };
+    }
+    logDetail(`discard-one-company-item: no eligible item in company ${top.kind.companyId as string} — resolution dismissed`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+
   const g = guardResolution(state, rawAction, top, 'discard-item-from-company', 'discard-one-company-item');
   if (!g.ok) return g.result;
   const { action, kind } = g;
@@ -4196,7 +4225,13 @@ export function applyArrangeDeckTopResolution(
   const rest = player.playDeck.slice(count);
   const newDeck = [...orderedCards, ...rest];
   logDetail(`arrange-deck-top: placed "${chosenName}" at position ${count}/${count} — deck top finalized`);
-  const newState = updatePlayer(state, playerIdx, p => ({ ...p, playDeck: newDeck }));
+  // The cards go face-down in an order the player chose in secret (dm-85) —
+  // their reveal-time identities must not stay unmasked at these exact deck
+  // positions in the opponent's projected view.
+  const newState = forgetDeckReveals(
+    updatePlayer(state, playerIdx, p => ({ ...p, playDeck: newDeck })),
+    playerIdx,
+  );
   return { state: dequeueResolution(newState, top.id) };
 }
 
@@ -4237,11 +4272,14 @@ export function applyRevealChooseToHandResolution(
     `reveal-choose-to-hand: ${action.player as string} takes "${chosenName}" into hand, ` +
     `shuffling ${shuffledDeck.length} card(s) back into the play deck`,
   );
-  const newState = updatePlayer({ ...state, rng: nextRng }, playerIdx, p => ({
-    ...p,
-    hand: [...p.hand, chosen],
-    playDeck: shuffledDeck,
-  }));
+  const newState = forgetDeckReveals(
+    updatePlayer({ ...state, rng: nextRng }, playerIdx, p => ({
+      ...p,
+      hand: [...p.hand, chosen],
+      playDeck: shuffledDeck,
+    })),
+    playerIdx,
+  );
   return { state: dequeueResolution(newState, top.id) };
 }
 

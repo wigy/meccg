@@ -13,8 +13,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { describe, test, expect, vi } from 'vitest';
 import { Alignment } from '@meccg/shared';
-import type { CardDefinitionId } from '@meccg/shared';
-import { ASK_AI_TIMEOUT_MS, GameSession } from './game-session.js';
+import type { CardDefinitionId, PlayerId } from '@meccg/shared';
+import { ASK_AI_TIMEOUT_MS, GameSession, seatWithViableActions } from './game-session.js';
 
 // GameSession and its loggers resolve SAVE_DIR / LOG_DIR / the home directory
 // once at import time, so these must be redirected before the imports above
@@ -391,5 +391,40 @@ describe('keeping the game alive', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// ---- seatWithViableActions ----
+
+// Regression: `seatToExplain` used to return `state.activePlayer`
+// unconditionally whenever it was non-null. During the movement/hazard
+// phase's hazard windows and every chain-priority response, `activePlayer`
+// stays the mover while all viable actions belong to the NON-active player
+// (the sim runner, rollout and PUCT all scan both seats for exactly this
+// reason) — so a spectator's Ask AI during the opponent's hazard play was
+// answered for the seat with nothing to decide.
+describe('seatWithViableActions', () => {
+  const p1 = 'p1' as PlayerId;
+  const p2 = 'p2' as PlayerId;
+  const players = [{ id: p1 }, { id: p2 }];
+
+  test('picks the active player while they hold a viable action', () => {
+    const seat = seatWithViableActions({ activePlayer: p1, players }, id => id === p1);
+    expect(seat).toBe(p1);
+  });
+
+  test('picks the responding player during a hazard window, not the idle mover', () => {
+    const seat = seatWithViableActions({ activePlayer: p1, players }, id => id === p2);
+    expect(seat).toBe(p2);
+  });
+
+  test('scans both seats through the simultaneous phases, where nobody is active', () => {
+    const seat = seatWithViableActions({ activePlayer: null, players }, id => id === p2);
+    expect(seat).toBe(p2);
+  });
+
+  test('reports nobody when no seat can act', () => {
+    const seat = seatWithViableActions({ activePlayer: p1, players }, () => false);
+    expect(seat).toBeNull();
   });
 });

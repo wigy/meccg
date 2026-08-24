@@ -253,6 +253,58 @@ describe('No More Nonsense (le-210)', () => {
     expect(viableActions(afterSecond, PLAYER_1, 'opposed-roll')).toHaveLength(0);
   });
 
+  test('a roller leaving play before rolling abandons the contest via pass (no deadlock)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [LIEUTENANT_MORGUL, GRISHNAKH] }],
+          hand: [NO_MORE_NONSENSE],
+          siteDeck: [MORIA_MINION],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: BARAD_DUR_MINION, characters: [GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
+      ],
+    });
+    const leaderId = findCharInstanceId(state, RESOURCE_PLAYER, LIEUTENANT_MORGUL);
+    const otherId = findCharInstanceId(state, RESOURCE_PLAYER, GRISHNAKH);
+    const played = playPermanentEventAndResolve(
+      state, PLAYER_1, state.players[RESOURCE_PLAYER].hand[0].instanceId, leaderId,
+      { opposedCharacterId: otherId },
+    );
+    expect(played.pendingResolutions.some(r => r.kind.type === 'opposed-roll')).toBe(true);
+
+    // The challenger leaves play before rolling (moved to the discard pile so
+    // the card instance stays reachable).
+    const p1 = played.players[RESOURCE_PLAYER];
+    const { [leaderId]: leaderChar, ...restChars } = p1.characters;
+    const gone: GameState = {
+      ...played,
+      players: [
+        {
+          ...p1,
+          characters: restChars,
+          companies: p1.companies.map(c => ({ ...c, characters: c.characters.filter(id => id !== leaderId) })),
+          discardPile: [...p1.discardPile, { instanceId: leaderChar.instanceId, definitionId: leaderChar.definitionId }],
+        },
+        played.players[1],
+      ] as unknown as GameState['players'],
+    };
+
+    // Regression (deadlock): no opposed-roll action can be offered for the
+    // missing roller, and previously NO action was offered at all. A pass
+    // must be offered, and dispatching it abandons the contest.
+    expect(viableActions(gone, PLAYER_1, 'opposed-roll')).toHaveLength(0);
+    const passes = viableActions(gone, PLAYER_1, 'pass');
+    expect(passes.length).toBeGreaterThan(0);
+    const after = dispatch(gone, passes[0].action);
+    expect(after.pendingResolutions.some(r => r.kind.type === 'opposed-roll')).toBe(false);
+  });
+
   // ── Effect 4 onWin ────────────────────────────────────────────────────────
 
   test('leader wins: opponent loses his hazard permanent-events and the leader gains +2 direct influence', () => {

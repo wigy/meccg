@@ -164,6 +164,35 @@ describe('Abductor (tw-1)', () => {
     expect(s.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === aragornId)).toBeUndefined();
   });
 
+  test('a wounded-discarded character\'s trophy is dispersed per CoE 3.IV.4, not lost', () => {
+    // Regression: the wound-triggered discard deleted the character record
+    // without dispersing `trophies`, so the trophy's card instance vanished
+    // from every collection.
+    const ORC_GUARD = 'tw-072' as CardDefinitionId; // creature worth kill MP
+    const afterChain = setupAbductorCombat([ARAGORN]);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+    const trophy = { instanceId: 'p1-trophy-inst' as import('../../index.js').CardInstanceId, definitionId: ORC_GUARD };
+    const withTrophy = {
+      ...afterChain,
+      players: afterChain.players.map((p, i) => i !== RESOURCE_PLAYER ? p : {
+        ...p,
+        characters: {
+          ...p.characters,
+          [aragornId as string]: { ...p.characters[aragornId], trophies: [trophy] },
+        },
+      }) as unknown as typeof afterChain.players,
+    };
+
+    let s = dispatch(withTrophy, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2); // Aragorn wounded
+    s = executeAction(s, PLAYER_2, 'body-check-roll', 8); // survives wounded → discard fires
+
+    expect(s.combat).toBeNull();
+    expectInPile(s, RESOURCE_PLAYER, 'discardPile', aragornId);
+    // The trophy (worth kill MP) lands in the marshalling-point pile.
+    expect(s.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophy.instanceId)).toBe(true);
+  });
+
   test('character that wins the strike is NOT discarded', () => {
     // Aragorn wins the strike (high roll), so no wound occurs and no discard.
     const afterChain = setupAbductorCombat([ARAGORN]);

@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, makeMHState, viableFor, viableActionTypes, reduce,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, GIMLI,
   MORIA, LORIEN,
   Phase,
 } from '../../test-helpers.js';
@@ -231,6 +231,65 @@ describe('Rule 5.03 — Under-Deeps Movement Roll', () => {
 
     // Company still at its current Under-deeps site (not displaced)
     expect(company.currentSite?.definitionId).toBe(THE_UNDER_GATES);
+  });
+
+  test('roll failure does NOT return a destination that is a sibling company\'s in-play site instance', () => {
+    // Rules 3.37/3.39: movement may target a sibling company's in-play site
+    // card — the card INSTANCE is shared. Regression: the failed-roll path
+    // returned the shared instance to the location deck unconditionally, so
+    // the same card instance existed both under the sibling company and in
+    // the site deck (a duplicated card instance).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: THE_UNDER_GATES, characters: [ARAGORN] },        // active mover
+            { site: THE_UNDER_GROTTOS, characters: [GIMLI] },        // sibling holding the instance
+          ],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    // Point the mover's destination at the SIBLING's in-play site instance.
+    const sharedInstance = base.players[0].companies[1].currentSite!;
+    const withSharedDest = {
+      ...base,
+      players: [
+        {
+          ...base.players[0],
+          companies: base.players[0].companies.map((c, i) =>
+            i === 0 ? { ...c, destinationSite: sharedInstance } : c),
+        },
+        base.players[1],
+      ] as unknown as typeof base.players,
+    };
+
+    const revealState = { ...withSharedDest, phaseState: makeMHState({ step: 'reveal-new-site', siteRevealed: false }) };
+    const afterDeclare = reduce(revealState, {
+      type: 'declare-path',
+      player: PLAYER_1,
+      movementType: MovementType.UnderDeeps,
+    });
+    expect(afterDeclare.error).toBeUndefined();
+
+    const afterRoll = reduce(
+      { ...afterDeclare.state, cheatRollTotal: 2 }, // failure
+      { type: 'under-deeps-roll', player: PLAYER_1 },
+    );
+    expect(afterRoll.error).toBeUndefined();
+
+    const player1 = afterRoll.state.players.find(p => p.id === PLAYER_1)!;
+    // Movement negated…
+    expect(player1.companies[0].destinationSite).toBeNull();
+    // …the sibling still holds the instance…
+    expect(player1.companies[1].currentSite?.instanceId).toBe(sharedInstance.instanceId);
+    // …and the instance was NOT duplicated into the location deck.
+    expect(player1.siteDeck.some(s => s.instanceId === sharedInstance.instanceId)).toBe(false);
   });
 
   test('Under-deeps roll failure still conducts the company\'s movement/hazard phase (rule 2.IV)', () => {

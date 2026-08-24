@@ -43,8 +43,15 @@ export interface WidenedOnGuardCard extends CardInstance {
 export interface ZoneFillers {
   /** The searching player's own play deck — hidden even from its owner. */
   readonly selfPlayDeck: (zone: readonly ViewCard[]) => CardInstance[];
-  /** Opponent hand, play deck and sideboard: same identity pool for all three. */
+  /** Opponent hand and play deck: same identity pool for both. */
   readonly opponentPlayZone: (zone: readonly ViewCard[]) => CardInstance[];
+  /**
+   * Opponent sideboard — its own zone with its own known composition (the
+   * deck list's sideboard), not part of the play-deck pool. Filling it from
+   * `opponentPlayZone`'s pool both drew the wrong identities and exhausted
+   * the pool, leaving every sideboard card an `unknown-card` sentinel.
+   */
+  readonly opponentSideboard: (zone: readonly ViewCard[]) => CardInstance[];
   /** Opponent site deck — drawn from sites, not from the play-card pool. */
   readonly opponentSiteDeck: (zone: readonly ViewCard[]) => CardInstance[];
   /** One opponent on-guard card, revealed or not. */
@@ -152,7 +159,7 @@ function widenOpponent(o: OpponentView, fillers: ZoneFillers): PlayerState {
     discardPile: toInstances(o.discardPile),
     siteDeck: fillers.opponentSiteDeck(o.siteDeck),
     siteDiscardPile: toInstances(o.siteDiscardPile),
-    sideboard: fillers.opponentPlayZone(o.sideboard),
+    sideboard: fillers.opponentSideboard(o.sideboard),
     killPile: toInstances(o.killPile),
     outOfPlayPile: toInstances(o.outOfPlayPile),
     companies,
