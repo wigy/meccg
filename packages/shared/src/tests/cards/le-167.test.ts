@@ -28,6 +28,9 @@
  * | 9 | Cannot be included in a Balrog's deck               | OUT OF SCOPE  |
  * | 10| Alternative mode offered in any phase (rule 2.1.1), | IMPLEMENTED   |
  * |   | not just the organization phase                     |               |
+ * | 11| Targeted mode restricted to the organization phase  | IMPLEMENTED   |
+ * |   | ("during the organization phase" — per-mode gate,   |               |
+ * |   | the alternative mode keeps its any-phase allowance) |               |
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -355,5 +358,32 @@ describe('Bade to Rule (le-167)', () => {
     expect(actions.length).toBe(1);
     const action = actions[0].action as { targetCharacterId?: unknown };
     expect(action.targetCharacterId).toBeUndefined();
+  });
+
+  // ── Rule 11: Targeted mode is organization-phase-only ─────────────────────
+
+  test('targeted mode NOT offered during the movement/hazard phase even with the Ringwraith at a Darkhaven', () => {
+    // "Playable at a Darkhaven [{DH}] during the organization phase on your
+    // Ringwraith." — with a Ringwraith in play the untargeted alternative does
+    // not apply either, so outside the organization phase no play is offered.
+    const state = orgStateAtHaven({});
+    const withMHState = { ...state, phaseState: makeMHState({ step: 'select-company' }) };
+    const actions = viableActions(withMHState, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
+  test('targeted mode NOT offered during the end-of-turn discard step', () => {
+    const state = orgStateAtHaven({});
+    const withEotState = {
+      ...state,
+      phaseState: {
+        phase: Phase.EndOfTurn as const,
+        step: 'discard' as const,
+        discardDone: [false, false] as [boolean, boolean],
+        resetHandDone: [false, false] as [boolean, boolean],
+      },
+    };
+    const actions = viableActions(withEotState, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
   });
 });

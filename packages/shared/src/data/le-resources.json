@@ -695,6 +695,9 @@
       {
         "type": "play-target",
         "target": "character",
+        "phases": [
+          "organization"
+        ],
         "filter": {
           "target.race": "ringwraith"
         }
