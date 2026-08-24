@@ -292,6 +292,7 @@ describe('Seized by Terror (dm-88)', () => {
 
     // Aragorn alone — on fail: company returns to origin (destinationSite cleared)
     const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const destinationInstId = state.players[RESOURCE_PLAYER].companies[0].destinationSite!.instanceId;
     const mhState: GameState = { ...state, phaseState: makeShadowMHState() };
     const cardId = handCardId(mhState, HAZARD_PLAYER);
 
@@ -320,6 +321,14 @@ describe('Seized by Terror (dm-88)', () => {
     expect(company.characters).toContain(aragornId);
     // destinationSite cleared — company stays at origin
     expect(company.destinationSite).toBeNull();
+    // Regression (card-disappears invariant): the destination site card was
+    // physically drawn out of the site deck by plan-movement, so canceling
+    // the movement must return it there — it used to be nulled out and
+    // destroyed, silently shrinking the location deck each time this fired
+    // on a lone moving character (seen as permanently lost site instances
+    // in random self-play: Mount Gundabad, Bandit Lair, Ruined Signal
+    // Tower, Iron Hill Dwarf-hold).
+    expect(s.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === destinationInstId)).toBe(true);
   });
 
   // ── Target leaves play while the roll is pending ──────────────────────────

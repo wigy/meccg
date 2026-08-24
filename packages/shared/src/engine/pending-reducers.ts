@@ -2694,36 +2694,43 @@ function splitCharacterToOrigin(
   characterId: import('../index.js').CardInstanceId,
   originSiteInstanceId: import('../index.js').CardInstanceId,
 ): GameState {
-  const newPlayers = clonePlayers(state);
-  const player = newPlayers[playerIndex];
-
-  // Find which company the character is in
-  const sourceCompanyIndex = player.companies.findIndex(c =>
+  const initialPlayer = state.players[playerIndex];
+  const initialCompanyIndex = initialPlayer.companies.findIndex(c =>
     c.characters.some(id => id === characterId),
   );
-  if (sourceCompanyIndex < 0) return state;
+  if (initialCompanyIndex < 0) return state;
+
+  if (initialPlayer.companies[initialCompanyIndex].characters.length <= 1) {
+    // Character is alone — whole company returns to origin. The planned
+    // destination was physically drawn out of the site deck by
+    // `plan-movement`, so it must go back there, not just be nulled out —
+    // `clearPlannedMovement` returns it (unless a sibling company still
+    // holds the same instance) exactly as the cancel-movement action does.
+    logDetail(`Seized by Terror: ${characterId as string} is alone — company returns to site of origin`);
+    return clearPlannedMovement(state, playerIndex, initialPlayer.companies[initialCompanyIndex].id);
+  }
+
+  const newPlayers = clonePlayers(state);
+  const player = newPlayers[playerIndex];
+  const sourceCompanyIndex = initialCompanyIndex;
   const sourceCompany = player.companies[sourceCompanyIndex];
 
-  // Find the origin site in play
+  // Find the origin site in play. When it has to be taken from the site
+  // deck, remove it from the deck — leaving it there while also placing it
+  // as the new company's current site would duplicate the instance.
   let originSite: import('../index.js').SiteInPlay | null = sourceCompany.currentSite;
+  let newSiteDeck = player.siteDeck;
   if (sourceCompany.currentSite?.instanceId !== originSiteInstanceId) {
-    const deckEntry = findById(state.players[playerIndex].siteDeck, originSiteInstanceId);
+    const deckEntry = findById(player.siteDeck, originSiteInstanceId);
     if (deckEntry) {
       originSite = { instanceId: deckEntry.instanceId, definitionId: deckEntry.definitionId, status: CardStatus.Untapped };
+      newSiteDeck = removeById(player.siteDeck, originSiteInstanceId);
     }
   }
 
   const updatedCompanies = [...player.companies];
 
-  if (sourceCompany.characters.length <= 1) {
-    // Character is alone — whole company returns to origin
-    logDetail(`Seized by Terror: ${characterId as string} is alone — company returns to site of origin`);
-    updatedCompanies[sourceCompanyIndex] = {
-      ...sourceCompany,
-      destinationSite: null,
-      movementPath: [],
-    };
-  } else {
+  {
     // Remove character from source company
     updatedCompanies[sourceCompanyIndex] = {
       ...sourceCompany,
@@ -2747,7 +2754,7 @@ function splitCharacterToOrigin(
     logDetail(`Seized by Terror: ${characterId as string} splits off into new company ${newCompany.id as string} at origin site`);
   }
 
-  newPlayers[playerIndex] = { ...player, companies: updatedCompanies };
+  newPlayers[playerIndex] = { ...player, companies: updatedCompanies, siteDeck: newSiteDeck };
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
   return result;
