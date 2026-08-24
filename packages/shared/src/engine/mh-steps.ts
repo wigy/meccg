@@ -465,7 +465,11 @@ export function handleRevealNewSite(
             if (eff.type !== 'under-deeps-roll-modifier') continue;
             if (eff.scope === 'all-companies') {
               allCompaniesBonus += eff.value;
-            } else if (eff.scope === 'minion-companies' && player.alignment === Alignment.Ringwraith) {
+            // "Minion" clauses cover the Balrog player too (the codebase's
+            // canonical isMinionOrBalrog reading — same as this file's
+            // draw-modifier context below): The Under-roads (as-106) lowers
+            // the Under-deeps roll for the alignment that moves there most.
+            } else if (eff.scope === 'minion-companies' && isMinionOrBalrog(player)) {
               minionCompaniesBonus += eff.value;
             }
           }
@@ -1172,9 +1176,11 @@ export function collectMatchingAhuntAttacks(
   if (pathNames.length === 0) return [];
 
   // The moving (defending) player. A card that "has no effect on a minion
-  // player" (noEffectOnMinion) is skipped when this player is a Ringwraith/Sauron.
+  // player" (noEffectOnMinion, e.g. Mordor in Arms dm-72) is skipped when
+  // this player is a Ringwraith OR the Balrog — the same isMinionOrBalrog
+  // reading the card's own faction-influence clause already uses.
   const movingPlayer = state.players[getPlayerIndex(state, state.activePlayer!)];
-  const movingPlayerIsMinion = movingPlayer.alignment === Alignment.Ringwraith;
+  const movingPlayerIsMinion = isMinionOrBalrog(movingPlayer);
 
   const inPlayNames = buildInPlayNames(state);
   const results: { instanceId: CardInstanceId; effect: AhuntAttackEffect }[] = [];
