@@ -16,7 +16,7 @@
 
 import { type ScreenId } from './app-state.js';
 import { apiGet } from './api.js';
-import { escapeHtml } from './html-utils.js';
+import { escapeHtml, formatDateTime, formatDuration, orDash } from './html-utils.js';
 import { loadGameBundle } from './lazy-load.js';
 import { gameIdCell } from './scoreboard-game-id-cell.js';
 import { MP_SOURCES } from '@meccg/shared';
@@ -94,30 +94,6 @@ function formatDate(iso: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString();
-}
-
-/** Format an ISO datetime with the time of day, for the game detail list. */
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
-
-/** Format a duration in seconds as `1h 04m` / `12m 30s` / `45s`. */
-function formatDuration(seconds: number | null): string {
-  if (seconds == null) return '—';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
-  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
-  return `${s}s`;
-}
-
-/** Fall back to an em dash for missing values. */
-function orDash(value: string | number | null): string {
-  return value == null || value === '' ? '—' : String(value);
 }
 
 /**
@@ -284,15 +260,28 @@ export async function openPlayerGamesPage(playerName: string): Promise<void> {
   // takes a moment with no visual feedback of its own, so the button is
   // disabled for the duration (re-enabled only if starting the replay fails —
   // on success the scoreboard page is hidden behind the game screen anyway).
-  listEl.addEventListener('click', (event) => {
-    const btn = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-replay-game]');
-    const gameId = btn?.dataset.replayGame;
-    if (!btn || !gameId || btn.disabled) return;
-    btn.disabled = true;
-    void loadGameBundle()
-      .then(() => window.__meccg?.startReplay?.(gameId, r.data.name))
-      .finally(() => { btn.disabled = false; });
-  });
+  //
+  // The list container is a persistent element that survives every
+  // `innerHTML` replacement, so the listener must be installed only once and
+  // must read the CURRENT page's player name from the data attribute stamped
+  // above — a listener added per visit closes over that visit's name, and
+  // since the oldest handler fires first (and disables the button before the
+  // newer ones run), revisiting another player's page kept opening replays
+  // seated as the first player ever viewed.
+  listEl.dataset.replayPlayer = r.data.name;
+  if (!listEl.dataset.replayListenerInstalled) {
+    listEl.dataset.replayListenerInstalled = 'true';
+    listEl.addEventListener('click', (event) => {
+      const btn = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-replay-game]');
+      const gameId = btn?.dataset.replayGame;
+      const replayPlayer = listEl.dataset.replayPlayer;
+      if (!btn || !gameId || !replayPlayer || btn.disabled) return;
+      btn.disabled = true;
+      void loadGameBundle()
+        .then(() => window.__meccg?.startReplay?.(gameId, replayPlayer))
+        .finally(() => { btn.disabled = false; });
+    });
+  }
 }
 
 /** Show the scoreboard page and load the rows from the server. */

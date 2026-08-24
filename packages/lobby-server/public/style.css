@@ -1957,6 +1957,60 @@ h2 {
   color: #c4a35a;
 }
 
+/* Ask AI panel (specs/2026-08-17-ask-ai-observer.md): a wide, scrollable
+   monospace read-out. Wider and taller than the report dialogs because the
+   content is a ranked candidate list with a derivation under it — wrapping that
+   into a 480px column would make it unreadable. */
+
+#ask-ai-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#ask-ai-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+#ask-ai-dialog {
+  position: relative;
+  background: #1e1e36;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 900px;
+  max-width: 92vw;
+  color: #e0e0e0;
+}
+
+#ask-ai-heading {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+  font-size: 1rem;
+}
+
+/* pre-wrap, not pre: the derivation is indented text whose alignment carries
+   meaning, but a long card name must still wrap rather than scroll the page. */
+#ask-ai-body {
+  margin: 0;
+  background: #16162a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 0.75rem;
+  max-height: 65vh;
+  overflow: auto;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: #d8d2c2;
+}
+
 /* Feature request modal */
 
 #feature-request-modal,
@@ -2046,26 +2100,30 @@ h2 {
 }
 
 #feature-request-cancel,
-#bug-report-cancel {
+#bug-report-cancel,
+#ask-ai-copy {
   background: transparent;
   color: #aaa;
   border: 1px solid #555;
 }
 
 #feature-request-cancel:hover,
-#bug-report-cancel:hover {
+#bug-report-cancel:hover,
+#ask-ai-copy:hover {
   background: rgba(255,255,255,0.05);
   color: #ddd;
 }
 
 #feature-request-send,
-#bug-report-send {
+#bug-report-send,
+#ask-ai-close {
   background: #c4a35a;
   color: #1a1a2e;
 }
 
 #feature-request-send:hover,
-#bug-report-send:hover {
+#bug-report-send:hover,
+#ask-ai-close:hover {
   background: #d4b36a;
 }
 
@@ -3498,6 +3556,37 @@ h2 {
 #view-toggle-btn .view-icon-debug { display: none; }
 #view-toggle-btn.mode-debug .view-icon-visual { display: none; }
 #view-toggle-btn.mode-debug .view-icon-debug { display: inline; }
+
+/* Ask AI follow-ups: the other questions, offered inside the answer panel.
+   The toolbar button asks about the position outright, so these sit in the
+   panel's action row and push the Copy/Close pair to the right. */
+#ask-ai-followups {
+  display: flex;
+  gap: 0.4rem;
+  margin-right: auto;
+}
+
+#ask-ai-followups button {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  background: transparent;
+  color: #d0d0d0;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+#ask-ai-followups button:hover:not(:disabled) {
+  color: #c4a35a;
+  border-color: #c4a35a;
+  background: rgba(196, 163, 90, 0.08);
+}
+
+#ask-ai-followups button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* Dev menu popup: a floating panel anchored under the toolbar icons. */
 #dev-menu-popup {
@@ -5208,7 +5297,11 @@ body.spectating.combat-active #hand-arc.kbd-peek {
   bottom: 0;
 }
 
-/* All-companies view: hide hand arcs, text log, deck boxes, and action buttons.
+/* All-companies view: hide hand arcs, text log, deck boxes, phase-meter
+   tracks, and action buttons. Two top-of-screen status cues survive so the
+   overview is not context-free: the HL chip and the phase meter's two title
+   lines (breadcrumb + targeting hint, then the moving company's region
+   path); the phase/sub tracks stay hidden.
    During Free Council the hand stays visible (free-council-mode exception) —
    CoE 10.3.i allows reactive hand plays (e.g. A Friend or Three) while a
    corruption check is pending, and the all-companies view is forced for the
@@ -5217,10 +5310,32 @@ body.spectating.combat-active #hand-arc.kbd-peek {
 .all-companies-mode #opponent-arc,
 .all-companies-mode #game-log-panel,
 .all-companies-mode #self-deck-box,
-.all-companies-mode #opponent-deck-box,
-.all-companies-mode #opponent-hazard-limit,
-.all-companies-mode #phase-meter {
+.all-companies-mode #phase-meter .phase-track {
   display: none;
+}
+
+/* The opponent deck box is hidden with visibility (not display) so its rect
+   stays valid: renderPlayerNames positions the HL chip from it, and the chip
+   must sit at the same spot as in the single-company view. A visibility-
+   hidden fixed box takes no layout space and receives no clicks. */
+.all-companies-mode #opponent-deck-box {
+  visibility: hidden;
+}
+
+/* Free Council forces the all-companies overview for the whole phase (see
+   company-view.ts), so character corruption-check targets can land inside
+   the hand-arc's always-present hover catch zone at the bottom of the
+   viewport. That zone inherits #hand-arc's z-board stacking position, above
+   the company blocks' unpositioned normal flow, so its pointer-events: auto
+   strip swallowed clicks meant for characters underneath (bug report
+   428ae9e408de09b3: characters "not selectable ... the final hand cards
+   were always in the foreground"). Suppressing the catch zone here still
+   leaves the visible fanned cards themselves (.hand-arc-cards > *,
+   pointer-events: auto) directly hoverable/clickable, so CoE 10.3.i's
+   reactive hand plays stay reachable -- only the invisible full-width catch
+   strip is disabled. */
+.free-council-mode #hand-arc:not(:empty)::before {
+  pointer-events: none;
 }
 
 /* Reclaim the space freed by hiding the opponent arc.
@@ -5229,8 +5344,9 @@ body.all-companies-mode:has(#debug-view.hidden) {
   overflow-y: hidden;
 }
 
+/* Leaves room for the phase meter's two title lines shown in this mode. */
 .all-companies-mode .company-overview-all {
-  padding-top: 3rem;
+  padding-top: 3.5rem;
 }
 
 .all-companies-mode .cards-in-play-row {
@@ -5627,6 +5743,36 @@ body.all-companies-mode:has(#debug-view.hidden) {
   box-shadow:
     0 0 10px rgba(var(--color-selected), 0.45),
     0 0 24px rgba(var(--color-selected), 0.2);
+}
+
+/* Single-company view marks the active company with the "Active" badge on the
+   site card instead — the full-block glow is too heavy at that scale. */
+.company-single .company-block--active {
+  box-shadow: none;
+}
+
+.active-badge-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.company-active-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  /* Above on-guard cards, which stack at --z-attachment + 1 over the site. */
+  z-index: calc(var(--z-attachment) + 2);
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgba(var(--color-selected), 0.7);
+  border-radius: 3px;
+  background: rgba(20, 40, 22, 0.85);
+  color: rgb(var(--color-selected));
+  font-family: 'Cinzel', serif;
+  font-size: calc(0.7rem * var(--company-scale, 1));
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
 }
 
 .company-block--clickable {
@@ -6883,8 +7029,52 @@ body.all-companies-mode:has(#debug-view.hidden) {
   color: rgba(220, 230, 245, 0.95);
 }
 
-.tutorial-panel--done {
-  border-color: rgba(140, 220, 140, 0.6);
+/* End-of-chapter card: the recap and the exit button, centered over the
+   dimmed board (#tutorial-dim) once the script is exhausted. */
+.tutorial-complete {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40rem;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  z-index: calc(var(--z-hover) + 12);
+  background: rgba(25, 35, 50, 0.97);
+  border: 1px solid rgba(140, 220, 140, 0.6);
+  border-radius: 10px;
+  padding: 22px 28px;
+  color: rgba(220, 230, 245, 0.95);
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.tutorial-complete-title {
+  font-weight: bold;
+  font-size: 1.4rem;
+  color: rgba(160, 230, 160, 1);
+}
+
+.tutorial-complete-body {
+  margin-top: 12px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+/* One line per lesson of the finished chapter. */
+.tutorial-complete-learned {
+  margin: 10px 0 0;
+  padding-left: 1.4em;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: left;
+  color: rgba(205, 220, 240, 0.92);
+}
+
+.tutorial-complete-learned li {
+  margin-bottom: 4px;
 }
 
 /* An explicitly expanded opponent deck box (top-left) may reach down into the
@@ -6905,10 +7095,6 @@ body.all-companies-mode:has(#debug-view.hidden) {
   font-weight: bold;
   font-size: 1.05rem;
   color: rgba(180, 210, 250, 1);
-}
-
-.tutorial-panel--done .tutorial-panel-title {
-  color: rgba(160, 230, 160, 1);
 }
 
 .tutorial-panel-progress {
@@ -6953,6 +7139,13 @@ body.all-companies-mode:has(#debug-view.hidden) {
   z-index: calc(var(--z-hover) + 9);
 }
 
+/* Backing the completion card: the chapter is over, so the board is put
+   away rather than merely dimmed. */
+#tutorial-dim.tutorial-dim--complete {
+  background: rgba(8, 10, 16, 0.93);
+  backdrop-filter: blur(4px);
+}
+
 /* The panel's own Continue button for the gate — deliberately styled like
    the tutorial panel, not like the game's pass button. */
 .tutorial-continue-btn {
@@ -6970,6 +7163,25 @@ body.all-companies-mode:has(#debug-view.hidden) {
 
 .tutorial-continue-btn:hover {
   background: rgba(70, 110, 160, 0.95);
+}
+
+/* The completion card's exit button — the Continue gate's shape, tinted to
+   the card's green accent. */
+.tutorial-exit-btn {
+  display: block;
+  margin: 18px auto 2px;
+  padding: 8px 26px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: rgba(220, 245, 230, 0.95);
+  background: rgba(50, 110, 70, 0.9);
+  border: 1px solid rgba(140, 220, 140, 0.8);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tutorial-exit-btn:hover {
+  background: rgba(65, 135, 85, 0.95);
 }
 
 /* Emphasized closing line of a tutorial step ("TO BE CONTINUED...."). */

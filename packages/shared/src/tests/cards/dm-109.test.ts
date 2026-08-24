@@ -36,7 +36,7 @@ import {
   buildTestState, resetMint,
   makeMHState,
   viableActionsForHandCard,
-  playCreatureHazardAndResolve,
+  playCreatureHazardAndResolve, resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
@@ -306,6 +306,61 @@ describe('Nameless Thing (dm-109)', () => {
     expect(afterChain.combat!.multiAttackCount).toBe(3);
     expect(afterChain.combat!.strikesPerAttack).toBe(2);
     expect(afterChain.combat!.cancelByTapRemaining).toBe(1);
+  });
+
+  test('a chain-resolved cancel of one attack removes the full 2-strike allotment (6 → 4)', () => {
+    // Regression: the chain-resolution cancel path decremented strikesTotal
+    // by 1 instead of strikesPerAttack, leaving 5 strikes where the rules say
+    // 4 (and drifting from multiAttackCount × strikesPerAttack).
+    const NOT_AT_HOME = 'td-143' as CardDefinitionId; // cancels a site-keyed Drake attack
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [NOT_AT_HOME],
+          siteDeck: [MINAS_TIRITH, THE_UNDER_GATES],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [NAMELESS_THING],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'The Under-gates',
+      }),
+    };
+
+    const creatureId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const inCombat = playCreatureHazardAndResolve(
+      ready, PLAYER_2, creatureId, companyId,
+      { method: 'site-keyword', value: 'under-deeps' },
+    );
+    expect(inCombat.combat!.strikesTotal).toBe(6);
+
+    const cancels = computeLegalActions(inCombat, PLAYER_1).filter(
+      ea => ea.viable && ea.action.type === 'cancel-attack',
+    );
+    expect(cancels.length).toBeGreaterThan(0);
+    const after = resolveChain(dispatch(inCombat, cancels[0].action));
+
+    // One attack canceled: combat continues with 2 attacks × 2 strikes.
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.strikesTotal).toBe(4); // NOT 5
+    expect(after.combat!.multiAttackCount).toBe(2);
   });
 
   // ─── Combat: cancel-by-tap cancels one full 2-strike attack ─────────────────

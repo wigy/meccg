@@ -14,9 +14,10 @@
  */
 
 import { RegionType } from '@meccg/shared';
-import type { GameAction, CreatureCard, CardDefinition } from '@meccg/shared';
+import type { GameAction, CreatureCard, CardDefinition, OpponentCompanyView } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
+import { attackIsDetainment } from '../detainment.js';
 import {
   lookupDef,
   isCreature,
@@ -54,6 +55,56 @@ function regionPathDanger(regionPath: readonly string[], pool: Readonly<Record<s
     danger += def?.cardType === 'region' ? REGION_PATH_DANGER[def.regionType] ?? 1 : 1;
   }
   return danger;
+}
+
+/**
+ * The weight one `play-hazard` creature action carries, before the detainment
+ * lift below.
+ *
+ * A creature keyed by more than one region-type/site-type reason appears as one
+ * legal action per keying justification, all playing the identical card, so the
+ * threat is split across them — see the call site.
+ */
+function creatureActionWeight(def: CreatureCard, defenderProwess: number, keyingVariants: number): number {
+  return Math.max(1, creatureThreat(def, defenderProwess) / Math.max(1, keyingVariants));
+}
+
+/**
+ * The best weight any *normal* creature attack in hand carries against this
+ * company, which is what a detainment attack has to be lifted above.
+ *
+ * A detainment attack taps rather than wounds and awards no kill marshalling
+ * points when it is defeated (CoE 3.II.3), so it is the one creature that costs
+ * nothing to lose — and the defenders it taps face whatever is played behind it
+ * at −1 prowess. That makes it the opener: spend the cheap attack first, and the
+ * creature that *can* be beaten for points arrives against a company already
+ * tapped. Sequencing it by adding this ceiling to its own weight keeps the
+ * detainment creatures ordered among themselves while putting all of them ahead
+ * of every attack that wounds — the same idiom {@link boostedCreatureThreatInHand}
+ * uses to sequence a board-wide boost before the creature it improves.
+ */
+function normalCreatureCeiling(
+  context: AiContext,
+  pool: Readonly<Record<string, CardDefinition>>,
+  targetCompany: OpponentCompanyView,
+  defenderProwess: number,
+): number {
+  const view = context.view;
+  let ceiling = 0;
+  for (const other of context.legalActions) {
+    if (other.type !== 'play-hazard') continue;
+    if (other.targetCompanyId !== targetCompany.id) continue;
+    const card = view.self.hand.find(c => c.instanceId === other.cardInstanceId);
+    if (!card) continue;
+    const def = lookupDef(pool, card.definitionId);
+    if (!isCreature(def)) continue;
+    if (attackIsDetainment(view, pool, targetCompany, card.definitionId, other.keyedBy)) continue;
+    const variants = context.legalActions.filter(
+      a => a.type === 'play-hazard' && a.cardInstanceId === other.cardInstanceId,
+    ).length;
+    ceiling = Math.max(ceiling, creatureActionWeight(def, defenderProwess, variants));
+  }
+  return ceiling;
 }
 
 /** Estimate how dangerous a creature is against a target company. */
@@ -154,7 +205,15 @@ export const movementHazardEvaluator: ActionEvaluator = {
           const keyingVariants = context.legalActions.filter(
             a => a.type === 'play-hazard' && a.cardInstanceId === action.cardInstanceId,
           ).length;
-          return Math.max(1, creatureThreat(def, defenderProwess) / Math.max(1, keyingVariants));
+          const weight = creatureActionWeight(def, defenderProwess, keyingVariants);
+          // A detainment attack (CoE 3.II) taps instead of wounding and cannot
+          // be beaten for kill MP, so it is spent first: it risks nothing, and
+          // the defenders it taps meet the creature behind it at −1 prowess.
+          if (targetCompany
+            && attackIsDetainment(view, pool, targetCompany, card.definitionId, action.keyedBy)) {
+            return weight + normalCreatureCeiling(context, pool, targetCompany, defenderProwess);
+          }
+          return weight;
         }
         if (isCorruption(def)) {
           // Foolish Words: target the character with the most free DI so the

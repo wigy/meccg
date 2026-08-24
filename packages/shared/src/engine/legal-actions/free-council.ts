@@ -22,6 +22,7 @@ import { collectCharacterEffects, resolveCheckModifier } from '../effects/index.
 import { logDetail } from './log.js';
 import { grantedActionActivations, modifyCorruptionCheckGrantActions } from './organization.js';
 import { reactiveCorruptionCheckPlays } from './pending.js';
+import { characterPossessions } from '../pending.js';
 import { characterIds, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
 import { asViable as viable } from './evaluated.js';
 
@@ -96,11 +97,7 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
       modifier += 2;
       logDetail(`Corruption check +2 (rule 10.05): company includes a Ringwraith/Balrog avatar`);
     }
-    const possessions: CardInstanceId[] = [
-      ...charInPlay.items.map(i => i.instanceId),
-      ...charInPlay.allies.map(a => a.instanceId),
-      ...charInPlay.hazards.map(h => h.instanceId),
-    ];
+    const possessions: CardInstanceId[] = characterPossessions(charInPlay);
     const ccNeed = cp + 1 - modifier;
     const ccParts = [`CP ${cp}`];
     if (modifier !== 0) ccParts.push(`modifier ${formatSignedNumber(modifier)}`);

@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardEffect } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardInstanceId, CardEffect, SiteCard } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -20,22 +20,23 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findWizardhavenAllyPlayGrant, findCompanySizeAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, playerWizardName, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions } from '../reducer-utils.js';
-import { buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
+import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, buildPlayerStateContext, buildActiveCompanyContext } from './organization.js';
+import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
-import { isUnderDeepsSurfaceSite, isDeepMinesSite } from './organization-companies.js';
+import { isUnderDeepsSurfaceSite, isDeepMinesSite, isUnderDeepsAdjacent } from './organization-companies.js';
+import { buildInPlayNames } from '../recompute-derived.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions, sitePlayTargetContext } from '../recompute-derived.js';
+import { buildControllerInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { asViable as viable } from './evaluated.js';
 import { grantedAction } from './granted-action-emit.js';
 
@@ -68,18 +69,23 @@ function withoutCompanyTargetPermanentEvents(state: GameState, actions: Evaluate
 }
 
 /**
- * MEWH §10 (site-tap alignment match): a non-Fallen-wizard resource that taps a
- * site (faction, ally, or item) may only be played at a site of the same
- * alignment class — a hero resource at a hero site, a minion resource at a
- * minion site. A Fallen-wizard site (Wizardhaven) counts as **both**, and
- * Fallen-wizard / stage / dual resources are themselves exempt. Returns true
- * when the play is barred by the alignment mismatch.
+ * MEWH §10 / CoE 2.V.F1 (site-tap alignment match): a non-Fallen-wizard
+ * resource that taps a site (faction, ally, or item) may only be played at a
+ * site of the same alignment class — a hero resource at a hero site, a
+ * minion resource at a minion site. "Wizardhavens and Stage resources count
+ * as either alignment for this purpose" (2.V.F1) — this covers both a
+ * printed Fallen-wizard haven and a site converted into a Wizardhaven by a
+ * `wizardhaven-conversion` constraint (e.g. Chambers in the Royal Court
+ * wh-97), and Fallen-wizard / stage / dual resources are themselves exempt.
+ * Returns true when the play is barred by the alignment mismatch.
  *
  * Only relevant for a Fallen-wizard player, who mixes hero and minion resources
  * and visits both site types; for single-alignment players the classes always
  * match. The caller gates this on `player.alignment === 'fallen-wizard'`.
  */
 function siteTapCrossAlignmentBlocked(
+  state: GameState,
+  playerId: PlayerId,
   def: CardDefinition,
   siteDef: CardDefinition | undefined,
 ): boolean {
@@ -90,6 +96,7 @@ function siteTapCrossAlignmentBlocked(
   // Fallen-wizard / stage / dual resources are exempt; FW sites count as both.
   if (resAlign === 'fallen-wizard' || resAlign === 'stage' || resAlign === 'dual') return false;
   if (siteAlign === 'fallen-wizard') return false;
+  if (isWizardhavenConversionFor(state, siteDef.id, playerId)) return false;
   if (resAlign === 'wizard' && siteAlign === 'ringwraith') return true;
   if (resAlign === 'ringwraith' && siteAlign === 'wizard') return true;
   return false;
@@ -176,6 +183,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     if (isActive) {
       base.push(...heroResourceShortEventActions(state, playerId, 'site'));
       base.push(...withoutCompanyTargetPermanentEvents(state, playPermanentEventActions(state, playerId)));
+      // Rule 2.1.1: resource player may activate any-phase grant-actions
+      // (e.g. Foul-smelling Paste le-310) at this earliest site-phase
+      // window too, not just once play-resources is reached.
+      base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -202,6 +213,9 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // decision window (e.g. Blasting Fire discard to cancel automatic-attacks
       // before the company commits to facing them).
       base.push(...grantedActionActivations(state, playerId, 'activeSitePhase'));
+      // Rule 2.1.1: resource player may also activate any-phase grant-actions
+      // (e.g. Foul-smelling Paste le-310) at this window.
+      base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
     } else {
       base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
@@ -230,6 +244,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     // dm-51): the active player passes to initiate the next attack (or to
     // finish).
     return viable(automaticAttacksActions(state, playerId, siteState));
+  }
+
+  if (siteState.step === 'rescue-tap') {
+    return viable(rescueTapActions(state, playerId, siteState));
   }
 
   if (siteState.step === 'declare-agent-attack') {
@@ -367,11 +385,22 @@ function revealOnGuardAttacksActions(
       if (!hasAutoAttacks) continue;
 
       // Check creature keying against the site (rule 2.V.i: "keyed to the site").
-      // Only site-type and site-name keying apply here; region-type keying is for
-      // movement (company moving through regions) and does not apply at the site phase.
+      // Only the site-based key methods apply here (site-type, site-name,
+      // site-keyword, adjacent-to); region keying is for movement (company
+      // moving through regions) and does not apply at the site phase. Each
+      // entry's `when` gate is evaluated against the same context shape the
+      // M/H matcher uses (`inPlay` names + the site's own path counts), so a
+      // conditional entry — Rain-drake td-57's "Ruins & Lairs that has two
+      // Wildernesses or one Coastal Sea in its site path", or a Doors-of-Night
+      // gate — holds on-guard exactly when it would hold from hand.
       if (siteDef && isSiteCard(siteDef)) {
+        const keyCtx: Record<string, unknown> = {
+          inPlay: buildInPlayNames(state),
+          destinationSite: { sitePath: regionTypeCounts(siteDef.sitePath) },
+        };
         let keyable = false;
         for (const key of def.keyedTo) {
+          if (key.when && !matchesCondition(key.when, keyCtx)) continue;
           if (key.siteTypes && key.siteTypes.includes(siteDef.siteType)) {
             logDetail(`On-guard creature "${def.name}" keyable by site-type: ${siteDef.siteType}`);
             keyable = true;
@@ -379,6 +408,33 @@ function revealOnGuardAttacksActions(
           }
           if (key.siteNames && key.siteNames.includes(siteDef.name)) {
             logDetail(`On-guard creature "${def.name}" keyable by site-name: ${siteDef.name}`);
+            keyable = true;
+            break;
+          }
+          // Site-keyword and adjacent-to keying (Durin's Bane dm-107: "at The
+          // Under-gates and at all of its adjacent sites", under-deeps sites
+          // while Doors of Night is in play) — mirror the M/H matcher so an
+          // on-guard copy can be revealed anywhere the card is playable.
+          if (key.siteKeywords && key.siteKeywords.some(kw => (siteDef.keywords ?? []).includes(kw))) {
+            logDetail(`On-guard creature "${def.name}" keyable by site-keyword`);
+            keyable = true;
+            break;
+          }
+          if (key.adjacentToSiteNames && key.adjacentToSiteNames.some(sn => {
+            const named = Object.values(state.cardPool).filter(c => isSiteCard(c) && c.name === sn) as SiteCard[];
+            return named.some(nSite => isUnderDeepsAdjacent(state, nSite, siteDef));
+          })) {
+            logDetail(`On-guard creature "${def.name}" keyable by adjacent-to-site-name`);
+            keyable = true;
+            break;
+          }
+          if (key.adjacentToSiteKeywords && key.adjacentToSiteKeywords.some(kw => {
+            const kwSites = Object.values(state.cardPool).filter(
+              c => isSiteCard(c) && (c.keywords ?? []).includes(kw),
+            ) as SiteCard[];
+            return kwSites.some(kwSite => isUnderDeepsAdjacent(state, kwSite, siteDef));
+          })) {
+            logDetail(`On-guard creature "${def.name}" keyable by adjacent-to-site-keyword`);
             keyable = true;
             break;
           }
@@ -490,6 +546,42 @@ function forewarnedSelectAttackActions(
  * home site matches the current site — one attack canceled per tap, still
  * counting as faced.
  */
+/**
+ * Actions in the 'rescue-tap' step (CoE rule 8.36): one `rescue-prisoner` per
+ * untapped company member that could tap to free the host's prisoners, plus
+ * `pass` to walk away with them still held. A prisoner of the host being
+ * rescued is never offered — they are the ones being freed.
+ */
+function rescueTapActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): GameAction[] {
+  if (state.activePlayer !== playerId) {
+    logDetail(`Not active player — no actions during rescue-tap step`);
+    return [];
+  }
+  const actions: GameAction[] = [{ type: 'pass', player: playerId }];
+  const rescue = siteState.rescueInProgress;
+  const player = playerById(state, playerId);
+  const company = player?.companies[siteState.activeCompanyIndex];
+  const host = rescue ? state.hazardHosts.find(h => h.hostCard.instanceId === rescue.hostInstanceId) : undefined;
+  if (!rescue || !player || !company || !host) return actions;
+
+  for (const characterId of company.characters) {
+    if (host.prisoners.includes(characterId)) continue;
+    if (player.characters[characterId]?.status !== CardStatus.Untapped) continue;
+    actions.push({
+      type: 'rescue-prisoner',
+      player: playerId,
+      hostInstanceId: rescue.hostInstanceId,
+      characterInstanceId: characterId,
+    });
+  }
+  logDetail(`Rescue-tap: ${actions.length - 1} untapped company member(s) could free the prisoner(s)`);
+  return actions;
+}
+
 function automaticAttacksActions(
   state: GameState,
   playerId: PlayerId,
@@ -734,28 +826,37 @@ function declareAgentAttackActions(
         continue;
       }
 
-      // Offer one action per home site in deck (for the reveal-at-declare)
-      const seenHome = new Set<string>();
-      let offeredAny = false;
-      for (const siteInst of hazardPlayer.siteDeck) {
-        const siteDef = defById(state, siteInst.definitionId);
-        if (!siteDef || !isSiteCard(siteDef)) continue;
-        if (siteDef.name !== currentSiteName) continue;
-        if (seenHome.has(siteDef.name)) continue;
-        seenHome.add(siteDef.name);
-        logDetail(`Agent ${agent.id as string}: face-down at company's site, home site "${siteDef.name}" available — offering attack`);
-        actions.push({
-          type: 'declare-agent-attack',
-          player: playerId,
-          agentInstanceId: agent.character.instanceId,
-          homeSiteInstanceId: siteInst.instanceId,
-        });
-        offeredAny = true;
-      }
-      if (!offeredAny) {
-        // No home site in deck — reveal without site, agent discarded at EOT (rule 9.04)
-        logDetail(`Agent ${agent.id as string}: face-down at company's site, no home site in deck — offering attack without site (discard at EOT)`);
+      if (agent.siteStack.length > 0) {
+        // Traveled face-down agent: its current site card is already on top of
+        // its own stack — the reveal needs no deck card and carries no rule
+        // 4.2.2 / 9.04 penalty. Offer the plain attack; a homeSiteInstanceId
+        // variant would (wrongly) pull a home-site card from the deck.
+        logDetail(`Agent ${agent.id as string}: face-down with traveled site stack — offering attack without home site`);
         actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+      } else {
+        // Offer one action per home site in deck (for the reveal-at-declare)
+        const seenHome = new Set<string>();
+        let offeredAny = false;
+        for (const siteInst of hazardPlayer.siteDeck) {
+          const siteDef = defById(state, siteInst.definitionId);
+          if (!siteDef || !isSiteCard(siteDef)) continue;
+          if (siteDef.name !== currentSiteName) continue;
+          if (seenHome.has(siteDef.name)) continue;
+          seenHome.add(siteDef.name);
+          logDetail(`Agent ${agent.id as string}: face-down at company's site, home site "${siteDef.name}" available — offering attack`);
+          actions.push({
+            type: 'declare-agent-attack',
+            player: playerId,
+            agentInstanceId: agent.character.instanceId,
+            homeSiteInstanceId: siteInst.instanceId,
+          });
+          offeredAny = true;
+        }
+        if (!offeredAny) {
+          // No home site in deck — reveal without site, agent discarded at EOT (rule 9.04)
+          logDetail(`Agent ${agent.id as string}: face-down at company's site, no home site in deck — offering attack without site (discard at EOT)`);
+          actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+        }
       }
     }
 
@@ -986,10 +1087,22 @@ function playResourcesActions(
   // Under-deeps; when it is not, no candidates are injected and the loop below
   // behaves exactly as before.
   const siteIsUnderDeepsForSetAside = !!(siteDef && isSiteCard(siteDef) && (siteDef.keywords ?? []).includes('under-deeps'));
+  // Only items set aside UNDER a Great-Secrets-style host (the
+  // `reveal-deck-choose-set-aside` effect) gain the Under-deeps replay —
+  // items set aside by other means (an Armory cache dm-116, a sacrificed
+  // Wizard's possessions) are governed by their own hosts' rules and must
+  // not become playable here.
+  const allCardsInPlay = state.players.flatMap(p => p.cardsInPlay);
+  const hostGrantsUnderDeepsReplay = (hostInstanceId: CardInstanceId | undefined): boolean => {
+    if (hostInstanceId === undefined) return false;
+    const host = allCardsInPlay.find(c => c.instanceId === hostInstanceId);
+    return getCardEffects(defById(state, host?.definitionId ?? ('' as CardDefinitionId)))
+      .some(e => e.type === 'reveal-deck-choose-set-aside');
+  };
   const underDeepsSetAsideCandidates = siteIsUnderDeepsForSetAside
-    ? state.players
-      .flatMap(p => p.cardsInPlay)
+    ? allCardsInPlay
       .filter(c => isSetAsideCard(c) && ownerOf(c.instanceId) === playerId)
+      .filter(c => hostGrantsUnderDeepsReplay(c.setAsideHost))
       .filter(c => isItemCard(defById(state, c.definitionId)))
       .map(c => ({ instanceId: c.instanceId, definitionId: c.definitionId }))
     : [];
@@ -1068,7 +1181,7 @@ function playResourcesActions(
     // Double-dealing (wh-66) lifts this restriction at the site it is played on:
     // a `cross-alignment-resources-unlocked` constraint for this player + site
     // makes the opposite alignment's resources playable there.
-    if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(def, siteDef)) {
+    if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(state, playerId, def, siteDef)) {
       const crossUnlocked = hasSiteFlagForPlayer(
         state.activeConstraints, 'cross-alignment-resources-unlocked', siteDefId, playerId,
       );
@@ -1260,14 +1373,10 @@ function playResourcesActions(
         // play-condition: player-state — avatar/alignment/stage-point gate.
         // The Fortress of Isen/Towers (wh-68/wh-69): "Playable if you are Alatar,
         // Pallando, or Saruman."
-        const playerStateCond = findPlayConditionEffect(eventDef, 'player-state');
-        if (playerStateCond?.condition) {
-          const ctx = buildPlayerStateContext(state, player, playerId);
-          if (!matchesCondition(playerStateCond.condition, ctx)) {
-            logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
-            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
-            continue;
-          }
+        if (!playerStateGateMet(state, player, playerId, eventDef)) {
+          logDetail(`Permanent event ${eventDef.name}: player-state play-condition not satisfied`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: play condition not met`));
+          continue;
         }
 
         // play-condition: card-count-exceeds — the controller must hold more
@@ -1311,6 +1420,26 @@ function playResourcesActions(
             actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: cannot be played while ${blockerName} is in play`));
             continue;
           }
+        }
+
+        // play-condition: card-in-play — one or more named cards must already
+        // be in the playing player's own play area (attachment-aware:
+        // `cardsInPlay`, his characters, and the items/hazards they bear).
+        // An opponent's copy never satisfies "if <card> is in play". Stone of
+        // Erech (tw-334): "Playable at the Vale of Erech and if the Men of
+        // Lamedon are already in play."
+        const cardInPlayConditions = findPlayConditionEffects(eventDef, 'card-in-play');
+        let missingRequiredCard: string | undefined;
+        for (const cond of cardInPlayConditions) {
+          if (cond.cardName && !isCardNameInPlayForPlayer(state, player, cond.cardName)) {
+            missingRequiredCard = cond.cardName;
+            break;
+          }
+        }
+        if (missingRequiredCard) {
+          logDetail(`Permanent event ${eventDef.name}: play-condition card-in-play requires ${missingRequiredCard} in play`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} requires ${missingRequiredCard} in play`));
+          continue;
         }
 
         // play-condition: card-attached-to-site — the permanent event is only
@@ -1596,39 +1725,13 @@ function playResourcesActions(
 
         // Check play-condition: discard-named-card
         const discardCondition = findPlayConditionEffect(eventDef, 'discard-named-card');
-        const discardCandidates: { instanceId: import('../../index.js').CardInstanceId; source: string }[] = [];
-        if (discardCondition && discardCondition.cardName) {
-          const targetCardName = discardCondition.cardName;
-          const sources = discardCondition.sources ?? ['character-items'];
-          for (const source of sources) {
-            if (source === 'character-items') {
-              for (const charId of company.characters) {
-                const ch = player.characters[charId];
-                if (!ch) continue;
-                for (const item of ch.items) {
-                  const itemDef = defById(state, item.definitionId);
-                  if (itemDef && itemDef.name === targetCardName) {
-                    discardCandidates.push({ instanceId: item.instanceId, source: 'character-items' });
-                  }
-                }
-              }
-            } else if (source === 'kill-pile') {
-              // Successfully stored items live in the marshalling point pile
-              // (killPile) per CoE rule 2.II.4.1 — e.g. a Sapling of the White
-              // Tree stored at Minas Tirith.
-              for (const card of player.killPile) {
-                const cardDef = defById(state, card.definitionId);
-                if (cardDef && cardDef.name === targetCardName) {
-                  discardCandidates.push({ instanceId: card.instanceId, source: 'kill-pile' });
-                }
-              }
-            }
-          }
-          if (discardCandidates.length === 0) {
-            logDetail(`Permanent event ${eventDef.name}: no ${targetCardName} available to discard`);
-            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no ${targetCardName} available to discard`));
-            continue;
-          }
+        const discardCandidates = discardCondition?.cardName
+          ? namedDiscardCandidates(state, player, company, discardCondition)
+          : [];
+        if (discardCondition?.cardName && discardCandidates.length === 0) {
+          logDetail(`Permanent event ${eventDef.name}: no ${discardCondition.cardName} available to discard`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no ${discardCondition.cardName} available to discard`));
+          continue;
         }
 
         // Generate actions — cross-product of discard candidates (or single if none)
@@ -1674,9 +1777,13 @@ function playResourcesActions(
 
       // MEAS §6(f): at an Under-deeps site the "one extra minor item" allowance
       // (rule 2.V.5) is widened — the extra character may play any item the site
-      // itself allows (minor, major, or gold ring), not only a minor item.
+      // itself allows (minor, major, or gold ring), not only a minor item. Deep
+      // Mines (wh-55) counts as an Under-deeps-style site (CRF errata: moving to
+      // it works "much like ... moving to an Under-deeps site"; g.sur.F1 treats
+      // its Wizardhaven as the site's surface site) even though it doesn't carry
+      // the literal `under-deeps` keyword.
       const siteIsUnderDeeps = siteDef && isSiteCard(siteDef)
-        && (siteDef.keywords ?? []).includes('under-deeps');
+        && ((siteDef.keywords ?? []).includes('under-deeps') || isDeepMinesSite(siteDef));
 
       // item-play-site allowTapped: the item itself permits play at a
       // tapped site (e.g. Blasting Fire wh-51, Vile Fumes wh-54 — "tapped or
@@ -1810,10 +1917,20 @@ function playResourcesActions(
         // major-item-unlocked also allows hoard items (items with keyword "hoard"
         // that have an item-play-site restriction requiring a hoard site)
         const isHoardItem = (itemDef.keywords as readonly string[] | undefined)?.includes('hoard') === true;
-        if (!allowed && !(majorItemUnlocked && isHoardItem)) {
+        // A hoard item is still an item of its own minor/major/greater/gold-ring
+        // subtype (rule 2.V.4) — the "hoard" keyword (glossary: "a type of item
+        // that is only playable at a site ... designated as containing a hoard")
+        // adds the requirement that the site contain a hoard, it doesn't waive
+        // the site's own printed `playableResources` tier. E.g. Enruned Shield
+        // (greater, hoard) isn't playable at Ovir Hollow, whose playableResources
+        // is only minor/major, even though Ovir Hollow contains a hoard.
+        const hoardTierAllowed = !isHoardItem || playableTypes.has(itemDef.subtype);
+        if ((!allowed || !hoardTierAllowed) && !(majorItemUnlocked && isHoardItem)) {
           const reason = siteRestriction.sites
             ? `only playable at ${siteRestriction.sites.join(', ')}`
-            : `${itemDef.name}: site does not satisfy play restriction`;
+            : !hoardTierAllowed
+              ? `${itemDef.name}: ${itemDef.subtype} items cannot be played at ${siteName}`
+              : `${itemDef.name}: site does not satisfy play restriction`;
           logDetail(`Item ${itemDef.name}: site ${siteName} does not satisfy play restriction`);
           actions.push(notPlayable(playerId, cardInstanceId, siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason));
           continue;
@@ -2011,7 +2128,7 @@ function playResourcesActions(
       // card's printed resource list — so it survives the conversion.
       const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType, siteRegionTypeOf(state, siteDefForAlly), isUnderDeepsSurfaceSite(state, siteDefForAlly)));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
-        && (!sitePlayTarget.filter || matchesDefinition(siteDefForAlly, sitePlayTarget.filter));
+        && (!sitePlayTarget.filter || matchesDefinition({ ...siteDefForAlly, siteType: allyEffSiteType ?? siteDefForAlly.siteType }, sitePlayTarget.filter));
       // Glove of Radagast (wh-111): a `grant-ally-play` permission on a company
       // member makes any matching non-unique 1-mind ally playable at the
       // company's current site, bypassing the ally's printed `playableAt`.
@@ -2025,7 +2142,7 @@ function playResourcesActions(
       // `atProtectedWizardhavens` makes any matching non-unique 1-mind ally
       // playable at one of the player's own protected Wizardhavens — tapped or
       // untapped — once per site phase.
-      const wizGrant = findWizardhavenAllyPlayGrant(state, player);
+      const wizGrant = findPlayerAllyPlayGrant(state, player, e => e.atProtectedWizardhavens === true);
       const siteIsProtectedWizardhaven = siteDefForAlly !== undefined
         && siteIsProtectedByPlayer(state, siteDefId, playerId)
         && isHavenForPlayer(siteDefForAlly, player.alignment, { state, siteDefinitionId: siteDefId, playerId });
@@ -2038,7 +2155,7 @@ function playResourcesActions(
       // any company whose effective size is at most that value — at any site
       // (no Wizardhaven restriction, and no relaxation of which allies are
       // playable there).
-      const companySizeGrant = findCompanySizeAllyPlayGrant(state, player);
+      const companySizeGrant = findPlayerAllyPlayGrant(state, player, e => e.maxCompanySize !== undefined);
       const grantedByCompanySize = companySizeGrant !== undefined
         && companySizeGrant.effect.allowTappedSite === true
         && companyEffectiveSize(state, company) <= companySizeGrant.effect.maxCompanySize!
@@ -2357,7 +2474,7 @@ function playResourcesActions(
         if (fullCharacter && charDef && isCharacterCard(charDef)) {
           // DSL effects
           const resolverCtx: ResolverContext = {
-            reason: 'faction-influence-check',
+            ...buildFactionCheckContext(state, factionDef),
             bearer: {
               race: charDef.race, skills: getEffectiveSkills(state, fullCharacter, charDef),
               baseProwess: charDef.prowess, baseBody: charDef.body,
@@ -2373,18 +2490,7 @@ function playResourcesActions(
               // standard modifications keyed to home region (Wild Horses wh-39).
               homesiteRegions: characterHomeSiteRegions(state, charDef),
             },
-            faction: {
-              name: factionDef.name,
-              race: factionDef.race,
-              playableAt: buildFactionPlayableAt(factionDef),
-              playableRegions: buildFactionPlayableRegions(state, factionDef),
-            },
-            influenceTarget: buildInfluenceTargetContext(factionDef, 'faction'),
-            controller: {
-              inPlay: buildControllerInPlayNames(state, playerId),
-              factionRaces: buildControllerFactionRaces(state, playerId),
-              wizard: playerWizardName(state, player),
-            },
+            controller: buildFactionControllerContext(state, playerId),
           };
           const ownEffects = collectCharacterEffects(state, fullCharacter, resolverCtx);
           const charEffects = [...ownEffects];
@@ -2561,16 +2667,7 @@ function playResourcesActions(
         // & Treachery (le-150) nullifies card-sourced modifications entirely.
         const globalInfMod = nullifyMods
           ? 0
-          : collectGlobalCheckModifier(state, 'influence', {
-            reason: 'faction-influence-check',
-            faction: {
-              name: factionDef.name,
-              race: factionDef.race,
-              playableAt: buildFactionPlayableAt(factionDef),
-              playableRegions: buildFactionPlayableRegions(state, factionDef),
-            },
-            influenceTarget: buildInfluenceTargetContext(factionDef, 'faction'),
-          });
+          : collectGlobalCheckModifier(state, 'influence', buildFactionCheckContext(state, factionDef));
         if (globalInfMod !== 0) {
           infModifier += globalInfMod;
           infParts.push(`game-wide ${formatSignedNumber(globalInfMod)}`);
@@ -2674,7 +2771,7 @@ function playResourcesActions(
 
       // MEWH §10 cross-alignment site-tap (mirrors the hand loop). A Double-dealing
       // unlock lifts it at the played-on site.
-      if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(allyDef, siteDef)) {
+      if (player.alignment === 'fallen-wizard' && siteTapCrossAlignmentBlocked(state, playerId, allyDef, siteDef)) {
         const crossUnlocked = hasSiteFlagForPlayer(
           state.activeConstraints, 'cross-alignment-resources-unlocked', siteDefId, playerId,
         );
@@ -2686,7 +2783,15 @@ function playResourcesActions(
 
       if (eddyTaxUnpaid) continue;
 
-      if (siteIsTapped && !hasPlayFlag(allyDef, 'playable-at-tapped-site')) {
+      // A play-target effect with target "site" and `requireTapped: false`
+      // (e.g. Noble Hound: "any tapped or untapped Border-hold") lifts the
+      // tapped-site restriction just as it does for the hand-play loop above.
+      const discardSitePlayTarget = allyDef.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+      );
+      const discardAllyAllowsTappedSite = hasPlayFlag(allyDef, 'playable-at-tapped-site')
+        || discardSitePlayTarget?.requireTapped === false;
+      if (siteIsTapped && !discardAllyAllowsTappedSite) {
         logDetail(`Discard ally ${allyDef.name}: site is already tapped`);
         continue;
       }
@@ -3030,13 +3135,26 @@ function opponentInfluenceActions(
     charInstanceId: import('../../types/common.js').CardInstanceId,
     target?: { readonly kind: string; readonly race?: Race; readonly name: string },
   ): number => {
-    if (!nullifyMods) return availableDI(state, charInstanceId, ownerPlayer);
     const fullChar = ownerPlayer.characters[charInstanceId];
-    if (!fullChar) return 0;
-    const ctx: ResolverContext = { reason: 'opponent-influence-check', ...(target ? { target } : {}) };
-    const own = collectCharacterEffects(state, fullChar, ctx)
-      .filter(e => e.sourceInstance === charInstanceId);
-    return normalUnusedDI(state, charInstanceId, ownerPlayer, own, ctx);
+    if (nullifyMods) {
+      if (!fullChar) return 0;
+      const ctx: ResolverContext = { reason: 'opponent-influence-check', ...(target ? { target } : {}) };
+      const own = collectCharacterEffects(state, fullChar, ctx)
+        .filter(e => e.sourceInstance === charInstanceId);
+      return normalUnusedDI(state, charInstanceId, ownerPlayer, own, ctx);
+    }
+    // Mirror `resolveOpponentInfluenceAttempt` (reducer-site.ts): the base
+    // unused DI (unconditional bonuses already folded into effective stats)
+    // plus any of the influencer's target-conditional `direct-influence`
+    // stat-modifiers gated on `reason: "opponent-influence-check"` (e.g.
+    // Beretar tw-128 "+2 direct influence against the Rangers of the North
+    // faction"). Without this, the previewed "Influencer DI" explanation
+    // undercounts exactly what the roll will actually use.
+    const base = availableDI(state, charInstanceId, ownerPlayer);
+    if (!target || !fullChar) return base;
+    const ctx: ResolverContext = { reason: 'opponent-influence-check', target };
+    const conditional = checkConditionalEffects(collectCharacterEffects(state, fullChar, ctx));
+    return base + resolveStatModifiers(conditional, 'direct-influence', 0, ctx);
   };
   const nullifySuffix = nullifyMods ? ', all other modifications nullified' : '';
 
@@ -3363,6 +3481,18 @@ function declareCompanyAttackActions(
   // offering attack actions — only the pass remains to advance the company.
   if (siteState.opponentInteractionThisTurn !== null) {
     logDetail(`CvCC: interaction already occurred this turn (${siteState.opponentInteractionThisTurn}) — only pass offered`);
+    actions.push({ type: 'pass', player: playerId });
+    return actions;
+  }
+
+  // The active company may have been wiped out earlier in its own site phase
+  // (e.g. its last character eliminated by an automatic-attack body check) —
+  // the site-phase machine still walks the empty company through its steps.
+  // With no attackers a CvCC declaration is guaranteed to be rejected by the
+  // reducer ("Attacking company has no characters"), so offer only the pass
+  // that advances past this company.
+  if (company.characters.length === 0) {
+    logDetail('CvCC: active company has no characters left — only pass offered');
     actions.push({ type: 'pass', player: playerId });
     return actions;
   }

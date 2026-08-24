@@ -19,6 +19,9 @@
  * | 4 | Tap the Hood during end-of-turn to fetch one of 3 named cards | IMPLEMENTED |
  * | 5 | Only the three named cards are fetchable; only end-of-turn    | IMPLEMENTED |
  * | 6 | Cost taps the Hood itself (not Pallando)                      | IMPLEMENTED |
+ * | 7 | Playable bare when Pallando is NOT in play ("if he is in play")| IMPLEMENTED |
+ * | 8 | Attaches to Pallando the moment he enters play                | IMPLEMENTED |
+ * | 9 | The fetch is unavailable while the card is not on Pallando    | IMPLEMENTED |
  *
  * Modeling (identical shape to Huntsman's Garb wh-92, retargeted to Pallando):
  *  - Rule 1: the `pallando-specific` keyword gates playability to a player whose
@@ -36,6 +39,15 @@
  *    *item* (via `applyCost` `tapAttachment`), so eligibility keys on the Hood's
  *    own status — not the bearer's — meaning the fetch works even while Pallando
  *    is tapped.
+ *  - Rules 7–8: "Place this card on Pallando **if he is in play**" — placement
+ *    is conditional, not a play requirement. An untargeted `play-option` gated
+ *    on `player.avatarInPlay: false` lets the card enter play bare in
+ *    `cardsInPlay`, and an `on-event: avatar-enters-play` move (self →
+ *    `in-play-on-character`) attaches it to Pallando the moment he is revealed —
+ *    the wh-99 / Bade to Rule (le-167) pattern.
+ *  - Rule 9 falls out of the scanner: `endOfTurnGrantActions` walks characters
+ *    and their attached items only, so a Hood sitting bare in `cardsInPlay`
+ *    is never a grant source ("If on Pallando, you may tap…").
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -43,7 +55,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
-  viableActions,
+  viableActions, viablePlayCharacterActions,
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
   addCardToDiscardPile,
@@ -52,7 +64,7 @@ import {
   dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, GameState, PlayerState } from '../../index.js';
-import { Phase, Alignment, CardStatus } from '../../index.js';
+import { Phase, Alignment, CardStatus, computeLegalActions } from '../../index.js';
 
 // ── Local card-ID constants (single-use — not promoted to card-ids.ts) ──
 
@@ -68,6 +80,9 @@ const SARUMAN = 'wh-9' as CardDefinitionId;
 const BOROMIR = 'tw-134' as CardDefinitionId;
 /** Isengard — a Fallen-wizard Wizardhaven (haven site). */
 const ISENGARD = 'wh-56' as CardDefinitionId;
+/** The White Towers — Pallando's printed home site, so he can be revealed
+ *  there from hand. */
+const THE_WHITE_TOWERS = 'tw-430' as CardDefinitionId;
 
 /** The three cards the Hood may retrieve from the discard pile. */
 const GIFTS_AS_GIVEN_OF_OLD = 'le-188' as CardDefinitionId;
@@ -187,16 +202,18 @@ describe("Pallando's Hood (wh-105)", () => {
 
   // ── Rule 3: contributes 1 stage point while attached ───────────────────────
 
-  test('placing the card on Pallando adds it to his items and yields 1 stage point', () => {
+  test('placing the card on Pallando adds it to his items and yields 1 stage point and 1 corruption point', () => {
     const base = pallandoOrgState();
     const pallandoId = findCharInstanceId(base, RESOURCE_PLAYER, PALLANDO);
     const hoodId = findHandCardId(base, RESOURCE_PLAYER, PALLANDOS_HOOD);
+    const cpBefore = getCharacter(base, RESOURCE_PLAYER, PALLANDO).effectiveStats.corruptionPoints;
 
     expect(base.players[RESOURCE_PLAYER].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, hoodId, pallandoId);
 
     expect(getCharacter(after, RESOURCE_PLAYER, PALLANDO).items.some(i => i.definitionId === PALLANDOS_HOOD)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+    expect(getCharacter(after, RESOURCE_PLAYER, PALLANDO).effectiveStats.corruptionPoints).toBe(cpBefore + 1);
   });
 
   // ── Rules 4–5: end-of-turn fetch of the three named cards ──────────────────
@@ -267,5 +284,101 @@ describe("Pallando's Hood (wh-105)", () => {
       phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
     } as GameState;
     expect(grantedActionsFor(org, pallandoId, FETCH, PLAYER_1).length).toBe(0);
+  });
+
+  // ── Rules 7–9: playable without Pallando, not usable without Pallando ──────
+  // "Place this card on Pallando if he is in play" makes the placement
+  // conditional, not the play; the fetch clause is "If on Pallando". Mirrors
+  // Huntsman's Garb (wh-92) / Give Welcome to the Unexpected (wh-99).
+
+  /** Organization-phase state with Pallando NOT in play: he sits in hand
+   *  (still the declared avatar, so the pallando-specific gate passes) and his
+   *  home site heads the site deck so he can be revealed. */
+  function pallandoUnrevealedOrgState(): GameState {
+    return buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [BOROMIR] }],
+          hand: [PALLANDOS_HOOD, PALLANDO],
+          siteDeck: [THE_WHITE_TOWERS],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: ISENGARD, characters: [] }],
+          hand: [],
+          siteDeck: [ISENGARD],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+  }
+
+  /** Every viable end-of-turn fetch offer, regardless of which character it is
+   *  keyed on — a bare Hood has no bearer to ask `grantedActionsFor` about. */
+  const allFetchOffers = (state: GameState) =>
+    computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable)
+      .map(ea => ea.action)
+      .filter(a => a.type === 'activate-granted-action'
+        && (a as { actionId?: string }).actionId === FETCH);
+
+  test('playable bare during the organization phase when Pallando is not in play', () => {
+    const state = pallandoUnrevealedOrgState();
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBeUndefined();
+
+    const hoodId = findHandCardId(state, RESOURCE_PLAYER, PALLANDOS_HOOD);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, hoodId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === PALLANDOS_HOOD)).toBe(true);
+    // The stage point is earned whether or not the card sits on Pallando.
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+  });
+
+  test('the fetch is NOT offered while the Hood sits in play unattached', () => {
+    const org = pallandoUnrevealedOrgState();
+    const hoodId = findHandCardId(org, RESOURCE_PLAYER, PALLANDOS_HOOD);
+    let state = playPermanentEventAndResolve(org, PLAYER_1, hoodId);
+    for (const d of [GIFTS_AS_GIVEN_OF_OLD, WIZARDS_VOICE, EYES_OF_MANDOS]) state = addCardToDiscardPile(state, RESOURCE_PLAYER, d);
+    const eot = {
+      ...state,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+
+    // Three fetchable cards in the discard pile, and still no offer: only a
+    // Hood *on* Pallando can be tapped.
+    expect(allFetchOffers(eot).length).toBe(0);
+  });
+
+  test('attaches to Pallando the moment he enters play, and the fetch works from then on', () => {
+    const org = pallandoUnrevealedOrgState();
+    const hoodId = findHandCardId(org, RESOURCE_PLAYER, PALLANDOS_HOOD);
+    const bare = playPermanentEventAndResolve(org, PLAYER_1, hoodId);
+
+    // Reveal Pallando at his home site — the Hood leaves `cardsInPlay` for his items.
+    const playPallando = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, PALLANDO));
+    expect(playPallando).toBeDefined();
+    const revealed = dispatch(bare, playPallando!);
+
+    expect(revealed.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === PALLANDOS_HOOD)).toBe(false);
+    expect(getCharacter(revealed, RESOURCE_PLAYER, PALLANDO).items.some(i => i.definitionId === PALLANDOS_HOOD)).toBe(true);
+    expect(revealed.players[RESOURCE_PLAYER].stagePoints).toBe(1);
+
+    // With the Hood on Pallando, the end-of-turn fetch is offered again.
+    let seeded = revealed;
+    for (const d of [GIFTS_AS_GIVEN_OF_OLD, WIZARDS_VOICE, EYES_OF_MANDOS]) seeded = addCardToDiscardPile(seeded, RESOURCE_PLAYER, d);
+    const eot = {
+      ...seeded,
+      phaseState: { phase: Phase.EndOfTurn, step: 'discard', discardDone: [false, false], resetHandDone: [false, false] },
+    } as GameState;
+    expect(allFetchOffers(eot).length).toBe(3);
   });
 });

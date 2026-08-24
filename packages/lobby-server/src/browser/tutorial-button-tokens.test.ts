@@ -20,6 +20,7 @@ import {
   createGame, loadCardPool, reduce, computeLegalActions, setEngineConsoleLog, Phase,
   findMatchingAction, gateHumanActions,
   TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK, TUTORIAL_BEATS, TUTORIAL_STEPS,
+  LATER_CHAPTER_BEATS, LATER_CHAPTER_STEPS,
 } from '@meccg/shared';
 import type {
   EvaluatedAction, GameConfig, GameState, PlayerId, PlayerView, TutorialBeat,
@@ -121,8 +122,11 @@ describe('tutorial [[Button]] tokens', () => {
         return s;
       };
 
-      for (let i = 0; i < TUTORIAL_BEATS.length; i++) {
-        const beat = TUTORIAL_BEATS[i];
+      // Chapter one plus the written-but-unplayed remainder: a label drift
+      // in a later chapter must fail here too, before that chapter ships.
+      const beats = [...TUTORIAL_BEATS, ...LATER_CHAPTER_BEATS];
+      for (let i = 0; i < beats.length; i++) {
+        const beat = beats[i];
         const actorId = beat.actor === 'human' ? HUMAN : MENTOR;
         if (beat.actor === 'human') record(beat.stepId, visibleButtonLabels(state, beat));
         let action = findMatchingAction(state, actorId, beat.match);
@@ -141,7 +145,7 @@ describe('tutorial [[Button]] tokens', () => {
       setEngineConsoleLog(true);
     }
 
-    for (const step of TUTORIAL_STEPS) {
+    for (const step of [...TUTORIAL_STEPS, ...LATER_CHAPTER_STEPS]) {
       const tokens = [...step.body.matchAll(/\[\[([^\]]+)\]\]/g)].map(m => m[1]);
       if (tokens.length === 0) continue;
       const seen = labelsByStep.get(step.id) ?? new Set<string>();

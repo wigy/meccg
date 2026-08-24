@@ -1,0 +1,373 @@
+#!/usr/bin/env bash
+# One supervisor for every headless `claude` invocation in this repository.
+#
+# Why this exists
+# ---------------
+# There used to be four hand-rolled copies of this supervisor loop —
+# handle-mail's run_skill, run-ai's preflight_token and run_pr_fix, and
+# nightly-release. They drifted, and the drift was expensive:
+#
+#   * The CLI changed the key order of its terminal {"type":"result",...}
+#     object. The literal substring match that classified success stopped
+#     matching, so EVERY successful run came back as an error. handle-mail
+#     mailed failures and burned ~110 certifications (as-16, tw-46, tw-31, …)
+#     whose PRs were perfectly good. The jq-based fix had already landed in
+#     run-ai's preflight_token — handle-mail never got it.
+#   * Two of the four passed the prompt as argv (`-p "$prompt"`). Linux caps a
+#     single argv string at MAX_ARG_STRLEN (128KB), far below ARG_MAX and not
+#     raisable with ulimit; handle-certify-card.md crossed it and execve
+#     rejected every certification with E2BIG (exit 126). run_pr_fix had the
+#     same latent bug with a prompt that grows with the PR's comments and CI
+#     output.
+#   * run_pr_fix SIGKILLed one second after SIGTERM. A hard kill mid-write is
+#     what historically corrupted ~/.claude credential state.
+#
+# All of that is now fixed in exactly one place. Callers pass parameters, never
+# copies of the loop.
+#
+# Usage: claude-run [options]   (the prompt is read from stdin)
+set -euo pipefail
+
+SECRETS="$HOME/.meccg/secrets.json"
+
+ENGINE=""
+FALLBACK=""
+TIMEOUT=3600
+GRACE=10
+POLL=2
+RAW_LOG=""
+STATS=""
+RUN_CWD=""
+LABEL="claude-run"
+EARLY_AUTH_ABORT=false
+OK_ON_RESULT=false
+
+usage() {
+  cat <<'EOF'
+Usage: claude-run [options] < prompt
+
+Runs one headless `claude` turn under supervision and classifies the outcome.
+The prompt is ALWAYS read from stdin — never passed as argv, which would hit
+the 128KB MAX_ARG_STRLEN cap on large skill prompts.
+
+Options:
+  --engine <spec>     Engine spec, "<model>" or "<model>:<effort>". Resolved
+                      against the registry below; an unknown spec is a hard
+                      error, never a silent fallback. Omit to use the CLI
+                      default (no --model/--effort flags passed).
+  --fallback <model>  Model alias for --fallback-model, used when the primary
+                      model is unavailable (capacity/overload).
+  --timeout <secs>    Hard deadline for the whole turn (default 3600).
+  --grace <secs>      Seconds to let claude exit on its own after it prints its
+                      terminal result, before we SIGTERM it (default 10). Use 0
+                      to terminate as soon as the result appears.
+  --poll <secs>       Poll interval while watching the stream (default 2).
+  --raw-log <path>    Append the raw stream-json output here (kept on both
+                      success and failure, so a bad run can be diagnosed).
+  --stats <path>      Write three lines — cost, duration_ms, status — here.
+  --cwd <dir>         chdir here before running claude.
+  --label <name>      Prefix for this run's log lines (default claude-run).
+  --early-auth-abort  Stop as soon as an auth-failure marker appears, without
+                      waiting for a terminal result. For the token preflight,
+                      where a bad token never produces a result at all.
+  --ok-on-result      Exit 0 whenever a terminal result was printed, even one
+                      reporting is_error. For best-effort sweeps whose caller
+                      only distinguishes "reached a result" from "did not".
+  -h, --help          Show this help.
+
+Engine registry (model alias -> model id):
+  opus-5      claude-opus-5        $5/$25 per MTok
+  opus-4-8    claude-opus-4-8      $5/$25
+  sonnet-5    claude-sonnet-5      $3/$15
+  haiku-4-5   claude-haiku-4-5     $1/$5
+  fable-5     claude-fable-5       $10/$50
+  default     (no --model flag — whatever the CLI is configured to use)
+
+Effort levels: low, medium, high, xhigh, max.
+
+Exit codes:
+  0   success   the terminal result reported is_error=false
+  10  error     ran, but did not reach a successful terminal result
+  11  auth      authentication failed — the turn never ran, do not consume work
+  12  apierror  usage/rate/overload limit — the turn never ran, retry later
+  13  timeout   hit the hard deadline without a terminal result
+  2   usage error
+
+Stdout carries the turn's final result text and nothing else; every log line
+goes to stderr, so callers can capture stdout directly.
+EOF
+}
+
+log() { echo "[$LABEL] $*" >&2; }
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --engine)           ENGINE="${2:-}"; shift 2 ;;
+    --fallback)         FALLBACK="${2:-}"; shift 2 ;;
+    --timeout)          TIMEOUT="${2:-}"; shift 2 ;;
+    --grace)            GRACE="${2:-}"; shift 2 ;;
+    --poll)             POLL="${2:-}"; shift 2 ;;
+    --raw-log)          RAW_LOG="${2:-}"; shift 2 ;;
+    --stats)            STATS="${2:-}"; shift 2 ;;
+    --cwd)              RUN_CWD="${2:-}"; shift 2 ;;
+    --label)            LABEL="${2:-}"; shift 2 ;;
+    --early-auth-abort) EARLY_AUTH_ABORT=true; shift ;;
+    --ok-on-result)     OK_ON_RESULT=true; shift ;;
+    -h|--help)          usage; exit 0 ;;
+    *) echo "claude-run: unknown option '$1' (try --help)" >&2; exit 2 ;;
+  esac
+done
+
+for n in TIMEOUT GRACE POLL; do
+  v="${!n}"
+  case "$v" in
+    ''|*[!0-9]*) echo "claude-run: --${n,,} expects a non-negative integer, got '$v'" >&2; exit 2 ;;
+  esac
+done
+[ "$POLL" -gt 0 ] || { echo "claude-run: --poll must be at least 1" >&2; exit 2; }
+
+# ---------------------------------------------------------------------------
+# Engine registry
+# ---------------------------------------------------------------------------
+# Deliberately modelled on packages/sim's resolveAgent() spec grammar: one
+# registry, one parser, and an unknown spec is an error rather than a silent
+# fallback. As sim's common.test.ts puts it, "a spec that silently drops the
+# part it did not understand rates the wrong thing" — here it would quietly
+# bill a player for a different tier than the one the role is pinned to.
+resolve_model() {
+  case "$1" in
+    opus-5)    echo "claude-opus-5" ;;
+    opus-4-8)  echo "claude-opus-4-8" ;;
+    sonnet-5)  echo "claude-sonnet-5" ;;
+    haiku-4-5) echo "claude-haiku-4-5" ;;
+    fable-5)   echo "claude-fable-5" ;;
+    default)   echo "" ;;
+    *) echo "claude-run: unknown model alias '$1' (see --help for the registry)" >&2; return 1 ;;
+  esac
+}
+
+CLAUDE_ARGS=()
+if [ -n "$ENGINE" ]; then
+  spec_model="${ENGINE%%:*}"
+  spec_effort=""
+  [ "$ENGINE" != "$spec_model" ] && spec_effort="${ENGINE#*:}"
+
+  model_id=$(resolve_model "$spec_model") || exit 2
+  [ -n "$model_id" ] && CLAUDE_ARGS+=(--model "$model_id")
+
+  if [ -n "$spec_effort" ]; then
+    case "$spec_effort" in
+      low|medium|high|xhigh|max) CLAUDE_ARGS+=(--effort "$spec_effort") ;;
+      *) echo "claude-run: unknown effort '$spec_effort' (low|medium|high|xhigh|max)" >&2; exit 2 ;;
+    esac
+  fi
+fi
+
+if [ -n "$FALLBACK" ]; then
+  fallback_id=$(resolve_model "$FALLBACK") || exit 2
+  [ -n "$fallback_id" ] && CLAUDE_ARGS+=(--fallback-model "$fallback_id")
+fi
+
+# ---------------------------------------------------------------------------
+# Token resolution
+# ---------------------------------------------------------------------------
+# The unattended worker MUST use a long-lived, non-rotating OAuth token from
+# `claude setup-token`. The interactive subscription login stores a *rotating*
+# refreshToken in ~/.claude/.credentials.json, and because we terminate claude
+# after it prints its result, a refresh that is in flight or not yet persisted
+# leaves that file holding a stale token — after which every subsequent run
+# fails with "401 Invalid authentication credentials".
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -f "$SECRETS" ]; then
+  _tok=$(jq -r '.claudeOauthToken // empty' "$SECRETS" 2>/dev/null || true)
+  [ -n "$_tok" ] && export CLAUDE_CODE_OAUTH_TOKEN="$_tok"
+fi
+if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  log "WARNING: CLAUDE_CODE_OAUTH_TOKEN is not set and no claudeOauthToken in $SECRETS."
+  log "         Falling back to ~/.claude/.credentials.json, whose rotating token gets"
+  log "         invalidated when claude is killed — the next run will likely 401."
+  log "         Fix: run 'claude setup-token' once and add the token to $SECRETS as"
+  log '         {"claudeOauthToken": "<token>"} (or export CLAUDE_CODE_OAUTH_TOKEN).'
+fi
+
+# ---------------------------------------------------------------------------
+# Classification patterns
+# ---------------------------------------------------------------------------
+# Precise auth-failure markers. Deliberately NOT a bare "401": the stream-json
+# output is full of UUIDs and request-ids whose hex happens to contain "401"
+# (e.g. ...-ba7a-401e-...), and a loose pattern misreads those as a 401 and
+# intermittently fails a perfectly good token. Every alternative below requires
+# structured context that only a real auth error produces.
+AUTH_RE='"status":[[:space:]]*401|authentication_error|"type":[[:space:]]*"error".*"type":[[:space:]]*"authentication|invalid (bearer token|api key|x-api-key|authentication credentials)|oauth token (has )?expired|please run.*(/login|setup-token)|API Error: 401|401 Invalid authentication|Failed to authenticate'
+
+is_api_capacity_error() {
+  local f="$1"
+  # (a) The terminal result line reports an error naming a usage/session limit.
+  if grep '"type":"result"' "$f" 2>/dev/null | grep -qiE '"is_error":[[:space:]]*true' \
+     && grep '"type":"result"' "$f" 2>/dev/null \
+        | grep -qiE "hit your (session|usage) limit|usage limit reached|claude usage limit"; then
+    return 0
+  fi
+  # (b) A structured capacity/rate/overload/5xx API error anywhere in the
+  # stream. Numeric codes only — a bare "API Error: Connection closed" has no
+  # code and stays an ordinary error, matching the prior behaviour.
+  if grep -qiE 'API Error:[[:space:]]*(429|5[0-9][0-9])|"type":[[:space:]]*"(rate_limit_error|overloaded_error)"' "$f" 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# Run
+# ---------------------------------------------------------------------------
+PROMPT=$(cat)
+if [ -z "$PROMPT" ]; then
+  echo "claude-run: empty prompt on stdin" >&2
+  exit 2
+fi
+
+RAW_TMP=$(mktemp)
+cleanup() { rm -f "$RAW_TMP"; }
+trap cleanup EXIT
+
+[ -n "$RUN_CWD" ] && cd "$RUN_CWD"
+
+if [ -n "$ENGINE" ]; then
+  log "Running claude (engine=$ENGINE, timeout=${TIMEOUT}s)..."
+else
+  log "Running claude (engine=CLI default, timeout=${TIMEOUT}s)..."
+fi
+
+# The prompt goes in on stdin, NOT as `-p "$PROMPT"`. Linux caps a single argv
+# string at MAX_ARG_STRLEN (32 pages = 128KB) — a limit separate from, and far
+# below, the ~2MB total ARG_MAX, and not raisable via ulimit. A pipe has no such
+# limit, and `claude -p` with no argument reads its prompt from stdin.
+printf '%s' "$PROMPT" | claude --dangerously-skip-permissions --verbose \
+  --output-format stream-json "${CLAUDE_ARGS[@]}" -p > "$RAW_TMP" 2>&1 &
+CLAUDE_PID=$!
+
+HARD_DEADLINE=$(( $(date +%s) + TIMEOUT ))
+RESULT_SEEN_AT=0
+TERM_REASON=""
+
+while kill -0 "$CLAUDE_PID" 2>/dev/null; do
+  NOW=$(date +%s)
+  if [ "$NOW" -ge "$HARD_DEADLINE" ]; then
+    TERM_REASON="hard-deadline"
+    break
+  fi
+  if [ "$RESULT_SEEN_AT" -eq 0 ]; then
+    if grep -q '"type":"result"' "$RAW_TMP" 2>/dev/null; then
+      RESULT_SEEN_AT=$NOW
+      if [ "$GRACE" -eq 0 ]; then
+        TERM_REASON="result-seen"
+        break
+      fi
+      log "terminal result emitted — allowing ${GRACE}s for graceful exit"
+    elif [ "$EARLY_AUTH_ABORT" = true ] && grep -qiE "$AUTH_RE" "$RAW_TMP" 2>/dev/null; then
+      # A bad token never produces a terminal result, so waiting out the whole
+      # deadline for one would just stall. Classify below from the same file.
+      TERM_REASON="auth-marker"
+      break
+    fi
+  elif [ $(( NOW - RESULT_SEEN_AT )) -ge "$GRACE" ]; then
+    TERM_REASON="post-result-hang"
+    break
+  fi
+  sleep "$POLL"
+done
+
+if [ -n "$TERM_REASON" ]; then
+  log "terminating claude (reason=$TERM_REASON, pid=$CLAUDE_PID)"
+  kill -TERM "$CLAUDE_PID" 2>/dev/null || true
+  # Give claude a generous grace period to exit cleanly after SIGTERM so it can
+  # flush any credential/session writes before we resort to SIGKILL. A hard kill
+  # mid-write is what historically corrupted auth state.
+  i=0
+  while kill -0 "$CLAUDE_PID" 2>/dev/null && [ "$i" -lt 15 ]; do
+    sleep 1
+    i=$(( i + 1 ))
+  done
+  kill -KILL "$CLAUDE_PID" 2>/dev/null || true
+fi
+
+if wait "$CLAUDE_PID" 2>/dev/null; then RC=0; else RC=$?; fi
+
+# A logging problem must never cost us the classification of a run that
+# already happened, so neither of these is fatal.
+if [ -n "$RAW_LOG" ]; then
+  mkdir -p "$(dirname "$RAW_LOG")" 2>/dev/null || true
+  cat "$RAW_TMP" >> "$RAW_LOG" 2>/dev/null || log "WARNING: could not append raw log $RAW_LOG"
+fi
+
+# ---------------------------------------------------------------------------
+# Classify
+# ---------------------------------------------------------------------------
+# Classify the terminal result object with jq, NOT a literal substring match.
+# The CLI emits the result fields in an UNSTABLE order — in one build is_error
+# was the 1st key, subtype the 13th and type the 19th of 21 — so a pattern like
+# '"type":"result","subtype":"success","is_error":false' assumes an adjacency
+# that does not hold. After a CLI upgrade it silently stopped matching and every
+# successful run came back as an error.
+#
+# Grep the single result line out first rather than running `jq -s` over the
+# whole file: claude's stderr is merged into $RAW_TMP by the 2>&1 above, so it
+# is not guaranteed to be pure JSON and one malformed line would abort jq.
+#
+# Read .is_error bare — do NOT write `.is_error // false` or `// true` as a
+# missing-key guard. jq's `//` treats BOTH null and false as empty, so on the
+# success case (is_error=false) it yields the fallback. Bare .is_error fails
+# safe: a missing key prints "null" and an unparseable line prints nothing,
+# neither of which equals "false".
+STATUS="error"
+RESULT_LINE=$(grep '"type":"result"' "$RAW_TMP" 2>/dev/null | tail -1 || true)
+if [ -n "$RESULT_LINE" ] \
+   && [ "$(jq -r '.is_error' <<<"$RESULT_LINE" 2>/dev/null)" = "false" ]; then
+  STATUS="success"
+elif grep -qiE "$AUTH_RE" "$RAW_TMP" 2>/dev/null; then
+  STATUS="auth"
+elif is_api_capacity_error "$RAW_TMP"; then
+  # Session/usage limit, rate limit, or overload — the turn never ran. Like a
+  # 401 this must NOT consume the caller's unit of work.
+  STATUS="apierror"
+elif [ "$TERM_REASON" = "hard-deadline" ] && [ "$RESULT_SEEN_AT" -eq 0 ]; then
+  STATUS="timeout"
+fi
+
+# Capture cost/duration into variables and echo each explicitly. A bare
+# `grep … | tail -1` emits ZERO bytes (not a blank line) when there is no match
+# — exactly what a 401 or an early crash produces, since that output carries no
+# total_cost_usd or duration_ms. Inlining the greps in the brace group would
+# collapse the three fields onto fewer lines, pushing the status out of its
+# slot and leaving the caller's status empty.
+if [ -n "$STATS" ]; then
+  mkdir -p "$(dirname "$STATS")" 2>/dev/null || true
+  SKILL_COST=$(grep -oP '"total_cost_usd":\s*\K[\d.]+' "$RAW_TMP" | tail -1 || true)
+  SKILL_DURATION=$(grep -oP '"duration_ms":\s*\K\d+' "$RAW_TMP" | tail -1 || true)
+  {
+    echo "$SKILL_COST"
+    echo "$SKILL_DURATION"
+    echo "$STATUS"
+  } > "$STATS"
+fi
+
+log "status=$STATUS"
+
+# The turn's final result text, and nothing else, on stdout.
+jq -r 'select(.type == "result") | .result // empty' "$RAW_TMP" 2>/dev/null || true
+
+if [ "$STATUS" = "success" ]; then
+  exit 0
+fi
+if [ "$OK_ON_RESULT" = true ] && [ -n "$RESULT_LINE" ]; then
+  exit 0
+fi
+log "claude exited with code $RC"
+case "$STATUS" in
+  auth)     exit 11 ;;
+  apierror) exit 12 ;;
+  timeout)  exit 13 ;;
+  *)        exit 10 ;;
+esac

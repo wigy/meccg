@@ -68,7 +68,7 @@ import {
 } from '@meccg/shared';
 import type { GameAction, PlayerView } from '@meccg/shared';
 import { playGame } from '../runner.js';
-import { parseCliArgs, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
+import { cliPreamble, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
 import type { Agent, AgentContext, AgentDecision } from '../types.js';
 import { DivergenceCost, preferred } from './divergence-cost.js';
 import type { CostBucket } from './divergence-cost.js';
@@ -94,11 +94,7 @@ Options:
   --help              this message
 `;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 // Default to the Monte-Carlo agent rather than Heuristics 1: it is the

@@ -29,6 +29,7 @@ import {
   buildTestState, resetMint, makeMHState,
   resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
+  viableActions, findInPile,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../index.js';
@@ -757,5 +758,206 @@ describe('Assassin (tw-8)', () => {
     expect(combat.strikeAssignments).toHaveLength(3);
     expect(combat.strikeAssignments.every(sa => sa.characterId === aragornCharId)).toBe(true);
     expect(combat.strikeAssignments.every(sa => sa.excessStrikes === 1)).toBe(true);
+  });
+
+  test('canceling 2 of 3 attacks then defeating the 3rd does NOT award kill MP (bug report regression)', () => {
+    // CoE COMBAT / CRF 22 Annotation 14: a canceled attack is never "defeated".
+    // A multi-attack creature is only defeated (and its kill MP awarded) if
+    // EVERY attack was genuinely defeated in combat — canceling some of them
+    // (even via Dark Quarrels) and defeating the rest does not count.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [DARK_QUARRELS, DARK_QUARRELS],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    // Cancel 2 of the 3 attacks with Dark Quarrels, leaving 1.
+    const dq1 = handCardId(afterChain, RESOURCE_PLAYER);
+    const afterCancel1 = resolveChain(dispatch(afterChain, {
+      type: 'cancel-attack',
+      player: PLAYER_1,
+      cardInstanceId: dq1,
+    }));
+    const dq2 = handCardId(afterCancel1, RESOURCE_PLAYER);
+    const afterCancel2 = resolveChain(dispatch(afterCancel1, {
+      type: 'cancel-attack',
+      player: PLAYER_1,
+      cardInstanceId: dq2,
+    }));
+    expect(afterCancel2.combat!.strikesTotal).toBe(1);
+    expect(afterCancel2.combat!.anyAttackCanceled).toBe(true);
+
+    // Defender ends the cancel-window; attacker assigns the last strike to Aragorn.
+    const afterPass = dispatch(afterCancel2, { type: 'pass', player: PLAYER_1 });
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
+    const afterAssign = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(afterAssign.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // Defender declines the final cancel-by-tap opportunity.
+    const afterCancelByTapPass = dispatch(afterAssign, { type: 'pass', player: PLAYER_1 });
+    expect(afterCancelByTapPass.combat!.phase).toBe('resolve-strike');
+
+    // Aragorn taps to fight at full prowess (6), rolls max (12): 18 > 11 —
+    // strike defeated outright (Assassin has no body, so no body check).
+    const resolveActions = viableActions({ ...afterCancelByTapPass, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    const tapToFightAction = resolveActions.find(a => 'tapToFight' in a.action && a.action.tapToFight)!.action;
+    const afterResolve = dispatch({ ...afterCancelByTapPass, cheatRollTotal: 12 }, tapToFightAction);
+
+    // The last attack was genuinely defeated, but the other 2 were only
+    // canceled — the creature as a whole is not "defeated".
+    expect(afterResolve.combat).toBeNull();
+    expect(findInPile(afterResolve, RESOURCE_PLAYER, 'killPile', ASSASSIN)).toBeUndefined();
+    expect(findInPile(afterResolve, HAZARD_PLAYER, 'discardPile', ASSASSIN)).toBeDefined();
+  });
+
+  test('cancel-by-tap after facing one attack cancels only unresolved strikes (bug report regression)', () => {
+    // CRF 22 Assassin: "you may decide to cancel one of the attacks after
+    // facing another attack." Bug: cancel-by-tap removed strike assignments
+    // from the end of the array regardless of resolved status, so canceling
+    // 2 attacks after facing the 3rd removed the already-resolved (faced)
+    // strike and left a phantom unresolved strike still needing resolution
+    // — instead of correctly ending combat with 0 unresolved strikes left.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS, GIMLI] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    // Defender passes cancel-window
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 0);
+    const legolasCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 1);
+    const gimliCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 2);
+    const r2 = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // Defender declines the early cancel-by-tap opportunity — proceeds to
+    // choose which of the 3 strikes to face first.
+    const r3 = dispatch(r2, { type: 'pass', player: PLAYER_1 });
+    expect(r3.combat!.phase).toBe('choose-strike-order');
+    expect(r3.combat!.strikeAssignments).toHaveLength(3);
+
+    // Defender chooses to face the strike at the last index now — this is
+    // the exact ordering from the bug report's game log, and it matters:
+    // the original bug removed strikes from the *end* of the array
+    // regardless of resolved status, so it only manifests when the resolved
+    // strike ends up sitting at the tail of strikeAssignments.
+    const chooseActions = viableActions(r3, PLAYER_1, 'choose-strike-order');
+    const chooseAction = chooseActions
+      .map(a => a.action)
+      .reduce((a, b) => ((a as { strikeIndex: number }).strikeIndex > (b as { strikeIndex: number }).strikeIndex ? a : b));
+    const r4 = dispatch(r3, chooseAction);
+    expect(r4.combat!.phase).toBe('resolve-strike');
+
+    // Aragorn taps to fight and defeats the strike outright (Assassin has no
+    // body, so no body check follows).
+    const resolveActions = viableActions({ ...r4, cheatRollTotal: 12 }, PLAYER_1, 'resolve-strike');
+    const tapToFightAction = resolveActions.find(a => 'tapToFight' in a.action && a.action.tapToFight)!.action;
+    const r5 = dispatch({ ...r4, cheatRollTotal: 12 }, tapToFightAction);
+
+    // Facing the attack reopens the cancel-by-tap window per CRF 22.
+    expect(r5.combat!.phase).toBe('assign-strikes');
+    expect(r5.combat!.assignmentPhase).toBe('cancel-by-tap');
+    expect(r5.combat!.strikeAssignments.filter(a => a.resolved)).toHaveLength(1);
+    expect(r5.combat!.strikeAssignments.filter(a => !a.resolved)).toHaveLength(2);
+
+    // Defender now cancels the 2 remaining (unresolved) attacks by tapping.
+    const r6 = dispatch(r5, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: legolasCharId,
+    });
+    // The already-resolved (faced) strike must survive the cancellation.
+    expect(r6.combat!.strikeAssignments).toHaveLength(2);
+    expect(r6.combat!.strikeAssignments.filter(a => a.resolved)).toHaveLength(1);
+
+    const r7 = dispatch(r6, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: gimliCharId,
+    });
+
+    // Canceled 2, faced 1 → nothing left unresolved: combat must finalize,
+    // not leave a phantom attack still needing to be resolved.
+    expect(r7.combat).toBeNull();
+    expect(findInPile(r7, RESOURCE_PLAYER, 'killPile', ASSASSIN)).toBeUndefined();
+    expect(findInPile(r7, HAZARD_PLAYER, 'discardPile', ASSASSIN)).toBeDefined();
   });
 });

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Launch an Ask AI observer: attach to the latest game with one AI agent
+# selected, and answer "what would it do here" from the game screen.
+set -eo pipefail
+
+if [ $# -ge 1 ] && { [ "$1" = "-h" ] || [ "$1" = "--help" ]; }; then
+  cat <<'EOF'
+Usage: bin/observe [--agent <spec>] [--new] [--lobby <url>] [--once]
+
+Attaches to the most recently launched game as an *observer*: it takes no
+seat and never plays. While it is attached, the game screen shows an
+"Ask AI" icon; clicking it asks this agent what it would do in the
+position on screen, and prints the same explanation here.
+
+Options:
+  --agent <spec>  Which agent explains. Any sim registry spec:
+                    h2                     modular AI (default) — richest
+                                           explanation, module by module
+                    heuristic              the rule-based weights
+                    'mc:ms=2000/turns=2'   Monte-Carlo search, 2s per answer
+                    'bc:weights.json'      a trained policy
+  --new           Wait for the NEXT game instead of the one already running.
+                  Start the observer first, then click Play.
+  --lobby <url>   Lobby base URL (default http://localhost:8080).
+  --once          Explain the newest recorded position, print it, and exit.
+                  No browser needed.
+  -h, --help      Show this message.
+
+The observer reads positions from the game log under ~/.meccg/logs/games,
+so it must run on the same machine as the game server, and it authenticates
+to the lobby with MASTER_KEY (or ~/.meccg/secrets.json).
+
+One process follows game after game: when a game ends it waits for the next.
+
+Examples:
+  bin/observe                          # explain with h2, attach to the live game
+  bin/observe --new --agent heuristic  # start first, then launch the game
+  bin/observe --agent 'mc:ms=2000' --once
+EOF
+  exit 0
+fi
+
+cd "$(dirname "$0")/.."
+# tsconfig.dev.json maps the workspace packages onto their source: an observer
+# resolving the built dist would explain the last `npm run build`, not the agent
+# code in the working tree.
+exec npx tsx --tsconfig packages/text-client/tsconfig.dev.json \
+  packages/text-client/src/observer-client.ts "$@"

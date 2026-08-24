@@ -97,7 +97,9 @@
         "type": "on-event",
         "event": "self-enters-play",
         "apply": {
-          "type": "offer-resource-play"
+          "type": "offer-resource-play",
+          "assumeInPlay": ["Gates of Morning"],
+          "assumeNotInPlay": ["Doors of Night"]
         }
       }
     ]
@@ -331,7 +333,7 @@
         "scope": "controlling-character"
       }
     ],
-    "certified": "2026-05-18"
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hero-resource-event",
@@ -639,7 +641,7 @@
     "unique": true,
     "certified": "2026-07-31",
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -760,7 +762,8 @@
       },
       {
         "type": "storable-at",
-        "siteTypes": ["haven"]
+        "siteTypes": ["haven"],
+        "marshallingPoints": 1
       },
       {
         "type": "grant-action",
@@ -896,14 +899,14 @@
       {
         "type": "play-target",
         "target": "site",
-        "filter": { "siteType": { "$in": ["border-hold", "free-hold"] } }
+        "filter": { "effectiveSiteType": { "$in": ["border-hold", "free-hold"] } }
       },
       { "type": "play-flag", "flag": "tapped-site-only" },
       { "type": "play-flag", "flag": "tap-character-on-play" },
       { "type": "roll-untap-site", "threshold": 12, "wizardBonus": 10 },
       { "type": "skip-next-untap-on-play" }
     ],
-    "certified": "2026-07-17",
+    "certified": "2026-08-19",
     "text": "Ritual. Playable on an untapped sage at a tapped Border-hold [{B}] or Free-hold [{F}]. Tap sage. Make a roll and add the mind of the sage (+10 if a Wizard)—if the result is greater than 12, the site untaps. The next time the sage would otherwise become untapped make him tapped instead and discard this card."
   },
   {
@@ -947,7 +950,7 @@
         "type": "play-target",
         "target": "site",
         "filter": {
-          "siteType": "haven"
+          "effectiveSiteType": "haven"
         }
       },
       {
@@ -1188,7 +1191,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Mallorn.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Playable at Bag End only if Earth of Galadriel’s Orchard is stored there. Bag End becomes a Haven [{H}] for the purposes of healing and bringing characters into play. Bag End can untap during its owner’s untap phase. If Bag End is discarded, return it to its location deck. All Hobbit factions are worth +1 marshalling points."
@@ -1382,8 +1385,12 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "The roll required to move between adjacent Under-deeps sites is decreased by 4. Cannot be duplicated."
+    "effects": [
+      { "type": "under-deeps-roll-modifier", "value": 4, "scope": "all-companies" },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "text": "The roll required to move between adjacent Under-deeps sites is decreased by 4. Cannot be duplicated.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
@@ -1444,8 +1451,54 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage or Dwarf only during the site phase at any Under-deeps site. Tap the sage or Dwarf. Tap the site if it is not already tapped. Sage or Dwarf may not untap until Vein of Arda is stored at a Haven [{H}]. Cannot be duplicated at a given site."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "keywords": { "$includes": "under-deeps" }
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "$or": [
+                { "target.skills": { "$includes": "sage" } },
+                { "target.race": "dwarf" }
+              ]
+            },
+            { "target.status": "untapped" }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-site-on-play"
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-untap-until-stored"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      }
+    ],
+    "text": "Sage or Dwarf only during the site phase at any Under-deeps site. Tap the sage or Dwarf. Tap the site if it is not already tapped. Sage or Dwarf may not untap until Vein of Arda is stored at a Haven [{H}]. Cannot be duplicated at a given site.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-event",

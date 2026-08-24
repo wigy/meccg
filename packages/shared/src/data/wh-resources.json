@@ -12,6 +12,15 @@
     "text": "Playable on your Fallen-wizard if he has The One Ring at one of your Wizardhavens. Only one A New Ringlord may be played in a given turn. Make a roll during each of your end-of-turn phases if your Fallen-wizard is bearing The One Ring and is at a Ruins & Lairs where Information is playable. Add 1 for each A New Ringlord you have in play. If the result is less than 6, your Fallen-wizard is eliminated. If the result is greater than 9, you win the game.",
     "effects": [
       {
+        "type": "stage-points",
+        "value": 3
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-condition",
         "requires": "site-type",
         "siteTypes": [
@@ -299,6 +308,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
@@ -413,7 +427,13 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      }
+    ],
     "text": "Playable during your organization phase in your marshalling point pile if your Wizard is in a Haven [{H}] and you have more marshalling points than your opponent. Your opponent must be a Fallen-wizard or a Wizard. Cannot be duplicated on a given turn."
   },
   {
@@ -696,6 +716,11 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
+      {
         "type": "deck-restriction",
         "rule": "excluded-from-deck",
         "when": {
@@ -907,9 +932,23 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.stagePoints": { "$gt": 7 } }
+      },
+      {
+        "type": "fw-kill-mp-full"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
-    "text": "Playable if you have more than 7 stage points. Hazards your companies defeat (for which you otherwise get 1 MP) are each worth full kill marshalling points. Cannot be duplicated by a given player."
+    "text": "Playable if you have more than 7 stage points. Hazards your companies defeat (for which you otherwise get 1 MP) are each worth full kill marshalling points. Cannot be duplicated by a given player.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "minion-resource-event",
@@ -1437,7 +1476,8 @@
         }
       },
       {
-        "type": "fw-item-mp-full",
+        "type": "fw-mp-full",
+        "cards": "items",
         "filter": {
           "$not": {
             "keywords": {
@@ -1815,9 +1855,31 @@
         "value": 2
       },
       {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "Alatar" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-alatar",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
       },
       {
         "type": "face-strike-on-tap",
@@ -1884,10 +1946,32 @@
         "value": 1
       },
       {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
           "target.name": "Alatar"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "no-alatar",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
         }
       },
       {
@@ -1930,7 +2014,8 @@
         "value": 2
       },
       {
-        "type": "fw-item-mp-full",
+        "type": "fw-mp-full",
+        "cards": "items",
         "inAvatarCompany": true,
         "filter": {
           "$or": [
@@ -1942,7 +2027,8 @@
         }
       },
       {
-        "type": "fw-ally-mp-full",
+        "type": "fw-mp-full",
+        "cards": "allies",
         "inAvatarCompany": true,
         "filter": { "prowess": { "$exists": true } }
       }
@@ -1979,7 +2065,8 @@
         }
       },
       {
-        "type": "fw-item-mp-full",
+        "type": "fw-mp-full",
+        "cards": "items",
         "filter": {
           "$or": [
             { "keywords": { "$includes": "weapon" } },
@@ -1990,7 +2077,8 @@
         }
       },
       {
-        "type": "fw-ally-mp-full",
+        "type": "fw-mp-full",
+        "cards": "allies",
         "filter": { "prowess": { "$exists": true } }
       },
       {
@@ -2512,10 +2600,32 @@
         "value": 1
       },
       {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
           "target.name": "Pallando"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "no-pallando",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
         }
       },
       {
@@ -2554,7 +2664,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/ProphetofDoom.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 3,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -2618,6 +2728,23 @@
         "target": "character",
         "filter": {
           "target.name": "Pallando"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "no-pallando",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
         }
       },
       {
@@ -2767,10 +2894,32 @@
         "value": 2
       },
       {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {
           "target.name": "Radagast"
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
         }
       },
       {
@@ -2792,7 +2941,7 @@
     "cardType": "minion-resource-event",
     "alignment": "stage",
     "id": "wh-112",
-    "keywords": ["radagast-specific", "starting-item"],
+    "keywords": ["radagast-specific", "shapeshifter", "starting-item"],
     "name": "Master of Shapes",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/MasterofShapes.jpg",
     "unique": false,
@@ -2803,9 +2952,80 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
+        "type": "return-to-hand",
+        "during": ["organization", "replaced-by-keyword"],
+        "replacedByKeyword": "shapeshifter"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "op": "set",
+        "value": 9
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "op": "set",
+        "value": 10
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "op": "set",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "op": "set",
+        "value": 25
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": -2
+      },
+      {
+        "type": "override-skills",
+        "skills": ["warrior", "ranger"]
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "untap-penalty",
+        "op": "set",
+        "value": 1
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-cannot-use-items"
       }
     ],
-    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Ranger. Radagast’s prowess is only modified by -1 when not tapping to face a strike. Radagast may bear, but may not use items."
+    "text": "Radagast specific. Shapeshifter. Place this card on Radagast if he is in play. Return this card to your hand: when you play another Shapeshifter card or, if you choose, during your organization phase. In addition to adopting the given attributes, Radagast’s skills become Warrior/Ranger. Radagast’s prowess is only modified by -1 when not tapping to face a strike. Radagast may bear, but may not use items.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "minion-resource-event",
@@ -2822,9 +3042,45 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "pocketed-robes-fetch",
+        "cost": { "tap": "self" },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": { "name": { "$in": ["Crept Along Cleverly", "Wizard’s River-horses", "Herb-lore"] } }
+        }
       }
     ],
-    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. If on Radagast, you may tap Pocketed Robes during your end-of-turn phase to take Crept Along Cleverly, Wizard’s River-horses, or Herb-lore from your discard pile to your hand."
+    "text": "Unique. Radagast specific. Place this card on Radagast if he is in play. If on Radagast, you may tap Pocketed Robes during your end-of-turn phase to take Crept Along Cleverly, Wizard’s River-horses, or Herb-lore from your discard pile to your hand.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "minion-resource-ally",
@@ -2897,6 +3153,23 @@
         "type": "play-target",
         "target": "character",
         "filter": { "target.name": "Radagast" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-radagast",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
       },
       {
         "type": "return-to-hand",

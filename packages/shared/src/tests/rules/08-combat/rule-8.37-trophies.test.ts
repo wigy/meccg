@@ -29,9 +29,11 @@ import { Phase, CardDefinitionId, Alignment, CardStatus, Race, resolveInstanceId
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
   dispatch, viableActions, viableFor, findCharInstanceId, companyIdAt, makeShadowMHState, recomputeDerived, RESOURCE_PLAYER,
-  assertEveryInstanceReachable,
+  assertEveryInstanceReachable, enqueueCorruptionCheck,
 } from '../../test-helpers.js';
-import type { CombatState } from '../../../index.js';
+import type { CombatState, CardInstanceId } from '../../../index.js';
+import { addConstraint } from '../../../engine/pending.js';
+import { capturePressGang, returnPressedCharacter } from '../../../engine/press-gang.js';
 
 // Orc character (minion, race: orc, mind has a value)
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;   // orc warrior, mind 5, prowess 6, DI 2
@@ -258,5 +260,156 @@ describe('Rule 8.37 — Trophies', () => {
       const baseDef = base.cardPool['le-31' as CardDefinitionId] as { directInfluence: number };
       expect(char?.effectiveStats.directInfluence).toBeGreaterThan(baseDef.directInfluence);
     }
+  });
+
+  // A trophy creature card lives ONLY on `character.trophies`. When the bearer
+  // leaves play, every removal path must relocate the trophy (CoE 3.IV.4) or
+  // the CardInstance vanishes from the game (violating the no-disappear
+  // invariant). These regressions cover the corruption-check removal and
+  // press-gang capture/return paths.
+  const buildOrcWithTrophy = () => {
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: DOL_GULDUR, characters: ['tw-168' as CardDefinitionId] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+      ],
+    });
+    const orcId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
+    const trophy = { instanceId: 'trophy-inst' as never, definitionId: ORC_GUARD };
+    const withTrophy = {
+      ...base,
+      players: base.players.map((p, i) =>
+        i !== RESOURCE_PLAYER ? p : {
+          ...p,
+          characters: { ...p.characters, [orcId as string]: { ...p.characters[orcId], trophies: [trophy] } },
+        },
+      ) as unknown as typeof base.players,
+    };
+    return { state: withTrophy, orcId, trophyId: trophy.instanceId as CardInstanceId };
+  };
+
+  test('3.IV.4 — a trophy-bearing Orc eliminated by a corruption check keeps its trophy reachable in the MP pile', () => {
+    const { state, orcId, trophyId } = buildOrcWithTrophy();
+
+    // Orc Warrior is a minion → a hard corruption fail (roll ≤ CP-2) eliminates
+    // it. CP 5, roll 3 (= CP-2) → eliminated via removeFailedCorruptionCharacter.
+    const withCheck = enqueueCorruptionCheck(state, PLAYER_1, orcId);
+    const after = dispatch({ ...withCheck, cheatRollTotal: 3 }, {
+      type: 'corruption-check',
+      player: PLAYER_1,
+      characterId: orcId,
+      corruptionPoints: 5,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 6,
+      explanation: 'Test',
+    });
+
+    // Orc removed from play.
+    expect(after.players[RESOURCE_PLAYER].characters[orcId]).toBeUndefined();
+    // Orc-guard trophy (kill-MP 2 > 0) → the holder's marshalling-point pile,
+    // and it must remain reachable in game state.
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophyId)).toBe(true);
+    expect(resolveInstanceId(after, trophyId)).toBe(ORC_GUARD);
+    assertEveryInstanceReachable(after);
+  });
+
+  test('3.IV.4 — a press-ganged Orc keeps its trophy reachable at capture and on return to hand', () => {
+    const { state, orcId, trophyId } = buildOrcWithTrophy();
+
+    // Capture off to the side: the trophy is no longer borne (it cannot be held
+    // by a set-aside character), but relocated to the MP pile and still reachable.
+    const captured = capturePressGang(state, RESOURCE_PLAYER, orcId, 'press-gang-host' as CardInstanceId);
+    expect(captured.players[RESOURCE_PLAYER].characters[orcId]?.trophies ?? []).toHaveLength(0);
+    expect(captured.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophyId)).toBe(true);
+    expect(resolveInstanceId(captured, trophyId)).toBe(ORC_GUARD);
+    assertEveryInstanceReachable(captured);
+
+    // Returning the character to hand must not resurrect the disappearance —
+    // the trophy stays in the pile, reachable.
+    const returned = returnPressedCharacter(captured, orcId);
+    expect(resolveInstanceId(returned, trophyId)).toBe(ORC_GUARD);
+    assertEveryInstanceReachable(returned);
+  });
+
+  test('3.IV.3 — trophy prowess bonus caps at 9 but never REDUCES prowess already above 9', () => {
+    // Regression: the cap was applied as `prowess = min(prowess + N, 9)`,
+    // which clamped a character whose prowess other effects had already
+    // pushed above 9 DOWN to 9 — taking a trophy made him weaker. The rule
+    // caps the bonus, it never reduces.
+    const SLAYER = 'tw-89' as CardDefinitionId; // 2 kill-MP creature
+    const buildWithTrophies = (trophyCount: number, prowessBoost: number) => {
+      const base = buildTestState({
+        phase: Phase.Organization,
+        activePlayer: PLAYER_1,
+        recompute: true,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN] }],
+            hand: [],
+            siteDeck: [MINAS_MORGUL],
+          },
+          {
+            id: PLAYER_2,
+            alignment: Alignment.Wizard,
+            companies: [{ site: DOL_GULDUR, characters: ['tw-168' as CardDefinitionId] }],
+            // Keep the trophy creature in the card pool so the MP lookup resolves.
+            hand: [SLAYER],
+            siteDeck: [MINAS_MORGUL],
+          },
+        ],
+      });
+      const orcId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
+      // Slayer prints 2 kill-MP; N copies give 2N total trophy MP.
+      const trophies = Array.from({ length: trophyCount }, (_, i) => ({
+        instanceId: `trophy-inst-${i}` as never,
+        definitionId: SLAYER,
+      }));
+      let state = {
+        ...base,
+        players: base.players.map((p, i) => {
+          if (i !== RESOURCE_PLAYER) return p;
+          const char = p.characters[orcId];
+          return {
+            ...p,
+            characters: { ...p.characters, [orcId as string]: { ...char, trophies } },
+          };
+        }) as unknown as typeof base.players,
+      };
+      if (prowessBoost > 0) {
+        state = addConstraint(state, {
+          source: 'boost-1' as never,
+          sourceDefinitionId: 'le-207' as CardDefinitionId,
+          scope: { kind: 'until-cleared' },
+          target: { kind: 'character', characterId: orcId },
+          kind: { type: 'character-stat-modifier', stat: 'prowess', value: prowessBoost, characterId: orcId },
+        });
+      }
+      return recomputeDerived(state).players[RESOURCE_PLAYER].characters[orcId].effectiveStats.prowess;
+    };
+
+    // Orc Captain printed prowess 5. One 2-MP trophy: +1 → 6.
+    expect(buildWithTrophies(1, 0)).toBe(6);
+    // Two trophies (4 MP, +2) on top of a +3 boost: 5 + 3 = 8, +2 capped → 9.
+    expect(buildWithTrophies(2, 3)).toBe(9);
+    // Prowess already 10 via a +5 modifier: the trophy bonus must not clamp it down to 9.
+    expect(buildWithTrophies(1, 5)).toBe(10);
   });
 });

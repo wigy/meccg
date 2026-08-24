@@ -26,11 +26,79 @@ const GAME_SERVER_ENTRY = path.join(__dirname, '../../../game-server/src/ws/serv
  */
 const GAME_SERVER_TSCONFIG = path.join(__dirname, '../../../game-server/tsconfig.dev.json');
 
-/** Next available port for game servers. */
-let nextPort = GAME_PORT_BASE;
+/**
+ * Build a port allocator over a shared cursor: each call claims a candidate
+ * port SYNCHRONOUSLY before probing it, and only returns a port its own
+ * probe saw free.
+ *
+ * The order matters under concurrency. The old shape — probe `nextPort` in
+ * a loop, then claim with `nextPort++` — read the shared cursor across the
+ * probe's await: two overlapping launches both probed the same value, the
+ * first claimed it, and the second claimed the NEXT port without ever
+ * probing it. If that port was held by an orphaned game server from a
+ * previous lobby instance (exactly the state the probe loop exists for),
+ * the spawned server failed to bind and the caller hit the 15 s startup
+ * timeout. Overlapping launches are routine: both players of a crashed
+ * game rejoin at once, or two players start AI games together.
+ *
+ * Exported for tests; the module uses one instance over the real probe.
+ */
+export function createPortAllocator(
+  startPort: number,
+  probe: (port: number) => Promise<boolean>,
+): () => Promise<number> {
+  let next = startPort;
+  return async (): Promise<number> => {
+    let port = next++;
+    while (!await probe(port)) {
+      lobbyLog.log('port-in-use', { port });
+      port = next++;
+    }
+    return port;
+  };
+}
+
+/** The lobby's game-server port allocator, probing with {@link isPortFree}. */
+const allocatePort = createPortAllocator(GAME_PORT_BASE, port => isPortFree(port));
 
 /** Active game processes keyed by port. */
 const activeGames = new Map<number, ChildProcess>();
+
+/**
+ * The minimal child surface {@link registerGameChild} needs — an object that
+ * emits `exit` and can be killed. Lets the registration invariant be tested
+ * with a fake emitter instead of a real spawned process.
+ */
+export interface ManagedChild {
+  on(event: 'exit', listener: (code: number | null) => void): unknown;
+  kill(signal?: NodeJS.Signals): unknown;
+}
+
+/**
+ * Track a spawned game child under its port and guarantee it is untracked
+ * when it exits — the single place that owns the `activeGames` entry's
+ * lifetime, so a child that dies at any point (including before it finished
+ * starting) can never leave a stale entry that keeps {@link isActiveGamePort}
+ * reporting a dead port as live. `endCallbacks` fires on exit; it is empty
+ * until the caller wires up `onEnd`, so an early-exit no-ops safely.
+ */
+export function registerGameChild(
+  port: number,
+  child: ManagedChild,
+  endCallbacks: readonly (() => void)[],
+): void {
+  activeGames.set(port, child as ChildProcess);
+  child.on('exit', (code) => {
+    lobbyLog.log('game-exit', { port, code });
+    activeGames.delete(port);
+    for (const cb of endCallbacks) cb();
+  });
+}
+
+/** Test-only: read the active-games size, to assert cleanup happened. */
+export function activeGameCount(): number {
+  return activeGames.size;
+}
 
 /** IPC relay for pseudo-AI games, allowing the lobby to forward actions. */
 export interface PseudoAiRelay {
@@ -44,6 +112,12 @@ export interface PseudoAiRelay {
 export interface LaunchResult {
   /** Port the game server is listening on. */
   readonly port: number;
+  /**
+   * The game id the server logs under — `~/.meccg/logs/games/<gameId>.jsonl`.
+   * Returned so the lobby can hand it to the Ask AI observer, whose whole view
+   * of the position is that log (`specs/2026-08-17-ask-ai-observer.md`).
+   */
+  readonly gameId: string;
   /** JWT tokens for [player1, player2]. */
   readonly tokens: [string, string];
   /** Register a callback for when the game ends (child process exits). */
@@ -115,13 +189,30 @@ function forwardChildLines(
   });
 }
 
-export async function launchGame(player1: string, player2: string, options?: LaunchOptions): Promise<LaunchResult> {
-  // Skip ports that are still in use (e.g. orphaned game servers from a previous lobby instance)
-  while (!await isPortFree(nextPort)) {
-    lobbyLog.log('port-in-use', { port: nextPort });
-    nextPort++;
+/**
+ * Stop a spawned AI client and everything `npx` started underneath it.
+ *
+ * The client runs four processes deep (`npm exec` → `sh -c` → `tsx` → the
+ * client's own node), and none of those forward a signal, so `aiChild.kill()`
+ * reaps the wrapper and leaves the client running against a server that no
+ * longer exists. Clients are spawned `detached` so each leads its own process
+ * group; signalling the negative pid reaches the whole group.
+ */
+function killAiClient(aiChild: ChildProcess): void {
+  if (aiChild.exitCode !== null || aiChild.signalCode !== null || !aiChild.pid) return;
+  try {
+    process.kill(-aiChild.pid, 'SIGTERM');
+  } catch {
+    // No such group (already exited, or it never formed) — try the child itself.
+    if (!aiChild.killed) aiChild.kill();
   }
-  const port = nextPort++;
+}
+
+export async function launchGame(player1: string, player2: string, options?: LaunchOptions): Promise<LaunchResult> {
+  // Skips ports that are still in use (e.g. orphaned game servers from a
+  // previous lobby instance) — see createPortAllocator for why the claim
+  // must precede the probe.
+  const port = await allocatePort();
   const gameId = `${player1}-vs-${player2}-${Date.now()}`;
   const tokens: [string, string] = [
     signGameToken(player1, gameId),
@@ -142,36 +233,49 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  activeGames.set(port, child);
-
   const endCallbacks: (() => void)[] = [];
 
+  // Track the child and wire its exit cleanup BEFORE the startup await, so the
+  // port is always removed from activeGames when the child exits — including a
+  // crash during startup or a kill on timeout. Previously the cleanup handler
+  // was wired up only after a successful start, so a child that died before
+  // "listening" left a stale entry behind and isActiveGamePort kept reporting
+  // a dead port as live for the rest of the lobby's life.
+  registerGameChild(port, child, endCallbacks);
+
   // Wait for the game server to print its "listening" message
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(`Game server on port ${port} failed to start within 15s`));
-    }, 15000);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        // Kill the orphan: on timeout the child is still running, so without
+        // this it would linger forever holding its port.
+        child.kill('SIGTERM');
+        reject(new Error(`Game server on port ${port} failed to start within 15s`));
+      }, 15000);
 
-    forwardChildLines(child.stdout, 'game-stdout', port, (line) => {
-      if (line.includes('listening on port')) {
+      forwardChildLines(child.stdout, 'game-stdout', port, (line) => {
+        if (line.includes('listening on port')) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+
+      forwardChildLines(child.stderr, 'game-stderr', port);
+
+      child.on('exit', (code) => {
         clearTimeout(timeout);
-        resolve();
-      }
+        reject(new Error(`Game server exited with code ${code} before becoming ready`));
+      });
     });
-
-    forwardChildLines(child.stderr, 'game-stderr', port);
-
-    child.on('exit', (code) => {
-      clearTimeout(timeout);
-      reject(new Error(`Game server exited with code ${code} before becoming ready`));
-    });
-  });
-
-  child.on('exit', (code) => {
-    lobbyLog.log('game-exit', { port, code });
-    activeGames.delete(port);
-    for (const cb of endCallbacks) cb();
-  });
+  } catch (err) {
+    // The exit handler above clears activeGames; make sure a still-running
+    // child is stopped too (covers a resolve/reject race), then rethrow.
+    if (activeGames.has(port)) {
+      child.kill('SIGTERM');
+      activeGames.delete(port);
+    }
+    throw err;
+  }
 
   // If this is an AI game, spawn the AI client now (server is ready)
   let pseudoAiRelay: PseudoAiRelay | null = null;
@@ -192,11 +296,14 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
+      // Own process group, so the game's end can actually stop the client —
+      // see killAiClient for why the child alone is not enough.
+      detached: true,
     });
     forwardChildLines(aiChild.stdout, 'ai-stdout', port);
     forwardChildLines(aiChild.stderr, 'ai-stderr', port);
     child.on('exit', () => {
-      if (!aiChild.killed) aiChild.kill();
+      killAiClient(aiChild);
     });
 
     // Wire up IPC relay for pseudo-AI games
@@ -222,6 +329,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
 
   return {
     port,
+    gameId,
     tokens,
     onEnd(callback: () => void) {
       endCallbacks.push(callback);

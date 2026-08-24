@@ -7,17 +7,27 @@
  * Race: dúnadan
  * Skills: warrior, ranger
  * Homesite: Bree
- * Effects: 1 — stat-modifier direct-influence +2 vs Rangers of the North faction
+ * Effects: 2 — stat-modifier direct-influence +2 vs Rangers of the North,
+ *   on both the faction-influence-check path (playing your own copy) and the
+ *   opponent-influence-check path (re-influencing the opponent's in-play copy)
  *
  * "Unique. +2 direct influence against the Rangers of the North faction."
  *
  * Engine Support:
- * | # | Feature                                  | Status      | Notes                                              |
- * |---|------------------------------------------|-------------|----------------------------------------------------|
- * | 1 | +2 DI vs Rangers of the North (faction)  | IMPLEMENTED | stat-modifier, reason=faction-influence-check      |
+ * | # | Feature                                        | Status      | Notes                                                |
+ * |---|-------------------------------------------------|-------------|-------------------------------------------------------|
+ * | 1 | +2 DI vs Rangers of the North (own faction play) | IMPLEMENTED | stat-modifier, reason=faction-influence-check      |
+ * | 2 | +2 DI vs Rangers of the North (opponent steal)   | IMPLEMENTED | stat-modifier, reason=opponent-influence-check     |
  *
  * Playable: YES
  * Certified: 2026-04-24
+ *
+ * Bug report f569e9bab70b7853 (game mt1v1qnq-9b11e9, seq 1142): Beretar's
+ * bonus only had the faction-influence-check variant, so it never applied
+ * when re-influencing an opponent's already-in-play Rangers of the North —
+ * the exact case a unique faction forces (a second copy can't be played from
+ * hand while the opponent controls one, CoE rule 8.2-8.4). Mirrors the
+ * two-effect pattern certified for Elwen (dm-8).
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -28,10 +38,11 @@ import {
   RANGERS_OF_THE_NORTH, RIDERS_OF_ROHAN,
   buildTestState, resetMint,
   findCharInstanceId, buildSitePhaseState,
-  getCharacter, RESOURCE_PLAYER,
+  getCharacter, RESOURCE_PLAYER, HAZARD_PLAYER,
+  addCardInPlay, firstOpponentInfluenceAttempt, dispatchResult, makeSitePhase,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase } from '../../index.js';
-import type { CardDefinitionId, CharacterCard, InfluenceAttemptAction } from '../../index.js';
+import type { CardDefinitionId, CharacterCard, GameState, InfluenceAttemptAction } from '../../index.js';
 
 const BERETAR = 'tw-128' as CardDefinitionId;
 
@@ -146,5 +157,56 @@ describe('Beretar (tw-128)', () => {
 
     // influenceNumber(10) - baseDI(2) = 8
     expect(legolasAttempt!.need).toBe(8);
+  });
+
+  // ── Effect 2: +2 DI vs Rangers of the North on the opponent-influence (steal) path ──
+
+  test('+2 DI bonus applies to an opponent-influence attempt against an in-play Rangers of the North', () => {
+    // Beretar (base DI 1) tries to re-influence the opponent's already-in-play
+    // Rangers of the North — the path a unique faction forces once an
+    // opponent controls the only legal copy. Base DI 1 + Beretar's +2 bonus = 3.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BREE, characters: [BERETAR] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: BREE, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    let state: GameState = { ...base, turnNumber: 3, phaseState: makeSitePhase() };
+    state = addCardInPlay(state, HAZARD_PLAYER, RANGERS_OF_THE_NORTH);
+    const factionId = state.players[HAZARD_PLAYER].cardsInPlay.find(c => c.definitionId === RANGERS_OF_THE_NORTH)!.instanceId;
+
+    const attempt = firstOpponentInfluenceAttempt(state, factionId);
+    expect(attempt).toBeDefined();
+    expect(attempt!.targetKind).toBe('faction');
+    expect(attempt!.explanation).toContain('Influencer DI: 3');
+
+    const result = dispatchResult(state, attempt!);
+    expect(result.error).toBeUndefined();
+    const pending = result.state.pendingResolutions.find(r => r.kind.type === 'opponent-influence-defend');
+    if (pending?.kind.type !== 'opponent-influence-defend') throw new Error('no opponent-influence-defend pending');
+    expect(pending.kind.attempt.influencerDI).toBe(3);
+  });
+
+  test('non-Beretar character gets no DI bonus re-influencing an in-play Rangers of the North', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BREE, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: BREE, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    let state: GameState = { ...base, turnNumber: 3, phaseState: makeSitePhase() };
+    state = addCardInPlay(state, HAZARD_PLAYER, RANGERS_OF_THE_NORTH);
+    const factionId = state.players[HAZARD_PLAYER].cardsInPlay.find(c => c.definitionId === RANGERS_OF_THE_NORTH)!.instanceId;
+
+    const attempt = firstOpponentInfluenceAttempt(state, factionId);
+    expect(attempt).toBeDefined();
+    // Legolas base DI 2, no Beretar bonus.
+    expect(attempt!.explanation).toContain('Influencer DI: 2');
   });
 });

@@ -11,7 +11,7 @@ import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffe
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, findRegionPaths, getReachableSites } from '../../movement-map.js';
+import { buildMovementMap, findRegionPaths, getReachableSites, withExtraRegionAdjacency, withVirtualAdjacency } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, requirePhaseState } from '../../state-utils.js';
 import { evilHourRegionBonus } from '../evil-hour.js';
@@ -26,12 +26,13 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, companyEffectiveSize, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
-import { countConstraintsFromDefinition, hasCancelReturnAndSiteTap } from '../pending.js';
+import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
 import { companyMovementRestrictions } from '../effects/company-restrictions.js';
 import { logDetail, logHeading } from './log.js';
+import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
 import { grantedActionActivations, buildPlayOptionContext } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
@@ -40,7 +41,7 @@ import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
-import { extraMHMoveDestinations, extraMHUnderDeepsDestinations } from '../mh-hazard-play.js';
+import { extraMHMoveDestinations, extraMHUnderDeepsDestinations, gangwaysExtraDestinations } from '../mh-hazard-play.js';
 import { buildCompanyCompositionContext } from '../company-composition.js';
 import { currentHazardLimit } from '../hazard-limit.js';
 import { computeCandidateRegionPaths } from '../region-keying.js';
@@ -48,23 +49,6 @@ import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
 import { cardTargetsSetAside } from '../set-aside.js';
-
-/**
- * Count unresolved hazard-creature / hazard-event chain entries. Used
- * as a context field for granted-action constraints whose `when`
- * checks chain state (e.g. Great Ship needs at least one unresolved
- * hazard to offer a cancel).
- */
-function countUnresolvedChainHazards(state: GameState): number {
-  if (!state.chain) return 0;
-  let n = 0;
-  for (const e of state.chain.entries) {
-    if (e.resolved || e.negated || !e.card) continue;
-    const def = defById(state, e.card.definitionId);
-    if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) n++;
-  }
-  return n;
-}
 
 /**
  * Compute legal actions for the movement/hazard phase.
@@ -132,6 +116,18 @@ export function movementHazardActions(state: GameState, playerId: PlayerId): Eva
       return [];
     }
     logDetail(`Set hazard limit — pass to advance to order-effects`);
+    return viable([{ type: 'pass', player: playerId }]);
+  }
+
+  // region-shortcut-attack step (Ash Mountains tw-194 family): once the
+  // forced attack resolves (state.combat clears, handled generically before
+  // this dispatcher runs), only pass to advance to set-hazard-limit.
+  if (mhState.step === 'region-shortcut-attack') {
+    if (!isActive) {
+      logDetail(`Not active player — no actions during region-shortcut-attack step`);
+      return [];
+    }
+    logDetail(`Region shortcut attack resolved — pass to advance to set-hazard-limit`);
     return viable([{ type: 'pass', player: playerId }]);
   }
 
@@ -234,19 +230,10 @@ function gangwaysOfferActions(
   const company = player.companies[mhState.activeCompanyIndex];
   const actions: GameAction[] = [];
   if (company?.moved) {
-    const currentDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-    const used = new Set((mhState.gangwaysSitesUsed?.[company.id as string] ?? []).map(id => id as string));
-    const seen = new Set<string>();
-    if (currentDef && isSiteCard(currentDef)) {
-      for (const siteInst of player.siteDeck) {
-        if (used.has(siteInst.definitionId as string) || seen.has(siteInst.definitionId as string)) continue;
-        const destDef = defById(state, siteInst.definitionId);
-        if (!destDef || !isSiteCard(destDef)) continue;
-        if (!isUnderDeepsAdjacent(state, currentDef, destDef, playerId)) continue;
-        seen.add(siteInst.definitionId as string);
-        actions.push({ type: 'gangways-extra-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
-        logDetail(`Gangways over the Fire: offering extra Under-deeps move to ${destDef.name}`);
-      }
+    const used = mhState.gangwaysSitesUsed?.[company.id as string] ?? [];
+    for (const siteInst of gangwaysExtraDestinations(state, activeIndex, company, used)) {
+      actions.push({ type: 'gangways-extra-move', player: playerId, companyId: company.id, destinationSite: siteInst.instanceId });
+      logDetail(`Gangways over the Fire: offering extra Under-deeps move to ${defById(state, siteInst.definitionId)?.name ?? '?'}`);
     }
   }
   // Always allow passing to finish the company.
@@ -421,6 +408,34 @@ function extraMHPhaseResourceActions(
 }
 
 /**
+ * Region-name pairs an active `region-shortcut` constraint (Ash Mountains
+ * tw-194 and its "movement enhancer" family) bound to `company` grants for
+ * path-finding purposes, or null when no such constraint is bound or the
+ * company has no untapped character with the required skill left to pay the
+ * tap cost.
+ */
+function companyRegionShortcutPairs(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+): readonly (readonly [string, string])[] | null {
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'region-shortcut') continue;
+    if (constraint.target.kind !== 'company' || constraint.target.companyId !== company.id) continue;
+    const { pairs, requiredSkill } = constraint.kind;
+    const hasEligibleCharacter = company.characters.some(charId => {
+      const char = player.characters[charId];
+      if (!char || char.status !== CardStatus.Untapped) return false;
+      const def = defById(state, char.definitionId);
+      return !!def && isCharacterCard(def) && (def.skills?.includes(requiredSkill) ?? false);
+    });
+    if (!hasEligibleCharacter) continue;
+    return pairs;
+  }
+  return null;
+}
+
+/**
  * Generate actions for the reveal-new-site step (CoE step 1).
  *
  * If the company is moving, computes all possible ways to reach the
@@ -481,8 +496,8 @@ function revealNewSiteActions(
 
   const actions: GameAction[] = [];
 
-  // --- Special movement (e.g. Gwaihir, Paths of the Dead) ---
-  if (company.specialMovement === 'gwaihir' || company.specialMovement === 'paths-of-the-dead') {
+  // --- Special movement (e.g. Gwaihir, Eagle-mounts, Paths of the Dead, Belegaer) ---
+  if (company.specialMovement === 'gwaihir' || company.specialMovement === 'eagle-mounts' || company.specialMovement === 'paths-of-the-dead' || company.specialMovement === 'belegaer') {
     logDetail(`Special movement (${company.specialMovement}): ${originDef.name} → ${destDef.name}`);
     actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.Special });
     return actions;
@@ -504,7 +519,16 @@ function revealNewSiteActions(
       logDetail(`Deep Mines ${descentLegal ? 'descent' : 'ascent'} available: ${originDef.name} → ${destDef.name} (roll 0)`);
       actions.push({ type: 'declare-path', player: playerId, movementType: MovementType.UnderDeeps });
     } else {
-      logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — no path offered`);
+      // Rule 5.04: the planned move is no longer legal (e.g. the descent's
+      // >6-stage-point requirement lapsed between plan-movement and reveal).
+      // The player must still get an action — `pass` negates the movement
+      // (handleRevealNewSite returns the destination to the location deck and
+      // the company conducts its M/H phase at its current site), exactly like
+      // the Ringwraith-composition branch above. Returning no action here
+      // deadlocked the game (r/1 bench seed 10600011: FW company planned
+      // Rhosgobel → Deep Mines at ≥7 stage points, dropped to 6 by reveal).
+      logDetail(`Deep Mines move ${originDef.name} → ${destDef.name} no longer legal (stage points ${player.stagePoints} or origin/dest not a protected Wizardhaven) — offering pass to negate the movement (rule 5.04)`);
+      actions.push({ type: 'pass', player: playerId });
     }
     return actions;
   }
@@ -583,7 +607,27 @@ function revealNewSiteActions(
     if (outHeSprangAllowance === null) {
       regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
     }
-    const paths = findRegionPaths(movementMap, originRegion, destRegion, regionCap);
+    // Anduin River (tw-191) and the "mountain-crossing" family: "tap the
+    // ranger to move as if the following pairs of regions were adjacent" —
+    // a region-adjacency-shortcut constraint on this company widens the
+    // graph pathfinding walks for its declared move ("if the company uses
+    // region cards for its site path"; a no-op if it ends up using starter
+    // or Under-deeps movement instead, since this branch is region-only).
+    const adjacencyShortcutPairs = state.activeConstraints
+      .filter(c => c.kind.type === 'region-adjacency-shortcut'
+        && c.target.kind === 'company' && c.target.companyId === company.id)
+      .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+    let pathMovementMap = adjacencyShortcutPairs.length > 0
+      ? withExtraRegionAdjacency(movementMap, adjacencyShortcutPairs)
+      : movementMap;
+    // Ash Mountains (tw-194) and its "movement enhancer" family: a bound
+    // region-shortcut constraint treats its named region pairs as extra
+    // adjacency edges for path-finding, but only while the company still has
+    // an untapped character carrying the required skill to pay the tap cost
+    // — a superset of the plain graph, so this only ever adds paths.
+    const regionShortcutPairs = companyRegionShortcutPairs(state, player, company);
+    if (regionShortcutPairs) pathMovementMap = withVirtualAdjacency(pathMovementMap, regionShortcutPairs);
+    const paths = findRegionPaths(pathMovementMap, originRegion, destRegion, regionCap);
     // Sort paths: shortest first, then fewest distinct regions as tiebreaker
     paths.sort((a, b) => {
       const lenDiff = a.length - b.length;
@@ -930,7 +974,7 @@ function agentTurnActions(
     const agentName = agentDef?.name ?? String(agent.character.definitionId);
     const status = agent.character.status;
 
-    const extraAgentActions = countExtraAgentActions(state);
+    const extraAgentActions = countExtraAgentActions(state, agent.id);
     const isExtraAction = agent.remainingActions <= extraAgentActions;
     function push(action: AgentMoveAction | AgentMoveBackAction | AgentReturnHomeAction | AgentHealAction | AgentUntapAction | AgentTurnFaceDownAction | AgentKeyCreaturesAction) {
       if (limitReached && !isExtraAction) {
@@ -1144,25 +1188,37 @@ function companyTargetSiteName(state: GameState, company: Company, destSiteName:
   return destSiteName ?? currentSiteName;
 }
 
-function agentInfluenceActions(
+/**
+ * Resolves the shared context of the M/H agent-ability emitters: the hazard
+ * player owning the agents, the resource player, and the resource player's
+ * active company. Returns null when the active company no longer resolves.
+ */
+function mhAgentContext(
   state: GameState,
   playerId: PlayerId,
   mhState: MovementHazardPhaseState,
-): EvaluatedAction[] {
-  const actions: EvaluatedAction[] = [];
+): { hazardPlayer: PlayerState; resourcePlayer: PlayerState; company: Company } | null {
   const hazardPlayerIndex = getPlayerIndex(state, playerId);
   const hazardPlayer = state.players[hazardPlayerIndex];
-  const resourcePlayerIndex = 1 - hazardPlayerIndex;
-  const resourcePlayer = state.players[resourcePlayerIndex];
+  const resourcePlayer = state.players[1 - hazardPlayerIndex];
   const company = resourcePlayer.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
+  return company ? { hazardPlayer, resourcePlayer, company } : null;
+}
 
-  // Agent site lookups resolve by name; restrict to the agent owner's
-  // (hazard) alignment so a same-named hero site isn't picked by mistake.
-  const allSiteDefs = Object.values(state.cardPool).filter(
-    (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardPlayer.alignment,
-  );
-
+/**
+ * Iterates the hazard player's agents eligible to use an M/H agent ability
+ * declared by an `effectType` card effect: in play since turn start
+ * (`inPlayAtTurnStart`), not wounded (Inverted), with a resolvable character
+ * definition carrying the effect. Invokes `cb` with the agent, its
+ * definition, the matching effect, and the agent's current site name (null
+ * when unresolved) — the prologue every agent-ability emitter repeated.
+ */
+function forEachEligibleAgent<E extends { type: string }>(
+  state: GameState,
+  hazardPlayer: PlayerState,
+  effectType: E['type'],
+  cb: (agent: AgentInPlay, agentDef: CharacterCard, effect: E, agentSiteName: string | null) => void,
+): void {
   for (const agent of hazardPlayer.agents) {
     if (!agent.inPlayAtTurnStart) continue;
     if (agent.character.status === CardStatus.Inverted) continue; // wounded
@@ -1170,13 +1226,37 @@ function agentInfluenceActions(
     const agentDef = defById(state, agent.character.definitionId);
     if (!agentDef || !isCharacterCard(agentDef)) continue;
 
-    const tapInfluenceEff = (agentDef.effects ?? []).find(e => e.type === 'agent-tap-influence') as
-      | { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] }
-      | undefined;
-    if (!tapInfluenceEff) continue;
+    const effect = (agentDef.effects ?? []).find(e => e.type === effectType) as E | undefined;
+    if (!effect) continue;
 
-    // Determine the agent's current site name and the target company's site.
-    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+    cb(agent, agentDef, effect, agentCurrentSiteName(state, agent, agentDef));
+  }
+}
+
+function agentInfluenceActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const ctx = mhAgentContext(state, playerId, mhState);
+  if (!ctx) return [];
+  const { hazardPlayer, resourcePlayer, company } = ctx;
+
+  // Agent site lookups resolve by name; restrict to the agent owner's
+  // (hazard) alignment so a same-named hero site isn't picked by mistake.
+  const allSiteDefs = Object.values(state.cardPool).filter(
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardPlayer.alignment,
+  );
+
+  type TapInfluenceEffect = { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] };
+  forEachEligibleAgent<TapInfluenceEffect>(state, hazardPlayer, 'agent-tap-influence', (agent, agentDef, tapInfluenceEff, agentSiteName) => {
+    // Tap-cost ability: only an untapped agent can pay the tap (rule 10.14).
+    if (agent.character.status !== CardStatus.Untapped) {
+      logDetail(`Agent tap-influence ${agentDef.name}: not untapped — cannot pay the tap cost, skipping`);
+      return;
+    }
+    // The target company's site this turn.
     const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
     const isAgentAtCompanySite = agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
@@ -1270,7 +1350,7 @@ function agentInfluenceActions(
         }
       }
     }
-  }
+  });
 
   return actions;
 }
@@ -1293,40 +1373,39 @@ function agentTapAttackActions(
   mhState: MovementHazardPhaseState,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const hazardPlayerIndex = getPlayerIndex(state, playerId);
-  const hazardPlayer = state.players[hazardPlayerIndex];
-  const resourcePlayerIndex = 1 - hazardPlayerIndex;
-  const resourcePlayer = state.players[resourcePlayerIndex];
-  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
+  const ctx = mhAgentContext(state, playerId, mhState);
+  if (!ctx) return [];
+  const { hazardPlayer, company } = ctx;
 
   const companySiteName = companyTargetSiteName(state, company, mhState.destinationSiteName);
 
-  for (const agent of hazardPlayer.agents) {
-    if (!agent.inPlayAtTurnStart) continue;
-    if (agent.character.status === CardStatus.Inverted) continue; // wounded
-
-    const agentDef = defById(state, agent.character.definitionId);
-    if (!agentDef || !isCharacterCard(agentDef)) continue;
-
-    const tapAttackEff = (agentDef.effects ?? []).find(
-      (e): e is AgentTapAttackEffect => e.type === 'agent-tap-attack',
-    );
-    if (!tapAttackEff) continue;
-
-    // Determine the agent's current site name.
-    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
-
+  forEachEligibleAgent<AgentTapAttackEffect>(state, hazardPlayer, 'agent-tap-attack', (agent, agentDef, _tapAttackEff, agentSiteName) => {
+    // Tap-cost ability: only an untapped agent can pay the tap ("may tap to
+    // attack"), so a spent agent cannot attack again this phase.
+    if (agent.character.status !== CardStatus.Untapped) {
+      logDetail(`Agent tap-attack ${agentDef.name}: not untapped — cannot pay the tap cost, skipping`);
+      return;
+    }
     const isAgentAtCompanySite =
       agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
     if (!isAgentAtCompanySite) {
       logDetail(`Agent tap-attack ${agentDef.name}: not at company's site (agent: ${agentSiteName ?? 'unknown'}, company: ${companySiteName ?? 'unknown'}) — skipping`);
-      continue;
+      return;
     }
 
     logDetail(`Agent tap-attack ${agentDef.name}: at company site "${companySiteName}" — offering attack`);
 
-    if (!agent.revealed) {
+    if (!agent.revealed && agent.siteStack.length > 0) {
+      // Traveled face-down agent: its current site card is already on top of
+      // its own stack — the reveal needs no deck card and carries no rule
+      // 4.2.2 / 9.04 penalty. Offer the plain attack; a homeSiteInstanceId
+      // variant would (wrongly) pull a home-site card from the deck.
+      logDetail(`Agent tap-attack ${agentDef.name}: face-down with traveled site stack — offering without home site`);
+      actions.push({
+        action: { type: 'agent-tap-attack', player: playerId, agentId: agent.id } as AgentTapAttackAction,
+        viable: true,
+      });
+    } else if (!agent.revealed) {
       // Face-down: offer one action per home site in deck (reveal at attack)
       const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
       const seenHome = new Set<string>();
@@ -1364,7 +1443,7 @@ function agentTapAttackActions(
         viable: true,
       });
     }
-  }
+  });
 
   return actions;
 }
@@ -1389,12 +1468,9 @@ function agentDiscardReturnToOriginActions(
   mhState: MovementHazardPhaseState,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
-  const hazardPlayerIndex = getPlayerIndex(state, playerId);
-  const hazardPlayer = state.players[hazardPlayerIndex];
-  const resourcePlayerIndex = 1 - hazardPlayerIndex;
-  const resourcePlayer = state.players[resourcePlayerIndex];
-  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
-  if (!company) return [];
+  const ctx = mhAgentContext(state, playerId, mhState);
+  if (!ctx) return [];
+  const { hazardPlayer, company } = ctx;
 
   // The company must be moving to a new site (revealed) and not already returned.
   if (!company.destinationSite || !mhState.destinationSiteName) return [];
@@ -1408,22 +1484,10 @@ function agentDiscardReturnToOriginActions(
     return [];
   }
 
-  for (const agent of hazardPlayer.agents) {
-    if (!agent.inPlayAtTurnStart) continue;
-    if (agent.character.status === CardStatus.Inverted) continue; // wounded
-
-    const agentDef = defById(state, agent.character.definitionId);
-    if (!agentDef || !isCharacterCard(agentDef)) continue;
-
-    const discardEff = (agentDef.effects ?? []).find(
-      (e): e is AgentDiscardReturnToOriginEffect => e.type === 'agent-discard-return-to-origin',
-    );
-    if (!discardEff) continue;
-
-    const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+  forEachEligibleAgent<AgentDiscardReturnToOriginEffect>(state, hazardPlayer, 'agent-discard-return-to-origin', (agent, agentDef, _discardEff, agentSiteName) => {
     if (agentSiteName === null || agentSiteName !== mhState.destinationSiteName) {
       logDetail(`Agent discard-return-to-origin ${agentDef.name}: not at company's new site (agent: ${agentSiteName ?? 'unknown'}, new site: ${mhState.destinationSiteName}) — skipping`);
-      continue;
+      return;
     }
 
     logDetail(`Agent discard-return-to-origin ${agentDef.name}: at company's new site "${mhState.destinationSiteName}" — offering discard`);
@@ -1431,7 +1495,7 @@ function agentDiscardReturnToOriginActions(
       action: { type: 'agent-discard-return-to-origin', player: playerId, agentId: agent.id } as AgentDiscardReturnToOriginAction,
       viable: true,
     });
-  }
+  });
 
   return actions;
 }
@@ -2175,6 +2239,22 @@ function playHazardsActions(
         }
       }
 
+      // play-condition: card-player-deck-size (Long Dark Reach dm-70: "if you
+      // have at least 10 cards in your play deck"). "You" is the hazard
+      // player actually declaring this play — the opposite of
+      // active-player-deck-size above.
+      {
+        const ownDeckSizeCond = findPlayConditionEffect(def, 'card-player-deck-size');
+        if (ownDeckSizeCond?.minDeckSize !== undefined) {
+          const ownDeckSize = cardPlayerDeckSize(state, playerId);
+          if (ownDeckSize < ownDeckSizeCond.minDeckSize) {
+            logDetail(`Hazard "${def.name}": requires at least ${ownDeckSizeCond.minDeckSize} cards in ${player.name}'s own play deck (has ${ownDeckSize})`);
+            actions.push({ action, viable: false, reason: `${def.name}: you need at least ${ownDeckSizeCond.minDeckSize} cards in your play deck` });
+            continue;
+          }
+        }
+      }
+
       // prohibit-card-play (The Under-roads, as-106 prohibits The Way is Shut):
       // a card named by any in-play `prohibit-card-play` effect may not be
       // played while that source remains in play.
@@ -2422,18 +2502,42 @@ function playHazardsActions(
                 ?? targetCompany.currentSite?.instanceId ?? null;
               const siteDefId = siteInstId ? resolveInstanceId(state, siteInstId) : null;
               if (!siteDefId) continue;
+              // A company is "at" its destination site for hazard purposes,
+              // falling back to the current site for a non-moving company —
+              // mirrors the siteDefId derivation above for the candidate play.
+              const companySiteDefId = (companyId: import('../../index.js').CompanyId): CardDefinitionId | null => {
+                for (const p of state.players) {
+                  const company = p.companies.find(c => c.id === companyId);
+                  if (!company) continue;
+                  const inst = company.destinationSite?.instanceId ?? company.currentSite?.instanceId ?? null;
+                  return inst ? resolveInstanceId(state, inst) ?? null : null;
+                }
+                return null;
+              };
               const constraintCopies = state.activeConstraints.filter(
-                c => c.sourceDefinitionId === def.id
+                c => constraintFromCard(state, c, def.id)
                   && ((c.kind.type === 'item-play-corruption-check' && c.kind.siteDefinitionId === siteDefId)
                     // Arouse Defenders (le-101): count resolved boosts still
                     // bound to this destination site.
-                    || (c.kind.type === 'auto-attack-boost' && c.kind.siteDefinitionId === siteDefId)),
+                    || (c.kind.type === 'auto-attack-boost' && c.kind.siteDefinitionId === siteDefId)
+                    // Incite Defenders le-115 / Incite Denizens le-116, td-34
+                    // ("Cannot be duplicated on a given site"): the resolved
+                    // copy lives on as an auto-attack-duplicate constraint
+                    // targeting a company — attribute it to that company's
+                    // site so a second copy at a *different* site stays legal.
+                    || (c.kind.type === 'auto-attack-duplicate'
+                      && c.target.kind === 'company'
+                      && companySiteDefId(c.target.companyId) === siteDefId)),
               ).length;
               const chainCopies = state.chain?.entries.filter(e => {
                 if (e.payload.type !== 'short-event') return false;
-                if (e.payload.targetSiteDefinitionId !== siteDefId) return false;
                 const cDef = e.card ? defById(state, e.card.definitionId) : undefined;
-                return cDef?.name === def.name;
+                if (cDef?.name !== def.name) return false;
+                if (e.payload.targetSiteDefinitionId) return e.payload.targetSiteDefinitionId === siteDefId;
+                // Company-targeted copy (Incite …): attribute the unresolved
+                // entry to its target company's site.
+                return e.payload.targetCompanyId !== undefined
+                  && companySiteDefId(e.payload.targetCompanyId) === siteDefId;
               }).length ?? 0;
               if (constraintCopies + chainCopies >= effect.max) {
                 logDetail(`Hazard short-event "${def.name}" cannot be duplicated on this site (${constraintCopies} active, ${chainCopies} on chain)`);
@@ -2589,25 +2693,32 @@ function playHazardsActions(
         }
 
         // Play-condition check (e.g. Two or Three Tribes Present site-path requirement)
+        //
+        // Each `requires` variant is looked up on its own (rather than taking
+        // the first `play-condition` effect on the card, regardless of kind)
+        // so a card carrying more than one play-condition — e.g. Long Dark
+        // Reach dm-70's `site-path` + `card-player-deck-size` pair — has both
+        // checked instead of only whichever happens to be listed first.
         {
-          const playCondition = getCardEffects(def).find(
-            (e): e is PlayConditionEffect => e.type === 'play-condition',
-          );
-          if (playCondition && playCondition.requires === 'site-path') {
-            if (!checkSitePathCondition(mhState, playCondition, state, targetCompany)) {
+          const sitePathCondition = findPlayConditionEffect(def, 'site-path');
+          const regionThroughCondition = findPlayConditionEffect(def, 'region-through-or-leave');
+          const companySiteCondition = findPlayConditionEffect(def, 'company-site');
+          if (sitePathCondition) {
+            if (!checkSitePathCondition(mhState, sitePathCondition, state, targetCompany)) {
               logDetail(`Hazard short-event "${def.name}": site path condition not met`);
               actions.push({ action, viable: false, reason: 'Site path condition not met' });
               continue;
             }
-          } else if (playCondition && playCondition.requires === 'region-through-or-leave') {
+          } else if (regionThroughCondition) {
             // Cruel Caradhras (td-9): playable on a company using region movement
             // to move through (not stopping at a site) or leave a named region.
-            if (!checkRegionThroughOrLeave(mhState, playCondition.regionNames ?? [])) {
+            if (!checkRegionThroughOrLeave(mhState, regionThroughCondition.regionNames ?? [])) {
               logDetail(`Hazard short-event "${def.name}": company is not moving through or leaving a required region`);
               actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
               continue;
             }
-          } else if (playCondition && playCondition.requires === 'company-site' && playCondition.condition) {
+          } else if (companySiteCondition?.condition) {
+            const companySiteConditionExpr = companySiteCondition.condition;
             // Glance of Arien (ba-19): gate on the active company's relevant
             // site — its destination when moving, else its current site.
             const relevantSite = targetCompany.destinationSite ?? targetCompany.currentSite;
@@ -2615,7 +2726,7 @@ function playHazardsActions(
             const siteCtx = siteDef && isSiteCard(siteDef)
               ? { site: { name: siteDef.name, siteType: siteDef.siteType, cardType: siteDef.cardType, region: siteDef.region, keywords: siteDef.keywords ?? [] } }
               : { site: {} };
-            if (!matchesCondition(playCondition.condition, siteCtx as unknown as Record<string, unknown>)) {
+            if (!matchesCondition(companySiteConditionExpr, siteCtx as unknown as Record<string, unknown>)) {
               logDetail(`Hazard short-event "${def.name}": company-site condition not met (site ${siteDef && isSiteCard(siteDef) ? siteDef.name : 'none'})`);
               actions.push({ action, viable: false, reason: `${def.name}: company's site does not satisfy play condition` });
               continue;
@@ -2692,7 +2803,10 @@ function playHazardsActions(
           // targets the opponent (resource) player's characters (any company),
           // mirroring Adûnaphel tw-2's "causes any one character to tap".
           for (const [charId, charData] of Object.entries(resourcePlayer.characters)) {
-            if (charData.status === CardStatus.Tapped) continue;
+            // Only untapped characters may be tapped — a wounded (Inverted)
+            // character is not a legal target, and resolving the tap would
+            // overwrite the wound with Tapped.
+            if (charData.status !== CardStatus.Untapped) continue;
             const charDef = defById(state, charData.definitionId);
             if (!charDef || !isCharacterCard(charDef)) continue;
             if (tapCharacterEffect.filter && !matchesDefinition(charDef, tapCharacterEffect.filter)) continue;
@@ -2757,15 +2871,7 @@ function playHazardsActions(
 
             // Agent's current site: top of its site stack, else its first home
             // site (a face-down agent sitting at home).
-            const agentHomesites = parseHomesiteNames(agentDef.homesite);
-            let agentSiteName: string | null = null;
-            if (agent.siteStack.length > 0) {
-              const topSite = agent.siteStack[agent.siteStack.length - 1];
-              const topSiteDef = defById(state, topSite.definitionId);
-              if (topSiteDef && isSiteCard(topSiteDef)) agentSiteName = topSiteDef.name;
-            } else {
-              agentSiteName = agentHomesites[0] ?? null;
-            }
+            const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
             if (agentSiteName === null) continue;
 
             // Any opponent character in play whose home site == agent's site.
@@ -2911,6 +3017,36 @@ function playHazardsActions(
             actions.push({ action, viable: false, reason: `${def.name} cannot be played on this company at this site` });
             continue;
           }
+          // play-option (Drowning Seas tw-30): the hazard player picks one of
+          // several mutually-exclusive company-level options at play time.
+          // Each option's `when` is evaluated against the same company
+          // context used for the play-target filter above, extended with
+          // `inPlay` so an alternative gated on a permanent-event (Doors of
+          // Night) is only offered while it's actually in play. One action
+          // per matching option, carrying `optionId`; a card without
+          // play-option effects falls through to the single-action path
+          // below.
+          const compPlayOptions = getCardEffects(def).filter(
+            (e): e is import('../../types/effects.js').PlayOptionEffect => e.type === 'play-option',
+          );
+          if (compPlayOptions.length > 0) {
+            const optionCtx = { ...companyCtx, inPlay: buildInPlayNames(state) };
+            let offeredAnyOption = false;
+            for (const opt of compPlayOptions) {
+              if (opt.when && !matchesCondition(opt.when, optionCtx)) {
+                logDetail(`Hazard short-event "${def.name}": company option "${opt.id}" when-condition rejected`);
+                continue;
+              }
+              logDetail(`Hazard short-event "${def.name}": company option "${opt.id}" available`);
+              actions.push({ action: { ...action, optionId: opt.id }, viable: true });
+              offeredAnyOption = true;
+            }
+            if (!offeredAnyOption) {
+              logDetail(`Hazard short-event "${def.name}": no company option's when-condition matched`);
+              actions.push({ action, viable: false, reason: `${def.name}: no available option for this company` });
+            }
+            continue;
+          }
           // play-discard-cost (The Reek ba-23): must discard a matching card from
           // hand as a cost. Gather candidates; if none match, the card is not
           // playable at all. One action per matching cost card.
@@ -3011,13 +3147,23 @@ function playHazardsActions(
               const itemSubtypes = itemSubtypesOf(state, charData.items);
               const ctx = {
                 target: {
-                  race: charDef.race,
+                  // g.wiz.F1: a Fallen-wizard avatar matches "Wizard" in card
+                  // text (e.g. Seized by Terror dm-88's "non-Wizard character"),
+                  // not "fallen-wizard" — mirror the permanent-hazard path.
+                  race: raceForCardTextFilter(charDef),
                   skills: charDef.skills,
                   name: charDef.name,
                   status: charData.status,
                   possessions: possessionNames,
                   itemKeywords,
                   itemSubtypes,
+                },
+                // `company.moving` (Gloom tw-41: "Playable only on a company
+                // that is moving this turn") mirrors the `target.moving` field
+                // already exposed to `play-target: "company"` filters
+                // (Heedless Revelry le-114).
+                company: {
+                  moving: !!targetCompany.destinationSite,
                 },
               };
               if (!matchesCondition(shortPlayTarget.filter, ctx)) {
@@ -3045,7 +3191,7 @@ function playHazardsActions(
             }
             if (shortPlayOptions.length > 0) {
               const optionCtx = charDef && isCharacterCard(charDef)
-                ? { target: { race: charDef.race, skills: charDef.skills, name: charDef.name, status: charData?.status } }
+                ? { target: { race: raceForCardTextFilter(charDef), skills: charDef.skills, name: charDef.name, status: charData?.status } }
                 : { target: {} };
               for (const opt of shortPlayOptions) {
                 if (opt.when && !matchesCondition(opt.when, optionCtx)) {
@@ -3073,6 +3219,38 @@ function playHazardsActions(
                 action: { ...action, targetCharacterId: charId },
                 viable: true,
               });
+            }
+          }
+          // Gloom (tw-41): a `play-target: "character"` short event may also
+          // carry `on-event company-arrives-at-site` Doors-of-Night
+          // alternative modes ("Alternatively, if Doors of Night is in play,
+          // treat one Border-land as a Wilderness or one Border-hold as a
+          // Ruins & Lairs…"). Offer the single untargeted action the
+          // tap-character branch offers for the same shape (New Moon tw-68),
+          // so the two modes stay mutually exclusive via
+          // `applyShortEventArrivalTrigger`'s targetCharacterId check.
+          {
+            const arrivalModes = getCardEffects(def).filter(
+              (e): e is import('../../types/effects.js').OnEventEffect =>
+                e.type === 'on-event' && e.event === 'company-arrives-at-site',
+            );
+            if (arrivalModes.length > 0 && targetCompany.destinationSite) {
+              const inPlayNames = buildInPlayNames(state);
+              const arrivalCompany: Record<string, unknown> = {};
+              if (mhState.destinationSiteType) arrivalCompany.destinationSiteType = mhState.destinationSiteType;
+              if (mhState.destinationSiteName) arrivalCompany.destinationSiteName = mhState.destinationSiteName;
+              if (mhState.resolvedSitePath.length > 0) {
+                arrivalCompany.destinationRegionType = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
+              }
+              const arrivalCtx: Record<string, unknown> = {
+                company: arrivalCompany,
+                inPlay: inPlayNames,
+                environment: { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') },
+              };
+              if (arrivalModes.some(m => !m.when || matchesCondition(m.when, arrivalCtx))) {
+                logDetail(`Hazard short-event "${def.name}": arrival-override mode available`);
+                actions.push({ action, viable: true });
+              }
             }
           }
           continue;
@@ -3341,7 +3519,17 @@ function playHazardsActions(
         const fromHandModifyAttack = getCardEffects(def).some(
           (e): boolean => e.type === 'modify-attack' && !!(e as { fromHand?: boolean }).fromHand,
         );
-        if (fromHandModifyAttack) {
+        // Fell Beast (tw-33): a card may carry a from-hand modify-attack mode
+        // (played on an existing Nazgûl attack) *alongside* a genuine
+        // standalone `on-event self-enters-play → add-constraint` mode
+        // (played before any Nazgûl, per CRF: "can be played and resolved
+        // before any Nazgûl is played with it"). The modify-attack-only
+        // suppression above must not swallow that second, independently
+        // legitimate open-play mode.
+        const hasSelfEntersPlayAddConstraint = getCardEffects(def).some(
+          e => e.type === 'on-event' && e.event === 'self-enters-play' && e.apply.type === 'add-constraint',
+        );
+        if (fromHandModifyAttack && !hasSelfEntersPlayAddConstraint) {
           logDetail(`Hazard short-event "${def.name}": from-hand modify-attack is a combat modifier — not playable openly in M/H (play it on the attack or place it on-guard)`);
           actions.push({ action, viable: false, reason: `${def.name} must be played on the attack it modifies or placed on-guard` });
           continue;
@@ -3451,7 +3639,29 @@ function playHazardsActions(
       // marshalling-point pile. The stored item is displaced back to the
       // opponent's hand on resolution and the card takes its place.
       const isStoredItemTargeting = playTarget?.target === 'stored-item';
-      if (isStoredItemTargeting) {
+      // play-target DSL: nazgul-permanent-event-targeting hazards (Helms of
+      // Iron dm-64) get one action per Nazgûl permanent-event the hazard
+      // player has in their own cardsInPlay. With none, the card is not
+      // playable at all — this structurally implements "Playable only if you
+      // have a Nazgûl permanent-event in play." The chosen instance rides on
+      // targetNazgulInstanceId and is discarded by the card's self-enters-play
+      // move.
+      const isNazgulTargeting = playTarget?.target === 'nazgul-permanent-event';
+      if (isNazgulTargeting) {
+        const nazgulCandidates = player.cardsInPlay.filter(c => isNazgulPermanentEvent(defById(state, c.definitionId)));
+        if (nazgulCandidates.length === 0) {
+          logDetail(`Hazard "${def.name}": no Nazgûl permanent-event in play`);
+          actions.push({ action, viable: false, reason: `${def.name} requires a Nazgûl permanent-event in play` });
+        }
+        for (const candidate of nazgulCandidates) {
+          const candidateDef = defById(state, candidate.definitionId);
+          logDetail(`Hazard "${def.name}" playable — discards Nazgûl permanent-event ${candidateDef?.name ?? (candidate.definitionId as string)}`);
+          actions.push({
+            action: { ...action, targetNazgulInstanceId: candidate.instanceId },
+            viable: true,
+          });
+        }
+      } else if (isStoredItemTargeting) {
         const storedItems = resourcePlayer.killPile.filter(c => {
           const cDef = defById(state, c.definitionId);
           return !!cDef && isItemCard(cDef);
@@ -3700,6 +3910,44 @@ function playHazardsActions(
             });
           }
         }
+      } else if (playTarget?.target === 'agent') {
+        // Agent-targeting permanent hazard events (Never Seen Him dm-74): one
+        // action per one of the hazard player's own agents, any status
+        // (face-up or face-down). Cannot be played against a minion/Balrog
+        // opponent, matching the other agent-related cards' convention.
+        if (isMinionOrBalrog(resourcePlayer)) {
+          logDetail(`Hazard event "${def.name}" not playable — opponent is a minion player`);
+          actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+        } else if (player.agents.length === 0) {
+          logDetail(`Hazard event "${def.name}" not playable — no agents in play`);
+          actions.push({ action, viable: false, reason: 'No agents in play' });
+        } else {
+          // "Cannot be duplicated on a given agent": one copy per targeted
+          // agent, counted by name across cardsInPlay entries bound to it.
+          const agentDupLimit = findDuplicationLimitEffect(def, 'agent');
+          for (const agent of player.agents) {
+            if (agentDupLimit) {
+              const copiesOnAgent = player.cardsInPlay.filter(cip =>
+                cip.attachedToAgentId === agent.id
+                && defById(state, cip.definitionId)?.name === def.name,
+              ).length;
+              if (copiesOnAgent >= agentDupLimit.max) {
+                logDetail(`Hazard "${def.name}" already bound to agent ${agent.id as string} (${copiesOnAgent}/${agentDupLimit.max})`);
+                actions.push({
+                  action: { ...action, targetAgentId: agent.id },
+                  viable: false,
+                  reason: `${def.name} cannot be duplicated on this agent`,
+                });
+                continue;
+              }
+            }
+            logDetail(`Hazard event "${def.name}" playable on agent ${agent.id as string}`);
+            actions.push({
+              action: { ...action, targetAgentId: agent.id },
+              viable: true,
+            });
+          }
+        }
       } else if (playTarget?.target === 'company') {
         // Company-targeting permanent hazard events: filter on alignment + siteType of target company.
         // Use destination site if the company is moving, otherwise current site.
@@ -3726,6 +3974,37 @@ function playHazardsActions(
           actions.push({ action, viable: true });
         }
       } else {
+        // play-discard-cost sourced from cards-in-play (Scimitars of Steel
+        // dm-86): "Playable only if you have a Nazgûl permanent-event in
+        // play. Discard the Nazgûl when this card is brought into play." One
+        // action per own cardsInPlay entry matching the filter; having zero
+        // candidates makes the card unplayable, which doubles as the
+        // "playable only if" gate.
+        const cardsInPlayDiscardCost = getCardEffects(def).find(
+          (e): e is import('../../types/effects.js').PlayDiscardCostEffect =>
+            e.type === 'play-discard-cost' && e.source === 'cards-in-play',
+        );
+        if (cardsInPlayDiscardCost) {
+          const candidates = player.cardsInPlay.filter(cip => {
+            const cipDef = defById(state, cip.definitionId);
+            return !!cipDef && matchesDefinition(cipDef, cardsInPlayDiscardCost.filter);
+          });
+          if (candidates.length === 0) {
+            logDetail(`Hazard event "${def.name}": play-discard-cost has no matching card in play — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name} requires a matching card in play to discard` });
+          } else {
+            for (const candidate of candidates) {
+              const candidateName = defById(state, candidate.definitionId)?.name ?? (candidate.definitionId as string);
+              logDetail(`Hazard event "${def.name}" playable — will discard "${candidateName}" as cost`);
+              actions.push({
+                action: { ...action, costDiscardInstanceId: candidate.instanceId },
+                viable: true,
+              });
+            }
+          }
+          continue;
+        }
+
         // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
 
         // Company-scope duplication-limit: one copy per target company.
@@ -3971,7 +4250,10 @@ function tapAltPermanentEventActions(
       // opponent — it may only tap the resource (active) player's characters, never
       // the hazard player's own. Restrict targets to the resource player.
       for (const [charId, ch] of Object.entries(state.players[activeIdx].characters)) {
-        if (ch.status === CardStatus.Tapped) continue;
+        // Only untapped characters may be tapped — a wounded (Inverted)
+        // character is not a legal target, and resolving the tap would
+        // overwrite the wound with Tapped.
+        if (ch.status !== CardStatus.Untapped) continue;
         const charDef = defById(state, ch.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
@@ -4133,41 +4415,24 @@ function sideboardWithNazgulActions(
 
 /**
  * Rule 5.24 follow-up: generate fetch/pass actions during the active Nazgûl
- * sideboard sub-flow. Mirrors `hazardSideboardFetchActions` (untap.ts).
+ * sideboard sub-flow. Same flow as `hazardSideboardFetchActions` (untap.ts);
+ * both delegate to the shared builder in sideboard-subflow.ts.
  */
 function nazgulSideboardFetchActions(
   state: GameState,
   playerId: PlayerId,
   mhState: MovementHazardPhaseState,
 ): EvaluatedAction[] {
-  const player = playerById(state, playerId)!;
-  const actions: EvaluatedAction[] = [];
-  const eligible = filterSideboardByDef(state, player.sideboard, def => def.cardType.includes('hazard'));
-
-  if (mhState.nazgulSideboardDestination === 'deck') {
-    if (mhState.nazgulSideboardFetched >= 1) return actions;
-    for (const card of eligible) {
-      actions.push({
-        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-    return actions;
-  }
-
-  // 'discard'
-  if (mhState.nazgulSideboardFetched < MAX_NAZGUL_SIDEBOARD_TO_DISCARD) {
-    for (const card of eligible) {
-      actions.push({
-        action: { type: 'fetch-hazard-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-  }
-  if (mhState.nazgulSideboardFetched >= 1) {
-    actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-  }
-  return actions;
+  if (mhState.nazgulSideboardDestination === null) return [];
+  return sideboardFetchSubflowActions(state, playerId, {
+    destination: mhState.nazgulSideboardDestination,
+    fetched: mhState.nazgulSideboardFetched,
+    maxToDiscard: MAX_NAZGUL_SIDEBOARD_TO_DISCARD,
+    fetchActionType: 'fetch-hazard-from-sideboard',
+    isEligible: def => def.cardType.includes('hazard'),
+    logPrefix: 'Nazgûl sideboard',
+    guardWithPass: false,
+  });
 }
 
 /**
@@ -4249,11 +4514,13 @@ function findCreatureKeyingMatches(
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-  const destSitePath = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef.sitePath : [];
+  const destSiteCard = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef : undefined;
+  const destSitePath = destSiteCard?.sitePath ?? [];
   const destSitePathCounts = regionTypeCounts(destSitePath);
   const whenContext: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destSitePathCounts },
+    destinationSite: { sitePath: destSitePathCounts, region: destSiteCard?.region },
+    hazardsEncountered: mhState.hazardsEncountered,
   };
   // Derive the keyable region paths — name-scoped overrides (Choking
   // Shadows, Deeper Shadow), class remaps (Fell Winter), name conversions
@@ -4263,7 +4530,29 @@ function findCreatureKeyingMatches(
   const candidateRegionPaths = computeCandidateRegionPaths(
     state, mhState.resolvedSitePath, mhState.resolvedSitePathNames, inPlayNames,
   );
-  for (const key of def.keyedTo) {
+  // Fell Beast (tw-33): "target Nazgûl may also be played keyed to a
+  // Shadow-land [{s}] or Shadow-hold [{S}]" — a `nazgul-boost-pending`
+  // constraint on this company grants one extra synthetic `keyedTo` entry for
+  // the matching race, tried alongside the creature's own printed keying.
+  const extraKeyedTo: import('../../types/cards-hazards.js').CreatureKeyRestriction[] = [];
+  if ('id' in targetCompany) {
+    const boost = state.activeConstraints.find(
+      (c): c is import('../../types/pending.js').ActiveConstraint & { kind: { type: 'nazgul-boost-pending' } } =>
+        c.kind.type === 'nazgul-boost-pending'
+        && c.target.kind === 'company'
+        && c.target.companyId === (targetCompany as Company).id
+        && c.kind.race === def.race,
+    );
+    if (boost
+      && (boost.kind.keyingRegionTypes?.length || boost.kind.keyingSiteTypes?.length)
+      && !hasNazgulBoostBeenUsed(state, hazardPlayer(state, state.activePlayer).id, def.id)) {
+      extraKeyedTo.push({
+        ...(boost.kind.keyingRegionTypes ? { regionTypes: boost.kind.keyingRegionTypes } : {}),
+        ...(boost.kind.keyingSiteTypes ? { siteTypes: boost.kind.keyingSiteTypes } : {}),
+      });
+    }
+  }
+  for (const key of [...def.keyedTo, ...extraKeyedTo]) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
     // Region type matches — try the effective path plus each boosted variant.
     if (key.regionTypes && key.regionTypes.length > 0) {
@@ -4304,6 +4593,21 @@ function findCreatureKeyingMatches(
           const k = `site-name:${sn}`;
           if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-name', value: sn }); }
         }
+      }
+    }
+    // Site-in-region matches — the destination site's own `region` field is
+    // one of the listed names (the dragons' "may also be played at sites in
+    // these regions" DoN clause). Resolved like the site-keyword branch below.
+    if (key.siteInRegionNames && key.siteInRegionNames.length > 0 && mhState.destinationSiteName) {
+      const resolvedDest = (destSiteDef && isSiteCard(destSiteDef))
+        ? destSiteDef
+        : (Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        ) as SiteCard | undefined);
+      if (resolvedDest && key.siteInRegionNames.includes(resolvedDest.region)) {
+        const k = `site-in-region:${resolvedDest.region}`;
+        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'site-in-region', value: resolvedDest.region }); }
       }
     }
     // Site keyword matches — destination site must carry at least one of the keywords.
@@ -4412,6 +4716,28 @@ function findCreatureKeyingMatches(
   }
 
   return matches;
+}
+
+/**
+ * True when `def` has at least one keying match against `targetCompany`'s
+ * travel path / destination site — i.e. the creature "could normally be
+ * played on the company". Used by Long Dark Reach (dm-70) to decide its -4
+ * prowess penalty for a creature forced to attack "regardless of its
+ * playability requirements": the bypass means the attack always proceeds,
+ * but whether it *would* have been legally playable is still evaluated,
+ * purely for the penalty. Delegates to {@link findCreatureKeyingMatches}, the
+ * same keying-match logic the ordinary M/H hazard-creature-play path uses.
+ */
+export function creatureIsNormallyPlayableOnCompany(
+  def: CreatureCard,
+  mhState: MovementHazardPhaseState,
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+): boolean {
+  return findCreatureKeyingMatches(def, mhState, state, targetCompany).length > 0;
 }
 
 /**
@@ -4646,9 +4972,11 @@ function grantsCreatureKeying(
  * True if the creature's printed `keyedTo` offers at least one non-Coastal-Sea
  * region keying — a region type other than Coastal, or a named region. Used to
  * evaluate A Pack at the Door's (tw-497) "must be playable in a non-Coastal Sea
- * [{c}] region" clause, which excludes Coastal-Sea-only creatures (e.g. tw-34).
+ * [{c}] region" clause, which excludes Coastal-Sea-only creatures (e.g. tw-34),
+ * and Long Dark Reach's (dm-70) identical "must be playable in a region besides
+ * Coastal Sea" eligibility filter (`engine/long-dark-reach.ts`).
  */
-function creatureHasNonCoastalRegionKeying(def: CreatureCard): boolean {
+export function creatureHasNonCoastalRegionKeying(def: CreatureCard): boolean {
   for (const key of def.keyedTo) {
     if (key.regionNames && key.regionNames.length > 0) return true;
     for (const rt of key.regionTypes ?? []) {
@@ -4666,6 +4994,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.regionNames?.length) parts.push(k.regionNames.join('/'));
     if (k.siteTypes?.length) parts.push(k.siteTypes.join('/'));
     if (k.siteNames?.length) parts.push(k.siteNames.join('/'));
+    if (k.siteInRegionNames?.length) parts.push(`site-in-region:${k.siteInRegionNames.join('/')}`);
     if (k.siteKeywords?.length) parts.push(`site-keyword:${k.siteKeywords.join('/')}`);
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
     if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to:${k.adjacentToSiteNames.join('/')}`);
@@ -4768,6 +5097,16 @@ function hasCreatureKeyingBypass(
  * - `inPlay` — names of all cards currently in play for both players,
  *   matching the shared `inPlay` condition semantics (e.g. Doors of
  *   Night as an alt-keying modifier).
+ * - `moving` — `true` when `targetCompany` actually has a declared
+ *   destination this turn (`company.destinationSite != null`), `false`
+ *   otherwise. Unlike `destinationSiteType` (which falls back to the
+ *   current site's type for a stationary company, see rule 2.IV — every
+ *   company's M/H phase runs all steps regardless of movement), this lets a
+ *   card's playability gate distinguish "moving on any path" from "moving
+ *   through/to a specific site type" — e.g. Lost in Dark-domains (tw-52):
+ *   "Playable on a company that is moving this turn" is the sole legality
+ *   requirement, while the Dark-domain check only decides whether the
+ *   card's own effect fires.
  */
 function checkSitePathCondition(
   mhState: MovementHazardPhaseState,
@@ -4775,7 +5114,10 @@ function checkSitePathCondition(
   state?: GameState,
   targetCompany?: Company,
 ): boolean {
-  const ctx: Record<string, unknown> = { sitePath: regionTypeCounts(mhState.resolvedSitePath) };
+  const ctx: Record<string, unknown> = {
+    sitePath: regionTypeCounts(mhState.resolvedSitePath),
+    moving: targetCompany?.destinationSite != null,
+  };
   if (mhState.destinationSiteType) {
     ctx['destinationSiteType'] = mhState.destinationSiteType;
   }

@@ -230,6 +230,16 @@ describe('Twisted Tales (dm-96)', () => {
     expect(attempt.crossAlignmentPenalty).toBe(-5);
   });
 
+  test('the defend action explanation names the target faction, not "?"', () => {
+    const state = baseState({ agentSite: MINAS_TIRITH_MINION, faction: MEN_OF_ANORIEN });
+    const played = play(state);
+    const defend = viableActions(played, PLAYER_1, 'opponent-influence-defend');
+    expect(defend).toHaveLength(1);
+    const action = defend[0].action as { explanation: string };
+    expect(action.explanation).toContain('Men of Anórien');
+    expect(action.explanation).not.toContain('?');
+  });
+
   test('away from home the +6 is still applied but the faction keeps its full value', () => {
     // Gergeli revealed at Minas Tirith (not one of his home sites) targeting
     // Men of Anórien (playable there, influence 8).

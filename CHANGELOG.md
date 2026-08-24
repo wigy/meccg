@@ -1,5 +1,1156 @@
 # Changelog
 
+## 0.129.0 — 2026-08-24
+
+Forty-five fix batch: combat and movement rules, AI planning, UI polish, lobby hardening
+
+### Game Engine
+
+- Combat: discriminated every attack source in `sameAttack` for the CoE 8.03 response window (#2762), chain-resolved multi-attack cancels now remove the full per-attack strikes (#2785), take-prisoner strikes are recorded as captured rather than wounded (#2787), the protect-from-strike-assignment window closes once strikes are assigned (#2757), race-restricted creature-attack boosts no longer touch raceless attacks (#2782), and Flattery/Riddling thresholds match every race a multi-race attack carries (#2781).
+- Movement and hazards: hazard-limit snapshots no longer bleed onto companies they don't belong to (#2772), faced-attack races carry across the M/H → Site transition (#2789), negating a movement no longer duplicates a sibling company's site instance (#2791), the Under-deeps set-aside replay is gated on a Great Secrets host (#2773), and two mh-steps gates now treat the Balrog player as a minion (#2797).
+- Rules and cards: Press-gang capture defers the follower influence charge (CoE 2.II.2.2.3, #2748), tap-character emitters exclude wounded characters (#2750), tap-cost agent abilities require untapped agents (#2752), Ancient Black Axe matches "same site" targets by name (#2769), recruitment-vehicle variants are looked up independently (#2766), trophies disperse on the wounded-discard and rule-3.22 paths (#2778), both CoE 10.3.v conditions apply to the unique-card-reveal deduction (#2796), and an opposed roll whose roller left play can be abandoned with a pass (#2771).
+- Hidden information: undrafted pool identities are hidden during the item-draft step (#2793), positional deck reveals are forgotten when cards shuffle back into a play deck (#2798), a discarded agent reveal keeps the chosen home site in the deck (#2776), and private action fields are redacted from the lastAction broadcast (#2795).
+- Follow-ups to the v0.128.0 deadlock fixes: the no-eligible-item discard logic is now shared between emitter and reducer (#2760), and the Deep Mines lapsed-descent regression test also asserts the rule-5.04 pass (#2764).
+
+### AI & Simulation
+
+- Fixed the AI assigning attacker strikes to the opponent's strongest character (#2749), boostGain crediting support events with plans they cannot improve (#2770), and marginalFor crediting candidates with support-event card prices (#2775).
+- The determinizer no longer leaves the opponent sideboard as unresolvable sentinels (#2786), ACTION_TYPES caught up the 25 action types it had drifted behind the engine (#2788), and the capture-game determinize test got a realistic 120s timeout (#2799).
+- Cancel-attack contexts no longer misreport region-name-keyed attacks as site-keyed (#2754).
+
+### Web Client
+
+- Fixed multi-target CvCC Attack buttons never being cleaned up (#2755), strike arrows showing the wound arrowhead for no-harm outcomes (#2763), followers rendering twice when winning the title-character tie-break (#2765), the on-guard placement glow appearing on every rendered site (#2780), the pile-browser modal leaking keystrokes to the game behind it (#2761), scoreboard replays opening seated as a previously viewed player (#2758), spectator Ask AI explaining the idle seat during hazard windows (#2783), the Sent-tab Delete button that could never succeed (#2767), and the markdown auto-linker nesting an anchor inside a URL-text link (#2777).
+- Fixed the console draft display swapping seats when the own pool is exhausted (#2753).
+
+### Infrastructure
+
+- Lobby hardening: dual rejoin after a game-server crash no longer launches two servers (#2790), port allocation no longer races between check and take (#2794), and review approval no longer silently drops a renewed AI request (#2792).
+
+## 0.128.0 — 2026-08-24
+
+Bug-hunt sweep: engine deadlock and keying fixes, printed-attribute data fixes
+
+### Game Engine
+
+- Fixed two game-freezing deadlocks found by random self-play over alignment-diverse deck pairings: a planned Deep Mines (wh-55) move whose >6-stage-point descent requirement lapsed by reveal time left the game with no legal action (#2774), and Brigands' forced company-item discard was unsatisfiable when the wounded character's only attachments were permanent events placed "with" him (#2779 — now guarded at enqueue, in the emitter, and in the reducer).
+- Fixed two offered-then-rejected asymmetries: `checkCreatureKeying` resolved the destination site by name restricted to the mover's alignment, so fallen-wizard and balrog companies at sites printed for other alignments rejected legal creature keyings — Rain-drake, Nameless Thing, and Shelob's Brood (#2768); and rigid pass-only M/H step handlers (order-effects et al.) rejected rule-2.1.1 permanent-event chain responses and granted-action activations, now routed by the step dispatcher's shared fallback (#2784).
+- Gated Bade to Rule's (le-167) targeted Darkhaven/Ringwraith mode to the organization phase via a new per-mode `play-target.phases` gate, while its untargeted alternative keeps the any-phase allowance — closing the last known org-phase-gate audit gap (#2751).
+
+### Card Data
+
+- Restored printed miscellaneous marshalling points on six permanent-events imported as 0 — Dragon-lore (td-108), Map to Mithril (td-133), Stone of Erech (tw-334), Mallorn (dm-148), Stabbed Him in His Sleep (le-234), King under the Mountain (td-126) (#2756).
+- Restored printed corruption points on five certified Fallen-wizard cards (A New Ringlord wh-60 — which also regained its 3 stage points — Bow of Alatar wh-90, Huntsman's Garb wh-92, Pallando's Hood wh-105, Glove of Radagast wh-111) (#2759).
+
+### Infrastructure
+
+- All fixes verified by deterministic seed repros, red→green regression tests, and full re-benches: ~1,100 random/heuristic self-play games and ~236k probed offered actions now pass with zero engine errors, deadlocks, or decision-limit hits.
+
+## 0.127.0 — 2026-08-23
+
+Seventeen certifications and a wave of engine fixes
+
+### Game Engine
+
+- Certified 17 more cards, most from The Wizards hazard pool: Arouse Denizens (tw-6), Arouse Minions (tw-7), Awaken the Earth's Fire (tw-11), Call of the Sea (tw-19), Drowning Seas (tw-30), Fell Beast (tw-33), Gloom (tw-41), Long Winter (tw-49), the "Lost in X" family (tw-51, tw-52, tw-54, tw-55), Recovery (tw-56), Morgul-knife (tw-64), Galadriel (tw-153), Bill the Pony sibling Noble Hound (dm-179), and Eagle-mounts (tw-220).
+- New primitives along the way: `auto-attack-boost` (single automatic-attack prowess/uncancelable boost), company-targeting `play-option` with `random-discard-hand`, `nazgul-boost-pending` (Fell Beast keying/boost grants), hazard-limit modifiers keyed to site-path region counts and multipliers, `skip-untap-and-heal` (Morgul-knife wounds), and an `eagle-mounts` special-movement mode.
+- Fixed undrafted unique draft leftovers blocking replay of the card — both the owner's copy (CoE 1.9 "removed from the game", #2747) and the opponent's own copy (#2722).
+- Trophies now relocate when their bearer leaves play (CoE 3.IV.4) instead of disappearing.
+- A dissolved company's planned destination site is returned to the location deck instead of leaking out of the game.
+- Corruption-check death now defers the freed follower's mind bookkeeping correctly (CoE 2.II.2.2.3).
+- Added the missing organization-phase gate to five more certified permanent events, and applied the g.wiz.F1 ruling to short hazard-event character-target filters.
+- Fixed extra-M/H movement offering no destination when a sibling company already occupies the site.
+
+### Web Client
+
+- The opponent's revealed movement destination is now shown in the player view.
+- The hazard-limit box is hidden during pre-limit M/H steps instead of showing a misleading value.
+- Deck editor pool browser no longer excludes valid starting items (including Elven Cloak in the hero starting-company pool).
+
+### Infrastructure
+
+- `summarizeDistribution` percentiles use nearest-rank interpolation instead of collapsing to the maximum.
+
+## 0.126.0 — 2026-08-22
+
+Four more certifications and combat bookkeeping fixes
+
+### Game Engine
+
+- **No card disappears:** discard-target-character keeps the hazards
+  borne by the target (#2702), CvCC attacker elimination no longer
+  orphans its attached cards (#2715), and manifestation-swap /
+  discard-to-recruit preserve `itemsInUse` (#2713).
+- **Combat:** an ally assigned a strike is no longer offered as a
+  supporter (#2717).
+- **Scoring:** a Balrog player's hero items score half MP per rule
+  10.B1 (#2707).
+- **Mûmak keying repaired** (tw-66 v2, #2706): region names now match
+  the printed region cards (Nurn, Udûn), "may also be played at sites
+  in these regions" is encoded via `siteInRegionNames`, and the
+  Corsairs-of-Umbar follow-up adds the Ruins & Lairs / Shadow-hold
+  site-type keying with its combined region + encounter condition.
+
+### Cards
+
+- **Certified:** Helms of Iron (dm-64), Scimitars of Steel (dm-86),
+  Pirates (le-88), and the upgraded Mûmak (tw-66) certification.
+
+### Web Client
+
+- Dice tray repaints when the roll changed while hidden (#2708),
+  attacker card images show for all single-card combat sources
+  (#2705), movement/attack action descriptions resolve company ids to
+  readable names (#2711), and the deck-list favourite comparator is
+  consistent (#2714).
+
+### Infrastructure
+
+- Console-client AI picks the argmax heuristic action instead of
+  sampling (#2704), and the observer's log tail detects a rewritten
+  game log that did not shrink below the read offset (#2716).
+
+## 0.125.0 — 2026-08-22
+
+Certification wave, agent-combat fixes, and server hardening
+
+### Game Engine
+
+- **Agent attacks corrected:** M/H agent attacks now honor minion
+  detainment (rule 3.II.2.R3/B3, #2686) and the +1 body at-home bonus
+  (#2672); a traveled face-down agent's reveal no longer destroys a
+  site card or dooms the agent (#2683), and rule 8.22 marshalling
+  points now apply to hunt-attack and long-dark-reach-attack (#2695).
+- **Combat fixes:** no body check on defeated detainment strikes
+  (CoE 3.II.1, #2699), cancel-by-tap full cancels run attack-end
+  housekeeping (#2641), cancel-chain-entry no longer duplicates a
+  hazard short event in discard (#2640), CvCC attacker body checks get
+  the +1 already-wounded bonus (#2632), CvCC declaration is no longer
+  offered from an empty company (#2661), trophy prowess bonuses never
+  reduce prowess already above 9 (#2662), and `modify-attack` sees
+  `enemy.name` for on-guard/played-auto attacks (#2701).
+- **No card disappears:** draft collisions no longer fire for
+  non-unique characters or delete pool copies (#2666), draft passes
+  move leftover pool instances out-of-play (#2669), eliminateAvatar
+  keeps attached hazards and followers (#2637), forced
+  return-to-origin keeps the destination site card (#2638), and
+  bindPrisoner removes a captured follower from its controller's list
+  (#2691).
+- **Deadlock and livelock fixes:** the end-of-turn forced-play
+  livelock (Demon fána swap loop) is gone and council/fána permanent
+  events gained their organization-phase gates (#2653, #2656),
+  pending-roll deadlocks resolve when the rolling character leaves
+  play (#2650), and select-card-bearer no longer deadlocks when the
+  company is gone (#2648).
+- **Play-legality gates:** hoard items must also satisfy the site's
+  printed playableResources tier (#2665), discard-to-recruit honors
+  uniqueness and manifestation gates (#2693), the "minion player" play
+  ban now covers Balrog opponents (#2645), run-home is not offered
+  when the nearest haven is unavailable (#2681), and on-guard creature
+  keying honors when-gates and site-based key methods (#2649).
+- **Dragons' region keying:** "may also be played at sites in these
+  regions" is implemented (#2647 family), including The Great Goblin
+  (#2644) and Huorn's region-restricted site-type keying (#2642).
+- **Misc:** hazard-limit movement restrictions read the final movement
+  type (#2635), Le-150 nullifies global modifiers in opponent
+  influence (#2633), Where There's a Whip body-check semantics fixed
+  (#2630), structural item stat fallbacks survive unrelated DSL
+  modifiers (#2654), Free Council check failures discard attached
+  hazards exactly once (#2657), and merge-companies keeps
+  company-bound permanent events (#2698).
+
+### Cards
+
+- **22 new certifications:** All the Bells Ringing (as-44), Biter and
+  Beater! (as-46), Belegaer (td-100), Elf-path (td-111), Trickery
+  (td-159), Anduin River (tw-191), Ash Mountains (tw-194), Athelas
+  (tw-195), Fair Travels in Wilderness (tw-237), Halfling Stealth
+  (tw-252), Hobbits (tw-258), Crebain (tw-25), Narya (tw-290), Old
+  Friendship (tw-293), Palantír of Elostirion (tw-298), Use Palantír
+  (tw-355), Huorn (tw-45), Leucaruth (tw-48), Mûmak (tw-66),
+  Pick-pocket (tw-79), Silent Watcher (tw-88), plus Fram Framson's +3
+  prowess vs Dragon/Drake attacks (td-91).
+- **De-certified:** Noble Hound (dm-179) — cancel-prisoner-taking is
+  unimplemented (#2678).
+- **Data fixes:** corruption points on 4 minor items (#2690),
+  marshalling points on 6 permanent events (#2652), unique flags on 14
+  minion sites (#2646), no-starting-company on Forgotten Scrolls and
+  Lost Tome (#2639), and new data-integrity guards for card-pool
+  cross-references (#2694) and shipped challenge decks (#2692).
+
+### Lobby & Game Server
+
+- **Security:** path traversal fixed in deck catalog lookup (#2668)
+  and /api/saves routes (#2667); malformed session tokens no longer
+  crash the lobby (unauthenticated DoS, #2659, #2689); mail
+  recipients are validated server-side (#2655).
+- **Reliability:** persistence writes are atomic (records, ratings,
+  saves, json-store; #2671, #2674), reconnect races no longer evict
+  players (#2696, #2697), and failed game starts release their port
+  (#2664).
+- **Hidden information:** spectators no longer see face-down on-guard
+  cards, agents, or draft data (#2676, #2700); Pallando's discard
+  override keeps explicitly revealed cards visible (#2679).
+
+### AI / Sim
+
+- The heuristic agent wires in the cycle guard (#2675), and the h2 AI
+  draws tied action types first so item shuffling can't out-vote a
+  move (#2658).
+
+### Tests
+
+- Rule 8.24 (combat during a chain of effects) implemented (#2688);
+  rule 8.22 creature MP by alignment covered.
+
+## 0.124.0 — 2026-08-21
+
+CvCC combat corrections and three new certified cards
+
+### Game Engine
+
+- **CvCC body checks use effective body.** The attacker body check in
+  company-versus-company combat compared against printed body, ignoring
+  body-modifying effects (#2618); excess strikes beyond the defenders
+  now correctly reduce defender prowess (#2613).
+- **Veils Flung Away body-check semantics fixed** (le-146): the
+  Ringwraith reveal now follows the correct body-check flow, with the
+  pending shape shared across the Nazgûl unleashed family (#2621).
+- **Duplication limits can no longer be evaded across printings.**
+  Playing two printings of the same-named unique/limited card counted
+  as different cards for duplication checks (#2617).
+- **Discarding a character no longer makes its site vanish** when the
+  discard empties the company during the organization phase (#2615).
+- **Untap-phase granted actions are offered again.** An
+  activate-granted-action available during the untap phase was
+  swallowed and treated as a hazard pass (#2622).
+- **Trophy-offer step fixed:** take-trophy had no click target and the
+  banner incorrectly said Body Check (#2612).
+
+### Cards
+
+- **Certified: Long Dark Reach (dm-70)** — new chain-reducer support
+  for the reveal-and-attack flow (#2620), **Palantír of Annúminas
+  (tw-297)** (#2619), and **Secret Ways (dm-157)** (#2614).
+
+### Web Client
+
+- **The Hunt (dm-143) choose-hunt-target buttons render**, so the
+  hazard player can actually pick the target (#2616).
+
+## 0.123.0 — 2026-08-21
+
+Engine fix wave, three new certified cards, and a broad refactoring pass
+
+### Game Engine
+
+- **CvCC kills now award marshalling points.** A defending character
+  eliminated in company-versus-company combat never credited the
+  attacker's kill MP (#2602).
+- **Effective skills respected by strike modifiers.** The
+  `requiredSkill` check on strike modifiers used printed skills,
+  ignoring skill-granting effects (#2599).
+- **Store/transfer corruption checks keep bearer-conditional item CP.**
+  The corruption-check builder dropped an item's conditional CP bonus
+  (e.g. Dwarven Rings) when computing the store/transfer check (#2604).
+- **Creature keying keeps site-type overrides for mismatched-alignment
+  movers** (#2603), and **Incite duplication is limited per site, not
+  per turn** (#2601).
+- **Rule 2.V.5.1 bonus item is offered at Deep Mines** (#2592), and the
+  **Andúril/Narsil stored-combine action (tw-192) exists** (#2583).
+- **Glove of Radagast can play an ally from the discard pile at a
+  tapped site** (#2563), and **Dwarven Ring of Durin's Tribe grants its
+  +1 body bonus** (#2596).
+- **Ringwraith companies with an illegal mixed composition can no
+  longer plan movement** (rule 3.07, #2562).
+- **Beretar's Rangers of the North DI bonus applies on the
+  opponent-steal path** (#2586).
+- **anyPhase grant-actions (e.g. Foul-smelling Paste healing) are
+  offered during the site phase's select-company and enter-or-skip
+  steps** (#2561).
+- Barad-dûr's storage ban and the One Ring's storage exception moved
+  from engine hardcodes into data-driven site rules/play flags (#2573,
+  #2572); attack-cancel site rules unified into a generic
+  `cancel-auto-attacks` keyword (#2576).
+
+### Cards
+
+- **Certified: Wizard's Ring (tw-363), Rogrog (tw-85), and Tarcil
+  (le-42)** (#2611, #2605, #2578).
+- Crown of Flowers' environment reinterpretation now lives in its DSL
+  effect (#2585).
+
+### AI
+
+- **H2 combat prices a tap that empties the company's last untapped
+  body** by the resource plays it forfeits (#2575).
+- Shared opportunity-plan skeleton extracted for the h2 proposers, and
+  a common `scoredEvaluation` ending for the H2 modules (#2579, #2606).
+
+### Web Client
+
+- **The influence defend-roll toast shows the check formula and
+  verdict** (#2598).
+- **The Organization-phase pass button no longer says "Long-event"**
+  (#2564), with the tutorial token updated to match.
+- Deck browser deck-info block, generic action finder, and tutorial
+  panel DOM construction deduplicated (#2589, #2568, #2566).
+
+### Infrastructure & Refactoring
+
+- Large deduplication pass across the engine: `guardResolution` rolled
+  out to 18 pending-resolution reducers (#2577), shared
+  faction-influence-check context builders (#2582), the sideboard-fetch
+  family unified into one sub-flow builder (#2588), plus shared helpers
+  for corruption-check possessions, same-site company resolution,
+  attachment sweeps, end-of-turn dispatch, M/H agent abilities,
+  alt permanent-event scaffolding, and discard-candidate collection.
+- Lobby server: on-disk JSON idiom extracted into json-store helpers
+  (#2607), solo-game launch and page formatters shared (#2567, #2584).
+- Sim: `cliPreamble` shared by the 14 sim CLIs (#2595).
+- Deck validation and private-field redaction are table-driven (#2610,
+  #2609).
+
+## 0.122.0 — 2026-08-20
+
+Pass wins AI ties, same-site company moves fixed, and combat corrections
+
+### AI
+
+- **`pass` wins any tie in the h2 agent.** Design decision: an action no
+  module needs in its plan is never taken — every action worth taking is
+  priced strictly positive by the module whose plan needs it. This
+  replaces the old "among equals, act" tie-break, which turned unmotivated
+  legal actions into busywork: handing away starting items and touring a
+  minor item around a whole five-character company one hop per decision,
+  every organization phase (#2554, game `mt1j9m0i-5d4lze`). A module that
+  prices passing strictly *below* the tied best is still respected.
+- **The heuristic AI risks at most one character untapped per
+  auto-attack.** It kept several characters untapped against a
+  multi-strike automatic attack when one defender was enough, taking
+  needless -1 modifiers on every extra strike (#2557).
+
+### Game Engine
+
+- **Moving a character between two companies at the same site works
+  again when each company holds its own physical site-card instance.**
+  `handleMoveToCompany` compared raw site instance ids where the
+  legal-action generator compares site *definitions* (rule g.site.1), so
+  the offered move was silently rejected — reported twice, from two games
+  at Minas Morgul and after a company split (#2560, closing duplicate
+  #2559).
+- **Cancel-by-tap no longer discards an already-faced Assassin strike.**
+  Tapping to cancel one strike of a multi-strike Assassin discarded the
+  whole attack including a strike already resolved (#2556).
+
+### Cards
+
+- **Prophet of Doom (wh-106) awards its 3 miscellaneous marshalling
+  points** (#2558).
+- **Join the Hunt (P)** approved into the card pool.
+
+### Web Client
+
+- **The single-company view shrinks to fit large companies on screen**
+  instead of overflowing (#2555).
+
+## 0.121.0 — 2026-08-20
+
+Whole-board organization planning and a round of AI-advice fixes
+
+### AI
+
+- **The organization phase is planned as one whole-board potential.**
+  The h2 modular agent's shape decisions — splits, merges, follower
+  stacking and un-stacking — are now priced as `u(after) − u(before)` of
+  a single scored arrangement: the harm each company's size invites plus
+  the goals the arrangement can serve, with committed plans reaching the
+  modules for the first time. The design is cycle-free at every risk
+  posture by construction (#2546, spec
+  `2026-08-20-h2-organization-phase.md`, P1–P4).
+- **Travel no longer prices cards the engine refuses at the
+  destination.** Ally/faction `playableAt` `when` gates (e.g. War-wolf's
+  "Ruins & Lairs with a Wolf automatic-attack") are honoured via the
+  engine's own `siteMatchesEntry`, and the MEWH §10 cross-alignment
+  site-tap rule is modelled for Fallen-wizard seats — the agent had
+  recommended walking a company to Zarak Dûm to face a Dragon for a
+  payoff the engine would refuse (#2551).
+- **Company splits pay for the hazard slots they create.** The defence
+  model now uses the engine's real hazard limit, `max(size, 2)` — the
+  min-2 floor is what makes fragmentation expensive, and without it the
+  arrangement scorer recommended one singleton spin-off per goal on the
+  board (#2551).
+- **A support-strike tap is priced by what the supporter forgoes**
+  rather than a flat constant (#2553).
+- **The heuristic AI no longer camps indefinitely** when its hand holds
+  no site-targeted cards: a safe site's printed resource draw now
+  outscores passing (#2548).
+
+### Game Engine
+
+- **Veils Flung Away body checks follow CoE 3.I.1 polarity.** The mass
+  body check tapped/discarded on a *low* roll and spared a *high* one —
+  exactly backwards; a roll at or below the (modified) body now passes.
+  The eight minion-character card tests that had encoded the inverted
+  polarity are flipped with it (#2549).
+- **Fetch-gating honours region-type `when` conditions.** Strider- and
+  Mistress Lobelia-style pile fetches now offer cards like A Panoply of
+  Wings whose playability is gated on the site's region type
+  (#2550).
+- **Fetch-to-deck playableAtSite respects play-target site filters**
+  (#2547).
+
+### Web Client
+
+- **The pass button no longer mislabels Hall of Fire's untap/heal
+  offer** (#2552).
+
+## 0.120.0 — 2026-08-20
+
+Modular AI promoted in the lobby and the Fallen-wizard item family unblocked
+
+### Game Engine
+
+- **"Place this card on X if he is in play" items are playable without
+  the wizard.** The whole eight-card Fallen-wizard item family (wh-90,
+  wh-92, wh-105, wh-107, wh-111, wh-112, wh-113, wh-115) can now be
+  played bare when its wizard is not yet in play — the card sits in play
+  contributing its stage points and auto-attaches the moment the wizard
+  is revealed, following the wh-99 / Bade to Rule pattern (#2545).
+- **Awaiting the Call (le-165) is restricted to the organization
+  phase** (#2538).
+- **Ally play-target site filters respect site-type overrides.** A
+  Noble Hound is playable at a site whose type has been overridden to
+  Border-hold (#2541).
+
+### Web Client
+
+- **The opponent's discard-pile browser shows only revealed cards**
+  when browsing under Aware of their Ways (#2540).
+
+### AI
+
+- **Modular AI (H2) is promoted in the lobby**, with a new stage module
+  that plays stage resources (#2544).
+- **H2 organization phase P1:** the turn plan's commitment now reaches
+  the modules, backed by a new organization-phase spec (#2543).
+- **Attack planning models visible tap-to-cancel-strike abilities**
+  (Fatty Bolger-style board cancels) in the attack enumeration (#2542).
+
+## 0.119.0 — 2026-08-20
+
+Six new certified cards and a round of Ringwraith and targeting fixes
+
+### Game Engine
+
+- **Six cards certified:** Riven Gate (as-98), Some Secret Art of Flame
+  (le-232), Adûnaphel Unleashed (le-161), Heralded Lord (le-190), Orcs of
+  the Ephel Dúath (le-280) and Lordly Presence (tw-267). New DSL
+  primitives along the way: `cancel-attack` with
+  `cancelsRemainingSiteAttacks` + `influenceAtSiteModifier` (as-98),
+  multiple from-hand `modify-attack` effects on one card with
+  `grantAttackerChoosesDefenders`/`bodyCheckModifier` (le-161), and the
+  supporting shapes for le-232 and tw-267.
+- **Ringwraith mode cards follow the Ringwraith on a company split.**
+  Fell Rider and other mode cards no longer stay behind with the wrong
+  company (#2536).
+- **Lure of the Senses can no longer target Ringwraith characters**
+  (#2535).
+- **Gandalf's test-gold-ring action is now offered during the
+  end-of-turn phase** (#2533).
+- **Whip's direct-influence discount is credited against already-held
+  followers**, and restricted DI is accounted as a shared pool rather
+  than a per-follower discount (#2530).
+- **Aware of their Ways discard picks are revealed to the card-player**
+  instead of staying hidden in the projection (#2528).
+
+### Web Client
+
+- **Glove of Radagast's granted ally can now be played from the discard
+  pile** — the discard-pile ally click never worked (#2525).
+
+### AI
+
+- **Heuristic AI taps items for strike boosts** (Shield of Iron-bound
+  Ash) when facing strikes (#2524).
+- **Heuristic AI no longer wastes capped body/prowess items on
+  characters already at the cap** (#2534).
+
+## 0.118.0 — 2026-08-19
+
+Cancel-window timing fixes, Wizardhaven targeting and an argmax AI
+
+### Game Engine
+
+- **Corpse-candle's (tw-23/le-67) company-wide corruption check no longer
+  fires before the cancel-attack window closes.** The attack now opens in
+  the cancel-window sub-phase and the checks are deferred via a new
+  `pendingAttackBeginsCorruption` combat-state field, so a defender who
+  cancels the attack (e.g. Star-glass) is not forced through corruption
+  checks for an attack that never happened — per CoE rule 3.i (#2514).
+- **Dual-mode discard events no longer fire their unrelated cancel-attack
+  effect.** The Cock Crows (tw-342) played in its discard-in-play mode (via
+  Gates of Morning) was wiping out whichever attack happened to be active;
+  `shouldFireOnChainResolution` now skips the cancel-attack effect when the
+  resolving entry carries a discard-mode payload (#2517).
+- **Hall of Fire (dm-134) is playable on a converted Wizardhaven** — its
+  play-target filter tested the printed `siteType` instead of
+  `effectiveSiteType`, so a Ruins & Lairs turned into a Fallen-wizard's haven
+  by Hidden Haven (wh-75) was never offered (#2515).
+- **`companiesAtMatchingSite`** generator replaces five identical
+  company-at-site scans in organization-events (White Tree, Return of the
+  King, Fireworks, Hall of Fire / Hidden Haven, Caverns Unchoked) (#2518).
+- **`filterCreaturePlaysAgainstCompany`** post-filter factors the shared
+  skeleton of five creature-constraint appliers in `legal-actions/pending.ts`
+  into verdict callbacks (#2519).
+- **`findPlayerAllyPlayGrant`** and **`characterHomeSiteCards`** collapse the
+  Wizardhaven/company-size ally-play-grant finders and the three home-site
+  resolution loops in reducer-utils (#2520).
+- **`raceThresholdCancelAttackActions`** / **`matchRaceThresholdEffect`**
+  dedupe the Flatter a Foe (td-116) and Riddling Talk (td-148) twins in
+  legal-actions/combat and the chain reducer (#2521).
+- **New `engine/company-split.ts`** — `splitCharacterIntoNewCompany` is the
+  single split core behind Left Behind (td-41) and
+  `splitCharacterOffCompany` (as-41) (#2522).
+- **`routeShortEventToChain`** folds four reveal → remove-from-hand → push
+  chain-entry short-event branches in reducer-events into one helper (#2523).
+
+### Web Client
+
+- **Baduila's (dm-2) discard-to-return-company-to-origin power now appears
+  in the agent tooltip** — `agent-discard-return-to-origin` was missing from
+  the agent-action whitelist, so the engine offered it but it was unclickable
+  (#2516).
+
+### AI
+
+- **The production heuristic AI plays its argmax move instead of sampling
+  its weights.** `ai-client.ts` had its own weigh-then-pick loop that never
+  received the argmax fix applied to `@meccg/sim`'s `createHeuristicAgent`, so
+  a move scored half as good still won about a third of the time — e.g.
+  playing Corpse-candle before The Moon Is Dead (#2513).
+
+### Infrastructure
+
+- The seed-7 sim game test now asserts the engine contract (scored game-over,
+  victor follows final scores, `winner` null on a tie) instead of pinning one
+  seed's outcome (#2514).
+
+## 0.117.0 — 2026-08-19
+
+Combat, scoring and Fallen-wizard bug fixes plus a reducer code-quality sweep
+
+### Game Engine
+
+- **A multi-attack creature is no longer counted as defeated when some of
+  its attacks were merely canceled.** Assassin (tw-8) with two attacks
+  canceled by Dark Quarrels and the third beaten in combat awarded its 2 kill
+  MP; per CRF 22 annotation 14 every attack must be defeated, so canceled
+  attacks now block the kill (#2512).
+- **Fireworks (dm-130) gives its "+10 if a Wizard" untap bonus to a
+  Fallen-wizard avatar sage** — the raw `race` check missed `fallen-wizard`;
+  it now goes through `raceForCardTextFilter()` per g.wiz.F1 (#2508).
+- **No Strangers at this Time (as-51) is no longer playable at a site
+  converted into a Wizardhaven** by Chambers in the Royal Court + Guarded
+  Haven; the play-target filter now tests `effectiveSiteType` instead of the
+  printed type (#2509).
+- **`regressable(state, action)`** replaces `viableWithRegress` and a shared
+  `planMovement` builder covers the five identical plan-movement emitters in
+  the organization phase (#2506).
+- **`guardResolution`** (ex `guardRollResolution`) now also narrows the action
+  and is reused by eleven more pending-resolution reducers (#2505).
+- **`activate-granted-action` is routed once in `handleSite`** instead of in
+  every one of 15 site-step handlers (#2504).
+- **`removeSpentEventFromGame`** helper replaces four hand-rolled discard →
+  out-of-play relocations in the chain reducer (#2507).
+
+### Web Client
+
+- **The Game Over "Total" row shows the authoritative `finalScores`**, so the
+  unique-card-reveal penalty (rule 10.3.v) is reflected in the total (#2511).
+- **Carambor's extra movement/hazard-phase tap is offered as a clickable
+  button** under the company's site area; previously the legal action was
+  only reachable from the debug panel and players saw nothing but "Pass"
+  (#2510).
+
+### Infrastructure
+
+- `bin/pr-check` split out of `bin/run-ai`.
+
+## 0.116.0 — 2026-08-19
+
+Nine engine bug fixes and a code-quality sweep that trims 600 lines
+
+### Game Engine
+
+- **Hazard cards with several play-options no longer silently fire the first
+  one.** Weariness of the Heart (le-149/tw-111) offers a prowess-penalty and a
+  corruption-check option on the same target; the character click now presents
+  a menu instead of always dispatching the prowess variant (#2500).
+- **Great-shield of Rohan dodges a strike instead of cancelling it outright**
+  (#2491).
+- **Store-item corruption check uses the pre-storage CP**, not the 0 CP the
+  character has once the item is already stored (#2492).
+- **Fireworks (dm-130) is playable at a site converted into a Wizardhaven**
+  by Hidden Haven (#2503).
+- **An agent without a home site is discarded at the right time**, not one
+  full turn late (#2502).
+- **Extra movement/hazard destinations (Carambor, `grant-extra-mh-phase`)
+  are enumerated correctly for mixed-alignment Fallen-wizard / Balrog decks**
+  (#2497).
+- **Gangways over the Fire honours Caverns Unchoked bridging consistently**:
+  the legal-action offer and the reducer's validation now agree on the
+  moving player's dynamic Under-deeps adjacency (#2488).
+- **Heuristic AI no longer stalls forever after losing every character**
+  (#2489).
+- Certified **Stone of Erech (tw-334)** (#2501).
+
+### Web Client
+
+- **Forced item discards (Brigands, An Article Missing) are clickable again**
+  — the missing click handler is wired (#2499).
+- Character-targeting clicks (short-event, faction influence, ally, resource,
+  permanent-event, tap-alt permanent-event, hazard) are driven by one
+  `CHARACTER_TARGETING_MODES` table instead of seven copied branches (#2493).
+- Two-step-selection render caches and their re-render helpers are one
+  `renderCacheSlot()` factory + `reRenderFromCache()` (−183 lines, #2495).
+
+### Code Quality
+
+A delta scan over the ~30k lines added since 2026-07-30 folded the recurring
+idioms into shared helpers, all behaviour-preserving:
+
+- `pendingChainCards()` / `countUnresolvedChainHazards()` replace ten
+  hand-rolled "unresolved, un-negated chain entry" scans (#2487).
+- `siteDeckDestinations()` + `companySiteDef()` share the site-deck
+  enumerators and the current-site lookup idiom (#2488).
+- `rollDiceForPlayer()` replaces ten copies of roll → toast →
+  `lastDiceRoll` (#2490).
+- `playHazardInAltMode()` folds the four alternate-mode hazard play branches
+  (#2494).
+- Byte-identical Hall of Fire / Hidden Haven blocks merged (#2496);
+  `agentCurrentSiteName` reused instead of re-inlined (#2498).
+
+## 0.115.0 — 2026-08-18
+
+Discards stay on your side of the table, and the AI finally plays its Wizard
+
+### Game Engine
+
+- **Discard-in-play cards reach only the caster's own characters.** Marvels
+  Told, Voices of Malice, The Cock Crows and Ancient Secrets let a resource
+  player force-discard a hazard permanent/long-event in play, but
+  `collectDiscardInPlayTargets()` scanned hazards attached to characters
+  on *both* sides, so Balin's Marvels Told could pull Rebel-talk off the
+  opponent's character. Per CoE 2.IV.vii.3 an attached hazard-event always
+  sits on its bearer's own side, so the character-hazard scan is now
+  restricted to the acting player's characters (free-standing long-events
+  such as Eye of Sauron in either player's `cardsInPlay` remain reachable).
+  Two card tests (le-250, tw-342) that incidentally relied on the leak
+  were corrected.
+- **Fallen-wizards can fetch their own cross-alignment resources.** Smoke
+  Rings and similar "bring a resource from your sideboard or discard pile
+  into your play deck" cards filtered candidates by a single alignment's
+  cardType, so a Fallen-wizard playing a hero-side fetch card was denied
+  their own minion-typed cards (CoE 1.3.F1/F4 lets their deck mix both).
+  `matchesDefinitionAcrossFallenWizardAlignment()` flips the hero-/minion-
+  prefix for Fallen-wizard actors at both the legal-action enumeration
+  and the validation site.
+- **Deck-fetch candidates are revealed to their owner.** Mistress Lobelia
+  and similar "tap to search your play deck for…" cards queued a fetch
+  whose play-deck matches were never recorded in any reveal ledger, so
+  the owner's pile browser showed only unpickable card backs and the only
+  option was to decline. `buildSelfView` now unmasks exactly the play-deck
+  instances the player's own viable fetch-from-pile legal actions target —
+  computed at projection time, so nothing leaks to the opponent or
+  outlives the fetch.
+- **Reforging (tw-314) scores its 1 misc MP when stored.** The card
+  database gives it 1 marshalling point but the local data had 0 and no
+  `storable-at` override, so a stored Reforging never counted. It now
+  mirrors Rescue Prisoners: base 0 while bearer-attached, `storable-at`
+  declares `marshallingPoints: 1` once stored.
+- `ItemInPlay.playedAtSiteDefId` is now stamped on the direct
+  `play-target: character` attach path too (previously only the
+  select-card-bearer path set it), so site-scoped duplication limits are
+  anchored to where the card was played rather than the bearer's current
+  location.
+
+### Web Client
+
+- **Corruption checks are clickable during Free Council.** The hand-arc's
+  invisible hover catch zone sat above the all-companies overview that
+  Free Council forces, swallowing clicks on any character row that landed
+  in its band at the bottom of the viewport. The catch zone's
+  pointer-events are disabled while free-council-mode is active; the
+  fanned cards remain hoverable and playable.
+
+### Card Data & Certification
+
+- Certified: Vein of Arda (dm-162) — Sage-or-Dwarf permanent event
+  playable at any Under-deeps site, tapping the site and the character,
+  storable at a Haven for 2 misc MP, bearer cannot untap until stored,
+  one per site.
+
+### Simulation & AI
+
+- **The h2 AI plays its avatar.** `play-character` was priced purely by
+  marshalling points, so Saruman (0 MP by design) always lost the
+  one-character-per-turn slot to any positive-MP character and was
+  eventually discarded at the hand-size limit unplayed. A flat
+  `avatarInPlayTsd` tunable now prices what an avatar in play unlocks —
+  sideboard access (CoE 2.II.6) and resource-draw eligibility (CoE
+  2.IV.v).
+
+### Infrastructure
+
+- **`bin/claude-run` — one supervisor for every headless `claude` run.**
+  `handle-mail`, `run-ai` and `nightly-release` each carried their own
+  copy of the supervisor loop, and the copies had drifted: a CLI change to
+  the result object's key order broke the success check in one copy
+  (burning ~110 good certifications), two of them passed the prompt as
+  argv and hit the 128KB `MAX_ARG_STRLEN` limit, and one SIGKILLed a
+  second after SIGTERM. All three now call `claude-run`, which reads the
+  prompt from stdin, classifies results with jq, and shuts down
+  gracefully.
+
+## 0.114.0 — 2026-08-18
+
+Attackers pick their targets, and Weathertop opens to Fallen-wizards
+
+### Game Engine
+
+- **Rule 1.10.F1 — Weathertop is a Fallen-wizard starting site.** The
+  rule allows The White Towers or any Ruins & Lairs in Arthedain or
+  Rhudaur, but the allowed-site list enumerated only White Towers and
+  Ettenmoors, so Weathertop — a Ruins & Lairs in Arthedain — was
+  rejected at starting-site selection. Both printings (tw-436 hero,
+  as-169 minion) are accepted per rule 2.II.7.F1, and that completes the
+  enumeration: those three are the only Ruins & Lairs in the two regions.
+
+### Web Client
+
+- **Characters can be discarded during organization again.** The engine
+  offered `discard-character` (CoE rule 3.22 — a non-avatar character at
+  a haven or her home site) but the browser client never consulted that
+  action type: no getter, no click handler, no tooltip-menu entry. A
+  character with no other action available — Ioreth alone in her own
+  company, per two bug reports — was not even clickable. Discarding now
+  asks for confirmation, since it is irreversible.
+- The Pass button during play-hazards reads plain "Pass Hazards"; the
+  "(N left)" suffix duplicated the HL box. In the all-companies overview
+  the HL chip and the opponent status lines (name, MP/GI/SP) stay
+  visible at their single-view positions, and the phase meter shows its
+  two title lines — breadcrumb plus targeting hint, then the moving
+  company's region path — with the phase tracks hidden, so the overview
+  is no longer context-free. The tutorial's button reference was updated
+  to match.
+
+### Card Data & Certification
+
+- Certified: Leaflock (tw-265), Skinbark (tw-328), Master of Shapes
+  (wh-112), Pocketed Robes (wh-113). Skinbark also gained his missing
+  `mind: 3`, and the `shapeshifter` keyword was added to the vocabulary.
+
+### Simulation & AI
+
+- **"Attacker chooses defending characters" is modeled.** The strike walk
+  assumed the defence always answers with its best remaining parrier,
+  which was wrong for the 19 creatures printing that text — Cave-drake
+  among them — and wrong in both seats at once: the hazard side
+  undervalued its own Cave-drake and the defending side over-rated its
+  safety against one. `AttackProfile.attackerChooses` is read off the
+  `combat-attacker-chooses-defenders` effect; a player who is ahead takes
+  the greedy one-step target, one who is behind searches the adaptive
+  optimum over the rest of the attack (bounded by `attackStateCap`). A
+  character's combat-relevant card text now has a price too — tapping
+  Fatty Bolger is worth more than a prowess-1 scout, because a tapped
+  Fatty cannot cancel strikes. Three new unfitted tunables
+  (`abilityTapDenialTsd`, `abilityLossDenialTsd`,
+  `attackerChoiceSearchLambda`); not yet win-rate validated.
+- Offered cards are priced by what their points add. `quote()` — the
+  path fetches, draft picks and sideboard exchanges price on — computed
+  a card's marginal by *subtracting* points it never held from the hand's
+  projected total, so any card whose source had nothing in hand yet was
+  quoted at exactly zero: a 1 MP ally at 0.0 where the point was worth
+  4 TSD. The held branch (`worth()`) is unchanged; the offered branch
+  adds. Also not yet win-rate validated.
+
+## 0.113.0 — 2026-08-18
+
+Rescues cost a tap, and banned cards buy their way out
+
+### Game Engine
+
+- **Rule 8.36 — a prisoner rescue now costs a tap, and pays for it.**
+  Facing the host's rescue-attacks used to free the prisoners by itself.
+  The rule sequences the tap *after* the attacks, so a new `rescue-tap`
+  site step asks for it there: a character taps to free all of the
+  hazard host's prisoners, the rescue site taps if it was untapped
+  (never-taps sites excepted), and that tap opens the additional
+  minor-item window — the same rule 2.V.5 flag a site-tapping resource
+  play sets. `pass` walks away with the prisoners still held, which
+  matters when the company's last free member was wounded facing the
+  rescue-attack. Freed characters rejoin the company under general
+  influence, which is the moment their mind starts being paid for again.
+- **Rule 1.36 — trade a card a Balrog opponent made unplayable for a
+  sideboard card.** Five cards cannot be played against a Balrog player
+  and each already declared that ban itself, but the half of the rule
+  that gives something back was missing: drawing one left a dead card in
+  hand for the rest of the game. `swap-banned-vs-balrog` is that trade,
+  in one atomic action naming both cards; per CRF 22 the banned card
+  leaves for the out-of-play pile rather than the discard pile. A card
+  qualifies only when the Balrog opponent is the *reason* it cannot be
+  played — the restriction is re-evaluated against a counterfactual
+  opponent of every other alignment, so CoE 1.35's Ringwraith family
+  does not get a trade it was never granted.
+- The additional-minor-item bonus (rule 2.V.5) now opens when a
+  permanent- or short-event resource taps the site. The shared
+  `applyTapSiteOnPlayFlag` helper never set the phase flags, so cards
+  like Dreams of Lore (tw-210) and Far-sight (tw-238) silently skipped
+  the bonus window that items, allies and factions all got.
+- Multi-card `draw-cards` effects now reshuffle mid-draw (CoE 2.4). Dark
+  Tryst (as-80) and Palantír of Elostirion (le-332) capped the draw at
+  the play deck's remaining size and stopped silently, losing the owed
+  cards and leaving the deck un-reshuffled. The new
+  `drawCardsExhausting()` runs the full exhaust sequence when the deck
+  empties mid-draw and then resumes.
+- Body-check-roll previews now show an ally's own printed body. The
+  legal-action preview only looked up strike targets among characters,
+  so an ally struck via strike-shield fell through to the generic `9`
+  fallback — the reducer already had this right.
+- Influence-defend explanations now name the faction or item being
+  targeted instead of "?", which had hidden what Twisted Tales (dm-96)
+  and friends were actually attempting.
+- `return-self-to-hand-when` joins `discard-self-when` as a way for a
+  card to leave play *for its owner's hand*, and its sweep also reaches
+  allies attached to a character. This closes the last `test.todo` in
+  the card suite: Last Child of Ungoliant (le-153) returns to hand when
+  Shelob reaches the table.
+- Agent attachments generalized for Never Seen Him (dm-74): a
+  `play-target: agent` kind, a `duplication-limit` scope of `agent`, and
+  `extra-agent-actions` that can be scoped to one specific agent rather
+  than only to the whole player or the agent's own reveal.
+
+### Card Data & Certification
+
+- Certified: A Merrier World (wh-59, which also extended the full
+  kill-MP exemption to stage permanent-events), Golodhros (dm-14),
+  Never Seen Him (dm-74), Ents of Fangorn (tw-228), Woodmen (tw-368).
+- Certified reprint siblings whose data had been left inert: Fell Winter
+  (tw-35), Brigands (le-64), Wolf-riders (td-87). Each carried the type
+  and stats but an empty or partial `effects` array, so the second
+  printing did nothing its twin did — including Fell Winter's
+  duplication limit, which spans printings and had let both copies sit
+  in play stacking Wolves attacks on every Border-hold.
+- Modeling Woodmen's "Men (+1)" standard modification changed Wacho's
+  (tw-187) influence needs at Woodmen-town; its expectations were
+  updated to match.
+
+### Simulation & AI
+
+- The heuristic AI no longer enters a site for a permanent event it
+  cannot actually play there. `handHasNoTapPlayableAt` credited any
+  permanent resource event as a no-tap reason to enter, ignoring both
+  the card's own site gates (`play-target: site` filter,
+  `tapped-site-only` / `untapped-site-required`) and the fact that an
+  event attaching to a character needs an untapped one just like an item
+  does. Rescue Prisoners (tw-315) failed both ways, and companies walked
+  into automatic-attacks for plays that were never legal.
+
+## 0.112.0 — 2026-08-17
+
+Ask the AI what it would do, and it learns what a card is worth
+
+### Web Client
+
+- **Ask AI.** A toolbar icon appears while an observer is attached and
+  answers, in one click, what the selected agent would do in the position
+  on screen: its pick, the ranked alternatives, what the engine refused,
+  and the `explain` command that re-derives the whole thing offline. No
+  confirmation dialog and no dev gate — asking is a read, it changes no
+  state and does not mark the game cheated — and spectators get the
+  control too, since watching an AI game and asking what a different
+  agent would have played is a main use of it. `?` asks the first agent
+  about the position; punctuation, because the letter keys all address
+  hand and board targets. The follow-up questions — another agent, or
+  "would it have played what I just played?" — live in the answer
+  panel's action row, where there is already a ranking on screen to
+  compare against. Every refusal says what to do about it: "no observer"
+  prints the `bin/observe` line, a timeout suggests a cheaper agent. The
+  button is disabled while a question is in flight and a late answer to
+  a question the panel has moved on from is ignored.
+- The active company is marked with an "Active" badge on the top-left
+  corner of the site it is heading to — the destination while moving,
+  the current site otherwise — instead of a green glow around its whole
+  block. In the single-company view the glow had nothing to contrast
+  against; the overview grid keeps it, where it does distinguish
+  companies. The badge anchors to whichever wrapper the existing site
+  overlays already built (agent attack, constraints, on-guard), falling
+  back to wrapping the site image, so it lands on the outermost
+  positioned box regardless of which overlays are present.
+- Cards revealed from the opponent's hand are now shown. Palantír of Amon
+  Sûl's peek-hand action grew `handRevealedInstances` and the projection
+  resolved those instances to their real definition ids, but
+  `getOpponentCards()` discarded that and filled the opponent arc with
+  card backs unconditionally, so the reveal had nothing to show for
+  itself. Unrevealed slots still carry `UNKNOWN_CARD` and render as backs.
+- Hand cards whose only play is on-guard are dimmed again. Any card may
+  be placed on-guard, so highlighting that branch lit up the whole hand
+  and drowned out the cards with a genuine play; the click handler stays,
+  so the on-guard menu is still reachable from every card.
+- User actions are ignored for a short window after auto-pass fires. The
+  pass button is one persistent DOM element rebound on every render, so a
+  click already in flight when auto-pass acted could land after the
+  re-render and silently send the *next* phase's action too.
+
+### Game Engine
+
+- A unique character that has been eliminated can no longer be replaced by
+  the opposing player's own copy. `isUniqueCharacterInPlay()` scanned only
+  in-play characters, so once (say) Balin was eliminated into its owner's
+  out-of-play pile the other physical copy passed the uniqueness gate. Per
+  the glossary's "unique" ruling an eliminated unique permanently occupies
+  the "in play and/or removed-from-play" slot; a merely *discarded* copy is
+  unaffected and stays replayable by either player. The check now scans
+  both out-of-play piles, fixing play-character, organization-phase
+  character play and recruit-via-event uniformly.
+- Plan-movement can no longer take a two-leader company off a haven. CoE
+  3.26 was enforced by move-to-company and merge-companies but never by
+  `planMovementActions`, so a company holding two Leaders — legal while at
+  a haven — could declare and travel to a non-haven site with both.
+- A site converted into a Wizardhaven counts as either alignment for MEWH
+  §10. `siteTapCrossAlignmentBlocked()` exempted only sites whose *printed*
+  alignment was fallen-wizard, which blocked a Fallen-wizard from playing
+  Palantír of Minas Tirith once Chambers in the Royal Court (wh-97) had
+  converted the site into Gandalf's Wizardhaven.
+
+### Cards
+
+- **Align Palantír (tw-190)** is stored together with its Palantír, as CRF
+  22 requires. `handleStoreItem` removed only the targeted item from its
+  bearer, so the permanent event sharing that `character.items` slot
+  vanished from game state entirely instead of following the Palantír into
+  the marshalling point pile. A new `host-item-stored` on-event trigger
+  scans the bearer's remaining items for a companion declaring a self-store
+  `move`, mirroring the existing bearer-company-moves self-discard pattern.
+
+### AI / Simulation
+
+- **The long-event phase is scored at all.** `play-long-event` appeared in
+  no evaluator anywhere in the repository, so the ranking on a long-event
+  decision held exactly one candidate — the baseline's `pass` at zero — and
+  both agents had passed the phase unconditionally in every game either has
+  ever played. A whole card family was unplayable by construction rather
+  than by judgement. The `events` module now owns it, being the same
+  question as a short event.
+- **Draws are valued.** Nothing in `packages/sim` referenced `draw-cards`,
+  `new-hand` or `draw-modifier`; `travel` read a route's draws off the
+  site's *printed* `resourceDraws`, so Radagast's and Alatar's extra draws,
+  A Short Rest in play and Smaug at Home across the table all priced routes
+  as though the cards were not on the table. A new `draw-value` service
+  predicts what a company will actually draw, delegating the arithmetic to
+  the engine's own `resolveDrawModifier` rather than reimplementing
+  "4 − regionCount" a second time. `resourceDrawValue` is pinned to the
+  floor a card in hand is worth: it had been 0.35 against the 1.00 `hand`
+  charges itself to discard its deadest card, so the model held that two
+  cards are worth less than one — cycling always lost to hoarding, and a
+  two-draw site contributed 0.35 against the 12.0 of an item already in
+  hand.
+- **Companies are ordered by what the phase draws, not by what each one
+  does.** A movement/hazard phase draws in two places: the moving company
+  takes its site's draws, then step 8b tops *both* hands back to hand size
+  after every company. Since the total does not depend on the order, only
+  the first pick matters — and it should be the company drawing *least*, so
+  the free top-up is not wasted. `travel` had that rule backwards. Two
+  further rules `drawsAt` contradicted, both found while checking the
+  first: a company moving to a **haven** draws from the site of origin (two
+  phantom cards a trip on the commonest movement in the game), and a
+  company with no avatar and nobody over **mind 3** draws no printed cards
+  (CoE 2.IV.v) — the bar zeroes the base only, so A Short Rest still pays a
+  company of hobbits.
+- **Detainment attacks are played before the creatures that can be
+  killed.** Both hazard agents hardcoded the detainment flag to false, so a
+  detainment creature was priced as if it wounded and as if losing it
+  handed the defender kill MP. `ai/detainment.ts` predicts the flag from the
+  hazard seat by calling the engine's own `isDetainmentAttack` (CoE §3.II);
+  H2's ordering then falls out of its sequence enumeration, and H1 gets the
+  preference as a weight.
+- **The hazard plan searches attack orderings** instead of inheriting the
+  order it happened to pick cards in, crediting every card for what it adds
+  *in that order*. At one reported position Wargs → Lesser Spiders is worth
+  17.93 against 17.31 reversed; at another, a near-certain kill correctly
+  still leads, because ending the company would leave the follow-up nothing
+  to hit. Both are captured as scenarios.
+- **A boost that names two races is visible again.** Full of Froth and Rage
+  declares its condition as a race *list* and the modifier reader
+  understood only a bare string, so a card whose entire text is "all Spider
+  and Animal attacks receive +2 prowess" declared nothing: never played,
+  never planned around, priced at nothing to keep. The plan now also
+  includes support events, applies the board's existing modifiers to its
+  own numbers, orders a support first, and reserves the hazard-limit slot
+  the event itself spends.
+- **The AI client no longer storms a dead server.** Four clients died on a
+  4 GB heap in one day. `installReconnect` scheduled a retry from both the
+  `close` and the `error` handler and `ws` emits *both* for a refused
+  connection, so every failed attempt produced two sockets, then four, then
+  eight — ~29,000 retries in a ten-second bucket, and a 512 MB lobby log.
+  What set it off is that `npx` runs the client four processes deep and
+  forwards no signal, so the game-exit `kill()` reaped the wrapper and left
+  the client retrying a server that was gone. Now: one retry per socket,
+  exponential backoff to a 30 s ceiling, give up after 15 consecutive
+  failures, and spawn the client detached so the launcher can signal the
+  whole process group. Adds vitest coverage to text-client, which had none.
+
+### Infrastructure
+
+- `bin/observe` launches a headless observer with one or more agents
+  selected, asks the lobby which game is newest, attaches to that game
+  server as an observer rather than a seat, and tails the game's log. The
+  position comes from the log because the server never ships a full state —
+  it projects per player — and the reader handles a live log's two
+  properties: the last line may be half written, and `undo` truncates the
+  file, so a shrink means re-read rather than append. An observer takes no
+  seat, gets no state broadcasts, is absent from the watcher badge, and
+  cannot keep an abandoned game alive. The server refuses an agent the
+  attached observer does not offer, rather than quietly answering with a
+  different one.
+- `explainDecision()` renders a position, an agent's pick and its ranked
+  candidates as text for every agent in one place — h2 by re-running its
+  own module pipeline, everything else by asking it to choose once and
+  rendering the weights it publishes. The pipeline assembly moved out of
+  the explain CLI and the candidate listing out of the AI client, so the
+  CLI, the lobby log and the browser panel cannot drift into explaining
+  different things. Everything rendered comes from `projectPlayerView`,
+  never from the state, because the text is bound for a browser.
+
+### Documentation
+
+- `specs/2026-08-17-ask-ai-observer.md` — the Ask AI observer design, with
+  its open questions resolved: asking never marks a game cheated, the
+  honesty model is social (the observer exists only when someone with the
+  local master key started it, and its presence is broadcast to both
+  sides), spectators may ask with no dev gate, and h2 is the default agent.
+
+## 0.111.0 — 2026-08-17
+
+The tutorial finds its ending, the Elo ledger its audit
+
+### Web Client
+
+- Chapter one of the guided tutorial is now the player's own first turn
+  and ends cleanly. `TUTORIAL_STEPS` / `TUTORIAL_BEATS` stop at the
+  `eot-1-end` End Turn (34 steps); the Mentor's turns and rounds 2-3 move
+  to `LATER_CHAPTER_STEPS` / `LATER_CHAPTER_BEATS`, still replayed by both
+  tutorial tests as a continuation so they stay engine-verified until
+  released as chapters of their own. Previously a player who reached the
+  end of the script had nothing left to click — `gateHumanActions` demoted
+  every human action except pass-chain-priority and the panel only swapped
+  its label to "Complete!". When the last beat is done the docked
+  instruction panel now gives way to a card in the middle of the board:
+  what the chapter taught, one line per lesson, and an "Exit Tutorial"
+  button wired to `disconnect()`. `TutorialProgress` gained an optional
+  `learned` list; the closing line reuses the existing `footer` field, so
+  the panel still renders purely from `PlayerView.tutorial`. The lobby
+  button drops its "(Not finished yet)" tag.
+- A finished tutorial releases the game immediately. Exiting the
+  completion card closes the WebSocket, but the session then sat in the
+  no-humans grace period for a full minute before the child process
+  exited — and the lobby learns a game ended only from that exit — so for
+  `IDLE_EXIT_GRACE_MS` the player was still listed "In game". A finished
+  tutorial now reports itself idle at once; quitting mid-chapter still
+  waits out the grace period, since that player may be reloading. The
+  completion card also gets its own heavier backdrop instead of sitting
+  behind the continue gate's 55% one.
+- The tutorial teaches the additional-minor-item bonus. The
+  `site-goldberry` step played Goldberry (tapping the Old Forest) and then
+  immediately passed, discarding the CoE rule 2.V.5 bonus that opens right
+  there. A new `site-minor-item-bonus` step plays the spare Dagger of
+  Westernesse the player's hand already held on Arwen via the bonus.
+  Reported by a player via bug-report mail.
+- The "Stop Existing Game" button stays pressable. Starting a game called
+  `setLobbyPlayButtonsDisabled(true)`, which swept every
+  `#lobby-screen .lobby-play-btn` — and `#stop-game-btn` carries that
+  class — so after start-game → quit the player saw themselves listed as
+  playing with no way to end it. The launch sweep now skips the stop
+  button, the per-id reset moves into an exported `resetLobbyButtons()`,
+  and rejected actions call it too, so "You are not in a game" no longer
+  leaves the button stuck on "Stopping...".
+
+### Game Engine
+
+- The movement/hazard phase can end when its last company dissolves. A
+  self-play batch deadlocked at seed 1157: the active player's sole
+  character failed a corruption check while the phase sat at
+  select-company, dissolving the company and with it every action the step
+  could offer. Rule 2.IV.1's skip was applied only at the long-event → M/H
+  transition. Pass is now offered at M/H select-company when no unhandled
+  company remains, and accepted in the reducer.
+- `isCompanyAtSite()` covers a departing company mid-sub-phase. It treated
+  a company as en route only once `company.moved` flipped, missing the
+  mirror-image window where a company has revealed its new site but not
+  finished its own sub-phase (CoE 2.IV.5 / CRF-22 Annotation 25). A
+  company at Minas Tirith that had already declared movement elsewhere was
+  still offered Choice of Lúthien (dm-120) mid-sub-phase.
+- Switching an item back is marked as undoing the switch. A game hit the
+  25000-decision limit at seed 4029 with 23000 spent declaring two copies
+  of Hauberk of Bright Mail at each other. `handleUseItem` already stored
+  the displaced item as the reverse, but `matchesAction` had no `use-item`
+  case, so nothing could ever set the documented `regress?: true` field.
+  Seed 4029 now finishes in 1987 decisions.
+
+### Cards
+
+- **Icy Touch (td-33)** certified. Adds a `attachCorruptionOnWound`
+  modify-attack rider for hazard events played on a company facing an
+  attack that then attach to whichever character the attack wounds:
+  `CombatState.pendingCorruptionAttach` marks it eligible and
+  `finalizeCombat` splices it out of the discard pile onto the first
+  eligible wounded character. Documented as DSL section 10e-ter.
+
+### AI / Simulation
+
+- Heuristics 1 plays its argmax instead of sampling its weights. The
+  evaluators were written to rank candidates and the agent read their
+  output as a distribution, so it chose from outside its own top-weighted
+  set on 26.4% of contested decisions. Worth about +47 Elo, pooled
+  2230W-1687L-80D over 3997 games across ten paired 400-game blocks, all
+  ten favouring argmax. Ties break uniformly from the seeded stream with a
+  relative tolerance. Sampling stays reachable as `heuristic:sample`, and
+  `export-training` / `fit-winprob` ask for it by name. Note that H1 is
+  the default gate champion, so every historical challenger was rated
+  against the weaker version.
+- The gate verifies its own working tree. Controls had been run in a `git
+  worktree` or after a `git checkout` inside a compound command, and when
+  the git step failed — it did, because a worktree already held `master` —
+  the gate ran anyway and printed a clean-looking result for a tree it had
+  never been given. `cli/tree-check` now refuses (rather than warns) if
+  the code being run is not the code in this directory or the tree is
+  dirty; `--allow-dirty` opts out of the second only. Every gate result
+  now carries the branch and SHA it measured.
+- The full ledger of what each merged change is worth, re-measured against
+  a verified master: acting on ties +244 (claimed +110), favourites draft
+  +51 (claimed neutral), haven healing +47 (+33), move-to-influence +26
+  (+9), corruption check +20 (neutral), revisit charge +20 (+21),
+  mind-priority draft 0 (+17), carried wound −18 (claimed +157, not
+  merged), and #2397's tap deduction −75 (−87, reverted). Five of nine
+  claims were directionally right, three inverted, one exact. Every H2
+  figure from the broken harness — −96, −101, −111, −134, −155, −188,
+  −211, −265 — is wrong and the conclusions resting on differences between
+  them are unsupported. What survives is everything measured without a
+  gate: corpus agreement rates, the `scoring-loop` funnel, `hand-flow`
+  arrivals, `route-compare` shapes and the wounded/tapped/untapped splits.
+- The heuristic stops burning Cram when it can already move.
+- Fine-tuning inherits its parent's decode declaration. Deriving it from
+  the training targets is right for a fresh clone and wrong for every RL
+  candidate, which would have stamped `argmax` on a lineage cloned from
+  human one-hots and gated it at a readout scoring 3.5% instead of 43%.
+  `--decode` still forces it; a run without `--init` still derives.
+- An opt-in `--hazard-memory` export was added and recorded as not
+  helping: `plan-movement` moved from 3.3% to 3.6% against ~5% for
+  guessing uniformly, still at chance. Corpus growth to 703 logs agrees —
+  the pure policy improved from −83 to −47 Elo while the hybrid built on
+  those weights measured −1 against the deployed hybrid's +23.
+
 ## 0.110.0 — 2026-08-16
 
 Seven certifications and two corruption miscounts

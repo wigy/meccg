@@ -16,11 +16,11 @@ import type {
   GameState,
   PlayerId,
   EvaluatedAction,
+  CardDefinition,
   CardInstanceId,
   CharacterCard,
   ResourceEventCard,
   MovementHazardPhaseState,
-  GameAction,
   PlayerState,
   SiteCard,
   Company,
@@ -39,14 +39,14 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
-import { countConstraintsFromDefinition } from '../pending.js';
-import { isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
+import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { viableWithRegress } from '../reverse-actions.js';
+import { regressable } from '../reverse-actions.js';
 import { playCharacterActions, discardCharacterActions } from './organization-characters.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -133,8 +133,23 @@ function grantActionUsedThisTurn(
  * effective mind (The Arkenstone raises Dwarf mind by 1) and honours a
  * `control-restriction` cost override (Wizard's Myrmidon).
  *
- * Shared by {@link availableDI} and {@link normalUnusedDI} so both agree on
- * what "unused" means; only the *total* DI they start from differs.
+ * No restricted direct influence is credited here: this is the base cost that
+ * {@link directInfluenceLedger} then allocates across a controller's
+ * unrestricted and restricted allotments.
+ */
+function followerControlCost(
+  state: GameState,
+  followerChar: import('../../index.js').CharacterInPlay,
+  followerDef: CharacterCard,
+): number {
+  return controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind ?? 0) ?? 0;
+}
+
+/**
+ * Sum of the mind cost of every character a controller holds under direct
+ * influence, charged in full against unrestricted influence. Used by
+ * {@link normalUnusedDI}, where a le-150 nullification has already stripped
+ * every card-sourced restricted allotment.
  */
 function followersMindCost(
   state: GameState,
@@ -147,10 +162,169 @@ function followersMindCost(
     if (!followerChar) continue;
     const followerDef = resolveDef(state, followerChar.instanceId);
     if (isCharacterCard(followerDef) && followerDef.mind !== null) {
-      usedDI += controlCostOf(state, followerChar, followerChar.effectiveStats.mind ?? followerDef.mind) ?? 0;
+      usedDI += followerControlCost(state, followerChar, followerDef);
     }
   }
   return usedDI;
+}
+
+/**
+ * The result of allocating a controller's followers across his direct
+ * influence: how much *unrestricted* influence is left (negative when he is
+ * over-extended) and how much of each restricted allotment the followers have
+ * already consumed, keyed by {@link diPoolKey}.
+ */
+export interface DirectInfluenceLedger {
+  /** Unrestricted DI left after the followers are paid for; may be negative. */
+  readonly unrestricted: number;
+/** Card instance granting a restricted allotment → amount of it spent on followers. */
+  readonly poolsUsed: ReadonlyMap<CardInstanceId, number>;
+  /** Per-follower charge against *unrestricted* influence, largest first. */
+  readonly charges: readonly { readonly followerId: CardInstanceId; readonly charge: number }[];
+}
+
+/**
+ * Builds the `influence-check` resolver context a controller's conditional DI
+ * modifiers are evaluated against for one prospective target.
+ */
+function influenceCheckContext(
+  controller: import('../../index.js').CharacterInPlay,
+  ctrlDef: CharacterCard,
+  targetDef: CharacterCard,
+): ResolverContext {
+  return {
+    reason: 'influence-check',
+    // Effective prowess so stat-comparing conditions (Whip le-348:
+    // "prowess less than the bearer's") see the live value, not the
+    // printed one.
+    bearer: { ...buildBearerContext(ctrlDef), prowess: controller.effectiveStats.prowess },
+    target: {
+      name: targetDef.name,
+      race: targetDef.race,
+      homesite: parseHomesiteNames(targetDef.homesite ?? ''),
+      keywords: targetDef.keywords ?? [],
+      // Printed stats — the target is a definition, not yet in play here.
+      // `mind` is omitted for avatars so "with a mind" gates fail (Whip le-348).
+      ...(targetDef.mind !== null ? { mind: targetDef.mind } : {}),
+      prowess: targetDef.prowess,
+    },
+  };
+}
+
+/**
+ * Breaks a controller's target-conditional direct influence against one target
+ * down by the card *instance* granting it.
+ *
+ * {@link targetConditionalDIBonus} returns the same influence as a single
+ * total; this keeps the sources apart so a follower already paid for out of
+ * one card's allotment cannot be paid for a second time out of that same
+ * allotment (CoE 3.14: restricted direct influence is applied once, not once
+ * per character being influenced).
+ *
+ * One card instance is one allotment, even when its restriction is spelled out
+ * as several `when`-filtered modifiers: Bûthrakaur ba-5's "+3 direct influence
+ * against Trolls, Orcs, Troll factions, and Orc factions" is a single +3 that
+ * the card data models as four effects, and spending it on an Orc must leave
+ * nothing for a Troll.
+ */
+function targetConditionalDIPools(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  targetDef: CharacterCard,
+): Map<CardInstanceId, number> {
+  const pools = new Map<CardInstanceId, number>();
+  const ctrlDef = resolveDef(state, controller.instanceId);
+  if (!ctrlDef || !isCharacterCard(ctrlDef)) return pools;
+  const resolverCtx = influenceCheckContext(controller, ctrlDef, targetDef);
+  const collected = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
+  const bySource = new Map<CardInstanceId, typeof collected>();
+  for (const effect of collected) {
+    bySource.set(effect.sourceInstance, [...(bySource.get(effect.sourceInstance) ?? []), effect]);
+  }
+  for (const [sourceInstance, effects] of bySource) {
+    const value = resolveStatModifiers(effects, 'direct-influence', 0, resolverCtx);
+    if (value !== 0) pools.set(sourceInstance, value);
+  }
+  return pools;
+}
+
+/**
+ * Pays for every follower a controller holds out of his direct influence.
+ *
+ * A controller's influence comes in two flavours: *unrestricted* influence
+ * (his `effectiveStats.directInfluence`, usable against anything) and
+ * *restricted* allotments gated on the target — Elf-stone tw-224's "+2 against
+ * Elves", Whip le-348's "+2 against one character with a mind and prowess less
+ * than the bearer's", Bolg ba-4's Orc bonuses. Each follower is paid for out
+ * of unrestricted influence first (CoE 3.14 spends unrestricted influence
+ * ahead of restricted influence), and only what is left over draws on the
+ * restricted allotments that match *that* follower.
+ *
+ * Two consequences matter to callers:
+ *
+ *  - A follower covered by a restricted allotment stops eating into the
+ *    controller's unrestricted influence, so a later check against an
+ *    unrelated target (a faction-influence attempt by the same character) sees
+ *    the influence it should — the bug behind Whip le-348 reporting an
+ *    Orc-Captain at −2 DI.
+ *  - An allotment already spent on a follower is *gone*: a second character
+ *    matching the same restriction cannot be admitted on it (CoE 3.14 —
+ *    restricted direct influence is applied once, not once per character being
+ *    influenced).
+ */
+function directInfluenceLedger(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+  unrestrictedDI: number,
+): DirectInfluenceLedger {
+  const poolsUsed = new Map<CardInstanceId, number>();
+  const charges: { followerId: CardInstanceId; charge: number }[] = [];
+  let unrestricted = unrestrictedDI;
+
+  for (const followerId of controller.followers) {
+    const followerChar = player.characters[followerId as string];
+    if (!followerChar) continue;
+    const followerDef = resolveDef(state, followerChar.instanceId);
+    if (!isCharacterCard(followerDef) || followerDef.mind === null) continue;
+
+    let owed = followerControlCost(state, followerChar, followerDef);
+    const fromUnrestricted = Math.min(Math.max(0, unrestricted), owed);
+    unrestricted -= fromUnrestricted;
+    owed -= fromUnrestricted;
+
+    if (owed > 0) {
+      for (const [key, amount] of targetConditionalDIPools(state, controller, followerDef)) {
+        const free = amount - (poolsUsed.get(key) ?? 0);
+        if (free <= 0) continue;
+        const taken = Math.min(free, owed);
+        poolsUsed.set(key, (poolsUsed.get(key) ?? 0) + taken);
+        owed -= taken;
+        if (owed === 0) break;
+      }
+    }
+
+    // Whatever no allotment covers over-extends the controller: it drives his
+    // unrestricted influence negative, which is what the over-extension checks
+    // (`revertOverextendedDirectInfluenceFollowers`) look for.
+    unrestricted -= owed;
+    charges.push({ followerId, charge: fromUnrestricted + owed });
+  }
+
+  charges.sort((a, b) => b.charge - a.charge);
+  return { unrestricted, poolsUsed, charges };
+}
+
+/**
+ * Public entry point to {@link directInfluenceLedger} for a controller in
+ * play, starting from his effective (unrestricted) direct influence.
+ */
+export function directInfluenceLedgerFor(
+  state: GameState,
+  controller: import('../../index.js').CharacterInPlay,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+): DirectInfluenceLedger {
+  return directInfluenceLedger(state, controller, player, controller.effectiveStats.directInfluence);
 }
 
 /**
@@ -167,6 +341,12 @@ function followersMindCost(
  * played on him, attached hazards — is a modification from another card's text
  * and is therefore nullified, so it is deliberately **not** read off
  * `effectiveStats.directInfluence` the way {@link availableDI} does.
+ *
+ * Followers are charged their full mind cost here, without the restricted-DI
+ * credit {@link directInfluenceLedger} gives them: le-150 has already zeroed
+ * every card-sourced restricted allotment, and the controller's *own*
+ * restricted text is folded into `ownEffects` against the current target
+ * already — crediting it a second time against a follower would double it.
  *
  * @param ownEffects - the influencer's own-card effects, already filtered
  *   against `context` (i.e. the `sourceInstance === controllerInstanceId`
@@ -217,17 +397,23 @@ export function availableDI(
   const controller = player.characters[controllerInstanceId as string];
   if (!controller) return 0;
 
-  const usedDI = followersMindCost(state, controller, player);
-
-  let baseDI = controller.effectiveStats.directInfluence;
+  const ledger = directInfluenceLedgerFor(state, controller, player);
+  let baseDI = ledger.unrestricted;
 
   // When checking DI for a specific target, resolve conditional DI bonuses
-  // (e.g. Glorfindel II "+1 DI against Elves" uses reason: "influence-check")
+  // (e.g. Glorfindel II "+1 DI against Elves" uses reason: "influence-check"),
+  // net of whatever the controller's followers already spent out of those same
+  // restricted allotments (CoE 3.14 — each applies once, not once per
+  // character being influenced).
   if (targetDef) {
-    baseDI += targetConditionalDIBonus(state, controller, targetDef);
+    let alreadySpent = 0;
+    for (const [key, amount] of targetConditionalDIPools(state, controller, targetDef)) {
+      alreadySpent += Math.min(amount, ledger.poolsUsed.get(key) ?? 0);
+    }
+    baseDI += targetConditionalDIBonus(state, controller, targetDef) - alreadySpent;
   }
 
-  return baseDI - usedDI;
+  return baseDI;
 }
 
 /**
@@ -238,10 +424,10 @@ export function availableDI(
  * inside `effectiveStats.directInfluence`, so folding it in again would double
  * it (see `checkConditionalEffects`).
  *
- * Used both when admitting a follower ({@link availableDI}) and when the
- * organization phase ends and over-extended followers are released — the two
- * checks must agree, or a legally admitted follower would be released again
- * at the end of the same phase.
+ * This is the *gross* allotment against the target. Callers that must also
+ * account for what the controller's existing followers already spent out of
+ * the same allotments go through {@link availableDI}, which nets it off using
+ * the {@link DirectInfluenceLedger}.
  */
 export function targetConditionalDIBonus(
   state: GameState,
@@ -250,23 +436,7 @@ export function targetConditionalDIBonus(
 ): number {
   const ctrlDef = resolveDef(state, controller.instanceId);
   if (!ctrlDef || !isCharacterCard(ctrlDef)) return 0;
-  const resolverCtx: ResolverContext = {
-    reason: 'influence-check',
-    // Effective prowess so stat-comparing conditions (Whip le-348:
-    // "prowess less than the bearer's") see the live value, not the
-    // printed one.
-    bearer: { ...buildBearerContext(ctrlDef), prowess: controller.effectiveStats.prowess },
-    target: {
-      name: targetDef.name,
-      race: targetDef.race,
-      homesite: parseHomesiteNames(targetDef.homesite ?? ''),
-      keywords: targetDef.keywords ?? [],
-      // Printed stats — the target is a definition, not yet in play here.
-      // `mind` is omitted for avatars so "with a mind" gates fail (Whip le-348).
-      ...(targetDef.mind !== null ? { mind: targetDef.mind } : {}),
-      prowess: targetDef.prowess,
-    },
-  };
+  const resolverCtx = influenceCheckContext(controller, ctrlDef, targetDef);
   const charEffects = checkConditionalEffects(collectCharacterEffects(state, controller, resolverCtx));
   const conditionalDI = resolveStatModifiers(charEffects, 'direct-influence', 0, resolverCtx);
   if (conditionalDI !== 0) {
@@ -618,12 +788,11 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   for (const company of player.companies) {
     if (company.destinationSite !== null) {
       logDetail(`Company ${company.id as string} has planned movement → can cancel`);
-      const candidate: GameAction = {
+      actions.push(regressable(state, {
         type: 'cancel-movement',
         player: playerId,
         companyId: company.id,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      }));
     }
   }
 
@@ -788,6 +957,11 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Grant-actions on the player's stored (marshalling-point pile) cards —
   // no bearer to attach to, so scanned separately (Reforging tw-314)
   actions.push(...storedCardGrantActions(state, playerId));
+
+  // Stored-card combine actions — no tap, discard a differently-named
+  // stored card instead (Andúril tw-192: "discard a stored Reforging and
+  // place Andúril with Narsil")
+  actions.push(...storedCombineGrantActions(state, playerId));
 
   // The Lidless Eye (le-203) / Sauron (ba-43): once-per-org-phase dual-mode
   // ability (sideboard-fetch or peek-opponent-hand)
@@ -1322,20 +1496,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           }
           const siteDefId = company.currentSite.definitionId as string;
           const zones = effect.apply.fetchFrom ?? ['discard-pile', 'sideboard', 'hand'];
-          const itemFilter = effect.apply.filter;
-          const zoneItemIds: CardInstanceId[] = [];
-          for (const zone of zones) {
-            const pile = zone === 'discard-pile' ? player.discardPile
-              : zone === 'sideboard' ? player.sideboard
-                : zone === 'hand' ? player.hand
-                  : [];
-            for (const c of pile) {
-              const cdef = defById(state, c.definitionId);
-              if (!cdef || !isItemCard(cdef)) continue;
-              if (itemFilter && !matchesDefinition(cdef, itemFilter)) continue;
-              zoneItemIds.push(c.instanceId);
-            }
-          }
+          const zoneItemIds = fetchZoneItemInstanceIds(state, player, zones, effect.apply.filter);
           if (zoneItemIds.length === 0) {
             logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no qualifying item in discard/sideboard/hand`);
             continue;
@@ -1471,11 +1632,22 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not at a site`);
             continue;
           }
-          const siteDefId = company.currentSite.definitionId as string;
+          // Match "the same site" by NAME, not definition id: each location
+          // exists as alignment-specific site cards (hero Moria tw-413 vs
+          // minion Moria le-392), so an opponent's company at the same
+          // location carries a different definition id. Same convention as
+          // force-discard-dwarf-at-site above and eligibleMaladyTargets.
+          const axeSiteName = defById(state, company.currentSite.definitionId)?.name ?? '';
+          if (!axeSiteName) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer's site definition unresolvable`);
+            continue;
+          }
           const siteTargets: { instanceId: import('../../index.js').CardInstanceId; name: string }[] = [];
           for (const p of state.players) {
             for (const co of p.companies) {
-              if (!co.currentSite || (co.currentSite.definitionId as string) !== siteDefId) continue;
+              if (!co.currentSite) continue;
+              const coSiteName = defById(state, co.currentSite.definitionId)?.name ?? '';
+              if (coSiteName !== axeSiteName) continue;
               for (const memberId of co.characters) {
                 if (memberId === charId) continue;
                 const member = p.characters[memberId];
@@ -1766,20 +1938,7 @@ export function storedCardGrantActions(state: GameState, playerId: PlayerId): Ev
         if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== 'haven') continue;
 
         const zones = effect.apply.fetchFrom ?? ['discard-pile'];
-        const itemFilter = effect.apply.filter;
-        const zoneItemIds: CardInstanceId[] = [];
-        for (const zone of zones) {
-          const pile = zone === 'discard-pile' ? player.discardPile
-            : zone === 'sideboard' ? player.sideboard
-              : zone === 'hand' ? player.hand
-                : [];
-          for (const c of pile) {
-            const cdef = defById(state, c.definitionId);
-            if (!cdef || !isItemCard(cdef)) continue;
-            if (itemFilter && !matchesDefinition(cdef, itemFilter)) continue;
-            zoneItemIds.push(c.instanceId);
-          }
-        }
+        const zoneItemIds = fetchZoneItemInstanceIds(state, player, zones, effect.apply.filter);
         if (zoneItemIds.length === 0) {
           logDetail(`Stored grant-action ${effect.action} on ${def.name}: no qualifying item to retrieve (via ${charDef.name})`);
           continue;
@@ -1799,6 +1958,73 @@ export function storedCardGrantActions(state: GameState, playerId: PlayerId): Ev
         }
         logDetail(`Stored grant-action ${effect.action} on ${def.name}: offered ${zoneItemIds.length} item(s) × ${recipients.length} recipient(s) via ${charDef.name} at a Haven`);
       }
+    }
+  }
+  return actions;
+}
+
+/**
+ * `fromStored` grant-actions with a `discard: "named-stored-card"` cost and a
+ * `place-source-with-item` apply — the source card itself has no bearer (it
+ * sits in `killPile`) and no tap cost, unlike {@link storedCardGrantActions}'s
+ * `sage-at-haven` shape. One activation is offered per (eligible discard
+ * candidate × qualifying recipient) pair: the discard candidate is any other
+ * of the player's own `killPile` entries (also `storedAtSite`) whose
+ * definition name matches `cost.discardCardName`; the recipient is any of the
+ * player's characters currently bearing an item named `apply.itemName`.
+ * `characterId` self-references the source's own instance ID, mirroring the
+ * bearer-less convention `grantedAction` documents — `handleGrantActionApply`
+ * routes such actions to `handleStoredCardGrantAction`.
+ *
+ * Used by Andúril, the Flame of the West (tw-192): "Once stored, you may
+ * discard a stored Reforging and place Andúril with Narsil."
+ */
+export function storedCombineGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+
+  for (const stored of player.killPile) {
+    if (!stored.storedAtSite) continue;
+    const def = defById(state, stored.definitionId);
+    if (!def) continue;
+
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'grant-action' || !effect.fromStored) continue;
+      if (effect.cost.tap !== undefined || effect.cost.discard !== 'named-stored-card') continue;
+      if (effect.apply?.type !== 'place-source-with-item') continue;
+
+      const discardCandidates = player.killPile.filter(c =>
+        c.instanceId !== stored.instanceId
+        && c.storedAtSite
+        && defById(state, c.definitionId)?.name === effect.cost.discardCardName);
+      if (discardCandidates.length === 0) {
+        logDetail(`Stored grant-action ${effect.action} on ${def.name}: no stored ${effect.cost.discardCardName ?? '?'} to discard`);
+        continue;
+      }
+
+      const itemName = effect.apply.itemName;
+      const recipients: CardInstanceId[] = [];
+      for (const [charId, char] of characterEntries(player)) {
+        if (char.items.some(i => defById(state, i.definitionId)?.name === itemName)) recipients.push(charId);
+      }
+      if (recipients.length === 0) {
+        logDetail(`Stored grant-action ${effect.action} on ${def.name}: no character bears ${itemName}`);
+        continue;
+      }
+
+      for (const discardCandidate of discardCandidates) {
+        for (const recipientId of recipients) {
+          actions.push(grantedActionFor(
+            playerId,
+            stored.instanceId,
+            stored,
+            effect,
+            { targetCardId: discardCandidate.instanceId, recipientCharacterId: recipientId },
+          ));
+        }
+      }
+      logDetail(`Stored grant-action ${effect.action} on ${def.name}: offered ${discardCandidates.length} discard candidate(s) × ${recipients.length} recipient(s) bearing ${itemName}`);
     }
   }
   return actions;
@@ -2031,7 +2257,16 @@ export function buildGrantActionContext(
   // is legal only during the movement/hazard phase). Combine with
   // `anyPhase: true` so the M/H scanner offers the ability at all.
   const phase = state.phaseState.phase;
-  return { bearer, self, company: companyCtx, player: playerCtx, site: siteCtx, phase };
+  // Whether the active player has already taken their bulk `untap` action
+  // this phase — exposed only while `phase === "untap"`. Morgul-knife
+  // (tw-64) / The Pale Sword (tw-97) offer a removal roll "instead of
+  // untapping or healing": once the bulk untap sweep (`performUntap`) has
+  // already run, the window to forgo it has passed, so their `when` clause
+  // also requires `"untap.resourcePlayerUntapped": false`.
+  const untap = state.phaseState.phase === Phase.Untap
+    ? { resourcePlayerUntapped: state.phaseState.untapped }
+    : null;
+  return { bearer, self, company: companyCtx, player: playerCtx, site: siteCtx, phase, untap };
 }
 
 /**
@@ -2207,6 +2442,28 @@ function enumerateGrantActionTargets(
     }
   }
 
+  // Athelas (tw-195), Aragorn II's ability: "remove a corruption card from a
+  // character in his company" — the company-scoped counterpart of
+  // `own-hazard-corruption-cards`, restricted to the bearer's own company
+  // rather than every character the player controls.
+  if (targets.scope === 'company-hazard-corruption-cards') {
+    const company = findCharacterCompany(player.companies, charId);
+    if (!company) return [];
+    for (const memberId of company.characters) {
+      const member = player.characters[memberId];
+      if (!member) continue;
+      if (targets.filter) {
+        const memberDef = defById(state, member.definitionId);
+        if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+      }
+      for (const hazard of member.hazards) {
+        const hazardDef = defById(state, hazard.definitionId);
+        if (!isCorruptionCardDef(hazardDef)) continue;
+        matches.push({ instanceId: hazard.instanceId, definitionId: hazard.definitionId });
+      }
+    }
+  }
+
   return matches;
 }
 
@@ -2306,10 +2563,8 @@ export function endOfOrgEligibility(
   state: GameState,
   player: PlayerState,
   def: ResourceEventCard,
+  playTarget: PlayTargetEffect | undefined,
 ): EndOfOrgEligibility {
-  const playTarget: PlayTargetEffect | undefined = def.effects?.find(
-    (e): e is PlayTargetEffect => e.type === 'play-target',
-  );
   if (!playTarget) return { eligible: true, reason: '', eligibleTargets: [] };
   if (playTarget.target !== 'character' && playTarget.target !== 'company') {
     return { eligible: true, reason: '', eligibleTargets: [] };
@@ -2333,6 +2588,16 @@ export function endOfOrgEligibility(
         const siteType = siteDef && 'siteType' in siteDef
           ? (siteDef as { siteType: string }).siteType
           : '';
+        // Ash Mountains (tw-194) and its "movement enhancer" family: "on a
+        // company containing a ranger" — the union of every company member's
+        // effective skills, so `{ "company.skills": { "$includes": "ranger" } }`
+        // matches regardless of which character carries it.
+        const companySkills = company.characters.flatMap(cId => {
+          const ch = player.characters[cId];
+          if (!ch) return [];
+          const cDef = defById(state, ch.definitionId);
+          return cDef && isCharacterCard(cDef) ? getEffectiveSkills(state, ch, cDef) : [];
+        });
         const companyFilterCtx = {
           company: {
             atHaven: siteType === 'haven',
@@ -2344,15 +2609,23 @@ export function endOfOrgEligibility(
             // entrance named in some Under-deeps site's `adjacentSites` map.
             atUnderDeepsSurfaceSite: isUnderDeepsSurfaceSite(state, siteDef),
             siteUntapped: company.currentSite?.status === CardStatus.Untapped,
+            skills: companySkills,
           },
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;
       }
-      if (playTarget.cost?.tap === 'character') {
-        // Tap-cost: emit one action per untapped character (player chooses tapper).
+      if (playTarget.cost?.tap === 'character' || playTarget.cost?.tap === 'skilled-character-in-company') {
+        // Tap-cost: emit one action per untapped (optionally skill-matching)
+        // character (player chooses tapper).
+        const requiredSkill = playTarget.cost.tap === 'skilled-character-in-company' ? playTarget.cost.skill : undefined;
         for (const charInstId of company.characters) {
           const char = player.characters[charInstId];
           if (!char || char.status !== CardStatus.Untapped) continue;
+          if (requiredSkill) {
+            const charDef = defById(state, char.definitionId);
+            if (!charDef || !isCharacterCard(charDef)) continue;
+            if (!getEffectiveSkills(state, char, charDef as { skills?: readonly string[] }).includes(requiredSkill as Skill)) continue;
+          }
           eligibleTargets.push(charInstId);
         }
       } else {
@@ -2365,7 +2638,7 @@ export function endOfOrgEligibility(
     if (eligibleTargets.length === 0) {
       return {
         eligible: false,
-        reason: playTarget.cost?.tap === 'character'
+        reason: (playTarget.cost?.tap === 'character' || playTarget.cost?.tap === 'skilled-character-in-company')
           ? `${def.name} requires an untapped character in a company`
           : `${def.name} requires a company at the required location`,
         eligibleTargets: [],
@@ -2419,13 +2692,35 @@ export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | 
 }
 
 /**
- * Collects all in-play card instance IDs across both players that match
- * the supplied `discard-in-play` filter. Searches both general in-play
- * cards ({@link PlayerState.cardsInPlay}, e.g. Eye of Sauron long-events,
- * non-attached permanent-events) and hazard cards attached to characters
- * (`character.hazards`, e.g. Foolish Words, Lure of the Senses). Without
- * the character-hazard pass, cards like Marvels Told would fail to
- * offer any attached hazard permanent-events as discard targets.
+ * Returns every `play-target` effect on the given resource event card. Most
+ * cards carry at most one; a card with two mutually-exclusive end-of-org
+ * modes (Anduin River tw-191 and the "mountain-crossing" family: a
+ * ranger-tap mode alongside a no-cost "alternatively" mode, the shape *The
+ * Cock Crows* tw-342 established for dual-mode short-events) carries one per
+ * mode. Used by the end-of-org emitter to offer actions for every mode.
+ */
+export function getPlayTargetEffects(def: ResourceEventCard): readonly PlayTargetEffect[] {
+  return (def.effects ?? []).filter((e): e is PlayTargetEffect => e.type === 'play-target');
+}
+
+/**
+ * Collects all in-play card instance IDs that match the supplied
+ * `discard-in-play` filter. Searches two zones:
+ *
+ * - General in-play cards ({@link PlayerState.cardsInPlay}, e.g. Eye of
+ *   Sauron long-events, untargeted permanent-events) across **both**
+ *   players — an untargeted hazard event sits in its owner's own
+ *   `cardsInPlay`, so a hero player's Marvels Told must be able to reach
+ *   into the hazard player's zone to discard it there.
+ * - Hazard cards attached to characters (`character.hazards`, e.g. Foolish
+ *   Words, Lure of the Senses), restricted to **`actorPlayerId`'s own**
+ *   characters only. Per CoE 2.IV.vii.3 a hazard event targets "the current
+ *   company", i.e. whoever was moving when it was played — so an attached
+ *   hazard always ends up on its bearer's own side, and Marvels Told-style
+ *   cards may only clean hazards off the caster's own characters, never off
+ *   the opponent's (even when the caster happens to be the hazard's owner,
+ *   e.g. a Rebel-talk they themselves played onto the opponent's character
+ *   during an earlier hazard phase).
  *
  * Nazgûl-style dual creature/permanent-event cards (Ûvatha tw-107, Adûnaphel
  * tw-2, …) sitting in `cardsInPlay` are matched via their
@@ -2436,6 +2731,7 @@ export function getPlayTargetEffect(def: ResourceEventCard): PlayTargetEffect | 
 export function collectDiscardInPlayTargets(
   state: GameState,
   filter: Condition,
+  actorPlayerId: PlayerId,
 ): CardInstanceId[] {
   const targets: CardInstanceId[] = [];
   for (const p of state.players) {
@@ -2445,6 +2741,7 @@ export function collectDiscardInPlayTargets(
         targets.push(c.instanceId);
       }
     }
+    if (p.id !== actorPlayerId) continue;
     for (const charId of Object.keys(p.characters) as CardInstanceId[]) {
       const char = p.characters[charId];
       for (const haz of char.hazards) {
@@ -2490,6 +2787,10 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *  - `target.inAvatarCompany` — `true` iff the character belongs to the
  *    same company as the player's avatar (wizard/ringwraith/etc.).
  *    Requires the `player` parameter to be passed.
+ *  - `company.siteRegion` — the name of the region containing the
+ *    character's company's current site (or `null` at sea/no site). Lets a
+ *    `play-target` filter gate on the origin's region by name (e.g. Belegaer
+ *    td-100: "moving from a site of origin in one of the following regions").
  *  - `company.containsDiplomat` — `true` iff the character's company
  *    contains at least one character with the `diplomat` skill.
  *    Enables cards like New Friendship to offer a corruption-check boost
@@ -2531,6 +2832,7 @@ export function buildPlayOptionContext(
   let isInfluencing = false;
   let companySiteType: string | null = null;
   let companySiteName: string | null = null;
+  let companySiteRegion: string | null = null;
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
@@ -2572,6 +2874,7 @@ export function buildPlayOptionContext(
       const siteDef = defById(state, charCompany.currentSite.definitionId);
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
       if (siteDef) companySiteName = siteDef.name;
+      if (siteDef) companySiteRegion = (siteDef as { region?: string }).region ?? null;
     }
     // The region type containing the company's *declared* destination site
     // (Organization phase `plan-movement`, or a still-set destination during
@@ -2628,6 +2931,10 @@ export function buildPlayOptionContext(
   // The One Ring via `{ "target.itemNames": { "$includes": "The One Ring" } }`).
   const itemNames = defNamesOf(state, char.items);
   const allyNames = defNamesOf(state, char.allies);
+  // Combined keywords of every item the character bears, so play-target
+  // filters can gate on bearing an item of a given kind without naming it
+  // (Use Palantír tw-355: `{ "target.itemKeywords": { "$includes": "palantir" } }`).
+  const itemKeywords = itemKeywordsOf(state, char.items);
 
   return {
     target: {
@@ -2642,6 +2949,7 @@ export function buildPlayOptionContext(
       isInfluencing,
       itemNames,
       allyNames,
+      itemKeywords,
       // Races of attacks that wounded this character so far this turn (Pale
       // Dream-maker dm-78, Endless Whispers dm-54: "Playable on a non-Wizard
       // character wounded by an Undead attack this turn").
@@ -2650,6 +2958,7 @@ export function buildPlayOptionContext(
     company: {
       siteType: companySiteType,
       siteName: companySiteName,
+      siteRegion: companySiteRegion,
       containsDiplomat,
       moving: companyMoving,
       destinationSiteType,
@@ -2841,6 +3150,25 @@ export function buildPlayerStateContext(
   };
 }
 
+/**
+ * True when `def`'s `play-condition: player-state` gate (if any) is satisfied
+ * for the player — the condition is matched against
+ * {@link buildPlayerStateContext}, and a card carrying no such play-condition
+ * passes. Shared by every from-hand event emitter so the
+ * avatar/alignment/stage-point gate (The Great Eye as-85 "Playable if you are
+ * Sauron", A Strident Spawn wh-61, The Fortress of Isen wh-68, Above the
+ * Abyss as-77) reads identically at each play window.
+ */
+export function playerStateGateMet(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  def: CardDefinition | null | undefined,
+): boolean {
+  const gate = findPlayConditionEffect(def, 'player-state');
+  return !gate?.condition || matchesCondition(gate.condition, buildPlayerStateContext(state, player, playerId));
+}
+
 /** Legacy alias retained for call sites inside this module. */
 function buildTargetContext(
   state: GameState,
@@ -2984,7 +3312,7 @@ function playOptionActionsForCard(
     // definition already exists for it (enforces "Cannot be duplicated on a given check").
     if (activeCheckLimit && sourceDefId) {
       const alreadyApplied = state.activeConstraints.some(
-        c => c.sourceDefinitionId === sourceDefId
+        c => constraintFromCard(state, c, sourceDefId)
           && c.target.kind === 'character'
           && c.target.characterId === targetId,
       );
@@ -3208,83 +3536,118 @@ export function playResourceShortEventActions(
         continue;
       }
 
-      const eligibility = endOfOrgEligibility(state, player, def);
-      if (!eligibility.eligible) {
-        logDetail(`${def.name}: end-of-org card not eligible — ${eligibility.reason}`);
-        actions.push(notPlayable(playerId, handCard.instanceId, eligibility.reason));
-        continue;
-      }
+      // Most end-of-org cards carry a single play-target effect. A card with
+      // two mutually-exclusive modes (Anduin River tw-191 and the
+      // "mountain-crossing" family: a ranger-tap mode alongside a no-cost
+      // "alternatively" mode) carries one play-target effect per mode — try
+      // each independently and union the resulting actions, so the player is
+      // offered every mode whose own eligibility is met.
+      const eoTargets = getPlayTargetEffects(def);
+      const companyDupLimit = findDuplicationLimitEffect(def, 'company');
+      let anyModeEmitted = false;
+      let lastReason = '';
+      for (const eoTarget of eoTargets.length > 0 ? eoTargets : [undefined]) {
+        const eligibility = endOfOrgEligibility(state, player, def, eoTarget);
+        if (!eligibility.eligible) {
+          lastReason = eligibility.reason;
+          continue;
+        }
 
-      // If the card has a play-target with a tap cost (e.g. Stealth taps a
-      // scout), emit one play action per eligible target so the chosen
-      // target can be tapped when the action is reduced. Company-targeting
-      // without a tap cost (e.g. Great-road) emits one action per eligible
-      // company identified by targetCompanyId. Otherwise emit a single
-      // action with no target.
-      const eoTarget = getPlayTargetEffect(def);
-      if (eoTarget && eligibility.eligibleTargets.length > 0
-        && (eoTarget.cost?.tap === 'character' || eoTarget.target === 'character')) {
-        // Per-character actions carrying the chosen character as
-        // targetScoutInstanceId. This covers two cases:
-        //  - a tap-character cost (e.g. Stealth, Great Ship): the targeted
-        //    character is the tapper, applied at reduce time via the cost;
-        //  - a character target with no cost (e.g. Hide in Dark Places,
-        //    le-192): the target simply lets the self-enters-play constraint
-        //    resolve the scout's company.
-        for (const targetId of eligibility.eligibleTargets) {
-          logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
-          actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetScoutInstanceId: targetId,
-            },
-            viable: true,
-          });
-        }
-      } else if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.target === 'company') {
-        // Company target without tap cost: one action per eligible company.
-        // eligibleTargets[i] is the first character of the i-th eligible company,
-        // used here only to look up the company so we can emit targetCompanyId.
-        // duplication-limit: scope "company" — "Cannot be duplicated on the
-        // same company" (Fair Sailing tw-232). Mirrors the character-scope
-        // check below: a short event attaches nothing, but its rest-of-turn
-        // effect leaves a company-targeted active constraint marking the
-        // source definition. Skip any company that already bears one.
-        const companyDupLimit = findDuplicationLimitEffect(def, 'company');
-        for (const repCharId of eligibility.eligibleTargets) {
-          const company = findCharacterCompany(player.companies, repCharId);
-          if (!company) continue;
-          if (companyDupLimit) {
-            const copiesOnCompany = state.activeConstraints.filter(
-              c =>
-                c.sourceDefinitionId === def.id &&
-                c.target.kind === 'company' &&
-                c.target.companyId === company.id,
-            ).length;
-            if (copiesOnCompany >= companyDupLimit.max) {
-              logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
-              continue;
+        // If the mode has a play-target with a tap cost (e.g. Stealth taps a
+        // scout), emit one play action per eligible target so the chosen
+        // target can be tapped when the action is reduced. Company-targeting
+        // without a tap cost (e.g. Great-road) emits one action per eligible
+        // company identified by targetCompanyId. Otherwise emit a single
+        // action with no target.
+        if (eoTarget && eligibility.eligibleTargets.length > 0
+          && (eoTarget.cost?.tap === 'character' || eoTarget.cost?.tap === 'skilled-character-in-company' || eoTarget.target === 'character')) {
+          // Per-character actions carrying the chosen character as
+          // targetScoutInstanceId. This covers two cases:
+          //  - a tap-character cost (e.g. Stealth, Great Ship, Anduin River's
+          //    ranger-tap mode): the targeted character is the tapper,
+          //    applied at reduce time via the cost;
+          //  - a character target with no cost (e.g. Hide in Dark Places,
+          //    le-192): the target simply lets the self-enters-play constraint
+          //    resolve the scout's company.
+          for (const targetId of eligibility.eligibleTargets) {
+            // duplication-limit: scope "company" — enforced per mode too, so a
+            // tap-cost mode sharing a company-scoped dup limit with a
+            // no-cost mode (Anduin River) is blocked once either has fired.
+            if (companyDupLimit) {
+              const targetCompany = findCharacterCompany(player.companies, targetId);
+              if (targetCompany) {
+                const copiesOnCompany = state.activeConstraints.filter(
+                  c =>
+                    constraintFromCard(state, c, def.id) &&
+                    c.target.kind === 'company' &&
+                    c.target.companyId === targetCompany.id,
+                ).length;
+                if (copiesOnCompany >= companyDupLimit.max) {
+                  logDetail(`${def.name}: cannot be duplicated on company ${targetCompany.id as string} (${copiesOnCompany} active constraint(s))`);
+                  continue;
+                }
+              }
             }
+            logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetScoutInstanceId: targetId,
+              },
+              viable: true,
+            });
+            anyModeEmitted = true;
           }
-          logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+        } else if (eoTarget && eligibility.eligibleTargets.length > 0 && eoTarget.target === 'company') {
+          // Company target without tap cost: one action per eligible company.
+          // eligibleTargets[i] is the first character of the i-th eligible company,
+          // used here only to look up the company so we can emit targetCompanyId.
+          // duplication-limit: scope "company" — "Cannot be duplicated on the
+          // same company" (Fair Sailing tw-232). Mirrors the character-scope
+          // check above: a short event attaches nothing, but its rest-of-turn
+          // effect leaves a company-targeted active constraint marking the
+          // source definition. Skip any company that already bears one.
+          for (const repCharId of eligibility.eligibleTargets) {
+            const company = findCharacterCompany(player.companies, repCharId);
+            if (!company) continue;
+            if (companyDupLimit) {
+              const copiesOnCompany = state.activeConstraints.filter(
+                c =>
+                  constraintFromCard(state, c, def.id) &&
+                  c.target.kind === 'company' &&
+                  c.target.companyId === company.id,
+              ).length;
+              if (copiesOnCompany >= companyDupLimit.max) {
+                logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
+                continue;
+              }
+            }
+            logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetCompanyId: company.id,
+              },
+              viable: true,
+            });
+            anyModeEmitted = true;
+          }
+        } else if (!eoTarget || (eoTarget.target !== 'character' && eoTarget.target !== 'company')) {
+          logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
           actions.push({
-            action: {
-              type: 'play-short-event',
-              player: playerId,
-              cardInstanceId: handCard.instanceId,
-              targetCompanyId: company.id,
-            },
+            action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
             viable: true,
           });
+          anyModeEmitted = true;
         }
-      } else {
-        logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);
-        actions.push({
-          action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
-          viable: true,
-        });
+      }
+      if (!anyModeEmitted) {
+        logDetail(`${def.name}: end-of-org card not eligible — ${lastReason}`);
+        actions.push(notPlayable(playerId, handCard.instanceId, lastReason || `${def.name} has no valid target`));
       }
       continue;
     }
@@ -3478,14 +3841,10 @@ export function playResourceShortEventActions(
     // ({ player: { alignment, hasRingwraithInPlay }, opponent: { alignment } }).
     // Used by Above the Abyss (as-77): "if your opponent is a Wizard and your
     // Ringwraith is in play".
-    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
-    if (playerStateCondition?.condition) {
-      const met = matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId));
-      if (!met) {
-        logDetail(`${def.name}: play-condition player-state not satisfied`);
-        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: play conditions not met`));
-        continue;
-      }
+    if (!playerStateGateMet(state, player, playerId, def)) {
+      logDetail(`${def.name}: play-condition player-state not satisfied`);
+      actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: play conditions not met`));
+      continue;
     }
 
     // play-condition requires: "card-in-play" — a named card must be in play for
@@ -3607,7 +3966,7 @@ export function playResourceShortEventActions(
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardWhenMet && discardInPlay && discardInPlay.filter) {
-      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
       if (discardTargetIds.length === 0 && !sideboardModeAvailable) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no valid target to discard`));
@@ -3709,6 +4068,34 @@ export function playResourceShortEventActions(
       if (tapTargets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
+      } else if (playTarget.itemFilter) {
+        // Use Palantír (tw-355): "enable him to use one Palantír he bears" —
+        // cross each eligible sage with the item(s) on him matching
+        // itemFilter, emitting targetItemInstanceId so the player picks
+        // which one when he bears more than one.
+        let anyOffered = false;
+        for (const targetId of tapTargets) {
+          const targetChar = player.characters[targetId];
+          const itemIds = targetChar ? itemsMatchingFilter(state, targetChar.items, playTarget.itemFilter) : [];
+          for (const itemId of itemIds) {
+            logDetail(`Resource short-event playable (sage ${String(targetId)}, item ${String(itemId)}): ${def.name}`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetScoutInstanceId: targetId,
+                targetItemInstanceId: itemId,
+              },
+              viable: true,
+            });
+            anyOffered = true;
+          }
+        }
+        if (!anyOffered) {
+          logDetail(`${def.name}: no eligible (sage × item) pair — not playable`);
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage bearing a matching item`));
+        }
       } else if (crossesGoldRing) {
         // Cross sage targets with gold rings in each sage's company.
         let anyOffered = false;
@@ -3806,7 +4193,7 @@ export function playResourceShortEventActions(
           if (charDupLimit) {
             const copiesOnChar = state.activeConstraints.filter(
               c =>
-                c.sourceDefinitionId === def.id &&
+                constraintFromCard(state, c, def.id) &&
                 c.target.kind === 'character' &&
                 c.target.characterId === targetId,
             ).length;

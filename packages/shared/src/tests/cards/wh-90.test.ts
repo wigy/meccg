@@ -22,6 +22,8 @@
  * | 3 | …and regardless of the attack's normal capabilities          | IMPLEMENTED |
  * | 4 | If the faced strike fails, the attack's body is reduced by 1  | IMPLEMENTED |
  * | 5 | Stage points (2) while in play                                | IMPLEMENTED |
+ * | 6 | Playable bare when Alatar is NOT in play ("if he is in play") | IMPLEMENTED |
+ * | 7 | Attaches to Alatar the moment he enters play                  | IMPLEMENTED |
  *
  * Modeling:
  *  - Rule 1: `play-target` `character` filter `{ target.name: "Alatar" }`.
@@ -37,6 +39,12 @@
  *    drops by 1 for the rest of the combat.
  *  - Rule 5: `stage-points` value 2, summed from the bearer's items in
  *    `recompute-derived.ts`.
+ *  - Rules 6–7: "Place this card on Alatar **if he is in play**" — placement is
+ *    conditional, not a play requirement. An untargeted `play-option` gated on
+ *    `player.avatarInPlay: false` lets the card enter play bare in
+ *    `cardsInPlay`, and an `on-event: avatar-enters-play` move (self →
+ *    `in-play-on-character`) attaches it to Alatar the moment he is revealed —
+ *    the wh-99 / Bade to Rule (le-167) pattern.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -44,8 +52,8 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
-  viableActions,
-  findCharInstanceId, findHandCardId,
+  viableActions, viablePlayCharacterActions,
+  findCharInstanceId, findHandCardId, getCharacter,
   playPermanentEventAndResolve,
   makeSingleCharCombatState, attachItemToChar,
   dispatch, executeAction,
@@ -63,6 +71,9 @@ const ALATAR = 'wh-1' as CardDefinitionId;
 const BOROMIR = 'tw-134' as CardDefinitionId;
 /** Isengard — a Fallen-wizard Wizardhaven (a valid FW starting site). */
 const ISENGARD = 'wh-56' as CardDefinitionId;
+/** The White Towers — a Wilderness Ruins & Lairs matching Alatar's home-site
+ *  rule, so he can be revealed there from hand. */
+const THE_WHITE_TOWERS = 'tw-430' as CardDefinitionId;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -148,7 +159,11 @@ describe('Bow of Alatar (wh-90)', () => {
     expect(actions.length).toBe(1); // only Alatar
   });
 
-  test('not offered when Alatar is not in play', () => {
+  test('not offered when the player does not count as Alatar (no avatar anywhere)', () => {
+    // No Alatar in play, hand, deck or sideboard → the player's declared avatar
+    // cannot be resolved, so the `alatar-specific` keyword gate blocks the play
+    // entirely. (With Alatar merely unrevealed — still in hand — the card IS
+    // playable bare; see Rules 6–7 below.)
     const state = alatarOrgState([BOROMIR]);
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBe(0);
@@ -166,14 +181,16 @@ describe('Bow of Alatar (wh-90)', () => {
 
   // ── Rule 5: stage points ───────────────────────────────────────────────────
 
-  test('contributes 2 stage points while attached to Alatar', () => {
+  test('contributes 2 stage points and 1 corruption point while attached to Alatar', () => {
     const base = alatarOrgState([ALATAR, BOROMIR]);
     const alatarId = findCharInstanceId(base, RESOURCE_PLAYER, ALATAR);
     const cardId = findHandCardId(base, RESOURCE_PLAYER, BOW_OF_ALATAR);
+    const cpBefore = getCharacter(base, RESOURCE_PLAYER, ALATAR).effectiveStats.corruptionPoints;
 
     expect(base.players[RESOURCE_PLAYER].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, cardId, alatarId);
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+    expect(getCharacter(after, RESOURCE_PLAYER, ALATAR).effectiveStats.corruptionPoints).toBe(cpBefore + 1);
   });
 
   // ── Rule 2/3: tap to let Alatar face a strike regardless of status ─────────
@@ -253,5 +270,70 @@ describe('Bow of Alatar (wh-90)', () => {
     const assigned = dispatch(state, { type: 'assign-strike', player: PLAYER_1, characterId: alatarId });
     const afterStrike = executeAction(assigned, PLAYER_1, 'resolve-strike', 12, false);
     expect(afterStrike.combat!.creatureBody).toBe(9);
+  });
+
+  // ── Rules 6–7: playable without Alatar, attaches on his reveal ─────────────
+  // "Place this card on Alatar if he is in play" makes the placement
+  // conditional, not the play. Mirrors Huntsman's Garb (wh-92) / Give Welcome
+  // to the Unexpected (wh-99) / Bade to Rule (le-167).
+
+  /** Organization-phase state with Alatar NOT in play: he sits in hand (still
+   *  the declared avatar, so the alatar-specific gate passes) and his home
+   *  site heads the site deck so he can be revealed. */
+  function alatarUnrevealedOrgState(): GameState {
+    return buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [BOROMIR] }],
+          hand: [BOW_OF_ALATAR, ALATAR],
+          siteDeck: [THE_WHITE_TOWERS],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: ISENGARD, characters: [] }],
+          hand: [],
+          siteDeck: [ISENGARD],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+  }
+
+  test('playable bare during the organization phase when Alatar is not in play', () => {
+    const state = alatarUnrevealedOrgState();
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBeUndefined();
+
+    const bowId = findHandCardId(state, RESOURCE_PLAYER, BOW_OF_ALATAR);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, bowId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === BOW_OF_ALATAR)).toBe(true);
+    // The stage points are earned whether or not the card sits on Alatar.
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+  });
+
+  test('attaches to Alatar the moment he enters play', () => {
+    const org = alatarUnrevealedOrgState();
+    const bowId = findHandCardId(org, RESOURCE_PLAYER, BOW_OF_ALATAR);
+    const bare = playPermanentEventAndResolve(org, PLAYER_1, bowId);
+
+    // Reveal Alatar at his home site — the bow leaves `cardsInPlay` for his items.
+    const playAlatar = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, ALATAR));
+    expect(playAlatar).toBeDefined();
+    const revealed = dispatch(bare, playAlatar!);
+
+    expect(revealed.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === BOW_OF_ALATAR)).toBe(false);
+    const alatarId = findCharInstanceId(revealed, RESOURCE_PLAYER, ALATAR);
+    expect(revealed.players[RESOURCE_PLAYER].characters[alatarId].items
+      .some(i => i.definitionId === BOW_OF_ALATAR)).toBe(true);
+    expect(revealed.players[RESOURCE_PLAYER].stagePoints).toBe(2);
   });
 });

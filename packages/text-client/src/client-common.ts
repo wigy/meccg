@@ -9,8 +9,8 @@
  */
 
 import type { WebSocket } from 'ws';
-import type { ClientMessage, DeckList, JoinMessage, ServerMessage } from '@meccg/shared';
-import { Alignment } from '@meccg/shared';
+import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
+import { Alignment, buildInstanceLookup, formatCardList } from '@meccg/shared';
 import { loadDeck, listDecks } from '@meccg/sim';
 
 // ---- Deck catalog (shared with the sim harness in @meccg/sim) ----
@@ -108,6 +108,56 @@ export function spawnedJoinPayload(clientArgs: SpawnedClientArgs, logPrefix: str
   return JSON.stringify(msg);
 }
 
+// ---- Character-draft display (console client) ----
+
+/**
+ * Render the character-draft status lines (round, pools, drafted lists,
+ * set-aside) that the console client prints between the state dump and the
+ * action menu. Returns an empty list outside the character-draft setup step.
+ *
+ * The two `draftState` entries are indexed by player order, not by viewer;
+ * `view.selfIndex` identifies the viewing player's entry. An earlier version
+ * guessed the entry by probing which pool held non-redacted cards, which
+ * mislabeled the two sides ("Your"/"Opponent" swapped) as soon as the
+ * viewer's own pool ran empty — reachable when a player is auto-stopped on
+ * an exhausted pool while the opponent keeps drafting.
+ */
+export function formatDraftLines(
+  view: PlayerView,
+  isSpectator: boolean,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string[] {
+  if (view.phaseState.phase !== 'setup' || view.phaseState.setupStep.step !== 'character-draft') return [];
+  const draft = view.phaseState.setupStep;
+  const instanceLookup = buildInstanceLookup(view);
+  const resolve = (instanceIds: readonly CardInstanceId[]) =>
+    instanceIds.map(id => instanceLookup(id) ?? id as unknown as CardDefinitionId);
+  const list = (instanceIds: readonly CardInstanceId[]) => formatCardList(resolve(instanceIds), cardPool);
+  const ids = (cards: readonly { readonly instanceId: CardInstanceId }[]) =>
+    cards.map(c => c.instanceId);
+
+  const lines: string[] = [`Draft round: ${draft.round}`];
+  if (isSpectator) {
+    lines.push(`${view.self.name} pool: ${list(ids(draft.draftState[0].pool))}`);
+    lines.push(`${view.self.name} drafted: ${list(ids(draft.draftState[0].drafted))}`);
+    lines.push(`${view.opponent.name} pool: ${list(ids(draft.draftState[1].pool))}`);
+    lines.push(`${view.opponent.name} drafted: ${list(ids(draft.draftState[1].drafted))}`);
+  } else {
+    const selfIdx = view.selfIndex;
+    const oppIdx = 1 - selfIdx;
+    lines.push(`Your pool: ${list(ids(draft.draftState[selfIdx].pool))}`);
+    lines.push(`Your drafted: ${list(ids(draft.draftState[selfIdx].drafted))}`);
+    lines.push(`Opponent pool: ${list(ids(draft.draftState[oppIdx].pool))}`);
+    lines.push(`Opponent drafted: ${list(ids(draft.draftState[oppIdx].drafted))}`);
+  }
+
+  const flatSetAside = [...draft.setAside[0], ...draft.setAside[1]];
+  if (flatSetAside.length > 0) {
+    lines.push(`Set aside: ${list(ids(flatSetAside))}`);
+  }
+  return lines;
+}
+
 /** Parse a raw WebSocket message buffer into a {@link ServerMessage}. */
 export function parseServerMessage(raw: Buffer): ServerMessage {
   return JSON.parse(raw.toString()) as ServerMessage;
@@ -140,11 +190,42 @@ export function logCommonServerMessage(logPrefix: string, msg: ServerMessage): b
   }
 }
 
+/** Delay before the first reconnect attempt; doubles per consecutive failure. */
+const RECONNECT_BASE_MS = 1000;
+
+/** Ceiling on the backoff delay, so a long server outage still gets polled. */
+const RECONNECT_MAX_MS = 30_000;
+
+/**
+ * Consecutive failed attempts before the client gives up and exits. With the
+ * backoff above that is about five minutes — long enough to ride out a game
+ * server restart, short enough that a client orphaned by a finished game does
+ * not linger.
+ */
+const RECONNECT_MAX_ATTEMPTS = 15;
+
+/** Consecutive failed connection attempts; reset whenever a socket opens. */
+let reconnectAttempts = 0;
+
+/** Reset the reconnect backoff. Exported for tests. */
+export function resetReconnectAttempts(): void {
+  reconnectAttempts = 0;
+}
+
 /**
  * Install the shared close/error handlers for a spawned client's socket:
- * reconnect 2s after a close, and retry 1s after a connection error.
- * `onClose` runs before the reconnect is scheduled (e.g. to clear a shared
- * socket reference).
+ * reconnect after a close or a connection error, backing off exponentially
+ * and giving up once the server has been unreachable for
+ * {@link RECONNECT_MAX_ATTEMPTS} attempts. `onClose` runs before the
+ * reconnect is scheduled (e.g. to clear a shared socket reference).
+ *
+ * At most one reconnect is ever scheduled per socket. `ws` emits `error` and
+ * *then* `close` for a refused connection, so a handler pair that schedules
+ * from both turns every failed attempt into two new sockets. That doubling
+ * compounds: when a finished game left an AI client without a server to talk
+ * to, retries went from 33 to ~49,000 per ten seconds inside two minutes and
+ * the client died on a 4 GB V8 heap, taking the lobby log (512 MB of retry
+ * lines in a day) with it.
  */
 export function installReconnect(
   ws: WebSocket,
@@ -152,17 +233,36 @@ export function installReconnect(
   reconnect: () => void,
   onClose?: () => void,
 ): void {
+  let scheduled = false;
+
+  /** Schedule the single reconnect this socket is allowed to trigger. */
+  const scheduleReconnect = (): void => {
+    if (scheduled) return;
+    scheduled = true;
+    reconnectAttempts++;
+    if (reconnectAttempts > RECONNECT_MAX_ATTEMPTS) {
+      console.error(`${logPrefix}: server unreachable after ${RECONNECT_MAX_ATTEMPTS} attempts, giving up`);
+      process.exit(0);
+    }
+    const delayMs = Math.min(RECONNECT_BASE_MS * 2 ** (reconnectAttempts - 1), RECONNECT_MAX_MS);
+    console.log(`${logPrefix} disconnected, reconnecting in ${delayMs}ms (attempt ${reconnectAttempts}/${RECONNECT_MAX_ATTEMPTS})...`);
+    setTimeout(reconnect, delayMs);
+  };
+
+  // A socket that reaches open proves the server is back: start the next
+  // outage from a short delay rather than wherever this one left off.
+  ws.on('open', resetReconnectAttempts);
+
   ws.on('close', () => {
     onClose?.();
-    console.log(`${logPrefix} disconnected, reconnecting in 2s...`);
-    setTimeout(reconnect, 2000);
+    scheduleReconnect();
   });
 
   ws.on('error', (err) => {
     console.error(`${logPrefix} connection error:`, err.message);
-    setTimeout(() => {
-      console.log(`${logPrefix} retrying connection...`);
-      reconnect();
-    }, 1000);
+    // `close` normally follows and schedules the retry; this call is the
+    // backstop for an error that never closes, and the guard above keeps the
+    // two from becoming two sockets.
+    scheduleReconnect();
   });
 }

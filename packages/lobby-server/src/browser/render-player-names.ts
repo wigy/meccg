@@ -262,7 +262,19 @@ export function remainingGeneralInfluence(player: { generalInfluence: number; ge
  */
 export function getHazardLimitLabel(view: PlayerView): string | null {
   if (view.phaseState.phase !== Phase.MovementHazard) return null;
-  if (view.phaseState.step === 'set-hazard-limit' || view.phaseState.step === 'reveal-new-site' || view.phaseState.step === 'select-company') {
+  // The company's hazard limit is computed only in the set-hazard-limit
+  // handler; until then `hazardLimitAtReveal` is 0 (or a previous company's
+  // stale value), so the box must stay hidden. These are every M/H sub-step
+  // that runs up to and including set-hazard-limit — select-company →
+  // reveal-new-site → under-deeps-roll / region-shortcut-attack all
+  // auto-advance into it (see state-phases.ts for the order).
+  if (
+    view.phaseState.step === 'select-company'
+    || view.phaseState.step === 'reveal-new-site'
+    || view.phaseState.step === 'under-deeps-roll'
+    || view.phaseState.step === 'region-shortcut-attack'
+    || view.phaseState.step === 'set-hazard-limit'
+  ) {
     return null;
   }
   const selfIsResource = view.activePlayer === view.self.id;
@@ -274,6 +286,7 @@ export function getHazardLimitLabel(view: PlayerView): string | null {
         view.phaseState.hazardLimitAtReveal,
         view.phaseState.preRevealHazardLimitConstraintIds,
         activeCompany.id,
+        view.phaseState.resolvedSitePath,
       )
     : view.phaseState.hazardLimitAtReveal;
   const remaining = limit - view.phaseState.hazardsPlayedThisCompany;

@@ -20,7 +20,7 @@ import type {
   EvaluatedAction, GameAction, GameState, PlayerId, TutorialProgress,
 } from '@meccg/shared';
 import {
-  TUTORIAL_BEATS, TUTORIAL_STEPS, TUTORIAL_STEP_BY_ID,
+  TUTORIAL_BEATS, TUTORIAL_COMPLETION, TUTORIAL_STEPS, TUTORIAL_STEP_BY_ID,
   actionMatches, findMatchingAction, gateHumanActions,
 } from '@meccg/shared';
 import type { TutorialBeat } from '@meccg/shared';
@@ -69,7 +69,7 @@ export class TutorialController {
     return this.cursor < TUTORIAL_BEATS.length ? TUTORIAL_BEATS[this.cursor] : null;
   }
 
-  /** True once every beat has been performed. */
+  /** True once chapter one's last beat (the player's End Turn) is done. */
   isDone(): boolean {
     return this.cursor >= TUTORIAL_BEATS.length;
   }
@@ -128,9 +128,22 @@ export class TutorialController {
   /** Progress snapshot for the human's view (drives the browser panel). */
   progress(): TutorialProgress {
     const done = this.isDone();
-    const stepId = done
-      ? TUTORIAL_STEPS[TUTORIAL_STEPS.length - 1].id
-      : TUTORIAL_BEATS[this.cursor].stepId;
+    // Chapter one is over: the panel gives way to the completion card, whose
+    // text belongs to the chapter rather than to any one step.
+    if (done) {
+      return {
+        stepId: 'chapter-one-complete',
+        title: TUTORIAL_COMPLETION.title,
+        body: TUTORIAL_COMPLETION.body,
+        learned: TUTORIAL_COMPLETION.learned,
+        footer: TUTORIAL_COMPLETION.footer,
+        stepIndex: TUTORIAL_STEPS.length - 1,
+        stepCount: TUTORIAL_STEPS.length,
+        yourTurn: false,
+        done: true,
+      };
+    }
+    const stepId = TUTORIAL_BEATS[this.cursor].stepId;
     const info = TUTORIAL_STEP_BY_ID.get(stepId)!;
     const stepIndex = TUTORIAL_STEPS.findIndex(step => step.id === stepId);
     const beat = this.currentBeat();
@@ -141,7 +154,7 @@ export class TutorialController {
       stepIndex,
       stepCount: TUTORIAL_STEPS.length,
       yourTurn: beat !== null && beat.actor === 'human',
-      done,
+      done: false,
       concepts: info.concepts,
       pointers: info.pointers,
       card: info.card,

@@ -239,6 +239,37 @@ describe('Adûnaphel (tw-2)', () => {
     expect(afterTap.players[1].discardPile.some(c => c.instanceId === adunId)).toBe(true);
   });
 
+  // ─── Regression: a wounded character is not a legal tap target ──────────────
+  // Only untapped characters may be tapped; offering a wounded (Inverted)
+  // character would let the tap resolution overwrite the wound with Tapped,
+  // silently healing it.
+  test('a wounded character is not offered as a tap target', () => {
+    resetMint();
+    const state = buildTestState({
+      activePlayer: PLAYER_1, phase: Phase.MovementHazard, recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, status: CardStatus.Inverted }] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ADUNAPHEL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState({ destinationSiteName: 'Barad-dûr' }) };
+    const adunId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const aragornId = ready.players[0].companies[0].characters[0];
+
+    const afterPlay = resolveChain(dispatch(ready, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId: adunId,
+      targetCompanyId: companyId, altEventMode: 'permanent-event',
+    }));
+    expect(afterPlay.players[0].characters[aragornId].status).toBe(CardStatus.Inverted);
+
+    // The wounded Aragorn is the only opposing character, so no tap target is
+    // offered — only the non-viable "No eligible character to tap" fallback.
+    const tapTargets = viableActions(afterPlay, PLAYER_2, 'tap-alt-permanent-event')
+      .map(a => (a.action as { targetCharacterId?: string }).targetCharacterId);
+    expect(tapTargets).not.toContain(aragornId as unknown as string);
+  });
+
   // ─── Regression: the hazard player cannot tap their OWN character (CoE 2.1.2) ─
   // As the hazard player, Adûnaphel's on-tap "any one character to tap" is a
   // hazard directed at the opponent, so it may only target the resource

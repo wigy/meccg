@@ -24,9 +24,9 @@
  * Rules exercised:
  * 1. discardBodyCheck [8]: Grishnákh (orc, body 8) is discarded to the resource
  *    player's discard pile (not eliminated) when a mass body check fails. Veils
- *    Flung Away applies modifier -1, so effectiveThreshold = 7; a roll of 6
- *    (< 7) triggers the discard.
- * 2. Grishnákh stays in play when the body check passes (roll >= 7).
+ *    Flung Away applies a -1 roll modifier (CoE 3.I.1); a roll of 9 (total 8,
+ *    matching the printed value) triggers the discard.
+ * 2. Grishnákh stays in play when the body check passes (roll <= 7).
  * 3. "Unique.": only a single copy of Grishnákh may be organised into play —
  *    the engine refuses to play a second copy from hand while one is already
  *    in a company (duplication limit on the unique character).
@@ -79,8 +79,8 @@ describe('Grishnákh (le-12)', () => {
   // ── discardBodyCheck [8]: fail → discard to discard pile ──────────────────
 
   test('Grishnákh is discarded to discard pile when mass body check fails', () => {
-    // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 6 (< 7) → fail → Grishnákh discarded to resource player's discard pile.
+    // discardBodyCheck [8]; Veils' -1 rides the roll (CoE 3.I.1) — a total of 8 discards.
+    // Roll 9 (total 8, matching the value) → Grishnákh discarded to resource player's discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -105,16 +105,16 @@ describe('Grishnákh (le-12)', () => {
     expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
 
-    // discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7, target Grishnákh.
+    // discardBodyCheck [8] → threshold = body 8, -1 roll modifier, target Grishnákh.
     const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === grishnakhId);
     expect(dc).toBeDefined();
     if (dc?.kind.type === 'dice-check') {
       expect(dc.kind.targetCharacterId).toBe(grishnakhId);
-      expect(dc.kind.threshold).toBe(7);
+      expect(dc.kind.threshold).toBe(8);
     }
 
-    // Force roll of 6 (< effectiveThreshold 7) → fail
-    s = { ...s, cheatRollTotal: 6 };
+    // Force roll of 9 → total 8 matches the discard value
+    s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -134,8 +134,8 @@ describe('Grishnákh (le-12)', () => {
   // ── discardBodyCheck [8]: pass → no effect ────────────────────────────────
 
   test('Grishnákh stays in play when mass body check passes', () => {
-    // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 7 (= threshold) → pass → Grishnákh remains in play.
+    // discardBodyCheck [8]; Veils' -1 rides the roll (CoE 3.I.1) — a total of 8 discards.
+    // Roll 7 (not > threshold) → pass → Grishnákh remains in play.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -152,7 +152,7 @@ describe('Grishnákh (le-12)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Force roll of 7 (= effectiveThreshold 7) → pass
+    // Force roll of 7 → total 6: no match, ≤ body → pass
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');

@@ -46,7 +46,7 @@ import {
 } from '@meccg/shared';
 import type { CardDefinition, PlayerView } from '@meccg/shared';
 import { playGame } from '../runner.js';
-import { parseCliArgs, numberFlag, resolvePair, resolveAgent, resolveDecks } from './common.js';
+import { cliPreamble, numberFlag, resolvePair, resolveAgent, resolveDecks } from './common.js';
 import { resourcePlayableAt } from '../ai/evaluators/common.js';
 import { forwardActions } from '../ai/regress.js';
 import type { Agent, AgentContext } from '../types.js';
@@ -115,11 +115,7 @@ interface Report {
   turnsSeen: number[];
 }
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const games = numberFlag(args, 'games', 10);
@@ -158,7 +154,7 @@ function playableHere(view: PlayerView, siteDefinitionId: string): number {
   let count = 0;
   for (const card of view.self.hand) {
     const def = cardPool[card.definitionId];
-    if (def && resourcePlayableAt(def, siteDef as never)) count++;
+    if (def && resourcePlayableAt(def, siteDef as never, view.self.alignment)) count++;
   }
   return count;
 }

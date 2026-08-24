@@ -86,7 +86,7 @@ export interface CreatureKeyingMatch {
    * the creature play without satisfying any path-based keying — the
    * `value` records the race that was whitelisted.
    */
-  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
+  readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-in-region' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
   /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs", "The Lonely Mountain", "Rivendell to Lórien"). */
   readonly value: string;
 }
@@ -122,6 +122,13 @@ export interface PlayHazardAction {
    * marshalling-point pile) being targeted.
    */
   readonly targetStoredItemInstanceId?: CardInstanceId;
+  /**
+   * For a `play-target: "nazgul-permanent-event"` hazard permanent-event
+   * (Helms of Iron dm-64), the hazard player's own Nazgûl permanent-event
+   * instance chosen at declaration. Discarded on resolution by the card's
+   * `self-enters-play` move.
+   */
+  readonly targetNazgulInstanceId?: CardInstanceId;
   /**
    * For hazard short-events with a creature-race-choice effect (e.g. Two
    * or Three Tribes Present), the race the player announced when playing.
@@ -504,6 +511,30 @@ export interface TapItemForStrikeAction {
 }
 
 /**
+ * Tap an in-play item (or ally) carrying a `strike-modifier` effect with
+ * `dodge: true` and `cost: { tap: "self" }` (e.g. Great-shield of Rohan
+ * tw-250) to resolve the current strike against its bearer in dodge mode:
+ * full prowess, no roll skipped, but the bearer doesn't tap unless the
+ * strike wounds him. Mirrors `cancel-strike`'s item-tap convention (resolves
+ * immediately, no chain/response window) rather than the hand-played
+ * `play-strike-event` dodge path.
+ */
+export interface DodgeStrikeAction {
+  /** Action discriminant. */
+  readonly type: 'dodge-strike';
+  /** The defending player tapping the item. */
+  readonly player: PlayerId;
+  /** The in-play item (or ally) being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character bearing the item (must be the current strike target). */
+  readonly characterInstanceId: CardInstanceId;
+  /** The 2d6 value needed (full, untapped prowess vs the strike). */
+  readonly need: number;
+  /** Human-readable breakdown of the modified prowess vs creature prowess. */
+  readonly explanation: string;
+}
+
+/**
  * Tap an in-play `face-strike-on-tap` item (e.g. Bow of Alatar wh-90) during
  * the `assign-strikes` defender phase to let its bearer face one of the
  * attack's strikes regardless of the attack's normal capabilities and the
@@ -691,6 +722,22 @@ export interface ForceDiscardCardAction {
   /** The player forced to discard (the card-player's opponent). */
   readonly player: PlayerId;
   /** The chosen ring instance to discard (from hand or a character). */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Discard an ally carrying `cancel-prisoner-taking` (e.g. Noble Hound dm-179)
+ * to cancel the current strike's prisoner-taking outcome. Available during
+ * the 'cancel-prisoner-taking-choice' combat phase; the struck character is
+ * resolved as a normal wound instead of being taken prisoner. Declining
+ * (letting the prisoner-taking proceed) is a `pass` action instead.
+ */
+export interface CancelPrisonerTakingAction {
+  /** Action discriminant. */
+  readonly type: 'cancel-prisoner-taking';
+  /** The defending player discarding the ally. */
+  readonly player: PlayerId;
+  /** The ally being discarded to cancel the prisoner-taking. */
   readonly cardInstanceId: CardInstanceId;
 }
 
@@ -893,8 +940,12 @@ export interface GoodwillAttemptRollAction {
   readonly player: PlayerId;
   /** The diplomat making the goodwill attempt. */
   readonly characterInstanceId: CardInstanceId;
-  /** The company item discarded to enable the roll. */
-  readonly itemInstanceId: CardInstanceId;
+  /**
+   * The company item discarded to enable the roll. Absent on the fizzle
+   * action offered when the diplomat, company, or every qualifying item has
+   * left play before the roll — the attempt then fails without a cost.
+   */
+  readonly itemInstanceId?: CardInstanceId;
   /** roll >= need means success (already accounts for unused DI). */
   readonly need: number;
   /** Human-readable breakdown of the check. */

@@ -28,7 +28,8 @@ import {
   buildTestState, resetMint,
   makeCancelWindowCombat,
   dispatch, resolveChain,
-  handCardId, charIdAt,
+  handCardId, charIdAt, findCharInstanceId,
+  eliminateCharacter,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, reduce, Race } from '../../index.js';
@@ -321,6 +322,46 @@ describe('Flatter a Foe (td-116)', () => {
       ea => ea.viable && ea.action.type === 'flattery-attempt',
     );
     expect(actions).toHaveLength(1);
+  });
+
+  test('multi-race attacks match on ANY of their races and use the lowest threshold', () => {
+    // Regression: only the primary race was consulted, ignoring
+    // combat.creatureRaces. An "Orcs. Men." attacker (Goblin-faces wh-13)
+    // got the orc threshold 12 instead of the man line 11, and an attacker
+    // whose primary race is in no threshold list (Beorning Skin-changers
+    // ba-10, "animal" + man) was not offered the cancel at all.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // Animal (in no threshold list) + Man (threshold 11).
+    const withCombat = makeCancelWindowCombat(base, { creatureRace: Race.Animal });
+    const state = {
+      ...withCombat,
+      combat: { ...withCombat.combat!, creatureRaces: [Race.Animal, Race.Man] },
+    };
+
+    // The cancel is offered (previously skipped: "animal" matched nothing).
+    const offers = computeLegalActions(state, PLAYER_1).filter(
+      ea => ea.viable && ea.action.type === 'cancel-attack',
+    );
+    expect(offers.length).toBeGreaterThan(0);
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const afterChain = resolveChain(dispatch(state, {
+      type: 'cancel-attack', player: PLAYER_1,
+      cardInstanceId: flatCard, targetCharacterId: aragornId,
+    }));
+    const pending = afterChain.pendingResolutions.find(r => r.kind.type === 'flattery-attempt');
+    expect(pending).toBeDefined();
+    // Matched via the Man line, threshold 11.
+    expect(pending!.kind.type === 'flattery-attempt' && pending!.kind.threshold).toBe(11);
+    expect(pending!.kind.type === 'flattery-attempt' && pending!.kind.creatureRace).toBe(Race.Man);
   });
 
   // ── Pending action computation ────────────────────────────────────────────
@@ -636,5 +677,52 @@ describe('Flatter a Foe (td-116)', () => {
     const result = reduce({ ...s, cheatRollTotal: 9 }, flatAction.action);
     expect(result.error).toBeUndefined();
     expect(result.state.combat).not.toBeNull();
+  });
+
+  // ── Attempting character leaves play while the roll is pending ────────────
+
+  test('character eliminated while the roll is pending: attempt fails, game not deadlocked', () => {
+    // Regression: the flattery-attempt emitter returned NO actions when the
+    // attempting character had left play before the roll (e.g. eliminated by
+    // a chain response). The chain was stuck in 'resolving' mode with no
+    // legal actions for either player — the same deadlock class as the
+    // faction-influence-roll lost-influencer fix (#1725).
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN, GIMLI] }], hand: [FLATTER_A_FOE], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base, { creatureRace: Race.Dragon });
+
+    const flatCard = handCardId(state, RESOURCE_PLAYER);
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const s = resolveChain(dispatch(state, {
+      type: 'cancel-attack', player: PLAYER_1, cardInstanceId: flatCard, targetCharacterId: aragornId,
+    }));
+    expect(s.pendingResolutions.find(r => r.kind.type === 'flattery-attempt')).toBeDefined();
+
+    // Aragorn leaves play while the roll is pending.
+    const gone = eliminateCharacter(s, RESOURCE_PLAYER, aragornId, s.players[RESOURCE_PLAYER].characters[aragornId]);
+
+    // The resolution must still be actionable...
+    const flatAction = computeLegalActions(gone, PLAYER_1).find(
+      ea => ea.viable && ea.action.type === 'flattery-attempt',
+    );
+    expect(flatAction).toBeDefined();
+
+    // ...and resolving it fails the attempt: chain completes, combat continues.
+    const result = reduce(gone, flatAction!.action);
+    expect(result.error).toBeUndefined();
+    expect(result.state.chain).toBeNull();
+    expect(result.state.pendingResolutions).toHaveLength(0);
+    expect(result.state.combat).not.toBeNull();
+    const anyViable = [
+      ...computeLegalActions(result.state, PLAYER_1),
+      ...computeLegalActions(result.state, PLAYER_2),
+    ].some(ea => ea.viable);
+    expect(anyViable).toBe(true);
   });
 });

@@ -251,6 +251,9 @@ describe('Descent through Fire (ba-56)', () => {
     const recomputed = recomputeDerived(afterKeep);
     expect(getCharacter(recomputed, RESOURCE_PLAYER, THE_BALROG).effectiveStats.prowess).toBe(9); // 8 + 1
     expect(getCharacter(recomputed, RESOURCE_PLAYER, LIEUTENANT).effectiveStats.prowess).toBe(8); // 7 + 1
+
+    // The kept card is worth its printed 3 miscellaneous marshalling points.
+    expect(recomputed.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(3);
   });
 
   // ── Effect 8: +1 direct influence to leaders only ──

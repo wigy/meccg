@@ -20,7 +20,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { roll2d6, diceRollEffect, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
+import { rollDiceForPlayer, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -448,7 +448,15 @@ function resolveDraftRound(
       || (isCharacterCard(def0Card) && isCharacterCard(def1Card)
         && def0Card.name === def1Card.name && def0Card.unique === true && def1Card.unique === true));
 
-  if (pick0 !== null && pick1 !== null && (def0 === def1 || entityCollision)) {
+  // Rule 1.9: only *unique* characters collide ("Players set aside duplicated
+  // unique characters with the same name or manifestation") — both players
+  // revealing the same non-unique character (three copies of the same Orc)
+  // must each keep theirs, matching the uniqueness requirement the same-name
+  // branch of entityCollision already carries.
+  const identicalCollision = def0 === def1 && def0Card !== undefined
+    && isCharacterCard(def0Card) && def0Card.unique === true;
+
+  if (pick0 !== null && pick1 !== null && (identicalCollision || entityCollision)) {
     // Duplicate! Neither gets it — set aside both instances (one per player, so no instance ID is shared).
     // Remove each player's collided definition from their pool. (For an
     // identical-card collision the two definitions coincide; for a
@@ -459,8 +467,16 @@ function resolveDraftRound(
     }
     newSetAside[0].push(pick0);
     newSetAside[1].push(pick1);
-    newDraft[0] = { ...newDraft[0], pool: newDraft[0].pool.filter(c => c.definitionId !== def0) };
-    newDraft[1] = { ...newDraft[1], pool: newDraft[1].pool.filter(c => c.definitionId !== def1) };
+    // Any remaining pool copies of the collided definition are set aside too —
+    // filtering them out with no destination would delete the instances from
+    // the game state (a unique card has one copy per deck, so this is
+    // normally a no-op; it guards the no-card-disappears invariant).
+    for (const i of [0, 1] as const) {
+      const defX = i === 0 ? def0 : def1;
+      const extras = newDraft[i].pool.filter(c => c.definitionId === defX);
+      if (extras.length > 0) newSetAside[i].push(...extras);
+      newDraft[i] = { ...newDraft[i], pool: newDraft[i].pool.filter(c => c.definitionId !== defX) };
+    }
   } else {
     if (pick0 !== null) newDraft[0] = { ...newDraft[0], drafted: [...newDraft[0].drafted, pick0] };
     if (pick1 !== null) newDraft[1] = { ...newDraft[1], drafted: [...newDraft[1].drafted, pick1] };
@@ -578,15 +594,29 @@ function handleItemDraft(
     const newItemDraftState = [...stepState.itemDraftState] as [ItemDraftPlayerState, ItemDraftPlayerState];
     newItemDraftState[playerIndex] = { unassignedItems: [], done: true };
 
+    // Rule 1.9: unused pool items are "removed from the game" — sink them to
+    // the out-of-play pile, flagged `removedFromGame` so uniqueness checks
+    // don't treat them as still blocking (unlike genuinely eliminated cards
+    // in the same pile). Clearing the phase-state array alone would leave
+    // the instances unreachable (no-card-disappears invariant).
+    let stateAfterPass = state;
+    if (itemDraft.unassignedItems.length > 0) {
+      logDetail(`Item draft: player ${playerIndex} passes — ${itemDraft.unassignedItems.length} unused pool item(s) removed from the game`);
+      stateAfterPass = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        outOfPlayPile: [...p.outOfPlayPile, ...itemDraft.unassignedItems.map(c => ({ ...c, removedFromGame: true as const }))],
+      }));
+    }
+
     if (newItemDraftState[0].done && newItemDraftState[1].done) {
       return {
-        state: transitionAfterItemDraft(state, stepState.remainingPool),
+        state: transitionAfterItemDraft(stateAfterPass, stepState.remainingPool),
       };
     }
 
     return {
       state: {
-        ...state,
+        ...stateAfterPass,
         phaseState: setupPhase({ ...stepState, itemDraftState: newItemDraftState }),
       },
     };
@@ -799,14 +829,30 @@ function handleCharacterDeckDraft(
     const newDeckDraftState = [...stepState.deckDraftState] as [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState];
     newDeckDraftState[playerIndex] = { remainingPool: [], done: true };
 
+    // Rule 1.9: undrafted pool characters are "removed from the game" — sink
+    // them to the out-of-play pile, flagged `removedFromGame` so uniqueness
+    // checks don't treat them as still blocking (unlike genuinely eliminated
+    // characters in the same pile). Clearing the phase-state array alone would
+    // leave the instances unreachable (no-card-disappears invariant); the
+    // Fallen-wizard Stage-resource rescue in init.ts already does this for its
+    // own card class for exactly that reason.
+    let stateAfterPass = state;
+    if (deckDraft.remainingPool.length > 0) {
+      logDetail(`Character deck draft: player ${playerIndex} passes — ${deckDraft.remainingPool.length} undrafted pool character(s) removed from the game`);
+      stateAfterPass = updatePlayer(state, playerIndex, p => ({
+        ...p,
+        outOfPlayPile: [...p.outOfPlayPile, ...deckDraft.remainingPool.map(c => ({ ...c, removedFromGame: true as const }))],
+      }));
+    }
+
     // Both done → enter site selection
     if (newDeckDraftState[0].done && newDeckDraftState[1].done) {
-      return { state: enterSiteSelection(state) };
+      return { state: enterSiteSelection(stateAfterPass) };
     }
 
     return {
       state: {
-        ...state,
+        ...stateAfterPass,
         phaseState: setupPhase({ ...stepState, deckDraftState: newDeckDraftState }),
       },
     };
@@ -1328,19 +1374,11 @@ function handleInitiativeRoll(
     return { state, error: 'You have already rolled' };
   }
 
-  // Roll 2d6
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  // Roll 2d6 and store the roll in the player's state
+  const { roll, rollEffect, state: stateWithRoll } = rollDiceForPlayer(state, playerIndex, 'First turn');
   const d1 = roll.die1;
   const d2 = roll.die2;
   logDetail(`${state.players[playerIndex].name} rolls initiative: ${d1} + ${d2} = ${d1 + d2}`);
-  const rollEffect = diceRollEffect(state.players[playerIndex].name, roll, 'First turn');
-
-  // Store the roll in the player's state
-  const stateWithRoll: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, lastDiceRoll: roll })),
-    rng,
-    cheatRollTotal,
-  };
 
   const newRolls = [...stepState.rolls] as [TwoDiceSix | null, TwoDiceSix | null];
   newRolls[playerIndex] = roll;

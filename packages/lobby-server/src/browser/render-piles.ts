@@ -7,9 +7,11 @@
  * reveal-remove-from-discard, and arrange-deck-top sub-flows.
  */
 
-import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard, PlayHeroResourceAction } from '@meccg/shared';
 import { cardImageProxyPath, isCardHidden } from '@meccg/shared';
 import { buildCardAttributes } from './render-card-preview.js';
+import { setSelectedAllyForPlay, setTargetingInstruction } from './render-selection-state.js';
+import { reRenderAllyPlaySelection } from './render-hand.js';
 
 // ---- Deck pile rendering ----
 
@@ -136,6 +138,13 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   if (cardPool) cachedCardPool = cardPool;
   // Collect actionable instance IDs from viable legal actions
   actionableInstanceIds = collectActionInstanceIds(view.legalActions);
+  // Viable `play-hero-resource` actions sourced from the self discard pile
+  // (e.g. Glove of Radagast wh-111's `grant-ally-play` `fromDiscard` grant) —
+  // makes the corresponding discard-pile browser cards clickable below.
+  discardAllyPlayActions = view.legalActions
+    .filter((ea): ea is EvaluatedAction & { action: PlayHeroResourceAction } =>
+      ea.viable && ea.action.type === 'play-hero-resource' && ea.action.fromDiscard === true)
+    .map(ea => ea.action);
   installSiteDeckViewer();
   installPileBrowserClickHandlers();
 }
@@ -147,6 +156,17 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
  * Used to sort actionable cards to the end of pile browser listings.
  */
 let actionableInstanceIds: ReadonlySet<string> = new Set();
+
+/**
+ * Viable `play-hero-resource` actions with `fromDiscard: true` (e.g. Glove of
+ * Radagast wh-111's `grant-ally-play` grant, which lets a granted ally be
+ * played from the discard pile). Checked against the currently-browsed pile
+ * when it is the self discard pile so those cards become clickable.
+ */
+let discardAllyPlayActions: readonly PlayHeroResourceAction[] = [];
+
+/** True while the pile browser modal is showing the self discard pile. */
+let cachedBrowsingSelfDiscard = false;
 
 /** Extract all CardInstanceId values from a game action object. */
 function collectActionInstanceIds(actions: readonly EvaluatedAction[]): Set<string> {
@@ -198,11 +218,12 @@ let arrangeDeckTopBrowserOpened = false;
  * Open the pile browser modal showing a list of cards (known or unknown).
  * Used by site deck, sideboard, and victory display piles.
  */
-function openPileBrowser(title: string, cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>>, backImage = '/images/card-back.jpg'): void {
+function openPileBrowser(title: string, cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>>, backImage = '/images/card-back.jpg', isSelfDiscard = false): void {
   cachedBrowserCards = cards;
   cachedBrowserTitle = title;
   cachedBrowserBackImage = backImage;
   cachedCardPool = cardPool;
+  cachedBrowsingSelfDiscard = isSelfDiscard;
   populateBrowserGrid();
 }
 
@@ -322,6 +343,21 @@ function populateBrowserGrid(): void {
         // Site not in legal actions at all — dim it
         img.classList.add('site-dimmed');
       }
+    } else if (cachedBrowsingSelfDiscard
+      && discardAllyPlayActions.some(a => a.cardInstanceId === card.instanceId)) {
+      // A `grant-ally-play` `fromDiscard` grant (Glove of Radagast wh-111) makes
+      // this discard-pile card playable — enter the same two-step ally-play
+      // targeting flow used for hand-sourced allies (click a company character
+      // next), rather than dispatching directly, since the grant can offer
+      // more than one valid target character.
+      img.classList.add('site-selectable');
+      const instanceId = card.instanceId;
+      img.addEventListener('click', () => {
+        setSelectedAllyForPlay(instanceId);
+        setTargetingInstruction(`Click an untapped character to control ${def?.name ?? 'the selected ally'}`);
+        reRenderAllyPlaySelection();
+        closeSelectionViewer();
+      });
     }
 
     grid.appendChild(img);
@@ -491,11 +527,11 @@ function installPileBrowserClickHandlers(): void {
   pileBrowserClickHandlersInstalled = true;
 
   /** Helper to wire a pile element to the browser modal. */
-  function wirePile(elementId: string, title: string, getCards: () => readonly ViewCard[], backImage = '/images/card-back.jpg'): void {
+  function wirePile(elementId: string, title: string, getCards: () => readonly ViewCard[], backImage = '/images/card-back.jpg', isSelfDiscard = false): void {
     const el = document.getElementById(elementId);
     if (el) {
       el.addEventListener('click', () => {
-        if (cachedCardPool) openPileBrowser(title, getCards(), cachedCardPool, backImage);
+        if (cachedCardPool) openPileBrowser(title, getCards(), cachedCardPool, backImage, isSelfDiscard);
       });
     }
   }
@@ -504,14 +540,15 @@ function installPileBrowserClickHandlers(): void {
   wirePile('self-mp-pile', 'MP Pile', () => cachedSelfKillPile);
   wirePile('self-eliminated-pile', 'Eliminated', () => cachedSelfOutOfPlay);
   wirePile('self-sideboard-pile', 'Sideboard', () => cachedSelfSideboard);
-  wirePile('self-discard-pile', 'Discard Pile', () => cachedSelfDiscard);
+  wirePile('self-discard-pile', 'Discard Pile', () => cachedSelfDiscard, '/images/card-back.jpg', true);
   wirePile('self-deck-pile', 'Play Deck', () => cachedSelfPlayDeck);
 
   // Opponent piles
   wirePile('opponent-mp-pile', 'MP Pile', () => cachedOppKillPile);
   wirePile('opponent-eliminated-pile', 'Eliminated', () => cachedOppOutOfPlay);
   wirePile('opponent-sideboard-pile', 'Sideboard', () => cachedOppSideboard);
-  wirePile('opponent-discard-pile', 'Discard Pile', () => cachedOppDiscard);
+  wirePile('opponent-discard-pile', 'Discard Pile', () =>
+    revealRemoveDiscardFilterActive ? cachedOppDiscard.filter(c => !isCardHidden(c.definitionId)) : cachedOppDiscard);
   wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
   wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck, '/images/site-back.jpg');
 }
@@ -677,6 +714,22 @@ export function prepareFetchFromPile(
 }
 
 /**
+ * Whether the reveal-remove-from-discard sub-flow is active. While true, the
+ * `opponent-discard-pile` click handler shows only the currently-revealed
+ * (non-hidden) cards instead of the whole pile.
+ *
+ * Aware of their Ways only reveals a handful of cards at random (four, minus
+ * any that were already public), but the opponent's discard pile can hold
+ * dozens of still-hidden cards from the rest of the game. Opening the pile
+ * browser with the raw, unfiltered pile buried the actual reveal in a wall of
+ * face-down placeholders, sorted with the removable candidates pushed to the
+ * end — reported as "showed 7 cards ... I assume #4 was unique ... but it
+ * still should be visible" (the unique, non-removable card was technically
+ * rendered, just lost among unrelated hidden cards).
+ */
+let revealRemoveDiscardFilterActive = false;
+
+/**
  * Prepare the reveal-remove-from-discard sub-flow UI (Aware of their Ways,
  * dm-46): highlights the opponent's discard pile and wires up the pile
  * browser so clicking one of the revealed cards sends the corresponding
@@ -698,6 +751,7 @@ export function prepareRevealRemoveFromDiscard(
   document.getElementById('opponent-discard-pile')?.classList.add('pile--fetch-active');
 
   pileSubFlowActive = true;
+  revealRemoveDiscardFilterActive = true;
   siteSelectionActions = removeActions;
   siteSelectionMatcher = (card) => removeActions.find(
     ea => ea.action.type === 'remove-revealed-card'
@@ -771,6 +825,7 @@ export function clearSelectionState(): void {
   siteSelectionMatcher = null;
   siteSelectionInPlayInstanceIds = new Set();
   pileSubFlowActive = false;
+  revealRemoveDiscardFilterActive = false;
   arrangeDeckTopBrowserOpened = false;
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');

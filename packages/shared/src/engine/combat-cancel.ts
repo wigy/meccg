@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction, PlayerState } from '../index.js';
+import type { GameState, CombatState, GameAction, PlayerState, PlayerId, CompanyId } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -25,7 +25,7 @@ import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
-import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySiteDef, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
@@ -34,6 +34,8 @@ import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalize
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
 import { cvccSides } from './cvcc-sides.js';
+import { getActiveAutoAttacks } from './manifestations.js';
+import { buildSiteRepeatedAttackCombat } from './site-repeated-attack.js';
 
 /**
  * Handle cancel-attack sourced from an in-play ally (e.g. The Warg-king's
@@ -695,6 +697,48 @@ function discardCanceledCreature(state: GameState, players: PlayerState[], comba
 }
 
 /**
+ * Shared tail for every path that ends a combat by cancellation once
+ * `state.combat` has been cleared (chain-resolved cancel-attack cards and
+ * the cancel-by-tap full cancels). Runs the same housekeeping as attack
+ * finalization:
+ *
+ * - card-triggered-attack sources continue their queued sequence or dispose
+ *   of the card, exactly as finalization would;
+ * - a canceled Great Hunt reveal-sequence attack still advances the reveal
+ *   queue; a canceled Hunt attack still taps the bearer afterwards;
+ * - attack-scoped constraints (short-event stat boosts, duplication-limit
+ *   markers) are swept — `scope: { kind: 'attack' }` is removed *only* by an
+ *   attack-end sweep, so skipping it leaks the modifiers into every later
+ *   check and the entire next combat;
+ * - per CoE 3.i.1 / CRF 22 Annotation 14 the company still "faced" the
+ *   canceled attack, so it is recorded in `hazardsEncountered`;
+ * - a company the combat emptied is dissolved and a Traitor attack queued
+ *   mid-combat still fires, both via {@link completeCombat} (a no-op for the
+ *   pruning while a follow-up combat, e.g. a multi-attack card, is active).
+ *
+ * @param stateWithCombatCleared - State with `players` updated and `combat: null`.
+ * @param preCancelState - The state as it was before the cancellation (used
+ *   by `recordHazardEncountered` to read the M/H phase context).
+ * @param combat - The combat that was just canceled.
+ */
+function endCanceledCombat(
+  stateWithCombatCleared: GameState,
+  preCancelState: GameState,
+  combat: CombatState,
+): GameState {
+  let s = continueOrDisposeCardTriggeredAttack(stateWithCombatCleared, combat, true);
+  if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
+    s = advanceGreatHuntReveal(s, combat.attackSource.greatHuntInstanceId);
+  }
+  if (combat.attackSource.type === 'hunt-attack') {
+    s = tapHuntBearerAfterwards(s, combat.defendingPlayerId, combat.attackSource.bearerInstanceId);
+  }
+  s = sweepExpired(s, { kind: 'attack-end' });
+  s = recordHazardEncountered(s, preCancelState, combat);
+  return completeCombat(s);
+}
+
+/**
  * Apply the cancel-attack effect when its chain entry resolves.
  *
  * Called from the chain resolver when a short-event entry with a
@@ -746,10 +790,14 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
 
   const newPlayers = clonePlayers(state);
 
-  // For multi-attack creatures (e.g. Assassin), cancelling one attack
-  // removes one strike rather than ending the entire combat.
-  if (combat.forceSingleTarget && combat.strikesTotal > 1) {
-    const newStrikesTotal = combat.strikesTotal - 1;
+  // For multi-attack creatures (e.g. Assassin), cancelling one attack removes
+  // that attack's full strike allotment (`strikesPerAttack` — Nameless Thing
+  // dm-109 is 3 attacks × 2 strikes) rather than ending the entire combat.
+  // Mirrors handleCancelByTap; when the canceled attack is the last one, fall
+  // through to the full-cancel path below.
+  const strikesPerCanceledAttack = combat.strikesPerAttack ?? 1;
+  if (combat.forceSingleTarget && combat.strikesTotal > strikesPerCanceledAttack) {
+    const newStrikesTotal = combat.strikesTotal - strikesPerCanceledAttack;
     logDetail(`Multi-attack: one attack canceled, strikes reduced ${combat.strikesTotal} → ${newStrikesTotal}`);
     const newCancelByTap = combat.cancelByTapRemaining !== undefined
       ? Math.min(combat.cancelByTapRemaining, newStrikesTotal)
@@ -762,6 +810,7 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
         strikesTotal: newStrikesTotal,
         cancelByTapRemaining: newCancelByTap,
         multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
+        anyAttackCanceled: true,
       },
     };
   }
@@ -770,46 +819,66 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
   // cardsInPlay to discard.
   discardCanceledCreature(state, newPlayers, combat);
 
-  // card-triggered-attack cancelled: the attack never resolved, but the card is
-  // still in play — continue the queued sequence or dispose of it, exactly as
-  // finalization would.
-  let stateWithCancelledPlayers: GameState = { ...state, players: newPlayers, combat: null };
-  stateWithCancelledPlayers = continueOrDisposeCardTriggeredAttack(stateWithCancelledPlayers, combat, true);
-
-  // The Great Hunt (wh-91): a canceled reveal-sequence attack still advances
-  // the reveal queue to the next creature (the creature never moved out of its
-  // pile, so nothing is disposed on cancel either).
-  if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
-    stateWithCancelledPlayers = advanceGreatHuntReveal(stateWithCancelledPlayers, combat.attackSource.greatHuntInstanceId);
-  }
-
-  // The Hunt (dm-143): "If untapped, tap [the bearer] afterwards" applies
-  // even when the attack is canceled — the forced-attack sequence still
-  // "happened", just without strikes.
-  if (combat.attackSource.type === 'hunt-attack') {
-    stateWithCancelledPlayers = tapHuntBearerAfterwards(stateWithCancelledPlayers, combat.defendingPlayerId, combat.attackSource.bearerInstanceId);
-  }
-
-  // Sweep attack-scoped constraints (e.g. duplication-limit markers from
-  // cancel-attack or modify-attack cards played on this attack) now that the
-  // attack has ended via cancellation.
-  stateWithCancelledPlayers = sweepExpired(stateWithCancelledPlayers, { kind: 'attack-end' });
-
-  // Per CoE 3.i.1 and CRF 22 Annotation 14, a company is still considered to
-  // have "faced" an attack once combat is initiated, even if the attack is
-  // then canceled. Record the canceled creature in hazardsEncountered so that
-  // subsequent creature self-effects see it — e.g. Orc-lieutenant's +4 prowess
-  // "if played on a company that has already faced an Orc attack this turn"
-  // must apply even when the prior Orc attack (e.g. Hobgoblins) was canceled.
-  // recordHazardEncountered is a no-op outside the M/H phase and for
-  // non-creature attack sources, so multi-attack partial cancels (which return
-  // earlier with combat still active) and card-triggered attacks are unaffected.
-  stateWithCancelledPlayers = recordHazardEncountered(stateWithCancelledPlayers, state, combat);
-
   logDetail('Combat canceled by chain resolution — returning to enclosing phase');
-  // A Traitor attack queued mid-combat still fires after the cancellation
-  // (no-op while a follow-up combat, e.g. a multi-attack card, is active).
-  return completeCombat(stateWithCancelledPlayers);
+  return endCanceledCombat({ ...state, players: newPlayers, combat: null }, state, combat);
+}
+
+/**
+ * All the Bells Ringing (as-44): after canceling a minion company's declared
+ * CvCC attack against a hero company at a Free-hold or Border-hold, the
+ * minion company must face all of the site's automatic-attacks again — this
+ * time attacking normally, not as detainment — before it may declare the CvCC
+ * attack again. Called from {@link applyEffect}'s `cancel-attack` branch
+ * (`apply-dispatcher.ts`) right after {@link resolveCancelAttackEntry} has
+ * cleared the combat, using the attacking player/company captured from the
+ * combat state before it was cleared.
+ *
+ * Mirrors the Troll-purse (dm-95) re-face sequencing
+ * (`'troll-purse-attacks'`/`handleSiteTrollPurseAttacks` in `reducer-site.ts`)
+ * but forces every re-faced attack normal via
+ * {@link buildSiteRepeatedAttackCombat}'s `forceNormalOverride`, and — once
+ * all of the site's automatic-attacks have been re-faced (or immediately, if
+ * the site has none) — returns control to `'declare-company-attack'` with
+ * `opponentInteractionThisTurn` reset to `null`, rather than to
+ * `'play-resources'`.
+ *
+ * No-op (state returned unchanged) unless the site phase is exactly where
+ * this reface expects it — at `'declare-company-attack'` for the attacking
+ * player's active company — which always holds true here since a CvCC combat
+ * (and so its cancellation) is only ever created from that step.
+ */
+export function triggerBellsRingingReface(
+  state: GameState,
+  attackingPlayerId: PlayerId,
+  attackingCompanyId: CompanyId,
+): GameState {
+  if (state.phaseState.phase !== Phase.Site) return state;
+  const siteState = state.phaseState;
+  if (siteState.step !== 'declare-company-attack') return state;
+
+  const attackingPlayerIndex = getPlayerIndex(state, attackingPlayerId);
+  const company = state.players[attackingPlayerIndex].companies[siteState.activeCompanyIndex];
+  if (!company || company.id !== attackingCompanyId || !company.currentSite) return state;
+
+  const siteDef = companySiteDef(state, company);
+  if (!siteDef) return state;
+  const autoAttacks = getActiveAutoAttacks(state, siteDef, company.currentSite.instanceId);
+
+  if (autoAttacks.length === 0) {
+    logDetail('All the Bells Ringing: site has no automatic-attacks to re-face — minion company may declare the CvCC attack again immediately');
+    return { ...state, phaseState: { ...siteState, opponentInteractionThisTurn: null } };
+  }
+
+  logDetail(`All the Bells Ringing: minion company must re-face ${autoAttacks.length} site automatic-attack(s), forced normal (not detainment)`);
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef, autoAttacks[0], 0, {
+    prowessBonus: 0,
+    forceNormalOverride: true,
+  });
+  return {
+    ...state,
+    combat,
+    phaseState: { ...siteState, step: 'bells-ringing-attacks' as const, bellsRingingReface: { resolved: 1 } },
+  };
 }
 
 /**
@@ -922,10 +991,12 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     const newStrikesTotalW = combat.strikesTotal - 1;
 
     // All wounded-character strikes canceled → the attack is fully canceled.
+    // Same attack-end housekeeping as every other cancellation path: sweep
+    // attack-scoped constraints, record the faced attack, fire queued Traitors.
     if (newAssignmentsW.length === 0) {
       logDetail('All wounded-character strikes canceled — combat ends');
       discardCanceledCreature(state, newPlayersW, combat);
-      return { state: completeCombat({ ...state, players: newPlayersW, combat: null }) };
+      return { state: endCanceledCombat({ ...state, players: newPlayersW, combat: null }, state, combat) };
     }
 
     let newCombatW: CombatState = {
@@ -933,6 +1004,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
       strikeAssignments: newAssignmentsW,
       strikesTotal: newStrikesTotalW,
       cancelByTapRemaining: newCancelRemainingW > 0 ? newCancelRemainingW : undefined,
+      anyAttackCanceled: true,
     };
     // No untapped characters left to tap → proceed to strike resolution.
     if (newCancelRemainingW <= 0) {
@@ -966,32 +1038,31 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
   // Remove one full attack's worth of strike assignments.
   // For multi-attack creatures (e.g. Nameless Thing: 3 attacks × 2 strikes),
   // strikesPerAttack is set so one tap cancels one full attack (all its strikes).
+  // Per CRF 22 Assassin: "you may decide to cancel one of the attacks after
+  // facing another attack" — an already-resolved (faced) strike must never be
+  // removed by a later cancellation, so only unresolved assignments are
+  // eligible for removal.
   const strikesToRemove = combat.strikesPerAttack ?? 1;
   const newAssignments = [...combat.strikeAssignments];
-  for (let i = 0; i < strikesToRemove; i++) newAssignments.pop();
+  let removed = 0;
+  for (let i = newAssignments.length - 1; i >= 0 && removed < strikesToRemove; i--) {
+    if (newAssignments[i].resolved) continue;
+    newAssignments.splice(i, 1);
+    removed++;
+  }
 
   const newCancelRemaining = combat.cancelByTapRemaining - 1;
   const newStrikesTotal = combat.strikesTotal - strikesToRemove;
 
   logDetail(`Strikes reduced: ${combat.strikesTotal} → ${newStrikesTotal}, cancels remaining: ${newCancelRemaining}`);
 
-  // If no strikes remain, cancel combat entirely
+  // If no strikes remain, cancel combat entirely — with the same attack-end
+  // housekeeping as every other cancellation path: sweep attack-scoped
+  // constraints, record the faced attack, fire queued Traitors.
   if (newAssignments.length === 0) {
     logDetail('All strikes canceled — combat ends');
-    // Move creature to discard
-    const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
-    const creatureInstanceId = attackSourceCreatureInstanceId(combat);
-    if (creatureInstanceId) {
-      const creatureInPlay = findById(newPlayers[atkIdx].cardsInPlay, creatureInstanceId);
-      if (creatureInPlay) {
-        newPlayers[atkIdx] = {
-          ...newPlayers[atkIdx],
-          cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
-          discardPile: [...newPlayers[atkIdx].discardPile, toCardInstance(creatureInPlay)],
-        };
-      }
-    }
-    return { state: completeCombat({ ...state, players: newPlayers, combat: null }) };
+    discardCanceledCreature(state, newPlayers, combat);
+    return { state: endCanceledCombat({ ...state, players: newPlayers, combat: null }, state, combat) };
   }
 
   const newCombat: CombatState = {
@@ -1000,6 +1071,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     strikesTotal: newStrikesTotal,
     cancelByTapRemaining: newCancelRemaining > 0 ? newCancelRemaining : undefined,
     multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
+    anyAttackCanceled: true,
   };
 
   // The canceled attack may have been the last unresolved one — e.g. it was

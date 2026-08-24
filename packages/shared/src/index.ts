@@ -1,7 +1,7 @@
 export * from './types/index.js';
 export * from './constants.js';
 export { loadCardPool } from './data/index.js';
-export { formatGameState, formatPlayerView, formatCardName, formatDefName, formatCardList, describeAction, extractActionCardDefs, buildCompanyNames, getTitleCharacter, stripCardMarkers, formatSignedNumber, buildInstanceLookup, CARD_TYPE_CSS, getCardCss } from './format.js';
+export { formatGameState, formatPlayerView, formatCardName, formatDefName, formatCardList, describeAction, extractActionCardDefs, redactActionForAudience, buildCompanyNames, getTitleCharacter, stripCardMarkers, formatSignedNumber, buildInstanceLookup, CARD_TYPE_CSS, getCardCss } from './format.js';
 export { createRng, nextRng, nextInt, shuffle } from './rng.js';
 export * from './card-ids.js';
 export { cardImageProxyPath, cardImageRawUrl } from './card-images.js';
@@ -11,7 +11,7 @@ export type { Rule, RuleSet, EvaluatedAction } from './rules/index.js';
 export { CHARACTER_DRAFT_RULES, STAGE_RESOURCE_DRAFT_RULES, CHARACTER_DECK_DRAFT_RULES, SITE_SELECTION_RULES, ITEM_DRAFT_RULES, MAX_STARTING_ITEMS, createMovementRules, BASE_MAX_REGION_DISTANCE, AGENT_MAX_REGION_DISTANCE } from './rules/index.js';
 export { getAlignmentRules, crossAlignmentInfluencePenalty, extraGeneralInfluence } from './alignment-rules.js';
 export type { AlignmentRules } from './alignment-rules.js';
-export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown, stayUntappedPenalty, MP_SOURCES } from './state-utils.js';
+export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown, stayUntappedPenalty, sumMarshallingPoints, MP_SOURCES } from './state-utils.js';
 export { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments.js';
 export { cardsAttachedToCompany, isAttachedToPresentCompany } from './company-attachments.js';
 export { effectiveItemCorruptionPoints, collectItemModifiersFromDefs, itemModifierDeltas } from './item-corruption.js';
@@ -20,11 +20,19 @@ export { resolveThrallCharacterPairings, hasCharacterPlayTargetEffect, matchesCh
 export type { StageResourceCharacterRef, ThrallCharacterPairing } from './stage-resource-characters.js';
 export { buildMovementMap, getReachableSites, findRegionPaths, regionDistanceInclusive } from './movement-map.js';
 export type { MovementMap, MovementType, ReachableSite } from './movement-map.js';
-export { effectiveGeneralInfluence, generalInfluenceControlLimit } from './engine/reducer-utils.js';
+export { effectiveGeneralInfluence, generalInfluenceControlLimit, regionTypeCounts, stagePointsOfCard, siteMatchesEntry } from './engine/reducer-utils.js';
+export type { RegionTypeCounts } from './engine/reducer-utils.js';
+// The draw-modifier arithmetic, for consumers that must predict a draw count
+// without a `GameState` to collect effects from — the AI reads a `PlayerView`
+// and needs the engine's own summation rather than a second copy of it.
+export { resolveDrawModifier } from './engine/effects/index.js';
+export type { CollectedEffect } from './engine/effects/index.js';
 export { reduce } from './engine/reducer.js';
 export type { ReducerResult } from './engine/reducer.js';
 export { computeLegalActions } from './engine/legal-actions/index.js';
 export { currentHazardLimit, effectiveHazardLimit } from './engine/hazard-limit.js';
+export { isDetainmentAttack } from './engine/detainment.js';
+export type { DetainmentContext } from './engine/detainment.js';
 export { canonicalActionKey, stampActionIds } from './engine/action-id.js';
 export { startCapture, flushCapture, setEngineConsoleLog } from './engine/legal-actions/log.js';
 export { createGame, createGameQuickStart, applyDraftResults } from './engine/init.js';

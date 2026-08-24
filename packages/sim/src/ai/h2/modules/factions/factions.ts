@@ -32,23 +32,15 @@ import { netTsdDelta } from '../../core/tsd.js';
 import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeBudget } from '../../services/budget.js';
-import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
-import { computeReach } from '../../services/reach.js';
-import { rosterOf } from '../../services/strike/prowess.js';
-import { resourcePlayableAt } from '../../../evaluators/common.js';
+import { enumerateOpportunities, opportunityPlan } from '../../services/opportunities.js';
 import type { Plan } from '../../core/plan.js';
-import { CARD_STEP, CARRIER_STEP, CHECK_STEP, ROUTE_STEP, reachProbability } from '../../core/plan.js';
+import { CHECK_STEP } from '../../core/plan.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['influence-attempt'] as const;
 
 /** Card types whose play is an influence attempt. */
 const FACTION_CARD_TYPES = new Set(['hero-resource-faction', 'minion-resource-faction']);
-
-/** Site card types across every alignment — the site deck holds only these. */
-const SITE_CARD_TYPES = new Set([
-  'hero-site', 'minion-site', 'fallen-wizard-site', 'balrog-site',
-]);
 
 /**
  * Target assumed for a faction whose definition does not print one.
@@ -59,42 +51,6 @@ const SITE_CARD_TYPES = new Set([
  * print a target — which is nearly all of them — never reach it.
  */
 const DEFAULT_INFLUENCE_TARGET = 8;
-
-/** Whether a definition from the site deck is really a site. */
-function isSiteDefinition(def: CardDefinition): boolean {
-  return SITE_CARD_TYPES.has((def as unknown as { cardType?: string }).cardType ?? '');
-}
-
-
-/**
- * Every site a company's plan could name: where it stands, where it is headed,
- * and everything still in the deck.
- *
- * The first two matter because they are precisely the sites that are *not* in
- * the deck. A proposer that scanned only the deck withdrew each plan the turn
- * its site was reached — the portfolio saw the proposal disappear and dropped
- * the commitment one decision before the `enter-site` that would have paid it
- * off. Deduplicated by definition, because a site can be both current and
- * still listed if the deck holds another copy.
- */
-function sitesFor(
-  company: { currentSite?: { definitionId: string } | null; destinationSite?: { definitionId: string } | null },
-  siteDeck: readonly { definitionId: string }[],
-): { definitionId: string }[] {
-  const seen = new Set<string>();
-  const sites: { definitionId: string }[] = [];
-  for (const site of [company.currentSite, company.destinationSite, ...siteDeck]) {
-    if (!site || seen.has(site.definitionId)) continue;
-    seen.add(site.definitionId);
-    sites.push({ definitionId: site.definitionId });
-  }
-  return sites;
-}
-
-/** A site's printed name, for the plan's label. */
-function siteNameOf(def: CardDefinition): string {
-  return (def as unknown as { name?: string }).name ?? 'an unnamed site';
-}
 
 /** The faction card an attempt is aimed at. */
 function factionOf(
@@ -158,141 +114,39 @@ export const factionsModule: H2Module = {
   proposePlans(context: ModuleContext) {
     const { view, cardPool, standing, tunables } = context;
     const budget = computeBudget(view, cardPool);
-    const defence = computeDefence(view, cardPool, standing, tunables);
-    const reach = computeReach(cardPool);
     const plans: Plan[] = [];
 
-    for (const company of view.self.companies) {
-      const standingAt = company.currentSite?.definitionId;
-      const best = budget.bestInfluencerIn(company.id);
-      const untapped = budget.untappedIn(company.id).length;
-      // See `resources`: a site in play has left the site deck, and scanning
-      // the deck alone withdraws a plan the turn it arrives.
-      const candidateSites = sitesFor(company, view.self.siteDeck);
-      const roster = rosterOf(company, view.self.characters, cardPool);
+    // The enumeration — candidate sites, playability, the marginal payoff net
+    // of the site's automatic attacks, the distance-graded route probability —
+    // is the shared service's. What is this module's own is the check: the
+    // printed target against the best free direct influence the company can
+    // currently muster, because `evaluate` gets the engine's exact modifier
+    // and a plan cannot.
+    for (const opportunity of enumerateOpportunities(view, cardPool, standing, tunables)) {
+      if (!FACTION_CARD_TYPES.has(opportunity.cardType)) continue;
+      const best = budget.bestInfluencerIn(opportunity.companyId);
+      const untapped = budget.untappedIn(opportunity.companyId).length;
+      const need = Math.max(2, (opportunity.influenceTarget ?? DEFAULT_INFLUENCE_TARGET)
+        - (best?.freeDirectInfluence ?? 0));
+      const pCheck = pAtLeast(need);
+      if (pCheck <= 0) continue;
 
-      for (const card of view.self.hand) {
-        const def = cardPool[card.definitionId];
-        if (!def) continue;
-        const fields = def as unknown as {
-          name?: string;
-          cardType?: string;
-          marshallingPoints?: number;
-          influenceTarget?: number;
-        };
-        if (!FACTION_CARD_TYPES.has(fields.cardType ?? '')) continue;
-        const mp = fields.marshallingPoints ?? 0;
-        if (mp <= 0) continue;
-        const grossPayoffTsd = standing.tsdAfter({ faction: mp }) - standing.tsd;
-        // Zero at the half-total cap (CoE 10.3), and a plan chasing points
-        // that cap straight back off is not a plan.
-        if (grossPayoffTsd <= 0) continue;
-
-        // The printed target, reduced by the influence the company can bring.
-        // `evaluate` gets the engine's exact modifier; a plan cannot.
-        const need = Math.max(2, (fields.influenceTarget ?? DEFAULT_INFLUENCE_TARGET)
-          - (best?.freeDirectInfluence ?? 0));
-        const pCheck = pAtLeast(need);
-        if (pCheck <= 0) continue;
-
-        for (const site of candidateSites) {
-          const siteDef = cardPool[site.definitionId];
-          if (!siteDef || !isSiteDefinition(siteDef)) continue;
-          if (!resourcePlayableAt(def, siteDef as never)) continue;
-
-          // Standing on the site is deliberately *not* routed. Entry is a
-          // separate decision with the site's automatic attacks behind it, and
-          // counting arrival as certainty is what made `enter-site` worth
-          // nothing to the plan it was about to complete.
-          // What the journey costs. A plan that never asked whether the
-          // company survives is how the agent came to walk confidently into
-          // sites it cannot live through: measured at n=20 the layer doubled
-          // the rate of entering sites and moved no marshalling-point category
-          // at all, while `kill` — the passive one — was the only number that
-          // rose. Netted off the payoff rather than expressed as a probability,
-          // because `defence` reports harm in TSD and a harm-to-probability
-          // conversion would be a second model of the same thing.
-          const harmTsd = defence.harmFrom(roster, automaticAttacksOf(cardPool, site.definitionId));
-          const netPayoffTsd = grossPayoffTsd - harmTsd;
-          // A goal worth less than the trip is not a goal. The filter that
-          // already dropped points capped to zero now also drops the ones the
-          // site would take back.
-          if (netPayoffTsd <= 0) continue;
-
-          // Graded by distance rather than by a yes/no. A binary step could
-          // only be moved by a candidate that lands exactly on the plan's
-          // site, and the engine offers those only when the site is already
-          // within one turn's movement — so a commitment to anywhere further
-          // credited no move at all, and the agent stood still.
-          const here = standingAt === site.definitionId;
-          const heading = company.destinationSite?.definitionId === site.definitionId;
-          const from = company.destinationSite?.definitionId ?? standingAt;
-          const distance = from === undefined ? null : reach.between(from, site.definitionId);
-          const routeProbability = heading || here
-            ? 1
-            : distance === null
-              // The map does not join them. Treated as the old flat prior
-              // rather than as impossible: an unreachable-looking site is far
-              // more often a gap in the map than a real island.
-              ? tunables.planUnroutedReachProbability
-              : reachProbability(distance, tunables.planUnroutedReachProbability);
-          plans.push({
-            id: `factions/${card.instanceId as string}@${site.definitionId}`,
-            module: 'factions',
-            goal: {
-              label: `influence ${fields.name ?? card.definitionId} at ${siteNameOf(siteDef)}`,
-              source: 'faction',
-              mp,
-              cardInstanceId: card.instanceId,
-              siteDefinitionId: site.definitionId,
-            },
-            payoffTsd: netPayoffTsd,
-            deadline: view.turnNumber + tunables.planHorizonTurns,
-            requirements: [{
-              kind: 'company-at-site',
-              companyId: company.id,
-              siteDefinitionId: site.definitionId,
-              byTurn: view.turnNumber + tunables.planHorizonTurns,
-            }],
-            steps: [
-              {
-                label: `route to ${siteNameOf(siteDef)}`,
-                p: routeProbability,
-                owner: 'travel',
-                tag: ROUTE_STEP,
-                source: heading || here
-                  ? 'already there or already headed there'
-                  : `${distance ?? '?'} region(s) away, at planUnroutedReachProbability per region`,
-              },
-              {
-                label: `still hold ${fields.name ?? card.definitionId}`,
-                p: 1,
-                owner: 'hand',
-                tag: CARD_STEP,
-              },
-              {
-                label: 'someone left untapped to attempt it',
-                // Present tense, and only where the play is imminent. Asked
-                // three turns out it is not a probability at all: an untap
-                // phase stands between here and the goal, and reading "everyone
-                // is tapped right now" as "this plan is impossible" abandoned
-                // every commitment during the site phase — which is exactly
-                // when the companies are tapped.
-                p: !here || untapped > 0 ? 1 : 0,
-                owner: 'characters',
-                tag: CARRIER_STEP,
-              },
-              {
-                label: `pass the check (${need}+ on 2d6)`,
-                p: pCheck,
-                owner: 'factions',
-                tag: CHECK_STEP,
-                source: 'printed target less the company\'s free direct influence',
-              },
-            ],
-          });
-        }
-      }
+      plans.push(opportunityPlan(opportunity, {
+        module: 'factions',
+        goalVerb: 'influence',
+        goalSource: 'faction',
+        carrierVerb: 'attempt',
+        untappedInCompany: untapped,
+        turnNumber: view.turnNumber,
+        planHorizonTurns: tunables.planHorizonTurns,
+        extraSteps: [{
+          label: `pass the check (${need}+ on 2d6)`,
+          p: pCheck,
+          owner: 'factions',
+          tag: CHECK_STEP,
+          source: 'printed target less the company\'s free direct influence',
+        }],
+      }));
     }
     return plans;
   },

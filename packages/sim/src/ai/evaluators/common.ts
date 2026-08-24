@@ -10,7 +10,8 @@
  */
 
 import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HazardEventCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
-import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition } from '@meccg/shared';
+import type { Alignment } from '@meccg/shared';
+import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition, hasPlayFlag, siteMatchesEntry } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
 export type AnySiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
@@ -200,6 +201,41 @@ export function boostsCreatureAttack(
 }
 
 /**
+ * Whether attaching `itemDef` to `target` would apply a capped `stat-modifier`
+ * effect (body or prowess, with a numeric `max`) that is already maxed out —
+ * e.g. Hauberk of Bright Mail's "+2 body to a maximum of 9" (tw-254) does
+ * nothing for a character whose body is already 9. Non-numeric `max`
+ * expressions are skipped (treated as not wasted) since they can't be
+ * evaluated without the MathJS resolver.
+ *
+ * Used to steer `play-hero-resource` scoring away from attaching an item to a
+ * character who gets no benefit from it when a legal target with headroom is
+ * available (bug report: the AI attached Hauberk of Bright Mail to Glorfindel
+ * II, whose printed body is already 9, the item's own cap).
+ */
+export function itemStatBenefitWasted(
+  itemDef: CardDefinition,
+  target: CharacterInPlay,
+  targetDef: CardDefinition | undefined,
+): boolean {
+  const effects = (itemDef as { effects?: readonly Record<string, unknown>[] }).effects;
+  if (!effects) return false;
+  const skills = targetDef && isCharacterCard(targetDef) ? targetDef.skills : [];
+  for (const effect of effects) {
+    if (effect.type !== 'stat-modifier') continue;
+    const stat = effect.stat as string;
+    if (stat !== 'body' && stat !== 'prowess') continue;
+    const max = effect.max;
+    if (typeof max !== 'number') continue;
+    const when = effect.when as Condition | undefined;
+    if (when && !matchesCondition(when, { bearer: { skills } })) continue;
+    const current = stat === 'body' ? target.effectiveStats.body : target.effectiveStats.prowess;
+    if (current >= max) return true;
+  }
+  return false;
+}
+
+/**
  * Whether playing `eventDef` would satisfy an `{ inPlay: eventDef.name }`
  * condition gating a bonus effect on some *other* hazard-event card still in
  * hand — e.g. An Unexpected Outpost (dm-45) has a second `move` effect gated
@@ -265,8 +301,39 @@ const SITE_DANGER: Record<string, number> = {
   'dark-hold': 7,
 };
 
-/** Whether a hand resource card can be played at the given site. */
-export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): boolean {
+/**
+ * Whether a hand resource card can be played at the given site.
+ *
+ * `playerAlignment` enables the MEWH §10 cross-alignment site-tap gate
+ * (legal-actions/site.ts `siteTapCrossAlignmentBlocked`): a Fallen-wizard may
+ * not play a hero item/ally/faction at a minion site or vice versa. Without it
+ * the travel module priced hero items at Ringwraith sites the engine then
+ * refused — sending a company to face a Dragon for a payoff of nothing
+ * (Durin's Axe at Zarak Dûm, game msygr2v0-z5h2i8). The engine's in-state
+ * unlocks (Double-dealing wh-66, wizardhaven conversion wh-97) are not
+ * modelled here — the gate errs on "not playable", which costs a candidate
+ * destination, never a wasted move.
+ */
+export function resourcePlayableAt(
+  def: CardDefinition,
+  site: AnySiteCard,
+  playerAlignment?: Alignment | `${Alignment}`,
+): boolean {
+  // MEWH §10 (Fallen-wizard only): a resource that taps a site — item, ally,
+  // or faction — needs a site of its own alignment class. FW/stage/dual
+  // resources and FW sites count as both classes and pass.
+  if (
+    playerAlignment === 'fallen-wizard' &&
+    (isItemCard(def) || isAllyCard(def) || isFactionCard(def))
+  ) {
+    const resAlign = (def as { alignment?: string }).alignment;
+    const siteAlign = (site as { alignment?: string }).alignment;
+    if (resAlign !== 'fallen-wizard' && resAlign !== 'stage' && resAlign !== 'dual'
+      && siteAlign !== 'fallen-wizard') {
+      if (resAlign === 'wizard' && siteAlign === 'ringwraith') return false;
+      if (resAlign === 'ringwraith' && siteAlign === 'wizard') return false;
+    }
+  }
   // Items: playability mirrors the engine (legal-actions/site.ts).
   if (def.cardType === 'hero-resource-item' || def.cardType === 'minion-resource-item') {
     // An item that carries its own `item-play-site` effect defines exactly
@@ -294,18 +361,22 @@ export function resourcePlayableAt(def: CardDefinition, site: AnySiteCard): bool
     // site's automatic-attack for no payoff.
     return (site.playableResources as readonly string[]).includes(def.subtype);
   }
-  // Factions / allies: matched by named site or site type.
+  // Factions / allies: delegate to the engine's own `playableAt` matcher so
+  // the entries' `when` gates hold here too — matching on site type alone
+  // priced War-wolf ("Ruins & Lairs with a Wolf automatic-attack") at every
+  // Ruins & Lairs, Dragon lairs included, and the travel module ranked those
+  // destinations as if the ally would score there. The site's own region type
+  // is the last leg of its printed site path; `isUnderDeepsSurface` is not
+  // derivable from the definition alone and defaults to false.
   if (
     def.cardType === 'hero-resource-faction' ||
     def.cardType === 'minion-resource-faction' ||
     def.cardType === 'hero-resource-ally' ||
     def.cardType === 'minion-resource-ally'
   ) {
-    for (const entry of def.playableAt) {
-      if ('site' in entry && entry.site === site.name) return true;
-      if ('siteType' in entry && entry.siteType === site.siteType) return true;
-    }
-    return false;
+    const sitePath = site.sitePath ?? [];
+    const regionType = sitePath.length > 0 ? sitePath[sitePath.length - 1] : undefined;
+    return def.playableAt.some(entry => siteMatchesEntry(site, entry, site.siteType, regionType));
   }
   // Resource events with play-target: site — card must be played at the company's current site,
   // so movement to a matching site unlocks the card.
@@ -335,7 +406,7 @@ export function anyCardPlayableAt(
 ): boolean {
   for (const card of view.self.hand) {
     const def = lookupDef(pool, card.definitionId);
-    if (def && resourcePlayableAt(def, site)) return true;
+    if (def && resourcePlayableAt(def, site, view.self.alignment)) return true;
   }
   return false;
 }
@@ -377,6 +448,15 @@ function handHasPlayableSiteInDeck(
  * rather than zero — this nudges the AI toward productive movement instead
  * of staying idle every turn.
  *
+ * Draw-only bonus: even without either of the above, a site's printed
+ * resource-draw box (CoE 2.IV.v) is real card advantage the AI gets for free
+ * on arrival. When that draw more than offsets the site's danger, moving
+ * there beats sitting still — otherwise a hand made up entirely of
+ * non-site-targeted cards (e.g. combat-only short events) left every
+ * `plan-movement` candidate scoring 0, so `pass`'s flat weight (5) won every
+ * organization phase and the AI camped at its current site indefinitely
+ * (bug report: AI stalled at Rivendell for three consecutive turns).
+ *
  * Returns a non-negative integer; 0 means "do not move here".
  */
 export function scoreDestinationSite(
@@ -387,7 +467,7 @@ export function scoreDestinationSite(
   let playableScore = 0;
   for (const card of view.self.hand) {
     const def = lookupDef(pool, card.definitionId);
-    if (def && resourcePlayableAt(def, destSite)) {
+    if (def && resourcePlayableAt(def, destSite, view.self.alignment)) {
       // Weight by MP value so high-value cards strongly motivate movement.
       // Coefficient 20 ensures even a single 2-MP item (score 40) clearly
       // dominates the org-phase pass score (5), reducing the chance the AI
@@ -409,10 +489,12 @@ export function scoreDestinationSite(
     // No cards to play here directly. If the AI has cards playable somewhere
     // in the deck, score a haven move as an intermediate step toward those
     // sites. Havens are safe hubs that reset travel options for the next turn.
-    if (destSite.siteType === 'haven' && handHasPlayableSiteInDeck(view, pool)) {
-      return 15;
-    }
-    return 0;
+    const intermediateHavenScore = destSite.siteType === 'haven' && handHasPlayableSiteInDeck(view, pool) ? 15 : 0;
+    // Coefficient 5 puts a 2-card draw (10) clearly above the org-phase pass
+    // score (5) at zero danger, while a dangerous site's penalty still wins
+    // out — so the AI only takes the free cards when the trip is safe.
+    const drawOnlyScore = Math.max(0, resourceDraws * 5 - siteDanger - regionDanger);
+    return Math.max(intermediateHavenScore, drawOnlyScore);
   }
 
   return Math.max(0, playableScore + resourceDraws * 2 - siteDanger - regionDanger);
@@ -693,22 +775,44 @@ export function hasUntapSource(
  * without needing to tap any character — currently permanent resource
  * events that pass the site's play filters. Used to justify entering a
  * site whose only visitors are already tapped.
+ *
+ * Must honour the same site gates the engine enforces
+ * (`legal-actions/site.ts`): a `play-target: site` filter (site name/type)
+ * and the `tapped-site-only` / `untapped-site-required` play-flags. Skipping
+ * these let the AI treat cards like Rescue Prisoners (tw-315, "playable at
+ * an already tapped Dark-hold or Shadow-hold") as a no-tap play at any site
+ * in any tap state, entering with a fully-tapped company for an attack it
+ * couldn't even follow up with the card in hand (bug report: game
+ * msxdgosl-8meok7, seq 894 — Alatar's company entered Mount Gundabad with no
+ * untapped character and faced its Orc automatic-attack for nothing, since
+ * the site wasn't already tapped so Rescue Prisoners was never playable).
  */
 export function handHasNoTapPlayableAt(
   view: PlayerView,
   pool: Readonly<Record<string, CardDefinition>>,
   site: AnySiteCard,
+  siteTapped: boolean,
 ): boolean {
   for (const card of view.self.hand) {
     const def = lookupDef(pool, card.definitionId);
     if (!def) continue;
     if (def.cardType !== 'hero-resource-event' && def.cardType !== 'minion-resource-event') continue;
-    const ev = def as { eventType?: string };
+    const ev = def as { eventType?: string; effects?: readonly PlayTargetEffect[] };
     if (ev.eventType !== 'permanent') continue;
-    // A permanent event is considered a no-tap MP play here; more precise
-    // site filtering is done by the engine when computing legal actions.
-    // `site` is accepted but unused — reserved for future filter logic.
-    void site;
+    // Permanent events that attach to a character (play-target: character)
+    // bind an untapped character the same way an item does — either as a
+    // declared tap (most) or, for Rescue Prisoners (tw-315), a tap on
+    // resolution that discards the card for nothing if no character is left
+    // untapped after its own triggered attack. Neither is a "no tap needed"
+    // play, so a company with every character already tapped gets no credit
+    // for holding one.
+    if (ev.effects?.some(e => e.type === 'play-target' && e.target === 'character')) continue;
+    if (hasPlayFlag(def, 'tapped-site-only') && !siteTapped) continue;
+    if (hasPlayFlag(def, 'untapped-site-required') && siteTapped) continue;
+    const siteTarget = (def.effects ?? []).find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+    );
+    if (siteTarget?.filter && !matchesCondition(siteTarget.filter, site as unknown as Record<string, unknown>)) continue;
     return true;
   }
   return false;

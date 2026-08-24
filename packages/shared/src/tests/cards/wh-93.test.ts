@@ -15,10 +15,10 @@
  *     is Alatar; enforced generically via `wizardSpecificName`).
  *   - effects:
  *     1. stage-points (value 2).
- *     2. fw-item-mp-full — `inAvatarCompany: true`, filter matching weapon/armor/
+ *     2. fw-mp-full (cards: items) — `inAvatarCompany: true`, filter matching weapon/armor/
  *        shield/helmet items. Lifts the MEWH §4 1-MP clamp to full printed MP for
  *        those items borne by characters in Alatar's company.
- *     3. fw-ally-mp-full — `inAvatarCompany: true`, filter `{ prowess: $exists }`.
+ *     3. fw-mp-full (cards: allies) — `inAvatarCompany: true`, filter `{ prowess: $exists }`.
  *        Lifts the §4 clamp to full printed MP for allies with a prowess attribute
  *        borne by characters in Alatar's company.
  *

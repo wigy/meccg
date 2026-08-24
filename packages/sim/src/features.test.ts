@@ -9,6 +9,8 @@
  * vectors).
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { describe, test, expect } from 'vitest';
 import { createGame, reduce, loadCardPool, setEngineConsoleLog, Phase } from '@meccg/shared';
 import type { GameConfig, PlayerId, PlayerView } from '@meccg/shared';
@@ -109,6 +111,29 @@ describe('action-type vocabulary', () => {
     const unknown = [...seen].filter(type => actionTypeIndex(type) === 0);
     expect(unknown).toEqual([]);
   }, GAME_TIMEOUT);
+
+  test('lists every action discriminant the engine declares', () => {
+    // The one-game coverage test above cannot reach the rarer action types,
+    // which is how the list silently drifted 25 types behind the engine —
+    // dodge-strike, burglary-attempt, riddling-guess and friends all
+    // featurized as the reserved unknown row 0, so distinct decisions got
+    // the identical type embedding in every bc/search featurization and
+    // every exported training row. This diffs the list against the source
+    // of truth: every `readonly type: '…'` discriminant in the engine's
+    // actions-*.ts files.
+    const typesDir = path.resolve(__dirname, '../../shared/src/types');
+    const engine = new Set<string>();
+    for (const file of fs.readdirSync(typesDir)) {
+      if (!/^actions-.*\.ts$/.test(file)) continue;
+      const source = fs.readFileSync(path.join(typesDir, file), 'utf8');
+      for (const match of source.matchAll(/readonly type: '([a-z0-9-]+)'/g)) engine.add(match[1]);
+    }
+    expect(engine.size).toBeGreaterThan(150);
+
+    const listed = new Set(ACTION_TYPES);
+    const missing = [...engine].filter(type => !listed.has(type)).sort();
+    expect(missing).toEqual([]);
+  });
 });
 
 describe('featurizers', () => {

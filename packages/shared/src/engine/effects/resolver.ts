@@ -31,7 +31,7 @@ import type {
   CompanyId,
   PlayerId,
 } from '../../index.js';
-import { Race } from '../../types/common.js';
+import { Race, RegionType } from '../../types/common.js';
 import { HAND_SIZE } from '../../constants.js';
 import { matchesCondition, matchesContext, conditionPaths } from '../../effects/condition-matcher.js';
 import { isCharacterCard } from '../../types/cards.js';
@@ -956,6 +956,7 @@ function collectCharacterStatModifierEffects(
       type: 'stat-modifier',
       stat: constraint.kind.stat,
       value: constraint.kind.value,
+      ...(constraint.kind.max !== undefined ? { max: constraint.kind.max } : {}),
     };
     results.push({
       effect: synthesized,
@@ -1032,13 +1033,17 @@ function collectCreatureAttackBoostEffects(
       continue;
     }
     if (ctx.creatureInstanceId && constraint.source === ctx.creatureInstanceId) continue;
-    // An absent `race` (Wizard's Flame tw-361) matches every attack race.
+    // An absent `race` on the CONSTRAINT (Wizard's Flame tw-361) matches
+    // every attack. A race-restricted boost, however, never matches an
+    // attack with no printed type (creatureRace undefined, e.g. the FEAR!
+    // FIRE! FOES! as-29 injected attack) — a raceless attack matches no
+    // race condition, same as the `when: enemy.race` DSL path.
     const boostedRaces = constraint.kind.race === undefined
       ? undefined
       : Array.isArray(constraint.kind.race)
         ? constraint.kind.race
         : [constraint.kind.race as Race];
-    if (creatureRace && boostedRaces && !boostedRaces.includes(creatureRace)) continue;
+    if (boostedRaces && (creatureRace === undefined || !boostedRaces.includes(creatureRace))) continue;
     const value = stat === 'prowess' ? constraint.kind.prowess : constraint.kind.strikes;
     if (value === 0) continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
@@ -1369,6 +1374,16 @@ export interface CreatureSelfContext {
    * *Elf-lord Revealed in Wrath* ("+4 prowess versus Ringwraiths").
    */
   readonly defenderAlignment?: string;
+  /**
+   * Region types this specific play was keyed to (the hazard player's
+   * declared `keyedBy` match, or the union of the card's `keyedTo` region
+   * types when no declared match is available). Exposed as `attack.keying`
+   * in the self-effect context — mirrors the `attack.keying` field already
+   * surfaced to `cancel-attack`/`cancel-strike` conditions — so a creature
+   * can boost its own prowess based on which region type it was keyed to.
+   * Used by *Pirates* (le-88): "+2 prowess when keyed to Coastal Seas."
+   */
+  readonly attackKeying?: readonly RegionType[];
 }
 
 /**
@@ -1422,6 +1437,7 @@ function buildAttackContext(
   siteType?: string,
   isAgentAttack = false,
   isAutomaticAttack = false,
+  attackKeying?: readonly RegionType[],
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
@@ -1446,9 +1462,10 @@ function buildAttackContext(
   // ("each automatic-attack and hazard creature") — they gate on this flag.
   // Site automatic-attacks are flagged the same way for cards that name only
   // hazard creatures (Clouds tw-22).
-  const attackFlags: { isAgentAttack?: true; isAutomaticAttack?: true } = {};
+  const attackFlags: { isAgentAttack?: true; isAutomaticAttack?: true; keying?: readonly RegionType[] } = {};
   if (isAgentAttack) attackFlags.isAgentAttack = true;
   if (isAutomaticAttack) attackFlags.isAutomaticAttack = true;
+  if (attackKeying && attackKeying.length > 0) attackFlags.keying = attackKeying;
   const withAttack = Object.keys(attackFlags).length > 0
     ? { ...withSite, attack: attackFlags }
     : withSite;
@@ -1499,7 +1516,7 @@ export function resolveAttackProwess(
   isAgentAttack = false,
   siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
@@ -1572,15 +1589,25 @@ export function resolveAttackStrikes(
  * with `stat: "body"` from events and cards in play. A lower body value means
  * the creature is eliminated more easily (body check must exceed body).
  *
+ * A bodyless attack (`baseBody === null`) normally stays bodyless — additive
+ * modifiers have nothing to add to. The one exception is an `op: "set"`
+ * modifier, which gives a *default* body to attacks that printed none (Helms
+ * of Iron dm-64: "all Orc, Troll, and Man attacks with no body have 4 body").
+ * Such a modifier is meaningless against an attack that already has a printed
+ * body — dm-64's own separate `+1` (additive) modifier handles that case — so
+ * it is collected only in the null-base branch and excluded from the
+ * non-null branch (an `op: "set"` there would wrongly clobber the printed
+ * body instead of leaving it to additive/multiplicative modifiers).
+ *
  * @param state - The full game state.
  * @param baseBody - The creature's or automatic attack's base body (null means
- *   no body check; returned as-is).
+ *   no printed body).
  * @param inPlayNames - Names of all cards currently in play.
  * @param creatureRace - The lowercase singular race of the attacking creature.
  * @param attackBoostCtx - Optional company context for company-scoped modifiers.
  * @param isAgentAttack - True when the attacker is an agent hazard (exposed as
  *   `attack.isAgentAttack`; see {@link buildAttackContext}).
- * @returns The modified body value (minimum 0), or null if baseBody was null.
+ * @returns The modified body value (minimum 0), or null if the attack remains bodyless.
  */
 export function resolveAttackBody(
   state: GameState,
@@ -1590,10 +1617,17 @@ export function resolveAttackBody(
   attackBoostCtx?: CreatureAttackBoostContext,
   isAgentAttack = false,
 ): number | null {
-  if (baseBody === null) return null;
   const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, undefined, isAgentAttack);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
-  const modified = resolveStatModifiers(globalEffects, 'body', baseBody, context);
+  const isBodySetter = (e: CollectedEffect): e is CollectedEffect & { effect: StatModifierEffect } =>
+    e.effect.type === 'stat-modifier' && e.effect.stat === 'body' && e.effect.op === 'set';
+  if (baseBody === null) {
+    const setters = globalEffects.filter(isBodySetter);
+    if (setters.length === 0) return null;
+    return Math.max(0, resolveStatModifiers(setters, 'body', 0, context));
+  }
+  const additiveEffects = globalEffects.filter(e => !isBodySetter(e));
+  const modified = resolveStatModifiers(additiveEffects, 'body', baseBody, context);
   return Math.max(0, modified);
 }
 

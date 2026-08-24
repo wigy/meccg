@@ -695,6 +695,9 @@
       {
         "type": "play-target",
         "target": "character",
+        "phases": [
+          "organization"
+        ],
         "filter": {
           "target.race": "ringwraith"
         }
@@ -1153,6 +1156,12 @@
             }
           }
         }
+      },
+      {
+        "type": "return-self-to-hand-when",
+        "condition": {
+          "inPlayAnywhere": "Shelob"
+        }
       }
     ],
     "playableAt": [
@@ -1208,6 +1217,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",
@@ -1337,6 +1351,11 @@
     "marshallingCategory": "misc",
     "certified": "2026-06-03",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "deck-restriction",
         "rule": "excluded-from-deck",
@@ -1703,6 +1722,7 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "certified": "2026-08-19",
     "effects": [
       {
         "type": "deck-restriction",
@@ -1713,18 +1733,45 @@
         "reason": "rule 1.23"
       },
       {
-        "type": "stat-modifier",
-        "stat": "prowess",
-        "value": -2
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
       },
       {
-        "type": "stat-modifier",
-        "stat": "direct-influence",
-        "value": 3
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.siteType": "haven",
+          "target.hasRingwraith": true
+        }
       },
       {
         "type": "ringwraith-mode",
         "mode": "heralded-lord"
+      },
+      {
+        "type": "company-modifier",
+        "stat": "prowess",
+        "value": -2
+      },
+      {
+        "type": "company-modifier",
+        "stat": "direct-influence",
+        "value": 3
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "when": {
+          "company.atHaven": true
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard",
+          "alsoDiscardCompanyFollowers": true
+        }
       }
     ]
   },
@@ -1935,6 +1982,11 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "company",
@@ -3097,9 +3149,41 @@
           "deck.alignment": "balrog"
         },
         "reason": "rule 1.23"
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "setStrikesTo": 1,
+        "bodyModifier": -2,
+        "when": {
+          "$and": [
+            { "defender.companySize": 1 },
+            { "defender.characterNames": { "$includes": "Adûnaphel the Ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "grantAttackerChoosesDefenders": true,
+        "bodyCheckModifier": 2,
+        "when": {
+          "$and": [
+            { "attacker.companySize": 1 },
+            { "attacker.characterNames": { "$includes": "Adûnaphel the Ringwraith" } }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
       }
     ],
-    "text": "Playable on any attack against Adûnaphel the Ringwraith (as your Ringwraith) if she is the only character in her company. The number of strikes of the attack is reduced to one and the attack’s body is modified by -2. Alternatively, playable on any attack by a lone Adûnaphel the Ringwraith (as your Ringwraith).You choose defending characters. Any resulting body checks for defending characters are modified by +2. Cannot be duplicated on a given attack."
+    "text": "Playable on any attack against Adûnaphel the Ringwraith (as your Ringwraith) if she is the only character in her company. The number of strikes of the attack is reduced to one and the attack’s body is modified by -2. Alternatively, playable on any attack by a lone Adûnaphel the Ringwraith (as your Ringwraith).You choose defending characters. Any resulting body checks for defending characters are modified by +2. Cannot be duplicated on a given attack.",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "minion-resource-event",
@@ -3622,6 +3706,11 @@
     ],
     "certified": "2026-07-11",
     "effects": [
+      {
+        "type": "play-condition",
+        "requires": "phase",
+        "phases": ["organization"]
+      },
       {
         "type": "play-target",
         "target": "character",
@@ -4355,10 +4444,31 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/SomeSecretArtofFlame.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "sorcery"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Sorcery. Playable on a sorcery-using character facing an attack. +4 prowess for the character against the attack. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be duplicated against a given attack."
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 4,
+        "requiredSkill": "sorcery",
+        "cost": {
+          "check": "corruption",
+          "modifier": -4
+        },
+        "costExemptRace": "ringwraith"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
+      }
+    ],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character facing an attack. +4 prowess for the character against the attack. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be duplicated against a given attack.",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "minion-resource-event",
@@ -4381,7 +4491,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StabbedHiminHisSleep.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable during the site phase on an untapped scout in a covert company at an already tapped Border-hold [{B}] or Free-hold [{F}]. The scout faces an attack (attack type as first automatic-attack at site — 1 strike with 8 prowess). If the scout is not untapped after the attack, discard this card. Otherwise, the scout may tap and place this card in his player’s marshalling point pile."
@@ -5003,14 +5113,45 @@
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
     "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
     "playableAt": [
       {
-        "site": "Cirith"
+        "site": "Cirith Ungol"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Cirith Ungol if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Snaga-hai (+2), Orcs of Angmar (-2). ￼"
+    "effects": [
+      {
+        "type": "leader-control",
+        "races": [
+          "orc",
+          "troll"
+        ],
+        "requiresKeyword": "leader",
+        "groupBonus": {
+          "count": 3,
+          "mp": 2
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Snaga-hai"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Orcs of Angmar"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Cirith Ungol if the influence check is greater than 8. Once in play, the number required to influence this faction is 0. If this influence attempt is made by an Orc or Troll leader, you may place this faction under the control of that leader and not tap the site. Discard the faction if the leader moves or leaves play. Three or more factions controlled by the same leader give 2 extra marshalling points. Standard Modifications: Snaga-hai (+2), Orcs of Angmar (-2).",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "minion-resource-faction",

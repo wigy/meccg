@@ -17,10 +17,11 @@ import { clearGameSession, clearPlayerName, saveGameSession } from './session.js
 import { connectPseudoAi } from './pseudo-ai.js';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
-import { clearTutorialPanel, renderTutorialPanel } from './tutorial-panel.js';
+import { clearTutorialPanel, renderTutorialPanel, setExitTutorial } from './tutorial-panel.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
+import { handleAiExplanation, setAskAiSender, setObserver } from './ask-ai.js';
 import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
 import { diceRollLogLine, diceRollNotification } from './dice-roll-log.js';
 import { buildToolbarStatusText } from './render-toolbar-status.js';
@@ -29,6 +30,14 @@ import { buildToolbarStatusText } from './render-toolbar-status.js';
 // circular imports. The lobby module calls setLobbyCallbacks() at startup.
 let showScreenFn: ((id: ScreenId) => void) | null = null;
 let connectLobbyWsFn: (() => void) | null = null;
+
+/**
+ * How long user-initiated actions are ignored after an auto-pass send (see
+ * `appState.autoPassInputLockUntil`). Comfortably longer than a round-trip
+ * plus render, so a stray click landing on the next-phase button reads as
+ * ignored rather than as an accidental extra pass.
+ */
+const AUTO_PASS_INPUT_LOCK_MS = 1200;
 
 /** Register lobby-side callbacks to break the circular dependency. */
 export function setLobbyCallbacks(
@@ -75,10 +84,24 @@ export function clearAwaitingResponse(): void {
   awaitingResponse = false;
 }
 
+/**
+ * Ask the attached observer about the current position.
+ *
+ * Not routed through `sendAction`: this is not a game action, takes no
+ * awaiting-response lock, and must stay askable while it is the opponent's
+ * turn — which is exactly when the question is interesting.
+ */
+setAskAiSender((requestId: string, agent: string, mode: 'now' | 'last-move') => {
+  if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
+  const msg: ClientMessage = { type: 'ask-ai', requestId, agent, mode };
+  appState.ws.send(JSON.stringify(msg));
+});
+
 /** Send a game action to the server. */
 export function sendAction(action: GameAction): void {
   if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
   if (awaitingResponse) return; // Prevent double-sends before next state
+  if (Date.now() < appState.autoPassInputLockUntil) return; // See autoPassInputLockUntil doc.
   awaitingResponse = true;
 
   // Snapshot log entry count before adding action log line
@@ -155,6 +178,11 @@ export function disconnect(): void {
     (document.getElementById('name-input') as HTMLInputElement).value = '';
   }
 }
+
+// The tutorial's completion card owns the only way out of a finished
+// chapter; leaving is an ordinary disconnect. Registered here (rather than
+// imported there) because this module already imports the panel.
+setExitTutorial(disconnect);
 
 /**
  * Clear the visual board and restore its skeleton child elements
@@ -547,6 +575,13 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
       appState.autoPassTimer = setTimeout(() => {
         appState.autoPassTimer = null;
         sendAction(viable[0].action);
+        // A click already in flight toward the button auto-pass just
+        // pressed on the player's behalf would otherwise land on the
+        // freshly re-rendered next-phase button in the same screen
+        // position once the response arrives, silently skipping a phase.
+        // Hold off accepting further input for a beat so the player has
+        // time to see the board change before it reacts to their click.
+        appState.autoPassInputLockUntil = Date.now() + AUTO_PASS_INPUT_LOCK_MS;
       }, 1500);
     }
   }
@@ -718,6 +753,16 @@ export function connect(name: string): void {
 
       case 'spectators':
         setSpectators(msg.names);
+        break;
+
+      case 'observer':
+        // An observer attaching or leaving is what makes the Ask AI control
+        // appear or vanish (specs/2026-08-17-ask-ai-observer.md).
+        setObserver({ attached: msg.attached, agents: msg.agents });
+        break;
+
+      case 'ai-explanation':
+        handleAiExplanation(msg);
         break;
 
       case 'restart':

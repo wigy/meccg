@@ -204,7 +204,7 @@ describe('Reforging (tw-314)', () => {
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
   });
 
-  test('no marshalling points awarded when Reforging is stored (no override declared)', () => {
+  test('1 misc marshalling point is awarded when Reforging is stored', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -224,7 +224,7 @@ describe('Reforging (tw-314)', () => {
       { instanceId: mint(), definitionId: REFORGING },
     );
     const state = recomputeDerived(stored);
-    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(0);
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
   });
 
   // ── Organization-phase retrieval: tap a sage at a Haven, discard a stored

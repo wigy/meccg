@@ -17,7 +17,7 @@
 import { loadCardPool, setEngineConsoleLog } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import { buildCompanyNames, buildInstanceLookup, describeAction, stripCardMarkers } from '@meccg/shared';
-import { parseCliArgs, numberFlag, stringFlag } from './common.js';
+import { cliPreamble, numberFlag, stringFlag } from './common.js';
 import { DEFAULT_TUNABLES, withTunable } from '../ai/h2/core/tunables.js';
 import type { Tunables } from '../ai/h2/core/tunables.js';
 import { loadWinProbModel } from '../ai/h2/core/winprob.js';
@@ -41,11 +41,7 @@ Options:
   --help              this message
 `;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const scenarioId = stringFlag(args, 'scenario');

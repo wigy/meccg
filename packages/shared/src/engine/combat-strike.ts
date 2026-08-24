@@ -20,7 +20,7 @@ import type { GameState, CombatState, GameAction, GameEffect, CardInstanceId, Ca
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
-import type { AbsorbWoundEffect } from '../types/effects.js';
+import type { AbsorbWoundEffect, CancelPrisonerTakingEffect } from '../types/effects.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isItemCard } from '../types/cards.js';
@@ -36,6 +36,7 @@ import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } fr
 import { enemyRaceContext } from './effects/index.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { finalizeCombat } from './combat-finalize.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 
 /**
  * When a follower character leaves play, removes their ID from their leader's
@@ -178,6 +179,26 @@ export function creatureDefenderProwessDelta(
 }
 
 /**
+ * Search a character's own allies for one carrying `cancel-prisoner-taking`
+ * (`scope: "controlling-character"`) — the ally the player may discard to
+ * cancel a prisoner-taking outcome against this character (Noble Hound
+ * dm-179). Returns the ally's card instance, or `null` if none qualifies.
+ */
+export function findCancelPrisonerTakingAlly(
+  state: GameState,
+  charData: CharacterInPlay,
+): { instanceId: CardInstanceId } | null {
+  for (const ally of charData.allies) {
+    const def = defById(state, ally.definitionId);
+    const hasCancelEffect = getCardEffects(def).some(
+      (e): e is CancelPrisonerTakingEffect => e.type === 'cancel-prisoner-taking' && e.scope === 'controlling-character',
+    );
+    if (hasCancelEffect) return { instanceId: ally.instanceId };
+  }
+  return null;
+}
+
+/**
  * Core strike resolution shared by `resolve-strike`, `play-dodge`, and
  * `play-reroll-strike`.
  *
@@ -304,8 +325,12 @@ export function resolveStrikeCore(
   let bodyCheckTarget: 'character' | 'creature' | null = null;
   if (characterTotal > effectiveProwess) {
     result = 'success';
-    if (combat.creatureBody !== null) bodyCheckTarget = 'creature';
-    logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
+    if (combat.detainment) {
+      logDetail('Character defeats strike — detainment: no body check vs creature (CoE 3.II.1)');
+    } else {
+      if (combat.creatureBody !== null) bodyCheckTarget = 'creature';
+      logDetail(`Character defeats strike — ${bodyCheckTarget ? 'body check vs creature' : 'creature has no body'}`);
+    }
   } else if (characterTotal < effectiveProwess) {
     result = 'wounded';
     if (combat.detainment) {
@@ -330,12 +355,15 @@ export function resolveStrikeCore(
     logDetail(`Forced strike defeat (Liquid Fire) — strike automatically fails${bodyCheckTarget ? ', creature body check pending' : ''}`);
   }
 
-  // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25): on a
-  // successful agent strike the defender is not wounded; the company must
-  // instead discard one item of their choice.
-  const discardItemEffect = result === 'wounded' && !combat.detainment && combat.strikeEffect === 'discard-item';
+  // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25,
+  // Thief tw-102, Pick-pocket tw-79): on a successful strike the defender is
+  // not wounded; an item must instead be discarded (defender's choice) —
+  // pooled from the whole company for 'discard-item', or scoped to just the
+  // struck character for 'discard-item-character'.
+  const discardItemEffect = result === 'wounded' && !combat.detainment
+    && (combat.strikeEffect === 'discard-item' || combat.strikeEffect === 'discard-item-character');
   if (discardItemEffect) {
-    logDetail('discard-item strike effect: successful strike — character not wounded; company must discard one item');
+    logDetail(`${combat.strikeEffect as string} strike effect: successful strike — character not wounded; must discard one item`);
     result = 'success';
     bodyCheckTarget = null;
   }
@@ -399,11 +427,21 @@ export function resolveStrikeCore(
   // wounded-derived overrides (discard-item) only fire when result was 'wounded',
   // so they never coincide with a tie.
   const isTie = characterTotal === effectiveProwess;
+  // take-prisoner: the character is captured, not wounded (CoE 8.35) — record
+  // 'captured' so finalize-time wound triggers do not fire on the prisoner.
+  // When a cancel-prisoner-taking ally can still intervene, keep 'wounded'
+  // for now: an accepted cancel wounds the character normally, and the
+  // decline handler rewrites the assignment to 'captured'.
+  const cancelPrisonerAlly = (takePrisonerResult || trollPursePrisoner) && charData
+    ? findCancelPrisonerTakingAlly(state, charData)
+    : null;
   const assignmentResult = absorbWoundItem
     ? ('absorbed' as const)
-    : isTie
-      ? ('tie' as const)
-      : result;
+    : (takePrisonerResult || trollPursePrisoner) && !cancelPrisonerAlly
+      ? ('captured' as const)
+      : isTie
+        ? ('tie' as const)
+        : result;
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
       ? {
@@ -464,6 +502,23 @@ export function resolveStrikeCore(
     }
   } else {
     if (takePrisonerResult || trollPursePrisoner) {
+      // cancel-prisoner-taking (Noble Hound dm-179): the controlling character
+      // may carry an ally the player can discard to cancel the prisoner-taking
+      // outcome and resolve the strike as a normal wound instead. Pause here
+      // and let the defending player decide rather than applying prisoner
+      // status immediately — applyTakePrisoner/applyTakePrisonerAtSite draw a
+      // rescue site and add constraints that are not easily undone.
+      const cancelAlly = cancelPrisonerAlly;
+      if (cancelAlly) {
+        logDetail(`cancel-prisoner-taking: ${cancelAlly.instanceId as string} may be discarded to cancel prisoner-taking of ${strike.characterId as string}`);
+        const pausedCombat: CombatState = {
+          ...combat,
+          strikeAssignments: newAssignments,
+          phase: 'cancel-prisoner-taking-choice',
+          cancelPrisonerTakingOffer: { allyId: cancelAlly.instanceId },
+        };
+        return { state: { ...state, rng, cheatRollTotal, combat: pausedCombat }, effects };
+      }
       // take-prisoner: character is not wounded; instead they become a prisoner.
       // Status stays as-is (not tapped, not wounded). Rule 8.35.
       const captor = takePrisonerResult?.hostCard.instanceId ?? trollPursePrisoner?.hostInstanceId;
@@ -583,8 +638,12 @@ export function resolveStrikeCore(
 
     // discard-item strike effect: enter discard-item-from-company phase so the
     // defender must choose one item to discard before combat continues.
+    // 'discard-item-character' (Pick-pocket tw-79) scopes the pool to items
+    // borne by the struck character alone, not the whole company.
     if (discardItemEffect) {
-      const companyCharIds = company?.characters ?? [];
+      const companyCharIds = combat.strikeEffect === 'discard-item-character'
+        ? [strike.characterId]
+        : company?.characters ?? [];
       const allItems: ItemInPlay[] = companyCharIds.flatMap(charId => {
         const ch = newPlayers[defPlayerIndex].characters[charId];
         return ch ? [...ch.items] : [];
@@ -676,7 +735,18 @@ export function eliminateCombatantFromStrike(
     );
   }
   const elimCharDefId = resolveInstanceId(state, strike.characterId);
-  newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, { instanceId: strike.characterId, definitionId: elimCharDefId! }];
+  const elimCharInstance = { instanceId: strike.characterId, definitionId: elimCharDefId! };
+  // CoE rule 3.v: in company vs. company combat, a defending character
+  // eliminated by the attacker's strike awards its MP value to the attacker
+  // as kill MP (killPile), mirroring the `attacker-character` body-check-target
+  // path in combat-actions.ts. Outside CvCC (e.g. a hazard creature killing a
+  // hero character), the eliminated character simply leaves play.
+  if (combat.isCvCC) {
+    const atkPlayerIdx = getPlayerIndex(state, combat.attackingPlayerId);
+    newPlayers2[atkPlayerIdx] = { ...newPlayers2[atkPlayerIdx], killPile: [...newPlayers2[atkPlayerIdx].killPile, elimCharInstance] };
+  } else {
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, elimCharInstance];
+  }
 
   // Discard allies on the eliminated character immediately (an ally that returns
   // to hand when its controller leaves play — Radagast's Black Bird wh-114 —
@@ -686,6 +756,14 @@ export function eliminateCombatantFromStrike(
     if (toHand.length > 0) logDetail(`${toHand.length} ally(ies) return to hand from eliminated character`);
     newPlayerData.hand = [...newPlayerData.hand, ...toHand];
     newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
+  }
+  // Trophies on the eliminated Orc/Troll are relocated per CoE 3.IV.4 — worth
+  // MP → the holder's marshalling-point pile, otherwise removed from play — or
+  // the creature CardInstance would vanish with the deleted character.
+  {
+    const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(state, charData, 'eliminated character');
+    newPlayerData.killPile = [...newPlayerData.killPile, ...toKillPile];
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, ...toOutOfPlay];
   }
   newPlayers2[defPlayerIndex] = newPlayerData;
   const hazardPlayerElim = newPlayers2[1 - defPlayerIndex];
@@ -847,6 +925,7 @@ export function resolveStrikeCvCC(
   if (!defenderTapToFight) defProwess -= computeStayUntappedPenalty(state, defCharData, defCharDef);
   if (defCharData.status === CardStatus.Tapped) defProwess -= 1;
   if (defCharData.status === CardStatus.Inverted) defProwess -= 2;
+  if (strike.excessStrikes > 0) defProwess -= strike.excessStrikes;
   defProwess += (strike.supportCount ?? 0);
   defProwess += (strike.strikeProwessBonus ?? 0);
 
@@ -879,6 +958,7 @@ export function resolveStrikeCvCC(
   let atkResult: 'success' | 'wounded' | 'eliminated';
   let bodyCheckTarget: 'character' | 'attacker-character' | null = null;
   const defWasAlreadyWounded = defCharData.status === CardStatus.Inverted;
+  const atkWasAlreadyWounded = atkCharData.status === CardStatus.Inverted;
 
   if (atkTotal > defTotal) {
     // Attacker wins: defender wounded, attacker taps (unless -3)
@@ -932,6 +1012,7 @@ export function resolveStrikeCvCC(
           result: defResult,
           attackerResult: atkResult,
           wasAlreadyWounded: defWasAlreadyWounded,
+          attackerWasAlreadyWounded: atkWasAlreadyWounded,
         }
       : a,
   );

@@ -158,6 +158,25 @@ export interface Plan {
   readonly steps: readonly PlanStep[];
 }
 
+/** Why a plan that was committed is no longer. */
+export type DropReason = 'deadline-passed' | 'withdrawn' | 'abandoned' | 'displaced';
+
+/** One plan that left the portfolio this turn, and why. */
+export interface DroppedPlan {
+  readonly plan: Plan;
+  readonly reason: DropReason;
+}
+
+/** The outcome of one turn's commitment. */
+export interface Commitment {
+  /** Turn the commitment was made for. */
+  readonly turn: number;
+  /** The committed plans, most valuable first. */
+  readonly plans: readonly Plan[];
+  /** Plans that left the portfolio this turn. */
+  readonly dropped: readonly DroppedPlan[];
+}
+
 /**
  * Probability every remaining step goes right.
  *

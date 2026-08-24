@@ -8,7 +8,6 @@
 import type { GameState, CharacterInPlay, UntapPhaseState, GameAction } from '../index.js';
 import { matchesContext } from '../effects/condition-matcher.js';
 import { hasNoDirectInfluenceRestriction, hasPlayFlag } from '../effects/play-flags.js';
-import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isAvatarCharacter, isCharacterCard, printedMind } from '../types/cards.js';
 import { Alignment, CardStatus, Race, SiteType } from '../types/common.js';
@@ -18,9 +17,11 @@ import { ownerOf } from '../types/state.js';
 import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { clonePlayers, defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
+import { countExtraAgentActions } from './mh-agents.js';
 import type { OnEventEffect, CardEffect, UntapMindRollEffect, TakePrisonerEffect } from '../types/effects.js';
 
 
@@ -56,6 +57,20 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
     return { state: { ...untappedState, phaseState: newUntapState } };
   }
 
+  // Rule 2.1.1: the resource player may activate any-phase grant-actions
+  // (Gandalf tw-156 tapping to test a gold ring, td untap-bearer items)
+  // during their own untap phase — untapActions offers them, so they must
+  // be routed here like every other phase reducer does, or they'd fall
+  // through to the hazard-pass branch below and be silently consumed.
+  if (action.type === 'activate-granted-action') {
+    return handleGrantActionApply(state, action);
+  }
+
+  // Everything below treats the action as the hazard player's pass; any
+  // unhandled action type reaching it would be silently recorded as that
+  // pass, so reject non-pass actions explicitly.
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass');
+
   // 'pass' from the hazard player — either exits the sideboard sub-flow
   // or signals the hazard player is done. The resource player never has
   // a legal 'pass' here, so this branch always runs as the hazard player.
@@ -88,40 +103,13 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
 
   const untapState = requirePhaseState(state, Phase.Untap);
   const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
-
-  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
-  const sideboardCard = player.sideboard[cardIdx];
-  const def = defById(state, sideboardCard.definitionId)!;
   const destination = untapState.hazardSideboardDestination!;
 
-  const newSideboard = [...player.sideboard];
-  newSideboard.splice(cardIdx, 1);
-
-  const newPlayers = clonePlayers(state);
-  let newRng = state.rng;
-
-  if (destination === 'discard') {
-    logDetail(`Hazard sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      discardPile: [...player.discardPile, sideboardCard],
-    };
-  } else {
-    logDetail(`Hazard sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
-    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
-    newRng = nextRng;
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      playDeck: shuffledDeck,
-    };
-  }
+  const moved = moveSideboardCard(state, playerIndex, action.sideboardCardInstanceId, destination, 'Hazard sideboard');
+  if (moved.error) return moved;
 
   // Mark sideboard accessed for hazard limit halving
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], sideboardAccessedDuringUntap: true };
+  const marked = updatePlayer(moved.state, playerIndex, p => ({ ...p, sideboardAccessedDuringUntap: true }));
 
   const newUntapState: UntapPhaseState = {
     ...untapState,
@@ -130,14 +118,7 @@ function handleFetchHazardFromSideboard(state: GameState, action: GameAction): R
     hazardSideboardDestination: destination === 'deck' ? null : destination,
   };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng: newRng,
-      phaseState: newUntapState,
-    },
-  };
+  return { state: { ...marked, phaseState: newUntapState } };
 }
 
 /**
@@ -286,6 +267,11 @@ function performUntap(state: GameState): GameState {
   // fires. Treated like `cannot-untap` for the tap logic below, then consumed
   // (constraint removed, card discarded) after the untap sweep.
   const skipNextUntap = new Map<string, { constraintId: string; cardInstanceId: string }>();
+  // Morgul-knife (tw-64) / The Pale Sword (tw-97): a character who attempted
+  // to remove their attached corruption card "instead of untapping or
+  // healing" this untap phase forgoes BOTH — unlike bearer-cannot-untap,
+  // which still allows healing (see comment below).
+  const skipUntapAndHealIds = new Set<string>();
   for (const c of state.activeConstraints) {
     if (c.target.kind !== 'character') continue;
     // This is the untapping player's own phase: a constraint on the other
@@ -314,6 +300,9 @@ function performUntap(state: GameState): GameState {
         constraintId: c.id as string,
         cardInstanceId: c.kind.cardInstanceId as string,
       });
+    }
+    if (c.kind.type === 'skip-untap-and-heal') {
+      skipUntapAndHealIds.add(c.target.characterId as string);
     }
   }
 
@@ -348,7 +337,12 @@ function performUntap(state: GameState): GameState {
       return ally;
     });
     let newStatus = ch.status;
-    if (prisonerIds.has(key)) {
+    if (skipUntapAndHealIds.has(key)) {
+      // Morgul-knife / The Pale Sword: the bearer attempted removal "instead
+      // of untapping or healing" — both are forgone this untap phase,
+      // regardless of the removal roll's outcome.
+      logDetail(`Untap: skipping untap and healing for ${key} (attempted corruption-card removal instead)`);
+    } else if (prisonerIds.has(key)) {
       // Prisoners cannot untap or heal (CoE rule 8.35: cannot take any actions
       // including healing or untapping).
       logDetail(`Untap: skipping ${key} — character is a prisoner`);
@@ -403,16 +397,14 @@ function performUntap(state: GameState): GameState {
   // Reset per-turn agent bookkeeping and untap tapped agents.
   // An agent that was in play before this untap is now eligible to take
   // agent actions (inPlayAtTurnStart → true). remainingActions is set to
-  // 1 + extra-agent-actions effects in play (e.g. Great Need or Purpose).
-  const extraAgentActions = state.players.reduce((sum, p) =>
-    p.cardsInPlay.reduce((s, card) => {
-      const def = defById(state, card.definitionId);
-      return s + (getCardEffects(def) as CardEffect[]).reduce((n, e) => e.type === 'extra-agent-actions' ? n + (e as { value: number }).value : n, 0);
-    }, sum), 0);
+  // 1 + extra-agent-actions effects applicable to that specific agent — the
+  // untargeted-global total (e.g. Great Need or Purpose dm-62) plus any
+  // self/attached bonus scoped to it alone (My Precious dm-29's whileRevealed,
+  // Never Seen Him dm-74's attached permanent event) — see countExtraAgentActions.
   const newAgents = player.agents.map(a => ({
     ...a,
     inPlayAtTurnStart: true,
-    remainingActions: 1 + extraAgentActions,
+    remainingActions: 1 + countExtraAgentActions(state, a.id),
     character: a.character.status === CardStatus.Tapped
       ? { ...a.character, status: CardStatus.Untapped }
       : a.character,
@@ -456,10 +448,14 @@ function performUntap(state: GameState): GameState {
     }
   }
 
-  // Rule 9.04: Discard agents revealed without a home site. These belong to the
-  // hazard player (the opponent of the active player). They are discarded at the
-  // end of the turn in which they were revealed — which is the active player's turn.
-  const hazardPlayerIndex = 1 - playerIndex;
+  // Rule 9.04: Discard agents revealed without a home site. They are discarded
+  // at the end of the turn in which they were revealed. Since turns strictly
+  // alternate between the two players, "the turn that just ended" was always
+  // the other player's turn, and its hazard player — the one who revealed the
+  // agent — is exactly the player now starting their own untap (playerIndex).
+  // Using `1 - playerIndex` here would look at the wrong player's agents and
+  // delay the discard by a full extra turn.
+  const hazardPlayerIndex = playerIndex;
   const hazardPlayer = stateAfterUntap.players[hazardPlayerIndex];
   const discarded = hazardPlayer.agents.filter(a => a.discardAtEndOfTurn);
   if (discarded.length > 0) {
@@ -652,9 +648,16 @@ export function enterUntapPhase(state: GameState): GameState {
           : [id, c],
       ),
     );
+    // Companies' faced-attack history (Orc-lieutenant tw-073's "already faced
+    // an Orc attack this turn") is likewise turn-scoped.
+    const companies = p.companies.map(co =>
+      co.facedHazardRaces && co.facedHazardRaces.length > 0
+        ? { ...co, facedHazardRaces: [] }
+        : co,
+    );
     return p.sideboardAccessedDuringUntap
-      ? { ...p, sideboardAccessedDuringUntap: false, characters }
-      : { ...p, characters };
+      ? { ...p, sideboardAccessedDuringUntap: false, characters, companies }
+      : { ...p, characters, companies };
   }) as unknown as typeof state.players;
   const withPhase: GameState = {
     ...state,

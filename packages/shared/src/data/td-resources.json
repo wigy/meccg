@@ -451,8 +451,46 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Lindon, Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of the Anduin, Enedhwaith, Old Pûkel-land, Andrast, Anfalas, Belfalas, Lebennin, and Harondor. The site path is [{c} {c} {c}] and the hazard limit is decreased by two to a minimum of two."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.siteRegion": {
+            "$in": [
+              "Lindon",
+              "Elven Shores",
+              "Eriadoran Coast",
+              "Andrast Coast",
+              "Bay of Belfalas",
+              "Mouths of the Anduin",
+              "Enedhwaith",
+              "Old Pûkel-land",
+              "Andrast",
+              "Anfalas",
+              "Belfalas",
+              "Lebennin",
+              "Harondor"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "belegaer"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Lindon, Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of the Anduin, Enedhwaith, Old Pûkel-land, Andrast, Anfalas, Belfalas, Lebennin, and Harondor. The site path is [{c} {c} {c}] and the hazard limit is decreased by two to a minimum of two.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
@@ -525,7 +563,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Dragonlore.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -674,7 +712,32 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "elf",
+          "target.status": "untapped"
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "only-creatures-keyed-to-site-if-safe-path",
+          "scope": "turn"
+        }
+      }
+    ],
+    "certified": "2026-08-22",
     "text": "Playable only at the end of the organization phase. Tap an Elf. If his company’s site path only has one or two regions with no Dark-domains [{d}] and no Shadow-lands [{s}], opponent may only play hazard creatures this turn that are keyed to the company’s new site."
   },
   {
@@ -809,7 +872,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/KingundertheMountain.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Playable on Balin, Dáin II, Thorin II, or Thráin II if his company has defeated an at home Dragon manifestation attack other than Eärcaraxë at Home. The target Dwarf receives +5 direct influence against Dwarves and Dwarf factions.The site where the Dragon was defeated becomes a Border-hold [{B}] and Dwarf-hold for all purposes and has no Dragon automatic-attacks. Only Dwarves may play items at this site."
@@ -877,7 +940,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MaptoMithril.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -1441,8 +1504,20 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Scout only against an Orc, Troll, Man, Elf, Slayer, Awakened Plant, or Giant attack against his company. Make a roll; if the result is greater than 5, the attack is canceled."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "scout",
+        "when": {
+          "enemy.race": {
+            "$in": ["orc", "troll", "man", "elf", "slayer", "awakened-plant", "giant"]
+          }
+        },
+        "roll": { "threshold": 5, "comparison": "gt" }
+      }
+    ],
+    "text": "Scout only against an Orc, Troll, Man, Elf, Slayer, Awakened Plant, or Giant attack against his company. Make a roll; if the result is greater than 5, the attack is canceled.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",

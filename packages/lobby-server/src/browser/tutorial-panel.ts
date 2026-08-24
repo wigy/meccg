@@ -11,6 +11,10 @@
  * the left below the opponent deck box by CSS), deliberately outside
  * `#visual-board` so its size never reflows the company layout.
  *
+ * When the chapter's last beat has been played the docked panel is replaced
+ * by a centered completion card — the recap plus the "Exit Tutorial" button,
+ * which is the only control left once the script gates every action off.
+ *
  * Besides the instruction, a step may carry glossary entries (rendered under
  * the instruction body) and UI pointers — callout bubbles attached to the
  * on-screen element a concept lives at (the GI counter, the phase meter, …).
@@ -52,6 +56,39 @@ const ANCHOR_ELEMENT_IDS: Record<TutorialAnchorId, string> = {
 let repositionListenersRegistered = false;
 
 /**
+ * Callback behind the completion card's "Exit Tutorial" button. Registered
+ * by game-connection.ts (its `disconnect()`) at module load — a forward
+ * reference like `setReplayExit`, so this module never imports
+ * game-connection.js and creates a cycle (game-connection.ts already imports
+ * {@link renderTutorialPanel}).
+ */
+let exitTutorialFn: (() => void) | null = null;
+
+/** Register the handler for the completion card's exit button. */
+export function setExitTutorial(fn: () => void): void {
+  exitTutorialFn = fn;
+}
+
+/** Create an element with the given class and optional text content. */
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+/**
+ * Append the `#tutorial-dim` backdrop to `document.body` (any previous one is
+ * removed by the caller). An optional class selects a heavier variant.
+ */
+function dimBackdrop(className?: string): void {
+  const dim = document.createElement('div');
+  dim.id = 'tutorial-dim';
+  if (className !== undefined) dim.className = className;
+  document.body.appendChild(dim);
+}
+
+/**
  * Render (or remove) the tutorial panel for the current view. Shows the
  * active step's title and instruction, glossary entries for concepts the
  * step introduces, and overall progress (steps narrate the Mentor's turns
@@ -62,38 +99,36 @@ let repositionListenersRegistered = false;
  */
 export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<string, CardDefinition>>): void {
   document.getElementById('tutorial-panel')?.remove();
+  document.getElementById('tutorial-complete')?.remove();
   const progress = view.tutorial;
   if (!progress) {
     renderBubbles([]);
+    document.getElementById('tutorial-dim')?.remove();
     return;
   }
   // Only render inside a game screen (the board is the marker element).
   if (!document.getElementById('visual-board')) return;
 
-  const panel = document.createElement('div');
+  // The chapter is over: the docked instruction panel gives way to a card in
+  // the middle of the board recapping the chapter. Every human action is
+  // gated off from here on (see gateHumanActions), so its button is the
+  // player's only way out.
+  if (progress.done) {
+    renderBubbles([]);
+    renderCompletionCard(progress);
+    return;
+  }
+
+  const panel = el('div', 'tutorial-panel');
   panel.id = 'tutorial-panel';
-  panel.className = progress.done ? 'tutorial-panel tutorial-panel--done' : 'tutorial-panel';
 
-  const header = document.createElement('div');
-  header.className = 'tutorial-panel-header';
-
-  const title = document.createElement('span');
-  title.className = 'tutorial-panel-title';
-  title.textContent = progress.title;
-  header.appendChild(title);
-
-  const step = document.createElement('span');
-  step.className = 'tutorial-panel-progress';
-  step.textContent = progress.done
-    ? 'Complete!'
-    : `Step ${progress.stepIndex + 1} of ${progress.stepCount}`;
-  header.appendChild(step);
-
+  const header = el('div', 'tutorial-panel-header');
+  header.appendChild(el('span', 'tutorial-panel-title', progress.title));
+  header.appendChild(el('span', 'tutorial-panel-progress', `Step ${progress.stepIndex + 1} of ${progress.stepCount}`));
   panel.appendChild(header);
 
   // Optional card illustration on the left, instruction text on the right.
-  const main = document.createElement('div');
-  main.className = 'tutorial-panel-main';
+  const main = el('div', 'tutorial-panel-main');
   panel.appendChild(main);
 
   if (progress.card) {
@@ -108,13 +143,11 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
       img.src = imgPath;
       img.alt = def.name;
       img.className = 'tutorial-panel-card-img';
-      const figure = document.createElement('div');
-      figure.className = 'tutorial-panel-card';
+      const figure = el('div', 'tutorial-panel-card');
       figure.appendChild(img);
       const highlight = progress.card.highlight;
       if (highlight) {
-        const circle = document.createElement('div');
-        circle.className = 'tutorial-card-highlight';
+        const circle = el('div', 'tutorial-card-highlight');
         circle.style.left = `${(highlight.x - highlight.r) * 100}%`;
         circle.style.top = `${highlight.y * 100}%`;
         circle.style.width = `${highlight.r * 2 * 100}%`;
@@ -126,25 +159,18 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
     }
   }
 
-  const text = document.createElement('div');
-  text.className = 'tutorial-panel-text';
+  const text = el('div', 'tutorial-panel-text');
   main.appendChild(text);
 
-  const body = document.createElement('div');
-  body.className = 'tutorial-panel-body';
+  const body = el('div', 'tutorial-panel-body');
   renderBodyText(body, progress.body);
   text.appendChild(body);
 
   if (progress.concepts?.length) {
-    const concepts = document.createElement('div');
-    concepts.className = 'tutorial-panel-concepts';
+    const concepts = el('div', 'tutorial-panel-concepts');
     for (const concept of progress.concepts) {
-      const entry = document.createElement('div');
-      entry.className = 'tutorial-concept';
-      const term = document.createElement('span');
-      term.className = 'tutorial-concept-term';
-      term.textContent = concept.term;
-      entry.appendChild(term);
+      const entry = el('div', 'tutorial-concept');
+      entry.appendChild(el('span', 'tutorial-concept-term', concept.term));
       entry.appendChild(document.createTextNode(' — '));
       renderBodyText(entry, concept.explanation);
       concepts.appendChild(entry);
@@ -153,10 +179,7 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
   }
 
   if (progress.footer) {
-    const footer = document.createElement('div');
-    footer.className = 'tutorial-panel-footer';
-    footer.textContent = progress.footer;
-    text.appendChild(footer);
+    text.appendChild(el('div', 'tutorial-panel-footer', progress.footer));
   }
 
   // Continue gate: the script is holding a dramatic Mentor beat. Dim the
@@ -164,14 +187,10 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
   // once the player has read the step and clicked.
   document.getElementById('tutorial-dim')?.remove();
   if (progress.awaitingContinue) {
-    const dim = document.createElement('div');
-    dim.id = 'tutorial-dim';
-    document.body.appendChild(dim);
+    dimBackdrop();
 
-    const cont = document.createElement('button');
+    const cont = el('button', 'tutorial-continue-btn', 'Continue ➜');
     cont.type = 'button';
-    cont.className = 'tutorial-continue-btn';
-    cont.textContent = 'Continue ➜';
     cont.addEventListener('click', () => {
       const msg: ClientMessage = { type: 'tutorial-continue' };
       appState.ws?.send(JSON.stringify(msg));
@@ -181,7 +200,50 @@ export function renderTutorialPanel(view: PlayerView, cardPool: Readonly<Record<
 
   document.body.appendChild(panel);
 
-  renderBubbles(progress.done ? [] : progress.pointers ?? []);
+  renderBubbles(progress.pointers ?? []);
+}
+
+/**
+ * Draw the end-of-chapter card over a dimmed board: what the chapter taught,
+ * one line per lesson, and the single button that leaves the tutorial. Uses
+ * the continue gate's `#tutorial-dim` backdrop, so the board behind it stays
+ * visible but plainly out of play.
+ */
+function renderCompletionCard(progress: NonNullable<PlayerView['tutorial']>): void {
+  document.getElementById('tutorial-dim')?.remove();
+  // Heavier than the continue gate's backdrop: the game is over, and a
+  // half-lit board behind the card still reads as a game in progress.
+  dimBackdrop('tutorial-dim--complete');
+
+  const card = el('div', 'tutorial-complete');
+  card.id = 'tutorial-complete';
+
+  card.appendChild(el('div', 'tutorial-complete-title', progress.title));
+
+  const text = el('div', 'tutorial-complete-body');
+  renderBodyText(text, progress.body);
+  card.appendChild(text);
+
+  if (progress.learned?.length) {
+    const list = el('ul', 'tutorial-complete-learned');
+    for (const lesson of progress.learned) {
+      const item = document.createElement('li');
+      renderBodyText(item, lesson);
+      list.appendChild(item);
+    }
+    card.appendChild(list);
+  }
+
+  if (progress.footer) {
+    card.appendChild(el('div', 'tutorial-panel-footer', progress.footer));
+  }
+
+  const exit = el('button', 'tutorial-exit-btn', 'Exit Tutorial');
+  exit.type = 'button';
+  exit.addEventListener('click', () => exitTutorialFn?.());
+  card.appendChild(exit);
+
+  document.body.appendChild(card);
 }
 
 /** Region types the `{{...}}` icon token accepts. */
@@ -204,10 +266,7 @@ function renderBodyText(parent: HTMLElement, text: string): void {
     if (kind === 0) {
       if (part) parent.appendChild(document.createTextNode(part));
     } else if (kind === 1) {
-      const chip = document.createElement('span');
-      chip.className = 'tutorial-inline-button';
-      chip.textContent = part;
-      parent.appendChild(chip);
+      parent.appendChild(el('span', 'tutorial-inline-button', part));
     } else if (REGION_TOKEN_TYPES.has(part)) {
       parent.appendChild(createRegionTypeIcon(part as RegionType, 14));
     } else {
@@ -225,6 +284,7 @@ export function clearTutorialPanel(): void {
   document.getElementById('tutorial-panel')?.remove();
   document.getElementById('tutorial-bubbles')?.remove();
   document.getElementById('tutorial-dim')?.remove();
+  document.getElementById('tutorial-complete')?.remove();
 }
 
 /**
@@ -240,8 +300,7 @@ function renderBubbles(pointers: readonly TutorialPointer[]): void {
   const container = document.createElement('div');
   container.id = 'tutorial-bubbles';
   for (const pointer of pointers) {
-    const bubble = document.createElement('div');
-    bubble.className = 'tutorial-bubble';
+    const bubble = el('div', 'tutorial-bubble');
     if (pointer.anchor) bubble.dataset.anchor = ANCHOR_ELEMENT_IDS[pointer.anchor];
     if (pointer.cardDefId) bubble.dataset.cardDef = pointer.cardDefId as string;
     if (pointer.side) bubble.dataset.side = pointer.side;
@@ -268,14 +327,14 @@ function renderBubbles(pointers: readonly TutorialPointer[]): void {
 function largestVisibleCard(defId: string): HTMLElement | null {
   let best: HTMLElement | null = null;
   let bestArea = 0;
-  for (const el of document.querySelectorAll<HTMLElement>(`img[data-card-id="${defId}"]`)) {
-    const r = el.getBoundingClientRect();
+  for (const img of document.querySelectorAll<HTMLElement>(`img[data-card-id="${defId}"]`)) {
+    const r = img.getBoundingClientRect();
     const onScreen = r.width > 0 && r.height > 0
       && r.bottom > 0 && r.top < window.innerHeight
       && r.right > 0 && r.left < window.innerWidth;
     const area = r.width * r.height;
     if (onScreen && area > bestArea) {
-      best = el;
+      best = img;
       bestArea = area;
     }
   }

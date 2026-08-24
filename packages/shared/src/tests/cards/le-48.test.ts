@@ -9,7 +9,7 @@
  * Ufthak is a unique Uruk-hai Orc Warrior/Scout/Ranger (prowess 4, body 8,
  * mind 4). His `discardBodyCheck: [8]` encodes the standard Orc mass-body-check
  * discard rule: the pass threshold is 8. With Veils Flung Away's −1 modifier the
- * effective threshold drops to 7 — rolls of 7+ pass (Ufthak survives), rolls of
+ * a modified total of exactly 8 (roll 9) discards Ufthak; other totals of
  * 6 or lower fail (Ufthak is discarded to the discard pile, not eliminated to
  * the out-of-play pile).
  *
@@ -77,8 +77,8 @@ describe('Ufthak (le-48)', () => {
   // ── Mass body check: discardBodyCheck [8] ─────────────────────────────────
 
   test('discarded to discard pile when mass body check fails', () => {
-    // Veils Flung Away applies modifier −1. discardBodyCheck [8] → threshold 7.
-    // Roll 6 (<7) → fail → Ufthak discarded to discard pile.
+    // Veils Flung Away applies a -1 roll modifier (CoE 3.I.1). Threshold = body 8; discard band [8].
+    // Roll 9 (total 8, matching the value) → Ufthak discarded to discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -99,15 +99,15 @@ describe('Ufthak (le-48)', () => {
     expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
 
-    // discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7, target Ufthak.
+    // discardBodyCheck [8] → threshold = body 8, -1 roll modifier, target Ufthak.
     const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === ufthakId);
     expect(dc).toBeDefined();
     if (dc?.kind.type === 'dice-check') {
       expect(dc.kind.targetCharacterId).toBe(ufthakId);
-      expect(dc.kind.threshold).toBe(7);
+      expect(dc.kind.threshold).toBe(8);
     }
 
-    s = { ...s, cheatRollTotal: 6 };
+    s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -122,7 +122,7 @@ describe('Ufthak (le-48)', () => {
   });
 
   test('stays in play when mass body check passes', () => {
-    // discardBodyCheck [8], modifier −1 → threshold 7. Roll 7 (>=7) → pass.
+    // discardBodyCheck [8], -1 roll modifier. Roll 7 → total 6: no match, ≤ body → pass.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,

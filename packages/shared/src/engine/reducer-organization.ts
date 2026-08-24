@@ -6,29 +6,31 @@
  * planning movement, and sideboard access.
  */
 
-import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
+import type { GameState, CardInstanceId, CharacterInPlay, CardInstance, CompanyId, OrganizationPhaseState, Company, SiteInPlay, GameAction, FetchWizardOnStoreEffect } from '../index.js';
 import type { PlayFlagEffect } from '../types/effects.js';
+import type { PlayerState } from '../types/state-player.js';
 import { formatSignedNumber } from '../format-helpers.js';
-import { shuffle } from '../rng.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter, isItemCard } from '../types/cards.js';
 import { CardStatus, SiteType, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { targetConditionalDIBonus } from './legal-actions/organization.js';
+import { directInfluenceLedgerFor } from './legal-actions/organization.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, companyById, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteMovementRolls, matchesDefinition } from './reducer-utils.js';
+import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies } from './reducer-utils.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
+import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
-import { directInfluenceControlAllowed, controlCostOf } from './control-cost.js';
+import { directInfluenceControlAllowed } from './control-cost.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { wizardSpecificName } from './fallen-wizard-specific.js';
 import { companyExemptsCharacterFromPlayLimit } from './company-composition.js';
@@ -238,10 +240,10 @@ function enforceRingwraithReclaim(state: GameState, activeIndex: number): GameSt
  * overflow it may trigger, are deferred to the player's next organization
  * phase (reducer-untap.ts's `influenceUnsubtracted` sweep).
  *
- * When a controller can no longer afford all of its followers, the
- * most-expensive followers are released first — that clears the shortfall in
- * the fewest releases. The rules do not specify an order for multiple
- * followers becoming simultaneously unaffordable.
+ * The followers drawing the most on the controller's *unrestricted* influence
+ * are released first — that clears the shortfall in the fewest releases. The
+ * rules do not specify an order for multiple followers becoming
+ * simultaneously unaffordable.
  */
 function revertOverextendedDirectInfluenceFollowers(state: GameState, activePlayer: import('../index.js').PlayerId): GameState {
   const activeIndex = getPlayerIndex(state, activePlayer);
@@ -254,30 +256,25 @@ function revertOverextendedDirectInfluenceFollowers(state: GameState, activePlay
     if (!controller || controller.followers.length === 0) continue;
     const available = controller.effectiveStats.directInfluence;
 
-    const followerCosts = controller.followers
-      .map(followerId => {
-        const follower = characters[followerId];
-        const followerDef = follower ? resolveDef(state, follower.instanceId) : undefined;
-        if (!follower || !isCharacterCard(followerDef) || followerDef.mind === null) return null;
-        const baseCost = controlCostOf(state, follower, follower.effectiveStats.mind ?? followerDef.mind) ?? 0;
-        // Credit target-conditional DI (Glorfindel II "+1 DI against Elves")
-        // against this follower's cost — the same bonus `availableDI` applied
-        // when the follower was admitted, so admission and this release check
-        // agree (else a legal follower would be released the same phase).
-        const cost = Math.max(0, baseCost - targetConditionalDIBonus(state, controller, followerDef));
-        return { followerId, cost };
-      })
-      .filter((f): f is { followerId: CardInstanceId; cost: number } => f !== null)
-      .sort((a, b) => b.cost - a.cost);
+    // Pay for the followers the same way admission does: unrestricted
+    // influence first, then whatever restricted allotments (Glorfindel II's
+    // "+1 DI against Elves", Whip le-348) match each follower. Admission and
+    // this release check must agree, or a legally admitted follower would be
+    // released again at the end of the same phase. What is left over is each
+    // follower's charge against the controller's unrestricted influence.
+    const ledger = directInfluenceLedgerFor(state, controller, { characters });
+    let shortfall = -ledger.unrestricted;
+    if (shortfall <= 0) continue;
 
-    let used = followerCosts.reduce((sum, f) => sum + f.cost, 0);
-    if (used <= available) continue;
-
+    // Releasing the followers charging the most unrestricted influence clears
+    // the shortfall in the fewest releases. The rules do not specify an order
+    // for multiple followers becoming simultaneously unaffordable.
     const releasedFollowerIds: CardInstanceId[] = [];
-    for (const { followerId, cost } of followerCosts) {
-      if (used <= available) break;
+    for (const { followerId, charge } of ledger.charges) {
+      if (shortfall <= 0) break;
+      if (charge <= 0) continue;
       releasedFollowerIds.push(followerId);
-      used -= cost;
+      shortfall -= charge;
     }
     if (releasedFollowerIds.length === 0) continue;
 
@@ -1122,6 +1119,12 @@ function replaceCharacterInPlace(
     controlledBy: oldChar.controlledBy,
     effectiveStats: ZERO_EFFECTIVE_STATS,
     ...(oldChar.trophies !== undefined ? { trophies: oldChar.trophies } : {}),
+    // The rule-9.16 "in use" declaration is a set of pointers into the
+    // transferred `items` — its instance IDs stay valid across the swap, so it
+    // must ride along with the items it elects. Dropping it silently reverts a
+    // character with a declared non-first weapon/armor to first-carried,
+    // changing its effective prowess/body (item-slots pickActiveItems).
+    ...(oldChar.itemsInUse !== undefined ? { itemsInUse: oldChar.itemsInUse } : {}),
   };
 
   // Rebuild the characters map: drop the old instance, add the new one,
@@ -1234,8 +1237,8 @@ export function handleDiscardToRecruit(state: GameState, action: GameAction): Re
   const company = findCharacterCompany(player.companies, oldId);
   if (!company) return { state, error: 'discard-to-recruit: bearer has no company' };
   if (recruit.requireHaven) {
-    const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-    if (!siteDef || !isSiteCard(siteDef) || siteDef.siteType !== SiteType.Haven) {
+    const siteDef = companySiteDef(state, company);
+    if (!siteDef || siteDef.siteType !== SiteType.Haven) {
       return { state, error: 'discard-to-recruit: bearer\'s company is not at a Haven' };
     }
   }
@@ -1248,6 +1251,16 @@ export function handleDiscardToRecruit(state: GameState, action: GameAction): Re
   }
   if (recruit.filter && !matchesCondition(recruit.filter, { target: newDef })) {
     return { state, error: `discard-to-recruit: ${newDef.name} does not match the recruit filter` };
+  }
+  // Backstop the state-corrupting gates (uniqueness enforced only in emitters
+  // for normal character plays): two copies of a unique character — or two
+  // manifestations of one entity — must never both be in play.
+  if (newDef.unique && isUniqueCharacterInPlay(state, newDef.name)) {
+    return { state, error: `discard-to-recruit: ${newDef.name} is unique and already in play` };
+  }
+  const blockingManifestation = manifestationOfEntityInPlay(state, newDef);
+  if (blockingManifestation !== null) {
+    return { state, error: `discard-to-recruit: ${blockingManifestation}, a manifestation of the same entity as ${newDef.name}, is already in play` };
   }
 
   logDetail(`Discard-to-recruit: ${newDef.name} enters play with ${oldDef.name}'s company; ${oldDef.name} is discarded and all cards on him transfer`);
@@ -1560,9 +1573,9 @@ function storeCompanyBoundCard(
     return { state, error: `${cardDef?.name ?? '?'} must be tapped before it can be stored` };
   }
 
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Company is not at a site' };
-  if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+  const siteDef = companySiteDef(state, company);
+  if (!siteDef) return { state, error: 'Company is not at a site' };
+  if (siteForbidsStorage(siteDef, player.alignment)) {
     logDetail(`Store rejected: ${siteDef.name} carries no-storage site-rule`);
     return { state, error: `Resources may never be stored at ${siteDef.name}` };
   }
@@ -1618,7 +1631,8 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   if (charId === undefined) return { state, error: 'store-item requires a bearer or a company' };
   if (!player.characters[charId]) return { state, error: 'Character not found' };
 
-  // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
+  // `no-storage` site-rule (Geann a-Lisch le-374 unconditionally; Barad-dûr
+  // for a Balrog player via the rule's `when` gate): "Resources may never be
   // stored at this site." Reject a store attempt as a backstop to the
   // legal-action suppression in storeItemActions.
   const storeCompany = findCharacterCompany(player.companies, charId);
@@ -1626,7 +1640,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     ? defById(state, storeCompany.currentSite.definitionId)
     : undefined;
   if (storeSiteDef && isSiteCard(storeSiteDef)
-    && storeSiteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
+    && siteForbidsStorage(storeSiteDef, player.alignment)) {
     logDetail(`Store item rejected: ${storeSiteDef.name} carries no-storage site-rule`);
     return { state, error: `Resources may never be stored at ${storeSiteDef.name}` };
   }
@@ -1648,6 +1662,35 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const charDef = resolveDef(state, charId);
   logDetail(`Store item: ${itemDef?.name ?? '?'} from ${charDef?.name ?? '?'}`);
 
+  // Companion cards that must be stored alongside this item (Align Palantír
+  // tw-190: "If the Palantír is stored, this card is stored too"). Scan the
+  // bearer's remaining items for an `on-event: host-item-stored` self-store
+  // move whose `when` (if any) matches the stored item's keywords. Skipped
+  // for the item-cache destination (Armory dm-116) below — that alternate
+  // path is scoped to true "minor items", not their companion permanent
+  // events, so a companion left behind simply stays on the bearer.
+  const hostItemStoredCtx = { storedItem: { itemKeywords: itemKeywordsOf(state, [item]) } };
+  let playerAfterRemoval = removed.player;
+  const companionCards: CardInstance[] = [];
+  if (action.cacheHostInstanceId === undefined) {
+    for (const companion of playerAfterRemoval.characters[charId]?.items ?? []) {
+      const companionDef = defById(state, companion.definitionId);
+      const storesToo = getOnEventEffects(companionDef, 'host-item-stored').some(
+        e => isSelfStoreMove(e.apply) && (!e.when || matchesCondition(e.when, hostItemStoredCtx)),
+      );
+      if (!storesToo) continue;
+      const removedCompanion = removeAttachment(playerAfterRemoval, 'items', companion.instanceId);
+      if (!removedCompanion || removedCompanion.charId !== charId) continue;
+      playerAfterRemoval = removedCompanion.player;
+      logDetail(`Store item: ${companionDef?.name ?? '?'} stored together with ${itemDef?.name ?? '?'}`);
+      companionCards.push({
+        instanceId: removedCompanion.attachment.instanceId,
+        definitionId: removedCompanion.attachment.definitionId,
+        ...(storeCompany?.currentSite ? { storedAtSite: storeCompany.currentSite.definitionId } : {}),
+      });
+    }
+  }
+
   // Record where the card is stored: "stored there" references (Wizard's
   // Trove wh-85 `play-with-stored-card`) match against this site binding.
   const storedCard: CardInstance = {
@@ -1665,23 +1708,30 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   // corruption check and bearer-cannot-untap cleanup below run unchanged.
   const stateAfterStore: GameState = action.cacheHostInstanceId !== undefined
     ? placeCardSetAside(
-      updatePlayer(state, playerIndex, () => removed.player),
+      updatePlayer(state, playerIndex, () => playerAfterRemoval),
       action.cacheHostInstanceId,
       storedCard,
       false,
       true,
     )
     : updatePlayer(state, playerIndex, () => ({
-      ...removed.player,
-      killPile: [...removed.player.killPile, storedCard],
+      ...playerAfterRemoval,
+      killPile: [...playerAfterRemoval.killPile, storedCard, ...companionCards],
     }));
 
+  // CoE 2.II.4.1: the bearer's corruption check for storing an item must
+  // count that item's own corruption points, even though the item has
+  // already physically moved to the marshalling point pile above — the
+  // check determines whether the store *succeeds*, so it has to be made
+  // as if the item were still borne. Reuses `transferredItemId`, the same
+  // already-moved-but-still-counted mechanism the transfer-item check uses.
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
     actor: action.player,
     scope: { kind: 'phase', phase: state.phaseState.phase },
     characterId: charId,
     reason: 'Store',
+    transferredItemId: itemInstId,
   });
 
   // Clear any bearer-cannot-untap constraints that reference the stored card.
@@ -1875,42 +1925,15 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
   if (action.type !== 'fetch-from-sideboard') return wrongActionType(state, action, 'fetch-from-sideboard');
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const player = state.players[playerIndex];
   const orgState = requirePhaseState(state, Phase.Organization);
 
   if (orgState.sideboardFetchDestination === null) {
     return { state, error: 'No sideboard access sub-flow active' };
   }
-
-  const cardIdx = player.sideboard.findIndex(c => c.instanceId === action.sideboardCardInstanceId);
-  if (cardIdx === -1) return { state, error: 'Sideboard card not found' };
-  const sideboardCard = player.sideboard[cardIdx];
-  const def = defById(state, sideboardCard.definitionId)!;
   const destination = orgState.sideboardFetchDestination;
 
-  const newSideboard = [...player.sideboard];
-  newSideboard.splice(cardIdx, 1);
-
-  const newPlayers = clonePlayers(state);
-  let newRng = state.rng;
-
-  if (destination === 'discard') {
-    logDetail(`Sideboard → discard: ${def.name} (${action.sideboardCardInstanceId as string})`);
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      discardPile: [...player.discardPile, sideboardCard],
-    };
-  } else {
-    logDetail(`Sideboard → play deck: ${def.name} (${action.sideboardCardInstanceId as string}), shuffling`);
-    const [shuffledDeck, nextRng] = shuffle([...player.playDeck, sideboardCard], state.rng);
-    newRng = nextRng;
-    newPlayers[playerIndex] = {
-      ...newPlayers[playerIndex],
-      sideboard: newSideboard,
-      playDeck: shuffledDeck,
-    };
-  }
+  const moved = moveSideboardCard(state, playerIndex, action.sideboardCardInstanceId, destination, 'Sideboard');
+  if (moved.error) return moved;
 
   const newOrgState: OrganizationPhaseState = {
     ...orgState,
@@ -1919,14 +1942,7 @@ function handleFetchFromSideboard(state: GameState, action: GameAction): Reducer
     sideboardFetchDestination: destination === 'deck' ? null : destination,
   };
 
-  return {
-    state: {
-      ...state,
-      players: newPlayers,
-      rng: newRng,
-      phaseState: newOrgState,
-    },
-  };
+  return { state: { ...moved.state, phaseState: newOrgState } };
 }
 
 /**
@@ -2131,6 +2147,22 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   );
   companies.push(newCompany);
 
+  // Rule 2.II.3.6.1: effects targeting "a specific character's company"
+  // (rather than the company as an entity) follow that character when the
+  // company splits. Ringwraith-mode cards (Black Rider, Fell Rider, Heralded
+  // Lord — le-170/183/190) are bound to "your Ringwraith's own company", so
+  // if the Ringwraith is the character splitting off, the mode card must
+  // move with them to the new company rather than staying behind with
+  // whichever characters remain.
+  const newCompanyHasRingwraith = companyHasRingwraith(state, player, newCompany);
+  const cardsInPlay = player.cardsInPlay.map(card => {
+    if (card.companyId !== sourceCompany.id || !newCompanyHasRingwraith) return card;
+    const cardDef = defById(state, card.definitionId);
+    if (!cardDef || !getCardEffects(cardDef).some(e => e.type === 'ringwraith-mode')) return card;
+    logDetail(`Split company: moving Ringwraith-mode card ${cardDef.name} to ${newCompany.id as string} (Ringwraith split off)`);
+    return { ...card, companyId: newCompany.id };
+  });
+
   // Reverse: merge the new company back into the source
   const reverseAction: GameAction = {
     type: 'merge-companies',
@@ -2158,7 +2190,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   };
 
   let result = sweepCompanyMembershipChangedEvents({
-    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck: newSiteDeck })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, cardsInPlay, siteDeck: newSiteDeck })),
     reverseActions: [...state.reverseActions, reverseAction],
     phaseState: { ...orgState, splitLineage },
   }, [sourceCompany.id]);
@@ -2169,6 +2201,33 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   }
 
   return { state: result };
+}
+
+/**
+ * Resolve the source and target companies of a company-to-company action
+ * (move-to-company, merge-companies) and validate they stand at the same
+ * site. Rule g.site.1 lets a player hold multiple physical instances of the
+ * same haven in play at once, so "the same site" (rules 2.II.3.4–5) is
+ * judged by site definition, not raw card instance.
+ */
+function resolveSameSiteCompanies(
+  state: GameState,
+  player: PlayerState,
+  sourceCompanyId: CompanyId,
+  targetCompanyId: CompanyId,
+): { sourceCompany: Company; targetCompany: Company } | { error: string } {
+  const sourceCompany = companyById(player.companies, sourceCompanyId);
+  if (!sourceCompany) return { error: 'Source company not found' };
+
+  const targetCompany = companyById(player.companies, targetCompanyId);
+  if (!targetCompany) return { error: 'Target company not found' };
+
+  const sourceSiteDefId = sourceCompany.currentSite ? resolveInstanceId(state, sourceCompany.currentSite.instanceId) : undefined;
+  const targetSiteDefId = targetCompany.currentSite ? resolveInstanceId(state, targetCompany.currentSite.instanceId) : undefined;
+  if (!sourceSiteDefId || !targetSiteDefId || sourceSiteDefId !== targetSiteDefId) {
+    return { error: 'Companies must be at the same site' };
+  }
+  return { sourceCompany, targetCompany };
 }
 
 /**
@@ -2184,16 +2243,9 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const sourceCompany = companyById(player.companies, action.sourceCompanyId);
-  if (!sourceCompany) return { state, error: 'Source company not found' };
-
-  const targetCompany = companyById(player.companies, action.targetCompanyId);
-  if (!targetCompany) return { state, error: 'Target company not found' };
-
-  // Validate same site
-  if (sourceCompany.currentSite?.instanceId !== targetCompany.currentSite?.instanceId) {
-    return { state, error: 'Companies must be at the same site' };
-  }
+  const resolved = resolveSameSiteCompanies(state, player, action.sourceCompanyId, action.targetCompanyId);
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { sourceCompany, targetCompany } = resolved;
 
   const charInstId = action.characterInstanceId;
   const char = player.characters[charInstId];
@@ -2307,7 +2359,22 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
     ownDiscard = [...ownDiscard, removedCharCard];
   }
   for (const item of char.items) ownDiscard = [...ownDiscard, toCardInstance(item)];
-  for (const ally of char.allies) ownDiscard = [...ownDiscard, toCardInstance(ally)];
+  // Allies follow the shared disposition: most are discarded, but one that
+  // "may return to hand" when its controller leaves play (Radagast's Black
+  // Bird wh-114) does so — same as every other character-removal path.
+  const { toHand: alliesToHand, toDiscard: alliesToDiscard } = partitionLeavingAllies(state, char.allies);
+  ownDiscard = [...ownDiscard, ...alliesToDiscard];
+  const ownHand = alliesToHand.length > 0
+    ? [...newPlayers[playerIndex].hand, ...alliesToHand]
+    : newPlayers[playerIndex].hand;
+  // CoE 3.IV.4: the leaving character's trophies go to the marshalling-point
+  // pile (worth MP) or out of play (worthless) — never silently dropped.
+  const { toKillPile: trophiesToKill, toOutOfPlay: trophiesToOop } =
+    partitionLeavingTrophies(state, char, 'discard character (rule 3.22)');
+  const ownKill = trophiesToKill.length > 0
+    ? [...newPlayers[playerIndex].killPile, ...trophiesToKill]
+    : newPlayers[playerIndex].killPile;
+  if (trophiesToOop.length > 0) ownOutOfPlay = [...ownOutOfPlay, ...trophiesToOop];
 
   // Attached hazards return to their owner's discard pile.
   let opponentDiscard = [...newPlayers[opponentIndex].discardPile];
@@ -2339,10 +2406,9 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
   }
 
   const companies = newPlayers[playerIndex].companies
-    .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c)
-    .filter(c => c.characters.length > 0);
+    .map(c => c.id === company.id ? { ...c, characters: c.characters.filter(id => id !== charInstId) } : c);
 
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, discardPile: ownDiscard, outOfPlayPile: ownOutOfPlay };
+  newPlayers[playerIndex] = { ...newPlayers[playerIndex], characters: newCharacters, companies, hand: ownHand, killPile: ownKill, discardPile: ownDiscard, outOfPlayPile: ownOutOfPlay };
   newPlayers[opponentIndex] = { ...newPlayers[opponentIndex], discardPile: opponentDiscard };
 
   // CoE rule 2.II.2: playing or discarding a character is the same
@@ -2357,6 +2423,11 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
       : {}),
   };
   if (elimHost) afterRemoval = consumeEliminateInsteadOfDiscardHost(afterRemoval, elimHost);
+
+  // CoE rule 2.3: if the discard empties the company, its site must return
+  // to the player's location deck (untapped) or site discard pile (tapped)
+  // instead of just vanishing along with the dissolved company.
+  afterRemoval = cleanupEmptyCompanies(afterRemoval);
 
   let result = sweepCompanyMembershipChangedEvents(
     sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards(afterRemoval)),
@@ -2383,20 +2454,9 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   const playerIndex = getPlayerIndex(state, action.player);
   const player = state.players[playerIndex];
 
-  const sourceCompany = companyById(player.companies, action.sourceCompanyId);
-  if (!sourceCompany) return { state, error: 'Source company not found' };
-
-  const targetCompany = companyById(player.companies, action.targetCompanyId);
-  if (!targetCompany) return { state, error: 'Target company not found' };
-
-  // Validate same site. Rule g.site.1 lets a player hold multiple physical
-  // instances of the same haven in play at once, so "the same site" (rule
-  // 2.II.3.5) is judged by site definition, not raw card instance.
-  const sourceSiteDefId = sourceCompany.currentSite ? resolveInstanceId(state, sourceCompany.currentSite.instanceId) : undefined;
-  const targetSiteDefId = targetCompany.currentSite ? resolveInstanceId(state, targetCompany.currentSite.instanceId) : undefined;
-  if (!sourceSiteDefId || !targetSiteDefId || sourceSiteDefId !== targetSiteDefId) {
-    return { state, error: 'Companies must be at the same site' };
-  }
+  const resolved = resolveSameSiteCompanies(state, player, action.sourceCompanyId, action.targetCompanyId);
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { sourceCompany, targetCompany } = resolved;
 
   logDetail(`Merge companies: ${sourceCompany.id as string} into ${targetCompany.id as string} (${sourceCompany.characters.length} characters moving)`);
 
@@ -2418,6 +2478,17 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
     });
 
   let siteDeck = player.siteDeck;
+
+  // The source company is dissolved, so every in-play card bound to it by
+  // `companyId` (Ringwraith-mode cards Fell Rider le-183 etc., An Unexpected
+  // Party dm-114, extra-leader-slot cards, company-bound storables) must
+  // rebind to the surviving target — otherwise it points at a company that no
+  // longer exists and is silently disabled (e.g. `ringwraithHasModeCard`
+  // stops finding the mode). Mirrors the split path's rule 2.II.3.6.1 rebind,
+  // which the inverse operation omitted.
+  const cardsInPlay = player.cardsInPlay.map(card =>
+    card.companyId === action.sourceCompanyId ? { ...card, companyId: action.targetCompanyId } : card,
+  );
 
   // Rule 2.II.3.5.2: if the source and target each held their own physical
   // instance of the same haven, only one instance stays in play — the
@@ -2475,7 +2546,7 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
   });
 
   let mergeResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck, cardsInPlay })),
     reverseActions: [...state.reverseActions, ...reverses],
   })), [action.sourceCompanyId, action.targetCompanyId]);
 

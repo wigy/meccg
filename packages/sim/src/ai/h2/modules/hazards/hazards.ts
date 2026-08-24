@@ -67,19 +67,22 @@
 
 import { CardStatus, Phase } from '@meccg/shared';
 import type {
-  CardDefinition, CombatState, GameAction, OpponentCompanyView, PlayerView,
+  CardDefinition, CombatState, CreatureKeyingMatch, GameAction, OpponentCompanyView, PlayerView,
 } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { memoizeOnFirst } from '../../core/memo.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { computeExposure } from '../../services/exposure.js';
 import { computeHazardPlan } from '../../services/hazard-plan.js';
+import { attackIsDetainment } from '../../../detainment.js';
 import { bodyOf, effectiveStrikeProwess, needAgainst, rosterOf } from '../../services/strike/prowess.js';
 import { strikeOutcomes } from '../../services/strike/strike-model.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile } from '../../services/strike/sequence.js';
+import { attackerChoosesDefenders } from '../../services/strike/ability.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
@@ -94,11 +97,20 @@ const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'assign-strike', 'p
 
 /** Assumptions every hazard evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
-  'attacks are assumed non-detainment and free of card-specific combat effects: the creature\'s '
-  + 'printed strikes, prowess and body are modelled, its text is not',
+  'attacks are assumed free of card-specific combat effects: the creature\'s printed strikes, '
+  + 'prowess and body are modelled, its text is not — except detainment (CoE §3.II), which is '
+  + 'predicted with the engine\'s own rule and so taps rather than wounds and offers no kill MP',
+  'two boards can turn a predicted detainment attack back into a normal one and are not visible '
+  + 'from this seat — a defender converting detainment attacks (Alatar wh-1) and a company\'s '
+  + 'keyed-attacks-normal constraint (as-110) — so such an attack is under-valued, never over-',
   'the defender is assumed to answer each strike with its best available parrier and to spend no '
   + 'cards from hand — every strike event, dodge or cancel they hold makes the bundle worth less '
   + 'than this says',
+  'a tap-to-cancel-a-strike ability on a character in the company (Fatty Bolger tw-495) IS '
+  + 'modelled: the defence is assumed to spend the tap whenever facing the strike would cost it '
+  + 'more, cancelling forfeits the attack\'s kill MP, and a spent canceller protects nobody for '
+  + 'the rest of the bundle — what is not modelled is the defence assigning a protected character '
+  + 'deliberately to bait a cheap cancel',
   'the defender is assumed to tap to fight every strike, which is the common choice but not the '
   + 'only one: a character who stays untapped at -3 prowess denies this bundle the tap it counts',
   'the bundle is priced against the company as it stands now; a hazard the opponent answers by '
@@ -144,13 +156,25 @@ function hazardsEncounteredThisSubPhase(view: PlayerView): readonly string[] {
   return (view.phaseState as unknown as { hazardsEncountered?: readonly string[] }).hazardsEncountered ?? [];
 }
 
-/** The creature card behind a `play-hazard`, or null when it is not a creature. */
+/**
+ * The creature card behind a `play-hazard`, or null when it is not a creature.
+ *
+ * `detainment` is not a field on the card — it falls out of the rule in §3.II
+ * from the creature's keying, its race and who is defending, so it is predicted
+ * per target company by `services/detainment` and passed in. It changes two
+ * things here: the attack taps instead of wounding (the sequence enumeration's
+ * business), and the kill marshalling points it puts on offer are zero (§3.II.3)
+ * — a detainment creature is the one attack that cannot pay the defender for
+ * beating it.
+ */
 function creatureProfile(
   cardPool: Readonly<Record<string, CardDefinition>>,
   definitionId: string,
+  detainment: boolean,
 ): {
     profile: Omit<AttackProfile, 'killTsd' | 'killLabel'>;
     killMp: number;
+    detainment: boolean;
     name: string;
     race?: string;
     selfFacedRaceBoost: ReturnType<typeof selfFacedRaceBoostOf>;
@@ -167,28 +191,35 @@ function creatureProfile(
   if (!def || def.cardType !== 'hazard-creature') return null;
   return {
     name: def.name ?? definitionId,
-    killMp: def.killMarshallingPoints ?? 0,
+    killMp: detainment ? 0 : def.killMarshallingPoints ?? 0,
+    detainment,
     race: def.race,
     selfFacedRaceBoost: selfFacedRaceBoostOf(cardPool[definitionId]),
     profile: {
       strikeProwess: def.prowess ?? 0,
       strikes: def.strikes ?? 1,
       creatureBody: def.body ?? null,
-      // Detainment is derived by the engine from race and company type, and is
-      // not a field on the card. Assuming a normal attack overstates the harm
-      // of the creatures that are in fact detainment; it is declared above.
-      detainment: false,
+      detainment,
       bodyCheckModifier: 0,
       name: def.name ?? definitionId,
+      race: def.race,
+      attackerChooses: attackerChoosesDefenders(cardPool[definitionId]),
     },
   };
+}
+
+/** How a defeated attack is described, which detainment changes (§3.II.3). */
+function killLabelFor(name: string, killMp: number, detainment: boolean): string {
+  return detainment
+    ? `${name} beaten — a detainment attack, so no kill MP to the defender`
+    : `${name} beaten — ${killMp} kill MP to the defender`;
 }
 
 /** Every creature in hand the engine is currently offering against a company. */
 
 function candidatesFor(
   context: ModuleContext,
-  companyId: string,
+  company: OpponentCompanyView,
   killTsdOf: (killMp: number) => number,
   boost?: AttackBoost,
 ): Candidate[] {
@@ -197,12 +228,24 @@ function candidatesFor(
   const candidates: Candidate[] = [];
   for (const action of context.legalActions) {
     if (action.type !== 'play-hazard') continue;
-    const play = action as unknown as { cardInstanceId: string; targetCompanyId: string };
-    if (play.targetCompanyId !== companyId) continue;
+    const play = action as unknown as {
+      cardInstanceId: string; targetCompanyId: string; keyedBy?: CreatureKeyingMatch;
+    };
+    if (play.targetCompanyId !== (company.id as string)) continue;
     if (seen.has(play.cardInstanceId)) continue;
     const card = view.self.hand.find(c => (c.instanceId as string) === play.cardInstanceId);
     if (!card) continue;
-    const creature = creatureProfile(cardPool, card.definitionId as string);
+    // The keying the engine offered this play under decides the §3.II.2 branch,
+    // so it is read off the action rather than off the card: a creature keyed to
+    // a Ruins & Lairs *and* to a Dark-hold is only detainment when the play used
+    // the Dark-hold. One candidate is built per card, so a card offered under
+    // several keyings is predicted from the first the engine listed — the
+    // variants score alike either way, and which one is played is settled by the
+    // tie-break rather than here.
+    const detainment = attackIsDetainment(
+      view, cardPool, company, card.definitionId as string, play.keyedBy,
+    );
+    const creature = creatureProfile(cardPool, card.definitionId as string, detainment);
     if (!creature) continue;
     seen.add(play.cardInstanceId);
     const added = boostFor(boost, cardPool, card.definitionId as string);
@@ -217,7 +260,7 @@ function candidatesFor(
         strikeProwess: creature.profile.strikeProwess + added.prowess,
         strikes: creature.profile.strikes + added.strikes,
         killTsd: killTsdOf(creature.killMp),
-        killLabel: `${creature.name} beaten — ${creature.killMp} kill MP to the defender`,
+        killLabel: killLabelFor(creature.name, creature.killMp, creature.detainment),
       },
     });
   }
@@ -241,7 +284,18 @@ interface Plan {
  * more card were played — so an event that makes the other hazards better is
  * priced by the difference between the two.
  */
-function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: AttackBoost | null): Plan {
+function planFor(
+  context: ModuleContext,
+  company: OpponentCompanyView,
+  boost?: AttackBoost | null,
+  /**
+   * Slots already spoken for beyond what the phase state records — one, when the
+   * caller is pricing the *play* of a support event, because playing it spends a
+   * slot of the same hazard limit the attacks behind it need (the engine counts
+   * every hazard played against a company, events included).
+   */
+  reserved = 0,
+): Plan {
   const { view, cardPool, standing, tunables } = context;
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
@@ -257,12 +311,12 @@ function planFor(context: ModuleContext, company: OpponentCompanyView, boost?: A
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
 
   const candidates = candidatesFor(
-    context, company.id as string, killTsdOf, boost ?? boostInPlay(context.view, context.cardPool) ?? undefined,
+    context, company, killTsdOf, boost ?? boostInPlay(context.view, context.cardPool) ?? undefined,
   );
   const limit = exposure.hazardLimit(company.id);
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
     .hazardsPlayedThisCompany ?? 0;
-  const slots = Math.max(0, (limit ?? 0) - played);
+  const slots = Math.max(0, (limit ?? 0) - played - reserved);
   const initialFacedRaces = facedRacesFromHistory(hazardsEncounteredThisSubPhase(view), cardPool);
   const search = planBundles(candidates, roster, cardPool, price, standing, tunables, slots, initialFacedRaces);
 
@@ -324,13 +378,14 @@ function evaluateBundle(
   const outcomes = forgoneTsd === 0
     ? scaled
     : scaled.map(o => ({ ...o, dtsd: o.dtsd - forgoneTsd }));
-  const scored = standing.score(outcomes);
   const plannedWith = bundle.cards.slice(1);
 
   const detail: Rationale[] = [...plan.detail];
   detail.push(leaf('this card', bundle.cards[0].name, {
     note: `${bundle.cards[0].profile.strikes} strike(s) at prowess ${bundle.cards[0].profile.strikeProwess}`
-      + `, ${bundle.cards[0].killMp} kill MP if beaten`,
+      + (bundle.cards[0].profile.detainment
+        ? ', a detainment attack — it taps rather than wounds, and no kill MP if beaten'
+        : `, ${bundle.cards[0].killMp} kill MP if beaten`),
   }));
   if (plannedWith.length > 0) {
     detail.push(leaf('planned to follow with', plannedWith.map(c => c.name).join(', '), {
@@ -354,23 +409,18 @@ function evaluateBundle(
     }));
   }
 
-  return {
+  return scoredEvaluation({
     action,
     module: 'hazards',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(headline, scored.utility, [
-      node('bundle', bundle.cards.map(c => c.name).join(' + '), detail),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    standing,
+    headline,
+    detail: [node('bundle', bundle.cards.map(c => c.name).join(' + '), detail)],
     assumptions: bundle.merged
       ? [...ASSUMPTIONS, 'the strike enumeration merged states to stay inside its cap, so the '
         + 'outcome list is a summary of the distribution rather than the whole of it']
       : ASSUMPTIONS,
-  };
+  });
 }
 
 /**
@@ -555,7 +605,11 @@ function boostGain(
   if (sameBoost(current, hypothetical)) return null;
 
   const before = buildPlan(context.view, context, company).search.bundles[0]?.expectedTsd ?? 0;
-  const after = planFor(context, company, hypothetical).search.bundles[0]?.expectedTsd ?? 0;
+  // The counterfactual arm reserves the slot this card would spend. Without
+  // that it priced the boosted bundle as if the event were free, which is worst
+  // exactly where it matters most: with one slot left, "play the boost" was
+  // credited with the attack the boost would have had no room for.
+  const after = planFor(context, company, hypothetical, 1).search.bundles[0]?.expectedTsd ?? 0;
   const describe = (boost: AttackBoost | null): string => [...(boost?.entries() ?? [])]
     .map(([race, added]) => `${race === ALL_RACES ? 'every' : race} attack `
       + `${added.prowess >= 0 ? '+' : ''}${added.prowess} prowess, `
@@ -571,10 +625,16 @@ function boostGain(
     // unboosted value. Comparing the sliver against a creature's full bundle
     // total is why the event always lost that comparison and got played
     // second, after the attack it was supposed to improve had already
-    // resolved. `Math.max(before, ...)` is the same beam-noise guard as
-    // before: a boost never makes the plan worse, so `after` dipping under
-    // `before` is search noise, not a real loss.
-    tsd: Math.max(before, after),
+    // resolved.
+    //
+    // But only when the boosted arm actually beats the baseline. `after` is
+    // built with this card's own slot reserved, so `after <= before` is the
+    // real "no room / nothing left to improve" case — flooring it at
+    // `before` (as an earlier beam-noise guard did) credited the event with
+    // the whole existing plan it takes no part in, while the reason below
+    // simultaneously reported that nothing would improve. The honest value
+    // of that play is zero, exactly what the empty-hand case reports.
+    tsd: after - before > 0 ? after : 0,
     reason: after - before > 0
       ? `${shift} — the best bundle against this company goes from ${before.toFixed(1)} to `
         + `${after.toFixed(1)}`
@@ -636,17 +696,14 @@ function evaluateHazardEvent(
 
   const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.provisionalCardPrice }, tunables);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
-  const scored = standing.score(outcomes);
 
-  return {
+  return scoredEvaluation({
     action,
     module: 'hazards',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`play ${name}`, scored.utility, [
+    standing,
+    headline: `play ${name}`,
+    detail: [
       node('the event', gain.tsd, [
         leaf('event', name),
         leaf('what it achieves', gain.tsd, { unit: 'tsd', note: gain.reason }),
@@ -655,8 +712,7 @@ function evaluateHazardEvent(
           tunable: 'provisionalCardPrice',
         }),
       ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'a hazard event is priced by what the action targets or by the family its effects declare, '
       + 'never by its text: an event that also restricts or enables something is under-valued',
@@ -669,7 +725,7 @@ function evaluateHazardEvent(
       + 'event gated on something unmodelled is under-valued rather than over-valued',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /** What taking a named card out of the opponent's play is worth. */
@@ -748,7 +804,9 @@ function evaluateOnGuard(action: GameAction, context: ModuleContext): Evaluation
   if (!card) return null;
 
   const { tunables } = context;
-  const creature = creatureProfile(context.cardPool, card.definitionId as string);
+  // Only asked whether the card is a creature at all; the placement's own
+  // profile — detainment included — is built by `placeOnly` below.
+  const creature = creatureProfile(context.cardPool, card.definitionId as string, false);
 
   if (creature) {
     // Worth the attack it would make, with no card price: the card is only
@@ -814,16 +872,13 @@ function freeOption(
     label: `place ${name} face down — it returns to hand unless it is revealed`,
     dtsd: 0,
   }];
-  const scored = context.standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'hazards',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`place ${name} on guard`, scored.utility, [
+    standing: context.standing,
+    headline: `place ${name} on guard`,
+    detail: [
       node('a free option', 0, [
         leaf('card', name),
         leaf('cost of placing it', 0, {
@@ -832,8 +887,7 @@ function freeOption(
         }),
         leaf('worth of revealing it', 0, { unit: 'tsd', note: why }),
       ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'a placement is priced as costing nothing, because an unrevealed on-guard card returns to '
       + 'hand; what placing it gives away by being there at all is not modelled',
@@ -841,7 +895,7 @@ function freeOption(
       + 'than nothing — which is why the floor is zero rather than the reveal\'s value',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /** Score a lone card for on-guard when the hazard limit left no slot to plan it. */
@@ -854,7 +908,11 @@ function placeOnly(context: ModuleContext, plan: Plan, instanceId: string): Bund
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
   const card = view.self.hand.find(c => (c.instanceId as string) === instanceId);
   if (!card) return null;
-  const creature = creatureProfile(cardPool, card.definitionId as string);
+  // No keying is declared by a placement — what the card would be revealed under
+  // is not decided yet — so the detainment prediction falls back to the union of
+  // the creature's keying, which is the engine's own fallback for a reveal.
+  const detainment = attackIsDetainment(view, cardPool, plan.company, card.definitionId as string);
+  const creature = creatureProfile(cardPool, card.definitionId as string, detainment);
   if (!creature) return null;
   const candidate: Candidate = {
     instanceId,
@@ -865,7 +923,7 @@ function placeOnly(context: ModuleContext, plan: Plan, instanceId: string): Bund
     profile: {
       ...creature.profile,
       killTsd: killTsdOf(creature.killMp),
-      killLabel: `${creature.name} beaten — ${creature.killMp} kill MP to the defender`,
+      killLabel: killLabelFor(creature.name, creature.killMp, creature.detainment),
     },
   };
   const initialFacedRaces = facedRacesFromHistory(hazardsEncounteredThisSubPhase(view), cardPool);

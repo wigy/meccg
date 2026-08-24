@@ -11,6 +11,7 @@
  */
 
 import type { GameAction, Company, CardDefinition, PlayerView } from '@meccg/shared';
+import { CardStatus } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
@@ -26,6 +27,7 @@ import {
   hasUntapSource,
   handHasNoTapPlayableAt,
   findCharacterInPlay,
+  itemStatBenefitWasted,
   type AnySiteCard,
 } from './common.js';
 
@@ -86,7 +88,7 @@ export const sitePhaseEvaluator: ActionEvaluator = {
         let bestPlayableMp = -1;
         for (const card of view.self.hand) {
           const def = lookupDef(pool, card.definitionId);
-          if (def && resourcePlayableAt(def, siteDef)) {
+          if (def && resourcePlayableAt(def, siteDef, view.self.alignment)) {
             bestPlayableMp = Math.max(bestPlayableMp, mpValue(def));
           }
         }
@@ -100,7 +102,7 @@ export const sitePhaseEvaluator: ActionEvaluator = {
         // attacks without a payoff.
         if (!hasUntappedCharacter(view, company)
             && !hasUntapSource(view, pool, company)
-            && !handHasNoTapPlayableAt(view, pool, siteDef)) {
+            && !handHasNoTapPlayableAt(view, pool, siteDef, company.currentSite.status === CardStatus.Tapped)) {
           return 0;
         }
         // Automatic attacks resolve before any resource can be played. If
@@ -128,6 +130,15 @@ export const sitePhaseEvaluator: ActionEvaluator = {
 
         if (isItem(def)) {
           score += def.prowessModifier * 2 - def.corruptionPoints * 3;
+          if (action.attachToCharacterId) {
+            const target = findCharacterInPlay(view, action.attachToCharacterId);
+            if (target?.isSelf) {
+              const targetDef = lookupDef(pool, target.character.definitionId);
+              if (itemStatBenefitWasted(def, target.character, targetDef)) {
+                score -= 10;
+              }
+            }
+          }
         } else if (isFaction(def)) {
           // Factions are scored separately via faction-influence-roll, but
           // playing the card to start the chain is high value.

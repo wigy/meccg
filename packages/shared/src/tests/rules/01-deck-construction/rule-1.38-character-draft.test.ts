@@ -19,11 +19,14 @@
 
 import { describe, test, expect } from 'vitest';
 import {
-  runActions, makePlayDeck, pool, draftInstId,
-  PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS, BILBO, FARAMIR, GIMLI, RIVENDELL, Alignment,
-  createGame,
+  runActions, makePlayDeck, makeDraftConfig, pool, draftInstId,
+  PLAYER_1, PLAYER_2, ARAGORN, LEGOLAS, BILBO, FRODO, FARAMIR, GIMLI, RIVENDELL, Alignment,
+  createGame, assertEveryInstanceReachable,
+  buildTestState, addToPile, mint, viablePlayCharacterActions,
+  BALIN, BLUE_MOUNTAIN_DWARF_HOLD, LORIEN,
 } from '../../test-helpers.js';
 import type { GameConfig } from '../../test-helpers.js';
+import { Phase } from '../../../index.js';
 
 describe('Rule 1.38 — Character Draft', () => {
   test('Players draft characters from pool simultaneously; set aside duplicates; stop at 5 characters or 20 mind', () => {
@@ -147,5 +150,193 @@ describe('Rule 1.38 — Character Draft', () => {
     // P1's starting company should have exactly 3 characters (Aragorn, Legolas, Faramir)
     const mindP1Company = mindState.players[0].companies[0];
     expect(mindP1Company.characters).toHaveLength(3);
+  });
+
+  test('passing item draft and deck draft removes leftover pool cards to out-of-play, not into nothing', () => {
+    // Rule 1.9: "All other unused or duplicated cards in each player's pool
+    // are removed from the game." Regression: the pass handlers only cleared
+    // the phase-state arrays (unassignedItems / remainingPool), leaving the
+    // undrafted instances unreachable — deleted from the game state instead
+    // of removed-from-game (out-of-play pile).
+    let state = createGame(makeDraftConfig(), pool);
+
+    // Capture the instance IDs of the cards that will remain undrafted.
+    const p1Bilbo = draftInstId(state, 0, BILBO);
+    const p1Frodo = draftInstId(state, 0, FRODO);
+    const p2Gimli = draftInstId(state, 1, GIMLI);
+
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, 0, ARAGORN) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, LEGOLAS) },
+      { type: 'draft-stop', player: PLAYER_1 },
+      { type: 'draft-stop', player: PLAYER_2 },
+    ]);
+
+    // Item draft: both pass without assigning — the pool daggers are removed
+    // from the game.
+    expect(state.phaseState.phase).toBe(Phase.Setup);
+    let itemLeftovers1 = 0;
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'item-draft') {
+      itemLeftovers1 = state.phaseState.setupStep.itemDraftState[0].unassignedItems.length;
+      state = runActions(state, [
+        { type: 'pass', player: PLAYER_1 },
+        { type: 'pass', player: PLAYER_2 },
+      ]);
+    }
+    expect(itemLeftovers1).toBeGreaterThan(0);
+
+    // Character deck draft: both pass without adding — the undrafted
+    // characters are removed from the game.
+    if (state.phaseState.phase === Phase.Setup && state.phaseState.setupStep.step === 'character-deck-draft') {
+      state = runActions(state, [
+        { type: 'pass', player: PLAYER_1 },
+        { type: 'pass', player: PLAYER_2 },
+      ]);
+    }
+
+    // Every leftover lands in its owner's out-of-play pile...
+    const p1Out = state.players[0].outOfPlayPile.map(c => c.instanceId as string);
+    const p2Out = state.players[1].outOfPlayPile.map(c => c.instanceId as string);
+    expect(p1Out).toContain(p1Bilbo as string);
+    expect(p1Out).toContain(p1Frodo as string);
+    expect(p2Out).toContain(p2Gimli as string);
+    // ...and P1's two unassigned daggers went there at the item-draft pass.
+    expect(state.players[0].outOfPlayPile.length).toBeGreaterThanOrEqual(2 + itemLeftovers1);
+
+    // ...flagged `removedFromGame`, per CoE 1.9's "removed from the game"
+    // (docs/coe-rules.md's glossary distinguishes this from ordinary
+    // elimination — only eliminated copies still count toward uniqueness).
+    const p2GimliOut = state.players[1].outOfPlayPile.find(c => c.instanceId === p2Gimli);
+    expect(p2GimliOut?.removedFromGame).toBe(true);
+
+    // The no-card-disappears invariant holds across the whole state.
+    assertEveryInstanceReachable(state);
+  });
+
+  test('undrafted unique-character leftover in out-of-play does not block a fresh copy from being played', () => {
+    // Regression: an AI opponent passed out of the character deck draft
+    // still holding an undrafted unique character (Elrohir) in its pool. The
+    // leftover was sunk into outOfPlayPile per CoE 1.9 ("removed from the
+    // game"), but the uniqueness check treated that pile as if it only ever
+    // holds genuinely eliminated cards — which per the "unique" and "remove
+    // from the game" glossary entries (docs/coe-rules.md) still count for
+    // uniqueness only when eliminated, not when merely removed from the
+    // game. That falsely blocked the human player's own copy from ever
+    // being played, for the rest of the game.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [GIMLI],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const gimliInstId = state.players[0].hand[0].instanceId;
+    const leftoverState = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], outOfPlayPile: [{ instanceId: mint(), definitionId: GIMLI, removedFromGame: true as const }] },
+      ] as typeof state.players,
+    };
+
+    const viable = viablePlayCharacterActions(leftoverState, PLAYER_1);
+    expect(viable.some(a => a.characterInstanceId === gimliInstId)).toBe(true);
+  });
+
+  test('identical NON-unique reveals do NOT collide — each player keeps their copy', () => {
+    // Regression: rule 1.9 sets aside "duplicated UNIQUE characters", but the
+    // identical-pick branch had no uniqueness check, so two players revealing
+    // the same non-unique character (three copies of the same Orc are legal)
+    // were both denied it — and the pool filter deleted the first player's
+    // remaining copies of that definition from the game state entirely.
+    const ORC_VETERAN = 'le-35' as never; // non-unique minion character
+    const LAGDUF = 'le-18' as never;
+    const config: GameConfig = {
+      players: [
+        {
+          id: PLAYER_1,
+          name: 'Alice',
+          alignment: Alignment.Ringwraith,
+          // Two copies: the second must survive the round in the pool.
+          draftPool: [ORC_VETERAN, ORC_VETERAN],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+        {
+          id: PLAYER_2,
+          name: 'Bob',
+          alignment: Alignment.Ringwraith,
+          draftPool: [ORC_VETERAN, LAGDUF],
+          playDeck: makePlayDeck(),
+          siteDeck: [RIVENDELL],
+          sideboard: [],
+        },
+      ],
+      seed: 42,
+    };
+
+    let state = createGame(config, pool);
+    const p1Pick = draftInstId(state, 0, ORC_VETERAN);
+    const p2Pick = draftInstId(state, 1, ORC_VETERAN);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: p1Pick },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: p2Pick },
+    ]);
+
+    // No collision: both players drafted their Orc Veteran.
+    const draftStep = (state.phaseState as {
+      setupStep: {
+        draftState: readonly [{ drafted: readonly { instanceId: string }[]; pool: readonly { instanceId: string }[] }, { drafted: readonly { instanceId: string }[] }];
+        setAside: readonly [readonly unknown[], readonly unknown[]];
+      };
+    }).setupStep;
+    expect(draftStep.draftState[0].drafted.some(c => c.instanceId === (p1Pick as string))).toBe(true);
+    expect(draftStep.draftState[1].drafted.some(c => c.instanceId === (p2Pick as string))).toBe(true);
+    expect(draftStep.setAside[0]).toHaveLength(0);
+    expect(draftStep.setAside[1]).toHaveLength(0);
+
+    // Player 0's second copy is still in the pool — not deleted from the game.
+    expect(draftStep.draftState[0].pool.length).toBe(1);
+  });
+
+  test('a unique character removed from the game via rule 1.9 (undrafted pool) does not block the opponent from playing their own copy', () => {
+    // Bug report (game mt4dmiij-8h0fy4, turn 9): P2's Balin was never drafted
+    // and was sunk to their out-of-play pile when they passed the
+    // character-deck-draft step. P1's own, unrelated Balin in hand was then
+    // reported "unique character already in play" — `isUniqueCharacterInPlay`
+    // scanned P2's out-of-play pile without distinguishing an undrafted
+    // "removed from the game" card (glossary: "no longer considered for
+    // purposes of uniqueness") from a genuinely eliminated one.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, hand: [BALIN], siteDeck: [BLUE_MOUNTAIN_DWARF_HOLD], companies: [] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [{ site: LORIEN, characters: [LEGOLAS] }] },
+      ],
+      recompute: true,
+    });
+
+    const stateWithUndraftedGhost = addToPile(state, 1, 'outOfPlayPile', {
+      instanceId: mint(),
+      definitionId: BALIN,
+      removedFromGame: true,
+    });
+
+    const viable = viablePlayCharacterActions(stateWithUndraftedGhost, PLAYER_1);
+    expect(viable.length).toBe(1);
   });
 });

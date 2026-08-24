@@ -45,6 +45,7 @@ function makeContext(struckStatus: CardStatus, handDefIds: readonly string[]): A
   const view = {
     self: {
       hand: handDefIds.map((definitionId, i) => ({ instanceId: `h${i}`, definitionId })),
+      companies: [],
       characters: {
         'p2-107': {
           instanceId: 'p2-107',
@@ -147,5 +148,177 @@ describe('combatEvaluator convert-creature-to-ally', () => {
     const convertScore = combatEvaluator.score(convertAction, context)!;
     const assignScore = combatEvaluator.score(assignStrikeAction, context)!;
     expect(convertScore).toBeGreaterThan(assignScore);
+  });
+});
+
+describe('combatEvaluator assign-strike', () => {
+  // Bug: the assign-strike case scored every target by `prowess + 5`
+  // ("higher prowess absorbs strikes better") without checking whose
+  // character the target is. That is defender logic — but the engine also
+  // offers assign-strike to the ATTACKING player, who assigns a creature's
+  // remaining strikes to the defender's characters (legal-actions/combat.ts,
+  // attacker assignment phase). As the attacker, the AI therefore assigned
+  // its hazard's strikes to the opponent's STRONGEST character — the target
+  // least likely to be wounded — systematically wasting its own attacks.
+  const assignTo = (characterId: string): GameAction =>
+    ({ type: 'assign-strike', player: 'p1', characterId, tapped: false, explanation: '' } as unknown as GameAction);
+
+  function makeAttackerContext(): AiContext {
+    const view = {
+      self: { hand: [], companies: [], characters: {} },
+      opponent: {
+        companies: [{ id: 'company-p2-0', characters: ['p2-10', 'p2-11'] }],
+        characters: {
+          'p2-10': {
+            instanceId: 'p2-10',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 9, body: 9, directInfluence: 0, corruptionPoints: 0 },
+          },
+          'p2-11': {
+            instanceId: 'p2-11',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 1, body: 8, directInfluence: 0, corruptionPoints: 0 },
+          },
+        },
+      },
+      combat: {
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+      },
+    } as unknown as PlayerView;
+    return { view, cardPool: POOL, legalActions: [] };
+  }
+
+  function makeDefenderContext(): AiContext {
+    const view = {
+      self: {
+        hand: [],
+        companies: [{ id: 'company-p2-0', characters: ['p2-10', 'p2-11'] }],
+        characters: {
+          'p2-10': {
+            instanceId: 'p2-10',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 9, body: 9, directInfluence: 0, corruptionPoints: 0 },
+          },
+          'p2-11': {
+            instanceId: 'p2-11',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 1, body: 8, directInfluence: 0, corruptionPoints: 0 },
+          },
+        },
+      },
+      opponent: { companies: [], characters: {} },
+      combat: {
+        strikeAssignments: [],
+        currentStrikeIndex: 0,
+      },
+    } as unknown as PlayerView;
+    return { view, cardPool: POOL, legalActions: [] };
+  }
+
+  test('as the attacker, prefers assigning the strike to the weakest opposing character', () => {
+    const context = makeAttackerContext();
+    const strongScore = combatEvaluator.score(assignTo('p2-10'), context)!;
+    const weakScore = combatEvaluator.score(assignTo('p2-11'), context)!;
+    expect(weakScore).toBeGreaterThan(strongScore);
+  });
+
+  test('as the defender, still prefers absorbing the strike with the strongest own character', () => {
+    const context = makeDefenderContext();
+    const strongScore = combatEvaluator.score(assignTo('p2-10'), context)!;
+    const weakScore = combatEvaluator.score(assignTo('p2-11'), context)!;
+    expect(strongScore).toBeGreaterThan(weakScore);
+  });
+});
+
+describe('combatEvaluator resolve-strike', () => {
+  // Bug report: AI-Heuristic (auto-attack at a site) chose to stay untapped
+  // (tapToFight: false) for every character in a 3-member company, even
+  // after an earlier teammate had already resolved its strike and stayed
+  // untapped. Staying untapped applies a -3 prowess penalty (CoE 3.iv.3),
+  // so risking it for a second or third character is pure unnecessary
+  // danger once the company already has one untapped member — one of the
+  // characters (Saruman) died to the resulting body check as a result.
+  function makeCompanyContext(companionStatus: 'success-untapped' | 'wounded-tapped'): AiContext {
+    const companionResult = companionStatus === 'success-untapped' ? 'success' : 'wounded';
+    const companionCharStatus = companionStatus === 'success-untapped' ? CardStatus.Untapped : CardStatus.Inverted;
+    const view = {
+      self: {
+        hand: [],
+        companies: [{ id: 'company-p2-0', characters: ['p2-2', 'p2-108', 'p2-104'] }],
+        characters: {
+          'p2-2': {
+            instanceId: 'p2-2',
+            status: companionCharStatus,
+            effectiveStats: { prowess: 3, body: 9, directInfluence: 0, corruptionPoints: 0 },
+          },
+          'p2-104': {
+            instanceId: 'p2-104',
+            status: CardStatus.Untapped,
+            effectiveStats: { prowess: 1, body: 6, directInfluence: 0, corruptionPoints: 0 },
+          },
+        },
+      },
+      opponent: { companies: [], characters: {} },
+      combat: {
+        strikeAssignments: [
+          { characterId: 'p2-2', excessStrikes: 0, resolved: true, result: companionResult },
+          { characterId: 'p2-104', excessStrikes: 0, resolved: false },
+        ],
+        currentStrikeIndex: 1,
+      },
+    } as unknown as PlayerView;
+    return { view, cardPool: POOL, legalActions: [] };
+  }
+
+  const tapToFight = (need: number): GameAction =>
+    ({ type: 'resolve-strike', player: 'p2', tapToFight: true, need, explanation: '' } as unknown as GameAction);
+  const stayUntapped = (need: number): GameAction =>
+    ({ type: 'resolve-strike', player: 'p2', tapToFight: false, need, explanation: '' } as unknown as GameAction);
+
+  test('prefers tapping once a teammate already resolved untapped', () => {
+    const context = makeCompanyContext('success-untapped');
+    const tapScore = combatEvaluator.score(tapToFight(7), context)!;
+    const untapScore = combatEvaluator.score(stayUntapped(4), context)!;
+    expect(tapScore).toBeGreaterThan(untapScore);
+  });
+
+  test('falls back to need-based scoring when no teammate stayed untapped', () => {
+    const context = makeCompanyContext('wounded-tapped');
+    const tapScore = combatEvaluator.score(tapToFight(7), context)!;
+    const untapScore = combatEvaluator.score(stayUntapped(4), context)!;
+    expect(untapScore).toBeGreaterThan(tapScore);
+  });
+});
+
+describe('combatEvaluator tap-item-for-strike', () => {
+  // Bug report: AI-Heuristic did not tap Shield of Iron-bound Ash (tw-327)
+  // to gain +1 prowess on the last strike of the attack, even though doing
+  // so improved the roll need from 7+ (untapped) to 3+ and cost nothing.
+  // `tap-item-for-strike` was scored by diceSuccessPct(need), which should
+  // outscore the alternative `resolve-strike` (untapped) action once the
+  // item's boost is applied.
+  const tapItemAction = {
+    type: 'tap-item-for-strike',
+    player: 'p2',
+    cardInstanceId: 'p2-103',
+    characterInstanceId: 'p2-107',
+    need: 3,
+    explanation: '',
+  } as unknown as GameAction;
+
+  const resolveStrikeUntapped = {
+    type: 'resolve-strike',
+    player: 'p2',
+    tapToFight: false,
+    need: 7,
+    explanation: '',
+  } as unknown as GameAction;
+
+  test('scores tap-item-for-strike above the resolve-strike alternative it improves on', () => {
+    const context = makeContext(CardStatus.Untapped, []);
+    const tapItemScore = combatEvaluator.score(tapItemAction, context)!;
+    const resolveScore = combatEvaluator.score(resolveStrikeUntapped, context)!;
+    expect(tapItemScore).toBeGreaterThan(resolveScore);
   });
 });

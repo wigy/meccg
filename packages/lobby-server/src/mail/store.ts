@@ -12,6 +12,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PLAYERS_DIR } from '../config.js';
+import { writeJson } from '../json-store.js';
 import { notifyPlayer } from '../lobby/lobby.js';
 import { toDirName } from '../players/store.js';
 import type { MailMessage, MailSender, MailStatus, MailTopic } from './types.js';
@@ -61,13 +62,36 @@ export interface SendMailOptions {
 }
 
 /**
+ * True when `value` is a usable mail recipient list: a non-empty array of
+ * non-empty strings. The HTTP routes validate request bodies with this
+ * before calling {@link sendMail} — a plain string must be rejected, not
+ * iterated: strings pass a bare `.length` truthiness check and spread into
+ * single characters, silently creating one inbox per character (a real
+ * incident; see the Mail System API note in CLAUDE.md).
+ */
+export function isRecipientList(value: unknown): value is readonly string[] {
+  return Array.isArray(value)
+    && value.length > 0
+    && value.every(r => typeof r === 'string' && r.length > 0);
+}
+
+/**
  * Single entry point for sending mail. Generates a unique ID, writes an
  * inbox file for each recipient, and pushes a WebSocket notification to
  * online recipients.
  *
+ * Throws when `recipients` is not an array — a string would otherwise be
+ * spread character-by-character into bogus single-letter inboxes.
+ *
  * @returns The generated message ID (shared across all recipients).
  */
 export function sendMail(recipients: readonly string[], options: SendMailOptions): string {
+  // Typed as unknown for the check so Array.isArray's `any[]` narrowing does
+  // not degrade `recipients`' own type for the rest of the function.
+  const recipientsValue: unknown = recipients;
+  if (!Array.isArray(recipientsValue)) {
+    throw new Error('sendMail: recipients must be an array of player names, got ' + typeof recipients);
+  }
   const id = crypto.randomBytes(8).toString('hex');
   const timestamp = new Date().toISOString();
 
@@ -88,8 +112,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
 
   for (const recipient of recipients) {
     const dir = inboxDir(recipient);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify(message, null, 2));
+    writeJson(path.join(dir, `${id}.json`), message);
 
     const unread = countUnread(recipient);
     notifyPlayer(recipient, { type: 'mail-notification', unreadCount: unread });
@@ -105,8 +128,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
 /** Write a copy of a message to a player's sent folder. */
 export function writeSentCopy(playerName: string, message: MailMessage): void {
   const dir = sentDir(playerName);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, `${message.id}.json`), JSON.stringify(message, null, 2));
+  writeJson(path.join(dir, `${message.id}.json`), message);
 }
 
 /** List all messages in a player's sent folder, sorted by timestamp descending (newest first). */
@@ -134,6 +156,45 @@ export function listInbox(playerName: string): MailMessage[] {
 }
 
 /**
+ * Side-effect-free single-message lookup. Unlike {@link readMessage}, this
+ * never flips a 'new' message to 'read' — use it wherever code is
+ * *inspecting* a message rather than a player reading their mail. The flip
+ * matters for the AI work queue: {@link listUnhandledRequests} and the
+ * `/api/system/ai-requests` feed only see `status === 'new'`, so an
+ * incidental `readMessage` on a queued request silently drops it from the
+ * queue.
+ */
+export function peekMessage(playerName: string, msgId: string): MailMessage | null {
+  try {
+    return loadMail(path.join(inboxDir(playerName), `${msgId}.json`));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What a review-request approval should do with the ORIGINAL AI request its
+ * pending requestor-reply points at.
+ *
+ * - `skip-already-finalized`: the run-ai PR-finalize sweep got there first —
+ *   the reply was already sent; approving only records the verdict.
+ * - `skip-requeued`: the original is back at status 'new', which means the
+ *   admin RENEWED it into the AI work queue after this review-request went
+ *   stale. Sending the stale reply and stamping 'success' here would undo
+ *   that renew — and even touching it with `readMessage` would flip it to
+ *   'read' and silently drop it from the queue.
+ * - `send-and-finalize`: deliver the pending reply and mark the original
+ *   'success' so the sweep skips it.
+ */
+export function reviewFinalizeDisposition(
+  original: MailMessage | null,
+): 'send-and-finalize' | 'skip-already-finalized' | 'skip-requeued' {
+  if (original?.status === 'success' || original?.status === 'failed') return 'skip-already-finalized';
+  if (original?.status === 'new') return 'skip-requeued';
+  return 'send-and-finalize';
+}
+
+/**
  * Read a message from a player's inbox. If the message has status 'new',
  * it is updated to 'read' on disk.
  *
@@ -146,7 +207,7 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
     if (message.status === 'new' && message.topic !== 'review-request' && message.topic !== 'feature-request' && message.topic !== 'bug-report') {
       const updatedAt = new Date().toISOString();
       const updated: MailMessage = { ...message, status: 'read', updatedAt };
-      fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+      writeJson(filePath, updated);
       updateSentCopies(msgId, 'read', updatedAt);
       return updated;
     }
@@ -183,7 +244,7 @@ export function updateMessageStatus(
       ...(success !== undefined ? { success } : {}),
       ...(keywordsPatch ? { keywords: { ...message.keywords, ...keywordsPatch } } : {}),
     };
-    fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+    writeJson(filePath, updated);
     updateSentCopies(msgId, status, updatedAt, success, keywordsPatch);
     notifyPlayer(playerName, { type: 'mail-notification', unreadCount: countUnread(playerName) });
     return updated;
@@ -214,7 +275,7 @@ function updateSentCopies(
           ...(success !== undefined ? { success } : {}),
           ...(keywordsPatch ? { keywords: { ...message.keywords, ...keywordsPatch } } : {}),
         };
-        fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+        writeJson(filePath, updated);
       } catch { /* file doesn't exist for this player */ }
     }
   } catch { /* players dir doesn't exist */ }
@@ -231,9 +292,9 @@ export function deleteMessage(playerName: string, msgId: string): boolean {
   try {
     const message = loadMail(srcPath);
     const destDir = deletedDir(playerName);
-    fs.mkdirSync(destDir, { recursive: true });
+
     const updated: MailMessage = { ...message, status: 'deleted', updatedAt: new Date().toISOString() };
-    fs.writeFileSync(path.join(destDir, `${msgId}.json`), JSON.stringify(updated, null, 2));
+    writeJson(path.join(destDir, `${msgId}.json`), updated);
     fs.unlinkSync(srcPath);
     return true;
   } catch {

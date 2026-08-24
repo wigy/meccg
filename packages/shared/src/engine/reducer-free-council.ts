@@ -22,8 +22,9 @@ import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { modifyCorruptionCheckGrantActions } from './legal-actions/organization.js';
 import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
-import { roll2d6, diceRollEffect, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
+import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
 import { removeConstraint } from './pending.js';
 
@@ -286,16 +287,13 @@ function resolveCorruptionCheck(
   const cp = pending.corruptionPoints;
   const modifier = pending.corruptionModifier + pending.supportCount + effectModifier;
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, playerIndex, `Corruption: ${charName}`);
   const total = roll.die1 + roll.die2 + modifier;
   const modStr = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
   const supportStr = pending.supportCount > 0 ? ` (includes +${pending.supportCount} support)` : '';
   logDetail(`Free Council corruption check for ${charName}: rolled ${roll.die1} + ${roll.die2}${modStr} = ${total} vs CP ${cp}${supportStr}`);
 
-  const rollEffect = diceRollEffect(player.name, roll, `Corruption: ${charName}`);
-
-  const newPlayers = clonePlayers(state);
-  newPlayers[playerIndex] = { ...newPlayers[playerIndex], lastDiceRoll: roll };
+  const newPlayers = clonePlayers(rolledState);
 
   const newChecked = [...fcState.checkedCharacters, pending.characterId as string];
   const newFcBase = { ...fcState, checkedCharacters: newChecked, pendingCheck: null };
@@ -326,9 +324,8 @@ function resolveCorruptionCheck(
     }
     return {
       state: {
-        ...state,
+        ...rolledState,
         players: newPlayers,
-        rng, cheatRollTotal,
         phaseState: newFcBase,
       },
       effects: [rollEffect],
@@ -344,13 +341,11 @@ function resolveCorruptionCheck(
     characters: c.characters.filter(id => id !== pending.characterId),
   }));
 
-  // Followers promoted to general influence
-  for (const followerId of char.followers) {
-    const follower = newCharacters[followerId];
-    if (follower) {
-      newCharacters[followerId] = { ...follower, controlledBy: 'general' };
-    }
-  }
+  // Followers revert to general influence with the mind subtraction deferred
+  // to the player's next organization phase (CoE 2.II.2.2.3). The Free Council
+  // (CoE 7.1) is not the organization phase, so — like every other mid-turn
+  // controller loss — the freed follower is not charged on the spot.
+  freeOrDiscardFollowers(state, newCharacters, char, 'free-council-corruption-removal');
 
   // Dispatch hazards on this character to their owner's discard pile
   for (const hazard of char.hazards) {
@@ -361,11 +356,19 @@ function resolveCorruptionCheck(
     newPlayers[safeIdx] = { ...newPlayers[safeIdx], discardPile: [...newPlayers[safeIdx].discardPile, toCardInstance(hazard)] };
   }
 
-  // Separate hazards (owned by opponent) from non-hazard possessions (owned by resource player)
+  // Separate hazards (owned by opponent) from non-hazard possessions (owned by
+  // resource player). The character's *attached* hazards were already routed
+  // to their owner's discard pile by the char.hazards loop above — and the
+  // engine's own legal action populates `pending.possessions` with
+  // characterPossessions (items + allies + hazards), so those same instance
+  // IDs appear here too. Skip them, or each attached hazard would be pushed
+  // to the discard pile twice (duplicating the instance).
+  const attachedHazardIds = new Set(char.hazards.map(h => h.instanceId as string));
   const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
   const hazardPossessions: CardInstance[] = [];
   const nonHazardPossessions: CardInstance[] = [];
   for (const id of pending.possessions) {
+    if (attachedHazardIds.has(id as string)) continue;
     const hazOwner = ownerOf(id) as string;
     const defId = resolveInstanceId(state, id)!;
     if (hazOwner === (state.players[hazardPlayerIndex].id as string)) {
@@ -414,9 +417,8 @@ function resolveCorruptionCheck(
 
   return {
     state: cleanupEmptyCompanies({
-      ...state,
+      ...rolledState,
       players: newPlayers,
-      rng, cheatRollTotal,
       phaseState: newFcBase,
     }),
     effects: [rollEffect],
@@ -436,17 +438,44 @@ function collectUniqueNamesInPlay(state: GameState, player: GameState['players']
   const names = new Set<string>();
   const addIfUnique = (definitionId: CardDefinitionId): void => {
     const def = defById(state, definitionId);
-    if (def && 'name' in def && 'unique' in def && (def as { unique: boolean }).unique) {
-      names.add((def as { name: string }).name);
-    }
+    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) return;
+    // CoE 10.3.v: the match must be against a unique card "that is giving
+    // their opponent at least one marshalling point" — a 0-MP unique
+    // (a permanent event, a misc resource) can never cost its controller a
+    // deduction.
+    const mp = 'marshallingPoints' in def ? (def as { marshallingPoints: number }).marshallingPoints : 0;
+    if (mp < 1) return;
+    names.add((def as { name: string }).name);
   };
   for (const card of player.cardsInPlay) addIfUnique(card.definitionId);
-  for (const character of Object.values(player.characters)) {
-    addIfUnique(character.definitionId);
+  for (const [charId, character] of Object.entries(player.characters)) {
+    // A pressed character (Press-gang ba-22) gives its player NEGATIVE
+    // character MP (CoE 8.35 scoring) — it is not "giving at least one
+    // marshalling point", so it cannot be matched either.
+    const pressed = state.activeConstraints.some(
+      c => c.kind.type === 'character-pressed'
+        && c.target.kind === 'character' && (c.target.characterId as string) === charId,
+    );
+    if (!pressed) addIfUnique(character.definitionId);
     for (const item of character.items) addIfUnique(item.definitionId);
     for (const ally of character.allies) addIfUnique(ally.definitionId);
   }
   return names;
+}
+
+/**
+ * True when a hand card qualifies for the CoE 10.3.v reveal: a unique card
+ * "that would normally give the revealing player marshalling points when
+ * played" — i.e. it carries a positive printed MP value of its own. Hazards
+ * never qualify (CoE 10.4: a player gets no MP from hazards they play), and
+ * neither do 0-MP uniques.
+ */
+function qualifiesForUniqueReveal(state: GameState, definitionId: CardDefinitionId): string | undefined {
+  const def = defById(state, definitionId);
+  if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) return undefined;
+  const mp = 'marshallingPoints' in def ? (def as { marshallingPoints: number }).marshallingPoints : 0;
+  if (mp < 1) return undefined;
+  return (def as { name: string }).name;
 }
 
 /**
@@ -477,20 +506,16 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
   const uniqueNamesInPlay0 = collectUniqueNamesInPlay(state, p0);
   const uniqueNamesInPlay1 = collectUniqueNamesInPlay(state, p1);
   for (const handCard of p0.hand) {
-    const def = defById(state, handCard.definitionId);
-    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) continue;
-    const name = (def as { name: string }).name;
-    if (uniqueNamesInPlay1.has(name)) {
-      logDetail(`Unique card reveal: ${p0.name} has unplayed "${name}" matching opponent's in-play — opponent -1 MP`);
+    const name = qualifiesForUniqueReveal(state, handCard.definitionId);
+    if (name !== undefined && uniqueNamesInPlay1.has(name)) {
+      logDetail(`Unique card reveal: ${p0.name} has unplayed "${name}" matching opponent's MP-giving in-play copy — opponent -1 MP`);
       score1 -= 1;
     }
   }
   for (const handCard of p1.hand) {
-    const def = defById(state, handCard.definitionId);
-    if (!def || !('name' in def) || !('unique' in def) || !(def as { unique: boolean }).unique) continue;
-    const name = (def as { name: string }).name;
-    if (uniqueNamesInPlay0.has(name)) {
-      logDetail(`Unique card reveal: ${p1.name} has unplayed "${name}" matching opponent's in-play — opponent -1 MP`);
+    const name = qualifiesForUniqueReveal(state, handCard.definitionId);
+    if (name !== undefined && uniqueNamesInPlay0.has(name)) {
+      logDetail(`Unique card reveal: ${p1.name} has unplayed "${name}" matching opponent's MP-giving in-play copy — opponent -1 MP`);
       score0 -= 1;
     }
   }

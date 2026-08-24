@@ -142,6 +142,10 @@
             ]
           }
         }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-store"
       }
     ],
     "text": "Unique. The One Ring. Playable only with a Gold Ring and after a test indicates The One Ring. +5 prowess (to a maximum of double the bearer's starting prowess). +5 to body (to a maximum of 10). +5 to direct influence. Bearer may make a corruption check modified by -2 to cancel a strike against himself; this does not work against Undead and Nazgûl strikes. +1 corruption point to every character in the bearer's company.",
@@ -726,7 +730,8 @@
         "max": 9
       },
       {
-        "type": "cancel-strike",
+        "type": "strike-modifier",
+        "dodge": true,
         "cost": {
           "tap": "self"
         },
@@ -737,7 +742,7 @@
         }
       }
     ],
-    "certified": "2026-04-25"
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-item",
@@ -933,7 +938,7 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 1,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
@@ -1079,14 +1084,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Athelas.jpg",
     "unique": false,
     "subtype": "minor",
-    "keywords": [],
+    "keywords": ["starting-item"],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "heal-company-character",
+        "anyPhase": true,
+        "when": { "bearer.race": "dunadan" },
+        "cost": {
+          "tap": "bearer",
+          "discard": "self"
+        },
+        "apply": {
+          "type": "set-character-status",
+          "target": "target-character",
+          "status": "tapped"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "athelas-remove-corruption",
+        "anyPhase": true,
+        "when": { "bearer.name": "Aragorn II" },
+        "cost": {
+          "tap": "bearer",
+          "discard": "self"
+        },
+        "targets": { "scope": "company-hazard-corruption-cards" },
+        "apply": {
+          "type": "discard-target-corruption-card"
+        }
+      }
+    ],
+    "certified": "2026-08-21",
     "text": "A Dúnadan can tap and use this item to heal a character in his company (change from wounded to well, character remains tapped).Aragorn II can also tap and use this item to remove a corruption card from a character in his company.Discard after use."
   },
   {
@@ -1168,7 +1204,7 @@
     "marshallingCategory": "item",
     "corruptionPoints": 3,
     "prowessModifier": 2,
-    "bodyModifier": 0,
+    "bodyModifier": 1,
     "playableAt": [],
     "effects": [
       {
@@ -1185,6 +1221,11 @@
         "when": {
           "bearer.race": "dwarf"
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1
       },
       {
         "type": "stat-modifier",
@@ -1332,7 +1373,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ElvenCloak.jpg",
     "unique": false,
     "subtype": "minor",
-    "keywords": [],
+    "keywords": ["starting-item"],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -1456,7 +1497,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/HealingHerbs.jpg",
     "unique": false,
     "subtype": "minor",
-    "keywords": [],
+    "keywords": ["starting-item"],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -1629,7 +1670,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Miruvor.jpg",
     "unique": false,
     "subtype": "minor",
-    "keywords": [],
+    "keywords": ["starting-item"],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -1756,8 +1797,29 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. With its bearer able to use a Palantír, tap Palantír of Annúminas to search through your play deck and discard pile for a “sage only” card. Put this card in your hand. Reshuffle your play deck. Bearer makes a corruption check."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "annuminas-fetch-sage-only",
+        "cost": { "tap": "self" },
+        "when": {
+          "bearer.canUsePalantir": true
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["deck", "discard-pile"],
+          "fetchTo": "hand",
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "postCorruptionCheck": true,
+          "filter": {
+            "keywords": { "$includes": "sage-only" }
+          }
+        }
+      }
+    ],
+    "text": "Unique. Palantír. With its bearer able to use a Palantír, tap Palantír of Annúminas to search through your play deck and discard pile for a “sage only” card. Put this card in your hand. Reshuffle your play deck. Bearer makes a corruption check.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-item",
@@ -1776,8 +1838,63 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Palantír. Playable only at The White Towers. Discard if the bearer moves. If the bearer is a sage, he may tap Palantír of Elostirion to remove one corruption card from an Elf or a Wizard under your control. Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": [
+          "The White Towers"
+        ]
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-company-moves",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "elostirion-remove-corruption",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "bearer.skills": {
+            "$includes": "sage"
+          }
+        },
+        "targets": {
+          "scope": "own-hazard-corruption-cards",
+          "filter": {
+            "race": {
+              "$in": [
+                "elf",
+                "wizard"
+              ]
+            }
+          }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "discard-target-corruption-card"
+            },
+            {
+              "type": "enqueue-corruption-check"
+            }
+          ]
+        }
+      },
+      {
+        "type": "fw-mp-none"
+      }
+    ],
+    "text": "Unique. Palantír. Playable only at The White Towers. Discard if the bearer moves. If the bearer is a sage, he may tap Palantír of Elostirion to remove one corruption card from an Elf or a Wizard under your control. Bearer makes a corruption check. This item does not give MPs to a Fallen-wizard regardless of other cards in play.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-item",
@@ -1876,7 +1993,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/PotionofProwess.jpg",
     "unique": false,
     "subtype": "minor",
-    "keywords": [],
+    "keywords": ["starting-item"],
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 1,
@@ -2043,9 +2160,18 @@
         "type": "on-event",
         "event": "self-enters-play",
         "apply": { "type": "enqueue-corruption-check" }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-transfer"
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-store"
       }
     ],
-    "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played."
+    "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-item",

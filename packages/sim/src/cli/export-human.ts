@@ -77,7 +77,7 @@ import { readGameLog, resolveGameLogPath } from '../ai/h2/game-log.js';
 import type { GameLogRecord } from '../ai/h2/game-log.js';
 import { hashState } from '../ai/h2/scenario-store.js';
 import { isRegressive } from '../ai/regress.js';
-import { parseCliArgs, numberFlag, stringFlag } from './common.js';
+import { cliPreamble, numberFlag, stringFlag } from './common.js';
 import { runChildren } from './jobs.js';
 
 /** Flag reference, printed by `--help`. */
@@ -155,11 +155,7 @@ interface Tally {
   failed: number;
 }
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const corpusDir = stringFlag(args, 'dir');

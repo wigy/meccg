@@ -63,6 +63,42 @@ export function enqueueResolution(
 }
 
 /**
+ * Instance IDs of everything a character carries — items, allies, and
+ * attached (corruption) hazards. This is the `possessions` list a
+ * corruption-check resolution names, so a failed check knows what the
+ * character would drop with them.
+ */
+export function characterPossessions(
+  char: {
+    readonly items: readonly { readonly instanceId: CardInstanceId }[];
+    readonly allies: readonly { readonly instanceId: CardInstanceId }[];
+    readonly hazards: readonly { readonly instanceId: CardInstanceId }[];
+  },
+): CardInstanceId[] {
+  return [
+    ...char.items.map(i => i.instanceId),
+    ...char.allies.map(a => a.instanceId),
+    ...char.hazards.map(h => h.instanceId),
+  ];
+}
+
+/**
+ * {@link characterPossessions} for a character known only by instance ID:
+ * looks the character up on whichever player holds them. Empty when the
+ * character is no longer in play.
+ */
+export function characterPossessionsById(
+  state: GameState,
+  characterId: CardInstanceId,
+): CardInstanceId[] {
+  for (const p of state.players) {
+    const char = p.characters[characterId];
+    if (char) return characterPossessions(char);
+  }
+  return [];
+}
+
+/**
  * Convenience wrapper around {@link enqueueResolution} for the most common
  * case: enqueuing a `corruption-check` kind. Fills in `possessions: []`,
  * `modifier: 0`, and `transferredItemId: null` by default, which matches
@@ -197,6 +233,45 @@ export function constraintsOnCompany(
 }
 
 /**
+ * Fell Beast (tw-33): true when `creatureDefinitionId` (owned by `playerId`)
+ * already carries a `nazgul-boost-used` marker — "Cannot be duplicated on a
+ * given Nazgûl."
+ */
+export function hasNazgulBoostBeenUsed(
+  state: GameState,
+  playerId: PlayerId,
+  creatureDefinitionId: CardDefinitionId,
+): boolean {
+  return state.activeConstraints.some(
+    c => c.kind.type === 'nazgul-boost-used'
+      && c.target.kind === 'player'
+      && c.target.playerId === playerId
+      && c.kind.creatureDefinitionId === creatureDefinitionId,
+  );
+}
+
+/**
+ * Fell Beast (tw-33): permanently mark `creatureDefinitionId` (owned by
+ * `playerId`) as having received a Fell Beast boost, so no later Fell Beast
+ * can be duplicated on the same Nazgûl.
+ */
+export function markNazgulBoostUsed(
+  state: GameState,
+  source: CardInstanceId,
+  sourceDefinitionId: CardDefinitionId,
+  playerId: PlayerId,
+  creatureDefinitionId: CardDefinitionId,
+): GameState {
+  return addConstraint(state, {
+    source,
+    sourceDefinitionId,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'player', playerId },
+    kind: { type: 'nazgul-boost-used', creatureDefinitionId },
+  });
+}
+
+/**
  * True when the given company is currently shielded by a
  * `cancel-return-and-site-tap` constraint (Promptings of Wisdom wh-34,
  * Piercing All Shadows wh-47, Govern the Storms wh-45): hazard effects that
@@ -211,9 +286,29 @@ export function hasCancelReturnAndSiteTap(state: GameState, companyId: CompanyId
 }
 
 /**
- * Count active constraints sourced from the given card definition. Used to
- * enforce `duplication-limit` effects: each play of the card leaves a
- * constraint behind, so the active count is how many copies are "in force".
+ * True when the constraint was left by the given card, compared by NAME:
+ * duplication limits apply per card name, and the same card may exist as
+ * several printings across sets (Greed le-113 / tw-42, Incite Denizens
+ * le-116 / td-34). Matching only the definition id would let a mixed-set
+ * deck evade the limit by playing one printing of each — chain entries and
+ * in-play copies are already counted by name. Falls back to definition-id
+ * equality when either definition is missing from the pool.
+ */
+export function constraintFromCard(
+  state: GameState,
+  constraint: ActiveConstraint,
+  definitionId: CardDefinitionId,
+): boolean {
+  if (constraint.sourceDefinitionId === definitionId) return true;
+  const name = state.cardPool[definitionId]?.name;
+  return name !== undefined && state.cardPool[constraint.sourceDefinitionId]?.name === name;
+}
+
+/**
+ * Count active constraints sourced from the given card — any printing of it,
+ * see {@link constraintFromCard}. Used to enforce `duplication-limit` effects:
+ * each play of the card leaves a constraint behind, so the active count is how
+ * many copies are "in force".
  *
  * Pass `scopeKind` to count only constraints with a matching scope (e.g.
  * `'attack'` for attack-scoped duplication limits); omit it to count every
@@ -226,7 +321,7 @@ export function countConstraintsFromDefinition(
 ): number {
   return state.activeConstraints.filter(
     c =>
-      c.sourceDefinitionId === definitionId &&
+      constraintFromCard(state, c, definitionId) &&
       (scopeKind === undefined || c.scope.kind === scopeKind),
   ).length;
 }

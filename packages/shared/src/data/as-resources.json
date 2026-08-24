@@ -14,7 +14,7 @@
         "type": "play-target",
         "target": "site",
         "filter": {
-          "siteType": {
+          "effectiveSiteType": {
             "$in": ["free-hold", "border-hold"]
           }
         }
@@ -940,8 +940,21 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during opponent’s site phase before strikes are assigned on a hero company at a Free-hold [{F}] or Border-hold [{B}] if a minion company attacks. The attack is canceled and the minion company must face all automatic-attacks of the site—which attack normally, not as detainment. Afterwards, the minion company may attack the hero company again."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiresCvCC": true,
+        "forceSiteAutoAttacksNormalReface": true,
+        "when": {
+          "$and": [
+            { "attack.minionCompany": true },
+            { "site.type": { "$in": ["free-hold", "border-hold"] } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable during opponent’s site phase before strikes are assigned on a hero company at a Free-hold [{F}] or Border-hold [{B}] if a minion company attacks. The attack is canceled and the minion company must face all automatic-attacks of the site—which attack normally, not as detainment. Afterwards, the minion company may attack the hero company again.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
@@ -988,8 +1001,42 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company facing an Orc attack or in combat with an overt company. Also playable during opponent’s site phase. Every Sword of Gondolin, Orcrist, and Glamdring in target company give an additional +2 prowess bonus and lower the body of strikes their bearers face by 1."
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 2,
+        "itemFilter": {
+          "item.name": {
+            "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"]
+          }
+        },
+        "when": {
+          "$or": [
+            { "enemy.race": "orc" },
+            { "enemy.overt": true }
+          ]
+        }
+      },
+      {
+        "type": "company-combat-boost",
+        "stat": "creature-body",
+        "value": 1,
+        "itemFilter": {
+          "item.name": {
+            "$in": ["Sword of Gondolin", "Orcrist", "Glamdring"]
+          }
+        },
+        "when": {
+          "$or": [
+            { "enemy.race": "orc" },
+            { "enemy.overt": true }
+          ]
+        }
+      }
+    ],
+    "text": "Playable on a company facing an Orc attack or in combat with an overt company. Also playable during opponent’s site phase. Every Sword of Gondolin, Orcrist, and Glamdring in target company give an additional +2 prowess bonus and lower the body of strikes their bearers face by 1.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
@@ -1729,11 +1776,33 @@
     "name": "Riven Gate",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/RivenGate.jpg",
     "unique": false,
+    "keywords": [
+      "sorcery"
+    ],
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Sorcery. Playable on a sorcery-using character when facing the automatic-attack at a Border-hold [{B}]. All automatic-attacks at the site are canceled, and any influence attempt against a faction at the site this turn is modified by +2. Unless he is a Ringwraith, he makes a corruption check modified by -4."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "requiredSkill": "sorcery",
+        "cost": {
+          "check": "corruption",
+          "modifier": -4
+        },
+        "costExemptRace": "ringwraith",
+        "cancelsRemainingSiteAttacks": true,
+        "influenceAtSiteModifier": 2,
+        "when": {
+          "$and": [
+            { "attack.source": "automatic-attack" },
+            { "site.type": "border-hold" }
+          ]
+        }
+      }
+    ],
+    "text": "Magic. Sorcery. Playable on a sorcery-using character when facing the automatic-attack at a Border-hold [{B}]. All automatic-attacks at the site are canceled, and any influence attempt against a faction at the site this turn is modified by +2. Unless he is a Ringwraith, he makes a corruption check modified by -4.",
+    "certified": "2026-08-20"
   },
   {
     "cardType": "minion-resource-event",

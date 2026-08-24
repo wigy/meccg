@@ -25,7 +25,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardDefinitionId, Alignment, CompanyId } from '../../../index.js';
 import type { SitePhaseState, GameState } from '../../../index.js';
 import {
-  buildTestState, PLAYER_1, PLAYER_2, resetMint, dispatch, viableActions,
+  buildTestState, PLAYER_1, PLAYER_2, resetMint, dispatch, dispatchResult, viableActions,
 } from '../../test-helpers.js';
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
@@ -291,5 +291,88 @@ describe('Rule 8.39 — CvCC Strike Sequence', () => {
     s = dispatch(s, excessActions[0].action);
     expect(s.combat?.cvccExcessPool).toBeUndefined();
     expect(s.combat?.strikeAssignments[0].excessStrikes).toBe(1);
+  });
+
+  test('CvCC: excess strike -1 prowess penalty is applied when the strike is resolved', () => {
+    // Bug report: engine allocated the excess strike as a -1 prowess penalty
+    // on the defender's strike assignment, but resolveStrikeCvCC never
+    // subtracted it when computing the defender's roll — the defender kept
+    // full prowess. Same setup as the previous test (Aragorn prowess 6 +
+    // Legolas vs Perchen prowess 3, Legolas unpaired → 1 excess strike on
+    // Perchen), continued through strike resolution.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS_TW] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA, characters: [PERCHEN] }],
+          hand: [],
+          siteDeck: [MORIA_AS],
+        },
+      ],
+      phase: Phase.Site,
+    });
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+
+    let s = { ...state, phaseState: sitePhaseState } as GameState;
+
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+    const declareActions = viableActions(s, PLAYER_1, 'declare-company-attack');
+    const declareAction = declareActions[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+
+    const atkAssignActions = viableActions(s, PLAYER_1, 'assign-strike');
+    s = dispatch(s, atkAssignActions[0].action);
+
+    s = dispatch(s, { type: 'pass', player: PLAYER_1 });
+
+    expect(s.combat?.cvccExcessPool).toBe(1);
+    const excessActions = viableActions(s, PLAYER_1, 'allocate-cvcc-excess');
+    s = dispatch(s, excessActions[0].action);
+    expect(s.combat?.strikeAssignments[0].excessStrikes).toBe(1);
+
+    // Attacker taps to fight (full prowess 6, Aragorn is untapped).
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+
+    // Defender taps to fight (full prowess 3, minus the 1 excess strike → 2).
+    const result = dispatchResult(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    const defEffect = result.effects?.find(
+      e => e.effect === 'dice-roll' && e.label === 'CvCC Strike: Perchen',
+    ) as { die1: number; die2: number; total?: number } | undefined;
+    expect(defEffect).toBeDefined();
+    const defProwessUsed = (defEffect?.total ?? 0) - (defEffect?.die1 ?? 0) - (defEffect?.die2 ?? 0);
+    expect(defProwessUsed).toBe(2);
   });
 });

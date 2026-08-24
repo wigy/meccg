@@ -87,7 +87,7 @@ export {
 export type { CardVocab, StateFeatures, ActionFeatures } from './features/index.js';
 
 // AI strategy module (lifted from the text client; shared by all clients).
-export { loadAiStrategy, sampleWeighted } from './ai/index.js';
+export { loadAiStrategy, sampleWeighted, pickBest } from './ai/index.js';
 export type { AiStrategy, AiContext, WeightedAction } from './ai/index.js';
 export { heuristicStrategy } from './ai/heuristic.js';
 
@@ -133,5 +133,30 @@ export { computeStanding } from './ai/h2/services/standing.js';
 export type { Standing } from './ai/h2/services/standing.js';
 export { renderRationale, collectTunables } from './ai/h2/core/rationale.js';
 export { renderExplanation } from './ai/h2/explain.js';
+export { H2_SPEC_GRAMMAR, isH2Spec, parseH2Spec } from './ai/h2/spec.js';
+export type { H2Spec } from './ai/h2/spec.js';
 export { listScenarioIds, loadScenario, saveScenario, scenarioView } from './ai/h2/scenario-store.js';
 export type { Scenario, ScenarioSource } from './ai/h2/scenario-store.js';
+
+// One decision explained in text, for any agent in the registry — the shared
+// renderer behind `explain`, the AI client's decision log, and the Ask AI
+// observer (`specs/2026-08-17-ask-ai-observer.md`).
+export {
+  analyzeH2Position,
+  decisionCandidates,
+  explainDecision,
+  makeActionDescriber,
+  renderCandidateRanking,
+} from './ai/explain-decision.js';
+export type {
+  CandidateRankingInput,
+  DecisionExplanation,
+  DecisionExplanationInput,
+  H2Analysis,
+  H2AnalysisOptions,
+} from './ai/explain-decision.js';
+
+// Game-log reader: the game server's per-game JSONL, which carries the full
+// state for every position a real game reached.
+export { gameLogDir, readGameLog, findGameLogRecord, resolveGameLogPath } from './ai/h2/game-log.js';
+export type { GameLogRecord } from './ai/h2/game-log.js';

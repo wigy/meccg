@@ -159,6 +159,25 @@ export interface ExchangeSideboardAction {
 }
 
 /**
+ * Trade a card the opponent's Balrog alignment has made unplayable for one
+ * card of any type from the sideboard (CoE 1.8.2 / rule 1.36).
+ *
+ * Available at any strategy-time step while the opponent is a Balrog player
+ * and the hand holds one of the cards banned against them. The banned card
+ * leaves the game (CRF 22: "he may remove it from the game") and the chosen
+ * sideboard card is shuffled into the play deck.
+ */
+export interface SwapBannedVsBalrogAction {
+  readonly type: 'swap-banned-vs-balrog';
+  /** The player making the trade. */
+  readonly player: PlayerId;
+  /** The banned card in the player's hand, removed from the game. */
+  readonly cardInstanceId: CardInstanceId;
+  /** The sideboard card brought into the play deck. */
+  readonly sideboardCardInstanceId: CardInstanceId;
+}
+
+/**
  * Declare intent to fetch 1 card from sideboard to the play deck.
  *
  * Per CoE rule 2.II.6, the resource player taps their avatar and then
@@ -489,6 +508,22 @@ export interface DesireChoosePenaltyAction {
   readonly player: PlayerId;
   /** Which penalty the opponent accepts. */
   readonly penalty: 'remove-from-game' | 'reduce-hand-size';
+}
+
+/**
+ * Choose one of the eligible revealed cards from the top of the card-player's
+ * own play deck to immediately attack the target company (Long Dark Reach,
+ * dm-70). Resolves a `reveal-deck-choose-attacker` pending resolution; the
+ * choice is mandatory ("must immediately attack").
+ */
+export interface ChooseLongDarkReachAttackerAction {
+  readonly type: 'choose-long-dark-reach-attacker';
+  /** The card-player choosing which revealed creature attacks. */
+  readonly player: PlayerId;
+  /** The instance ID of the chosen creature. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Definition ID of the chosen creature (mirrors `ChooseHuntTargetAction`, keeping the choice legible under redaction). */
+  readonly definitionId: CardDefinitionId;
 }
 
 /**

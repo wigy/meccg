@@ -461,7 +461,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ]
       }
     ],
     "effects": [],
@@ -495,7 +501,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ]
       }
     ],
     "effects": [
@@ -518,10 +530,28 @@
     "body": 8,
     "killMarshallingPoints": 4,
     "race": "dragon",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "siteNames": [
+          "Irerock"
+        ]
+      },
+      {
+        "regionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ],
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      }
+    ],
     "effects": [],
     "text": "Unique. May be played at Irerock. Dragon. Two strikes. If Doors of Night is in play, may also be played keyed to Grey Mountain Narrows, Iron Hills, Northern Rhovanion, and Withered Heath; and may also be played at sites in these regions.",
-    "manifestId": "tw-48"
+    "manifestId": "tw-48",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
@@ -549,7 +579,13 @@
         ],
         "when": {
           "inPlay": "Doors of Night"
-        }
+        },
+        "siteInRegionNames": [
+          "Grey Mountain Narrows",
+          "Iron Hills",
+          "Northern Rhovanion",
+          "Withered Heath"
+        ]
       }
     ],
     "effects": [
@@ -1131,8 +1167,20 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Animals. Each character in the company faces one strike.After the attack, the defender must reveal one random card from his hand for each character in the defending company."
+    "effects": [
+      {
+        "type": "combat-one-strike-per-character"
+      },
+      {
+        "type": "on-event",
+        "event": "attack-not-canceled",
+        "apply": {
+          "type": "reveal-hand-cards-per-character"
+        }
+      }
+    ],
+    "text": "Animals. Each character in the company faces one strike.After the attack, the defender must reveal one random card from his hand for each character in the defending company.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
@@ -1366,10 +1414,42 @@
         "regionTypes": [
           "wilderness"
         ]
+      },
+      {
+        "siteNames": [
+          "Drúadan Forest",
+          "Old Forest",
+          "Wellinghall"
+        ]
+      },
+      {
+        "regionNames": [
+          "Heart of Mirkwood",
+          "Southern Mirkwood",
+          "Western Mirkwood",
+          "Woodland Realm"
+        ]
+      },
+      {
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ],
+        "when": {
+          "destinationSite.region": {
+            "$in": [
+              "Heart of Mirkwood",
+              "Southern Mirkwood",
+              "Western Mirkwood",
+              "Woodland Realm"
+            ]
+          }
+        }
       }
     ],
     "effects": [],
-    "text": "Awakened Plant. One strike. May also be played at Drúadan Forest, Old Forest, and Wellinghall. May also be played keyed to Heart of Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland Realm; and may also be played at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions."
+    "text": "Awakened Plant. One strike. May also be played at Drúadan Forest, Old Forest, and Wellinghall. May also be played keyed to Heart of Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland Realm; and may also be played at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-creature",
@@ -1454,18 +1534,83 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "animal",
-    "keyedTo": [],
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Dagorlad",
+          "Gorgoroth",
+          "Horse Plains",
+          "Ithilien",
+          "Khand",
+          "Nurn",
+          "Udûn"
+        ],
+        "siteInRegionNames": [
+          "Dagorlad",
+          "Gorgoroth",
+          "Horse Plains",
+          "Ithilien",
+          "Khand",
+          "Nurn",
+          "Udûn"
+        ]
+      },
+      {
+        "regionNames": [
+          "Andrast",
+          "Anfalas",
+          "Belfalas",
+          "Lebennin"
+        ],
+        "when": {
+          "hazardsEncountered": {
+            "$includes": "Corsairs of Umbar"
+          }
+        }
+      },
+      {
+        "siteTypes": [
+          "ruins-and-lairs",
+          "shadow-hold"
+        ],
+        "when": {
+          "$and": [
+            {
+              "destinationSite.region": {
+                "$in": [
+                  "Andrast",
+                  "Anfalas",
+                  "Belfalas",
+                  "Lebennin"
+                ]
+              }
+            },
+            {
+              "hazardsEncountered": {
+                "$includes": "Corsairs of Umbar"
+              }
+            }
+          ]
+        }
+      }
+    ],
     "effects": [
       {
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       }
     ],
-    "text": "Animals. Two strikes. May be played keyed to Dagorlad, Gorgoroth, Horse Plains, Ithilien, Khand, Nûrn, Ûdun; and may also be played at sites in these regions.May also be played (on the same turn and on the same company as Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin; and at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions.This card has no effect on a minion player."
+    "text": "Animals. Two strikes. May be played keyed to Dagorlad, Gorgoroth, Horse Plains, Ithilien, Khand, Nûrn, Ûdun; and may also be played at sites in these regions.May also be played (on the same turn and on the same company as Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin; and at Ruins & Lairs [{R}] and Shadow-holds [{S}] in these regions.This card has no effect on a minion player.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
@@ -1610,8 +1755,12 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. One strike. Attacker chooses defending characters. For each successful strike, an item the defending character bears must be discarded (defender’s choice); he is not harmed."
+    "effects": [
+      { "type": "combat-attacker-chooses-defenders" },
+      { "type": "combat-strike-effect", "strikeEffect": "discard-item-character" }
+    ],
+    "text": "Men. One strike. Attacker chooses defending characters. For each successful strike, an item the defending character bears must be discarded (defender’s choice); he is not harmed.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
@@ -1723,7 +1872,8 @@
       }
     ],
     "effects": [],
-    "text": "Unique.Troll. One strike."
+    "text": "Unique.Troll. One strike.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
@@ -1744,8 +1894,13 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Pûkel-creature. Each character in the company faces one strike."
+    "effects": [
+      {
+        "type": "combat-one-strike-per-character"
+      }
+    ],
+    "text": "Pûkel-creature. Each character in the company faces one strike.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-creature",
@@ -1804,6 +1959,9 @@
       },
       {
         "regionNames": [
+          "High Pass"
+        ],
+        "siteInRegionNames": [
           "High Pass"
         ]
       },

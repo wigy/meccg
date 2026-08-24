@@ -19,6 +19,7 @@ import { loadScenario, opposingPlayer, scenarioView } from '../../scenario-store
 import { testWinProbModel } from '../../test-support.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import type { StrikeTarget } from '../../services/strike/prowess.js';
+import { NO_ABILITIES } from '../../services/strike/ability.js';
 import type { StrikeOutcome } from '../../services/strike/strike-model.js';
 import { hazardsModule } from './hazards.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
@@ -55,6 +56,7 @@ function targetRoster(view: ReturnType<typeof scenarioView>): StrikeTarget[] {
       prowess: c.effectiveStats.prowess,
       status: c.status,
       isAlly: false,
+      abilities: NO_ABILITIES,
     };
   });
 }
@@ -68,6 +70,7 @@ function character(instanceId: string, isAlly = false): StrikeTarget {
     prowess: 5,
     status: 'untapped' as StrikeTarget['status'],
     isAlly,
+    abilities: NO_ABILITIES,
   };
 }
 
@@ -214,6 +217,75 @@ describe('bundles', () => {
     // the one that leads with Orc-lieutenant instead — the ordering a
     // beam search blind to the self-effect could not tell apart.
     expect(ledByHobgoblins.expectedTsd).toBeGreaterThan(ledByLieutenant.expectedTsd);
+  });
+});
+
+describe('detainment attacks (CoE §3.II)', () => {
+  /** The scenario roster, denial pricer and a free-card tunable set. */
+  function bench() {
+    const { view, cardPool, standing } = position();
+    const company = view.opponent.companies[0];
+    const beliefs = computeBeliefs(view, cardPool);
+    const context = denialContext(view, company, beliefs, standing, DEFAULT_TUNABLES);
+    return {
+      cardPool,
+      standing,
+      price: denialPricer(cardPool, standing, DEFAULT_TUNABLES, context),
+      roster: targetRoster(view),
+      tunables: { ...DEFAULT_TUNABLES, provisionalCardPrice: 0, hazardMaxBundle: 2 },
+    };
+  }
+
+  /** Two attacks alike in everything but the rule: one taps, one wounds and can be beaten for points. */
+  function pair(standing: ReturnType<typeof position>['standing']) {
+    const stats = { strikeProwess: 9, strikes: 2, creatureBody: 6, bodyCheckModifier: 0 };
+    const detaining: Candidate = {
+      instanceId: 'detaining',
+      name: 'detainment creature',
+      killMp: 0,
+      profile: { ...stats, detainment: true, killTsd: 0, name: 'detainment creature' },
+    };
+    const hitter: Candidate = {
+      instanceId: 'hitter',
+      name: 'hard hitter',
+      killMp: 3,
+      profile: {
+        ...stats,
+        detainment: false,
+        killTsd: standing.tsdAfter({}, { kill: 3 }) - standing.tsd,
+        name: 'hard hitter',
+      },
+    };
+    return { detaining, hitter };
+  }
+
+  test('the detainment attack opens, so the creature that can be beaten meets a tapped company', () => {
+    // The reported instinct, and the model agrees with it: lead with the attack
+    // that cannot hand over kill MP, and the one that can arrives against
+    // defenders already tapped — likelier to get through, likelier to survive.
+    const { cardPool, standing, price, roster, tunables } = bench();
+    const { detaining, hitter } = pair(standing);
+
+    const search = planBundles([detaining, hitter], roster, cardPool, price, standing, tunables, 2);
+    const detainingFirst = bestBundleStartingWith(search, 'detaining')!;
+    const hitterFirst = bestBundleStartingWith(search, 'hitter')!;
+
+    expect(detainingFirst.cards.map(c => c.instanceId)).toEqual(['detaining', 'hitter']);
+    expect(detainingFirst.expectedTsd).toBeGreaterThan(hitterFirst.expectedTsd);
+    expect(search.bundles[0].cards[0].instanceId).toBe('detaining');
+  });
+
+  test('a detainment attack is worth playing where the same attack as a normal one is a gift', () => {
+    // Same strikes, same prowess, same body: the whole difference is that
+    // beating a detainment creature earns the defender nothing (§3.II.3).
+    const { cardPool, standing, price, roster, tunables } = bench();
+    const { detaining, hitter } = pair(standing);
+
+    const alone = (candidate: Candidate) =>
+      planBundles([candidate], roster, cardPool, price, standing, tunables, 1).bundles[0].expectedTsd;
+
+    expect(alone(detaining)).toBeGreaterThan(0);
+    expect(alone(hitter)).toBeLessThan(0);
   });
 });
 
@@ -559,6 +631,104 @@ describe('a hazard event already in play', () => {
     const without = hazardsModule.evaluate(bare.creature, bare.context)!.expectedTsd;
     const with_ = hazardsModule.evaluate(boosted.creature, boosted.context)!.expectedTsd;
     expect(with_).toBeGreaterThan(without);
+  });
+});
+
+describe('a support event whose modifier names several races', () => {
+  /**
+   * The reported position, reduced to its two cards: a boost that reads "all
+   * Spider and Animal attacks receive +2 prowess" and a Spider attack in the
+   * same hand.
+   *
+   * The boost has to reach the table *before* the attack, or it improves
+   * nothing — and it will not, unless the module can see that it does anything
+   * at all. Its condition is a race *list*, which the reader used to drop whole:
+   * the card scored nothing, lost every comparison to the spider it was meant to
+   * strengthen, and was never played.
+   */
+  function spiderPosition() {
+    const scenario = loadScenario('movement/support-event-boost');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    const legalActions = viableActions(scenario);
+    const plays = legalActions.filter(a => a.type === 'play-hazard') as (GameAction & {
+      cardInstanceId: string;
+    })[];
+    expect(plays.length).toBeGreaterThanOrEqual(2);
+    // Swapping definitions under the offered plays is the same trick the Doors
+    // of Night cases use: the instance ids the engine offered stay valid.
+    const cardOf = (instanceId: string) =>
+      view.self.hand.find(c => (c.instanceId as string) === instanceId)! as unknown as {
+        definitionId: string;
+      };
+    cardOf(plays[0].cardInstanceId).definitionId = definitionOf('Full of Froth and Rage');
+    cardOf(plays[1].cardInstanceId).definitionId = definitionOf('Lesser Spiders');
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    return {
+      boost: plays[0],
+      spider: plays[1],
+      context: { view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing },
+    };
+  }
+
+  test('is scored at all', () => {
+    const { boost, context } = spiderPosition();
+    const evaluation = hazardsModule.evaluate(boost, context);
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation!.rationale)).toContain('spider');
+  });
+
+  test('is not credited with an attack the slot it spends leaves no room for', () => {
+    // Playing an event counts against the same hazard limit its attacks need —
+    // the engine increments `hazardsPlayedThisCompany` for events too. Priced
+    // without that, "play the boost" was credited with a boosted bundle it had
+    // no slot left to play, and the last slot of a phase went to a modifier
+    // with nothing to modify.
+    const spacious = spiderPosition();
+    const cramped = spiderPosition();
+    // The scenario publishes a limit of 4; spending three leaves one slot, so
+    // the boost and an attack cannot both be played.
+    (cramped.context.view.phaseState as unknown as { hazardsPlayedThisCompany: number })
+      .hazardsPlayedThisCompany = 3;
+    const roomy = hazardsModule.evaluate(spacious.boost, spacious.context)!.expectedTsd;
+    const tight = hazardsModule.evaluate(cramped.boost, cramped.context)?.expectedTsd ?? 0;
+    expect(tight).toBeLessThan(roomy);
+    // With the last slot spent on the modifier there is no attack left to
+    // modify, so the play is worth no more than doing nothing with it.
+    expect(tight).toBeLessThanOrEqual(
+      hazardsModule.evaluate(cramped.spider, cramped.context)!.expectedTsd,
+    );
+  });
+
+  test('with no room left, is worth no more than the card it burns', () => {
+    // The counterfactual arm reserves this card's own slot, so with the last
+    // slot left `after` legitimately collapses below `before` — that is the
+    // real "no room for the boosted attack" case, not beam noise. A
+    // `Math.max(before, after)` floor used to hand the event the full value
+    // of the unboosted plan it takes no part in (the reason string saying
+    // "no attack left it would improve" all the while), so the deterministic
+    // event could outrank the risky creature bundle and the last slot went
+    // to a modifier with nothing to modify. The honest credit is zero: the
+    // play scores just the card it spends.
+    const cramped = spiderPosition();
+    (cramped.context.view.phaseState as unknown as { hazardsPlayedThisCompany: number })
+      .hazardsPlayedThisCompany = 3;
+
+    const evaluation = hazardsModule.evaluate(cramped.boost, cramped.context)!;
+
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
+  });
+
+  test('outranks the attack it boosts, so it is played first', () => {
+    const { boost, spider, context } = spiderPosition();
+    const boostTsd = hazardsModule.evaluate(boost, context)!.expectedTsd;
+    const spiderTsd = hazardsModule.evaluate(spider, context)!.expectedTsd;
+    // Not a tie-break preference: the boost is worth the whole boosted bundle it
+    // unlocks, and playing the spider first throws that away for good.
+    expect(boostTsd).toBeGreaterThan(spiderTsd);
   });
 });
 

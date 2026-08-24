@@ -21,12 +21,18 @@
  *   message log in the top-right panel. Rolling the mouse wheel while the
  *   cursor is over the panel scrolls one line per wheel tick.
  * - End: open the full-screen map overlay.
+ * - `?`: ask the attached Ask AI observer's first agent about this position
+ *   (specs/2026-08-17-ask-ai-observer.md). The toolbar icon's menu offers the
+ *   other agents and the "my last move" question; this is the shortcut for the
+ *   common one. Chosen because it is punctuation: the letter keys all address
+ *   hand and board targets.
  */
 
 import { pageHistoryUp, pageHistoryDown, scrollHistory } from './render.js';
 import { openFullMap } from './map-fullscreen.js';
 import { getLastView, getLastCardPool, getFocusedCompanyId, setFocusedCompanyId, setSavedFocusedCompanyId, rerender } from './company-view-state.js';
 import { areCoordinatesLoaded } from './map-coordinates.js';
+import { askAi } from './ask-ai.js';
 
 /** Digit keys in the order 1..9,0 — first 10 hand-card slots. */
 const DIGIT_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
@@ -496,9 +502,15 @@ function handlePileBrowserKey(e: KeyboardEvent): boolean {
   }
 
   if (items.length === 0) {
-    // Still swallow keys so no underlying shortcut fires behind the modal.
-    if (e.key === 'Enter' || e.key?.startsWith('Arrow')) e.preventDefault();
-    return e.key === 'Enter' || e.key?.startsWith('Arrow') === true;
+    // Browse-only view (no selectable cards, e.g. viewing a discard pile):
+    // swallow every key so no underlying shortcut fires behind the modal,
+    // matching the selectable path below. Only Enter and the arrows used to
+    // be consumed here, so digits still clicked hand cards and Backspace /
+    // Delete / Home still clicked action buttons hidden behind the modal —
+    // an unseen game action. Escape was already handled above and closes
+    // the browser.
+    e.preventDefault();
+    return true;
   }
 
   let marked = getPileBrowserMarker(items);
@@ -735,6 +747,14 @@ export function installKeyboardShortcuts(): void {
         e.preventDefault();
         clickWithFlash(toggle);
       }
+      return;
+    }
+
+    if (e.key === '?') {
+      e.preventDefault();
+      // No-op unless an observer is attached, so the key is inert in an
+      // ordinary game rather than doing something invisible.
+      askAi();
       return;
     }
 

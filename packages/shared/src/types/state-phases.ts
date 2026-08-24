@@ -455,7 +455,16 @@ export type MHStep =
    * additional site card is played and a fresh movement/hazard phase follows —
    * or pass to finish the company without tapping it.
    */
-  | 'character-tap-mh-offer';
+  | 'character-tap-mh-offer'
+  /**
+   * Region-shortcut attack window (Ash Mountains tw-194 and its "movement
+   * enhancer" family): entered from `reveal-new-site`'s `declare-path`
+   * handler when the company taps its ranger to use a `region-shortcut`
+   * constraint's virtual adjacency. `state.combat` holds the printed forced
+   * attack; once it resolves, a `pass` continues straight to
+   * `set-hazard-limit` (auto-advanced, like `order-effects`).
+   */
+  | 'region-shortcut-attack';
 
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */
@@ -775,15 +784,38 @@ export type SiteStep =
    */
   | 'troll-purse-attacks'
   /**
+   * All the Bells Ringing (as-44) re-face window. Played by the hero player
+   * (before strikes are assigned) to cancel a minion company's declared CvCC
+   * attack against a hero company at a Free-hold or Border-hold: the minion
+   * company must instead face all of the site's automatic-attacks again,
+   * this time attacking normally rather than as detainment. The re-faced
+   * attacks are sequenced one at a time (mirroring 'troll-purse-attacks');
+   * once all are faced (or immediately, if the site has none), control
+   * returns to 'declare-company-attack' with the interaction marker cleared,
+   * so the minion company may declare the CvCC attack again.
+   */
+  | 'bells-ringing-attacks'
+  /**
    * Prisoner-rescue window (CoE rule 8.36). When the active company attempts
    * to rescue prisoners held at its current site (e.g. by Troll-purse dm-95),
    * it must face the host's rescue-attack — the site's automatic-attacks at
    * the time of rescue — sequenced one at a time (mirroring 'automatic-attacks'
    * but with normal wound semantics; held prisoners are protected from strike
-   * assignment). Once all rescue-attacks are faced, the prisoners are freed and
-   * control returns to 'play-resources'.
+   * assignment). Once all rescue-attacks are faced, control passes to
+   * 'rescue-tap', where the rescue is actually paid for.
    */
   | 'rescue-attacks'
+  /**
+   * CoE rule 8.36, after the rescue-attacks have been faced: "A character in
+   * the company may then be tapped to rescue all of the hazard host's
+   * prisoners." One `rescue-prisoner` action per untapped company member that
+   * is not itself a held prisoner; `pass` walks away with the prisoners still
+   * held (the attacks were faced for nothing). The tap is asked for *after*
+   * the attacks rather than charged at declaration because the rule sequences
+   * it that way — a company whose last untapped member is wounded facing the
+   * rescue-attack has no one left to free the prisoner.
+   */
+  | 'rescue-tap'
   /**
    * Step 3 (CoE line 358): After automatic-attacks (or if none), the
    * hazard player may declare that an agent at the company's site will
@@ -855,6 +887,20 @@ export interface SitePhaseState {
   readonly trollPurseReface?: {
     readonly hostInstanceId: CardInstanceId;
     readonly prowessBonus: number;
+    readonly resolved: number;
+  };
+  /**
+   * Active All the Bells Ringing (as-44) re-face progress. Set when the card
+   * cancels a minion company's declared CvCC attack against a hero company at
+   * a Free-hold or Border-hold, forcing the minion company to face all of the
+   * site's automatic-attacks again (as normal, non-detainment attacks) before
+   * it may re-declare the CvCC attack. Holds how many of the site's
+   * automatic-attacks have been re-faced so far. Undefined when no re-face is
+   * in progress. Cleared (and the step returned to 'declare-company-attack',
+   * `opponentInteractionThisTurn` reset to `null`) once all the site's
+   * automatic-attacks have been re-faced.
+   */
+  readonly bellsRingingReface?: {
     readonly resolved: number;
   };
   /**

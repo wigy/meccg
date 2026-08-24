@@ -26,10 +26,11 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, LORIEN, MORIA,
-  resetMint, buildTestState, attachItemToChar, findCharInstanceId,
-  dispatch, expectCharNotInPlay,
-  Phase, Alignment, RESOURCE_PLAYER,
+  resetMint, buildTestState, attachItemToChar, attachHazardToChar, findCharInstanceId,
+  dispatch, expectCharNotInPlay, getCharacter,
+  Phase, Alignment, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
+import type { PlayerSetup } from '../test-helpers.js';
 import type { CardDefinitionId, EndOfTurnPhaseState, GameOverPhaseState, GameState } from '../../index.js';
 
 const A_NEW_RINGLORD = 'wh-60' as CardDefinitionId;
@@ -107,6 +108,61 @@ describe('A New Ringlord (wh-60)', () => {
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gandalfId)).toBe(true);
   });
 
+  test('elimination disperses the avatar\'s attached hazards and followers', () => {
+    // Regression: the win-condition eliminateAvatar discarded only the
+    // avatar's items and allies — attached hazards (opponent's corruption
+    // cards in char.hazards) and followers were silently deleted with the
+    // character record. Hazards must go to the hazard owner's discard pile
+    // and followers must be freed to general influence, exactly as the
+    // canonical eliminateCharacter machinery does.
+    const LURE_OF_THE_SENSES = 'tw-60' as CardDefinitionId; // hazard corruption
+    const BILBO = 'tw-131' as CardDefinitionId;
+    let state: GameState = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: AMON_HEN, characters: [GANDALF, { defId: BILBO, followerOf: 0 }] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: ['tw-120' as CardDefinitionId] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, GANDALF, THE_ONE_RING);
+    state = attachItemToChar(state, RESOURCE_PLAYER, GANDALF, A_NEW_RINGLORD);
+    state = attachHazardToChar(state, RESOURCE_PLAYER, GANDALF, LURE_OF_THE_SENSES, HAZARD_PLAYER);
+    state = { ...state, phaseState: SIGNAL_END };
+
+    const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const lureInstId = state.players[RESOURCE_PLAYER].characters[gandalfId].hazards[0].instanceId;
+
+    const after = dispatch({ ...state, cheatRollTotal: 2 }, { type: 'pass', player: PLAYER_1 });
+
+    // Avatar eliminated as before.
+    expectCharNotInPlay(after, RESOURCE_PLAYER, gandalfId);
+    expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gandalfId)).toBe(true);
+
+    // The attached corruption card lands in its owner's (the hazard player's)
+    // discard pile, exactly once — not deleted with the character record.
+    expect(after.players[HAZARD_PLAYER].discardPile.filter(c => c.instanceId === lureInstId)).toHaveLength(1);
+
+    // The follower survives, freed to general influence.
+    const bilbo = after.players[RESOURCE_PLAYER].characters[bilboId];
+    expect(bilbo).toBeDefined();
+    expect(bilbo.controlledBy).toBe('general');
+  });
+
   test('mid-range roll (6–9) neither wins nor eliminates', () => {
     const state = ringlordEndOfTurnState();
     const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
@@ -153,5 +209,43 @@ describe('A New Ringlord (wh-60)', () => {
       ?? after.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === gandalfId);
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gandalfId)).toBe(false);
     expect(stillInPlay).toBeDefined();
+  });
+
+  // ── Printed attributes: 3 stage points, 1 corruption point ─────────────────
+
+  test('contributes 3 stage points and 1 corruption point while attached', () => {
+    const playersWithItems = (items: CardDefinitionId[]): [PlayerSetup, PlayerSetup] => [
+      {
+        id: PLAYER_1,
+        alignment: Alignment.FallenWizard,
+        companies: [{ site: AMON_HEN, characters: [{ defId: GANDALF, items }] }],
+        hand: [],
+        siteDeck: [RIVENDELL],
+      },
+      {
+        id: PLAYER_2,
+        alignment: Alignment.Wizard,
+        companies: [{ site: LORIEN, characters: ['tw-120' as CardDefinitionId] }],
+        hand: [],
+        siteDeck: [MORIA],
+      },
+    ];
+    const without = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: playersWithItems([THE_ONE_RING]),
+    });
+    const withCard = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: playersWithItems([THE_ONE_RING, A_NEW_RINGLORD]),
+    });
+
+    expect(withCard.players[RESOURCE_PLAYER].stagePoints)
+      .toBe(without.players[RESOURCE_PLAYER].stagePoints + 3);
+    expect(getCharacter(withCard, RESOURCE_PLAYER, GANDALF).effectiveStats.corruptionPoints)
+      .toBe(getCharacter(without, RESOURCE_PLAYER, GANDALF).effectiveStats.corruptionPoints + 1);
   });
 });

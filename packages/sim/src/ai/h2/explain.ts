@@ -189,14 +189,21 @@ export function renderExplanation(input: ExplanationInput): string[] {
     const plan = input.hazardPlan;
     lines.push('HAZARD PLAN');
     for (const assignment of plan.assignments) {
+      const ordinal = assignment.order === 2 ? 'nd' : assignment.order === 3 ? 'rd' : 'th';
       const where = assignment.targetCompanyId === null
         ? assignment.targetLabel
         : `→ their ${assignment.targetLabel}`
-          + (assignment.order > 1 ? `, ${assignment.order}${assignment.order === 2 ? 'nd' : assignment.order === 3 ? 'rd' : 'th'} in` : '');
+          + (assignment.order > 1 ? `, ${assignment.order}${ordinal} in` : '')
+          // A support event has to reach the table before the attacks it
+          // improves, so saying "1st in" is not pedantry — it is the card's
+          // whole timing requirement, and a plan that leaves it implicit reads
+          // as a plan that would play the boost after the spider.
+          + (assignment.support ? ', 1st in — before the attacks it boosts' : '');
       lines.push(`  ${assignment.marginal.toFixed(2).padStart(6)}  ${assignment.name.padEnd(24)} ${where}`);
     }
     lines.push(`  total denied if carried out: ${plan.totalHarm.toFixed(2)} tsd`);
-    lines.push('  (a greedy assignment, re-made each round so a follow-up is credited as one)');
+    lines.push('  (greedy selection, best ordering searched — each card credited for what it'
+      + ' adds in the order shown)');
     lines.push('');
   }
 

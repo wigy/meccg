@@ -197,68 +197,31 @@ fi
 PROMPT="$(cat "$COMMANDS_DIR/release.md")"
 PROMPT="${PROMPT//\$ARGUMENTS/}"
 
-RAW_TMP="$(mktemp)"
-trap 'rm -f "$RAW_TMP"' EXIT
+STATS_TMP="$(mktemp)"
+trap 'rm -f "$STATS_TMP"' EXIT
 
 log "Running /release (timeout ${HARD_TIMEOUT}s)..."
 
-# The prompt goes in on stdin, not as `-p "$PROMPT"`: Linux caps a single argv
-# string at 128KB (MAX_ARG_STRLEN), and a pipe has no such limit.
-printf '%s' "$PROMPT" | claude --dangerously-skip-permissions \
-  --verbose --output-format stream-json -p > "$RAW_TMP" 2>&1 &
-CLAUDE_PID=$!
+# Supervision — stdin-fed prompt, the CLI's print-result-but-never-exit hang,
+# the post-result grace period, SIGTERM/SIGKILL escalation, and the jq-based
+# classification of the terminal result — all live in bin/claude-run, shared
+# with handle-mail and run-ai. This used to be a fourth hand-rolled copy.
+#
+# MECCG_ENGINE_RELEASE pins the engine; unset means the CLI default, which is
+# the behaviour this replaced.
+printf '%s' "$PROMPT" | "$SCRIPT_DIR/claude-run" \
+  --label nightly-release \
+  --engine "${MECCG_ENGINE_RELEASE:-}" \
+  --timeout "$HARD_TIMEOUT" \
+  --grace 10 \
+  --poll 5 \
+  --cwd "$PROJECT_DIR" \
+  --raw-log "$LOG_DIR/nightly-release-raw.log" \
+  --stats "$STATS_TMP" \
+  >/dev/null || true
 
-# claude sometimes prints its terminal {"type":"result",...} line without ever
-# exiting, which would stall an unattended run forever. Terminate it ourselves
-# once the result appears (after a short grace period), or at the deadline.
-DEADLINE=$(( $(date +%s) + HARD_TIMEOUT ))
-RESULT_SEEN_AT=0
-TERM_REASON=""
-
-while kill -0 "$CLAUDE_PID" 2>/dev/null; do
-  NOW=$(date +%s)
-  if [ "$NOW" -ge "$DEADLINE" ]; then
-    TERM_REASON="hard-deadline"
-    break
-  fi
-  if [ "$RESULT_SEEN_AT" -eq 0 ]; then
-    if grep -q '"type":"result"' "$RAW_TMP" 2>/dev/null; then
-      RESULT_SEEN_AT=$NOW
-      log "terminal result emitted — allowing 10s for graceful exit"
-    fi
-  elif [ $(( NOW - RESULT_SEEN_AT )) -ge 10 ]; then
-    TERM_REASON="post-result-hang"
-    break
-  fi
-  sleep 5
-done
-
-if [ -n "$TERM_REASON" ]; then
-  log "terminating claude (reason=$TERM_REASON, pid=$CLAUDE_PID)"
-  kill -TERM "$CLAUDE_PID" 2>/dev/null || true
-  # Generous grace period so claude can flush credential/session writes before
-  # we resort to SIGKILL — a hard kill mid-write is what corrupts auth state.
-  i=0
-  while kill -0 "$CLAUDE_PID" 2>/dev/null && [ "$i" -lt 15 ]; do
-    sleep 1
-    i=$(( i + 1 ))
-  done
-  kill -KILL "$CLAUDE_PID" 2>/dev/null || true
-fi
-
-wait "$CLAUDE_PID" 2>/dev/null || true
-
-cat "$RAW_TMP" >> "$LOG_DIR/nightly-release-raw.log"
-
-# Classify the terminal result with jq, not a substring match: the CLI emits
-# the result object's keys in an unstable order. Read .is_error bare — `//`
-# treats false as empty and would misreport every success.
-STATUS="error"
-RESULT_LINE="$(grep '"type":"result"' "$RAW_TMP" 2>/dev/null | tail -1 || true)"
-if [ -n "$RESULT_LINE" ] \
-   && [ "$(jq -r '.is_error' <<<"$RESULT_LINE" 2>/dev/null)" = "false" ]; then
-  STATUS="success"
-fi
+STATUS="$(sed -n '3p' "$STATS_TMP" 2>/dev/null || true)"
+[ -n "$STATUS" ] || STATUS="error"
 
 # ---------------------------------------------------------------------------
 # Step 5: verify a release actually happened

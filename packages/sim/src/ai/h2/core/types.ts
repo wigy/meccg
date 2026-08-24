@@ -21,7 +21,7 @@ import type { RiskPosture, ScoredOutcomes } from './risk.js';
 import type { MpDelta, MpSource } from './tsd.js';
 import type { WinProbModel } from './winprob.js';
 import type { Tunables } from './tunables.js';
-import type { Plan, PlanStep } from './plan.js';
+import type { Commitment, Plan, PlanStep } from './plan.js';
 
 /** Unit of a {@link Rationale} value, so renderers can format it correctly. */
 export type RationaleUnit =
@@ -179,6 +179,15 @@ export interface ModuleContext {
    * walk leaves no trace here.
    */
   readonly visited?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * The committed portfolio, when the agent has one.
+   *
+   * Absent for proposers — they run *before* commitment, and a proposer that
+   * could read the commitment could propose what is already committed into a
+   * feedback loop — and for tools that evaluate without a portfolio. A module
+   * reading it must degrade gracefully to "no plans".
+   */
+  readonly commitment?: Commitment;
 }
 
 /**

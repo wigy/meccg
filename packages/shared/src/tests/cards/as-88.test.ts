@@ -36,11 +36,12 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, RESOURCE_PLAYER,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   resetMint, buildMinionSitePhaseState, buildSitePhaseState, setupAutoAttackStep,
-  playPermanentEventAndResolve, dispatch,
+  playPermanentEventAndResolve, dispatch, buildTestState, makeMHState,
+  playCreatureHazardAndResolve, companyIdAt, handCardId,
 } from '../test-helpers.js';
-import { computeLegalActions, SiteType } from '../../index.js';
+import { computeLegalActions, SiteType, Phase, Alignment } from '../../index.js';
 import { getEffectiveSiteType, siteAutoAttacksForcedDetainment } from '../../engine/effective.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import type { CardDefinitionId, CardInstanceId, GameState, ActiveConstraint } from '../../index.js';
@@ -60,6 +61,13 @@ const SHAGRAT = 'le-39' as CardDefinitionId;
 // A faction playable only at Shadow-holds — becomes playable once the site is
 // transformed.
 const SNAGA_HAI = 'le-286' as CardDefinitionId;
+
+// A hazard creature keyed only to Shadow-hold/Dark-hold sites (or Shadow/Dark
+// regions) — used to prove the site-type override reaches creature keying.
+const ORC_GUARD = 'tw-072' as CardDefinitionId;
+
+// A Balrog-specific character, for the mismatched-alignment keying test below.
+const CROOK_LEGGED_ORC = 'ba-6' as CardDefinitionId;
 
 function as88InstanceId(state: GameState): CardInstanceId {
   return state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === HOLD_REBUILT)!.instanceId;
@@ -138,6 +146,76 @@ describe('Hold Rebuilt and Repaired (as-88)', () => {
     );
     expect(typeOverride?.scope.kind).toBe('until-cleared');
     expect(detainmentFlag?.scope.kind).toBe('until-cleared');
+  });
+
+  test('the override reaches creature keying for a mover whose alignment differs from the site card\'s own', () => {
+    // Dimrill Dale (le-365) is printed as a Ringwraith-aligned minion site.
+    // A Balrog company can still be stationed there — Balrog and Ringwraith
+    // share the shadow side's siteDeck — but its own alignment is not
+    // "ringwraith", which is exactly the mismatch that let the site-type
+    // override silently drop out of creature-keying validation (the offering
+    // side resolves the site by the company's own instance and never hits
+    // the mismatch; the validating side used to fall back to a by-name
+    // lookup restricted to the mover's alignment, found nothing, and
+    // resolved to the site's *printed* type instead of its overridden one).
+    //
+    // The company is stationary (no `destinationSite`) so its M/H phase state
+    // carries an empty `resolvedSitePath` — exactly the game situation this
+    // was reported from, where region-type keying cannot apply at all and
+    // only the site-type branch is left to decide it.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Balrog,
+          companies: [{ site: DIMRILL_DALE, characters: [CROOK_LEGGED_ORC] }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [] }], hand: [ORC_GUARD], siteDeck: [] },
+      ],
+    });
+    const typeOverride: ActiveConstraint = {
+      id: 'as88-type-2' as ActiveConstraint['id'],
+      source: 'as88-src-2' as CardInstanceId,
+      sourceDefinitionId: HOLD_REBUILT,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'player', playerId: PLAYER_1 },
+      kind: {
+        type: 'attribute-modifier',
+        attribute: 'site.type',
+        op: 'override',
+        value: SiteType.ShadowHold,
+        filter: { 'site.definitionId': DIMRILL_DALE as string },
+      },
+    };
+    const state: GameState = {
+      ...base,
+      activeConstraints: [typeOverride],
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Dimrill Dale',
+        hazardLimitAtReveal: 4,
+      }),
+    };
+
+    // Offered as legal, keyed by the overridden Shadow-hold type.
+    const offered = computeLegalActions(state, PLAYER_2).find(
+      a => a.viable && a.action.type === 'play-hazard'
+        && (a.action as { keyedBy?: { method?: string; value?: string } }).keyedBy?.method === 'site-type',
+    );
+    expect(offered).toBeDefined();
+
+    // And actually playable: the reducer's own validation must agree with
+    // what it just offered, not fall back to the printed Ruins & Lairs type.
+    const cardId = handCardId(state, HAZARD_PLAYER);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const after = playCreatureHazardAndResolve(
+      state, PLAYER_2, cardId, companyId, { method: 'site-type', value: SiteType.ShadowHold },
+    );
+    expect(after.combat).not.toBeNull();
   });
 
   test('a Shadow-hold-only faction (Snaga-hai) becomes playable once the site is transformed', () => {

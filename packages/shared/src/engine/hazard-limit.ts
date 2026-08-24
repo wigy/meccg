@@ -16,7 +16,7 @@
 
 import type { GameState, MovementHazardPhaseState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
-import type { CompanyId } from '../types/common.js';
+import type { CompanyId, RegionType } from '../types/common.js';
 import type { ActiveConstraint } from '../types/pending.js';
 
 /**
@@ -26,7 +26,14 @@ import type { ActiveConstraint } from '../types/pending.js';
  * (`hazardLimitAtReveal`) and applies every `hazard-limit-modifier` active
  * constraint targeting this company that was added *after* the reveal
  * (constraints present at reveal are already baked into `hazardLimitAtReveal`
- * and listed in `preRevealHazardLimitConstraintIds`). Never returns negative.
+ * and listed in `preRevealHazardLimitConstraintIds`). Also applies any
+ * `hazard-limit-region-count` constraint added after reveal (e.g. a "Lost in
+ * X" hazard event played mid-M/H-phase, tw-51/le-118 and its family: "the
+ * hazard limit increases by one for every Border-land in its site path"),
+ * counted against `resolvedSitePath` — unlike Fair Sailing's (tw-232)
+ * end-of-organization-phase timing, these are played *after* the site path
+ * is already resolved, so they are read live here rather than baked into
+ * `hazardLimitAtReveal` by `snapshotHazardLimit`. Never returns negative.
  *
  * This structural overload takes only the pieces it needs — the active
  * constraints, the reveal snapshot, and the pre-reveal constraint ids — so the
@@ -40,14 +47,34 @@ export function effectiveHazardLimit(
   hazardLimitAtReveal: number,
   preRevealHazardLimitConstraintIds: readonly string[],
   companyId: CompanyId,
+  resolvedSitePath: readonly RegionType[] = [],
 ): number {
   let limit = hazardLimitAtReveal;
   for (const constraint of activeConstraints) {
-    if (constraint.kind.type !== 'hazard-limit-modifier') continue;
     if (constraint.target.kind !== 'company') continue;
     if (constraint.target.companyId !== companyId) continue;
     if (preRevealHazardLimitConstraintIds.includes(constraint.id as string)) continue;
-    limit += constraint.kind.value;
+    if (constraint.kind.type === 'hazard-limit-modifier') {
+      limit += constraint.kind.value;
+    } else if (constraint.kind.type === 'hazard-limit-region-count') {
+      const { regionType, perCount, floor } = constraint.kind;
+      const count = resolvedSitePath.filter(rt => rt === regionType).length;
+      if (count === 0) continue;
+      let next = limit + perCount * count;
+      if (perCount < 0 && next < floor) next = Math.min(limit, floor);
+      limit = next;
+    }
+  }
+  // Lost in Dark-domains (tw-52): "hazard limit is doubled until the end of
+  // the turn" — a multiplier over the limit as computed so far (base plus
+  // every additive modifier), not a flat delta. Always added after reveal
+  // (the card is played once the site path is already resolved), so there is
+  // no pre-reveal exclusion to mirror.
+  for (const constraint of activeConstraints) {
+    if (constraint.kind.type !== 'hazard-limit-multiplier') continue;
+    if (constraint.target.kind !== 'company') continue;
+    if (constraint.target.companyId !== companyId) continue;
+    limit *= constraint.kind.value;
   }
   return Math.max(limit, 0);
 }
@@ -68,7 +95,34 @@ export function currentHazardLimit(
     mhState.hazardLimitAtReveal,
     mhState.preRevealHazardLimitConstraintIds,
     companyId,
+    mhState.resolvedSitePath,
   );
+}
+
+/**
+ * The hazard-limit "charge" idiom shared by every reducer that plays a
+ * limit-counted hazard action during the M/H phase: compute the live limit for
+ * the target company, refuse the action when the limit is already reached, and
+ * otherwise hand back the limit together with the incremented
+ * `hazardsPlayedThisCompany` count for the caller to store (and log).
+ *
+ * `actionName` prefixes the refusal message so each reducer keeps its
+ * action-specific error text (`"<action>: hazard limit reached (<limit>)"`).
+ * Callers that only need the check (e.g. a validation pass whose increment
+ * happens later after other state updates) simply ignore the returned count.
+ */
+export function chargeHazardLimit(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  companyId: CompanyId,
+  actionName: string,
+): { error: string } | { limit: number; newHazardCount: number } {
+  const limit = currentHazardLimit(state, mhState, companyId);
+  const played = mhState.hazardsPlayedThisCompany ?? 0;
+  if (played >= limit) {
+    return { error: `${actionName}: hazard limit reached (${limit})` };
+  }
+  return { limit, newHazardCount: played + 1 };
 }
 
 /**

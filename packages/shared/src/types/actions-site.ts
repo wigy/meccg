@@ -176,6 +176,14 @@ export interface RescuePrisonerAction {
   readonly player: PlayerId;
   /** The hazard host (e.g. Troll-purse) whose prisoners are being rescued. */
   readonly hostInstanceId: CardInstanceId;
+  /**
+   * The company member tapped to complete the rescue ("a character in the
+   * company may then be tapped to rescue all of the hazard host's
+   * prisoners"). Absent when the action *declares* the rescue — the
+   * rescue-attacks are faced first — and supplied by the follow-up action in
+   * the `rescue-tap` step that actually frees the prisoners.
+   */
+  readonly characterInstanceId?: CardInstanceId;
 }
 
 /**

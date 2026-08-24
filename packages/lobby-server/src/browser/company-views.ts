@@ -38,6 +38,7 @@ import {
   getMoveToInfluenceActions,
   getTransferItemActions,
   getStoreItemActions,
+  getDiscardItemFromCompanyActions,
   getSplitCompanyActions,
   getMoveToCompanyActions,
   getMergeCompaniesActions,
@@ -48,6 +49,7 @@ import {
   getGrantedActions,
   getPlayCharacterActions,
   getSelectCardBearerActions,
+  getDiscardCharacterActions,
   getRevealAgentActions,
   getAgentMoveActions,
   getAgentOtherActions,
@@ -66,6 +68,22 @@ onMapModeChange(() => rerender());
 /** Remove the map radar widget from the DOM if it exists. */
 export function removeMapRadar(): void {
   document.getElementById('map-radar-widget')?.remove();
+}
+
+/**
+ * Shrink `--company-scale` on `el` (in 0.05 steps down to `minScale`) until
+ * the page fits the viewport height. Companies with many characters would
+ * otherwise wrap onto extra rows or run off the bottom of the screen at a
+ * fixed scale — this keeps them fully visible instead.
+ */
+function shrinkToFitViewport(el: HTMLElement, initialScale: number, minScale = 0.25): void {
+  requestAnimationFrame(() => {
+    let scale = initialScale;
+    while (scale > minScale && document.documentElement.scrollHeight > window.innerHeight + 2) {
+      scale = Math.max(minScale, Math.round((scale - 0.05) * 100) / 100);
+      el.style.setProperty('--company-scale', String(scale));
+    }
+  });
 }
 
 /**
@@ -148,6 +166,7 @@ export function renderSingleView(
   const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
   const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
   const storeItemActs = owner === 'self' ? getStoreItemActions(view) : undefined;
+  const discardItemFromCompanyActs = owner === 'self' ? getDiscardItemFromCompanyActions(view) : undefined;
   const splitActions = owner === 'self' ? getSplitCompanyActions(view) : undefined;
   const moveToCompanyActs = owner === 'self' ? getMoveToCompanyActions(view) : undefined;
   const mergeActions = owner === 'self' ? getMergeCompaniesActions(view) : undefined;
@@ -157,7 +176,8 @@ export function renderSingleView(
   const restoreActs = owner === 'self' ? getRestoreCharacterActions(view) : undefined;
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs }));
+  const discardActs = owner === 'self' ? getDiscardCharacterActions(view) : undefined;
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, singleView: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, discardItemFromCompanyActions: discardItemFromCompanyActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, discardCharacterActions: discardActs }));
 
   // Minimap radar — always shown.
   const radarSelfIndex = owner === 'self'
@@ -200,6 +220,10 @@ export function renderSingleView(
   }
 
   container.appendChild(single);
+
+  // Shrink to fit if a large company (e.g. 6+ characters) wraps onto extra
+  // rows and runs off the bottom of the screen at full scale.
+  shrinkToFitViewport(single, 1);
 }
 
 /** Render all companies (both players) at medium scale. */
@@ -233,6 +257,7 @@ export function renderAllCompaniesView(
   // Transfer-item and store-item actions (for highlighting transferable/storable items)
   const transferActions = getTransferItemActions(view);
   const storeItemActs = getStoreItemActions(view);
+  const discardItemFromCompanyActs = getDiscardItemFromCompanyActions(view);
 
   // Split-company, move-to-company, and merge-companies actions
   const splitActions = getSplitCompanyActions(view);
@@ -246,6 +271,7 @@ export function renderAllCompaniesView(
   const restoreActs = getRestoreCharacterActions(view);
   const grantedActs = getGrantedActions(view);
   const bearerActs = getSelectCardBearerActions(view);
+  const discardActs = getDiscardCharacterActions(view);
 
   // Select-company actions (M/H phase company selection — also targets agents)
   const selectCompanyActions = new Map<string, SelectCompanyAction>();
@@ -275,7 +301,7 @@ export function renderAllCompaniesView(
   // Self companies
   for (const company of view.self.companies) {
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, renderedSiteInstances });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, discardItemFromCompanyActions: discardItemFromCompanyActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, discardCharacterActions: discardActs, renderedSiteInstances });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies
@@ -451,13 +477,7 @@ export function renderAllCompaniesView(
   }
 
   // Shrink companies to fit the viewport if they overflow vertically
-  requestAnimationFrame(() => {
-    let scale = initialScale;
-    while (scale > 0.25 && document.documentElement.scrollHeight > window.innerHeight + 2) {
-      scale = Math.max(0.25, Math.round((scale - 0.05) * 100) / 100);
-      overview.style.setProperty('--company-scale', String(scale));
-    }
-  });
+  shrinkToFitViewport(overview, initialScale);
 }
 
 /**

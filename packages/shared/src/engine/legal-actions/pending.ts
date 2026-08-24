@@ -39,14 +39,15 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { buildBearerContext, buildInfluenceTargetContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { characterPossessions, constraintFromCard } from '../pending.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
-import { buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
+import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
@@ -363,7 +364,7 @@ export function opponentInfluenceDefendActions(
   const influencerName = influencerDef && isCharacterCard(influencerDef) ? influencerDef.name : '?';
 
   const targetDef = resolveDef(state, attempt.targetInstanceId);
-  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef))
+  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef) || isFactionCard(targetDef) || isItemCard(targetDef))
     ? targetDef.name : '?';
 
   const parts: string[] = [
@@ -528,23 +529,18 @@ export function factionInfluenceRollActions(
 
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
-      reason: 'faction-influence-check',
+      ...buildFactionCheckContext(state, def),
       bearer: {
         ...buildBearerContext(charDef),
         stagePoints: player.stagePoints,
         homesiteRegions: characterHomeSiteRegions(state, charDef),
       },
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-      controller: {
-        inPlay: buildControllerInPlayNames(state, playerId),
-        factionRaces: buildControllerFactionRaces(state, playerId),
-      },
+      // Includes `controller.wizard`, which this pending-roll path previously
+      // omitted — the declare-time `need` computation (legal-actions/site.ts)
+      // and the resolution (reducer-site.ts) both carry it, so a
+      // wizard-conditioned faction standard (wh-37/38/40) now prices the
+      // pending roll identically instead of drifting from the declared need.
+      controller: buildFactionControllerContext(state, playerId),
     };
 
     const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
@@ -631,16 +627,7 @@ export function factionInfluenceRollActions(
   // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', {
-      reason: 'faction-influence-check',
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-    });
+    : collectGlobalCheckModifier(state, 'influence', buildFactionCheckContext(state, def));
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     parts.push(`game-wide ${formatSignedNumber(globalInfluenceMod)}`);
@@ -721,7 +708,25 @@ export function flateryAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // The character left play (e.g. eliminated by a chain response) before
+    // the roll. Offer the resolution anyway — the resolver fails the attempt
+    // and resumes the chain. Returning no actions would deadlock the game:
+    // the chain is in 'resolving' mode and offers no actions of its own
+    // (same failure mode as the faction-influence-roll emitter above).
+    logDetail(`Pending flattery-attempt vs "${creatureRace}": character no longer in play — the attempt fails automatically`);
+    return [{
+      action: {
+        type: 'flattery-attempt' as const,
+        player: playerId,
+        characterInstanceId,
+        // No 2d6 total can reach this: the attempt cannot be made at all.
+        need: 13,
+        explanation: `Flattery vs ${creatureRace}: the attempting character is no longer in play — the attempt fails`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
@@ -770,25 +775,28 @@ export function riddlingAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // Character gone before the roll — offer a failing resolution instead of
+    // no actions, which would deadlock the resolving chain (see the
+    // flattery-attempt emitter above).
+    logDetail(`Pending riddling-attempt vs "${creatureRace}": character no longer in play — the attempt fails automatically`);
+    return [{
+      action: {
+        type: 'riddling-attempt' as const,
+        player: playerId,
+        characterInstanceId,
+        // No 2d6 total can reach this: the attempt cannot be made at all.
+        need: 13,
+        explanation: `Riddling vs ${creatureRace}: the attempting character is no longer in play — the attempt fails`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
 
-  const company = findCharacterCompany(player.companies, characterInstanceId);
-  let sages = 0;
-  let hobbits = 0;
-  if (company) {
-    for (const charId of company.characters) {
-      const c = player.characters[charId];
-      if (!c) continue;
-      const def = defById(state, c.definitionId);
-      if (!isCharacterCard(def)) continue;
-      if (def.skills.includes(Skill.Sage)) sages++;
-      if (def.race === Race.Hobbit) hobbits++;
-    }
-  }
-  const bonus = sages * sageBonus + hobbits * hobbitBonus;
+  const { sages, hobbits, bonus } = riddlingCompanyBonus(state, player, characterInstanceId, sageBonus, hobbitBonus);
 
   // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
   const need = threshold - bonus + 1;
@@ -825,7 +833,23 @@ export function burglaryAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // Character gone before the roll — offer a failing resolution instead of
+    // no actions, which would deadlock the pending queue (see the
+    // flattery-attempt emitter above).
+    logDetail(`Pending burglary-attempt: character no longer in play — the attempt fails automatically`);
+    return [{
+      action: {
+        type: 'burglary-attempt' as const,
+        player: playerId,
+        characterInstanceId,
+        // No 2d6 total can reach this: the attempt cannot be made at all.
+        need: 13,
+        explanation: `Burglary: the attempting character is no longer in play — the attempt fails`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
@@ -901,41 +925,58 @@ export function goodwillAttemptRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[characterInstanceId];
-  if (!charInPlay) return [];
+  const company = charInPlay ? companyById(player.companies, companyId) : null;
 
-  const charDef = defById(state, charInPlay.definitionId);
-  const charName = isCharacterCard(charDef) ? charDef.name : '?';
-  const unusedDI = availableDI(state, characterInstanceId, player);
+  if (charInPlay && company) {
+    const charDef = defById(state, charInPlay.definitionId);
+    const charName = isCharacterCard(charDef) ? charDef.name : '?';
+    const unusedDI = availableDI(state, characterInstanceId, player);
 
-  // Success requires: roll + unusedDI > threshold, i.e. roll > threshold - unusedDI
-  const need = threshold - unusedDI + 1;
-  const explanation = `${charName} goodwill: threshold ${threshold}, unused DI ${unusedDI} → need roll >= ${need}`;
+    // Success requires: roll + unusedDI > threshold, i.e. roll > threshold - unusedDI
+    const need = threshold - unusedDI + 1;
+    const explanation = `${charName} goodwill: threshold ${threshold}, unused DI ${unusedDI} → need roll >= ${need}`;
 
-  const company = companyById(player.companies, companyId);
-  if (!company) return [];
-
-  const actions: EvaluatedAction[] = [];
-  for (const charId of company.characters) {
-    const bearer = player.characters[charId];
-    if (!bearer) continue;
-    for (const item of bearer.items) {
-      const itemDef = defById(state, item.definitionId);
-      if (!itemDef || !isItemCard(itemDef) || itemDef.subtype !== itemSubtype) continue;
-      logDetail(`Pending goodwill-attempt by ${charName}: offering to discard "${itemDef.name}" (${itemSubtype}) — ${explanation}`);
-      actions.push({
-        action: {
-          type: 'goodwill-attempt' as const,
-          player: playerId,
-          characterInstanceId,
-          itemInstanceId: item.instanceId,
-          need,
-          explanation: `${explanation} (discard ${itemDef.name})`,
-        },
-        viable: true,
-      });
+    const actions: EvaluatedAction[] = [];
+    for (const charId of company.characters) {
+      const bearer = player.characters[charId];
+      if (!bearer) continue;
+      for (const item of bearer.items) {
+        const itemDef = defById(state, item.definitionId);
+        if (!itemDef || !isItemCard(itemDef) || itemDef.subtype !== itemSubtype) continue;
+        logDetail(`Pending goodwill-attempt by ${charName}: offering to discard "${itemDef.name}" (${itemSubtype}) — ${explanation}`);
+        actions.push({
+          action: {
+            type: 'goodwill-attempt' as const,
+            player: playerId,
+            characterInstanceId,
+            itemInstanceId: item.instanceId,
+            need,
+            explanation: `${explanation} (discard ${itemDef.name})`,
+          },
+          viable: true,
+        });
+      }
     }
+    if (actions.length > 0) return actions;
   }
-  return actions;
+
+  // The diplomat left play, the company disbanded, or no item of the queued
+  // rank remains to discard as the cost. Offer a cost-less fizzle resolution
+  // (no `itemInstanceId`) — the resolver drops the attempt and dequeues.
+  // Returning no actions would deadlock the pending queue outright (see the
+  // flattery-attempt emitter above).
+  logDetail(`Pending goodwill-attempt: no character/company/${itemSubtype} item available — the attempt fizzles`);
+  return [{
+    action: {
+      type: 'goodwill-attempt' as const,
+      player: playerId,
+      characterInstanceId,
+      // No 2d6 total can reach this: the attempt cannot be made at all.
+      need: 13,
+      explanation: `Goodwill attempt: no diplomat or ${itemSubtype} item available — the attempt fails`,
+    },
+    viable: true,
+  }];
 }
 
 /**
@@ -956,7 +997,23 @@ export function seizedByTerrorRollActions(
   if (!player) return [];
 
   const charInPlay = player.characters[targetCharacterId];
-  if (!charInPlay) return [];
+  if (!charInPlay) {
+    // The target left play before the roll — nothing to seize. Offer a
+    // fizzle resolution instead of no actions, which would deadlock the
+    // resolving chain (see the flattery-attempt emitter above).
+    const goneHazardName = defById(state, hazardDefinitionId)?.name ?? '?';
+    logDetail(`Pending seized-by-terror-roll (${goneHazardName}): target character no longer in play — no effect`);
+    return [{
+      action: {
+        type: 'seized-by-terror-roll' as const,
+        player: playerId,
+        targetCharacterId,
+        need: 0,
+        explanation: `${goneHazardName}: the target character is no longer in play — no effect`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
@@ -997,8 +1054,27 @@ export function companyTapRollActions(
   if (!next) return [];
 
   const player = playerById(state, playerId);
-  const charInPlay = player?.characters[next.characterId];
-  if (!player || !charInPlay) return [];
+  if (!player) return [];
+
+  const charInPlay = player.characters[next.characterId];
+  if (!charInPlay) {
+    // The next roller left play (e.g. eliminated by an earlier resolution of
+    // the same hazard chain). Offer a skip resolution instead of no actions,
+    // which would deadlock the resolving chain with the rest of the list
+    // still queued (see the flattery-attempt emitter above).
+    const goneHazardName = defById(state, top.kind.hazardDefinitionId)?.name ?? '?';
+    logDetail(`Pending company-tap-roll (${goneHazardName}): character no longer in play — skipping their roll`);
+    return [{
+      action: {
+        type: 'company-tap-roll' as const,
+        player: playerId,
+        targetCharacterId: next.characterId,
+        modifier: next.modifier,
+        explanation: `${goneHazardName}: the character is no longer in play — their roll is skipped`,
+      },
+      viable: true,
+    }];
+  }
 
   const charDef = defById(state, charInPlay.definitionId);
   const charName = charDef?.name ?? '?';
@@ -1042,8 +1118,12 @@ export function opposedRollActions(
   const player = playerById(state, playerId);
   const charInPlay = player?.characters[rolling];
   if (!player || !charInPlay) {
-    logDetail(`Pending opposed-roll: roller ${rolling as string} is no longer in play — no action`);
-    return [];
+    // The due roller has left play since the card was played. The contest is
+    // forfeited (see applyOpposedRollResolution's abandon branch) — offer a
+    // pass so the stale resolution can be dismissed; returning no action at
+    // all would deadlock the game on the unresolvable resolution.
+    logDetail(`Pending opposed-roll: roller ${rolling as string} is no longer in play — offering pass to abandon the contest`);
+    return [{ action: { type: 'pass', player: playerId }, viable: true }];
   }
 
   const sourceName = defById(state, kind.sourceDefinitionId)?.name ?? '?';
@@ -1398,16 +1478,26 @@ function corruptionCheckEntryActions(
   // on the new bearer but is counted on the original character for this check.
   const possessions: CardInstanceId[] = [
     ...(transferredItemId ? [transferredItemId] : []),
-    ...char.items.map(i => i.instanceId),
-    ...char.allies.map(a => a.instanceId),
-    ...char.hazards.map(h => h.instanceId),
+    ...characterPossessions(char),
   ];
 
-  // For transfer checks, also count the transferred item's CP toward the total
+  // For transfer/store checks, also count the transferred item's CP toward
+  // the total. Uses `effectiveItemCorruptionPoints` (not the raw printed
+  // field) so bearer-conditional bonuses declared on the item itself — e.g.
+  // Dwarven Ring of Durin's Tribe tw-216's +2 CP on a Dwarf bearer — and any
+  // in-play `in-play-item-modifier` deltas are counted, matching the total
+  // `char.effectiveStats.corruptionPoints` carried while the item was still
+  // borne.
   if (transferredItemId) {
     const transferredDef = resolveDef(state, transferredItemId);
-    if (transferredDef && 'corruptionPoints' in transferredDef) {
-      cp += (transferredDef as { corruptionPoints: number }).corruptionPoints;
+    if (transferredDef) {
+      const inPlayDefs = state.players.flatMap(p => p.cardsInPlay.map(c => resolveDef(state, c.instanceId)));
+      cp += effectiveItemCorruptionPoints(
+        transferredDef,
+        inPlayDefs,
+        player.alignment,
+        isCharacterCard(charDef) ? charDef.race : undefined,
+      );
     }
   }
 
@@ -1535,7 +1625,7 @@ export function reactiveCorruptionCheckPlays(
     const activeCheckLimit = findDuplicationLimitEffect(shortDef, 'active-check');
     if (activeCheckLimit) {
       const alreadyApplied = state.activeConstraints.some(
-        c => c.sourceDefinitionId === handCard.definitionId
+        c => constraintFromCard(state, c, handCard.definitionId)
           && c.target.kind === 'character'
           && c.target.characterId === targetChar.instanceId,
       );
@@ -1643,6 +1733,8 @@ function applyOneConstraint(
       return applyOnlyCreaturesKeyedToSite(state, playerId, base, constraint);
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return applyOnlyCreaturesKeyedToSiteAtRuinsLairs(state, playerId, base, constraint);
+    case 'only-creatures-keyed-to-site-if-safe-path':
+      return applyOnlyCreaturesKeyedToSiteIfSafePath(state, playerId, base, constraint);
     case 'only-race-creatures-on-company':
       return applyOnlyRaceCreaturesOnCompany(state, playerId, base, constraint);
     case 'extra-mh-phase':
@@ -1705,9 +1797,30 @@ function applyOneConstraint(
       return base;
     case 'hazard-limit-modifier':
       return base;
+    case 'hazard-limit-multiplier':
+      // Lost in Dark-domains (tw-52): consulted directly by
+      // `effectiveHazardLimit` (hazard-limit.ts) — no broad legal-action
+      // filtering needed here.
+      return base;
     case 'hazard-limit-region-count':
       // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
       // resolved site path — no broad legal-action filtering needed here.
+      return base;
+    case 'hazard-limit-region-name-match':
+      // Consulted directly by `snapshotHazardLimit` (mh-steps.ts) against the
+      // destination site's region — no broad legal-action filtering needed here.
+      return base;
+    case 'region-adjacency-shortcut':
+      // Consulted directly by `planMovementActions` (organization-companies.ts)
+      // and the M/H declare-path region-path search (movement-hazard.ts) via
+      // `withExtraRegionAdjacency` — no broad legal-action filtering needed here.
+      return base;
+    case 'region-shortcut':
+      // Consulted directly: `companyRegionShortcutPairs`
+      // (legal-actions/movement-hazard.ts) widens declare-path region
+      // enumeration, `checkRegionShortcutUsage`/`snapshotHazardLimit`
+      // (mh-steps.ts) apply its attack/hazard-limit payoffs — no broad
+      // legal-action filtering needed here.
       return base;
     case 'cancel-return-and-site-tap':
       return base;
@@ -1759,6 +1872,10 @@ function applyOneConstraint(
     case 'character-stat-modifier':
       // Consumed directly by the effects resolver via
       // `collectCharacterEffects` — no legal-action filtering needed.
+      return base;
+    case 'character-creature-body-modifier':
+      // Consumed directly by `handleBodyCheckRoll`'s creature body-check
+      // branch — no legal-action filtering needed.
       return base;
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
@@ -1865,6 +1982,23 @@ function applyOneConstraint(
       // Fifteen Birds in Five Firtrees (dm-129): consumed directly by
       // `applyTapOnStrikeAssignment` in `reducer-combat.ts`'s `assign-strike`
       // handler — no broad legal-action filtering needed here.
+      return base;
+    case 'skip-untap-and-heal':
+      // Morgul-knife (tw-64) / The Pale Sword (tw-97): consumed directly by
+      // `performUntap` in `reducer-untap.ts` — no broad legal-action
+      // filtering needed here.
+      return base;
+    case 'nazgul-boost-pending':
+      // Fell Beast (tw-33): consulted directly by `findCreatureKeyingMatches`/
+      // `checkCreatureKeying` (extra keying grant) and consumed by the
+      // creature-play handler in `mh-hazard-play.ts` (strikes/prowess/
+      // attacker-chooses-defenders bonus) — no broad legal-action filtering
+      // needed here.
+      return base;
+    case 'nazgul-boost-used':
+      // Fell Beast (tw-33): a permanent marker consulted directly by
+      // `hasNazgulBoostBeenUsed` wherever the pending boost above is offered
+      // or consumed — no broad legal-action filtering needed here.
       return base;
   }
 }
@@ -2026,23 +2160,45 @@ function applyNoCreatureHazardsOnCompany(
   if (constraint.target.kind !== 'company') return base;
   const protectedCompany = constraint.target.companyId;
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    // Check whether the played card is a hazard creature
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'no-creature-hazards-on-company', def => {
     // creatures-always-keyed-to-site bypass: if the destination site carries
     // this rule and the creature is keyed to the site by type or name, allow it.
     if (isCreatureSiteKeyedBypassed(state, protectedCompany, def)) {
-      logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): "${def.name}" bypassed by creatures-always-keyed-to-site rule`);
-      return true;
+      return { allow: true, note: `"${def.name}" bypassed by creatures-always-keyed-to-site rule` };
     }
-    logDetail(`Constraint ${constraint.id as string} (no-creature-hazards-on-company): dropping creature play "${def.name}" against protected company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping creature play "${def.name}" against protected company ${protectedCompany as string}` };
+  });
+}
+
+/** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
+type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
+
+/**
+ * Shared post-filter for constraints restricting hazard-creature plays against
+ * a protected company. Every action that is not a `play-hazard` of a hazard
+ * creature against `protectedCompany` passes through untouched; for the rest,
+ * `verdict` decides whether the play survives and may attach a `note`, which is
+ * logged as `Constraint <id> (<label>): <note>`.
+ */
+function filterCreaturePlaysAgainstCompany(
+  state: GameState,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+  protectedCompany: CompanyId,
+  label: string,
+  verdict: (def: import('../../types/cards-hazards.js').CreatureCard, action: CreaturePlayAction) => { allow: boolean; note?: string },
+): EvaluatedAction[] {
+  return base.filter(ea => {
+    if (ea.action.type !== 'play-hazard') return true;
+    const action = ea.action as CreaturePlayAction;
+    if (action.targetCompanyId !== protectedCompany) return true;
+    const cardInstId = action.cardInstanceId;
+    if (!cardInstId) return true;
+    const def = resolveDef(state, cardInstId);
+    if (!def || def.cardType !== 'hazard-creature') return true;
+    const { allow, note } = verdict(def, action);
+    if (note) logDetail(`Constraint ${constraint.id as string} (${label}): ${note}`);
+    return allow;
   });
 }
 
@@ -2099,20 +2255,11 @@ function applyOnlyCreaturesKeyedToSite(
   if (constraint.target.kind !== 'company') return base;
   const protectedCompany = constraint.target.companyId;
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-creatures-keyed-to-site', def => {
     if (isCreatureKeyedToDestinationSite(state, def)) {
-      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): "${def.name}" is site-keyed — allowed`);
-      return true;
+      return { allow: true, note: `"${def.name}" is site-keyed — allowed` };
     }
-    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site): dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}` };
   });
 }
 
@@ -2133,20 +2280,11 @@ function applyOnlyRaceCreaturesOnCompany(
   const protectedCompany = constraint.target.companyId;
   const race = constraint.kind.race;
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-race-creatures-on-company', def => {
     if (def.race === race || def.additionalRaces?.includes(race)) {
-      logDetail(`Constraint ${constraint.id as string} (only-race-creatures-on-company): "${def.name}" is ${race} — allowed`);
-      return true;
+      return { allow: true, note: `"${def.name}" is ${race} — allowed` };
     }
-    logDetail(`Constraint ${constraint.id as string} (only-race-creatures-on-company): dropping non-${race} creature "${def.name}" against company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping non-${race} creature "${def.name}" against company ${protectedCompany as string}` };
   });
 }
 
@@ -2178,20 +2316,48 @@ function applyOnlyCreaturesKeyedToSiteAtRuinsLairs(
     return base;
   }
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const targetCompanyId = (ea.action as { targetCompanyId?: CompanyId }).targetCompanyId;
-    if (targetCompanyId !== protectedCompany) return true;
-    const cardInstId = (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-creatures-keyed-to-site-at-ruins-lairs', def => {
     if (isCreatureKeyedToDestinationSite(state, def)) {
-      logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): "${def.name}" is site-keyed — allowed`);
-      return true;
+      return { allow: true, note: `"${def.name}" is site-keyed — allowed` };
     }
-    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-at-ruins-lairs): dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}`);
-    return false;
+    return { allow: false, note: `dropping region-keyed creature "${def.name}" against company ${protectedCompany as string}` };
+  });
+}
+
+/**
+ * Elf-path (td-111): like {@link applyOnlyCreaturesKeyedToSiteAtRuinsLairs},
+ * but the gate is the target company's resolved site path rather than its
+ * destination site type. "If his company's site path only has one or two
+ * regions with no Dark-domains [{d}] and no Shadow-lands [{s}]" — when the
+ * path is exactly one or two regions and contains neither region type, the
+ * opponent may only play hazard creatures keyed to the company's new site
+ * (by site-type or site-name); region-keyed creatures are dropped. Otherwise
+ * the card imposes nothing.
+ */
+function applyOnlyCreaturesKeyedToSiteIfSafePath(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  const protectedCompany = constraint.target.companyId;
+
+  const ps = state.phaseState;
+  if (ps.phase !== Phase.MovementHazard) return base;
+  const path = ps.resolvedSitePath;
+  const counts = regionTypeCounts(path);
+  const isSafePath = (path.length === 1 || path.length === 2) && counts.darkCount === 0 && counts.shadowCount === 0;
+  if (!isSafePath) {
+    logDetail(`Constraint ${constraint.id as string} (only-creatures-keyed-to-site-if-safe-path): site path ${JSON.stringify(path)} is not a safe one/two-region path — no restriction`);
+    return base;
+  }
+
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'only-creatures-keyed-to-site-if-safe-path', def => {
+    if (isCreatureKeyedToDestinationSite(state, def)) {
+      return { allow: true, note: `"${def.name}" is site-keyed — allowed` };
+    }
+    return { allow: false, note: `dropping non-site-keyed creature "${def.name}" against company ${protectedCompany as string}` };
   });
 }
 
@@ -2237,18 +2403,10 @@ function applyNoCreaturesKeyedToSite(
     }
   }
 
-  return base.filter(ea => {
-    if (ea.action.type !== 'play-hazard') return true;
-    const action = ea.action as { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
-    if (action.targetCompanyId !== protectedCompany) return true;
-    const cardInstId = action.cardInstanceId;
-    if (!cardInstId) return true;
-    const def = resolveDef(state, cardInstId);
-    if (!def || def.cardType !== 'hazard-creature') return true;
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'no-creatures-keyed-to-site', (def, action) => {
     const method = action.keyedBy?.method;
-    if (!method || !SITE_KEYING_METHODS.has(method)) return true;
-    logDetail(`Constraint ${constraint.id as string} (no-creatures-keyed-to-site): dropping site-keyed (${method}) creature play "${def.name}" against protected company ${protectedCompany as string}`);
-    return false;
+    if (!method || !SITE_KEYING_METHODS.has(method)) return { allow: true };
+    return { allow: false, note: `dropping site-keyed (${method}) creature play "${def.name}" against protected company ${protectedCompany as string}` };
   });
 }
 
@@ -2422,10 +2580,16 @@ export function selectCardBearerActions(
   const defPlayer = state.players.find(p =>
     p.companies.some(co => co.id === companyId),
   );
-  if (!defPlayer) return [];
-
-  const company = companyById(defPlayer.companies, companyId);
-  if (!company) return [];
+  const company = defPlayer ? companyById(defPlayer.companies, companyId) : null;
+  if (!defPlayer || !company) {
+    // The company vanished before a bearer was chosen (e.g. every member was
+    // eliminated by an earlier resolution in the same queue). Offer the
+    // decline so the card is discarded and the queue advances — returning no
+    // actions would deadlock the game outright: this resolution heads the
+    // queue and nothing else can act until it is consumed.
+    logDetail(`select-card-bearer: company ${companyId as string} no longer exists — only the decline (pass) is offered`);
+    return [{ action: { type: 'pass', player: actor }, viable: true }];
+  }
 
   const cardDefId = resolveInstanceId(state, cardInstanceId);
   const cardLabel = cardName(state, cardDefId!, '?');
@@ -2492,6 +2656,10 @@ export function selectCardBearerActions(
  * (Indûr Dawndeath tw-46): `characterId` limits the choice to one character's
  * items, and `itemFilter` is matched against each item's card definition
  * ("but not a ring").
+ *
+ * When no eligible item remains the discard is unsatisfiable and a `pass` is
+ * offered instead, so the resolution can be dismissed rather than deadlocking
+ * the game. See {@link eligibleCompanyDiscardItems}.
  */
 export function discardOneCompanyItemActions(
   state: GameState,
@@ -2499,14 +2667,58 @@ export function discardOneCompanyItemActions(
   top: PendingResolution,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'discard-one-company-item') return [];
-  const { companyId, characterId, itemFilter } = top.kind;
 
+  const actions: EvaluatedAction[] = eligibleCompanyDiscardItems(state, top.kind).map(instanceId => ({
+    action: {
+      type: 'discard-item-from-company' as const,
+      player: actor,
+      itemInstanceId: instanceId,
+    },
+    viable: true,
+  }));
+
+  if (actions.length === 0) {
+    // The forced discard is unsatisfiable: the company is gone (every member
+    // eliminated while the resolution waited in the queue), or none of its
+    // characters bears a genuine item passing the source card's filter
+    // (q/d bench seed 10800010: Brigands wounded a character whose only
+    // attachments were two permanent events). Returning no actions would
+    // deadlock the game outright — this resolution heads the queue and
+    // nothing else can act until it is consumed — so offer a pass instead.
+    // The reducer accepts that pass only while no eligible item exists.
+    logDetail('discard-one-company-item: no eligible item in the company — only pass is offered');
+    actions.push({ action: { type: 'pass', player: actor }, viable: true });
+  }
+
+  return actions;
+}
+
+/**
+ * The instance ids of the items a pending `discard-one-company-item`
+ * resolution may currently discard. A character's `items` list may hold
+ * non-item cards placed "with" the character (e.g. the permanent event
+ * Thrall of the Voice) — the forced discard targets one *item*, so only
+ * genuine item cards qualify; the resolution's optional `characterId` and
+ * `itemFilter` narrowings (Indûr Dawndeath tw-46) restrict it further.
+ * Shared by {@link discardOneCompanyItemActions} and the reducer's
+ * stale-resolution pass check.
+ */
+export function eligibleCompanyDiscardItems(
+  state: GameState,
+  kind: Extract<PendingResolution['kind'], { readonly type: 'discard-one-company-item' }>,
+): CardInstanceId[] {
+  const { companyId, characterId, itemFilter } = kind;
+
+  // The company may have vanished while this resolution waited in the queue
+  // (every member eliminated), leaving nothing to discard.
   const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
-  if (!defPlayer) return [];
-  const company = companyById(defPlayer.companies, companyId);
-  if (!company) return [];
+  const company = defPlayer ? companyById(defPlayer.companies, companyId) : undefined;
+  if (!defPlayer || !company) {
+    logDetail(`discard-one-company-item: company ${companyId as string} no longer exists`);
+    return [];
+  }
 
-  const actions: EvaluatedAction[] = [];
+  const eligible: CardInstanceId[] = [];
   for (const charId of company.characters) {
     if (characterId && charId !== characterId) continue;
     const ch = defPlayer.characters[charId];
@@ -2514,10 +2726,6 @@ export function discardOneCompanyItemActions(
     for (const item of ch.items) {
       const itemDef = defById(state, item.definitionId);
       const itemName = itemDef?.name ?? (item.instanceId as string);
-      // A character's `items` list may hold non-item cards placed "with" the
-      // character (e.g. the permanent event Thrall of the Voice). Brigands' text
-      // forces the company to discard one *item*, so only genuine item cards are
-      // valid discard targets — skip anything that is not an item.
       if (!isItemCard(itemDef)) {
         logDetail(`discard-one-company-item: skipping ${itemName} (not an item)`);
         continue;
@@ -2528,18 +2736,10 @@ export function discardOneCompanyItemActions(
         continue;
       }
       logDetail(`discard-one-company-item: offering ${itemName}`);
-      actions.push({
-        action: {
-          type: 'discard-item-from-company' as const,
-          player: actor,
-          itemInstanceId: item.instanceId,
-        },
-        viable: true,
-      });
+      eligible.push(item.instanceId);
     }
   }
-
-  return actions;
+  return eligible;
 }
 
 /**
@@ -3296,6 +3496,37 @@ export function desireBellyChoosePenaltyActions(
       viable: true,
     },
   ];
+}
+
+/**
+ * Legal actions while a `reveal-deck-choose-attacker` resolution is pending
+ * (Long Dark Reach, dm-70): the card-player must name one of the eligible
+ * revealed creatures to immediately attack the target company. One
+ * `choose-long-dark-reach-attacker` action per eligible candidate; the choice
+ * is mandatory (no pass — the resolution is only enqueued when at least one
+ * candidate is eligible).
+ */
+export function revealDeckChooseAttackerActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'reveal-deck-choose-attacker') return [];
+  const { eligibleInstanceIds, cardPlayerId } = top.kind;
+  const cardPlayer = playerById(state, cardPlayerId);
+  if (!cardPlayer) return [];
+  const inDeck = new Map(cardPlayer.playDeck.map(c => [c.instanceId as string, c.definitionId]));
+  const actions: EvaluatedAction[] = [];
+  for (const id of eligibleInstanceIds) {
+    const definitionId = inDeck.get(id as string);
+    if (!definitionId) continue;
+    logDetail(`Long Dark Reach: offering to attack with "${cardName(state, definitionId)}"`);
+    actions.push({
+      action: { type: 'choose-long-dark-reach-attacker' as const, player: actor, cardInstanceId: id, definitionId },
+      viable: true,
+    });
+  }
+  return actions;
 }
 
 /**

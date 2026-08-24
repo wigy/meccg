@@ -22,8 +22,21 @@ function renderInline(text: string): string {
   result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="md-image">');
   // Links [text](url)
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  // Auto-link bare URLs (not already inside an href or src attribute)
+  // Auto-link bare URLs. The `[^"=]` guard keeps href/src attribute values
+  // from being wrapped, but a URL inside an anchor's *display text* — the
+  // common `[https://foo](https://foo)` mail pattern — is preceded by `>`
+  // and would get a second <a> nested inside the first (invalid HTML the
+  // browser splits into broken sibling anchors). Guarding on `>` instead
+  // would stop URLs inside <strong>/<em>/<code> from auto-linking, so the
+  // finished anchors are masked out for this pass and restored after.
+  const anchors: string[] = [];
+  result = result.replace(/<a [^>]*>.*?<\/a>/g, (anchor) => {
+    anchors.push(anchor);
+    return `\u0000${anchors.length - 1}\u0000`;
+  });
   result = result.replace(/(^|[^"=])(https?:\/\/[^\s<]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  // eslint-disable-next-line no-control-regex -- the NUL sentinel cannot occur in escaped text
+  result = result.replace(/\u0000(\d+)\u0000/g, (placeholder, index) => anchors[Number(index)] ?? placeholder);
   return result;
 }
 

@@ -20,17 +20,22 @@ import type { CardDefinitionId } from '../../../index.js';
 import {
   buildTestState, resetMint, viableFor, findCharInstanceId, Phase,
   PLAYER_1, PLAYER_2,
-  BILBO, LEGOLAS,
+  BILBO, LEGOLAS, GIMLI,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   SCROLL_OF_ISILDUR,
   RESOURCE_PLAYER,
   dispatch,
 } from '../../test-helpers.js';
 import type { StoreItemAction } from '../../../types/actions-organization.js';
+import type { CorruptionCheckAction } from '../../../types/actions-universal.js';
 
 // Red Book of Westmarch (tw-313): storable at any haven for 1 MP.
 // Only used in this file.
 const RED_BOOK_OF_WESTMARCH = 'tw-313' as CardDefinitionId;
+// Dwarven Ring of Durin's Tribe (tw-216): 3 corruption points printed, 5 on a
+// Dwarf bearer (a `stat-modifier` on the item's own effects, conditioned on
+// `bearer.race === 'dwarf'`). Only used in this file.
+const DWARVEN_RING = 'tw-216' as CardDefinitionId;
 
 describe('Rule 3.32 — Storing Cards', () => {
   beforeEach(() => resetMint());
@@ -236,5 +241,96 @@ describe('Rule 3.32 — Storing Cards', () => {
       c => c.instanceId === scrollInstId,
     )).toBe(true);
     expect(afterStore.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(4);
+  });
+
+  test('Corruption check for storing an item counts the stored item\'s own corruption points', () => {
+    // CoE rule 2.II.4.1: "the item's player makes a corruption check for the
+    // item's bearer" — the check determines whether the store succeeds, so
+    // it must count the item being stored even though it has already moved
+    // to the marshalling point pile by the time the check resolves. Scroll
+    // of Isildur is worth 3 corruption points; Bilbo bears none of his own,
+    // so the pending check must be against CP 3, not CP 0.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [SCROLL_OF_ISILDUR] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const scrollInstId = state.players[RESOURCE_PLAYER].characters[bilboId].items[0].instanceId;
+
+    const storeAction = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item')
+      .find(a => (a.action as StoreItemAction).itemInstanceId === scrollInstId);
+    expect(storeAction).toBeDefined();
+
+    const afterStore = dispatch(state, storeAction!.action);
+
+    const corruptionChecks = viableFor(afterStore, PLAYER_1)
+      .filter(a => a.action.type === 'corruption-check') as { action: CorruptionCheckAction }[];
+
+    expect(corruptionChecks.some(a =>
+      a.action.characterId === bilboId && a.action.corruptionPoints === 3,
+    )).toBe(true);
+  });
+
+  test('Corruption check for storing an item counts a bearer-conditional CP bonus declared on the item', () => {
+    // Bug report (game mt2260ne-7k9i02, seq 1712): storing the Dwarven Ring
+    // of Durin's Tribe from Thráin II (a Dwarf) computed the check against
+    // CP 3 (the printed value) instead of CP 5 — the ring's own +2
+    // corruption-points stat-modifier for a Dwarf bearer was dropped once
+    // the item left `char.items` and the character's derived stats were
+    // recomputed without it. Gimli (a Dwarf) storing the ring must be
+    // checked against CP 5, not CP 3.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: GIMLI, items: [DWARVEN_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const ringInstId = state.players[RESOURCE_PLAYER].characters[gimliId].items[0].instanceId;
+
+    const storeAction = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item')
+      .find(a => (a.action as StoreItemAction).itemInstanceId === ringInstId);
+    expect(storeAction).toBeDefined();
+
+    const afterStore = dispatch(state, storeAction!.action);
+
+    const corruptionChecks = viableFor(afterStore, PLAYER_1)
+      .filter(a => a.action.type === 'corruption-check') as { action: CorruptionCheckAction }[];
+
+    expect(corruptionChecks.some(a =>
+      a.action.characterId === gimliId && a.action.corruptionPoints === 5,
+    )).toBe(true);
   });
 });

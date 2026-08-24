@@ -74,15 +74,11 @@ describe('passButtonLabel — Phase.MovementHazard (generic pass)', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.MovementHazard, step: 'draw-cards' }))).toBe('Pass Draw');
   });
 
-  // Feature request "Stop the view jumping back to overview": clicking Pass
-  // from the all-companies overview gave no indication the active party
-  // still had hazard limit remaining. The label must name the cost.
-  test('play-hazards with remaining hazard limit -> Pass Hazards (N left)', () => {
-    expect(passButtonLabel(passAction, playHazardsViewWith(4, 1))).toBe('Pass Hazards (3 left)');
-  });
-
-  test('play-hazards on the last remaining hazard -> Pass Hazards (1 left)', () => {
-    expect(passButtonLabel(passAction, playHazardsViewWith(4, 3))).toBe('Pass Hazards (1 left)');
+  // The remaining hazard limit is shown by the HL box; the button only
+  // names the step being passed.
+  test('play-hazards -> Pass Hazards (no remaining-count suffix)', () => {
+    expect(passButtonLabel(passAction, playHazardsViewWith(4, 1))).toBe('Pass Hazards');
+    expect(passButtonLabel(passAction, playHazardsViewWith(4, 3))).toBe('Pass Hazards');
   });
 
   test('reset-hand -> Continue', () => {
@@ -137,8 +133,8 @@ describe('passButtonLabel — other phases', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.Untap }))).toBe('End Untap');
   });
 
-  test('Phase.Organization -> Long-event', () => {
-    expect(passButtonLabel(passAction, viewWith({ phase: Phase.Organization }))).toBe('Long-event');
+  test('Phase.Organization -> Continue', () => {
+    expect(passButtonLabel(passAction, viewWith({ phase: Phase.Organization }))).toBe('Continue');
   });
 
   test('Phase.LongEvent -> Movement/Hazard', () => {
@@ -190,5 +186,30 @@ describe('passButtonLabel — other phases', () => {
   ])('setup step %s -> %s', (step, expected) => {
     const view = viewWith({ phase: 'setup', setupStep: { step } });
     expect(passButtonLabel(passAction, view)).toBe(expected);
+  });
+
+  // Bug report (game mt1gl5mw-l309to, seq 404): Hall of Fire's optional
+  // untap/heal offer became pending immediately after the company's own
+  // hazard sub-phase, while `phaseState.step` still read "play-hazards" —
+  // the pass button showed "Pass Hazards", giving no indication that a
+  // character could be untapped/healed instead, or that skipping declined
+  // that offer. Confirmed again at the Site phase's default "select-company"
+  // step, where it showed "Continue".
+  test('haven-restore-character pending during M/H play-hazards -> Skip Untap/Heal, not Pass Hazards', () => {
+    const restoreEval = {
+      action: { type: 'restore-character-by-effect', player: 'p1', characterInstanceId: 'p1-0' },
+      viable: true,
+    } as unknown as EvaluatedAction;
+    const view = playHazardsViewWith(4, 1);
+    expect(passButtonLabel(passAction, { ...view, legalActions: [restoreEval] })).toBe('Skip Untap/Heal');
+  });
+
+  test('haven-restore-character pending at Site select-company -> Skip Untap/Heal, not Continue', () => {
+    const restoreEval = {
+      action: { type: 'restore-character-by-effect', player: 'p1', characterInstanceId: 'p1-0' },
+      viable: true,
+    } as unknown as EvaluatedAction;
+    const view = viewWith({ phase: Phase.Site, step: 'select-company' }, [restoreEval]);
+    expect(passButtonLabel(passAction, view)).toBe('Skip Untap/Heal');
   });
 });

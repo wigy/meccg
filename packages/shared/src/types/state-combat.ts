@@ -144,6 +144,15 @@ export type AttackSource =
    */
   | { readonly type: 'site-entry-attack'; readonly eventInstanceId: CardInstanceId }
   /**
+   * Triggered by a `region-shortcut` constraint (Ash Mountains tw-194 and its
+   * "movement enhancer" family): the company tapped its ranger to move as if
+   * two otherwise-unconnected regions were adjacent, and faces the printed
+   * forced attack for having done so. `eventInstanceId` is the resource
+   * short-event that placed the constraint (already discarded by the time the
+   * attack resolves — nothing to dispose of on finalization).
+   */
+  | { readonly type: 'region-shortcut-attack'; readonly eventInstanceId: CardInstanceId; readonly companyId: CompanyId }
+  /**
    * Triggered by The Great Hunt (wh-91) via the `reveal-and-attack` effect. A
    * revealed / discarded hazard-creature attacks the controller's Alatar
    * company. The creature card is never moved out of its pile (deck or discard)
@@ -199,6 +208,22 @@ export type AttackSource =
       readonly eventInstanceId: CardInstanceId;
       /** Definition of the character who became the traitor (name/race for display). */
       readonly traitorDefinitionId: CardDefinitionId;
+    }
+  /**
+   * Triggered by Long Dark Reach (dm-70) via the `reveal-deck-choose-attacker`
+   * DSL effect: a creature the card-player named from the top of their own
+   * play deck immediately attacks the targeted company normally (no
+   * solo-defender restriction) — "regardless of its playability
+   * requirements". The creature card is never moved out of the deck before
+   * the attack — it sits in place, exactly like a `hunt-attack` — but a
+   * defeated attack still moves it into the defending player's kill pile for
+   * marshalling points (CoE rule 964), same as any other creature attack; see
+   * `combat-finalize.ts`.
+   */
+  | {
+      readonly type: 'long-dark-reach-attack';
+      readonly sourceInstanceId: CardInstanceId;
+      readonly creatureInstanceId: CardInstanceId;
     };
 
 /**
@@ -231,13 +256,26 @@ export interface StrikeAssignment {
    * - `'wounded'` -- The character survived but is wounded (reduced capability).
    * - `'eliminated'` -- The character was killed and removed from play.
    * - `'canceled'` -- The strike was canceled before resolution (e.g. Fatty Bolger).
+   * - `'captured'` -- The strike succeeded but the character was taken prisoner
+   *   instead of wounded (take-prisoner hazards like Flies and Spiders dm-58,
+   *   Troll-purse dm-95; CoE 8.35: "is not wounded — instead taken prisoner").
+   *   Distinct from `'wounded'` so finalize-time wound triggers (bearer-wounded
+   *   discards, wounded-by-race stamps, character-wounded-by-self effects) do
+   *   not fire on an un-wounded prisoner.
    */
-  readonly result?: 'success' | 'survived' | 'tie' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed';
+  readonly result?: 'success' | 'survived' | 'tie' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed' | 'captured';
   /**
    * Whether the character was already wounded before this strike was resolved.
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
    */
   readonly wasAlreadyWounded?: boolean;
+  /**
+   * CvCC only: whether the *attacking* character was already wounded before
+   * this strike was resolved. The same CoE rule 3.I +1 applies to the body
+   * check the attacker makes after losing the dual roll; the defender's
+   * pre-strike status is in {@link wasAlreadyWounded}.
+   */
+  readonly attackerWasAlreadyWounded?: boolean;
   /**
    * Whether a dodge-strike card was played for this strike. When true,
    * the character fights at full prowess but does not tap on success/tie.
@@ -425,7 +463,7 @@ export interface CombatState {
    * - `'discard-item-from-company'`: defender must discard one item
    * - `'trophy-offer'`: Orc/Troll characters may take the defeated creature as a trophy (MELE §8.37)
    */
-  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer' | 'shield-discard-roll';
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer' | 'shield-discard-roll' | 'cancel-prisoner-taking-choice';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
@@ -467,6 +505,17 @@ export interface CombatState {
    */
   readonly shieldAbsorbItemId?: CardInstanceId;
   /**
+   * During the 'cancel-prisoner-taking-choice' phase: the ally the defending
+   * player may discard to cancel the current strike's prisoner-taking outcome
+   * (e.g. Noble Hound dm-179 — "Discard Noble Hound to cancel any effect that
+   * would take its controlling character prisoner"). The struck character is
+   * `combat.strikeAssignments[combat.currentStrikeIndex].characterId`. If the
+   * player discards the ally (`cancel-prisoner-taking` action), the character
+   * is wounded normally instead of taken prisoner; a `pass` declines and the
+   * prisoner-taking proceeds. Absent outside this phase.
+   */
+  readonly cancelPrisonerTakingOffer?: { readonly allyId: CardInstanceId };
+  /**
    * Whether this is a detainment attack. Detainment attacks tap characters
    * instead of wounding/eliminating them. Any attack can be detainment —
    * it is an attribute of the attack, not a separate attack type.
@@ -502,6 +551,18 @@ export interface CombatState {
    * Set by the `multi-attack` combat rule (e.g. Assassin).
    */
   readonly forceSingleTarget?: boolean;
+  /**
+   * Set when at least one of a multi-attack creature's sub-attacks was
+   * canceled outright (via `cancel-attack`/Dark Quarrels-style cards or
+   * `cancel-by-tap`) before it ever produced a strike-assignment entry.
+   * Per CoE COMBAT / CRF 22 Annotation 14, a canceled attack is never
+   * "defeated" — so even if every *other* attack's strike is genuinely
+   * defeated in combat, the creature as a whole is not defeated and must
+   * not earn kill-MP. `finalizeCombat` ANDs this into `allDefeated`
+   * because a canceled attack leaves no trace in `strikeAssignments` for
+   * the usual `every(a => a.result === 'success')` check to see.
+   */
+  readonly anyAttackCanceled?: boolean;
   /**
    * Number of separate attacks in a multi-attack creature (e.g. Assassin = 3).
    * When present, `strikesTotal` equals `multiAttackCount × strikesPerAttack`.
@@ -562,8 +623,10 @@ export interface CombatState {
   /**
    * Items available for the defender to choose from during the
    * 'discard-item-from-company' phase (An Article Missing, dm-43).
-   * Collected from all characters in the defending company when a
-   * successful agent strike with `strikeEffect: 'discard-item'` resolves.
+   * Collected from all characters in the defending company when
+   * `strikeEffect: 'discard-item'` resolves, or from the struck character
+   * alone when `strikeEffect: 'discard-item-character'` resolves
+   * (Pick-pocket tw-79/tw-80).
    */
   readonly discardItemOptions?: readonly ItemInPlay[];
   /**
@@ -615,6 +678,22 @@ export interface CombatState {
    * transitions out of cancel-window.
    */
   readonly havenJumpOffers?: readonly HavenJumpOffer[];
+  /**
+   * A `creature-attack-begins` + `force-check-all-company` corruption effect
+   * (Corpse-candle, tw-23/le-67) raised when the attack began, deferred until
+   * the cancel-window closes. The card text conditions the check on "if this
+   * attack is not canceled," and CoE rule 3.i requires the pre-assignment
+   * cancel/modify-attack window to close before anything conditioned on
+   * non-cancellation resolves — so the corruption checks are enqueued only
+   * when the defender passes out of the cancel-window (not at attack
+   * declaration), mirroring how `havenJumpOffers` defer Alatar's offer.
+   * Cleared once the checks are enqueued or the attack is canceled.
+   */
+  readonly pendingAttackBeginsCorruption?: {
+    readonly source: CardInstanceId;
+    readonly reason: string;
+    readonly modifier: number;
+  };
   /**
    * Character instance IDs that MUST each receive a strike before any
    * other defender/attacker assignment is legal. Populated when a
@@ -773,13 +852,17 @@ export interface CombatState {
   readonly isolated?: boolean;
   /**
    * Special strike resolution override set by tap-agent-at-site hazard
-   * short-events (e.g. An Article Missing dm-43).
+   * short-events (e.g. An Article Missing dm-43) or a creature's own
+   * `combat-strike-effect` effect (e.g. Thief tw-102, Pick-pocket tw-79).
    *
    * `'discard-item'`: a successful strike does not wound the defending
    * character; instead the defending company must discard one item of
-   * their choice (defender picks).
+   * their choice (defender picks), pooled from every character in the
+   * company.
+   * `'discard-item-character'`: same, but the discard pool is scoped to
+   * items borne by the struck character alone (Pick-pocket tw-79/tw-80).
    */
-  readonly strikeEffect?: 'discard-item';
+  readonly strikeEffect?: 'discard-item' | 'discard-item-character';
   /**
    * When true, avatar characters (Wizards and Ringwraiths, mind === null) are
    * excluded from strike assignment. Set by `combat-one-strike-per-character`
@@ -983,6 +1066,15 @@ export type ChainEntryPayload =
        */
       readonly targetSiteDefinitionId?: import('./common.js').CardDefinitionId;
       /**
+       * For company-targeted hazard short-events: the company the play was
+       * declared against. Lets a site-scoped `duplication-limit` attribute an
+       * unresolved on-chain copy to a site (via the company's destination /
+       * current site) when the payload carries no `targetSiteDefinitionId` —
+       * e.g. Incite Defenders/Denizens ("Cannot be duplicated on a given
+       * site") played against a moving company.
+       */
+      readonly targetCompanyId?: import('./common.js').CompanyId;
+      /**
        * For hazard short-events with `play-option` effects (e.g. Weariness of
        * the Heart le-149), the id of the option the hazard player chose at
        * play time. The chain resolver dispatches that option's `apply`.
@@ -1015,8 +1107,22 @@ export type ChainEntryPayload =
       /**
        * For Summons from Long Sleep (as-39): prowess bonus (+2) applied on
        * top of the creature's resolved prowess when initiating combat.
+       * Also carries Fell Beast's (tw-33) -2 penalty when a consumed
+       * `nazgul-boost-pending` constraint boosted this creature's play.
        */
       readonly prowessBonus?: number;
+      /**
+       * For Fell Beast (tw-33): strikes bonus (+1) applied on top of the
+       * creature's resolved strike count when a consumed `nazgul-boost-pending`
+       * constraint boosted this creature's play.
+       */
+      readonly strikesBonus?: number;
+      /**
+       * For Fell Beast (tw-33): when a consumed `nazgul-boost-pending`
+       * constraint boosted this creature's play, the resulting attack gets
+       * "attacker chooses defending characters".
+       */
+      readonly grantAttackerChoosesDefenders?: true;
       /**
        * For Summons from Long Sleep (as-39): the permanent-event instance to
        * discard after this creature's combat resolves.
@@ -1062,6 +1168,14 @@ export type ChainEntryPayload =
        * marshalling-point pile.
        */
       readonly targetStoredItemInstanceId?: CardInstanceId;
+      /**
+       * For a `play-target: "nazgul-permanent-event"` hazard permanent-event
+       * (Helms of Iron dm-64: "Discard the Nazgûl when this card is brought
+       * into play"), the hazard player's own Nazgûl permanent-event instance
+       * chosen at declaration. Threaded into the `self-enters-play` move's
+       * `targetCardId` so the DSL move can discard it without a filter.
+       */
+      readonly targetNazgulInstanceId?: CardInstanceId;
       /**
        * For a card played in a `play-option` mode declared as a permanent-event
        * (Returned Beyond All Hope as-35 mode 3), the id of the chosen option.

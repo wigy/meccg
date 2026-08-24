@@ -39,10 +39,13 @@ import type {
   TapAltPermanentEventAction,
   PayEventMaintenanceAction,
   ActivateOrgFetchAction,
+  DiscardCharacterOrgAction,
+  DiscardItemFromCompanyAction,
+  PlayHazardAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId, inPlayCardDefs } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs, actionsOfTypeFor } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedPermanentEventForLongEventTarget, clearPermanentEventLongEventTargetSelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
 import {
   getCachedInstanceLookup,
@@ -100,9 +103,69 @@ export function influenceVariantLabel(action: InfluenceAttemptAction): string {
 }
 
 /**
+ * All viable `play-hazard` actions for the given hand card targeting the
+ * given character. A hazard card that declares multiple mutually-exclusive
+ * `play-option` effects (e.g. Weariness of the Heart's prowess-penalty vs.
+ * corruption-check options) yields one legal action per option — the click
+ * handler must present all of them as a choice rather than silently firing
+ * whichever one `.find()` happens to hit first.
+ */
+export function findHazardVariants(
+  viable: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+  charInstanceId: CardInstanceId,
+): PlayHazardAction[] {
+  return viable.filter(
+    (a): a is PlayHazardAction =>
+      a.type === 'play-hazard'
+      && a.cardInstanceId === cardInstanceId
+      && 'targetCharacterId' in a
+      && a.targetCharacterId === charInstanceId,
+  );
+}
+
+/**
+ * Human-readable label for a play-hazard variant, used when the UI must
+ * disambiguate multiple `play-option` effects on the same target.
+ */
+export function hazardVariantLabel(action: PlayHazardAction): string {
+  if (!action.optionId) return 'Play';
+  return action.optionId.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
+}
+
+/**
  * Get the display name for a company based on its title character and current site.
  * Returns e.g. "Aragorn's Company at Rivendell" or "Company" if no title character found.
  */
+/**
+ * The company's title character, picked among standalone characters only. A
+ * follower renders nested under its controller's column (and the company
+ * name should match the leftmost column), so a follower must not win the
+ * (mind, MP, prowess, name) tie-break — e.g. Dori (prowess 3) under
+ * Halbarad (prowess 0, both mind 1) used to be picked as title character
+ * and rendered twice: once as the title column and once nested under her
+ * controller. Falls back to the full character list when every member is a
+ * follower (not reachable in practice — a follower's controller is in the
+ * same list and is itself standalone).
+ */
+function titleCharacterOf(
+  company: { readonly characters: readonly CardInstanceId[] },
+  charMap: Readonly<Record<string, CharacterInPlay>>,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): CharacterInPlay | undefined {
+  const present = new Set(company.characters as readonly string[]);
+  const followers = new Set<string>();
+  for (const id of company.characters) {
+    const char = charMap[id as string];
+    if (!char) continue;
+    for (const fId of char.followers) {
+      if (present.has(fId as string)) followers.add(fId as string);
+    }
+  }
+  const standalone = company.characters.filter(id => !followers.has(id as string));
+  return getTitleCharacter(standalone.length > 0 ? standalone : company.characters, charMap, cardPool);
+}
+
 function getCompanyName(
   company: Company | OpponentCompanyView,
   charMap: Readonly<Record<string, CharacterInPlay>>,
@@ -110,7 +173,7 @@ function getCompanyName(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): string {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+  const titleChar = titleCharacterOf(company, charMap, cardPool);
   if (!titleChar) return 'Company';
   const def = cardPool[titleChar.definitionId as string];
   if (!def) return 'Company';
@@ -145,6 +208,93 @@ function getCompanyName(
 }
 
 /**
+ * The "selected card → click a character to target it" modes of
+ * `buildCombinedClick`, in priority order. Each mode reads its selection from
+ * the render selection state, lists the viable actions that play the selected
+ * card on the clicked character, and clears the selection once one fires.
+ * A mode with an active selection but no match makes the character
+ * unclickable (no fall-through to the ordinary character actions).
+ */
+interface CharacterTargetingMode {
+  readonly selected: () => CardInstanceId | null;
+  readonly clear: () => void;
+  readonly find: (viable: readonly GameAction[], selected: CardInstanceId, charInstId: CardInstanceId) => readonly GameAction[];
+  /** Menu label when several actions match (only faction influence has variants). */
+  readonly label?: (action: GameAction) => string;
+}
+
+/** The first viable action matching `pred`, as a 0- or 1-element list. */
+function firstMatch(viable: readonly GameAction[], pred: (a: GameAction) => boolean): readonly GameAction[] {
+  const action = viable.find(pred);
+  return action ? [action] : [];
+}
+
+const CHARACTER_TARGETING_MODES: readonly CharacterTargetingMode[] = [
+  // Short-event character targeting (e.g. Stealth → scout)
+  {
+    selected: getSelectedShortEvent,
+    clear: clearShortEventSelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => a.type === 'play-short-event' && a.cardInstanceId === selected && a.targetScoutInstanceId === charInstId,
+    ),
+  },
+  // Faction influence targeting: plain vs. leader-control variants
+  {
+    selected: getSelectedFactionForInfluence,
+    clear: clearFactionInfluenceSelection,
+    find: findInfluenceVariants,
+    label: a => influenceVariantLabel(a as InfluenceAttemptAction),
+  },
+  // Ally play targeting: click an untapped character to control the selected ally
+  {
+    selected: getSelectedAllyForPlay,
+    clear: clearAllyPlaySelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => a.type === 'play-hero-resource' && a.cardInstanceId === selected && a.attachToCharacterId === charInstId,
+    ),
+  },
+  // Resource/item play targeting: click an untapped character to bear the selected resource
+  {
+    selected: getSelectedResourceForPlay,
+    clear: clearResourcePlaySelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
+        && a.cardInstanceId === selected && a.attachToCharacterId === charInstId,
+    ),
+  },
+  // Permanent-event character targeting: click a character to apply the selected permanent event
+  {
+    selected: getSelectedPermanentEventForPlay,
+    clear: clearPermanentEventPlaySelection,
+    find: (viable, selected, charInstId) => firstMatch(viable,
+      a => a.type === 'play-permanent-event' && a.cardInstanceId === selected
+        && 'targetCharacterId' in a && a.targetCharacterId === charInstId,
+    ),
+  },
+  // Tap-alt-permanent-event character targeting: after clicking an in-play
+  // creature-permanent-event (e.g. Adûnaphel tw-2), click any eligible
+  // character — of either player — to tap it. The target may belong to the
+  // opponent, so this mode runs for both self and opponent columns.
+  {
+    selected: getSelectedTapAltPermanentEvent,
+    clear: clearTapAltPermanentEventSelection,
+    find: (viable, selected, charInstId) => {
+      const action = findTapAltPermanentEventTarget(viable, selected, charInstId);
+      return action ? [action] : [];
+    },
+  },
+  // Hazard character targeting: click a character to play the hazard on them.
+  // A card with several `play-option` effects (Weariness of the Heart's
+  // prowess vs. corruption-check) yields one variant per option → menu.
+  {
+    selected: getSelectedHazardForPlay,
+    clear: clearHazardPlaySelection,
+    find: findHazardVariants,
+    label: a => hazardVariantLabel(a as PlayHazardAction),
+  },
+];
+
+/**
  * Render a complete company block: name label, site area, character columns.
  * Used at both scales via the --company-scale CSS variable.
  */
@@ -156,6 +306,12 @@ export function renderCompanyBlock(
   owner: 'self' | 'opponent',
   options?: {
     hideTitle?: boolean;
+    /**
+     * Rendered as the single focused company. The green glow that marks the
+     * active company in the overview grid is dropped there (CSS) in favour of
+     * an "Active" badge on the site card — see {@link renderSiteArea}.
+     */
+    singleView?: boolean;
     hasLegalMovement?: boolean;
     onAction?: (action: GameAction) => void;
     /** Map from character instance ID to move-to-influence actions for that character. */
@@ -164,6 +320,8 @@ export function renderCompanyBlock(
     transferActions?: Map<string, TransferItemAction[]>;
     /** Map from item instance ID to store-item action for that item. */
     storeItemActions?: Map<string, StoreItemAction>;
+    /** Map from item instance ID to discard-item-from-company action for that item (Brigands, An Article Missing). */
+    discardItemFromCompanyActions?: Map<string, DiscardItemFromCompanyAction>;
     /** Map from character instance ID to split-company actions for that character. */
     splitActions?: Map<string, SplitCompanyAction>;
     /** Map from character instance ID to move-to-company actions for that character. */
@@ -182,6 +340,8 @@ export function renderCompanyBlock(
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     /** Map from character instance ID to select-card-bearer action. */
     selectCardBearerActions?: Map<string, SelectCardBearerAction>;
+    /** Map from character instance ID to discard-character action (CoE rule 3.22). */
+    discardCharacterActions?: Map<string, DiscardCharacterOrgAction>;
     /**
      * Shared set of site instance ids already rendered in the current
      * all-companies overview pass, forwarded to {@link renderSiteArea} so a
@@ -241,9 +401,10 @@ export function renderCompanyBlock(
     }
 
     // Remaining hazard-limit badge: shown on the currently active company's
-    // block during play-hazards, so the value is visible directly in the
-    // all-companies overview grid \u2014 not just the single #opponent-hazard-limit
-    // chip, which .all-companies-mode CSS hides entirely in that view.
+    // block during play-hazards, so the value sits directly on the company
+    // it applies to in the all-companies overview grid (the top-left
+    // #opponent-hazard-limit chip is also visible there, but is not tied to
+    // a particular block).
     if (view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'play-hazards') {
       const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
       const activeCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
@@ -285,6 +446,7 @@ export function renderCompanyBlock(
     agentAttackActions,
     cardsInPlay: owner === 'self' ? view.self.cardsInPlay : view.opponent.cardsInPlay,
     renderedSiteInstances: options?.renderedSiteInstances,
+    activeBadge: options?.singleView === true && !isInactive,
   }));
 
   // Characters — title character always rendered first (leftmost after site).
@@ -313,7 +475,7 @@ export function renderCompanyBlock(
       ? { ...char, followers: char.followers.filter(fId => companyCharacterIds.has(fId as string)) }
       : char;
 
-  const titleChar = getTitleCharacter(company.characters, charMap, cardPool);
+  const titleChar = titleCharacterOf(company, charMap, cardPool);
 
   /** Build the influence click handler for a character, if applicable. */
   const buildInfluenceClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
@@ -425,6 +587,26 @@ export function renderCompanyBlock(
     if (discardClick) return discardClick;
 
     if (!options?.onAction) return undefined;
+    const onAction = options.onAction;
+
+    // Forced discard (e.g. Brigands, An Article Missing): a pending
+    // resolution requires the defending player to pick one company item to
+    // lose. While this is pending, it is the *only* legal action for the
+    // player, so it always takes priority over any other item interaction.
+    const forcedDiscardAction = options.discardItemFromCompanyActions?.get(itemInstId as string);
+    if (forcedDiscardAction) {
+      const itemDefId = cachedInstanceLookup(itemInstId);
+      const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          void showConfirm(`Discard ${itemName ?? 'this item'}?`).then(ok => {
+            if (ok) onAction(forcedDiscardAction);
+          });
+        },
+      };
+    }
 
     if (transferItemSourceId) {
       // We're in targeting mode — clicking a character card is the target, not items
@@ -445,7 +627,6 @@ export function renderCompanyBlock(
     }
 
     // Not in targeting mode — gather the item's possible actions.
-    const onAction = options.onAction;
     const storeAction = options.storeItemActions?.get(itemInstId as string);
     const hasStore = !!storeAction && storeAction.characterId === charInstId;
     const transferActions = options.transferActions?.get(itemInstId as string) ?? [];
@@ -650,170 +831,40 @@ export function renderCompanyBlock(
 
   /** Combine all character click handlers into one: if one action type, take it; if multiple, show tooltip. */
   const buildCombinedClick = (charInstId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
-    // Short-event character targeting (e.g. Stealth → scout) takes priority when active
-    const selectedSE = getSelectedShortEvent();
-    if (selectedSE) {
-      const seAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-short-event'
-          && a.cardInstanceId === selectedSE
-          && a.targetScoutInstanceId === charInstId,
-      );
-      if (seAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearShortEventSelection();
-            options?.onAction?.(seAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Faction influence targeting takes priority when active
-    const selectedFaction = getSelectedFactionForInfluence();
-    if (selectedFaction) {
-      const influenceVariants = findInfluenceVariants(
-        viableActions(view.legalActions), selectedFaction, charInstId,
-      );
-      if (influenceVariants.length > 0) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            // A single variant fires immediately. Two variants (plain vs.
-            // leader-control, e.g. Stone Trolls le-288) require a choice — show
-            // a tooltip menu so the player can place the faction under the
-            // Orc/Troll leader's control instead of always tapping the site.
-            if (influenceVariants.length === 1) {
-              clearFactionInfluenceSelection();
-              options?.onAction?.(influenceVariants[0]);
-              return;
-            }
-            showTooltipMenu(
-              e.target as HTMLElement,
-              influenceVariants.map(variant => ({
-                label: influenceVariantLabel(variant),
-                onClick: () => {
-                  clearFactionInfluenceSelection();
-                  options?.onAction?.(variant);
-                },
-              })),
-              { placement: 'auto' },
-            );
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Ally play targeting: click an untapped character to control the selected ally
-    const selectedAlly = getSelectedAllyForPlay();
-    if (selectedAlly) {
-      const allyAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-hero-resource'
-          && a.cardInstanceId === selectedAlly
-          && a.attachToCharacterId === charInstId,
-      );
-      if (allyAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearAllyPlaySelection();
-            options?.onAction?.(allyAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Resource/item play targeting: click an untapped character to bear the selected resource
-    const selectedResource = getSelectedResourceForPlay();
-    if (selectedResource) {
-      const resourceAction = viableActions(view.legalActions).find(
-        a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
-          && a.cardInstanceId === selectedResource
-          && a.attachToCharacterId === charInstId,
-      );
-      if (resourceAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearResourcePlaySelection();
-            options?.onAction?.(resourceAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Permanent-event character targeting: click a character to apply selected permanent event
-    const selectedPermanentEvent = getSelectedPermanentEventForPlay();
-    if (selectedPermanentEvent) {
-      const permEventAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-permanent-event'
-          && a.cardInstanceId === selectedPermanentEvent
-          && 'targetCharacterId' in a
-          && a.targetCharacterId === charInstId,
-      );
-      if (permEventAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearPermanentEventPlaySelection();
-            options?.onAction?.(permEventAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Tap-alt-permanent-event character targeting: after clicking an in-play
-    // creature-permanent-event (e.g. Adûnaphel tw-2), click any eligible
-    // character — of either player — to tap it. The target character may belong
-    // to the opponent, so this branch runs for both self and opponent columns.
-    const selectedTapAltPE = getSelectedTapAltPermanentEvent();
-    if (selectedTapAltPE) {
-      const tapAltAction = findTapAltPermanentEventTarget(
-        viableActions(view.legalActions), selectedTapAltPE, charInstId,
-      );
-      if (tapAltAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearTapAltPermanentEventSelection();
-            options?.onAction?.(tapAltAction);
-          },
-        };
-      }
-      return undefined;
-    }
-
-    // Hazard character targeting: click a character to play hazard on them
-    const selectedHazard = getSelectedHazardForPlay();
-    if (selectedHazard) {
-      const hazardAction = viableActions(view.legalActions).find(
-        a => a.type === 'play-hazard'
-          && a.cardInstanceId === selectedHazard
-          && 'targetCharacterId' in a
-          && a.targetCharacterId === charInstId,
-      );
-      if (hazardAction) {
-        return {
-          cls: 'company-card--influence-target',
-          handler: (e) => {
-            e.stopPropagation();
-            clearHazardPlaySelection();
-            options?.onAction?.(hazardAction);
-          },
-        };
-      }
-      return undefined;
+    // A selected hand/in-play card looking for a character target takes
+    // priority over everything else: the character is clickable only when a
+    // viable action targets it with the selected card.
+    for (const mode of CHARACTER_TARGETING_MODES) {
+      const selected = mode.selected();
+      if (!selected) continue;
+      const matches = mode.find(viableActions(view.legalActions), selected, charInstId);
+      if (matches.length === 0) return undefined;
+      return {
+        cls: 'company-card--influence-target',
+        handler: (e) => {
+          e.stopPropagation();
+          // A single match fires immediately. Several (plain vs. leader-control
+          // faction influence, e.g. Stone Trolls le-288) require a choice — show
+          // a tooltip menu so the player can place the faction under the
+          // Orc/Troll leader's control instead of always tapping the site.
+          if (matches.length === 1) {
+            mode.clear();
+            options?.onAction?.(matches[0]);
+            return;
+          }
+          showTooltipMenu(
+            e.target as HTMLElement,
+            matches.map(action => ({
+              label: mode.label?.(action) ?? action.type,
+              onClick: () => {
+                mode.clear();
+                options?.onAction?.(action);
+              },
+            })),
+            { placement: 'auto' },
+          );
+        },
+      };
     }
 
     // Opponent influence targeting: selected influencer deselects on re-click
@@ -859,6 +910,7 @@ export function renderCompanyBlock(
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
     const restoreAction = options?.restoreCharacterActions?.get(charInstId as string);
     const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
+    const discardAction = options?.discardCharacterActions?.get(charInstId as string);
     // Grant-actions declared directly on the character card itself (e.g.
     // Gandalf's test-gold-ring, tw-156) are keyed by the character's own
     // instance ID, same as attached items/hazards are keyed by their own ID.
@@ -873,7 +925,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasOppInfluence, bearerAction, hasGrantedActions].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasOppInfluence, bearerAction, hasGrantedActions, discardAction].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -1029,6 +1081,22 @@ export function renderCompanyBlock(
       };
     }
 
+    // Single type: discard character (rule 3.22) — irreversible, so confirm first
+    // (same guard as store-item/self-discard granted actions above).
+    if (discardAction) {
+      const charDefId = cachedInstanceLookup(charInstId);
+      const charName = charDefId ? cardPool[charDefId as string]?.name : undefined;
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          void showConfirm(`Discard ${charName ?? 'this character'}?`).then(ok => {
+            if (ok) options!.onAction!(discardAction);
+          });
+        },
+      };
+    }
+
     // Single type: company-move only
     if (companyResult && !influenceResult) return companyResult;
 
@@ -1158,13 +1226,11 @@ export function findCardsInPlayTapAction(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): GameAction | null {
-  return (
-    actions.find(
-      a =>
-        (a.type === 'tap-hazard-card-for-limit' || a.type === 'pay-hazard-limit-to-untap-card')
-        && a.cardInstanceId === cardInstanceId,
-    ) ?? null
-  );
+  return actionsOfTypeFor(
+    actions,
+    ['tap-hazard-card-for-limit', 'pay-hazard-limit-to-untap-card'] as const,
+    cardInstanceId,
+  )[0] ?? null;
 }
 
 /**
@@ -1184,11 +1250,7 @@ export function findDiscardForHazardLimitAction(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): GameAction | null {
-  return (
-    actions.find(
-      a => a.type === 'discard-card-for-hazard-limit' && a.cardInstanceId === cardInstanceId,
-    ) ?? null
-  );
+  return actionsOfTypeFor(actions, 'discard-card-for-hazard-limit', cardInstanceId)[0] ?? null;
 }
 
 /**
@@ -1209,12 +1271,7 @@ export function findOrgPhaseFetchAction(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): ActivateOrgFetchAction | null {
-  return (
-    actions.find(
-      (a): a is ActivateOrgFetchAction =>
-        a.type === 'activate-org-fetch' && a.cardInstanceId === cardInstanceId,
-    ) ?? null
-  );
+  return actionsOfTypeFor(actions, 'activate-org-fetch', cardInstanceId)[0] ?? null;
 }
 
 /**
@@ -1235,10 +1292,7 @@ export function findTapAltPermanentEventActions(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): TapAltPermanentEventAction[] {
-  return actions.filter(
-    (a): a is TapAltPermanentEventAction =>
-      a.type === 'tap-alt-permanent-event' && a.cardInstanceId === cardInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'tap-alt-permanent-event', cardInstanceId);
 }
 
 /**
@@ -1260,10 +1314,7 @@ export function findInPlayGrantedActions(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): ActivateGrantedAction[] {
-  return actions.filter(
-    (a): a is ActivateGrantedAction =>
-      a.type === 'activate-granted-action' && a.sourceCardId === cardInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'activate-granted-action', cardInstanceId, 'sourceCardId');
 }
 
 /**
@@ -1280,10 +1331,7 @@ export function findEventMaintenanceActions(
   actions: readonly GameAction[],
   cardInstanceId: CardInstanceId,
 ): PayEventMaintenanceAction[] {
-  return actions.filter(
-    (a): a is PayEventMaintenanceAction =>
-      a.type === 'pay-event-maintenance' && a.sourceInstanceId === cardInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'pay-event-maintenance', cardInstanceId, 'sourceInstanceId');
 }
 
 /**
@@ -1341,12 +1389,8 @@ export function findOpponentInfluenceTargetActions(
   selectedInfluencer: CardInstanceId,
   targetInstanceId: CardInstanceId,
 ): OpponentInfluenceAttemptAction[] {
-  return actions.filter(
-    (a): a is OpponentInfluenceAttemptAction =>
-      a.type === 'opponent-influence-attempt'
-      && a.influencingCharacterId === selectedInfluencer
-      && a.targetInstanceId === targetInstanceId,
-  );
+  return actionsOfTypeFor(actions, 'opponent-influence-attempt', selectedInfluencer, 'influencingCharacterId')
+    .filter(a => a.targetInstanceId === targetInstanceId);
 }
 
 /**

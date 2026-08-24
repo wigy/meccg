@@ -20,7 +20,7 @@
 
 import { setEngineConsoleLog } from '@meccg/shared';
 import { playGame } from '../runner.js';
-import { parseCliArgs, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
+import { cliPreamble, numberFlag, resolveAgent, resolvePair, resolveDecks } from './common.js';
 import type { Agent } from '../types.js';
 
 /** Flag reference, printed by `--help`. */
@@ -38,11 +38,7 @@ Options:
   --help            this message
 `;
 
-const args = parseCliArgs(process.argv.slice(2));
-if (args.flags['help'] === true || args.flags['h'] === true) {
-  console.log(USAGE);
-  process.exit(0);
-}
+const args = cliPreamble(USAGE);
 setEngineConsoleLog(false);
 
 const pairs = numberFlag(args, 'games', 6);

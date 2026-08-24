@@ -22,4 +22,4 @@ export function loadAiStrategy(name: string): AiStrategy | null {
 }
 
 export type { AiStrategy, AiContext, WeightedAction } from './strategy.js';
-export { sampleWeighted } from './strategy.js';
+export { sampleWeighted, pickBest } from './strategy.js';

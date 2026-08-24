@@ -20,6 +20,8 @@
  * | 4 | Any non-unique 1-mind ally playable at Radagast's current site  | IMPLEMENTED |
  * | 5 | Grant excludes an ally the bearer already controls a copy of    | IMPLEMENTED |
  * | 6 | Granted ally may be sourced from the discard pile or the hand   | IMPLEMENTED |
+ * | 7 | Playable bare when Radagast is NOT in play ("if he is in play") | IMPLEMENTED |
+ * | 8 | Attaches to Radagast the moment he enters play                  | IMPLEMENTED |
  *
  * Modeling:
  *  - Rule 1: `radagast-specific` keyword gates play to a Radagast-avatar player
@@ -32,6 +34,12 @@
  *    generator relaxes an ally's site-match at the bearer's company
  *    (`allyPlayGrantAllowsAlly`) and sources matching allies from the discard
  *    pile; the reducer removes a `fromDiscard` play from the discard pile.
+ *  - Rules 7–8: "Place this card on Radagast **if he is in play**" — placement
+ *    is conditional, not a play requirement. An untargeted `play-option` gated
+ *    on `player.avatarInPlay: false` lets the card enter play bare in
+ *    `cardsInPlay`, and an `on-event: avatar-enters-play` move (self →
+ *    `in-play-on-character`) attaches it to Radagast the moment he is revealed
+ *    — the wh-92 / wh-99 / Bade to Rule (le-167) pattern.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -40,7 +48,7 @@ import {
   RESOURCE_PLAYER,
   buildTestState, makePlayDeck, resetMint,
   makeSitePhase,
-  viableActions,
+  viableActions, viablePlayCharacterActions,
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
   attachItemToChar, attachAllyToChar,
@@ -63,10 +71,17 @@ const SARUMAN = 'wh-9' as CardDefinitionId;
 const BOROMIR = 'tw-134' as CardDefinitionId;
 /** Isengard — a Fallen-wizard Wizardhaven (haven site). */
 const ISENGARD = 'wh-56' as CardDefinitionId;
+/** Rhosgobel — Radagast's home site, so he can be revealed from hand. */
+const RHOSGOBEL = 'wh-57' as CardDefinitionId;
 
 /** Noble Steed — non-unique, 1 mind. Normally playable only in six named
  *  regions (Moria is not one) → the grant is what makes it playable there. */
 const NOBLE_STEED = 'wh-33' as CardDefinitionId;
+/** Noble Hound — non-unique, 1 mind, printed "playable at any tapped or
+ *  untapped Border-hold" (`play-target` site `requireTapped: false`). Used to
+ *  verify the discard-pile grant path honors that flag, not just the
+ *  `playable-at-tapped-site` keyword. */
+const NOBLE_HOUND = 'dm-179' as CardDefinitionId;
 /** Goldberry — unique, 2 mind. Negative control for the grant's filter. */
 const GOLDBERRY = 'tw-245' as CardDefinitionId;
 
@@ -183,16 +198,18 @@ describe('Glove of Radagast (wh-111)', () => {
 
   // ── Rule 3: contributes 2 stage points while attached ──────────────────────
 
-  test('placing the card on Radagast adds it to his items and yields 2 stage points', () => {
+  test('placing the card on Radagast adds it to his items and yields 2 stage points and 1 corruption point', () => {
     const base = radagastOrgState();
     const radagastId = findCharInstanceId(base, RESOURCE_PLAYER, RADAGAST);
     const gloveId = findHandCardId(base, RESOURCE_PLAYER, GLOVE);
+    const cpBefore = getCharacter(base, RESOURCE_PLAYER, RADAGAST).effectiveStats.corruptionPoints;
 
     expect(base.players[RESOURCE_PLAYER].stagePoints).toBe(0);
     const after = playPermanentEventAndResolve(base, PLAYER_1, gloveId, radagastId);
 
     expect(getCharacter(after, RESOURCE_PLAYER, RADAGAST).items.some(i => i.definitionId === GLOVE)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+    expect(getCharacter(after, RESOURCE_PLAYER, RADAGAST).effectiveStats.corruptionPoints).toBe(cpBefore + 1);
   });
 
   // ── Rule 4: grant makes a non-unique 1-mind ally playable at Radagast's site ─
@@ -256,6 +273,20 @@ describe('Glove of Radagast (wh-111)', () => {
     expect(after.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Tapped);
   });
 
+  test('with the Glove, a discard ally printed "playable at tapped or untapped" (Noble Hound) IS playable when the site is tapped', () => {
+    const base = radagastSiteAtMoria({ discard: [NOBLE_HOUND] });
+    const withGlove = attachItemToChar(base, RESOURCE_PLAYER, RADAGAST, GLOVE);
+    const state: GameState = {
+      ...withGlove,
+      players: withGlove.players.map((p, i) =>
+        i === RESOURCE_PLAYER
+          ? { ...p, companies: p.companies.map(c => ({ ...c, currentSite: { ...c.currentSite!, status: CardStatus.Tapped } })) }
+          : p,
+      ) as unknown as GameState['players'],
+    };
+    expect(playInstIdsFor(state, NOBLE_HOUND, 'discard').length).toBeGreaterThanOrEqual(1);
+  });
+
   // ── The grant is company-scoped: only Radagast's company benefits ───────────
 
   test('a second company without Radagast does not gain the grant', () => {
@@ -289,5 +320,67 @@ describe('Glove of Radagast (wh-111)', () => {
     // Active company is the Moria one (index 1), which lacks Radagast/the Glove.
     const state = { ...withGlove, phaseState: makeSitePhase({ activeCompanyIndex: 1 }) };
     expect(playInstIdsFor(state, NOBLE_STEED, 'hand')).toHaveLength(0);
+  });
+
+  // ── Rules 7–8: playable without Radagast, attaches when he is revealed ─────
+  // "Place this card on Radagast if he is in play" makes the placement
+  // conditional, not the play. Mirrors Huntsman's Garb (wh-92) / Give Welcome
+  // to the Unexpected (wh-99).
+
+  /** Organization-phase state with Radagast NOT in play: he sits in hand
+   *  (still the declared avatar, so the radagast-specific gate passes) and his
+   *  home site Rhosgobel heads the site deck so he can be revealed. */
+  function radagastUnrevealedOrgState(): GameState {
+    return buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [BOROMIR] }],
+          hand: [GLOVE, RADAGAST],
+          siteDeck: [RHOSGOBEL],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: ISENGARD, characters: [] }],
+          hand: [],
+          siteDeck: [ISENGARD],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+  }
+
+  test('playable bare during the organization phase when Radagast is not in play', () => {
+    const state = radagastUnrevealedOrgState();
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(1);
+    expect((actions[0].action as { targetCharacterId?: unknown }).targetCharacterId).toBeUndefined();
+
+    const gloveId = findHandCardId(state, RESOURCE_PLAYER, GLOVE);
+    const after = playPermanentEventAndResolve(state, PLAYER_1, gloveId);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GLOVE)).toBe(true);
+    // The stage points are earned whether or not the card sits on Radagast.
+    expect(after.players[RESOURCE_PLAYER].stagePoints).toBe(2);
+  });
+
+  test('attaches to Radagast the moment he enters play', () => {
+    const org = radagastUnrevealedOrgState();
+    const gloveId = findHandCardId(org, RESOURCE_PLAYER, GLOVE);
+    const bare = playPermanentEventAndResolve(org, PLAYER_1, gloveId);
+
+    // Reveal Radagast at his home site — the Glove leaves `cardsInPlay` for his items.
+    const playRadagast = viablePlayCharacterActions(bare, PLAYER_1).find(a => a.characterInstanceId
+      === findHandCardId(bare, RESOURCE_PLAYER, RADAGAST));
+    expect(playRadagast).toBeDefined();
+    const revealed = dispatch(bare, playRadagast!);
+
+    expect(revealed.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === GLOVE)).toBe(false);
+    expect(getCharacter(revealed, RESOURCE_PLAYER, RADAGAST).items.some(i => i.definitionId === GLOVE)).toBe(true);
   });
 });

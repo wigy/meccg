@@ -41,6 +41,20 @@ export interface CreatureKeyRestriction {
    */
   readonly siteNames?: readonly string[];
   /**
+   * Region names whose SITES this creature can be played at. The destination
+   * site's own `region` field must be one of the listed names — the "may
+   * also be played at sites in these regions" clause the dragon cycle prints
+   * alongside its Doors-of-Night region keying (Smaug tw-90, Agburanar tw-3,
+   * Daelomin tw-26, Bairanax td-3, Eärcaraxë td-20, Itangast td-36, Scatha
+   * td-60). Distinct from {@link regionNames}, which matches the company's
+   * movement path: this keys to the site itself, so it also holds for a
+   * company that reached the site without moving through the region this
+   * turn. Evaluated in `findCreatureKeyingMatches` (offer side) and
+   * `checkCreatureKeying` (validation side); the recorded `keyedBy.method`
+   * is `"site-in-region"`.
+   */
+  readonly siteInRegionNames?: readonly string[];
+  /**
    * Site keyword tags where this creature can be played. The destination
    * site must carry at least one of the listed keywords. Used for creatures
    * whose playability is tied to a site category rather than a single type
@@ -107,9 +121,41 @@ export interface CreatureKeyRestriction {
    *   inspects site structure rather than the company's movement path,
    *   e.g. *Rain-drake* ("may also be played at a R&L that has two
    *   Wildernesses or one Coastal Sea in its site path").
+   * - `hazardsEncountered` — the names of creature-sourced hazard attacks
+   *   already faced by the target company during its *current* M/H
+   *   sub-phase (the same list `followsAttackRaces` derives races from).
+   *   Lets a regionally-keyed entry additionally require a companion
+   *   creature to have already attacked, via `{ "hazardsEncountered":
+   *   { "$includes": "<creature name>" } }` — e.g. *Mûmak* (tw-66): "May
+   *   also be played (on the same turn and on the same company as
+   *   Corsairs of Umbar) keyed to Andrast, Anfalas, Belfalas, Lebennin…"
+   *   (`{ "regionNames": [...], "when": { "hazardsEncountered": {
+   *   "$includes": "Corsairs of Umbar" } } }`).
+   * - `destinationSite.region` — the destination site card's own printed
+   *   `region` name. Used to scope a `siteTypes` entry to sites located
+   *   in specific named regions (as opposed to `regionNames`, which
+   *   matches the company's *movement path* and is only populated while
+   *   the company is moving — see CoE rule 2.IV.vii.2). *Huorn* (tw-45):
+   *   "may also be played at Ruins & Lairs and Shadow-holds in [Heart of
+   *   Mirkwood, Southern Mirkwood, Western Mirkwood, and Woodland
+   *   Realm]" is a site-type keying (works against a stationary company
+   *   too) restricted to those four regions —
+   *   `{ siteTypes: ["ruins-and-lairs", "shadow-hold"], when: {
+   *   "destinationSite.region": { "$in": ["Heart of Mirkwood", ...] } } }`.
+   * - `hazardsEncountered` — the names of hazard-creature cards that have
+   *   already attacked the target company this M/H sub-phase (the same
+   *   list backing `followsAttackRaces`/`deriveFacedRaces`, but exposed
+   *   here by exact card name for a companion-creature clause). Used by
+   *   *Mûmak (Oliphant)* (tw-66): "May also be played (on the same turn
+   *   and on the same company as *Corsairs of Umbar*) keyed to [regions];
+   *   and at Ruins & Lairs and Shadow-holds in these regions" —
+   *   `{ regionNames: [...], when: { "hazardsEncountered": { "$includes":
+   *   "Corsairs of Umbar" } } }` gates the alt-keying on Corsairs of Umbar
+   *   having already attacked the same company earlier this turn.
    *
    * Evaluated in `findCreatureKeyingMatches` in
-   * `legal-actions/movement-hazard.ts`.
+   * `legal-actions/movement-hazard.ts` and `checkCreatureKeying` in
+   * `mh-hazard-play.ts`.
    */
   readonly when?: Condition;
 }

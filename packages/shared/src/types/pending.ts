@@ -351,6 +351,20 @@ export interface PendingResolution {
          * modified total).
          */
         readonly alwaysFailRolls?: readonly number[];
+        /**
+         * Modified-total values that trigger `action` INSTEAD of the pass/fail
+         * branch — the Orc/Troll printed discard numbers (CoE 3.I.3/3.I.4):
+         * Veils Flung Away (le-146) discards an Orc/Troll whose modified
+         * body-check total matches a printed discard number, while any other
+         * total falls through to the threshold comparison (a failed check
+         * merely taps). Unlike `alwaysFailRolls` (raw roll), `values` are
+         * compared against the modified total, since body modifiers shift the
+         * discard numbers by the same amount.
+         */
+        readonly matchOutcome?: {
+          readonly values: readonly number[];
+          readonly action: TriggeredAction;
+        };
         /** Run when the check passes. */
         readonly onPass?: TriggeredAction;
         /** Run when the check fails. */
@@ -1232,6 +1246,32 @@ export interface PendingResolution {
         readonly rollingPlayer: PlayerId;
         /** Added to the character's effective mind to form the discard threshold. */
         readonly rollAddend: number;
+      }
+    | {
+        /**
+         * Long Dark Reach (dm-70): the card-player has revealed the top cards
+         * of their own play deck and at least one is an eligible attacker
+         * candidate (Nazgûl, Dragon, or non-unique creature, playable outside
+         * Coastal Sea). They must choose exactly one
+         * (`choose-long-dark-reach-attacker`) to immediately attack the target
+         * company. The choice is mandatory (no pass — the resolution is only
+         * enqueued when {@link eligibleInstanceIds} is non-empty). On
+         * resolution the unused revealed cards are shuffled among themselves
+         * and returned to the top of the card-player's play deck.
+         */
+        readonly type: 'reveal-deck-choose-attacker';
+        /** Instance ids of ALL revealed top-of-deck cards (top-first). */
+        readonly revealedInstanceIds: readonly CardInstanceId[];
+        /** Instance ids of the eligible-attacker subset. */
+        readonly eligibleInstanceIds: readonly CardInstanceId[];
+        /** The card-player whose own deck was revealed and who is choosing. */
+        readonly cardPlayerId: PlayerId;
+        /** The company the chosen creature will attack. */
+        readonly targetCompanyId: CompanyId;
+        /** The company's owner (defending player). */
+        readonly defendingPlayerId: PlayerId;
+        /** The Long Dark Reach event instance (for logging / attackSource attribution). */
+        readonly sourceInstanceId: CardInstanceId;
       };
 }
 
@@ -1371,6 +1411,19 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Elf-path (td-111): like `only-creatures-keyed-to-site-at-ruins-lairs`,
+         * but the restriction applies **only if** the target company's resolved
+         * site path is exactly one or two regions and contains no Dark-domain
+         * [{d}] or Shadow-land [{s}] regions. While active and the path is
+         * safe, the opponent may only play hazard creatures keyed to the
+         * company's new site (by site-type or site-name); region-keyed
+         * creatures are dropped. When the path is longer or crosses a
+         * Dark-domain/Shadow-land, the constraint imposes nothing.
+         */
+        readonly type: 'only-creatures-keyed-to-site-if-safe-path';
+      }
+    | {
+        /**
          * Paths of the Dead (tw-302): while active, the opponent may only play
          * hazard creatures of the given race against the target company ("The
          * only hazard creatures that may be played on this company are Undead,
@@ -1499,6 +1552,13 @@ export interface ActiveConstraint {
          * successful, shuffle the faction into your play deck."
          */
         readonly onFailure?: 'shuffle-faction-into-deck';
+        /**
+         * For an influence modifier: what happens when the boosted
+         * (consuming) check succeeds. `'draw-card'` draws one card for the
+         * influencer's controller. Lordly Presence (tw-267): "If the
+         * influence check is successful, draw a card."
+         */
+        readonly onSuccess?: 'draw-card';
         /**
          * For a faction-influence modifier: substitute the influencer's
          * unused direct influence with his prowess. When the constraint is
@@ -1746,6 +1806,49 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Fell Beast (tw-33): played standalone (no existing attack) against a
+         * company's M/H phase — "A Nazgûl must be played as the first declared
+         * action ... or else this card is returned to its player's hand"
+         * (CRF). Targets the company Fell Beast was played against; consumed
+         * by the next hazard-creature card of `race` played against that same
+         * company (`handlePlayHazard`/`handlePlayReservedCreature`-adjacent
+         * creature-play path), which folds `strikesModifier`/`prowessModifier`/
+         * `grantAttackerChoosesDefenders` into the resulting attack and may use
+         * `keyingRegionTypes`/`keyingSiteTypes` to satisfy keying beyond the
+         * creature's own printed `keyedTo`. If the company's M/H phase ends
+         * with the constraint still unconsumed, `finalizeCompanyMH` returns
+         * the source card from discard to its owner's hand instead of merely
+         * dropping the constraint.
+         */
+        readonly type: 'nazgul-boost-pending';
+        /** The creature race this boost applies to (`"ringwraith"`). */
+        readonly race: Race;
+        /** Strikes delta applied to the boosted creature's attack. */
+        readonly strikesModifier: number;
+        /** Prowess delta applied to the boosted creature's attack. */
+        readonly prowessModifier: number;
+        /** Whether the boosted creature's attack grants attacker-chooses-defenders. */
+        readonly grantAttackerChoosesDefenders: true;
+        /** Extra region types the boosted creature may additionally be keyed to. */
+        readonly keyingRegionTypes?: readonly import('./common.js').RegionType[];
+        /** Extra site types the boosted creature may additionally be keyed to. */
+        readonly keyingSiteTypes?: readonly import('./common.js').SiteType[];
+      }
+    | {
+        /**
+         * Fell Beast (tw-33): "Cannot be duplicated on a given Nazgûl." Marks a
+         * specific unique Nazgûl creature definition as having already received
+         * a Fell Beast boost (Mode A), forever — `until-cleared` scope, never
+         * auto-cleared. Checked before offering/consuming a `nazgul-boost-pending`
+         * constraint for the same creature; a matching marker makes that
+         * creature ineligible while any *other* Nazgûl remains eligible.
+         */
+        readonly type: 'nazgul-boost-used';
+        /** The boosted creature's definition id (unique, so 1:1 with the named Nazgûl). */
+        readonly creatureDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Withered Lands (td-85): a turn-scoped environment that softens
          * creature keying. Each boost lets one region of type `from` in a
          * company's site path count as `count` regions of type `asType`
@@ -1796,6 +1899,23 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Lost in Dark-domains (tw-52): "If the company has a Dark-domain
+         * [{d}] in its site path, its hazard limit is doubled until the end
+         * of the turn." A hazard short-event played during the target
+         * company's own movement/hazard phase, once the site path is already
+         * resolved (unlike `hazard-limit-region-count`/`hazard-limit-modifier`,
+         * which are added before `set-hazard-limit` runs). Applied in
+         * `effectiveHazardLimit` (hazard-limit.ts) as a multiplier over the
+         * sum of `hazardLimitAtReveal` and every additive modifier, so it
+         * doubles whatever the company's live limit already is rather than
+         * a fixed base.
+         */
+        readonly type: 'hazard-limit-multiplier';
+        /** Factor the hazard limit is multiplied by (2 for "doubled"). */
+        readonly value: number;
+      }
+    | {
+        /**
          * Fair Sailing (tw-232) and the "Fair Travels in X" family: the
          * hazard limit for the target company decreases by {@link perCount}
          * for every region of {@link regionType} in its resolved site path,
@@ -1815,6 +1935,85 @@ export interface ActiveConstraint {
         readonly perCount: number;
         /** Floor the hazard limit is never reduced below by this constraint. */
         readonly floor: number;
+      }
+    | {
+        /**
+         * Fair Sailing's named-region sibling: Anduin River (tw-191) and the
+         * "mountain-crossing" family (Ash Mountains tw-194, Misty Mountains
+         * tw-284, Mountains of Shadow tw-287, White Mountains tw-359) — "if the
+         * site moved to is in one of the regions listed above, the hazard limit
+         * is reduced by two (to a minimum of two)". Unlike
+         * `hazard-limit-region-count` (counts a region *type* across the whole
+         * path), this fires **once** — a flat {@link value} — when the
+         * company's final destination region *name* (last entry of the resolved
+         * site path, or the destination site's region for starter movement) is
+         * among {@link regionNames}. Read directly from `snapshotHazardLimit`
+         * (mh-steps.ts) once the destination is known, mirroring
+         * `hazard-limit-region-count`'s deferred-check timing. Added by the
+         * card's no-tap ("alternatively") mode — mutually exclusive with
+         * `region-adjacency-shortcut`, added by its ranger-tap mode.
+         */
+        readonly type: 'hazard-limit-region-name-match';
+        /** Region names that trigger the reduction when the company's destination lies within one. */
+        readonly regionNames: readonly string[];
+        /** The hazard-limit adjustment applied once when matched (negative to decrease). */
+        readonly value: number;
+        /** Floor the hazard limit is never reduced below by this constraint. */
+        readonly floor: number;
+      }
+    | {
+        /**
+         * Anduin River (tw-191) and the "mountain-crossing" family's ranger-tap
+         * mode: "tap the ranger to move [this company] as if the following
+         * pairs of regions were adjacent". Turn-scoped and company-targeted,
+         * added when the card is played by tapping an untapped ranger in the
+         * target company. Consulted at both the organization-phase
+         * plan-movement pass and the Movement/Hazard declare-path
+         * (`withExtraRegionAdjacency`, movement-map.ts) — mirroring
+         * `evilHourRegionBonus`'s dual-consult pattern — so the extra
+         * adjacency widens which sites are reachable via region movement and
+         * which region-card paths are offered to reach an already-declared
+         * destination. A no-op for a company that ultimately uses starter or
+         * Under-deeps movement instead ("if the company uses region cards for
+         * its site path").
+         */
+        readonly type: 'region-adjacency-shortcut';
+        /** Bidirectional region-name pairs treated as adjacent for this company's region movement. */
+        readonly pairs: readonly (readonly [string, string])[];
+      }
+    | {
+        /**
+         * Ash Mountains (tw-194) and its "movement enhancer" family: an
+         * end-of-organization-phase resource short-event bound to a company
+         * containing a ranger. While active, `declare-path` region-movement
+         * enumeration (`legal-actions/movement-hazard.ts`) treats each named
+         * {@link pairs} entry as an extra adjacency edge, but only offers
+         * paths using it while the company still has an untapped character
+         * with {@link requiredSkill}. If the resolved path actually uses one
+         * of those virtual edges, `handleRevealNewSite` (mh-steps.ts) taps
+         * that character, removes this constraint, and injects
+         * {@link attack} as a `region-shortcut-attack` combat before the
+         * hazard limit is set. Otherwise the constraint survives to
+         * `snapshotHazardLimit`, which applies {@link hazardLimitReduction}
+         * if the company's resolved destination region is one of the
+         * (flattened) region names in {@link pairs} — the printed
+         * "alternatively" clause. The two payoffs are mutually exclusive on
+         * a single move because firing the attack removes the constraint
+         * before the hazard-limit check ever sees it.
+         */
+        readonly type: 'region-shortcut';
+        /** Region-name pairs treated as adjacent for path-finding purposes. */
+        readonly pairs: readonly (readonly [string, string])[];
+        /** Skill an untapped company member must have to use the shortcut. */
+        readonly requiredSkill: import('./common.js').Skill;
+        /** Forced attack faced when the shortcut is actually used. */
+        readonly attack?: {
+          readonly race: import('./common.js').Race;
+          readonly strikes: number;
+          readonly prowess: number;
+        };
+        /** Hazard-limit adjustment applied when the destination region matches, and the shortcut was not used. */
+        readonly hazardLimitReduction: { readonly value: number; readonly floor: number };
       }
     | {
         /**
@@ -2056,6 +2255,16 @@ export interface ActiveConstraint {
         /** The character instance to which the bonus applies. */
         readonly characterId: CardInstanceId;
         /**
+         * Optional ceiling applied to the running stat total immediately after
+         * this bonus is added (mirrors a JSON `stat-modifier`'s `max` field —
+         * see {@link resolveStatModifiers}). Used by Biter and Beater! (as-46):
+         * "the maximum values indicated by the weapons still apply" — the +2
+         * bonus it grants a named-weapon bearer is capped at that weapon's own
+         * printed maximum, so it cannot push the total past a ceiling the
+         * weapon's own bonus alone would already respect.
+         */
+        readonly max?: number;
+        /**
          * Optional name of a card that must remain in play for the bonus to
          * apply (Heart of Dark Fire ba-63: "+5 direct influence this turn while
          * Strangling Coils is in play"). Re-checked by the effect resolver on
@@ -2073,6 +2282,28 @@ export interface ActiveConstraint {
          * Without it an `until-cleared` constraint would outlive its source.
          */
         readonly requiresSourceBorne?: boolean;
+      }
+    | {
+        /**
+         * Attack-scoped reduction of the attacking creature's body-check
+         * target for strikes faced by one named character — the short-event
+         * counterpart of an item's `enemy-modifier` (stat "body", op
+         * "subtract"), which normally only reaches a bearer through their own
+         * borne items. Consulted in `handleBodyCheckRoll`'s `bodyCheckTarget
+         * === 'creature'` branch alongside `resolveEnemyBody`'s item-sourced
+         * reduction; `Math.max(0, ...)` mirrors the `subtract` op's floor.
+         * Scoped to `{ kind: 'attack' }` so it is swept when combat finalizes.
+         *
+         * Used by Biter and Beater! (as-46): "Every Sword of Gondolin,
+         * Orcrist, and Glamdring in target company … lower the body of
+         * strikes their bearers face by 1" — one constraint per matching
+         * borne weapon, targeting that weapon's bearer.
+         */
+        readonly type: 'character-creature-body-modifier';
+        /** Amount subtracted from the creature's body-check target. */
+        readonly value: number;
+        /** The character instance whose faced strikes are reduced. */
+        readonly characterId: CardInstanceId;
       }
     | {
         /**
@@ -2126,6 +2357,18 @@ export interface ActiveConstraint {
         readonly type: 'skip-next-untap';
         /** The `flee-from-strike` card instance to discard when the skip fires. */
         readonly cardInstanceId: import('./common.js').CardInstanceId;
+      }
+    | {
+        /**
+         * Morgul-knife (tw-64) / The Pale Sword (tw-97): "a character with
+         * this card may attempt to remove it instead of untapping or
+         * healing." Added by the corruption card's `grant-action` the
+         * instant it is activated — regardless of the removal roll's
+         * outcome, attempting it costs the bearer this untap phase's untap
+         * and heal. Scoped to `turn` (it only ever needs to survive from
+         * activation to the same untap phase's `performUntap` sweep).
+         */
+        readonly type: 'skip-untap-and-heal';
       }
     | {
         /**

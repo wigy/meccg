@@ -28,6 +28,8 @@
 
 import { CardStatus, stayUntappedPenalty } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CombatState, PlayerView } from '@meccg/shared';
+import type { CombatAbilities, StrikeCancelGuard } from './ability.js';
+import { combatAbilitiesOf, strikeCancelGuardOf } from './ability.js';
 
 /** A character or ally that could face a strike. */
 export interface StrikeTarget {
@@ -47,6 +49,24 @@ export interface StrikeTarget {
   readonly status: CardStatus;
   /** Allies cannot bear items and are salvaged differently. */
   readonly isAlly: boolean;
+  /**
+   * Combat-relevant card text, and what removes each piece of it.
+   *
+   * Carried on the target because the attacker's choice of whom to strike turns
+   * on it: a prowess-1 character the defender would never put up can be the
+   * best target on the board when a tap takes his ability away.
+   */
+  readonly abilities: CombatAbilities;
+  /**
+   * A tap-to-cancel-a-strike ability this character can spend on a
+   * company-mate (Fatty Bolger tw-495), with its guards, or absent.
+   *
+   * Carried on the target because the sequence enumeration models the defence
+   * *using* it: a strike aimed at a protected company-mate can be answered by
+   * this character's tap instead of a roll, which changes what the strike is
+   * worth to whoever aimed it.
+   */
+  readonly strikeCancel?: StrikeCancelGuard | null;
 }
 
 /** Modifiers that apply to one particular strike assignment. */
@@ -107,6 +127,10 @@ export function rosterOf(
       prowess: character.effectiveStats.prowess,
       status: character.status,
       isAlly: false,
+      abilities: combatAbilitiesOf(cardPool[character.definitionId]),
+      // The engine's cancel-strike scan considers only the company's
+      // characters, so allies below are not credited with one.
+      strikeCancel: strikeCancelGuardOf(cardPool[character.definitionId]),
     });
     for (const ally of character.allies) {
       targets.push({
@@ -119,6 +143,9 @@ export function rosterOf(
         prowess: 0,
         status: ally.status,
         isAlly: true,
+        // An ally's card text is read the same way; nothing about the
+        // classification is character-specific.
+        abilities: combatAbilitiesOf(cardPool[ally.definitionId]),
       });
     }
   }

@@ -15,11 +15,11 @@
  *                   carries no standalone gate of its own.
  *   - "Discard on a body check result of 8." → `discardBodyCheck: [8]`; in the
  *                   mass body check resolution a roll that meets/beats the
- *                   effective threshold passes, otherwise Lugdush is discarded
+ *                   body passes; a total matching [8] discards Lugdush
  *                   to the discard pile (not eliminated to out-of-play).
  *
  * Veils Flung Away applies a −1 modifier to the mass body check in a wilderness,
- * so the effective threshold drops from 8 to 7: a roll of 6 (< 7) fails and
+ * so a roll of 9 gives a total of 8, matching the printed discard value, and
  * discards Lugdush; a roll of 7 (= 7) passes and he stays in play.
  *
  * Characters used:
@@ -84,8 +84,8 @@ describe('Lugdush (wh-6)', () => {
   // ── discardBodyCheck [8]: fail → discard to discard pile ──────────────────
 
   test('discarded to discard pile when mass body check fails', () => {
-    // Veils Flung Away applies modifier −1. discardBodyCheck [8] → threshold 7.
-    // Roll 6 (< 7) → fail → Lugdush discarded to the resource player's discard pile.
+    // Veils Flung Away applies a -1 roll modifier (CoE 3.I.1). Threshold = body 8; discard band [8].
+    // Roll 9 (total 8, matching the value) → Lugdush discarded to the resource player's discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -106,15 +106,15 @@ describe('Lugdush (wh-6)', () => {
     expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
     expect(s.pendingResolutions[0].actor).toBe(PLAYER_1);
 
-    // discardBodyCheck [8] + modifier −1 → pre-resolved threshold 7, target Lugdush.
+    // discardBodyCheck [8] → threshold = body 8, -1 roll modifier, target Lugdush.
     const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === lugdushId);
     expect(dc).toBeDefined();
     if (dc?.kind.type === 'dice-check') {
       expect(dc.kind.targetCharacterId).toBe(lugdushId);
-      expect(dc.kind.threshold).toBe(7);
+      expect(dc.kind.threshold).toBe(8);
     }
 
-    s = { ...s, cheatRollTotal: 6 };
+    s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -133,7 +133,7 @@ describe('Lugdush (wh-6)', () => {
   // ── discardBodyCheck [8]: pass → stays in play ────────────────────────────
 
   test('stays in play when mass body check passes', () => {
-    // discardBodyCheck [8], modifier −1 → threshold 7. Roll 7 (>= 7) → pass.
+    // discardBodyCheck [8], -1 roll modifier. Roll 7 → total 6: no match, ≤ body → pass.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,

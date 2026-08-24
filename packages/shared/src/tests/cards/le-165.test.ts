@@ -14,6 +14,7 @@
  * Engine support:
  * | # | Rule                                                  | Status      |
  * |---|-------------------------------------------------------|-------------|
+ * | 0 | Playable only during the organization phase (play-condition phase) | IMPLEMENTED |
  * | 1 | Org-phase, on a character with mind ≤ 6 (play-target) | IMPLEMENTED |
  * | 2 | Only at a non-Darkhaven (play-condition site-type)    | IMPLEMENTED |
  * | 3 | Bearer's mind halved, round down (stat-modifier)      | IMPLEMENTED |
@@ -105,6 +106,32 @@ describe('Awaiting the Call (le-165)', () => {
 
   test('NOT playable on a character whose mind exceeds 6 (The Mouth, mind 9)', () => {
     const state = orgState({ character: THE_MOUTH, site: ETTENMOORS });
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    expect(actions.length).toBe(0);
+  });
+
+  test('NOT playable outside the organization phase (end-of-turn)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: ETTENMOORS, characters: [CALENDAL] }],
+          hand: [AWAITING_THE_CALL],
+          siteDeck: [ETTENMOORS],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: DOL_GULDUR, characters: [THE_MOUTH] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
     const actions = viableActions(state, PLAYER_1, 'play-permanent-event');
     expect(actions.length).toBe(0);
   });

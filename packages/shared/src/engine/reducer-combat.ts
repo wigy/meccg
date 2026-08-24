@@ -11,7 +11,8 @@ import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { companyById, playerById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, defById, getCardEffects } from './reducer-utils.js';
+import { companyById, playerById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, defById, getCardEffects, companySubphaseScope } from './reducer-utils.js';
+import { enqueueCorruptionCheck } from './pending.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
@@ -19,7 +20,7 @@ import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from '.
 import { findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
-import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer } from './combat-actions.js';
+import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer, handleCancelPrisonerTaking, finalizeCombatFromCancelPrisonerTakingOffer } from './combat-actions.js';
 import { finalizeCombat } from './combat-finalize.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 
@@ -56,6 +57,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'cancel-by-tap': handleCancelByTap,
   'play-strike-event': handlePlayStrikeEvent,
   'cancel-strike': handleCancelStrike,
+  'dodge-strike': handleDodgeStrike,
   'flee-from-strike': handleFleeFromStrike,
   'play-sacrifice-of-form': handleSacrificeOfForm,
   'protect-from-assignment': handleProtectFromStrikeAssignment,
@@ -68,6 +70,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'apply-attacker-attack-option': handleApplyAttackerAttackOption,
   'salvage-item': handleSalvageItem,
   'discard-item-from-company': handleDiscardItemFromCompany,
+  'cancel-prisoner-taking': handleCancelPrisonerTaking,
   'play-hazard': handleCombatPlayHazard,
   'haven-join-attack': handleHavenJoinAttack,
   // Rule 3.iv / 3.iv.5: resource short-events may be played between strike
@@ -505,6 +508,12 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     return finalizeCombatFromTrophyOffer(state, combat);
   }
 
+  // Pass during cancel-prisoner-taking-choice: defending player declines to
+  // discard the protecting ally (Noble Hound dm-179) — prisoner-taking proceeds.
+  if (combat.phase === 'cancel-prisoner-taking-choice') {
+    return finalizeCombatFromCancelPrisonerTakingOffer(state, combat);
+  }
+
   // Pass during item-salvage: player declines further transfers, discard remaining items
   if (combat.phase === 'item-salvage') {
     logDetail('Defender passed item-salvage — discarding remaining items');
@@ -554,9 +563,38 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
   // consumed on pass — the player declined.
   if (combat.phase === 'assign-strikes' && combat.assignmentPhase === 'cancel-window') {
     const next = combat.attackerChoosesDefenders ? 'attacker' : 'defender';
+    // Corpse-candle (tw-23/le-67): "if this attack is not canceled, every
+    // character in the company makes a corruption check" — the attack just
+    // survived the cancel window, so the deferred check now fires (CoE 3.i:
+    // cancel/modify-attack actions must be exhausted before anything
+    // conditioned on non-cancellation resolves).
+    let nextState: GameState = state;
+    if (combat.pendingAttackBeginsCorruption) {
+      const { source, reason, modifier } = combat.pendingAttackBeginsCorruption;
+      const defPlayer = playerById(state, combat.defendingPlayerId);
+      const company = defPlayer ? companyById(defPlayer.companies, combat.companyId) : undefined;
+      if (company) {
+        const scope = companySubphaseScope(state.phaseState.phase, company.id);
+        logDetail(`${reason} (creature-attack-begins): attack survived the cancel window — enqueueing corruption check for all ${company.characters.length} character(s) in company`);
+        for (const charInstanceId of company.characters) {
+          nextState = enqueueCorruptionCheck(nextState, {
+            source,
+            actor: state.activePlayer!,
+            scope,
+            characterId: charInstanceId,
+            modifier,
+            reason,
+            // CoE 7.1.1: the resource player may tap other untapped company
+            // mates for +1 each on any corruption check declared but not yet
+            // resolved — this is unconditional, not specific to this card.
+            allowSupport: true,
+          });
+        }
+      }
+    }
     logDetail(`Defender passed cancel window — transitioning to ${next} assignment`);
     return {
-      state: { ...state, combat: { ...combat, assignmentPhase: next, havenJumpOffers: undefined } },
+      state: { ...nextState, combat: { ...combat, assignmentPhase: next, havenJumpOffers: undefined, pendingAttackBeginsCorruption: undefined } },
     };
   }
 

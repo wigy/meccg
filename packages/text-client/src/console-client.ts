@@ -22,22 +22,21 @@
 
 import WebSocket from 'ws';
 import * as readline from 'readline';
-import type { PlayerId, ClientMessage, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
+import type { PlayerId, ClientMessage, GameAction } from '@meccg/shared';
 import {
   loadCardPool,
   formatPlayerView,
   formatCardName,
-  formatCardList,
   describeAction,
   buildCompanyNames,
   buildInstanceLookup,
   stripCardMarkers,
   STATE_DIVIDER,
 } from '@meccg/shared';
-import { loadAiStrategy, sampleWeighted } from '@meccg/sim';
+import { loadAiStrategy, pickBest } from '@meccg/sim';
 import type { AiStrategy } from '@meccg/sim';
 import { ClientLog } from './client-log.js';
-import { loadDeckJoin, listCatalogDecks, parseServerMessage } from './client-common.js';
+import { loadDeckJoin, listCatalogDecks, parseServerMessage, formatDraftLines } from './client-common.js';
 
 const SERVER_URL = process.env.SERVER_URL ?? 'ws://localhost:3000';
 const AI_MODE = process.argv.includes('--ai') ? (process.argv[process.argv.indexOf('--ai') + 1] ?? 'heuristic') : null;
@@ -146,40 +145,8 @@ function connect(): void {
       case 'state': {
         console.log(`\n${STATE_DIVIDER}\n${formatPlayerView(msg.view, cardPool)}\n${STATE_DIVIDER}`);
 
-        if (msg.view.phaseState.phase === 'setup' && msg.view.phaseState.setupStep.step === 'character-draft') {
-          const draft = msg.view.phaseState.setupStep;
-          const instanceLookup = buildInstanceLookup(msg.view);
-          const resolve = (ids: readonly CardInstanceId[]) =>
-            ids.map(id => instanceLookup(id) ?? id as unknown as CardDefinitionId);
-          const list = (ids: readonly CardInstanceId[]) => formatCardList(resolve(ids), cardPool);
-          const ids = (cards: readonly { readonly instanceId: CardInstanceId }[]) =>
-            cards.map(c => c.instanceId);
-          console.log(`Draft round: ${draft.round}`);
-
-          const isSpectator = playerId === 'spectator';
-          if (isSpectator) {
-            console.log(`${msg.view.self.name} pool: ${list(ids(draft.draftState[0].pool))}`);
-            console.log(`${msg.view.self.name} drafted: ${list(ids(draft.draftState[0].drafted))}`);
-            console.log(`${msg.view.opponent.name} pool: ${list(ids(draft.draftState[1].pool))}`);
-            console.log(`${msg.view.opponent.name} drafted: ${list(ids(draft.draftState[1].drafted))}`);
-          } else {
-            // Self pool has real instance IDs; opponent pool has 'unknown-instance' placeholders
-            const hasRealCards = (pool: readonly { readonly instanceId: CardInstanceId }[]) =>
-              pool.length > 0 && (pool[0].instanceId as string) !== 'unknown-instance';
-            const selfIdx = hasRealCards(draft.draftState[0].pool) ? 0
-              : hasRealCards(draft.draftState[1].pool) ? 1
-              : 0;
-            const oppIdx = 1 - selfIdx;
-            console.log(`Your pool: ${list(ids(draft.draftState[selfIdx].pool))}`);
-            console.log(`Your drafted: ${list(ids(draft.draftState[selfIdx].drafted))}`);
-            console.log(`Opponent pool: ${list(ids(draft.draftState[oppIdx].pool))}`);
-            console.log(`Opponent drafted: ${list(ids(draft.draftState[oppIdx].drafted))}`);
-          }
-
-          const flatSetAside = [...draft.setAside[0], ...draft.setAside[1]];
-          if (flatSetAside.length > 0) {
-            console.log(`Set aside: ${list(ids(flatSetAside))}`);
-          }
+        for (const line of formatDraftLines(msg.view, playerId === 'spectator', cardPool)) {
+          console.log(line);
         }
 
         const allEvaluated = msg.view.legalActions;
@@ -192,22 +159,25 @@ function connect(): void {
           [msg.view.opponent.id as string]: msg.view.opponent.name,
         };
 
-        // AI mode: compute weights, display probabilities, sample and send
+        // AI mode: compute weights, display them, pick the best and send.
         if (aiStrategy && lastLegalActions.length > 0) {
           const weighted = aiStrategy.weighActions({ view: msg.view, cardPool, legalActions: lastLegalActions });
-          const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
 
-          // Display probabilities
+          // Display the strategy's raw scores (a preference ordering, not a
+          // probability distribution — see pickBest).
           console.log(`AI (${aiStrategy.name}) thinking:`);
           for (let i = 0; i < weighted.length; i++) {
-            const pct = totalWeight > 0 ? (weighted[i].weight / totalWeight * 100).toFixed(0) : '0';
             const desc = describeAction(weighted[i].action, cardPool, instances, compNames, playerNames);
-            console.log(`  [${i + 1}] ${pct}% ${desc}`);
+            console.log(`  [${i + 1}] score ${weighted[i].weight.toFixed(2)} ${desc}`);
           }
 
           setTimeout(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN || !aiStrategy || lastLegalActions.length === 0) return;
-            const action = sampleWeighted(weighted);
+            // Play the strategy's argmax (pickBest), matching ai-client and the
+            // sim self-play harness. The weights are a preference ordering, not
+            // a distribution — sampling them plays clearly-worse moves a large
+            // fraction of the time (a documented ~47-Elo regression).
+            const action = pickBest(weighted);
             const desc = describeAction(action, cardPool, instances, compNames, playerNames);
             console.log(`AI (${aiStrategy.name}) picks: ${desc}`);
             clientLog.log('msg-out', { msgType: 'action', action });

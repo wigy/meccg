@@ -17,6 +17,7 @@ import type {
   OpponentCompanyView,
   DeclarePathAction,
   ExtraMHMoveAction,
+  CharacterTapExtraMHPhaseAction,
   RegionType,
   ActivateGrantedAction,
   DeclareAgentAttackAction,
@@ -115,17 +116,38 @@ export function getPathRegionTypes(
 }
 
 /**
+ * True when `company` is the one currently resolving its movement/hazard
+ * sub-phase — the active player's company at `activeCompanyIndex`.
+ */
+function isActiveMovementCompany(view: PlayerView, company: Company | OpponentCompanyView): boolean {
+  if (view.phaseState.phase !== Phase.MovementHazard) return false;
+  const idx = (view.phaseState as unknown as { activeCompanyIndex?: number }).activeCompanyIndex ?? -1;
+  const activeSide = view.activePlayer === view.self.id ? view.self : view.opponent;
+  return activeSide.companies[idx]?.id === company.id;
+}
+
+/**
  * If a hazard is selected for character targeting, make a site card clickable
  * to place the hazard on-guard instead. Returns true if the handler was applied.
+ *
+ * Only the site of the company resolving its M/H sub-phase gets the
+ * affordance: `place-on-guard` names no target — the engine places the card
+ * at the ACTIVE company's site — so the glow used to appear on every
+ * rendered site (other companies' sites, hidden destination backs, even the
+ * hazard player's own sites), and clicking one of those read as "place it
+ * here" while the card actually landed at the active company.
  */
 function applyHazardOnGuardClick(
   img: HTMLImageElement,
+  view: PlayerView,
+  company: Company | OpponentCompanyView,
   onAction?: (action: GameAction) => void,
 ): boolean {
   const selectedHazard = getSelectedHazardForPlay();
   if (!selectedHazard || !onAction) return false;
   const ogAction = getSelectedHazardOnGuardAction();
   if (!ogAction) return false;
+  if (!isActiveMovementCompany(view, company)) return false;
   img.classList.add('company-card--influence-target');
   img.style.cursor = 'pointer';
   img.addEventListener('click', (e) => {
@@ -192,6 +214,13 @@ export function renderSiteArea(
      */
     cardsInPlay?: readonly CardInPlay[];
     /**
+     * Mark this company as the active one with an "Active" badge in the top-left
+     * corner of its site card (the destination site when moving, otherwise the
+     * current site). Used by the single-company view, which replaces the green
+     * glow around the whole block with this badge.
+     */
+    activeBadge?: boolean;
+    /**
      * Shared set accumulating the site instance ids already rendered this pass.
      * Threaded across all companies of the all-companies overview so a site
      * instance shared by sibling companies gets a company-scoped
@@ -242,7 +271,7 @@ export function renderSiteArea(
               onAction(havenReturnAction);
             });
           } else {
-            applyHazardOnGuardClick(img, options?.onAction);
+            applyHazardOnGuardClick(img, view, company, options?.onAction);
           }
 
           // Cards bound to this site location (e.g. Hidden Haven) render beneath
@@ -356,6 +385,44 @@ export function renderSiteArea(
     }
   }
 
+  // Character-tap choice during the character-tap-mh-offer step
+  // (`character-tap-extra-mh-phase` — Carambor le-5): the engine legally
+  // offers to tap the qualifying bearer character to send the company on
+  // another movement/hazard phase, but the board gave no way to trigger
+  // it — only the generic "Pass" button was visible, indistinguishable
+  // from declining the option. List the offered tap as a clickable button,
+  // mirroring the extra-mh-move-offer choice list above.
+  if (options?.onAction && view.phaseState.phase === Phase.MovementHazard && view.phaseState.step === 'character-tap-mh-offer') {
+    const isSelfTurn = view.activePlayer === view.self.id;
+    const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    const mhActiveCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
+    const isActiveCompany = mhActiveCompany && company.id === mhActiveCompany.id;
+    const tapActions = isActiveCompany ? viableActions(view.legalActions).filter(
+      (a): a is CharacterTapExtraMHPhaseAction => a.type === 'character-tap-extra-mh-phase',
+    ) : [];
+    if (tapActions.length > 0) {
+      const tapList = document.createElement('div');
+      tapList.className = 'path-choice-list';
+      for (const action of tapActions) {
+        const charDef = resolveCardDef(action.characterInstanceId, view, cardPool);
+        const btn = document.createElement('button');
+        btn.className = 'char-action-tooltip__btn';
+
+        const label = document.createElement('div');
+        label.textContent = `Tap ${charDef?.name ?? action.characterInstanceId as string} for another movement/hazard phase`;
+        btn.appendChild(label);
+
+        const onAction = options.onAction;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(action);
+        });
+        tapList.appendChild(btn);
+      }
+      area.appendChild(tapList);
+    }
+  }
+
   // Movement path and destination (only for own companies with full Company type)
   if ('destinationSite' in company && company.destinationSite) {
     // Movement arrow
@@ -410,7 +477,7 @@ export function renderSiteArea(
               onAction(cancelAction);
             });
           } else {
-            applyHazardOnGuardClick(img, options?.onAction);
+            applyHazardOnGuardClick(img, view, company, options?.onAction);
           }
           area.appendChild(img);
         }
@@ -431,14 +498,14 @@ export function renderSiteArea(
     if (revealedDefId && revealedDef && revealedImg) {
       const revealedElId = siteElementInstanceId(company.id as string, revealedSite.instanceId, options?.renderedSiteInstances);
       const siteImg = createCardImage(revealedDefId as string, revealedDef, revealedImg, 'company-card company-card--site', revealedElId);
-      applyHazardOnGuardClick(siteImg, options?.onAction);
+      applyHazardOnGuardClick(siteImg, view, company, options?.onAction);
       area.appendChild(siteImg);
     } else {
       const back = document.createElement('img');
       back.src = '/images/site-back.jpg';
       back.alt = 'Hidden destination';
       back.className = 'company-card company-card--site';
-      applyHazardOnGuardClick(back, options?.onAction);
+      applyHazardOnGuardClick(back, view, company, options?.onAction);
       area.appendChild(back);
     }
   }
@@ -618,6 +685,35 @@ export function renderSiteArea(
         });
         wrapper.appendChild(thumb);
       }
+    }
+  }
+
+  // "Active" badge — top-left corner of the site card the company is heading to
+  // (destination if moving, otherwise the current site). Anchored to whichever
+  // wrapper the overlays above ended up wrapping the site in, so the badge sits
+  // on the outermost positioned box regardless of which overlays are present.
+  if (options?.activeBadge) {
+    const agentWrapper = area.querySelector<HTMLElement>('.agent-attack-wrapper');
+    const constraintAnchor = area.querySelector<HTMLElement>('.constraint-anchor');
+    const onGuardWrapper = area.querySelector<HTMLElement>('.on-guard-wrapper');
+    // On-guard cards also carry `company-card--site`, so exclude them here —
+    // the badge belongs on the site itself, not on a card lying on it.
+    const siteImages = area.querySelectorAll<HTMLElement>('.company-card--site:not(.on-guard-card)');
+    let anchor = agentWrapper ?? constraintAnchor ?? onGuardWrapper;
+    if (!anchor) {
+      const lastSite = siteImages[siteImages.length - 1] as HTMLElement | undefined;
+      if (lastSite) {
+        anchor = document.createElement('div');
+        anchor.className = 'active-badge-wrapper';
+        lastSite.replaceWith(anchor);
+        anchor.appendChild(lastSite);
+      }
+    }
+    if (anchor) {
+      const badge = document.createElement('div');
+      badge.className = 'company-active-badge';
+      badge.textContent = 'Active';
+      anchor.appendChild(badge);
     }
   }
 

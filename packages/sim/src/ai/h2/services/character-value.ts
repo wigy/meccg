@@ -17,6 +17,16 @@
  * exactly that), so tapping the one character who could have attempted a
  * faction forfeits the whole attempt — which is worth far more than 0.3.
  *
+ * The same understatement applies to the company's *last* untapped body. A
+ * resource play — item, ally, faction, permanent event — needs an untapped
+ * character to carry or control it (`reducer-site.ts` gates every one of
+ * them on it), so tapping the character who would have been the company's
+ * only remaining actor forfeits every resource still in hand, not one tap's
+ * worth of tempo. `denial` already prices exactly this from the *attacking*
+ * seat — tapping an opponent's characters out of their site phase — through
+ * `deniedPlayMp`; this is the same accounting turned on the player's own
+ * roster and hand, which the attacking side never gets to see.
+ *
  * The price is a **reservation value**: computed from the standing and the
  * roster, never from the consumer's decision. That is what keeps the services
  * a DAG — `combat` subtracts this number without `factions` ever being asked
@@ -31,6 +41,7 @@ import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
 import type { Budget, CharacterBudget } from './budget.js';
 import { computeBudget } from './budget.js';
+import { kindOf } from './beliefs.js';
 
 /** A price with the reason it is what it is. */
 export interface CharacterPrice {
@@ -92,6 +103,12 @@ function companyOf(view: PlayerView, instanceId: CardInstanceId): CompanyId | nu
  *   them with direct influence; losing him reverts them to the general
  *   influence pool, and the mind that reverts is a hard number the budget
  *   already knows.
+ * - **Resource plays forfeited by emptying the company.** Tapping the
+ *   company's last untapped body forfeits every resource card still in hand
+ *   that needed one, not only an influence attempt — priced the same way
+ *   `denial` prices it from the other side of the table, through the shared
+ *   `deniedPlayMp` tunable so the two seats never disagree about what a site
+ *   phase is worth.
  */
 function buildComputeCharacterValue(
   view: PlayerView,
@@ -111,6 +128,34 @@ function buildComputeCharacterValue(
     // And the attempt is only worth forfeiting if faction points are worth
     // anything: at the half-total cap this whole term is correctly zero.
     return standing.marginal.faction * tunables.influenceTapCost;
+  };
+
+  // Resource cards actually held — known exactly, unlike `denial`'s belief
+  // about the opponent's hand, because this is our own.
+  const heldResourceCards = view.self.hand
+    .filter(card => kindOf(cardPool[card.definitionId]) === 'resource')
+    .length;
+
+  /**
+   * What tapping this character costs in resource plays it takes with it.
+   *
+   * Marginal, the same way `denial` is: tapping the third of four untapped
+   * characters when only one resource card is held denies nothing, because
+   * the other two are still free to play it. Only the tap that actually
+   * drops the company's untapped count below what is held in hand is
+   * charged — which is exactly the tap that leaves nobody free to act.
+   */
+  const priceOfSelfDenial = (character: CharacterBudget): number => {
+    if (heldResourceCards <= 0) return 0;
+    const companyId = companyOf(view, character.instanceId);
+    if (!companyId) return 0;
+    const untappedBefore = budget.untappedIn(companyId).length;
+    const denied = Math.min(untappedBefore, heldResourceCards) - Math.min(untappedBefore - 1, heldResourceCards);
+    if (denied <= 0) return 0;
+    // What forfeiting `deniedPlayMp` of our own resource points costs, through
+    // `standing` so it picks up the doubling and the diversity cap — denying
+    // ourselves a play in a source already capped is correctly worth nothing.
+    return standing.tsd - standing.tsdAfter({ item: -tunables.deniedPlayMp });
   };
 
   /** Everything that leaves play with a character: its points and its items'. */
@@ -208,13 +253,21 @@ function buildComputeCharacterValue(
       if (!character) return { tsd: tunables.tapTempoCost, reason: 'flat tempo — character not in play' };
       if (!character.untapped) return { tsd: 0, reason: 'already tapped or wounded — nothing more is forgone' };
       const influence = priceOfInfluence(character);
-      if (influence <= 0) {
-        return { tsd: tunables.tapTempoCost, reason: 'flat tempo — no influence attempt is forfeited' };
+      const denial = priceOfSelfDenial(character);
+      if (influence <= 0 && denial <= 0) {
+        return { tsd: tunables.tapTempoCost, reason: 'flat tempo — no influence attempt or resource play is forfeited' };
+      }
+      const reasons: string[] = [];
+      if (influence > 0) {
+        reasons.push(`the influence attempt forfeited — ${character.freeDirectInfluence} free direct influence, `
+          + `and a faction point is worth ${standing.marginal.faction} here`);
+      }
+      if (denial > 0) {
+        reasons.push(`the last untapped company member able to play a resource card, of ${heldResourceCards} held`);
       }
       return {
-        tsd: tunables.tapTempoCost + influence,
-        reason: `flat tempo plus the influence attempt forfeited — ${character.freeDirectInfluence} free `
-          + `direct influence, and a faction point is worth ${standing.marginal.faction} here`,
+        tsd: tunables.tapTempoCost + influence + denial,
+        reason: `flat tempo plus ${reasons.join(' and ')}`,
       };
     },
 

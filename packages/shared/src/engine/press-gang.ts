@@ -40,6 +40,8 @@ import { ownerOf } from '../types/state.js';
 import { addConstraint, removeConstraint } from './pending.js';
 import { toCardInstance, defById, getCardEffects, cleanupEmptyCompanies } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
+import { freeOrDiscardFollowers } from './follower-dispersal.js';
 
 /**
  * Return the instance id of a Press-gang (`press-gang-capture` effect) in play
@@ -109,7 +111,9 @@ export function returnPressedCharacter(state: GameState, characterId: CardInstan
  * 2. Discards all items/allies on the character to its owner's discard pile and
  *    all attached hazards to their owners' discard piles ("discard all cards on
  *    him").
- * 3. Reverts the character's followers to general influence (CRF: not discarded).
+ * 3. Reverts the character's followers to general influence (CRF: not
+ *    discarded), with the mind subtraction deferred to the follower's player's
+ *    next organization phase per CoE 2.II.2.2.3 ({@link freeOrDiscardFollowers}).
  * 4. Removes the character from every company and strips its possessions, but
  *    keeps the bare card in its owner's `characters` map (off to the side).
  * 5. Adds a `character-pressed` constraint tying it to the host.
@@ -136,6 +140,12 @@ export function capturePressGang(
 
   // (2) Route the character's possessions to the appropriate discard piles.
   const ownerAdds: CardInstance[] = [...char.items.map(toCardInstance), ...char.allies.map(toCardInstance)];
+  // A pressed character leaves active play, so its trophies are discarded per
+  // CoE 3.IV.4 — worth MP → the holder's marshalling-point pile, otherwise
+  // removed from play. Keeping them on the stripped record would leave the
+  // creature CardInstance to vanish when the character later returns to hand.
+  const { toKillPile: pgTrophyKill, toOutOfPlay: pgTrophyOop } =
+    partitionLeavingTrophies(s, char, 'press-gang capture');
   const hazardAddsByOwner = new Map<string, CardInstance[]>();
   for (const hazard of char.hazards) {
     const hazOwner = ownerOf(hazard.instanceId) as string;
@@ -149,28 +159,29 @@ export function capturePressGang(
     let characters = p.characters;
     let companies = p.companies;
     let discardPile = p.discardPile;
+    let killPile = p.killPile;
+    let outOfPlayPile = p.outOfPlayPile;
 
     if (p.characters[characterId]) {
       // Owner of the pressed character: strip it to a bare off-to-the-side card,
       // free its followers to general influence, and drop it from its company.
-      const stripped: CharacterInPlay = { ...char, items: [], allies: [], hazards: [], followers: [] };
-      const next: Record<string, CharacterInPlay> = { ...p.characters, [characterId as string]: stripped };
-      for (const followerId of char.followers) {
-        const follower = next[followerId as string];
-        if (follower) next[followerId as string] = { ...follower, controlledBy: 'general' };
-      }
+      const stripped: CharacterInPlay = { ...char, items: [], allies: [], hazards: [], followers: [], trophies: [] };
+      const next: Record<CardInstanceId, CharacterInPlay> = { ...p.characters, [characterId as string]: stripped };
+      freeOrDiscardFollowers(s, next, char, 'Press-gang capture');
       // The pressed character is off to the side in no company — if it was itself
       // a follower, drop it from its leader's follower list so nothing stale
       // references it as a company member.
       for (const [cid, cdata] of Object.entries(next)) {
         if (cid === (characterId as string)) continue;
         if (cdata.followers.includes(characterId)) {
-          next[cid] = { ...cdata, followers: cdata.followers.filter(id => id !== characterId) };
+          next[cid as CardInstanceId] = { ...cdata, followers: cdata.followers.filter(id => id !== characterId) };
         }
       }
       characters = next;
       companies = p.companies.map(c => ({ ...c, characters: c.characters.filter(id => id !== characterId) }));
       discardPile = [...p.discardPile, ...ownerAdds];
+      killPile = [...p.killPile, ...pgTrophyKill];
+      outOfPlayPile = [...p.outOfPlayPile, ...pgTrophyOop];
     }
 
     const hazAdds = hazardAddsByOwner.get(p.id as string);
@@ -178,8 +189,9 @@ export function capturePressGang(
       discardPile = [...discardPile, ...hazAdds];
     }
 
-    if (characters === p.characters && companies === p.companies && discardPile === p.discardPile) return p;
-    return { ...p, characters, companies, discardPile };
+    if (characters === p.characters && companies === p.companies && discardPile === p.discardPile
+        && killPile === p.killPile && outOfPlayPile === p.outOfPlayPile) return p;
+    return { ...p, characters, companies, discardPile, killPile, outOfPlayPile };
   }) as [PlayerState, PlayerState];
 
   s = { ...s, players };

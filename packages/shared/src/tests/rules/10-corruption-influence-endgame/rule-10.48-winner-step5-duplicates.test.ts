@@ -115,6 +115,46 @@ describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
     expect(gameOver.finalScores[PLAYER_1]).toBe(0);
   });
 
+  test('a 0-MP unique match causes NO deduction (both 10.3.v conditions unmet)', () => {
+    // Huntsman's Garb (wh-92) is unique but worth 0 MP. Rule 10.3.v allows
+    // revealing only hand cards "that would normally give the revealing
+    // player marshalling points when played", and only against a unique card
+    // "that is giving their opponent at least one marshalling point".
+    // Regression: any unique-name match deducted a point — a 0-MP permanent
+    // event on both sides flipped games decided by 1 point.
+    const HUNTSMANS_GARB = 'wh-92' as import('../../../index.js').CardDefinitionId;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, hand: [HUNTSMANS_GARB], siteDeck: [], companies: [] },
+        { id: PLAYER_2, hand: [], siteDeck: [], companies: [] },
+      ],
+    });
+    const withGarb = addCardInPlay(base, HAZARD_PLAYER, HUNTSMANS_GARB);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+    const state = { ...withGarb, phaseState: fcState };
+
+    const afterP1 = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterP2 = dispatch(afterP1, { type: 'pass', player: PLAYER_2 });
+
+    const gameOver = afterP2.phaseState as GameOverPhaseState;
+    expect(gameOver.phase).toBe(Phase.GameOver);
+    // No deduction: the in-play copy gives no MP and the hand copy would
+    // give the revealer none.
+    expect(gameOver.finalScores[PLAYER_2]).toBe(0);
+    expect(gameOver.finalScores[PLAYER_1]).toBe(0);
+  });
+
   test('No matching hand cards: opponent final score unaffected', () => {
     // P2 has Rangers of the North in cardsInPlay, but P1 holds no matching
     // unique card. No duplicate penalty is applied to either player's score.

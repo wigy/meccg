@@ -24,16 +24,17 @@ import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames, buildFactionPlayableRegions } from '../recompute-derived.js';
-import { resolveDef, enemyRaceContext } from '../effects/index.js';
+import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
-import { buildPlayOptionContext, buildPlayerStateContext, getPlayTargetEffect, grantedActionActivations } from './organization.js';
+import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
 import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
-import { allyEffectiveProwess } from '../ally-stats.js';
+import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { hazardLimitStatus } from '../hazard-limit.js';
 import { cvccSides } from '../cvcc-sides.js';
+import { pickActiveItemsForCharacter } from '../item-slots.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -329,9 +330,33 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       return itemSalvageActions(state, playerId, combat);
     case 'discard-item-from-company':
       return discardItemFromCompanyActions(state, playerId, combat);
+    case 'cancel-prisoner-taking-choice':
+      return cancelPrisonerTakingActions(state, playerId, combat);
     default:
       return [];
   }
+}
+
+/**
+ * Legal actions during the `cancel-prisoner-taking-choice` combat phase
+ * (Noble Hound dm-179): the defending player may discard the offered ally to
+ * cancel this strike's prisoner-taking outcome, or pass to decline and let
+ * the prisoner-taking proceed.
+ */
+function cancelPrisonerTakingActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  const offer = combat.cancelPrisonerTakingOffer;
+  if (!offer) return [];
+
+  logDetail(`cancel-prisoner-taking: defender may discard ${offer.allyId as string} to cancel prisoner-taking, or pass`);
+  return [
+    { action: { type: 'cancel-prisoner-taking' as const, player: playerId, cardInstanceId: offer.allyId }, viable: true },
+    { action: { type: 'pass' as const, player: playerId }, viable: true },
+  ];
 }
 
 /**
@@ -1206,6 +1231,56 @@ function selfCancelStrikeActions(
 }
 
 /**
+ * Scan `candidates` (a struck character's items/allies) for `strike-modifier`
+ * effects with `dodge: true` and `cost: { tap: "self" }` — an item/ally that
+ * taps itself to dodge the current strike for its own bearer (e.g.
+ * Great-shield of Rohan tw-250). Emits one `dodge-strike` action per eligible
+ * match. `need`/`explanation` reflect the bearer's full (tap) prowess, since
+ * dodge mode resolves at full prowess without tapping unless wounded.
+ */
+function selfDodgeStrikeActions(
+  state: GameState,
+  playerId: PlayerId,
+  targetCharacterId: CardInstanceId,
+  targetName: string,
+  candidates: ReadonlyArray<{ readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status: CardStatus }>,
+  buildCtx: () => Record<string, unknown>,
+  need: number,
+  explanation: string,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  for (const c of candidates) {
+    if (c.status !== CardStatus.Untapped) continue;
+    const def = defById(state, c.definitionId);
+    if (!def) continue;
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'strike-modifier') continue;
+      if (!eff.dodge || eff.cost?.tap !== 'self') continue;
+
+      const name = (def as { name?: string }).name ?? (c.definitionId as string);
+      if (eff.when && !matchesCondition(eff.when, buildCtx())) {
+        logDetail(`Dodge-strike ${name}: when condition not met (target ${targetName})`);
+        continue;
+      }
+
+      logDetail(`Dodge-strike available: ${name} can tap so ${targetName} dodges the strike (no tap unless wounded)`);
+      actions.push({
+        action: {
+          type: 'dodge-strike',
+          player: playerId,
+          cardInstanceId: c.instanceId,
+          characterInstanceId: targetCharacterId,
+          need,
+          explanation,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Fled into Darkness (ba-18): during resolve-strike the defending player may
  * play a `flee-from-strike` permanent-event from hand to cancel the current
  * strike against the named character (The Balrog), provided the strike's prowess
@@ -1429,7 +1504,7 @@ function resolveStrikeActions(
   // effect. Mode is determined by effect flags: cancel (outright, no roll),
   // dodge (no-tap), reroll (two rolls), or default (prowess/body accumulator).
   // All four emit `play-strike-event`.
-  const struckSkills = charData && charDef && isCharacterCard(charDef) ? (charDef.skills ?? []) : [];
+  const struckSkills = charData && charDef && isCharacterCard(charDef) ? getEffectiveSkills(state, charData, charDef) : [];
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
     const strikeEffect = getCardEffects(cardDef).find(
@@ -1574,11 +1649,16 @@ function resolveStrikeActions(
         }
       }
 
-      // Untapped allies on any character in the company can support
+      // Untapped allies on any character in the company can support — but,
+      // like characters (CoE 3.iv.4), only if they haven't themselves been
+      // assigned a strike this attack (an ally is a valid strike target in
+      // CvCC and one-strike-per-character attacks, so it can appear in
+      // strikeAssignments).
       const hostChar = player.characters[charId];
       if (hostChar) {
         for (const ally of hostChar.allies) {
           if (ally.status !== CardStatus.Untapped) continue;
+          if (assignedCharIds.has(ally.instanceId as string)) continue;
           logDetail(`Untapped ally ${ally.instanceId as string} can support`);
           actions.push({
             action: {
@@ -1668,6 +1748,14 @@ function resolveStrikeActions(
     actions.push(...selfCancelStrikeActions(
       state, playerId, currentStrike.characterId, charName,
       [...charData.items, ...charData.allies], buildCancelCtx,
+    ));
+
+    // Scan the same items/allies for self-tap dodge effects (e.g. Great-shield
+    // of Rohan) — full prowess, no roll skipped, no tap unless wounded.
+    actions.push(...selfDodgeStrikeActions(
+      state, playerId, currentStrike.characterId, charName,
+      [...charData.items, ...charData.allies], buildCancelCtx,
+      tapNeed, `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap unless wounded)`,
     ));
   }
 
@@ -1991,14 +2079,34 @@ function bodyCheckActions(
     const atkPlayer = playerById(state, combat.attackingPlayerId);
     const charData = atkPlayer?.characters[strike?.attackingCharacterId as CardInstanceId];
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
-    body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    // Effective body, not printed: the reducer's handleBodyCheckRoll checks
+    // against `effectiveStats.body` (item body modifiers, character-stat-modifier
+    // constraints), so the quoted `need` must be computed from the same value.
+    body = charData?.effectiveStats.body ?? 9;
     targetLabel = charDef?.name ?? 'attacker';
   } else {
+    // The strike target may be a character or an ally (CoE rule 2.V.2.2) —
+    // allies are not in `defPlayer.characters`, they nest under their host
+    // character's `allies` array, so they need their own lookup with their
+    // own body value (allyEffectiveBody), matching resolveStrikeActions and
+    // the reducer's handleBodyCheckRoll. Without this, an ally target fell
+    // through to the generic `?? 9` default instead of its real body.
     const strike = combat.strikeAssignments[combat.currentStrikeIndex];
     const defPlayer = playerById(state, combat.defendingPlayerId);
     const charData = defPlayer?.characters[strike?.characterId];
+    const company = defPlayer ? companyById(defPlayer.companies, combat.companyId) : undefined;
+    const allyMatch = !charData && defPlayer && company
+      ? findAllyInCompany(defPlayer, company.characters, strike?.characterId)
+      : undefined;
     const charDef = charData ? defById(state, charData.definitionId) : undefined;
-    body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    const allyDef = allyMatch ? defById(state, allyMatch.ally.definitionId) : undefined;
+    // Characters check against `effectiveStats.body` (item body modifiers,
+    // character-stat-modifier constraints) to match the reducer's
+    // handleBodyCheckRoll — the printed value would quote a wrong `need`
+    // whenever a body modifier applies.
+    body = allyMatch
+      ? allyEffectiveBody(state, allyMatch.ally) ?? 9
+      : charData?.effectiveStats.body ?? 9;
     // Dodge body penalty
     if (strike?.dodged && strike.dodgeBodyPenalty) {
       body = body + strike.dodgeBodyPenalty;
@@ -2007,11 +2115,16 @@ function bodyCheckActions(
     if (strike?.strikeBodyPenalty) {
       body = body + strike.strikeBodyPenalty;
     }
-    targetLabel = charDef?.name ?? 'character';
+    targetLabel = allyDef?.name ?? charDef?.name ?? 'character';
   }
-  // +1 to body check roll if the character was already wounded before this strike (CoE rule 3.I)
-  const isWounded = combat.bodyCheckTarget === 'character' &&
-    combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true;
+  // +1 to body check roll if the character was already wounded before this
+  // strike (CoE rule 3.I) — for a defending character via `wasAlreadyWounded`,
+  // for the CvCC attacking character via `attackerWasAlreadyWounded` (both
+  // recorded pre-strike, since the lost strike itself inverts the character).
+  const isWounded = (combat.bodyCheckTarget === 'character' &&
+    combat.strikeAssignments[combat.currentStrikeIndex]?.wasAlreadyWounded === true)
+    || (combat.bodyCheckTarget === 'attacker-character' &&
+      combat.strikeAssignments[combat.currentStrikeIndex]?.attackerWasAlreadyWounded === true);
   const woundedBonus = isWounded ? 1 : 0;
   // Attack-level body-check modifier (Traitor tw-105 +1, Cruel Caradhras td-9
   // +1, ...). The resolver adds it to the roll, so it lowers the roll needed to
@@ -2306,6 +2419,63 @@ function siteSwapCancelActions(
   return actions;
 }
 
+/**
+ * Race-threshold cancel-attack offers (Flatter a Foe td-116 / Riddling Talk
+ * td-148): for each hand card carrying an effect of `effectType`, when the
+ * attacking creature's race has a threshold entry in the effect, emit one
+ * `cancel-attack` action per character in the defending company (the player
+ * selects who makes the attempt; the roll — and any follow-up — happens in
+ * later pending resolutions). `label` prefixes the debug log lines.
+ */
+function raceThresholdCancelAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  player: PlayerState,
+  company: Company,
+  combat: CombatState,
+  effectType: 'flattery-cancel-attack' | 'riddling-attempt',
+  label: string,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const effect = getCardEffects(cardDef).find(
+      (e): e is FlatteryCancelAttackEffect | RiddlingAttemptEffect => e.type === effectType,
+    );
+    if (!effect) continue;
+
+    // An attack counts as EVERY race it carries — primary plus
+    // additionalRaces ("Orcs. Men." creatures like Goblin-faces wh-13
+    // populate `combat.creatureRaces`) — so match against the full list.
+    const attackRaces = combat.creatureRaces
+      ?? (combat.creatureRace !== undefined ? [combat.creatureRace] : []);
+    if (attackRaces.length === 0) {
+      logDetail(`${label} ${handCard.definitionId as string}: no creature race — skipping`);
+      continue;
+    }
+    const matchedEntry = effect.thresholds.find(t => t.races.some(r => attackRaces.includes(r)));
+    if (!matchedEntry) {
+      logDetail(`${label} ${handCard.definitionId as string}: race(s) "${attackRaces.join('/')}" not in thresholds — skipping`);
+      continue;
+    }
+
+    // One action per character in the company — player picks who makes the attempt
+    for (const charId of company.characters) {
+      logDetail(`${label} ${handCard.definitionId as string}: offering for character ${charId as string}`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
 function cancelAttackActions(
   state: GameState,
   playerId: PlayerId,
@@ -2400,9 +2570,14 @@ function cancelAttackActions(
     if (combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0) {
       attackCtx['keyingRegionNames'] = combat.attackKeyingRegionNames;
     }
+    // "Keyed to a site" means no *regional* keying of either kind: a creature
+    // keyed by region type OR by region name (a roaming dragon such as Smaug)
+    // is not site-keyed. A declared site-name keying (Bairanax at Ovir Hollow)
+    // populates none of the keying arrays and correctly stays site-keyed.
     const isSiteKeyedCreature = (
       combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
-    ) && !(combat.attackKeying && combat.attackKeying.length > 0);
+    ) && !(combat.attackKeying && combat.attackKeying.length > 0)
+      && !(combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0);
     attackCtx['siteKeyed'] = isSiteKeyedCreature;
     // `attack.heroCompany` is true only for character-vs-character combat in
     // which the attacking company belongs to a hero-side player (Wizard or
@@ -2415,6 +2590,16 @@ function cancelAttackActions(
       heroCompany = atkAlignment === Alignment.Wizard || atkAlignment === Alignment.FallenWizard;
     }
     attackCtx['heroCompany'] = heroCompany;
+    // `attack.minionCompany` is true only for a CvCC combat whose attacking
+    // company belongs to a Ringwraith (minion) player — the counterpart of
+    // `attack.heroCompany` above. Backs All the Bells Ringing (as-44): "if a
+    // minion company attacks" a hero company at a Free-hold/Border-hold.
+    let minionCompany = false;
+    if (combat.isCvCC) {
+      const atkAlignment = playerById(state, combat.attackingPlayerId)?.alignment;
+      minionCompany = atkAlignment === Alignment.Ringwraith;
+    }
+    attackCtx['minionCompany'] = minionCompany;
     // Whether the defending company is at, or moving to or from, an Under-deeps
     // site. Backs Great Fissure (ba-61): "cancel an attack against a company at,
     // or moving to or from, an Under-deeps site."
@@ -2621,9 +2806,7 @@ function cancelAttackActions(
     // "Playable if …" gates on the player's own state (e.g. Eye Never
     // Sleeping as-82: playable only while the player counts as Sauron) apply
     // whenever the card is played from hand.
-    const covertModePlayerState = findPlayConditionEffect(def, 'player-state');
-    if (covertModePlayerState?.condition
-      && !matchesCondition(covertModePlayerState.condition, buildPlayerStateContext(state, player, playerId))) {
+    if (!playerStateGateMet(state, player, playerId, def)) {
       logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: play-condition player-state not satisfied`);
       continue;
     }
@@ -2673,9 +2856,7 @@ function cancelAttackActions(
     // player's own state, evaluated against the same context as the
     // organization-phase and any-phase short-event paths. Eye Never Sleeping
     // (as-82): "Playable if you are Sauron" via player.playsAsSauron.
-    const playerStateCondition = findPlayConditionEffect(cardDef, 'player-state');
-    if (playerStateCondition?.condition
-      && !matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
+    if (!playerStateGateMet(state, player, playerId, cardDef)) {
       logDetail(`Cancel-attack ${handCard.definitionId as string}: play-condition player-state not satisfied`);
       continue;
     }
@@ -2833,78 +3014,11 @@ function cancelAttackActions(
     }
   }
 
-  // Flattery-cancel-attack: hand cards with a `flattery-cancel-attack` effect
-  // (e.g. Flatter a Foe). Only offered when the attacking creature's race has
-  // a threshold entry in the effect. One `cancel-attack` action is emitted per
-  // character in the defending company (the player selects who makes the attempt).
-  for (const handCard of player.hand) {
-    const cardDef = defById(state, handCard.definitionId);
-    const flatEffect = getCardEffects(cardDef).find(
-      (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
-    );
-    if (!flatEffect) continue;
-
-    if (!combat.creatureRace) {
-      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: no creature race — skipping`);
-      continue;
-    }
-    const matchedEntry = flatEffect.thresholds.find(t => t.races.includes(combat.creatureRace!));
-    if (!matchedEntry) {
-      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
-      continue;
-    }
-
-    // One action per character in the company — player picks who makes the attempt
-    for (const charId of company.characters) {
-      logDetail(`Flattery-cancel-attack ${handCard.definitionId as string}: offering for character ${charId as string}`);
-      actions.push({
-        action: {
-          type: 'cancel-attack',
-          player: playerId,
-          cardInstanceId: handCard.instanceId,
-          targetCharacterId: charId,
-        },
-        viable: true,
-      });
-    }
-  }
-
-  // Riddling-attempt: hand cards with a `riddling-attempt` effect (e.g.
-  // Riddling Talk). Only offered when the attacking creature's race has a
-  // threshold entry in the effect. One `cancel-attack` action is emitted per
-  // character in the defending company (the player selects who makes the
-  // attempt) — the roll and, on success, the guess happen in later pending
-  // resolutions.
-  for (const handCard of player.hand) {
-    const cardDef = defById(state, handCard.definitionId);
-    const riddlingEffect = getCardEffects(cardDef).find(
-      (e): e is RiddlingAttemptEffect => e.type === 'riddling-attempt',
-    );
-    if (!riddlingEffect) continue;
-
-    if (!combat.creatureRace) {
-      logDetail(`Riddling-attempt ${handCard.definitionId as string}: no creature race — skipping`);
-      continue;
-    }
-    const matchedEntry = riddlingEffect.thresholds.find(t => t.races.includes(combat.creatureRace!));
-    if (!matchedEntry) {
-      logDetail(`Riddling-attempt ${handCard.definitionId as string}: race "${combat.creatureRace}" not in thresholds — skipping`);
-      continue;
-    }
-
-    for (const charId of company.characters) {
-      logDetail(`Riddling-attempt ${handCard.definitionId as string}: offering for character ${charId as string}`);
-      actions.push({
-        action: {
-          type: 'cancel-attack',
-          player: playerId,
-          cardInstanceId: handCard.instanceId,
-          targetCharacterId: charId,
-        },
-        viable: true,
-      });
-    }
-  }
+  // Flattery-cancel-attack (Flatter a Foe td-116) and riddling-attempt
+  // (Riddling Talk td-148): race-threshold cancel-attack attempts offered once
+  // per character in the defending company.
+  actions.push(...raceThresholdCancelAttackActions(state, playerId, player, company, combat, 'flattery-cancel-attack', 'Flattery-cancel-attack'));
+  actions.push(...raceThresholdCancelAttackActions(state, playerId, player, company, combat, 'riddling-attempt', 'Riddling-attempt'));
 
   // Goodwill-cancel-attack: hand cards with a `goodwill-cancel-attack` effect
   // (e.g. Token of Goodwill dm-160). Only offered when the facing attack's
@@ -3027,6 +3141,10 @@ function protectFromStrikeAssignmentActions(
 ): EvaluatedAction[] {
   if (playerId !== combat.defendingPlayerId) return [];
   if (combat.phase !== 'assign-strikes') return [];
+  // Pre-assignment window only ("playable before strikes are assigned",
+  // Sojourn in Shadows wh-49) — once any strike is assigned the play is too
+  // late, matching every other pre-assignment scanner.
+  if (combat.strikeAssignments.length > 0) return [];
 
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -3568,15 +3686,29 @@ function modifyAttackActions(
 
   for (const handCard of candidateCards) {
     const cardDef = defById(state, handCard.definitionId);
-    const effect = getCardEffects(cardDef).find(
+    // A card may declare multiple from-hand modify-attack effects — distinct
+    // modes gated by different `player`/`when` combinations (e.g. Adûnaphel
+    // Unleashed le-161: Mode A a defender play reducing an attack against her,
+    // Mode B an attacker play granting attacker-chooses-defenders on her own
+    // attack). Like the on-event "modes tried in order" pattern (Choking
+    // Shadows), the first effect whose player and `when` both match is the one
+    // offered — in practice each mode's `when` describes a mutually exclusive
+    // combat, so at most one ever matches at a time.
+    const modifyEffects = getCardEffects(cardDef).filter(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !!(e).fromHand,
     );
-    if (!effect) continue;
+    if (modifyEffects.length === 0) continue;
 
-    const expectedPlayerId = effect.player === 'attacker'
-      ? combat.attackingPlayerId
-      : combat.defendingPlayerId;
-    if (playerId !== expectedPlayerId) continue;
+    const ctx = buildPlayedModifyAttackContext(state, combat, inPlayNames);
+    const effect = modifyEffects.find(e => {
+      const expectedPlayerId = e.player === 'attacker'
+        ? combat.attackingPlayerId
+        : combat.defendingPlayerId;
+      if (playerId !== expectedPlayerId) return false;
+      if (e.when && !matchesCondition(e.when, ctx)) return false;
+      return true;
+    });
+    if (!effect) continue;
 
     // Attack-scoped duplication check.
     const attackDupLimit = findDuplicationLimitEffect(cardDef, 'attack');
@@ -3584,14 +3716,6 @@ function modifyAttackActions(
       const prior = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
       if (prior >= attackDupLimit.max) {
         logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
-        continue;
-      }
-    }
-
-    if (effect.when) {
-      const ctx = buildPlayedModifyAttackContext(state, combat, inPlayNames);
-      if (!matchesCondition(effect.when, ctx)) {
-        logDetail(`Modify-attack (from hand) ${handCard.definitionId as string}: when condition not met`);
         continue;
       }
     }
@@ -3641,25 +3765,25 @@ function modifyAttackActions(
  * `attack.*` (source discriminator, `automatic`, `detainment`, `keying`) and
  * `defender.*` (`covert`, `companyContainsBalrog`, `inPlay`, `minionCompany`).
  */
-function buildPlayedModifyAttackContext(
+export function buildPlayedModifyAttackContext(
   state: GameState,
   combat: CombatState,
   inPlayNames: readonly string[],
 ): Record<string, unknown> {
   let baseProwess = combat.strikeProwess;
   let creatureName: string | undefined;
-  if (combat.attackSource.type === 'creature') {
-    const atkPlayer = playerById(state, combat.attackingPlayerId);
-    if (atkPlayer) {
-      const creatureCard = atkPlayer.cardsInPlay.find(
-        c => combat.attackSource.type === 'creature' && c.instanceId === (combat.attackSource as { type: 'creature'; instanceId: CardInstanceId }).instanceId,
-      );
-      if (creatureCard) {
-        const cDef = defById(state, creatureCard.definitionId);
-        if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
-        if (cDef) creatureName = cDef.name;
-      }
-    }
+  // Resolve the attacking creature's card via the general source helper so
+  // `enemy.name`/`enemy.prowess` are populated for every creature-backed
+  // source — `creature`, `on-guard-creature`, and `played-auto-attack` —
+  // not just an in-play `creature`. Matches the sibling td-97 path
+  // (companyCombatBoostActions). Without this, a played modify-attack gated
+  // on `enemy.name` (Unabated in Malice ba-26: "an attack from Shelob") was
+  // never offered against an on-guard-revealed creature.
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
+  if (creatureInstanceId) {
+    const cDef = resolveDef(state, creatureInstanceId);
+    if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
+    if (cDef) creatureName = (cDef as { name?: string }).name;
   }
   // An automatic-attack is either a site's built-in attack or a played
   // auto-attack; exposed so cards can gate on "playable on an
@@ -3686,6 +3810,26 @@ function buildPlayedModifyAttackContext(
   // FOES! as-29 Mode B): true when the defending (resource) player is a
   // Ringwraith (minion) player.
   const defenderMinionCompany = defendingPlayer?.alignment === Alignment.Ringwraith;
+  // `defender.companySize` / `defender.characterNames` let a card gate on the
+  // defending company's exact roster (e.g. "if she is the only character in
+  // her company") — Adûnaphel Unleashed (le-161) Mode A.
+  const defenderCharacterNames = defendingPlayer && defendingCompany
+    ? companyCharacterNames(state, defendingPlayer, defendingCompany.characters) : [];
+  // Attacking-company roster (CvCC only — hazard creatures have no company).
+  // Lets a card gate on "an attack by a lone <character>" (Adûnaphel Unleashed
+  // le-161 Mode B).
+  let attackerCtx: Record<string, unknown> | undefined;
+  if (combat.attackSource.type === 'company-attack') {
+    const attackingPlayer = playerById(state, combat.attackingPlayerId);
+    const attackingCompany = attackingPlayer
+      ? companyById(attackingPlayer.companies, combat.attackSource.attackingCompanyId) : undefined;
+    if (attackingPlayer && attackingCompany) {
+      attackerCtx = {
+        companySize: attackingCompany.characters.length,
+        characterNames: companyCharacterNames(state, attackingPlayer, attackingCompany.characters),
+      };
+    }
+  }
   return {
     inPlay: inPlayNames,
     enemy: enemyCtx,
@@ -3695,8 +3839,27 @@ function buildPlayedModifyAttackContext(
       companyContainsBalrog: defenderContainsBalrog,
       inPlay: defenderInPlay,
       minionCompany: defenderMinionCompany,
+      companySize: defendingCompany?.characters.length ?? 0,
+      characterNames: defenderCharacterNames,
     },
+    ...(attackerCtx ? { attacker: attackerCtx } : {}),
   };
+}
+
+/** Display names of a company's characters, resolved from their card definitions. */
+function companyCharacterNames(
+  state: GameState,
+  player: PlayerState,
+  characterIds: readonly CardInstanceId[],
+): string[] {
+  const names: string[] = [];
+  for (const charId of characterIds) {
+    const charData = player.characters[charId];
+    if (!charData) continue;
+    const def = defById(state, charData.definitionId);
+    if (def?.name) names.push(def.name);
+  }
+  return names;
 }
 
 /**
@@ -3839,10 +4002,20 @@ function companyCombatBoostActions(
   // specific-name exclusion.
   const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
   const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(state, enemyCreatureInstanceId) : undefined;
+  // `overt` is only meaningful for a CvCC attack (the enemy is a company, not
+  // a hazard creature) — resolved from the attacking company. Used by Biter
+  // and Beater! (as-46): "in combat with an overt company".
+  const attackingCompanyForOvert = combat.isCvCC && combat.attackSource.type === 'company-attack'
+    ? companyById(playerById(state, combat.attackingPlayerId)?.companies ?? [], combat.attackSource.attackingCompanyId)
+    : undefined;
+  const attackingPlayerForOvert = combat.isCvCC ? playerById(state, combat.attackingPlayerId) : undefined;
   const attackWhenContext = {
     enemy: {
       race: combat.creatureRace,
       name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+      ...(attackingCompanyForOvert && attackingPlayerForOvert
+        ? { overt: !isCovertCompany(attackingCompanyForOvert, attackingPlayerForOvert, state) }
+        : {}),
     },
   };
 
@@ -3877,13 +4050,68 @@ function companyCombatBoostActions(
       continue;
     }
 
-    // At least one boost effect must match a character in the defending
-    // company. A boost with neither `filter` nor `companyFilter` matches
-    // unconditionally; a `filter` matches when any character satisfies it
-    // (per-character grant); a `companyFilter` gates the whole company on a
-    // qualifying member (e.g. Foe Dismayed's leader-or-Balrog gate).
+    // Cost-bearing single-target mode (Some Secret Art of Flame le-232): the
+    // card is played on ONE character — matching `requiredSkill` if set —
+    // who pays `cost` (skipped when the payer's race matches
+    // `costExemptRace`) and alone receives the boost. One action is offered
+    // per qualifying character, carrying `targetCharacterId` so the reducer
+    // knows who to charge and who to boost.
+    const costEffect = eligibleBoosts.find(e => e.cost);
+    if (costEffect?.cost) {
+      const cost = costEffect.cost;
+      for (const charId of company.characters) {
+        const charData = player.characters[charId];
+        if (!charData) continue;
+        const charDef = defById(state, charData.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (costEffect.requiredSkill && !charDef.skills.includes(costEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
+        const exempt = costEffect.costExemptRace && charDef.race === costEffect.costExemptRace;
+        if (!exempt && !canPayCost(cost, charData)) continue;
+        logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            targetCharacterId: charId,
+          },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
+    // At least one boost effect must match a character (or a borne item) in
+    // the defending company. A boost with neither `filter`/`companyFilter`
+    // nor `itemFilter` matches unconditionally; a `filter` matches when any
+    // character satisfies it (per-character grant); a `companyFilter` gates
+    // the whole company on a qualifying member (e.g. Foe Dismayed's
+    // leader-or-Balrog gate); an `itemFilter` matches when any character bears
+    // a qualifying item (Biter and Beater! as-46's named-weapon gate).
     let hasMatch = false;
     for (const effect of eligibleBoosts) {
+      if (effect.itemFilter) {
+        for (const charId of company.characters) {
+          const char = player.characters[charId];
+          if (!char) continue;
+          // Rule 9.15: only the "in use" item per slot (e.g. one weapon)
+          // contributes effects — a second borne sword sitting unused grants
+          // no bonus, from Biter and Beater! or otherwise.
+          const activeItemIds = pickActiveItemsForCharacter(state, char);
+          if (char.items.some(item => {
+            if (!activeItemIds.has(item.instanceId as string)) return false;
+            const itemDef = defById(state, item.definitionId);
+            return itemDef && matchesCondition(effect.itemFilter!, { item: {
+              name: (itemDef as { name?: string }).name ?? '',
+              keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+              cardType: itemDef.cardType,
+              subtype: (itemDef as { subtype?: string }).subtype,
+            } });
+          })) { hasMatch = true; break; }
+        }
+        if (hasMatch) break;
+        continue;
+      }
       const gate = effect.companyFilter ?? effect.filter;
       if (!gate) { hasMatch = true; break; }
       for (const charId of company.characters) {
@@ -3902,7 +4130,7 @@ function companyCombatBoostActions(
       if (hasMatch) break;
     }
     if (!hasMatch) {
-      logDetail(`${(cardDef as { name?: string }).name}: no matching characters in company — company-combat-boost not offered`);
+      logDetail(`${(cardDef as { name?: string }).name}: no matching characters/items in company — company-combat-boost not offered`);
       continue;
     }
 
@@ -4246,9 +4474,11 @@ function itemSalvageActions(
 /**
  * Actions during the discard-item-from-company sub-phase (An Article Missing, dm-43).
  *
- * After a successful agent strike with strikeEffect 'discard-item', the defending
- * player must discard one item from any character in the company. One action per
- * available item is generated; the defender chooses which item to lose.
+ * After a successful strike with a `strikeEffect`, the defending player must
+ * discard one item from `combat.discardItemOptions` — pooled from the whole
+ * company for `'discard-item'`, or scoped to the struck character alone for
+ * `'discard-item-character'` (Pick-pocket tw-79). One action per available
+ * item is generated; the defender chooses which item to lose.
  */
 function discardItemFromCompanyActions(
   state: GameState,

@@ -717,7 +717,7 @@
     "subtype": "minor",
     "marshallingPoints": 0,
     "marshallingCategory": "item",
-    "corruptionPoints": 0,
+    "corruptionPoints": 1,
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],

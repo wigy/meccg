@@ -46,9 +46,13 @@ import { computeBeliefs } from './beliefs.js';
 import { denialContext, denialPricer } from './denial.js';
 import { computeExposure } from './exposure.js';
 import { rosterOf } from './strike/prowess.js';
+import { attackerChoosesDefenders } from './strike/ability.js';
 import type { StrikeTarget } from './strike/prowess.js';
-import type { AttackProfile, SequencePricer } from './strike/sequence.js';
-import { resolveAttacks } from './strike/sequence.js';
+import type { AttackerChoice, AttackProfile, SequencePricer } from './strike/sequence.js';
+import { attackerChoiceAt, resolveAttacks } from './strike/sequence.js';
+import { attackBoostOf, boostForRace, boostInPlay, mergeBoosts } from './attack-modifiers.js';
+import { attackIsDetainment } from '../../detainment.js';
+import type { AttackBoost } from './attack-modifiers.js';
 
 /** What one hazard in hand is for. */
 export interface HazardAssignment {
@@ -64,6 +68,16 @@ export interface HazardAssignment {
   readonly marginal: number;
   /** Where in that company's sequence it would be played, from 1. */
   readonly order: number;
+  /**
+   * True for a support event rather than an attack — a card whose whole value is
+   * that it improves the attacks around it (Full of Froth and Rage: "all Spider
+   * and Animal attacks receive +2 prowess").
+   *
+   * Such a card must reach the table *before* the attacks it boosts, which is
+   * why it always takes order 1 in its company's sequence and the creatures
+   * behind it shift down one.
+   */
+  readonly support: boolean;
 }
 
 /** The plan, and the prices that come out of it. */
@@ -99,12 +113,58 @@ export interface HazardPlan {
   harmIfLimitsHalved(): number;
 }
 
-/** A creature in hand, with the attack it would make. */
+/** A creature in hand, with the attack it would make before any boost. */
 interface Hazard {
   readonly instanceId: CardInstanceId;
   readonly name: string;
-  readonly profile: AttackProfile;
+  /** The card it is, which is what detainment is predicted from. */
+  readonly definitionId: string;
+  /** Printed race, which is what a boost is looked up by. */
+  readonly race: string | null;
+  /**
+   * The attack as printed, assuming a normal attack; boosts are applied by
+   * {@link profileOf}, which is also where detainment is folded in — the same
+   * creature is a detainment attack against one company and a normal attack
+   * against another, so it cannot be settled here.
+   */
+  readonly base: AttackProfile;
   readonly killMp: number;
+}
+
+/**
+ * A support event in hand: one whose declared modifier improves the attacks
+ * around it rather than attacking itself.
+ */
+interface Support {
+  readonly instanceId: CardInstanceId;
+  readonly name: string;
+  readonly boost: AttackBoost;
+}
+
+/**
+ * The attack a creature makes against one company, with `boost` in play.
+ *
+ * `detainment` is the target's answer rather than the card's (CoE §3.II turns on
+ * who is defending and how the creature is keyed): it taps instead of wounding,
+ * and puts no kill marshalling points on offer at all (§3.II.3), which is what
+ * makes such a creature the cheap opener of a sequence rather than a gamble.
+ */
+function profileOf(hazard: Hazard, boost: AttackBoost | null, detainment: boolean): AttackProfile {
+  const added = boostForRace(boost, hazard.race);
+  const base: AttackProfile = detainment
+    ? {
+      ...hazard.base,
+      detainment: true,
+      killTsd: 0,
+      killLabel: `${hazard.name} beaten — a detainment attack, so no kill MP to the defender`,
+    }
+    : hazard.base;
+  if (added.prowess === 0 && added.strikes === 0) return base;
+  return {
+    ...base,
+    strikeProwess: base.strikeProwess + added.prowess,
+    strikes: base.strikes + added.strikes,
+  };
 }
 
 /** What one opposing company can be spent against, and by whom. */
@@ -113,8 +173,12 @@ interface Target {
   readonly label: string;
   readonly roster: readonly StrikeTarget[];
   readonly price: SequencePricer;
+  /** Whether a given creature attacks this company as a detainment attack. */
+  readonly detainment: (definitionId: string) => boolean;
   /** Hazards the plan has already aimed here, in order. */
   readonly assigned: Hazard[];
+  /** Support events the plan would play here, ahead of the attacks. */
+  readonly supports: Support[];
   /** Slots left in the hazard limit. */
   slots: number;
   /** Harm the assigned sequence is expected to do. */
@@ -130,7 +194,7 @@ function hazardOf(
 ): Hazard | null {
   const def = cardPool[definitionId] as unknown as {
     cardType?: string; name?: string; strikes?: number; prowess?: number;
-    body?: number | null; killMarshallingPoints?: number;
+    body?: number | null; killMarshallingPoints?: number; race?: string;
   } | undefined;
   if (!def || def.cardType !== 'hazard-creature') return null;
   const killMp = def.killMarshallingPoints ?? 0;
@@ -138,8 +202,10 @@ function hazardOf(
   return {
     instanceId,
     name,
+    definitionId,
     killMp,
-    profile: {
+    race: def.race ?? null,
+    base: {
       strikeProwess: def.prowess ?? 0,
       strikes: def.strikes ?? 1,
       creatureBody: def.body ?? null,
@@ -148,26 +214,83 @@ function hazardOf(
       killTsd: killTsdOf(killMp),
       killLabel: `${name} beaten — ${killMp} kill MP to the defender`,
       name,
+      attackerChooses: attackerChoosesDefenders(cardPool[definitionId]),
     },
   };
 }
 
-/** Expected harm of playing a sequence of hazards into one company. */
+/**
+ * Read a support event out of hand, or null when the card is not one.
+ *
+ * Long and permanent hazard events only, and only those whose declared
+ * `all-attacks` modifier this can read — the same policy `attack-modifiers`
+ * applies everywhere else: a modifier nobody can read must not be credited.
+ */
+function supportOf(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  instanceId: CardInstanceId,
+  definitionId: string,
+): Support | null {
+  const def = cardPool[definitionId] as unknown as {
+    cardType?: string; name?: string; eventType?: string;
+  } | undefined;
+  if (!def || def.cardType !== 'hazard-event') return null;
+  if (def.eventType !== 'long' && def.eventType !== 'permanent') return null;
+  const name = def.name ?? definitionId;
+  const boost = attackBoostOf(cardPool[definitionId], view, cardPool, name);
+  if (!boost) return null;
+  return { instanceId, name, boost };
+}
+
+/**
+ * Expected harm of playing a sequence of hazards into one company, with `boost`
+ * in force.
+ *
+ * The boost is a parameter rather than baked into the profiles because it
+ * changes twice over: the hazard events already on the board apply to every
+ * attack from the start, and a support event the plan decides to play adds more.
+ */
 function harmOf(
   target: Target,
   cardPool: Readonly<Record<string, CardDefinition>>,
   sequence: readonly Hazard[],
   tunables: Tunables,
+  boost: AttackBoost | null,
+  attackerChoice: AttackerChoice,
 ): number {
   if (sequence.length === 0) return 0;
   const result = resolveAttacks(
-    target.roster, cardPool, sequence.map(h => h.profile), target.price,
-    { maxStates: tunables.attackStateCap },
+    target.roster, cardPool,
+    sequence.map(h => profileOf(h, boost, target.detainment(h.definitionId))),
+    target.price,
+    { maxStates: tunables.attackStateCap, attackerChoice },
   );
   const expected = result.outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);
   // Each hazard costs a card out of hand whatever it achieves, exactly as the
   // bundle planner charges.
   return expected - tunables.provisionalCardPrice * sequence.length;
+}
+
+/**
+ * Longest sequence whose orderings are searched exhaustively.
+ *
+ * 4! is 24 resolutions per company, which is affordable beside the allocation
+ * itself; beyond that the greedy order is kept rather than paying 120. Hazard
+ * limits in practice sit at 2–4, so the cap almost never binds.
+ */
+const MAX_ORDERED = 4;
+
+/** Every ordering of `items`. */
+function orderings<T>(items: readonly T[]): T[][] {
+  if (items.length <= 1) return [[...items]];
+  const out: T[][] = [];
+  items.forEach((item, index) => {
+    for (const rest of orderings(items.filter((_, other) => other !== index))) {
+      out.push([item, ...rest]);
+    }
+  });
+  return out;
 }
 
 /** Build the plan for a position. */
@@ -181,13 +304,45 @@ function buildHazardPlan(
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
 
   const hazards: Hazard[] = [];
+  const supports: Support[] = [];
   for (const card of view.self.hand) {
     const hazard = hazardOf(cardPool, card.instanceId, card.definitionId as string, killTsdOf);
-    if (hazard) hazards.push(hazard);
+    if (hazard) {
+      hazards.push(hazard);
+      continue;
+    }
+    const support = supportOf(view, cardPool, card.instanceId, card.definitionId as string);
+    if (support) supports.push(support);
   }
+
+  /**
+   * What the hazard events already on the board are doing to every attack.
+   *
+   * A long event lasts the turn and a permanent one the game, so once one is out
+   * those are simply the numbers the plan runs on — the same reading the
+   * `hazards` module makes when it resolves a bundle.
+   */
+  const boardBoost = boostInPlay(view, cardPool);
+
+  /**
+   * How hard this plan searches the attacker's own choice of defender.
+   *
+   * The plan is the hazard seat's, so the attacker is the player it is built
+   * for, and the policy is read from their standing rather than assumed.
+   */
+  const attackerChoice = attackerChoiceAt(standing.risk, tunables);
 
   const beliefs = computeBeliefs(view, cardPool);
   const exposure = computeExposure(view, cardPool);
+
+  /**
+   * Detainment predictions, keyed by company and card.
+   *
+   * The answer depends only on the pair, and the allocation asks for it once per
+   * (card, company) per round — so it is cached across both the full-limit run
+   * and the halved one rather than re-deriving the rule each time.
+   */
+  const detainmentCache = new Map<string, boolean>();
 
   /**
    * The companies the plan may spend against, with `slots` set by `limitOf`.
@@ -213,7 +368,23 @@ function buildHazardPlan(
         label: `${company.characters.length}-character company`,
         roster: rosterOf(company, view.opponent.characters, cardPool),
         price: denialPricer(cardPool, standing, tunables, denial),
+        detainment: (definitionId: string): boolean => {
+          const key = `${company.id as string}|${definitionId}`;
+          const cached = detainmentCache.get(key);
+          if (cached !== undefined) return cached;
+          // No keying is declared here — this service prices a hand rather than
+          // resolving a play — so the prediction falls back to the union of the
+          // creature's keying, the engine's own fallback when no match was
+          // declared. A creature keyed to a Dark-hold *among other things* is
+          // therefore called detainment slightly too often against a minion
+          // company; the `hazards` module, which does have the declared keying,
+          // is the one that decides the move.
+          const value = attackIsDetainment(view, cardPool, company, definitionId);
+          detainmentCache.set(key, value);
+          return value;
+        },
         assigned: [],
+        supports: [],
         slots: limitOf(base),
         harm: 0,
       };
@@ -227,52 +398,195 @@ function buildHazardPlan(
    * round rather than sorted once — a card worth nothing against a fresh company
    * can be worth a lot behind another one.
    */
-  const allocate = (targets: readonly Target[]): Map<string, HazardAssignment> => {
+  const allocate = (targets: readonly Target[]): {
+    assigned: Map<string, HazardAssignment>;
+    boost: AttackBoost | null;
+  } => {
     const assigned = new Map<string, HazardAssignment>();
     const unassigned = new Set(hazards.map(h => h.instanceId as string));
+    const unplayed = new Set(supports.map(s => s.instanceId as string));
+    /** The modifiers in force: the board's, plus every support the plan has taken. */
+    let boost = boardBoost;
+
+    /** What a company's assigned attacks are worth under `candidate`. */
+    const attackHarm = (target: Target, candidate: AttackBoost | null): number =>
+      harmOf(target, cardPool, target.assigned, tunables, candidate, attackerChoice);
+
+    /** The same, across every company — what a support's boost is measured against. */
+    const attacksHarm = (candidate: AttackBoost | null): number =>
+      targets.reduce((sum, t) => sum + attackHarm(t, candidate), 0);
+
+    /**
+     * A company's contribution to the plan: its attacks, less a card for each
+     * support played there.
+     *
+     * `harmOf` charges a card per creature; a support costs one too, and charging
+     * it here rather than only inside its own marginal is what keeps the credited
+     * marginals summing to {@link HazardPlan.totalHarm}.
+     */
+    const contribution = (target: Target): number =>
+      attackHarm(target, boost) - tunables.provisionalCardPrice * target.supports.length;
+
+    /** A support changes every attack, so every company is re-priced. */
+    const reprice = (): void => {
+      for (const target of targets) target.harm = contribution(target);
+    };
+
     for (;;) {
-      let best: { hazard: Hazard; target: Target; marginal: number } | null = null;
+      let best:
+        | { kind: 'creature'; hazard: Hazard; target: Target; marginal: number }
+        | { kind: 'support'; support: Support; target: Target; marginal: number }
+        | null = null;
+      const attacksNow = attacksHarm(boost);
       for (const target of targets) {
         if (target.slots <= 0 || target.roster.length === 0) continue;
         for (const hazard of hazards) {
           if (!unassigned.has(hazard.instanceId as string)) continue;
-          const marginal = harmOf(target, cardPool, [...target.assigned, hazard], tunables) - target.harm;
-          if (!best || marginal > best.marginal) best = { hazard, target, marginal };
+          const marginal = harmOf(target, cardPool, [...target.assigned, hazard], tunables, boost, attackerChoice)
+            - attackHarm(target, boost);
+          if (!best || marginal > best.marginal) best = { kind: 'creature', hazard, target, marginal };
+        }
+        // A support is worth what it adds to the *whole* plan, not to the company
+        // whose slot it spends: Full of Froth and Rage boosts every Spider and
+        // Animal attack on the board, wherever they land. It still costs a card
+        // and a slot, so it only wins a round when that gain beats the creature
+        // the slot would otherwise hold — and it is worth nothing at all until
+        // some boostable attack has been assigned, which is why the rounds are
+        // re-made rather than sorted once.
+        for (const support of supports) {
+          if (!unplayed.has(support.instanceId as string)) continue;
+          const marginal = attacksHarm(mergeBoosts(boost, support.boost))
+            - attacksNow - tunables.provisionalCardPrice;
+          if (!best || marginal > best.marginal) best = { kind: 'support', support, target, marginal };
         }
       }
       if (!best || best.marginal <= 0) break;
-      best.target.assigned.push(best.hazard);
-      best.target.harm += best.marginal;
+
       best.target.slots--;
-      unassigned.delete(best.hazard.instanceId as string);
-      assigned.set(best.hazard.instanceId as string, {
-        instanceId: best.hazard.instanceId,
-        name: best.hazard.name,
-        targetCompanyId: best.target.companyId,
-        targetLabel: best.target.label,
-        marginal: best.marginal,
-        order: best.target.assigned.length,
-      });
+      if (best.kind === 'creature') {
+        best.target.assigned.push(best.hazard);
+        best.target.harm += best.marginal;
+        unassigned.delete(best.hazard.instanceId as string);
+      } else {
+        boost = mergeBoosts(boost, best.support.boost);
+        best.target.supports.push(best.support);
+        unplayed.delete(best.support.instanceId as string);
+        reprice();
+      }
     }
-    return assigned;
+
+    /**
+     * Put each company's attacks in the order they would actually be played,
+     * and credit every card for what it adds *in that order*.
+     *
+     * The order is not the order the cards were chosen in. Greedy picks the card
+     * worth most on its own and appends the next behind it, and that is not the
+     * best sequence: against a two-character company, leading with the
+     * high-prowess single strike and following with the many-strike attack was
+     * worth 0.6 tsd more than the reverse in the position this was reported from
+     * — the first attack taps a defender, and the four strikes behind it meet a
+     * company one body short. The reverse can also be right: against a lone
+     * already-wounded character, the near-certain kill leaves the follow-up
+     * nothing to hit, so the many-strike attack leads. Both readings come out of
+     * `resolveAttacks`; neither needs to be a rule.
+     *
+     * Only the ordering is searched, not the selection: which cards to spend is
+     * left to the greedy pass above, because this service is consulted for a
+     * price rather than for a move — the `hazards` module beam-searches the real
+     * decision, orderings included.
+     */
+    const orderAndCredit = (): void => {
+      for (const target of targets) {
+        if (target.assigned.length > 1 && target.assigned.length <= MAX_ORDERED) {
+          let bestOrder = target.assigned;
+          let bestHarm = harmOf(target, cardPool, bestOrder, tunables, boost, attackerChoice);
+          for (const order of orderings(target.assigned)) {
+            const harm = harmOf(target, cardPool, order, tunables, boost, attackerChoice);
+            if (harm > bestHarm) {
+              bestHarm = harm;
+              bestOrder = order;
+            }
+          }
+          target.assigned.splice(0, target.assigned.length, ...bestOrder);
+        }
+        target.harm = contribution(target);
+      }
+
+      // Attacks are credited for what they deny with the board as it stands;
+      // each support is then credited for what its boost adds on top of the
+      // finished sequences. Split that way the credits sum to `totalHarm`
+      // exactly, with no part of the gain paid for twice.
+      for (const target of targets) {
+        let running = 0;
+        target.assigned.forEach((hazard, index) => {
+          const upTo = harmOf(
+            target, cardPool, target.assigned.slice(0, index + 1), tunables, boardBoost, attackerChoice,
+          );
+          assigned.set(hazard.instanceId as string, {
+            instanceId: hazard.instanceId,
+            name: hazard.name,
+            targetCompanyId: target.companyId,
+            targetLabel: target.label,
+            marginal: upTo - running,
+            // Supports reach the table first, so the attacks start behind them.
+            order: target.supports.length + index + 1,
+            support: false,
+          });
+          running = upTo;
+        });
+      }
+
+      let applied = boardBoost;
+      let before = targets.reduce(
+        (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied, attackerChoice), 0,
+      );
+      for (const target of targets) {
+        target.supports.forEach((support, index) => {
+          applied = mergeBoosts(applied, support.boost);
+          const after = targets.reduce(
+            (sum, t) => sum + harmOf(t, cardPool, t.assigned, tunables, applied, attackerChoice), 0,
+          );
+          assigned.set(support.instanceId as string, {
+            instanceId: support.instanceId,
+            name: support.name,
+            targetCompanyId: target.companyId,
+            targetLabel: target.label,
+            marginal: after - before - tunables.provisionalCardPrice,
+            // First, always: a modifier reaches the table before the attacks it
+            // improves, or it improves nothing.
+            order: index + 1,
+            support: true,
+          });
+          before = after;
+        });
+      }
+    };
+
+    orderAndCredit();
+    return { assigned, boost };
   };
 
   const targets = makeTargets(base => base);
-  const assignments = allocate(targets);
+  const { assigned: assignments, boost: plannedBoost } = allocate(targets);
 
   // Everything the plan could not use. Worth nothing to keep *as an attack* —
   // which is a real statement about the hand, not a failure to price it.
-  for (const hazard of hazards) {
-    if (assignments.has(hazard.instanceId as string)) continue;
-    assignments.set(hazard.instanceId as string, {
-      instanceId: hazard.instanceId,
-      name: hazard.name,
+  const unused = [
+    ...hazards.map(h => ({ instanceId: h.instanceId, name: h.name, support: false })),
+    ...supports.map(s => ({ instanceId: s.instanceId, name: s.name, support: true })),
+  ];
+  for (const card of unused) {
+    if (assignments.has(card.instanceId as string)) continue;
+    assignments.set(card.instanceId as string, {
+      instanceId: card.instanceId,
+      name: card.name,
       targetCompanyId: null,
       targetLabel: targets.length === 0
         ? 'no company to aim it at'
         : 'nothing left it improves',
       marginal: 0,
       order: 0,
+      support: card.support,
     });
   }
 
@@ -291,6 +605,9 @@ function buildHazardPlan(
       // touching the sideboard is this number.
       const halved = makeTargets(base => Math.ceil(base / 2));
       allocate(halved);
+      // The halved run re-derives its own boost from the board, so the totals
+      // stay comparable with the full-limit plan above.
+
       halvedHarm = halved.reduce((sum, target) => sum + target.harm, 0);
       return halvedHarm;
     },
@@ -303,7 +620,18 @@ function buildHazardPlan(
       let best = 0;
       for (const target of targets) {
         if (target.slots <= 0 || target.roster.length === 0) continue;
-        const marginal = harmOf(target, cardPool, [...target.assigned, candidate], tunables) - target.harm;
+        // `target.harm` is the company's *contribution* — its attacks less a
+        // card for each support played there — while the candidate arm below
+        // is attacks-only. Subtracting the net figure from the gross one
+        // credited the candidate with the supports' card prices (one full
+        // provisionalCardPrice per support), inflating every quote taken
+        // from a company the allocation gave a support to. Add those prices
+        // back so both arms are attacks-only.
+        const attacksOnly = target.harm
+          + tunables.provisionalCardPrice * target.supports.length;
+        const marginal = harmOf(
+          target, cardPool, [...target.assigned, candidate], tunables, plannedBoost, attackerChoice,
+        ) - attacksOnly;
         if (marginal > best) best = marginal;
       }
       return best;

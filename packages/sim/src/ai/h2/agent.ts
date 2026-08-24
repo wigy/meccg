@@ -263,15 +263,20 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         proposePlans(modules, moduleContext),
         tunables,
       );
+      // Evaluation sees what proposal must not: the committed portfolio.
+      // Proposers get the bare context above, so the ordering — propose,
+      // commit, then evaluate — is what makes a commitment feedback loop
+      // structurally impossible rather than merely discouraged.
+      const plannedContext: ModuleContext = { ...moduleContext, commitment };
       const { modules: contributors, evaluations: tactical, complete }
-        = evaluateDecision(modules, moduleContext);
+        = evaluateDecision(modules, plannedContext);
       // The plan contributions are folded in here rather than inside
       // `evaluateDecision` because they are not a module's opinion about an
       // action — they are what the *commitment* says about it, and the registry
       // is the wrong place for a number no module owns. Re-ranking is the whole
       // point: a candidate that serves a commitment has to be able to outrank
       // one that looked better tactically.
-      const planned = rankWithPlans(modules, tactical, commitment, moduleContext);
+      const planned = rankWithPlans(modules, tactical, commitment, plannedContext);
       const evaluations = planned.map(p => p.evaluation);
       const best = evaluations[0];
       // A ranking whose candidates all score the same is not an opinion, it is
@@ -335,38 +340,72 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         // agent cannot be raised by working on this one, so it is gone and H2
         // answers its own decisions, including the ones it cannot rank.
         //
-        // What it says when it cannot rank them is **one of the tied best, at
-        // random** — never `pass` by preference.
+        // What it says when it cannot rank them is **`pass`**, whenever the
+        // decision offers one.
         //
-        // This clause said `pass` first, on the argument that every action
-        // costs something the model may not have priced, so an action with no
-        // modelled benefit has nothing to set against it. That argument is
-        // wrong about this game. Not acting is not the neutral option: a turn
-        // spent passing plays no resource, attempts no faction and scores
-        // nothing, while the opponent's turn arrives regardless. `pass` is a
-        // move with its own cost, and preferring it on every tie made H2
-        // decline 44% of its decisions.
+        // Every action H2 has a reason to take is priced by a module — a plan
+        // step advanced, points moved, a check survived — and prices as a
+        // strictly positive utility that wins through `speaks` above. An
+        // action still tied with doing nothing down here is therefore an
+        // action no module needs for any plan, and taking it anyway is not
+        // tempo, it is noise: this is exactly how H2 handed away two starting
+        // items it had no reason to move (game msp8zwew-ddwnxz, turn 2) and
+        // later toured a minor item around a whole five-character company one
+        // hop per decision, every organization phase (game mt1j9m0i-5d4lze,
+        // turn 7) — moves no human would consider. An earlier version of this
+        // clause preferred acting on ties, on the argument that a turn spent
+        // passing plays no resource and scores nothing; but the resource plays
+        // that matter *do* score, through the plan layer, and win above. What
+        // reaches this clause with a `pass` on offer is only ever busywork.
         //
-        // Random rather than first-in-list, because the failure this clause
-        // was originally written to prevent is real: a tie at the top of the
-        // ranking is whichever candidate sorted first, not a preferred one, and
-        // taking it deterministically once had H2 give away two starting items
-        // it had no reason to move. Choosing uniformly among the tied removes
-        // the false preference without inventing one — and it is honest about
-        // what a tie is, which array order is not.
+        // `pass` must not merely tie its way in, though: a module that prices
+        // passing *strictly worse* than the tied best has expressed a real
+        // preference against it (e.g. declining a gating resolution), and that
+        // is respected.
+        //
+        // Only a decision with no `pass` at all — forced discards, strike
+        // assignments, corruption-check targets — is resolved among the tied
+        // best, and at random rather than first-in-list: a tie at the top of
+        // the ranking is whichever candidate sorted first, not a preferred
+        // one, and choosing uniformly removes the false preference without
+        // inventing one.
+        //
+        // "Uniformly" means over the *choices* on offer, not over the raw
+        // action list: `transfer-item` and `store-item` name a destination
+        // character that the `health` module explicitly has no opinion about
+        // ("no marshalling-point preference is invented for it here"), so a
+        // tie between one `plan-movement` and an item sitting on four
+        // possible bearers is four action records for one real alternative
+        // and one for the other. Sampling that pool directly hands the draw
+        // to whichever action type happens to have the most equivalent
+        // targets — which is how a company organizing under CoE 2.II.3.6 (no
+        // `pass` until all but one company has declared movement) toured an
+        // item from bearer to bearer before ever reaching the movement
+        // declaration it still owed (game mt3e57h3-9f79dh, turn 1). Drawing
+        // the action *type* first, and only then a target within it, keeps
+        // every real alternative equally likely regardless of how many
+        // interchangeable targets it happens to have.
         const tied = evaluations.filter(e => e.utility >= best.utility - TIE_EPSILON);
-        // Among equals, act. `pass` only wins a tie when nothing else is tied
-        // with it.
-        const acting = tied.filter(e => e.action.type !== 'pass');
-        const pool = (acting.length > 0 ? acting : tied).map(e => e.action);
-        const fallbackPool = legalActions.filter(a => a.type !== 'pass');
-        const options = pool.length > 0
-          ? pool
-          : (fallbackPool.length > 0 ? fallbackPool : legalActions);
-        const chosen = options[Math.min(options.length - 1, Math.floor(context.random() * options.length))];
+        const legalPass = legalActions.find(a => a.type === 'pass');
+        const passEvaluation = evaluations.find(e => e.action.type === 'pass');
+        const passBeaten = passEvaluation !== undefined
+          && best.utility - passEvaluation.utility > TIE_EPSILON;
+        if (legalPass && !passBeaten) {
+          return {
+            action: legalPass,
+            note: `no opinion — no module needs an action in its plan, so pass `
+              + `(${evaluations.length} candidate(s) scored)`,
+          };
+        }
+        const pool = tied.map(e => e.action);
+        const options = pool.length > 0 ? pool : legalActions;
+        const types = [...new Set(options.map(a => a.type))];
+        const chosenType = types[Math.min(types.length - 1, Math.floor(context.random() * types.length))];
+        const withinType = options.filter(a => a.type === chosenType);
+        const chosen = withinType[Math.min(withinType.length - 1, Math.floor(context.random() * withinType.length))];
         return {
           action: chosen,
-          note: `no opinion — one of ${options.length} tied at random: ${chosen.type} `
+          note: `no opinion — one of ${types.length} action type(s) tied at random: ${chosen.type} `
             + `(${evaluations.length} candidate(s) scored)`,
         };
       }

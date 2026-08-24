@@ -14,7 +14,7 @@ import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findById, removeById, updatePlayer, wrongActionType, playerById, defById } from './reducer-utils.js';
 import { isResourceEventCard } from '../types/cards.js';
-import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
+import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer, handleAllyTapExtraMHOffer, handleCharacterTapExtraMHOffer } from './mh-hazard-play.js';
 import { enterSetHazardLimitAndAutoAdvance, handleSelectCompany, handleRevealNewSite, handleUnderDeepsRoll, handleOrderEffects, handleDrawCards } from './mh-steps.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -47,6 +47,7 @@ const MH_STEP_HANDLERS: Readonly<Record<MovementHazardPhaseState['step'], MHHand
   'extra-mh-move-offer': handleExtraMHMoveOffer,
   'ally-tap-mh-offer': handleAllyTapExtraMHOffer,
   'character-tap-mh-offer': handleCharacterTapExtraMHOffer,
+  'region-shortcut-attack': handleRegionShortcutAttackStep,
 };
 
 export function handleMovementHazard(state: GameState, action: GameAction): ReducerResult {
@@ -61,15 +62,24 @@ export function handleMovementHazard(state: GameState, action: GameAction): Redu
     logDetail(`M/H step '${mhState.step as string}' rejected play-short-event (${result.error}) — dispatching via shared short-event flow`);
     return dispatchShortEventByCardType(state, action);
   }
-  // Granted-action constraints (River's ranger-cancel and friends) are offered
-  // by the constraint pass-through in *every* step, so every step must accept
-  // one. `play-hazards` and `reset-hand` route it themselves — `play-hazards`
-  // has bookkeeping to do afterwards (rule 5.27's hazard-pass reset), so this
-  // fallback deliberately runs only after the step handler has refused. Without
-  // it, reveal-new-site answered an action the engine had just advertised with
-  // "Expected 'pass' or 'declare-path'".
+  // Rule 2.1.1 lets the active player play resource permanent-events during
+  // any phase of their turn, and an open chain offers them as responses in
+  // EVERY M/H step (chain.ts's resourceEventChainActions) — including rigid
+  // pass-only steps like order-effects (q/2 bench seed 11400048: A More Evil
+  // Hour ba-48 offered as a chain response during order-effects, rejected by
+  // handleOrderEffectsStep). Route the rejected play exactly like the
+  // short-event fallback above; handlePlayPermanentEvent pushes the card
+  // onto the open chain.
+  if (result.error && action.type === 'play-permanent-event') {
+    logDetail(`M/H step '${mhState.step as string}' rejected play-permanent-event (${result.error}) — dispatching via the shared permanent-event flow`);
+    return handlePlayPermanentEvent(state, action);
+  }
+  // The granted-action constraint pass-through (phase-less constraints like
+  // River tw-84) offers `activate-granted-action` in every step too — same
+  // engine-gap class, same fallback (select-company and reset-hand already
+  // route it in-handler; this covers the rigid pass-only steps).
   if (result.error && action.type === 'activate-granted-action') {
-    logDetail(`M/H step '${mhState.step as string}' rejected activate-granted-action (${result.error}) — applying the grant`);
+    logDetail(`M/H step '${mhState.step as string}' rejected activate-granted-action (${result.error}) — dispatching via handleGrantActionApply`);
     return handleGrantActionApply(state, action);
   }
   return result;
@@ -128,6 +138,18 @@ function handleSetHazardLimit(state: GameState, action: GameAction, mhState: Mov
 function handleOrderEffectsStep(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
   if (action.type !== 'pass') return wrongActionType(state, action, 'pass', 'order-effects step');
   return handleOrderEffects(state, mhState);
+}
+
+/**
+ * Advance from the region-shortcut-attack window (Ash Mountains tw-194 and
+ * its "movement enhancer" family) once its forced attack has resolved (this
+ * step is only reached once `state.combat` is already clear — see
+ * `legal-actions/movement-hazard.ts`), continuing straight to
+ * set-hazard-limit exactly like `handleSetHazardLimit`.
+ */
+function handleRegionShortcutAttackStep(state: GameState, action: GameAction, mhState: MovementHazardPhaseState): ReducerResult {
+  if (action.type !== 'pass') return wrongActionType(state, action, 'pass', 'region-shortcut-attack step');
+  return enterSetHazardLimitAndAutoAdvance(state, mhState);
 }
 
 /**

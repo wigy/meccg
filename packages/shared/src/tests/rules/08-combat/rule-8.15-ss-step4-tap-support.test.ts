@@ -16,14 +16,15 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, BILBO,
+  ARAGORN, LEGOLAS, BILBO, GWAIHIR,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   ORC_LIEUTENANT,
   Phase,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeMHState, makeShadowMHState, attachAllyToChar, findCharInstanceId,
   handCardId, companyIdAt, charIdAt, dispatch, resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../../test-helpers.js';
-import { computeLegalActions, SiteType } from '../../../index.js';
+import { computeLegalActions, SiteType, Race } from '../../../index.js';
+import type { CombatState, CardInstanceId } from '../../../index.js';
 
 describe('Rule 8.15 — Strike Step 4: Tapping for +1 Support', () => {
   beforeEach(() => resetMint());
@@ -117,5 +118,59 @@ describe('Rule 8.15 — Strike Step 4: Tapping for +1 Support', () => {
       .find(a => a.action.type === 'resolve-strike' && (a.action as { tapToFight: boolean }).tapToFight);
     expect(afterTwoSupports).toBeDefined();
     expect((afterTwoSupports!.action as { need: number }).need).toBe(initialNeed - 2);
+  });
+
+  test('an ally that has itself been assigned a strike is NOT offered as a supporter (CoE 3.iv.4)', () => {
+    // Regression: the support-action generator gated characters on "not
+    // assigned a strike" but offered any untapped ally unconditionally. An
+    // ally is a valid strike target, so an ally assigned its own (unresolved)
+    // strike was wrongly offered to support another strike.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    // Gwaihir is an ally on Aragorn; it will be a strike target too.
+    const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
+    const aragornId = findCharInstanceId(withAlly, RESOURCE_PLAYER, ARAGORN);
+    const legolasId = findCharInstanceId(withAlly, RESOURCE_PLAYER, LEGOLAS);
+    const gwaihirId = withAlly.players[0].characters[aragornId].allies[0].instanceId;
+    const companyId = companyIdAt(withAlly, RESOURCE_PLAYER);
+
+    // Two strikes: current strike on Legolas (unresolved), a second strike
+    // assigned to the untapped Gwaihir ally (unresolved).
+    const combat: CombatState = {
+      attackSource: { type: 'creature', instanceId: 'fake-creature' as CardInstanceId },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 2,
+      strikeProwess: 8,
+      creatureBody: null,
+      creatureRace: Race.Orc,
+      strikeAssignments: [
+        { characterId: legolasId, excessStrikes: 0, resolved: false },
+        { characterId: gwaihirId, excessStrikes: 0, resolved: false },
+      ],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike',
+      assignmentPhase: 'done',
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+    const state = { ...withAlly, phaseState: makeShadowMHState(), combat };
+
+    const supports = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'support-strike')
+      .map(a => (a.action as { supportingCharacterId: CardInstanceId }).supportingCharacterId);
+
+    // Aragorn (no strike, untapped) may support; Gwaihir (assigned strike 1)
+    // may not.
+    expect(supports).toContain(aragornId);
+    expect(supports).not.toContain(gwaihirId);
   });
 });

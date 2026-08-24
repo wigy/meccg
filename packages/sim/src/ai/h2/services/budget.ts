@@ -61,6 +61,27 @@ export interface Budget {
   bestInfluencerIn(companyId: CompanyId): CharacterBudget | null;
   /** Total taps available across every company. */
   readonly tapsAvailable: number;
+  /**
+   * The influence position after a hypothetical `move-to-influence`: the
+   * character moved under `controlledBy` (`'general'`, or the holder it
+   * becomes a follower of), everything else unchanged.
+   *
+   * Pure — the budget itself is not modified. A follower is held by direct
+   * influence equal to his mind, and a general-influence character is charged
+   * to the pool, so the move shifts exactly that much between the two: the
+   * old holder's free direct influence rises, the new holder's falls, and
+   * the general pool moves when either end is `'general'`. Control cost is
+   * taken as effective mind; the engine's control-cost overrides are not in
+   * the view, recorded rather than guessed.
+   */
+  afterInfluenceMove(
+    characterInstanceId: CardInstanceId,
+    controlledBy: 'general' | CardInstanceId,
+  ): {
+    readonly freeGeneralInfluence: number;
+    /** Free direct influence per character, by instance ID. */
+    readonly freeDirectInfluence: Readonly<Record<string, number>>;
+  };
 }
 
 /** A card's printed name, falling back to the instance ID. */
@@ -138,6 +159,34 @@ function buildComputeBudget(
       const candidates = inCompany(companyId).filter(c => c.untapped);
       if (candidates.length === 0) return null;
       return candidates.reduce((best, c) => (c.freeDirectInfluence > best.freeDirectInfluence ? c : best));
+    },
+
+    afterInfluenceMove(
+      characterInstanceId: CardInstanceId,
+      controlledBy: 'general' | CardInstanceId,
+    ): {
+      readonly freeGeneralInfluence: number;
+      readonly freeDirectInfluence: Readonly<Record<string, number>>;
+    } {
+      const moved = characters[characterInstanceId as string];
+      const mind = moved?.mind ?? 0;
+      // Who holds him now: the character whose follower list names him, or
+      // the general pool.
+      const holder = Object.values(view.self.characters)
+        .find(c => c.followers.includes(characterInstanceId))?.instanceId;
+      const from: 'general' | CardInstanceId = holder ?? 'general';
+
+      const freeDirectInfluence: Record<string, number> = {};
+      for (const [id, character] of Object.entries(characters)) {
+        let free = character.freeDirectInfluence;
+        if (id === (from as string)) free += mind;
+        if (id === (controlledBy as string)) free -= mind;
+        freeDirectInfluence[id] = free;
+      }
+      const freeGeneral = generalInfluence - used
+        + (from === 'general' && controlledBy !== 'general' ? mind : 0)
+        - (from !== 'general' && controlledBy === 'general' ? mind : 0);
+      return { freeGeneralInfluence: freeGeneral, freeDirectInfluence };
     },
   };
 }

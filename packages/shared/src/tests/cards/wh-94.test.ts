@@ -20,9 +20,9 @@
  *        card (wh-93) must already be in the player's own play area.
  *     3. play-target `character` filter `{ target.name: "Alatar" }` — the card
  *        attaches to Alatar's `items` ("playable on Alatar").
- *     4. fw-item-mp-full — filter matching weapon/armor/shield/helmet items,
+ *     4. fw-mp-full (cards: items) — filter matching weapon/armor/shield/helmet items,
  *        **player-wide** (no `inAvatarCompany`, unlike Join the Hunt wh-93).
- *     5. fw-ally-mp-full — filter `{ prowess: $exists }`, likewise player-wide.
+ *     5. fw-mp-full (cards: allies) — filter `{ prowess: $exists }`, likewise player-wide.
  *     6. faction-mp-override — rule `{ when: { faction.race: "elf" }, value: 2 }`.
  *
  * Background: MEWH §4 clamps every non-stage card a Fallen-wizard controls to a

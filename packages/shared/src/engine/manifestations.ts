@@ -19,6 +19,7 @@
 
 import type {
   AutomaticAttack,
+  CancelAutoAttacksSiteRule,
   CardDefinition,
   CardEffect,
   CardInstance,
@@ -32,7 +33,8 @@ import type {
 import type { CardInstanceId } from '../types/common.js';
 import { Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
-import { matchesCondition } from '../effects/condition-matcher.js';
+import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
+import { buildInPlayNames } from './recompute-derived.js';
 import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
@@ -330,18 +332,14 @@ export function getActiveAutoAttacks(
     }
   }
 
-  // Rhosgobel (as-159): "If the Wizard card Radagast is in play, the
-  // automatic-attacks are removed." A `cancel-attacks-if-character-in-play`
-  // site rule strips all of the site's *printed* automatic-attacks while a
-  // character with the given name — any version of it (Radagast tw-178 /
-  // wh-8) — is in play for either player. Applied before hazard augments so
-  // attacks added to the site by hazard effects are unaffected.
-  const printedCancelRule = (siteDef as { effects?: readonly CardEffect[] }).effects?.find(
-    (e): e is Extract<CardEffect, { type: 'site-rule'; rule: 'cancel-attacks-if-character-in-play' }> =>
-      e.type === 'site-rule' && e.rule === 'cancel-attacks-if-character-in-play',
-  );
-  if (printedCancelRule && printed.length > 0 && isNamedCharacterInPlay(state, printedCancelRule.characterName)) {
-    logDetail(`cancel-attacks-if-character-in-play: "${printedCancelRule.characterName}" is in play — all ${printed.length} printed automatic-attack(s) at ${siteDef.name} removed`);
+  // `cancel-auto-attacks` scope 'printed' — Rhosgobel (as-159): "If the
+  // Wizard card Radagast is in play, the automatic-attacks are removed."
+  // Strips all of the site's *printed* automatic-attacks while the rule's
+  // `when` condition holds. Applied before hazard augments so attacks added
+  // to the site by hazard effects are unaffected.
+  const printedCancelRule = findCancelAutoAttacksRule(siteDef, 'printed');
+  if (printedCancelRule && printed.length > 0 && cancelAutoAttacksConditionMet(state, printedCancelRule)) {
+    logDetail(`cancel-auto-attacks (printed): condition met — all ${printed.length} printed automatic-attack(s) at ${siteDef.name} removed`);
     printed = [];
   }
 
@@ -374,23 +372,14 @@ export function getActiveAutoAttacks(
     logDetail(`MEBA: Balrog in play or defeated — ${before - combined.length} Balrog automatic-attack(s) at ${siteDef.name} ignored`);
   }
 
-  // Apply cancel-first-attack-if-in-play site rules: if the referenced card
-  // is in any player's cardsInPlay, remove the first attack from the list.
-  // Used by The Under-gates (dm-38) when Balrog of Moria is in play.
-  const siteEffects = (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined)?.effects;
-  if (siteEffects) {
-    for (const siteEff of siteEffects) {
-      if (siteEff.type !== 'site-rule') continue;
-      if (siteEff.rule !== 'cancel-first-attack-if-in-play') continue;
-      const refDefId = siteEff.definitionId as string;
-      const refInPlay = state.players.some(p => p.cardsInPlay.some(c => c.definitionId === refDefId));
-      if (refInPlay && combined.length > 0) {
-        combined = combined.slice(1);
-        const refName = cardName(state, siteEff.definitionId, refDefId);
-        logDetail(`cancel-first-attack-if-in-play: "${refName}" is in play — first attack at ${siteDef.name} canceled`);
-      }
-      break;
-    }
+  // `cancel-auto-attacks` scope 'first' — The Under-gates (dm-38 / as-165):
+  // "If Balrog of Moria is in play ... the first automatic attack is
+  // canceled." Removes the first attack of the combined list while the
+  // rule's `when` condition holds.
+  const firstCancelRule = findCancelAutoAttacksRule(siteDef, 'first');
+  if (firstCancelRule && combined.length > 0 && cancelAutoAttacksConditionMet(state, firstCancelRule)) {
+    combined = combined.slice(1);
+    logDetail(`cancel-auto-attacks (first): condition met — first attack at ${siteDef.name} canceled`);
   }
 
   // Vile Fumes (wh-54): a `replace-automatic-attacks` constraint matching
@@ -473,13 +462,32 @@ export function getActiveAutoAttacks(
 }
 
 /**
- * True iff a character with the given card name is in play — present in any
- * player's `characters` record. Matched by name so every version of the card
- * counts (e.g. Radagast exists as hero Wizard tw-178 and Fallen-wizard wh-8).
- * Backs the `cancel-attacks-if-character-in-play` site rule (Rhosgobel as-159).
+ * The site's `cancel-auto-attacks` rule of the given scope, if any. One rule
+ * per scope is honored — a site declaring several of the same scope only has
+ * its first considered, matching the pre-DSL behavior.
  */
-function isNamedCharacterInPlay(state: GameState, name: string): boolean {
-  return charactersInPlayNames(state).includes(name);
+function findCancelAutoAttacksRule(
+  siteDef: SiteCard,
+  scope: 'printed' | 'first',
+): CancelAutoAttacksSiteRule | undefined {
+  return (siteDef as { effects?: readonly CardEffect[] }).effects?.find(
+    (e): e is CancelAutoAttacksSiteRule =>
+      e.type === 'site-rule' && e.rule === 'cancel-auto-attacks' && e.scope === scope,
+  );
+}
+
+/**
+ * Evaluates a `cancel-auto-attacks` rule's `when` condition against the
+ * card-name context `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same
+ * name lists the player-state context exposes, so a site condition reads
+ * identically to a card condition ("while Radagast is in play", "while
+ * Balrog of Moria is in play").
+ */
+function cancelAutoAttacksConditionMet(state: GameState, rule: CancelAutoAttacksSiteRule): boolean {
+  return matchesContext(rule.when, {
+    inPlayAnywhere: buildInPlayNames(state),
+    charactersInPlayAnywhere: charactersInPlayNames(state),
+  });
 }
 
 /**

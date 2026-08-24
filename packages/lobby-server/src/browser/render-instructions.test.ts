@@ -368,6 +368,56 @@ describe('renderPassButton — choose-great-hunt-source (The Great Hunt)', () =>
 });
 
 /**
+ * Regression test for bug report 648f4980dacb0e76 (game mt2ppg50-l6cytw, seq
+ * 428): "Im stuck after named a creature." Playing The Hunt (dm-143) enqueues
+ * a `hunt-target-choice` pending resolution offering one viable
+ * `choose-hunt-target` action per hazard creature found in the opponent's
+ * play deck/discard pile. `choose-hunt-target` was not in
+ * {@link renderPassButton}'s pass-like whitelist and had no dedicated
+ * branch, so once the choice was pending, the pass button hid and (since
+ * viable actions did exist) the "Waiting…" indicator was suppressed too — no
+ * control on screen let the player name a creature, the same class of bug as
+ * `choose-great-hunt-source` above. There is no safe default creature to name
+ * silently, so it renders one button per candidate instead of joining the
+ * generic whitelist.
+ */
+const chooseHuntTarget = (creatureInstanceId: CardInstanceId, definitionId: CardDefinitionId): EvaluatedAction => ({
+  action: {
+    type: 'choose-hunt-target',
+    player: 'p1',
+    creatureInstanceId,
+    definitionId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — choose-hunt-target (The Hunt)', () => {
+  // le-77 (Hobgoblins) and tw-078 (Orc-watch) are real hazard-creature card
+  // ids — the button label is resolved from `cardPool` by the definitionId
+  // the action itself carries, no instance lookup needed.
+  const hobgoblins = chooseHuntTarget('p2-35' as CardInstanceId, 'le-77' as CardDefinitionId);
+  const orcWatch = chooseHuntTarget('p2-46' as CardInstanceId, 'tw-078' as CardDefinitionId);
+
+  test('renders one button per named candidate instead of hiding the panel', () => {
+    renderPassButton(viewWith([hobgoblins, orcWatch]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(visualPanel.children).toHaveLength(2);
+    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Name Hobgoblins', 'Name Orc-watch']);
+  });
+
+  test('clicking a choice button sends that creature\'s action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([hobgoblins, orcWatch]), action => { sent = action; });
+
+    visualPanel.children[1].onclick?.();
+
+    expect(sent).toEqual(orcWatch.action);
+  });
+});
+
+/**
  * Regression test for bug report underlying feature request "change 'pass'
  * button name and place": Movement/Hazard's `draw-cards` and `play-hazards`
  * steps are two separate engine steps with independent pass semantics, but
@@ -427,10 +477,10 @@ describe('renderPassButton — Movement/Hazard draw-cards vs play-hazards labels
     expect(visualPanel.children[0].textContent).toBe('Pass Draw');
   });
 
-  test('play-hazards step renders "Pass Hazards (N left)" on the primary button', () => {
+  test('play-hazards step renders "Pass Hazards" on the primary button', () => {
     renderPassButton(playHazardsViewWith([passEval()]), () => { /* no-op */ });
 
-    expect(passBtn.textContent).toBe('Pass Hazards (4 left)');
+    expect(passBtn.textContent).toBe('Pass Hazards');
   });
 
   test('draw-cards and play-hazards never render the same primary button text', () => {
@@ -543,5 +593,88 @@ describe('renderPassButton — influence-overflow-discard (CoE 3.47 general-infl
     renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
 
     expect(visualPanel.children.map(c => c.textContent)).not.toContain('Remove Erkenbrand');
+  });
+});
+
+/**
+ * Regression tests for the multi-target CvCC attack buttons. With several
+ * opponent companies at the site (one `declare-company-attack` per target),
+ * the buttons were created with only the shared `enter-site-btn` class — no
+ * id and no dedicated class — so the stale-button cleanup preamble at the top
+ * of {@link renderPassButton} never matched them: every state re-render
+ * appended a fresh set, and once the step ended the buttons stayed on screen
+ * for the rest of the game, dispatching a stale `declare-company-attack` if
+ * clicked. They were also indistinguishable — every button was labeled just
+ * "Attack", with no way to tell which company it targets. They now carry the
+ * `cvcc-attack-btn` cleanup class and the target company's name.
+ */
+const declareAttack = (targetCompanyId: string): EvaluatedAction => ({
+  action: {
+    type: 'declare-company-attack',
+    player: 'p1',
+    attackingCompanyId: 'company-p1-0',
+    targetCompanyId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+const cvccViewWith = (legalActions: EvaluatedAction[]): PlayerView =>
+  ({
+    phaseState: { phase: Phase.Site, step: 'declare-company-attack' },
+    legalActions,
+    self: { id: 'p1', companies: [] },
+    opponent: {
+      id: 'p2',
+      companies: [
+        { id: 'company-p2-0', characters: ['p2-1'] },
+        { id: 'company-p2-1', characters: ['p2-2'] },
+      ],
+      characters: {
+        'p2-1': { instanceId: 'p2-1', definitionId: 'tw-148', effectiveStats: { prowess: 4 } }, // Erkenbrand
+        'p2-2': { instanceId: 'p2-2', definitionId: 'tw-159', effectiveStats: { prowess: 5 } }, // Gimli
+      },
+    },
+    activePlayer: 'p1',
+  } as unknown as PlayerView);
+
+describe('renderPassButton — multi-target CvCC attack buttons', () => {
+  test('labels each Attack button with its target company and dispatches that target', () => {
+    passBtn.parentElement = visualPanel;
+    let sent: unknown = null;
+    renderPassButton(
+      cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]),
+      action => { sent = action; },
+    );
+
+    const labels = visualPanel.children.map(c => c.textContent);
+    expect(labels).toContain("Attack Erkenbrand's company");
+    expect(labels).toContain("Attack Gimli's company");
+
+    const gimliBtn = visualPanel.children.find(c => c.textContent === "Attack Gimli's company");
+    gimliBtn?.onclick?.();
+    expect(sent).toEqual(declareAttack('company-p2-1').action);
+  });
+
+  test('does not accumulate duplicate Attack buttons across re-renders', () => {
+    passBtn.parentElement = visualPanel;
+    const view = cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]);
+
+    renderPassButton(view, () => { /* no-op */ });
+    renderPassButton(view, () => { /* no-op */ });
+
+    const attackButtons = visualPanel.children.filter(c => c.textContent.startsWith('Attack'));
+    expect(attackButtons).toHaveLength(2);
+  });
+
+  test('removes the Attack buttons once the step is over', () => {
+    passBtn.parentElement = visualPanel;
+    renderPassButton(
+      cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]),
+      () => { /* no-op */ },
+    );
+
+    renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
+
+    expect(visualPanel.children.filter(c => c.textContent.startsWith('Attack'))).toHaveLength(0);
   });
 });

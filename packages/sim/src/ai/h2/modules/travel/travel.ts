@@ -41,19 +41,21 @@
  */
 
 import { CardStatus } from '@meccg/shared';
-import type { CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
+import type { CardInstanceId, CompanyId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { ROUTE_STEP, reachProbability } from '../../core/plan.js';
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import { computeReach } from '../../services/reach.js';
+import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 
@@ -103,7 +105,7 @@ function playableAt(
     if (!def) continue;
     // Playability is the engine's rule, not a heuristic: reuse the predicate
     // rather than restate which site types accept which item classes.
-    if (!resourcePlayableAt(def, siteDef as never)) continue;
+    if (!resourcePlayableAt(def, siteDef as never, view.self.alignment)) continue;
     const record = def as unknown as { name?: string; marshallingPoints?: number; marshallingCategory?: string };
     const source = (record.marshallingCategory ?? 'misc') as MpSource;
     const points = record.marshallingPoints ?? 0;
@@ -147,10 +149,12 @@ function destinationOf(view: PlayerView, action: GameAction): { definitionId: st
  * The criterion differs by phase, and the difference is domain knowledge
  * rather than anything the module could derive:
  *
- * - **Movement/hazard**: how many resource cards the company will draw. A
- *   company that is *not* moving can still be the right pick — it may be the
- *   one that played heavily during organization — so the criterion is the
- *   draw itself, not whether the company travels.
+ * - **Movement/hazard**: how many resource cards the *phase* will let us see,
+ *   which depends on which company goes first rather than on any one of them
+ *   alone. A company that is not moving draws nothing of its own, and is for
+ *   that exact reason usually the right company to resolve first: the free
+ *   top-up to hand size that follows every company is worth most when the
+ *   company it follows has not already drawn past it. See `draw-value`.
  * - **Site phase**: the biggest marshalling-point expectation, so that the
  *   cards and taps that help a company through its site are spent where the
  *   points actually are rather than on a weaker chance of them.
@@ -172,12 +176,32 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
   const detail: Rationale[] = [leaf('company', companyId), leaf('site', site?.name ?? 'unknown')];
 
   if (inMovement) {
-    const draws = site?.resourceDraws ?? 0;
+    // Ordering companies by what each one draws is the wrong criterion, and it
+    // gets the order exactly backwards. Step 8b tops the hand back up to hand
+    // size after *every* company, so the free top-up goes to whichever company
+    // is resolved first — minus whatever that company's own site draws already
+    // covered. The phase therefore yields `ΣN + max(0, deficit − N_first)`
+    // cards, `ΣN` is the same however they are ordered, and the company to take
+    // first is the one drawing *least*. A stationary company, which draws
+    // nothing of its own, banks the whole deficit; picking it last throws it
+    // away. See `draw-value` for the derivation and the engine check.
+    const drawValue = computeDrawValue(context.view, cardPool, tunables);
+    const own = drawValue.siteDraws(company.id);
+    const deficit = drawValue.handDeficit();
+    const banked = Math.max(0, deficit - own);
+    const draws = drawValue.phaseDrawsIfFirst(company.id);
     dtsd = draws * tunables.resourceDrawValue;
-    label = `resolve this company — ${draws} card(s) drawn`;
-    detail.push(leaf('resource cards drawn', draws, {
-      note: site && exposure.destination(company.id) ? 'on arrival' : 'not moving — drawn where it stands',
+    label = `resolve this company first — ${draws} card(s) seen this phase`;
+    detail.push(leaf('this company draws', own, {
+      note: exposure.destination(company.id) ? 'on arrival' : 'not moving — draws nothing of its own',
     }));
+    detail.push(leaf('hand below hand size by', deficit));
+    detail.push(leaf('top-up this pick banks', banked, {
+      note: banked > 0
+        ? 'its own draws leave the deficit unclaimed, so step 8b pays it'
+        : 'its own draws cover the deficit — the top-up pays nothing',
+    }));
+    detail.push(leaf('cards seen this phase', draws, { note: 'every company\'s draws, plus what this pick banks' }));
     detail.push(leaf('worth per card', tunables.resourceDrawValue, { unit: 'tsd', tunable: 'resourceDrawValue' }));
   } else {
     const playable = site ? playableAt(context, siteDefinitionOf(context, company.id) ?? '') : [];
@@ -194,25 +218,25 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
   }
 
   const outcomes: Outcome[] = [{ p: 1, label, dtsd }];
-  const scored = standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(label, scored.utility, [node('sequencing', dtsd, detail), scored.rationale], { unit: 'winprob' }),
+    standing,
+    headline: label,
+    detail: [node('sequencing', dtsd, detail)],
     assumptions: [
       inMovement
-        ? 'companies are ordered by the cards they draw; what the opponent will spend on each is '
-          + 'not modelled, which needs the belief half of `exposure`'
+        ? 'companies are ordered to see the most cards, which the hand is reset to hand size after '
+          + 'each of them makes a question of which goes first; the *hand* is the same size either '
+          + 'way, so what the extra cards buy is selection, priced here as though a card seen and '
+          + 'discarded were worth as much as one kept. What the opponent will spend on each company '
+          + 'is not modelled, which needs the belief half of `exposure`'
         : 'companies are ordered by the points they can bank now; a company kept for later is not '
           + 'credited for what it might do then',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /** The definition ID of the site a company stands on or is heading to. */
@@ -272,21 +296,6 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const threat = beliefs.holdsAtLeastOne('creature');
   const tempo = site.pathLength * tunables.regionCrossingCost * (1 + threat);
 
-  // The cards the site draws on arrival. Priced at the same
-  // `resourceDrawValue` this module already spends on `select-company`, so the
-  // two cannot disagree about what a card is worth — and counted as potential
-  // rather than realized, because a drawn card is not a point until it is
-  // played.
-  //
-  // Leaving it out was the whole of the "sits still" problem. A destination
-  // with nothing playable on it scored *exactly* zero, and `pass` is zero by
-  // definition, so every movement tied with staying put and the tie fell
-  // wherever it fell: measured against `heuristic`, a move planned on 31% of
-  // turns against 42%, and 16.8 site changes a game against 26.6. Movement is
-  // how a deck is drawn in this game, and a destination model that ignores the
-  // draw cannot see the main reason to go anywhere.
-  const draws = site.resourceDraws * tunables.resourceDrawValue;
-
   // A site this company has already worked is a site whose *new* options are
   // the ones the hand has drawn since — and `route-compare` says human players
   // treat that as close to disqualifying. Over 64 recorded movement decisions
@@ -311,6 +320,30 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const beenHere = site.siteType !== 'haven'
     && (context.visited?.[companyId] ?? []).includes(arriving);
   const revisit = beenHere ? tunables.revisitedSiteCost : 0;
+
+  // The cards the company draws on arrival. Priced at the same
+  // `resourceDrawValue` this module already spends on `select-company`, so the
+  // two cannot disagree about what a card is worth — and counted as potential
+  // rather than realized, because a drawn card is not a point until it is
+  // played.
+  //
+  // Leaving it out was the whole of the "sits still" problem. A destination
+  // with nothing playable on it scored *exactly* zero, and `pass` is zero by
+  // definition, so every movement tied with staying put and the tie fell
+  // wherever it fell: measured against `heuristic`, a move planned on 31% of
+  // turns against 42%, and 16.8 site changes a game against 26.6. Movement is
+  // how a deck is drawn in this game, and a destination model that ignores the
+  // draw cannot see the main reason to go anywhere.
+  //
+  // The count comes from `draw-value` rather than from the site card, because
+  // the printed number is only the base: a company carrying Radagast or Alatar
+  // draws more than its site says, A Short Rest in play adds a card for every
+  // region short of four, and Smaug at Home across the table takes one away.
+  // Reading the printed figure priced every one of those routes as though the
+  // cards were not on the table.
+  const drawCount = computeDrawValue(context.view, context.cardPool, tunables)
+    .drawsAt(companyId as unknown as CompanyId, site);
+  const draws = drawCount * tunables.resourceDrawValue;
 
   // What going home is *for*. A wounded character cannot carry an item, attempt
   // influence or play a resource, so the company arrives able to do less every
@@ -407,7 +440,10 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
     leaf('resource draws', draws, {
       unit: 'tsd',
       tunable: 'resourceDrawValue',
-      note: `${site.resourceDraws} card(s) printed on the site, discounted as potential`,
+      note: drawCount === site.resourceDraws
+        ? `${drawCount} card(s) printed on the site, discounted as potential`
+        : `${drawCount} card(s) drawn — ${site.resourceDraws} printed, adjusted by the `
+          + 'draw-modifiers in play; discounted as potential',
     }),
   ];
   for (const card of playableNow) {
@@ -437,22 +473,16 @@ function evaluateDestination(context: ModuleContext, destination: Destination): 
   const { standing } = context;
   const value = destinationValue(context, destination);
   const outcomes: Outcome[] = [{ p: 1, label: value.label, dtsd: value.dtsd }];
-  const scored = standing.score(outcomes);
 
-  return {
+  return scoredEvaluation({
     action: destination.action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`travel to ${destination.site.name}`, scored.utility, [
-      node('destination', value.playableCount, [...value.detail]),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    standing,
+    headline: `travel to ${destination.site.name}`,
+    detail: [node('destination', value.playableCount, [...value.detail])],
     assumptions: ASSUMPTIONS,
-  };
+  });
 }
 
 
@@ -516,8 +546,6 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
       : `enter ${site.name} with nothing to play`,
     dtsd,
   }];
-  const scored = standing.score(outcomes);
-
   const detail: Rationale[] = [
     leaf('site', `${site.name} (${site.siteType})`),
     leaf('automatic attacks', automatic.length, {
@@ -540,18 +568,13 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
     }));
   }
 
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`enter ${site.name}`, scored.utility, [
-      node('what entering buys and costs', dtsd, detail),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    standing,
+    headline: `enter ${site.name}`,
+    detail: [node('what entering buys and costs', dtsd, detail)],
     assumptions: [
       'the automatic attacks are priced as printed; a card that suppresses them — a defeated '
       + 'Dragon at its lair, a site effect — is not modelled',
@@ -559,7 +582,7 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
       + 'creature: which creature, and whether it is playable here, is not known',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /**
@@ -600,28 +623,24 @@ function evaluateCancelMovement(context: ModuleContext, action: GameAction): Eva
     label: `stay at the current site instead of ${site.name}`,
     dtsd,
   }];
-  const scored = context.standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node(`cancel the move to ${site.name}`, scored.utility, [
+    standing: context.standing,
+    headline: `cancel the move to ${site.name}`,
+    detail: [
       node('what travelling was worth', value.dtsd, [...value.detail], {
         unit: 'tsd',
         note: 'cancelling gives up exactly this — the same number, with the sign flipped',
       }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'cancelling is priced as forgoing the destination; a company kept home because it is safer '
       + 'there is not credited for the hazards it avoids beyond the travel cost already counted',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /**
@@ -651,16 +670,13 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
       : `move by ${declared.movementType ?? 'movement'} with no region crossed`,
     dtsd,
   }];
-  const scored = standing.score(outcomes);
-  return {
+  return scoredEvaluation({
     action,
     module: 'travel',
     outcomes,
-    expectedTsd: scored.expectedTsd,
-    sigmaTsd: scored.sigmaTsd,
-    utility: scored.utility,
-    method: scored.method,
-    rationale: node('declare the path', scored.utility, [
+    standing,
+    headline: 'declare the path',
+    detail: [
       node('exposure of the route', dtsd, [
         leaf('movement type', declared.movementType ?? 'unknown'),
         leaf('regions crossed', regions.length, {
@@ -672,8 +688,7 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
           note: `scaled by a ${(threat * 100).toFixed(0)}% chance the opponent holds a creature`,
         }),
       ], { unit: 'tsd' }),
-      scored.rationale,
-    ], { unit: 'winprob' }),
+    ],
     assumptions: [
       'the destination is already fixed by this point, so only the route is priced — what differs '
       + 'between movement types beyond the regions they cross is not modelled',
@@ -682,7 +697,7 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
       + 'design removed',
       ...ASSUMPTIONS,
     ],
-  };
+  });
 }
 
 /**
@@ -791,21 +806,15 @@ export const travelModule: H2Module = {
       // Staying put banks nothing and costs nothing — the baseline every
       // destination is measured against.
       const outcomes: Outcome[] = [{ p: 1, label: 'stay where the company stands', dtsd: 0 }];
-      const scored = context.standing.score(outcomes);
-      return {
+      return scoredEvaluation({
         action,
         module: 'travel',
         outcomes,
-        expectedTsd: scored.expectedTsd,
-        sigmaTsd: scored.sigmaTsd,
-        utility: scored.utility,
-        method: scored.method,
-        rationale: node('stay put', scored.utility, [
-          leaf('moved', 0, { note: 'no travel tempo spent, nothing unlocked' }),
-          scored.rationale,
-        ], { unit: 'winprob' }),
+        standing: context.standing,
+        headline: 'stay put',
+        detail: [leaf('moved', 0, { note: 'no travel tempo spent, nothing unlocked' })],
         assumptions: ASSUMPTIONS,
-      };
+      });
     }
 
     const destination = destinationOf(context.view, action);

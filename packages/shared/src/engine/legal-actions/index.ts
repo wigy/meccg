@@ -15,7 +15,7 @@ import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInsta
 import type { PlayRestrictionEffect, TapDiscardInPlayEffect } from '../../types/effects.js';
 import { Alignment, CardStatus } from '../../types/common.js';
 import { matchesContext } from '../../effects/condition-matcher.js';
-import { matchesDefinition, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
+import { matchesDefinitionAcrossFallenWizardAlignment, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex } from '../../state-utils.js';
@@ -34,6 +34,7 @@ import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
 import { applyCardPlayProhibitions, applyPendingPlayFilter } from '../card-play-prohibition.js';
+import { bannedVsBalrogHandCards } from '../balrog-banned-swap.js';
 import { applyLocationMagicRestriction } from '../location-magic-restriction.js';
 import { applyConstraints } from './pending.js';
 import { resolutionLegalActions } from '../pending-handlers.js';
@@ -116,14 +117,14 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
     for (const card of pile) {
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);
-      if (!def || !matchesDefinition(def, effect.filter)) continue;
+      if (!def || !matchesDefinitionAcrossFallenWizardAlignment(def, effect.filter, player.alignment)) continue;
       // Home-site-type restriction (Inner Cunning dm-68 mode 2).
       if (effect.homeSiteTypes && effect.homeSiteTypes.length > 0
         && !agentHomeSiteMatchesTypes(state, def as { homesite?: string }, effect.homeSiteTypes)) {
         continue;
       }
       if (effect.playableAtSite !== undefined) {
-        if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite)) {
+        if (!isSiteCard(requiredSite) || !isCardPlayableAtSiteDef(def, requiredSite, state)) {
           logDetail(`fetch-from-pile: ${(def as { name?: string }).name ?? (card.definitionId as string)} filtered out — not playable at ${(requiredSite as { name?: string } | undefined)?.name ?? (effect.playableAtSite as string)}`);
           continue;
         }
@@ -163,6 +164,34 @@ function reshuffleFromHandActions(state: GameState, playerId: PlayerId): Evaluat
       action: { type: 'reshuffle-card-from-hand', player: playerId, cardInstanceId: handCard.instanceId },
       viable: true,
     });
+  }
+  return results;
+}
+
+/**
+ * Cross-phase `swap-banned-vs-balrog` actions (CoE 1.8.2 / rule 1.36) — one
+ * per (banned hand card, sideboard card) pair while the opponent is a Balrog
+ * player. Same offering window as {@link reshuffleFromHandActions}: any
+ * strategy step where the player already has another viable action.
+ */
+function bannedVsBalrogSwapActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  const banned = bannedVsBalrogHandCards(state, playerId);
+  if (banned.length === 0) return [];
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const results: EvaluatedAction[] = [];
+  for (const handCard of banned) {
+    for (const sideboardCard of player.sideboard) {
+      results.push({
+        action: {
+          type: 'swap-banned-vs-balrog',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          sideboardCardInstanceId: sideboardCard.instanceId,
+        },
+        viable: true,
+      });
+    }
   }
   return results;
 }
@@ -439,6 +468,7 @@ function computePhaseLegalActions(state: GameState, playerId: PlayerId): Evaluat
   const hasOtherViable = evaluated.some(e => e.viable);
   if (hasOtherViable) {
     evaluated = [...evaluated, ...reshuffleFromHandActions(state, playerId)];
+    evaluated = [...evaluated, ...bannedVsBalrogSwapActions(state, playerId)];
   }
 
   // Catch-all: mark remaining hand cards that have no evaluated action as

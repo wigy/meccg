@@ -1,0 +1,239 @@
+/**
+ * @module observer-log-tail
+ *
+ * Follows a live game log and hands back the full `GameState` at any
+ * `stateSeq` — the Ask AI observer's window into the position on the asker's
+ * screen (`specs/2026-08-17-ask-ai-observer.md`).
+ *
+ * Why the log rather than the socket: an honest explanation of one seat's
+ * decision must be computed from that seat's *own* projected view, which
+ * requires the full state, and the game server never ships one — it projects
+ * per player. The server does write every position to
+ * `~/.meccg/logs/games/<gameId>.jsonl`, which is the same input
+ * `explain --game <id> --seq <n>` already reads.
+ *
+ * Two properties of a *live* log drive the design:
+ *
+ * - The last line may be half-written, so a parse failure at the tail is normal
+ *   and must not be fatal.
+ * - It is not append-only. `undo` and `load` call the session's
+ *   `truncateAfterSeq`, so the file can shrink; when it does, everything cached
+ *   from the old tail may be wrong and the file has to be re-read.
+ */
+
+import * as fs from 'fs';
+import type { GameAction } from '@meccg/shared';
+import type { GameLogRecord } from '@meccg/sim';
+import { resolveGameLogPath } from '@meccg/sim';
+
+/** How many recent records are kept — enough to answer about a position a few moves back. */
+const RING_SIZE = 400;
+
+/**
+ * Bytes just before {@link offset} kept as a fingerprint of what has already
+ * been consumed. A rewrite that leaves the file the same size or larger cannot
+ * be told from an append by size alone, so each poll re-reads this window and a
+ * mismatch means the history was rewritten under us. `truncateAfterSeq` always
+ * rewinds and rewrites the *tail*, so the change lands inside this window.
+ */
+const ANCHOR_BYTES = 256;
+
+/** A live tail over one game's log. */
+export interface LogTail {
+  /** The record at `stateSeq`, or null when the log does not have it (yet). */
+  at(stateSeq: number): GameLogRecord | null;
+  /** The most recent record read, or null when the log is empty. */
+  newest(): GameLogRecord | null;
+  /** Read whatever has been appended since the last call. Cheap when nothing has. */
+  poll(): void;
+  /** Path being followed, for logging. */
+  readonly path: string;
+}
+
+/**
+ * Open a tail over the log of `gameIdOrPath`.
+ *
+ * Polling rather than watching: `fs.watch` semantics differ per platform and a
+ * missed event would mean answering about a position the observer cannot see,
+ * while a stat call per question costs nothing.
+ */
+export function openLogTail(gameIdOrPath: string): LogTail {
+  const path = resolveGameLogPath(gameIdOrPath);
+  const records = new Map<number, GameLogRecord>();
+  let order: number[] = [];
+  let offset = 0;
+  let carry = '';
+  let anchor = Buffer.alloc(0);
+
+  const remember = (record: GameLogRecord): void => {
+    if (!records.has(record.stateSeq)) order.push(record.stateSeq);
+    records.set(record.stateSeq, record);
+    if (order.length > RING_SIZE) {
+      const dropped = order.splice(0, order.length - RING_SIZE);
+      for (const seq of dropped) {
+        // A re-recorded seq (dev undo, then replay) keeps its newest copy: only
+        // drop the entry if this seq is not still in the retained window.
+        if (!order.includes(seq)) records.delete(seq);
+      }
+    }
+  };
+
+  const reset = (): void => {
+    records.clear();
+    order = [];
+    offset = 0;
+    carry = '';
+    anchor = Buffer.alloc(0);
+  };
+
+  const poll = (): void => {
+    let size: number;
+    try {
+      size = fs.statSync(path).size;
+    } catch {
+      // Not written yet — the game may still be starting.
+      return;
+    }
+    // The log is not append-only: `undo`/`load` truncate it (via
+    // `truncateAfterSeq`) and keep writing, so a poll can arrive after the file
+    // was rewound *and* grew back to or past what we had already consumed. A
+    // size that shrank is an obvious rewrite; when it did not, the bytes just
+    // before `offset` are re-read and compared — if that anchor no longer
+    // matches, the history under us was rewritten, not appended, and the cached
+    // tail must be thrown away rather than continued.
+    if (size < offset) {
+      reset();
+    } else if (offset > 0 && anchor.length > 0) {
+      const check = Buffer.allocUnsafe(anchor.length);
+      const anchorFd = fs.openSync(path, 'r');
+      try {
+        fs.readSync(anchorFd, check, 0, anchor.length, offset - anchor.length);
+      } finally {
+        fs.closeSync(anchorFd);
+      }
+      if (!check.equals(anchor)) reset();
+    }
+    if (size === offset) return;
+
+    const fd = fs.openSync(path, 'r');
+    try {
+      const length = size - offset;
+      const buffer = Buffer.allocUnsafe(length);
+      fs.readSync(fd, buffer, 0, length, offset);
+      offset = size;
+      // Keep the last ANCHOR_BYTES ending at the new offset as the next
+      // fingerprint (copied out so the large read buffer is not retained).
+      anchor = Buffer.from(Buffer.concat([anchor, buffer]).subarray(-ANCHOR_BYTES));
+      const text = carry + buffer.toString('utf-8');
+      const lines = text.split('\n');
+      // Whatever follows the final newline is an incomplete line; hold it back
+      // until the writer finishes it.
+      carry = lines.pop() ?? '';
+      for (const line of lines) {
+        if (line.trim().length === 0) continue;
+        try {
+          const record = JSON.parse(line) as GameLogRecord;
+          if (record.state && typeof record.stateSeq === 'number') remember(record);
+        } catch {
+          // A line that never parses (a partial write the writer abandoned) is
+          // skipped; every record before it is still usable.
+        }
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+  };
+
+  return {
+    path,
+    poll,
+    at(stateSeq: number): GameLogRecord | null {
+      poll();
+      return records.get(stateSeq) ?? null;
+    },
+    newest(): GameLogRecord | null {
+      poll();
+      const seq = order[order.length - 1];
+      return seq === undefined ? null : records.get(seq) ?? null;
+    },
+  };
+}
+
+/**
+ * Who made the move a record records, or null when the log does not say.
+ *
+ * Two sources, in this order. Many actions name their own player — every setup
+ * action does — and that is authoritative. Where the action does not, the actor
+ * is whoever was active in the position the move was made *from*, which is the
+ * preceding record. The action field has to come first because the phases where
+ * it exists are exactly the simultaneous ones, where `activePlayer` is null and
+ * the fallback would answer nobody.
+ */
+function actorOf(record: GameLogRecord, previous: GameLogRecord): string | null {
+  const named = (record.action as { player?: string } | undefined)?.player;
+  return named ?? previous.activePlayer ?? null;
+}
+
+/**
+ * The last decision `player` made at or before `stateSeq`: the position they
+ * decided from, and the move they chose.
+ *
+ * A log record names the move *into* its position, so the choice made at record
+ * N is `records[N + 1].action`. Walking back from the current position therefore
+ * looks for the first record whose successor's action came from this seat.
+ *
+ * Only ever called with the seat the server said may be asked about, which is
+ * what keeps "explain the last move" from becoming a way to read the opponent's
+ * hand: the explanation is still built from that seat's own view.
+ */
+export function lastMoveBy(
+  tail: LogTail,
+  stateSeq: number,
+  player: string,
+): { record: GameLogRecord; played?: GameAction } | null {
+  for (let seq = stateSeq; seq > 0; seq--) {
+    const after = tail.at(seq);
+    const before = tail.at(seq - 1);
+    if (!after?.action || !before) continue;
+    if (actorOf(after, before) === player) {
+      return { record: before, played: after.action };
+    }
+  }
+  return null;
+}
+
+/** Outcome of waiting for a position: the record, and whether it is the one asked for. */
+export interface ResolvedRecord {
+  readonly record: GameLogRecord;
+  /** False when the exact `stateSeq` never landed and the newest record was used. */
+  readonly exact: boolean;
+}
+
+/**
+ * Wait briefly for the record at `stateSeq`, then settle for the newest one.
+ *
+ * The question carries the server's authoritative sequence number, and the
+ * broadcast that prompted it can beat the log write by a few milliseconds — so a
+ * miss is usually a race, not an absence. Falling back to the newest record
+ * rather than failing keeps a question answerable; the caller says so in the
+ * output, because an explanation of the wrong position must never look like an
+ * explanation of the right one.
+ */
+export async function resolveRecord(
+  tail: LogTail,
+  stateSeq: number,
+  options: { timeoutMs?: number; pollMs?: number; sleep?: (ms: number) => Promise<void> } = {},
+): Promise<ResolvedRecord | null> {
+  const timeoutMs = options.timeoutMs ?? 2_000;
+  const pollMs = options.pollMs ?? 50;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>(r => setTimeout(r, ms)));
+
+  for (let waited = 0; ; waited += pollMs) {
+    const exact = tail.at(stateSeq);
+    if (exact) return { record: exact, exact: true };
+    if (waited >= timeoutMs) break;
+    await sleep(pollMs);
+  }
+  const newest = tail.newest();
+  return newest ? { record: newest, exact: newest.stateSeq === stateSeq } : null;
+}

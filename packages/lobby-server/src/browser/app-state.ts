@@ -147,6 +147,14 @@ function createDefaultAppState() {
 
   /** Timer handle for auto-pass feature. */
   autoPassTimer: null as ReturnType<typeof setTimeout> | null,
+  /**
+   * Timestamp (`Date.now()`-comparable) until which user-initiated actions
+   * are ignored, following an auto-pass send. Closes the race where a click
+   * already in flight toward the pre-auto-pass button lands on the freshly
+   * re-rendered next-phase button in the same screen position, silently
+   * skipping a phase the player never meant to act on.
+   */
+  autoPassInputLockUntil: 0,
   /** Stack of log entry counts, pushed before each action for undo support. */
   logCountStack: [] as number[],
 
@@ -315,6 +323,39 @@ export const VIEWING_ADMIN_KEY = 'meccg-viewing-admin';
 export const MAIL_TAB_KEY = 'meccg-mail-tab';
 export const ADMIN_TAB_KEY = 'meccg-admin-tab';
 export const MAIL_MSG_KEY = 'meccg-mail-msg';
+
+/**
+ * Every sessionStorage key that marks "which lobby view is open" (or holds
+ * per-view restore state: the open mail tab/message, the deck being edited).
+ * `ADMIN_TAB_KEY` is deliberately absent — like the mail tab it survives
+ * leaving the view so the admin page reopens on the tab it was left on.
+ */
+export const LOBBY_VIEW_KEYS = [
+  VIEWING_INBOX_KEY,
+  MAIL_TAB_KEY,
+  MAIL_MSG_KEY,
+  EDITING_DECK_KEY,
+  VIEWING_DECKS_KEY,
+  VIEWING_CREDITS_KEY,
+  VIEWING_SCOREBOARD_KEY,
+  VIEWING_CHANGELOG_KEY,
+  VIEWING_ADMIN_KEY,
+] as const;
+
+/**
+ * Switch the lobby to one view: clear every {@link LOBBY_VIEW_KEYS} entry
+ * except those in `keep`, then mark `active` (when given) as the current
+ * view. The nav-mail handler passes the three mail keys as `keep` so
+ * `openInbox()` can restore the previously open tab and message; plain
+ * "back to the lobby" calls pass nothing and clear everything.
+ */
+export function switchLobbyView(active?: string, keep: readonly string[] = []): void {
+  for (const key of LOBBY_VIEW_KEYS) {
+    if (key === active || keep.includes(key)) continue;
+    sessionStorage.removeItem(key);
+  }
+  if (active !== undefined) sessionStorage.setItem(active, '1');
+}
 
 /** Maximum reconnect attempts before giving up and returning to the lobby. */
 export const MAX_RECONNECT_ATTEMPTS = 5;
@@ -507,7 +548,13 @@ export function uncertifiedCards(deck: FullDeck): string[] {
 /** Sort deck entries: favourites first, then known cards, then by card type, then by name. */
 export function sortDeckEntries(entries: DeckListEntry[]): DeckListEntry[] {
   return [...entries].sort((a, b) => {
-    if (a.favourite !== b.favourite) return a.favourite ? -1 : 1;
+    // Normalize to booleans: favourite is `true` | `false` | undefined (the
+    // latter two both mean "not a favourite", matching how the game and sim
+    // read it as `favourite === true`). Comparing the raw values with `!==`
+    // would order a `false` entry against an `undefined` one, making the
+    // comparator inconsistent — the same double-negation the `!defA` axis
+    // below already uses avoids that.
+    if (!a.favourite !== !b.favourite) return a.favourite ? -1 : 1;
     const defA = a.card ? cardPool[a.card] : undefined;
     const defB = b.card ? cardPool[b.card] : undefined;
     if (!defA !== !defB) return defA ? -1 : 1;

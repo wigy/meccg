@@ -1,0 +1,169 @@
+/**
+ * @module ask-ai.test
+ *
+ * The Ask AI control's decisions (`specs/2026-08-17-ask-ai-observer.md`): when
+ * the toolbar icon shows, and what the panel says for every answer the server
+ * can send — including the refusals, which have to tell the reader what to do
+ * rather than just that something went wrong.
+ */
+
+import { describe, test, expect } from 'vitest';
+import type { AiExplanationMessage, PlayerId } from '@meccg/shared';
+import {
+  askAiButtonState, askAiFollowUps, askAiMenuEntries, askAiPendingText, formatAskAiPanel,
+} from './ask-ai.js';
+
+describe('askAiButtonState', () => {
+  test('is hidden with no observer attached', () => {
+    expect(askAiButtonState({ attached: false, agents: [] })).toEqual({ visible: false, title: '' });
+  });
+
+  test('names the agent, because the answer differs per agent', () => {
+    expect(askAiButtonState({ attached: true, agents: ['mc:ms=2000/turns=2'] })).toEqual({
+      visible: true,
+      title: 'Ask AI (mc:ms=2000/turns=2)',
+    });
+  });
+
+  test('names every agent an observer offers', () => {
+    expect(askAiButtonState({ attached: true, agents: ['h2', 'mc:ms=2000'] }).title)
+      .toBe('Ask AI (h2, mc:ms=2000)');
+  });
+
+  test('shows even for an attached observer that named no agent', () => {
+    expect(askAiButtonState({ attached: true, agents: [] })).toEqual({
+      visible: true,
+      title: 'Ask AI',
+    });
+  });
+
+  test('does not depend on being seated or on dev mode', () => {
+    // Availability is decided by attachment alone: a spectator watching an AI
+    // game is one of the readers this exists for, and nothing here can alter
+    // the game, so there is nothing for a dev gate to protect.
+    const attached = askAiButtonState({ attached: true, agents: ['h2'] });
+    expect(attached.visible).toBe(true);
+  });
+});
+
+describe('askAiMenuEntries', () => {
+  test('offers both questions for a single agent', () => {
+    expect(askAiMenuEntries({ attached: true, agents: ['h2'] })).toEqual([
+      { label: 'This position — h2', agent: 'h2', mode: 'now' },
+      { label: 'My last move — h2', agent: 'h2', mode: 'last-move' },
+    ]);
+  });
+
+  test('offers both questions for each agent, in launch order', () => {
+    const entries = askAiMenuEntries({ attached: true, agents: ['h2', 'mc:ms=2000'] });
+    expect(entries.map(e => `${e.agent}/${e.mode}`)).toEqual([
+      'h2/now', 'h2/last-move', 'mc:ms=2000/now', 'mc:ms=2000/last-move',
+    ]);
+  });
+
+  test('is empty when nothing is offered', () => {
+    expect(askAiMenuEntries({ attached: false, agents: [] })).toEqual([]);
+  });
+});
+
+describe('askAiFollowUps', () => {
+  test('leaves the last move as the only follow-up for a single agent', () => {
+    // The button asks about the position outright — it must not prompt for a
+    // choice whose first row is the thing everybody wants. So the panel is
+    // where the second question lives, and with one agent attached there is
+    // exactly one of them.
+    expect(askAiFollowUps({ attached: true, agents: ['h2'] }, 'h2', 'now')).toEqual([
+      { label: 'My last move', agent: 'h2', mode: 'last-move' },
+    ]);
+  });
+
+  test('and offers the position back once the last move is what was asked', () => {
+    expect(askAiFollowUps({ attached: true, agents: ['h2'] }, 'h2', 'last-move')).toEqual([
+      { label: 'This position', agent: 'h2', mode: 'now' },
+    ]);
+  });
+
+  test('keeps the agent in the label when more than one is attached', () => {
+    const entries = askAiFollowUps({ attached: true, agents: ['h2', 'mc:ms=2000'] }, 'h2', 'now');
+    expect(entries.map(e => e.label)).toEqual([
+      'My last move — h2', 'This position — mc:ms=2000', 'My last move — mc:ms=2000',
+    ]);
+  });
+
+  test('excludes only the exact question being shown, not the agent', () => {
+    // Asking h2 about the position must still leave h2's last move on offer:
+    // they are different questions about the same agent.
+    const entries = askAiFollowUps({ attached: true, agents: ['h2', 'mc'] }, 'mc', 'last-move');
+    expect(entries.map(e => `${e.agent}/${e.mode}`)).toEqual(['h2/now', 'h2/last-move', 'mc/now']);
+  });
+
+  test('is empty when no observer is attached, because there is nothing to ask', () => {
+    expect(askAiFollowUps({ attached: false, agents: [] }, 'h2', 'now')).toEqual([]);
+  });
+});
+
+describe('formatAskAiPanel', () => {
+  const base = { type: 'ai-explanation', requestId: 'ask-1' } as const;
+
+  test('renders the explanation with the seat and the time it took', () => {
+    const text = formatAskAiPanel({
+      ...base,
+      status: 'ok',
+      agent: 'h2',
+      forPlayer: 'p1' as PlayerId,
+      stateSeq: 140,
+      lines: ['PICK  Pass', '', 'RANKING  2 candidates'],
+      elapsedMs: 1_450,
+    });
+    expect(text.heading).toBe('h2 — p1 (1.4s)');
+    expect(text.body).toBe('PICK  Pass\n\nRANKING  2 candidates');
+  });
+
+  test('an answer without a timing still gets a clean heading', () => {
+    const text = formatAskAiPanel({
+      ...base, status: 'ok', agent: 'heuristic', forPlayer: 'p2' as PlayerId, lines: ['x'],
+    });
+    expect(text.heading).toBe('heuristic — p2');
+  });
+
+  test('"no observer" says how to start one', () => {
+    const text = formatAskAiPanel({
+      ...base, status: 'unavailable', agent: null, message: 'No observer is attached.',
+    });
+    expect(text.heading).toBe('No observer attached');
+    expect(text.body).toContain('bin/observe --agent h2');
+  });
+
+  test('a timeout names the agent and suggests a cheaper one', () => {
+    const text = formatAskAiPanel({
+      ...base, status: 'timeout', agent: 'mc:ms=120000', message: 'The observer did not answer within 90s.',
+    });
+    expect(text.heading).toContain('mc:ms=120000');
+    expect(text.body).toContain('90s');
+    expect(text.body).toContain('h2');
+  });
+
+  test('an error shows the reason the observer gave', () => {
+    const text = formatAskAiPanel({
+      ...base, status: 'error', agent: 'h2', message: 'game log unreadable',
+    });
+    expect(text.heading).toBe('h2 could not answer');
+    expect(text.body).toBe('game log unreadable');
+  });
+
+  test('a reasonless error still says something', () => {
+    const text = formatAskAiPanel({ ...base, status: 'error', agent: null } as AiExplanationMessage);
+    expect(text.heading).toBe('the AI could not answer');
+    expect(text.body.length).toBeGreaterThan(0);
+  });
+});
+
+describe('askAiPendingText', () => {
+  test('names the agent being asked, so a slow answer is explicable', () => {
+    expect(askAiPendingText('mc:ms=2000').heading).toBe('Asking mc:ms=2000…');
+  });
+
+  test('says it is rewinding when the question is about the last move', () => {
+    expect(askAiPendingText('h2', 'last-move').body).toContain('before your last move');
+  });
+});

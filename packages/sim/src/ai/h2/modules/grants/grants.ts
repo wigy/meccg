@@ -37,6 +37,7 @@ import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '..
 import { netTsdDelta } from '../../core/tsd.js';
 import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import type { CharacterValue } from '../../services/character-value.js';
 import { nameOf } from '../../services/strike/prowess.js';
@@ -233,7 +234,6 @@ export const grantsModule: H2Module = {
         dtsd: netTsdDelta({ realized: 0, tempo: cost.tsd }, tunables),
       },
     ].filter(outcome => outcome.p > 0);
-    const scored = standing.score(outcomes);
 
     const detail: Rationale[] = [
       leaf('granted by', name),
@@ -248,18 +248,13 @@ export const grantsModule: H2Module = {
       leaf('what it costs', cost.tsd, { unit: 'tsd', note: cost.reason }),
     ];
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'grants',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node(`activate ${name}`, scored.utility, [
-        node('the ability', gain.tsd - cost.tsd, detail, { unit: 'tsd' }),
-        scored.rationale,
-      ], { unit: 'winprob' }),
+      standing,
+      headline: `activate ${name}`,
+      detail: [node('the ability', gain.tsd - cost.tsd, detail, { unit: 'tsd' })],
       assumptions: [
         'the ability is priced by the *family* of effect the card declares, not by what the card '
         + 'does in full: a grant that also restricts or enables something else is under-valued',
@@ -270,6 +265,6 @@ export const grantsModule: H2Module = {
         'shedding a card is priced only for the corruption it was carrying, against one future '
         + 'check, the same simplification `resources` makes when charging for that corruption',
       ],
-    };
+    });
   },
 };

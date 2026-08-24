@@ -14,9 +14,9 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { findCompanyAllies } from './legal-actions/combat.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
-import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer } from './effects/index.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
+import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer, resolveDef } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -26,19 +26,20 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, playerWizardName, siteStartOfPhaseAttacks } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { shuffle } from '../rng.js';
-import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
-import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, addConstraint } from './pending.js';
+import { buildInPlayNames } from './recompute-derived.js';
+import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
+import { buildSiteRepeatedAttackCombat, facingAlliesFor } from './site-repeated-attack.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { removeItemFromSetAside } from './set-aside.js';
 import type { AgentAttackModifierEffect, MoveEffect, SiteEntryAttackSpec, SiteEntryRollAttackEffect, SitePhaseRingAutoTestSiteRule } from '../types/effects.js';
@@ -71,7 +72,9 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'site-entry-attack': handleSiteEntryAttack,
   'automatic-attacks': handleSiteAutomaticAttacks,
   'troll-purse-attacks': handleSiteTrollPurseAttacks,
+  'bells-ringing-attacks': handleSiteBellsRingingAttacks,
   'rescue-attacks': handleSiteRescueAttacks,
+  'rescue-tap': handleSiteRescueTap,
   'declare-agent-attack': handleDeclareAgentAttack,
   'resolve-attacks': handleSiteResolveAttacks,
   'play-resources': handleSitePlayResources,
@@ -81,6 +84,24 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
 
 export function handleSite(state: GameState, action: GameAction): ReducerResult {
   const siteState = requirePhaseState(state, Phase.Site);
+
+  // Granted-action activations (constraint pass-through grants such as River's
+  // cancel, any-phase grants such as Cram / Orc-draughts) are offered in every
+  // site step, so they are routed here once rather than by each step handler —
+  // an offered action must never be rejected by the reducer. The shared generic
+  // handler resolves the apply from the active granted-action constraint
+  // matching action.sourceCardId + action.actionId.
+  if (action.type === 'activate-granted-action') {
+    // Hermit's Hill discard-minors-for-major (dm-32) / discard-minors-for-gold-ring
+    // (le-382) during play-resources: handled ahead of the generic path because
+    // it has no character actor to tap — the cost is discarding two minor items.
+    if (siteState.step === 'play-resources'
+      && (action.actionId === 'discard-minors-for-major' || action.actionId === 'discard-minors-for-gold-ring')) {
+      return handleDiscardMinorsForUnlock(state, action, siteState);
+    }
+    return handleGrantActionApply(state, action);
+  }
+
   const handler = SITE_STEP_HANDLERS[siteState.step];
   if (handler) {
     const result = handler(state, action, siteState);
@@ -285,15 +306,6 @@ function handleSiteSelectCompany(
     return endSitePhase(state);
   }
 
-  // Granted-action activation (e.g. River: ranger taps to cancel
-  // site-phase-do-nothing). The constraint pass-through offers these in
-  // every step, so every step handler must route them — mirror of the
-  // enter-or-skip handler above (engine gap class: an offered action must
-  // never be rejected by the reducer).
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
-
   if (action.type !== 'select-company') {
     return wrongActionType(state, action, 'select-company', 'select-company step');
   }
@@ -429,12 +441,6 @@ function handleSiteSiegeAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during siege-attacks step` };
@@ -488,13 +494,6 @@ function handleSiteEnterOrSkip(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Granted-action activation (e.g. River: ranger taps to cancel
-  // site-phase-do-nothing). Routed through the shared generic handler,
-  // which resolves the apply from the active granted-action
-  // constraint matching action.sourceCardId + action.actionId.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   // Rule 2.1.1: resource short-events remain playable at the enter-or-skip
   // decision window (`siteActions` offers them here too). Accept them so the
@@ -698,8 +697,7 @@ export function buildSiteEntryAttackCombat(
   const defender = state.players[defenderIndex];
   const company = defender?.companies[siteState.activeCompanyIndex];
   if (!company || company.characters.length === 0) return null;
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const siteEffects = siteDef && isSiteCard(siteDef) ? siteDef.effects : undefined;
+  const siteEffects = companySiteDef(state, company)?.effects;
   const creatureRace = normalizeCreatureRace(attack.creatureType);
   const detainment = isDetainmentAttack({
     attackRace: creatureRace as Race | null,
@@ -739,12 +737,6 @@ function handleSiteEntryAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during site-entry-attack step, got '${action.type}'` };
@@ -771,12 +763,6 @@ function handleRevealOnGuardAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   // Pass: advance to forewarned-select-attack (if Forewarned Is Forearmed is
   // in play and the site has >1 printed attacks), automatic-attacks (if the
@@ -949,12 +935,6 @@ function handleForewarnedSelectAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'select-forewarned-attack') {
     return { state, error: `Expected 'select-forewarned-attack' during forewarned-select-attack step, got '${action.type}'` };
@@ -1001,21 +981,6 @@ function autoAttackAppliesToCompany(aa: AutomaticAttack, covert: boolean): boole
 }
 
 /**
- * Allies (per CoE 2.V.2.2) that must also face a strike in an "each character
- * faces 1 strike" automatic attack, excluding those made immune by a
- * `no-attack` or `no-attack-site-keyed` play-flag (site auto-attacks are
- * always "at the site", so `no-attack-site-keyed` always applies to them).
- */
-function facingAlliesFor(state: GameState, player: PlayerState, company: Company): CardInstanceId[] {
-  return findCompanyAllies(player, company.characters)
-    .filter(({ ally }) => {
-      const allyDef = defById(state, ally.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined;
-      return !hasPlayFlag(allyDef, 'no-attack') && !hasPlayFlag(allyDef, 'no-attack-site-keyed');
-    })
-    .map(({ ally }) => ally.instanceId);
-}
-
-/**
  * Handle the 'automatic-attacks' step: initiate combat for each automatic
  * attack listed on the site card, one at a time.
  *
@@ -1030,12 +995,6 @@ function handleSiteAutomaticAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   // A chain response may arrive during the automatic-attacks step (e.g. a
   // hazard short event answering a declared effect while an auto-attack
@@ -1641,105 +1600,6 @@ function handleSiteAutomaticAttacks(
 }
 
 /**
- * Build the combat state for re-facing one of the site's automatic-attacks,
- * shared by the Troll-purse (dm-95) item-trap re-face and the prisoner-rescue
- * (rule 8.36) rescue-attack. Mirrors the normal site auto-attack combat
- * construction (detainment keying, each-character, attacker-chooses,
- * cannot-be-canceled, wound-eliminates).
- *
- * `opts.prowessBonus` adds to the attack's prowess (Troll-purse: +3; rescue: 0).
- * `opts.trollPursePrisoner`, when set, flags the combat so a successful strike
- * takes the character prisoner at the site instead of wounding (handled in
- * `reducer-combat.ts` `resolveStrike`). `opts.protectedFromStrikeAssignment`
- * excludes those characters from being assigned strikes (held prisoners during
- * a rescue-attack are captive, not fighting).
- */
-function buildSiteRepeatedAttackCombat(
-  state: GameState,
-  company: Company,
-  siteDef: import('../types/cards.js').SiteCard,
-  aa: AutomaticAttack,
-  attackIndex: number,
-  opts: {
-    prowessBonus: number;
-    trollPursePrisoner?: { hostInstanceId: CardInstanceId; siteInstanceId: CardInstanceId };
-    protectedFromStrikeAssignment?: readonly CardInstanceId[];
-  },
-): CombatState {
-  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
-  const defendingCovert = isCovertCompany(company, state.players[activePlayerIndex], state);
-  const siteDefId = company.currentSite!.definitionId;
-  const effectiveSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, company.currentSite!.instanceId);
-  const forcedDetainment = siteAutoAttacksForcedDetainment(state, siteDefId);
-  const forcesNormalAttacks = playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
-    || siteTypeForcesAutoAttacksNormal(state, effectiveSiteType);
-  const inPlayNames = buildInPlayNames(state);
-  const creatureRace = normalizeCreatureRace(aa.creatureType);
-  const boostCtx = { companyId: company.id };
-  const baseProwess = resolveAttackProwess(state, aa.prowess, inPlayNames, creatureRace, true, undefined, boostCtx, false, effectiveSiteType);
-  const effectiveProwess = baseProwess + opts.prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames, creatureRace, true, boostCtx, effectiveSiteType);
-  const effectiveBody = resolveAttackBody(state, aa.body ?? null, inPlayNames, creatureRace, boostCtx);
-  const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
-  const aaAttackerChooses = resolveAttackerChoosesDefenders(
-    state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace,
-  );
-  const protectedSet = new Set((opts.protectedFromStrikeAssignment ?? []).map(id => id as string));
-  // For each-character, only non-protected characters face a strike. Allies
-  // (CoE 2.V.2.2) face a strike too, unless immune or themselves protected.
-  const facingChars = company.characters.filter(id => !protectedSet.has(id as string));
-  const facingAllies = isEachCharacter
-    ? facingAlliesFor(state, state.players[activePlayerIndex], company).filter(id => !protectedSet.has(id as string))
-    : [];
-  const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
-    ? [
-        ...facingChars.map(charId => ({ characterId: charId, excessStrikes: 0, resolved: false })),
-        ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
-      ]
-    : [];
-  const strikesTotalValue = isEachCharacter ? facingChars.length + facingAllies.length : effectiveStrikes;
-  const detainment = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
-    attackEffects: siteDef.effects,
-    attackRace: creatureRace ?? null,
-    defendingAlignment: state.players[activePlayerIndex].alignment,
-    defendingCovert,
-    defendingSiteEffects: siteDef.effects,
-    isAutomaticAttack: true,
-    defenderForcesNormalAttacks: forcesNormalAttacks,
-  });
-  const base: CombatState = {
-    attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex },
-    companyId: company.id,
-    defendingPlayerId: state.activePlayer!,
-    attackingPlayerId: hazardPlayer(state).id,
-    strikesTotal: strikesTotalValue,
-    strikeProwess: effectiveProwess,
-    creatureBody: effectiveBody,
-    creatureRace,
-    strikeAssignments: preAssignedStrikes,
-    currentStrikeIndex: 0,
-    phase: isEachCharacter ? 'resolve-strike' : 'assign-strikes',
-    assignmentPhase: isEachCharacter ? 'done' : (aaAttackerChooses ? 'cancel-window' : 'defender'),
-    bodyCheckTarget: null,
-    detainment,
-    ...(opts.trollPursePrisoner ? { trollPursePrisoner: opts.trollPursePrisoner } : {}),
-    ...(protectedSet.size > 0 ? { protectedFromStrikeAssignment: [...protectedSet] as CardInstanceId[] } : {}),
-    ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
-    ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
-    ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
-    ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
-    ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
-  };
-  if (isEachCharacter && preAssignedStrikes.length > 1) {
-    return { ...base, phase: 'choose-strike-order', currentStrikeIndex: 0, bodyCheckTarget: null };
-  }
-  if (isEachCharacter && preAssignedStrikes.length === 1) {
-    return { ...base, phase: 'resolve-strike', currentStrikeIndex: 0, attackerStep1Done: false, bodyCheckTarget: null };
-  }
-  return base;
-}
-
-/**
  * Troll-purse (dm-95): when an item is played at a site bearing an opponent's
  * Troll-purse, the company must face all the site's automatic-attacks again.
  * If such a trap exists at the active company's site, initiate the first
@@ -1808,12 +1668,6 @@ function handleSiteTrollPurseAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during troll-purse-attacks step` };
@@ -1821,8 +1675,8 @@ function handleSiteTrollPurseAttacks(
   const reface = siteState.trollPurseReface;
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-  const autoAttacks = siteDef && isSiteCard(siteDef) ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
+  const siteDef = companySiteDef(state, company);
+  const autoAttacks = siteDef ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
 
   if (!reface || reface.resolved >= autoAttacks.length) {
     logDetail('Troll-purse: all re-faced automatic-attacks resolved → play-resources');
@@ -1845,6 +1699,59 @@ function handleSiteTrollPurseAttacks(
       ...state,
       combat,
       phaseState: { ...siteState, trollPurseReface: { ...reface, resolved: reface.resolved + 1 } },
+    },
+  };
+}
+
+/**
+ * Handle the 'bells-ringing-attacks' step: sequence the automatic-attacks
+ * re-faced by All the Bells Ringing (as-44). Each `pass` initiates the next
+ * re-faced attack (forced normal, not detainment); once all of the site's
+ * automatic-attacks have been re-faced, control returns to
+ * 'declare-company-attack' with `opponentInteractionThisTurn` reset to
+ * `null`, so the minion company may declare the CvCC attack again.
+ */
+function handleSiteBellsRingingAttacks(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+
+  if (action.type !== 'pass') {
+    return { state, error: `Expected 'pass' during bells-ringing-attacks step` };
+  }
+  const reface = siteState.bellsRingingReface;
+  const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
+  const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
+  const siteDef = companySiteDef(state, company);
+  const autoAttacks = siteDef ? getActiveAutoAttacks(state, siteDef, company.currentSite?.instanceId) : [];
+
+  if (!reface || reface.resolved >= autoAttacks.length) {
+    logDetail('All the Bells Ringing: all re-faced automatic-attacks resolved → declare-company-attack (interaction cleared)');
+    return {
+      state: {
+        ...state,
+        phaseState: {
+          ...siteState,
+          step: 'declare-company-attack' as const,
+          bellsRingingReface: undefined,
+          opponentInteractionThisTurn: null,
+        },
+      },
+    };
+  }
+
+  const aa = autoAttacks[reface.resolved];
+  logDetail(`All the Bells Ringing: re-facing automatic-attack ${reface.resolved + 1}/${autoAttacks.length} (forced normal, not detainment)`);
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, reface.resolved, {
+    prowessBonus: 0,
+    forceNormalOverride: true,
+  });
+  return {
+    state: {
+      ...state,
+      combat,
+      phaseState: { ...siteState, bellsRingingReface: { resolved: reface.resolved + 1 } },
     },
   };
 }
@@ -1896,6 +1803,22 @@ function freePrisonersOfHost(state: GameState, hostInstanceId: CardInstanceId): 
   // Drop the host record (no remaining prisoners).
   const hazardHosts = state.hazardHosts.filter(h => h.hostCard.instanceId !== hostInstanceId);
   let newState: GameState = { ...state, activeConstraints, hazardHosts };
+  // "…which immediately join the company under general influence": a prisoner
+  // costs its owner nothing while held (recompute-derived exempts it), so the
+  // rescue hands the mind back to the general influence pool rather than to
+  // whichever character was paying direct influence before the capture.
+  newState = {
+    ...newState,
+    players: newState.players.map(p => {
+      const rescued = (Object.keys(p.characters) as CardInstanceId[]).filter(id => freed.has(id as string));
+      if (rescued.length === 0) return p;
+      const characters = { ...p.characters };
+      for (const id of rescued) {
+        characters[id] = { ...characters[id], controlledBy: 'general' };
+      }
+      return { ...p, characters };
+    }) as unknown as GameState['players'],
+  };
   // If the host card lives only in the record (not a `cardsInPlay` permanent),
   // discard it to its owner so the instance is preserved.
   const hostInPlay = state.players.some(p => p.cardsInPlay.some(c => c.instanceId === hostInstanceId));
@@ -1919,12 +1842,6 @@ function handleSiteRescueAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during rescue-attacks step` };
@@ -1932,31 +1849,28 @@ function handleSiteRescueAttacks(
   const rescue = siteState.rescueInProgress;
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
-  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteCardDef = companySiteDef(state, company);
   const host = rescue ? state.hazardHosts.find(h => h.hostCard.instanceId === rescue.hostInstanceId) : undefined;
-  const siteCardDef = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
   const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
 
-  if (!rescue || rescue.resolved >= rescueAttacks.length) {
-    const freedState = rescue ? freePrisonersOfHost(state, rescue.hostInstanceId) : state;
-    logDetail('Rescue: rescue-attack faced — prisoners freed → play-resources');
-    // The rescue succeeded — if the rescue site is Dol Guldur this opens the
-    // tap window for Pass the Doors of Dol Guldur (dm-154) for the rest of this
-    // company's site phase.
-    const marked = rescue ? markPrisonersRescuedAtDolGuldur(freedState, company) : freedState;
-    const markedSiteState = marked.phaseState as SitePhaseState;
+  if (!rescue) {
+    logDetail('Rescue: no rescue in progress → play-resources');
+    return { state: { ...state, phaseState: { ...siteState, step: 'play-resources' as const } } };
+  }
+  if (rescue.resolved >= rescueAttacks.length) {
+    // Every rescue-attack has been faced. The prisoners are not free yet:
+    // rule 8.36 still asks for a character in the company to be tapped, and
+    // whoever survived the attacks untapped is who can pay.
+    logDetail('Rescue: all rescue-attack(s) faced → rescue-tap (a character must tap to free the prisoners)');
     return {
-      state: {
-        ...marked,
-        phaseState: { ...markedSiteState, step: 'play-resources' as const, rescueInProgress: undefined },
-      },
+      state: { ...state, phaseState: { ...siteState, step: 'rescue-tap' as const } },
     };
   }
 
   const protectedIds = host ? host.prisoners : [];
   const aa = rescueAttacks[rescue.resolved];
   logDetail(`Rescue: facing rescue-attack ${rescue.resolved + 1}/${rescueAttacks.length}`);
-  const combat = buildSiteRepeatedAttackCombat(state, company, siteDef as import('../types/cards.js').SiteCard, aa, rescue.resolved, {
+  const combat = buildSiteRepeatedAttackCombat(state, company, siteCardDef as import('../types/cards.js').SiteCard, aa, rescue.resolved, {
     prowessBonus: 0,
     protectedFromStrikeAssignment: protectedIds,
   });
@@ -1985,12 +1899,6 @@ function handleDeclareAgentAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type === 'pass') {
     logDetail(`Site: declare-agent-attack → no agent attack declared (pass)`);
@@ -2132,7 +2040,25 @@ function handleDeclareAgentAttack(
     const priorStackSites = agent.siteStack.slice(0, -1); // all but top
     const emptyStack = agent.siteStack.length === 0;
 
-    if (action.homeSiteInstanceId) {
+    if (!emptyStack) {
+      // Traveled agent: its current site card already sits on top of its own
+      // stack — no deck card is needed, and the rule 4.2.2 / 9.04 reveal
+      // penalty ("discard at end of turn if revealed without a site") is
+      // scoped to reveals AT A HOME SITE, so it never applies here. Earlier
+      // code conflated the cases: with a homeSiteInstanceId it deleted the
+      // home-site deck card into nothing; without one it wrongly doomed the
+      // agent to end-of-turn discard.
+      const newSiteStack = [{ instanceId: currentSiteEntry.instanceId, definitionId: currentSiteEntry.definitionId, status: CardStatus.Untapped as const }];
+      stateAfterReveal = updatePlayer(state, hazardPlayerIndex, p => ({
+        ...p,
+        agents: p.agents.map(a =>
+          a.character.instanceId === action.agentInstanceId
+            ? { ...a, revealed: true, siteStack: newSiteStack, attackedThisSitePhase: true }
+            : a,
+        ),
+        siteDeck: [...p.siteDeck, ...priorStackSites],
+      }));
+    } else if (action.homeSiteInstanceId) {
       const homeSiteCard = findById(hazardPlayer.siteDeck, action.homeSiteInstanceId);
       if (!homeSiteCard) {
         return { state, error: `Home site ${action.homeSiteInstanceId} not in hazard player's site deck` };
@@ -2235,12 +2161,6 @@ function handleSitePlaySiteAutoAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activePlayerIndex].companies[siteState.activeCompanyIndex];
@@ -2371,12 +2291,6 @@ function handleSiteResolveAttacks(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   if (action.type !== 'pass') {
     return { state, error: `Expected 'pass' during resolve-attacks step` };
@@ -2769,20 +2683,16 @@ function handleSitePlayResources(
     if (!rescuable || rescuable.hostInstanceId !== action.hostInstanceId) {
       return { state, error: 'No rescuable prisoners at this site for that host' };
     }
-    const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
-    const siteCardDef = siteDef && isSiteCard(siteDef) ? siteDef : undefined;
+    const siteCardDef = companySiteDef(state, company);
     const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
     const rescueAttacks = host ? rescueAttacksForHost(state, host, siteCardDef) : [];
     if (rescueAttacks.length === 0) {
-      // No rescue-attack to face — free immediately. A successful rescue at Dol
-      // Guldur opens the Pass the Doors of Dol Guldur (dm-154) tap window.
-      const freed = markPrisonersRescuedAtDolGuldur(
-        freePrisonersOfHost(state, action.hostInstanceId), company,
-      );
+      // No rescue-attack to face — straight to the tap that frees them.
+      logDetail(`Rescue: company ${company.id} attempts to rescue prisoners of ${action.hostInstanceId as string} — no rescue-attack to face → rescue-tap`);
       return {
         state: {
-          ...freed,
-          phaseState: { ...(freed.phaseState as SitePhaseState) },
+          ...state,
+          phaseState: { ...siteState, step: 'rescue-tap' as const, rescueInProgress: { hostInstanceId: action.hostInstanceId, resolved: 0 } },
         },
       };
     }
@@ -2817,23 +2727,98 @@ function handleSitePlayResources(
     return handleOpponentInfluenceAttempt(state, action, siteState);
   }
 
-  // Site-phase grant-action: Hermit's Hill discard-minors-for-major (dm-32) /
-  // discard-minors-for-gold-ring (le-382). Handled before the generic
-  // grant-action path because it has no character actor to tap — the cost is
-  // discarding two minor items directly.
-  if (action.type === 'activate-granted-action'
-    && (action.actionId === 'discard-minors-for-major' || action.actionId === 'discard-minors-for-gold-ring')) {
-    return handleDiscardMinorsForUnlock(state, action, siteState);
-  }
-
-  // Rule 2.1.1: any-phase grant-actions (Cram, Orc-draughts). The
-  // legal-action emitter only offers activations flagged
-  // `anyPhase: true` during site phase, so we can delegate unconditionally.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
-
   return { state, error: `Unexpected action '${action.type}' in play-resources step` };
+}
+
+/**
+ * Handle the 'rescue-tap' step — the second half of CoE rule 8.36, once the
+ * host's rescue-attacks have been faced.
+ *
+ * "A character in the company may then be tapped to rescue all of the hazard
+ * host's prisoners, which immediately join the company under general
+ * influence. When a character is successfully rescued, the rescue site taps if
+ * it was untapped and one minor item … may be played as the resource player's
+ * next declared action."
+ *
+ * So the rescue costs a tap and pays three things: the prisoners are freed,
+ * the site taps (unless it never taps), and the additional-minor-item window
+ * opens — the same `minorItemAvailable` flag a site-tapping resource play
+ * sets, since it is the same rule 2.V.5 window.
+ *
+ * `pass` leaves the prisoners held. The attacks were faced for nothing, but
+ * that is the position a company with nobody left untapped is actually in.
+ */
+function handleSiteRescueTap(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  if (action.type === 'pass') {
+    logDetail('Rescue: no character tapped — prisoners stay held → play-resources');
+    return {
+      state: { ...state, phaseState: { ...siteState, step: 'play-resources' as const, rescueInProgress: undefined } },
+    };
+  }
+  if (action.type !== 'rescue-prisoner') {
+    return { state, error: `Expected 'rescue-prisoner' or 'pass' during rescue-tap step` };
+  }
+
+  const rescue = siteState.rescueInProgress;
+  if (!rescue || rescue.hostInstanceId !== action.hostInstanceId) {
+    return { state, error: 'No rescue in progress for that host' };
+  }
+  const playerIndex = getPlayerIndex(state, action.player);
+  const player = state.players[playerIndex];
+  const company = player.companies[siteState.activeCompanyIndex];
+  const host = state.hazardHosts.find(h => h.hostCard.instanceId === action.hostInstanceId);
+  if (!host) return { state, error: 'Hazard host not found' };
+
+  const characterId = action.characterInstanceId;
+  if (!characterId) return { state, error: 'A character must be named to complete the rescue' };
+  const rescuer = player.characters[characterId];
+  const rescuerDef = rescuer ? defById(state, rescuer.definitionId) : undefined;
+  if (!rescuer || !rescuerDef) return { state, error: `${characterId as string} is not a character` };
+  if (!company.characters.includes(characterId)) {
+    return { state, error: `${rescuerDef.name} is not in the rescuing company` };
+  }
+  if (rescuer.status !== CardStatus.Untapped) {
+    return { state, error: `${rescuerDef.name} must be untapped to free the prisoners` };
+  }
+  if (host.prisoners.includes(characterId)) {
+    return { state, error: `${rescuerDef.name} is a prisoner and cannot free themselves` };
+  }
+
+  const neverTaps = siteNeverTaps(state, company.currentSite);
+  const siteWasUntapped = company.currentSite?.status === CardStatus.Untapped;
+  const tapsSite = siteWasUntapped && !neverTaps;
+  logDetail(`Rescue: ${rescuerDef.name} taps to free ${host.prisoners.length} prisoner(s)${tapsSite ? ' — the rescue site taps' : neverTaps ? ' — never-taps site left untapped' : ' — site already tapped'}`);
+
+  const tapped = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: { ...p.characters, [characterId as string]: { ...p.characters[characterId], status: CardStatus.Tapped } },
+    companies: p.companies.map(c => (c.id === company.id && c.currentSite && tapsSite
+      ? { ...c, currentSite: { ...c.currentSite, status: CardStatus.Tapped } }
+      : c)),
+  }));
+
+  const freed = freePrisonersOfHost(tapped, action.hostInstanceId);
+  // A successful rescue at Dol Guldur opens the Pass the Doors of Dol Guldur
+  // (dm-154) tap window for the rest of this company's site phase.
+  const marked = markPrisonersRescuedAtDolGuldur(freed, company);
+  const markedSiteState = marked.phaseState as SitePhaseState;
+  return {
+    state: {
+      ...marked,
+      phaseState: {
+        ...markedSiteState,
+        step: 'play-resources' as const,
+        rescueInProgress: undefined,
+        // Rule 8.36's minor item is rule 2.V.5's window, reached by tapping the
+        // site through a rescue rather than through a resource play.
+        minorItemAvailable: tapsSite ? true : markedSiteState.minorItemAvailable,
+      },
+    },
+  };
 }
 
 /**
@@ -3255,11 +3240,7 @@ function fireCharacterGainsItemChecks(
         if (effect.apply.type !== 'force-check' || effect.apply.check !== 'corruption') continue;
 
         logDetail(`character-gains-item: "${hDef?.name}" triggers corruption check for character ${charId as string}`);
-        const possessions = [
-          ...char.items.map(i => i.instanceId),
-          ...char.allies.map(a => a.instanceId),
-          ...char.hazards.map(h => h.instanceId),
-        ];
+        const possessions = characterPossessions(char);
         newState = enqueueCorruptionCheck(newState, {
           source: hazard.instanceId,
           actor: player.id,
@@ -3381,11 +3362,7 @@ function fireItemPlayCorruptionChecks(
         }
       }
       logDetail(`Greed: item "${itemName}" (cp ${cp}) played at site — ${charDef.name} makes a corruption check (modifier ${formatSignedNumber(modifier)})`);
-      const possessions = [
-        ...char.items.map(i => i.instanceId),
-        ...char.allies.map(a => a.instanceId),
-        ...char.hazards.map(h => h.instanceId),
-      ];
+      const possessions = characterPossessions(char);
       newState = enqueueCorruptionCheck(newState, {
         source: constraint.source,
         actor: player.id,
@@ -3540,11 +3517,7 @@ export function fireSuccessfulInfluenceTriggers(
               continue;
             }
             firedDefIds.add(card.definitionId as string);
-            const possessions = [
-              ...char.items.map(i => i.instanceId),
-              ...char.allies.map(a => a.instanceId),
-              ...char.hazards.map(h => h.instanceId),
-            ];
+            const possessions = characterPossessions(char);
             logDetail(`"${def?.name}": ${charDef.name} made a successful influence attempt — corruption check (modifier ${formatSignedNumber(step.modifier ?? 0)})`);
             next = enqueueCorruptionCheck(next, {
               source: card.instanceId,
@@ -3628,6 +3601,9 @@ export function resolveInfluenceAttemptRoll(
   // The Dark Power (as-79): a consumed one-shot boost may flag that a failed
   // check shuffles the faction into the play deck instead of discarding it.
   let shuffleFactionOnFailure = false;
+  // Lordly Presence (tw-267): a consumed one-shot boost may flag that a
+  // successful check draws a card for the influencer's controller.
+  let drawCardOnSuccess = false;
   // Red Arrow (tw-312): an `auto-influence-faction` grant on the influencer (or
   // an item they bear) lets this faction be influenced with no 2d6 check.
   let autoInfluence = false;
@@ -3637,24 +3613,13 @@ export function resolveInfluenceAttemptRoll(
   const nullifyMods = influenceModificationsNullified(state);
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
-      reason: 'faction-influence-check',
+      ...buildFactionCheckContext(state, def),
       bearer: {
         ...buildBearerContext(charDef),
         stagePoints: player.stagePoints,
         homesiteRegions: characterHomeSiteRegions(state, charDef),
       },
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-      controller: {
-        inPlay: buildControllerInPlayNames(state, entry.declaredBy),
-        factionRaces: buildControllerFactionRaces(state, entry.declaredBy),
-        wizard: playerWizardName(state, player),
-      },
+      controller: buildFactionControllerContext(state, entry.declaredBy),
     };
 
     const ownEffects = collectCharacterEffects(state, charInPlay, resolverCtx);
@@ -3774,6 +3739,9 @@ export function resolveInfluenceAttemptRoll(
       if (constraint.kind.onFailure === 'shuffle-faction-into-deck') {
         shuffleFactionOnFailure = true;
       }
+      if (constraint.kind.onSuccess === 'draw-card') {
+        drawCardOnSuccess = true;
+      }
       logDetail(`Influence one-shot constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string} (consumed)`);
     }
     if (consumedConstraintIds.length > 0) {
@@ -3831,16 +3799,7 @@ export function resolveInfluenceAttemptRoll(
   // (le-150) nullifies every card-sourced modification, so the gate wins.
   const globalInfluenceMod = nullifyMods
     ? 0
-    : collectGlobalCheckModifier(state, 'influence', {
-      reason: 'faction-influence-check',
-      faction: {
-        name: def.name,
-        race: def.race,
-        playableAt: buildFactionPlayableAt(def),
-        playableRegions: buildFactionPlayableRegions(state, def),
-      },
-      influenceTarget: buildInfluenceTargetContext(def, 'faction'),
-    });
+    : collectGlobalCheckModifier(state, 'influence', buildFactionCheckContext(state, def));
   if (globalInfluenceMod !== 0) {
     modifier += globalInfluenceMod;
     logDetail(`Game-wide influence check-modifier: ${formatSignedNumber(globalInfluenceMod)}`);
@@ -3994,13 +3953,22 @@ export function resolveInfluenceAttemptRoll(
         allyOrFactionPlayedAtSite: true,
       },
     }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
+    // Lordly Presence (tw-267): the consumed boost draws a card for the
+    // influencer's controller when the boosted check succeeds.
+    let drawnState = successState;
+    if (drawCardOnSuccess) {
+      const { state: afterDraw, drawnCards } = drawCardsExhausting(successState, playerIndex, 1);
+      logDetail(`Influence: boosted check succeeded — drawing 1 card for ${player.name} (drew ${drawnCards.length})`);
+      drawnState = updatePlayer(afterDraw, playerIndex, p => ({ ...p, hand: [...p.hand, ...drawnCards] }));
+    }
+
     // Lure of Power (tw-59): a successful influence attempt by a matching
     // character fires `successful-influence-attempt` triggers on bare in-play
     // events (corruption check on the influencer, then self-discard). Only a
     // character influencer qualifies — an ally (wh-114) is not a "character".
     const triggeredState = charInPlay
-      ? fireSuccessfulInfluenceTriggers(successState, charId, entry.declaredBy)
-      : successState;
+      ? fireSuccessfulInfluenceTriggers(drawnState, charId, entry.declaredBy)
+      : drawnState;
     // Inner Rot (wh-23): a stage faction (Half-orcs wh-87, Greater Half-orcs
     // wh-86) influenced into play counts as "playing a stage card". A failed
     // influence attempt never puts the faction in play, so it does not trigger.
@@ -4318,7 +4286,11 @@ function handleOpponentInfluenceAttempt(
   // a Man faction and to influencing an opponent's Man faction away. The
   // effect's `when` (evaluated against `oppInfluenceCtx`, which exposes
   // `target.kind` / `target.race`) is what keeps faction-play-only modifiers out.
-  const globalOppInfluenceMod = collectGlobalCheckModifier(state, 'influence', oppInfluenceCtx);
+  // A game-wide modifier is a card-sourced modification, so a le-150
+  // nullification zeroes it here exactly as the faction-influence path does.
+  const globalOppInfluenceMod = nullifyMods
+    ? 0
+    : collectGlobalCheckModifier(state, 'influence', oppInfluenceCtx);
   if (globalOppInfluenceMod !== 0) {
     boostModifier += globalOppInfluenceMod;
     logDetail(`Opponent influence: game-wide influence check-modifier ${formatSignedNumber(globalOppInfluenceMod)}`);
@@ -4426,10 +4398,6 @@ export function resolveOpponentInfluenceDefend(
   const rng = rolled ? rolled.rng : state.rng;
   const cheatRollTotal = rolled ? rolled.cheatRollTotal : state.cheatRollTotal;
 
-  const rollEffects = rolled
-    ? [diceRollEffect(opponent.name, rolled.roll, `Opponent influence: defense`)]
-    : [];
-
   // Calculate final result:
   // attacker roll + influencer DI - opponent GI - defender roll
   //   - controller DI + cross-alignment penalty (non-positive; 0 or -5)
@@ -4437,6 +4405,7 @@ export function resolveOpponentInfluenceDefend(
   const regionPenalty = attempt.regionPenalty ?? 0;
   const boostModifier = attempt.boostModifier ?? 0;
   const finalResult = attempt.attackerRoll + attempt.influencerDI - attempt.opponentGI - defenderRoll - attempt.controllerDI + attempt.crossAlignmentPenalty - regionPenalty + boostModifier;
+  const succeeded = attempt.autoSuccess || finalResult > attempt.targetMind;
 
   if (attempt.autoSuccess) {
     logDetail(`Opponent influence resolution: automatically successful (no defence roll)`);
@@ -4444,9 +4413,29 @@ export function resolveOpponentInfluenceDefend(
     logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
   }
 
+  // The player-facing dice-roll toast is the only place the outcome of this
+  // check reaches the client — carry the full formula and verdict in the
+  // label so a player can verify the math from the log instead of having to
+  // infer success/failure from the resulting state diff.
+  const targetDef = resolveDef(state, attempt.targetInstanceId);
+  const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef) || isFactionCard(targetDef) || isItemCard(targetDef))
+    ? targetDef.name : '?';
+  const influencerDef = resolveDef(state, attempt.influencerId);
+  const influencerName = influencerDef && isCharacterCard(influencerDef) ? influencerDef.name : '?';
+  const verdict = succeeded
+    ? `succeeded (${attempt.autoSuccess ? 'automatic' : `${finalResult} > ${attempt.targetMind}`})`
+    : `failed (${finalResult} <= ${attempt.targetMind})`;
+  const rollEffects = rolled
+    ? [diceRollEffect(
+        opponent.name,
+        rolled.roll,
+        `Opponent influence: ${influencerName} vs ${targetName} — ${attempt.attackerRoll} (attack) + ${attempt.influencerDI} (DI) - ${attempt.opponentGI} (GI) - ${defenderRoll} (defense) - ${attempt.controllerDI} (controller DI) = ${finalResult} vs mind ${attempt.targetMind} → ${verdict}`,
+      )]
+    : [];
+
   const newPlayers = clonePlayers(state);
 
-  if (attempt.autoSuccess || finalResult > attempt.targetMind) {
+  if (succeeded) {
     // Success — discard target and controlled non-follower cards
     logDetail(attempt.autoSuccess
       ? `Opponent influence succeeded (automatic)`
@@ -4696,6 +4685,11 @@ function discardInfluencedCard(
   const newCharacters = { ...opponent.characters };
   freeOrDiscardFollowers(state, newCharacters, targetChar, 'discardInfluencedCard');
 
+  // Relocate trophies per CoE 3.IV.4 — worth MP → the holder's marshalling-
+  // point pile, otherwise removed from play — or the creature CardInstance
+  // would vanish with the deleted character.
+  const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(state, targetChar, 'influenced character');
+
   // Remove the target character
   delete newCharacters[pending.targetInstanceId];
 
@@ -4711,6 +4705,8 @@ function discardInfluencedCard(
     characters: newCharacters,
     companies: newCompanies,
     discardPile: newDiscard,
+    killPile: [...opponent.killPile, ...toKillPile],
+    outOfPlayPile: [...opponent.outOfPlayPile, ...toOutOfPlay],
   };
   players[hazardPlayerIndex] = { ...players[hazardPlayerIndex], discardPile: newHazardDiscard };
 }
@@ -4856,11 +4852,7 @@ function fireEndOfTurnCorruptionChecks(state: GameState): GameState {
           }
 
           logDetail(`end-of-turn: "${hDef?.name}" on ${charId as string} — ${otherItems.length} other-company item(s)`);
-          const possessions = [
-            ...bearer.items.map(i => i.instanceId),
-            ...bearer.allies.map(a => a.instanceId),
-            ...bearer.hazards.map(h => h.instanceId),
-          ];
+          const possessions = characterPossessions(bearer);
           for (const item of otherItems) {
             const itemDef = defById(newState, item.definitionId);
             const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;
@@ -5115,12 +5107,6 @@ function handleDeclareCompanyAttack(
   action: GameAction,
   siteState: SitePhaseState,
 ): ReducerResult {
-  // Constraint pass-through grants (River's cancel, and friends) are offered
-  // in every site step, so every step must route them: an offered action
-  // must never be rejected by the reducer.
-  if (action.type === 'activate-granted-action') {
-    return handleGrantActionApply(state, action);
-  }
 
   const player = playerById(state, action.player)!;
   const company = player.companies[siteState.activeCompanyIndex];

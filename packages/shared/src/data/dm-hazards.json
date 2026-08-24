@@ -572,9 +572,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       }
     ],
     "text": "Each Under-deeps site, Dark-hold [{D}], and Shadow-hold [{S}] has an additional automatic-attack (cannot be canceled): Lava Flows — 1 strike against each character with 6 prowess (weapons do not modify prowess against these strikes). The penalty for an untapped character not tapping against one of these strikes is -5.This card has no effect on a minion player. Cannot be duplicated."
@@ -816,8 +821,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/HelmsofIron.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Man attacks with body have their body modified by +1; and all Orc, Troll, and Man attacks with no body have 4 body."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "nazgul-permanent-event"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "in-play",
+          "to": "discard"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "op": "set",
+        "value": 4,
+        "target": "all-attacks",
+        "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } }
+      }
+    ],
+    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Man attacks with body have their body modified by +1; and all Orc, Troll, and Man attacks with no body have 4 body.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-event",
@@ -851,9 +887,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       },
       {
         "type": "draw-modifier",
@@ -921,8 +962,19 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/LongDarkReach.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a moving company with at least one Wilderness [{w}] in its site path if you have at least 10 cards in your play deck. Reveal the top seven cards of your play deck. One revealed Nazgûl, Dragon, or a non-unique creature of your choice must immediately attack the company regardless of its playability requirements (not count against the hazard limit). The creature must be playable in a region besides Coastal Sea [{c}]. If the creature could not normally be played on the company, modify its prowess by -4. Shuffle all unused cards and return them to the top of your play deck."
+    "effects": [
+      { "type": "play-condition", "requires": "site-path", "condition": { "sitePath.wildernessCount": { "$gte": 1 } } },
+      { "type": "play-condition", "requires": "card-player-deck-size", "minDeckSize": 10 },
+      {
+        "type": "reveal-deck-choose-attacker",
+        "count": 7,
+        "alwaysEligibleRaces": ["ringwraith", "dragon"],
+        "requireNonCoastalKeying": true,
+        "unplayableProwessPenalty": -4
+      }
+    ],
+    "text": "Playable on a moving company with at least one Wilderness [{w}] in its site path if you have at least 10 cards in your play deck. Reveal the top seven cards of your play deck. One revealed Nazgûl, Dragon, or a non-unique creature of your choice must immediately attack the company regardless of its playability requirements (not count against the hazard limit). The creature must be playable in a region besides Coastal Sea [{c}]. If the creature could not normally be played on the company, modify its prowess by -4. Shuffle all unused cards and return them to the top of your play deck.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hazard-event",
@@ -936,9 +988,14 @@
         "type": "play-restriction",
         "rule": "unplayable-when",
         "when": {
-          "opponent.alignment": "ringwraith"
+          "opponent.alignment": {
+            "$in": [
+              "ringwraith",
+              "balrog"
+            ]
+          }
         },
-        "reason": "cannot be played against a Ringwraith player"
+        "reason": "cannot be played against a minion player"
       },
       { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 5, "prowess": 8, "race": "orc", "noEffectOnMinion": true },
       { "type": "ahunt-attack", "regionNames": ["Nurn"], "strikes": 4, "prowess": 10, "race": "orc", "noEffectOnMinion": true },
@@ -971,7 +1028,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/NeverSeenHim.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "agent"
+      },
+      {
+        "type": "extra-agent-actions",
+        "value": 1
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "agent",
+        "max": 1
+      }
+    ],
+    "certified": "2026-08-17",
     "text": "Playable on an agent. Target agent may take an extra agent action (which does not count against the hazard limit) each time he normally takes an agent action. Cannot be duplicated on a given agent. Cannot be played if your opponent is a minion player."
   },
   {
@@ -1257,8 +1329,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ScimitarsofSteel.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Men attacks receive +1 prowess."
+    "effects": [
+      {
+        "type": "play-discard-cost",
+        "source": "cards-in-play",
+        "filter": { "keywords": { "$includes": "Nazgûl" } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "enemy.race": { "$in": ["orc", "troll", "man"] } }
+      }
+    ],
+    "text": "Playable only if you have a Nazgûl permanent-event in play. Discard the Nazgûl when this card is brought into play. All Orc, Troll, and Men attacks receive +1 prowess.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-event",

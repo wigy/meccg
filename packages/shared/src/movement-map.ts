@@ -83,7 +83,7 @@ function buildRegionGraph(
  * Compute all-pairs shortest distances via BFS from each region.
  * Distance is measured in edges (adjacent regions have distance 1).
  */
-function computeAllPairsDistance(
+export function computeAllPairsDistance(
   graph: Map<string, Set<string>>,
 ): Map<string, Map<string, number>> {
   const result = new Map<string, Map<string, number>>();
@@ -233,6 +233,38 @@ export function buildMovementMap(
 }
 
 /**
+ * Overlays extra bidirectional region-adjacency edges onto a precomputed
+ * {@link MovementMap}, returning a new map with `regionGraph` and
+ * `regionPathEdges` recomputed — never mutating the input. Used by Anduin
+ * River (tw-191) and the "mountain-crossing" family ("tap the ranger to move
+ * as if the following pairs of regions were adjacent"): the extra pairs are
+ * per-company (installed via a `region-adjacency-shortcut` active
+ * constraint), so they cannot be baked into the shared card-pool-derived
+ * graph `buildMovementMap` returns. The region graph is small (~52 nodes),
+ * so recomputing all-pairs distance per call is cheap. Returns the input map
+ * unchanged (no new object) when `pairs` is empty.
+ */
+export function withExtraRegionAdjacency(
+  map: MovementMap,
+  pairs: readonly (readonly [string, string])[],
+): MovementMap {
+  if (pairs.length === 0) return map;
+  const graph = new Map<string, Set<string>>();
+  for (const [region, adjacent] of map.regionGraph) graph.set(region, new Set(adjacent));
+  for (const [a, b] of pairs) {
+    if (!graph.has(a)) graph.set(a, new Set());
+    if (!graph.has(b)) graph.set(b, new Set());
+    graph.get(a)!.add(b);
+    graph.get(b)!.add(a);
+  }
+  return {
+    ...map,
+    regionGraph: graph,
+    regionPathEdges: computeAllPairsDistance(graph),
+  };
+}
+
+/**
  * Default maximum region distance for region movement.
  * The rules say "four consecutive regions" counting both origin and destination.
  */
@@ -325,6 +357,34 @@ export function findRegionPaths(
   const visited = new Set<string>([fromRegion]);
   dfs(fromRegion, [fromRegion], visited);
   return results;
+}
+
+/**
+ * Return a copy of `map` whose region graph additionally treats each named
+ * pair in `pairs` as adjacent (Ash Mountains tw-194 and its "movement
+ * enhancer" family: "move as if the following pairs of regions were
+ * adjacent"). Only `regionGraph` is extended — `findRegionPaths` (region-path
+ * enumeration for `declare-path`) consults it directly and needs nothing
+ * else; `regionPathEdges` (used for org-phase destination reachability) is
+ * intentionally left untouched, so the virtual adjacency only widens which
+ * *path* can justify an already-chosen destination, not which destinations
+ * are offered during organization-phase movement planning.
+ */
+export function withVirtualAdjacency(
+  map: MovementMap,
+  pairs: readonly (readonly [string, string])[],
+): MovementMap {
+  const regionGraph = new Map<string, Set<string>>();
+  for (const [region, adj] of map.regionGraph) {
+    regionGraph.set(region, new Set(adj));
+  }
+  for (const [a, b] of pairs) {
+    if (!regionGraph.has(a)) regionGraph.set(a, new Set());
+    if (!regionGraph.has(b)) regionGraph.set(b, new Set());
+    regionGraph.get(a)!.add(b);
+    regionGraph.get(b)!.add(a);
+  }
+  return { ...map, regionGraph };
 }
 
 export function getReachableSites(

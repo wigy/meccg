@@ -22,13 +22,13 @@ import type {
   Alignment as AlignmentType,
 } from '../../index.js';
 import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, getReachableSites } from '../../movement-map.js';
+import { buildMovementMap, getReachableSites, withExtraRegionAdjacency } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
-import { SiteType, Race, RegionType, Alignment } from '../../types/common.js';
+import { SiteType, Race, RegionType } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
 import { resolveDef } from '../effects/index.js';
@@ -37,11 +37,39 @@ import { getEffectiveSiteType } from '../effective.js';
 import { companyMovementRestrictions, companyMovementTax, isMovementTaxSatisfied } from '../effects/company-restrictions.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import { viableWithRegress } from '../reverse-actions.js';
+import { regressable } from '../reverse-actions.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
 import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
 import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
+
+/**
+ * The coastal regions Belegaer (td-100) connects by sea-crossing. The card
+ * lists the same regions for both the company's site of origin and its new
+ * destination — a company at a site in any one of these may move directly to
+ * a site in any other (or the same) region on the list, bypassing region
+ * adjacency.
+ */
+const BELEGAER_REGIONS: readonly string[] = [
+  'Lindon',
+  'Elven Shores',
+  'Eriadoran Coast',
+  'Andrast Coast',
+  'Bay of Belfalas',
+  'Mouths of the Anduin',
+  'Enedhwaith',
+  'Old Pûkel-land',
+  'Andrast',
+  'Anfalas',
+  'Belfalas',
+  'Lebennin',
+  'Harondor',
+];
+
+/** A `plan-movement` candidate: send `companyId` to the site-deck instance `destinationSite`. */
+function planMovement(playerId: PlayerId, companyId: CompanyId, destinationSite: CardInstanceId): GameAction {
+  return { type: 'plan-movement', player: playerId, companyId, destinationSite };
+}
 
 /**
  * Resolve the grouping key for a company's current site: the site's
@@ -661,6 +689,22 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       }
     }
 
+    // Rule 3.26 (glossary "leader": "cannot be in a company with another
+    // leader unless at a haven") applies to moving companies too, not just to
+    // organizing them: a company already holding more than one Leader may
+    // only declare movement to a haven — it cannot travel to (or through
+    // declaring movement toward) a non-haven site while it's over the limit.
+    if (wouldViolateLeaderRestriction(state, company.characters, company.id)) {
+      const beforeLeaderFilter = candidateSites.length;
+      for (let i = candidateSites.length - 1; i >= 0; i--) {
+        const destSiteDef = candidateSites[i];
+        if (!isHavenForPlayer(destSiteDef, player.alignment, { state, siteDefinitionId: destSiteDef.id, playerId: player.id })) {
+          candidateSites.splice(i, 1);
+        }
+      }
+      logDetail(`Company ${company.id as string}: has more than one leader — restricted to haven destinations (${beforeLeaderFilter} → ${candidateSites.length})`);
+    }
+
     // Rule 2.II.7.1: no two companies sharing an origin may declare movement
     // to the same new site during one organization phase. Drop any candidate
     // whose definition is already another sibling-at-same-origin's
@@ -676,7 +720,9 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       }
     }
 
-    // Gwaihir special movement: can reach any non-shadow/dark site
+    // Gwaihir special movement (tw-251): can reach any site not in a
+    // Shadow-land [{s}] or Dark-domain [{d}] region — a REGION-type
+    // exclusion, per the card's printed lowercase symbols.
     if (company.specialMovement === 'gwaihir') {
       // MEAS §6(b): Eagle-mounts and Gwaihir cannot move to or from an
       // Under-deeps site. When the origin is Under-deeps, special movement is
@@ -706,13 +752,44 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
           continue;
         }
         logDetail(`  ${siteDef.name} in ${siteDef.region ?? '?'} (${regionType ?? '?'}) — reachable via Gwaihir`);
-        const candidate: GameAction = {
-          type: 'plan-movement',
-          player: playerId,
-          companyId: company.id,
-          destinationSite: destInstId,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
+      }
+      continue;
+    }
+
+    // Eagle-mounts special movement (tw-220): can reach any site that is not
+    // itself a Shadow-hold [{S}] or Dark-hold [{D}] — a SITE-type exclusion,
+    // per the card's printed uppercase symbols. Distinct from Gwaihir's
+    // region-type exclusion above: e.g. Moria is a Shadow-hold sitting in a
+    // wilderness region, so it is reachable via Gwaihir but not Eagle-mounts.
+    if (company.specialMovement === 'eagle-mounts') {
+      // MEAS §6(b): Eagle-mounts and Gwaihir cannot move to or from an
+      // Under-deeps site. When the origin is Under-deeps, special movement is
+      // unavailable entirely.
+      if (currentSiteDef.keywords?.includes('under-deeps')) {
+        logDetail(`Company ${company.id as string} at ${currentSiteDef.name} is under-deeps — excluded from Eagle/Gwaihir movement`);
+        continue;
+      }
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Eagle-mounts special movement — filtering sites`);
+      for (const siteDef of candidateSites) {
+        const destInstId = siteInstMap.get(siteDef.id);
+        if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        // MEAS §6(b): an Under-deeps destination is never reachable by Eagle/Gwaihir.
+        if (siteDef.keywords?.includes('under-deeps')) {
+          logDetail(`  ${siteDef.name} is under-deeps — excluded from Eagle-mounts movement`);
+          continue;
+        }
+        // Exclude sites that are themselves a Shadow-hold or Dark-hold
+        if (siteDef.siteType === 'shadow-hold' || siteDef.siteType === 'dark-hold') {
+          logDetail(`  ${siteDef.name} is a ${siteDef.siteType} — excluded by Eagle-mounts`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} (${siteDef.siteType}) — reachable via Eagle-mounts`);
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
       }
       continue;
     }
@@ -730,13 +807,28 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
           continue;
         }
         logDetail(`  ${siteDef.name} reachable via Paths of the Dead`);
-        const candidate: GameAction = {
-          type: 'plan-movement',
-          player: playerId,
-          companyId: company.id,
-          destinationSite: destInstId,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
+      }
+      continue;
+    }
+
+    // Belegaer (td-100): sea-crossing special movement between the coastal
+    // regions it lists. The card's own play-target already required the
+    // company's origin to be in one of these regions; here we filter
+    // candidate destinations to sites in the same region list.
+    if (company.specialMovement === 'belegaer') {
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: Belegaer special movement — filtering to coastal-region sites`);
+      for (const siteDef of candidateSites) {
+        if (siteDef.id === currentSiteDef.id) continue;
+        if (!siteDef.region || !BELEGAER_REGIONS.includes(siteDef.region)) continue;
+        const destInstId = siteInstMap.get(siteDef.id);
+        if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} in ${siteDef.region} reachable via Belegaer`);
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
       }
       continue;
     }
@@ -781,9 +873,24 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     const evilHour = company.evilHourMovementBonus === true;
     const originHasOpp = evilHour && siteHasOpponentCompany(state, playerId, currentSiteDef.name);
     const planMax = originHasOpp ? effectiveMaxRegions + 2 : effectiveMaxRegions;
-    let reachable = getReachableSites(movementMap, currentSiteDef, regularCandidates, planMax);
+    // Anduin River (tw-191) and the "mountain-crossing" family: a
+    // region-adjacency-shortcut constraint on this company (from tapping a
+    // ranger to play the card) widens which region pairs count as adjacent,
+    // so a destination reachable only via the shortcut appears here too.
+    // Must be consulted here — plan-movement never re-runs once a
+    // destination is declared (see the early-continue above) — so this is
+    // the only chance for the shortcut to affect which sites this company
+    // may newly declare movement to.
+    const shortcutPairs = state.activeConstraints
+      .filter(c => c.kind.type === 'region-adjacency-shortcut'
+        && c.target.kind === 'company' && c.target.companyId === company.id)
+      .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+    const companyMovementMap = shortcutPairs.length > 0
+      ? withExtraRegionAdjacency(movementMap, shortcutPairs)
+      : movementMap;
+    let reachable = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, planMax);
     if (evilHour && !originHasOpp) {
-      const extended = getReachableSites(movementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
+      const extended = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
       const seenExt = new Set(reachable.map(r => `${r.site.name}:${r.movementType}`));
       for (const r of extended) {
         if (r.movementType !== 'region') continue;
@@ -818,6 +925,19 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
     // MELE §1.2: Ringwraith movement restrictions.
     // Check whether this company has a Ringwraith avatar.
     const hasRingwraithAvatar = player.alignment === 'ringwraith' && companyContainsRingwraithAvatar(state, player, company);
+
+    // Rule 3.07 (2.II.2.1.R3): a company mixing a Ringwraith with a
+    // non-Ringwraith character is legal only while sitting at a Darkhaven —
+    // moving takes it away from that Darkhaven for the whole trip, so no
+    // destination (Darkhaven or not) can be planned until the mix is
+    // resolved. Without this guard the game accepts a `plan-movement` that
+    // `declare-path` (movement-hazard.ts) is guaranteed to refuse later,
+    // silently stranding the company at its origin having wasted its
+    // movement/hazard phase.
+    if (hasRingwraithAvatar && wouldViolateRingwraithComposition(state, company.characters)) {
+      logDetail(`Company ${company.id as string}: mixes a Ringwraith with a non-Ringwraith character — rule 3.07 forbids any movement away from ${currentSiteDef.name} — no destination offered`);
+      continue;
+    }
 
     if (hasRingwraithAvatar) {
       const hasModeCard = ringwraithHasModeCard(state, company, player);
@@ -866,13 +986,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         logDetail(`  ${r.site.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
         continue;
       }
-      const candidate: GameAction = {
-        type: 'plan-movement',
-        player: playerId,
-        companyId: company.id,
-        destinationSite: destInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
     }
 
     // --- Under-deeps movement pass ---
@@ -897,13 +1011,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
         continue;
       }
       logDetail(`  Under-deeps destination: ${dest.name}`);
-      const candidate: GameAction = {
-        type: 'plan-movement',
-        player: playerId,
-        companyId: company.id,
-        destinationSite: destInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
     }
 
     // --- Deep Mines descent / ascent pass (wh-55) ---
@@ -932,13 +1040,7 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       logDetail(originIsDeepMines
         ? `  Deep Mines ascent destination: ${dest.name} (from ${currentSiteDef.name})`
         : `  Deep Mines descent destination: ${dest.name} (from protected Wizardhaven ${currentSiteDef.name}, ${player.stagePoints} stage points)`);
-      const candidate: GameAction = {
-        type: 'plan-movement',
-        player: playerId,
-        companyId: company.id,
-        destinationSite: destInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
     }
   }
 
@@ -1030,13 +1132,12 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
           const avail = availableDI(state, ctrl.instanceId, player, charDef);
           if (avail >= controlCost) {
             logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) under DI of ${ctrlName} (avail DI ${avail})`);
-            const candidate: GameAction = {
+            actions.push(regressable(state, {
               type: 'move-to-influence',
               player: playerId,
               characterInstanceId: charInstId,
               controlledBy: ctrlInstId,
-            };
-            actions.push(viableWithRegress(candidate, state.reverseActions));
+            }));
           }
         }
         }
@@ -1049,13 +1150,12 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         const controlCost = controlCostOf(state, char, charDef.mind);
         if (controlCost !== null && controlCost <= remainingGI) {
           logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) to GI (remaining GI ${remainingGI})`);
-          const candidate: GameAction = {
+          actions.push(regressable(state, {
             type: 'move-to-influence',
             player: playerId,
             characterInstanceId: charInstId,
             controlledBy: 'general',
-          };
-          actions.push(viableWithRegress(candidate, state.reverseActions));
+          }));
         }
       }
     }
@@ -1134,14 +1234,13 @@ export function transferItemActions(state: GameState, playerId: PlayerId): Evalu
           const targetName = isCharacterCard(targetDef) ? targetDef.name : '?';
 
           logDetail(`  → viable: transfer ${itemName} from ${charName} to ${targetName}`);
-          const candidate: GameAction = {
+          actions.push(regressable(state, {
             type: 'transfer-item',
             player: playerId,
             itemInstanceId: item.instanceId,
             fromCharacterId: charInstId,
             toCharacterId: targetInstId,
-          };
-          actions.push(viableWithRegress(candidate, state.reverseActions));
+          }));
         }
       }
     }
@@ -1190,13 +1289,12 @@ export function useItemActions(state: GameState, playerId: PlayerId): EvaluatedA
           continue;
         }
         logDetail(`  → viable: ${charName} begins using ${itemName} as their ${slot}`);
-        const candidate: GameAction = {
+        actions.push(regressable(state, {
           type: 'use-item',
           player: playerId,
           characterInstanceId: charInstId,
           itemInstanceId: item.instanceId,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        }));
       }
     }
   }
@@ -1208,24 +1306,14 @@ export function useItemActions(state: GameState, playerId: PlayerId): EvaluatedA
 const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater']);
 
 /**
- * Special items (Palantíri, named rings, unique treasures, etc.) are storable
- * at any Haven too — CoE rule 2.II.4 places no subtype restriction on storing.
- * The only blanket exception is The One Ring (rule g.sto.1: "The One Ring
- * cannot be stored").
- */
-function isStorableSpecialItem(itemDef: { subtype: string; keywords?: readonly string[] }): boolean {
-  return itemDef.subtype === 'special' && !(itemDef.keywords?.includes('the-one-ring') ?? false);
-}
-
-/**
  * Computes store-item actions during the organization phase.
  *
  * Two categories of items are storable (CoE rule 2.II.4):
  *
- * 1. **Regular and special items** (any subtype other than The One Ring)
- *    without an explicit `storable-at` restriction: storable at any Haven
- *    site. The One Ring is the sole blanket exception (rule g.sto.1: "The
- *    One Ring cannot be stored").
+ * 1. **Regular and special items** without an explicit `storable-at`
+ *    restriction: storable at any Haven site, unless the item carries the
+ *    `no-store` play-flag (Ent-draughts tw-227, The One Ring per rule
+ *    g.sto.1: "The One Ring cannot be stored").
  * 2. **Items with a `storable-at` effect**: storable only at sites whose name
  *    appears in the effect's `sites` list, or whose type appears in
  *    `siteTypes`. This covers special items (e.g. Rescue Prisoners) and
@@ -1263,17 +1351,11 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       company.currentSite.instanceId,
     );
 
-    // MEBA: "A Balrog player may not store anything at Barad-dûr" — it is not one
-    // of the Balrog's Darkhavens (only Moria and The Under-gates are).
-    if (player.alignment === Alignment.Balrog && siteName === 'Barad-dûr') {
-      logDetail(`Store-item: Balrog player may not store at ${siteName} — skipping company`);
-      continue;
-    }
-
-    // `no-storage` site-rule (Geann a-Lisch le-374): "Resources may never be
-    // stored at this site." Suppress every store-item offer for a company here.
-    if (siteDef.effects?.some(e => e.type === 'site-rule' && e.rule === 'no-storage')) {
-      logDetail(`Store-item: ${siteName} carries no-storage site-rule — skipping company`);
+    // `no-storage` site-rule: "Resources may never be stored at this site"
+    // (Geann a-Lisch le-374 unconditionally; Barad-dûr for a Balrog player via
+    // the rule's `when` gate). Suppress every store-item offer for a company here.
+    if (siteForbidsStorage(siteDef, player.alignment)) {
+      logDetail(`Store-item: ${siteName} carries no-storage site-rule for ${player.alignment} — skipping company`);
       continue;
     }
 
@@ -1327,13 +1409,16 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
           const siteTypeMatch = storableEffect.siteTypes?.includes(siteType) ?? false;
           isStorable = siteNameMatch || siteTypeMatch;
         } else if (isItemCard(itemDef) && siteType === 'haven') {
-          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || isStorableSpecialItem(itemDef);
+          // Special items (Palantíri, named rings, unique treasures, etc.) are
+          // storable at any Haven too — CoE rule 2.II.4 places no subtype
+          // restriction on storing.
+          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || itemDef.subtype === 'special';
         }
 
-        // `no-store` play-flag: the item's own text forbids storage (e.g.
-        // Ent-draughts tw-227: "This item may not be … stored"), overriding
-        // any of the storability paths above the same way The One Ring's
-        // `the-one-ring` keyword exception does.
+        // `no-store` play-flag: the item's own text forbids storage,
+        // overriding any of the storability paths above. Ent-draughts tw-227
+        // ("This item may not be … stored") and The One Ring (rule g.sto.1:
+        // "The One Ring cannot be stored") carry it.
         if (isStorable && (effects?.some(e => e.type === 'play-flag' && (e as { flag?: string }).flag === 'no-store') ?? false)) {
           logDetail(`  → not storable: ${itemDef.name} on ${charName} carries the no-store play-flag`);
           isStorable = false;
@@ -1442,13 +1527,12 @@ export function splitCompanyActions(state: GameState, playerId: PlayerId): Evalu
       }
 
       logDetail(`  → viable: split ${charDef.name} (+ ${char.followers.length} followers) from ${company.id as string}`);
-      const candidate: GameAction = {
+      actions.push(regressable(state, {
         type: 'split-company',
         player: playerId,
         sourceCompanyId: company.id,
         characterId: charInstId,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      }));
     }
   }
 
@@ -1537,14 +1621,13 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
         }
 
         logDetail(`  → viable: move ${charDef.name} from ${company.id as string} to ${targetCompany.id as string}`);
-        const candidate: GameAction = {
+        actions.push(regressable(state, {
           type: 'move-to-company',
           player: playerId,
           characterInstanceId: charInstId,
           sourceCompanyId: company.id,
           targetCompanyId: targetCompany.id,
-        };
-        actions.push(viableWithRegress(candidate, state.reverseActions));
+        }));
       }
     }
   }
@@ -1769,13 +1852,12 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
       }
 
       logDetail(`  → viable: merge company ${company.id as string} into ${targetCompany.id as string}`);
-      const candidate: GameAction = {
+      actions.push(regressable(state, {
         type: 'merge-companies',
         player: playerId,
         sourceCompanyId: company.id,
         targetCompanyId: targetCompany.id,
-      };
-      actions.push(viableWithRegress(candidate, state.reverseActions));
+      }));
     }
   }
 

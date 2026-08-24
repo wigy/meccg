@@ -97,7 +97,7 @@ describe('Khamûl the Ringwraith (le-55)', () => {
     expect(k.effectiveStats.directInfluence).toBe(4);
   });
 
-  test('-2 direct influence in Heralded Lord mode (prowess unchanged)', () => {
+  test('-2 direct influence in Heralded Lord mode, stacking on the mode card\'s company-wide swing', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -109,8 +109,10 @@ describe('Khamûl the Ringwraith (le-55)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, HERALDED_LORD, companyIdAt(state, RESOURCE_PLAYER)));
     const k = getCharacter(state, RESOURCE_PLAYER, KHAMUL);
-    expect(k.effectiveStats.directInfluence).toBe(2); // 4 - 2
-    expect(k.effectiveStats.prowess).toBe(9); // Fell Rider bonus does not apply
+    // Heralded Lord (le-190) itself swings -2 prowess / +3 direct influence
+    // across the entire company; his own -2 stacks on top of that.
+    expect(k.effectiveStats.directInfluence).toBe(5); // 4 - 2 (his own) + 3 (mode card)
+    expect(k.effectiveStats.prowess).toBe(7); // 9 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
   test('+1 prowess in Fell Rider mode (direct influence unchanged)', () => {
@@ -181,7 +183,10 @@ describe('Khamûl the Ringwraith (le-55)', () => {
     const [bodyCheck] = viableActions(ready, PLAYER_1, 'body-check-roll');
     const after = dispatch(ready, bodyCheck.action);
     const defenderId = findCharInstanceId(state, HAZARD_PLAYER, defenderDefId);
-    const eliminated = after.players[HAZARD_PLAYER].outOfPlayPile.some(c => c.instanceId === defenderId);
+    // CoE 3.v: a defending character eliminated in CvCC counts as kill MPs for
+    // the opposing player, so the card lands in the attacker's kill pile — not
+    // in its own player's out-of-play pile.
+    const eliminated = after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === defenderId);
     return { after, eliminated };
   }
 

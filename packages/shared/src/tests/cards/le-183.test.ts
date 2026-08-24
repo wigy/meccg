@@ -32,6 +32,7 @@
  * | 6 | +2 prowess / -3 direct influence to your Ringwraith       | IMPLEMENTED | per-mode stats live on the named avatar card (gated on `bearer.ringwraithMode`); Fell Rider establishes the mode that activates them |
  * | 7 | Discard all allies & Ringwraith followers; none may join  | IMPLEMENTED | `block-company-joins` play-flag: on-play purge + ally/follower gates   |
  * | 8 | Cannot be included in a Balrog's deck                     | IMPLEMENTED | `deck-validation.ts` BALROG_BANNED_CARD_IDS (rule 1.23)               |
+ * | 9 | On company split, follows the Ringwraith (CoE 2.II.3.6.1) | IMPLEMENTED | `handleSplitCompany` reassigns mode cards bound to a "character's company" |
  *
  * Playable: YES.
  */
@@ -431,6 +432,42 @@ describe('Fell Rider (le-183)', () => {
         && (a.action).controlledBy === avatarId,
     );
     expect(followerPlaysWith).toHaveLength(0);
+  });
+
+  // ─── Rule #9: split-company reassigns the mode card to the Ringwraith's company ──
+
+  test('splitting the company moves Fell Rider to the Ringwraith’s new company, not the one left behind', () => {
+    // Regression: Fell Rider is played "on your Ringwraith's own company" (a
+    // character-bound target, per CoE 2.II.3.6.1), not the company as a bare
+    // entity. When the Ringwraith splits off into a new company, the mode
+    // card must follow them rather than staying behind with whoever remains.
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [THE_WITCH_KING, GORBAG] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    state = addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyId);
+    const witchKingId = findCharInstanceId(state, RESOURCE_PLAYER, THE_WITCH_KING);
+
+    const after = runActions(state, [
+      { type: 'split-company', player: PLAYER_1, sourceCompanyId: companyId, characterId: witchKingId },
+    ] as GameAction[]);
+
+    const newCompanyId = after.players[RESOURCE_PLAYER].companies.find(c => c.id !== companyId)!.id;
+    const fellRider = after.players[RESOURCE_PLAYER].cardsInPlay.find(c => c.definitionId === FELL_RIDER)!;
+
+    expect(after.players[RESOURCE_PLAYER].companies.find(c => c.id === newCompanyId)!.characters).toContain(witchKingId);
+    expect(fellRider.companyId).toBe(newCompanyId);
   });
 
   // ─── Rule #8: cannot be included in a Balrog's deck ───────────────────────────

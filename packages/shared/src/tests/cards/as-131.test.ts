@@ -46,6 +46,7 @@ import {
   CardStatus, CardDefinitionId,
   dispatch, grantedActionsFor, findCharInstanceId, findHandCardId,
   expectCharItemCount, expectInDiscardPile,
+  pool,
 } from '../test-helpers.js';
 import { addConstraint } from '../../engine/pending.js';
 import { computeLegalActions, SetupStep } from '../../index.js';
@@ -341,5 +342,10 @@ describe('Secret Book (as-131)', () => {
 
     const rationsActions = actions.filter(ea => ea.viable && (ea.action as { itemDefId?: string }).itemDefId === STRANGE_RATIONS);
     expect(rationsActions.length).toBeGreaterThan(0);
+  });
+
+  test('carries 1 corruption point (authoritative card data)', () => {
+    const def = pool['as-131'];
+    expect(def && 'corruptionPoints' in def && (def as { corruptionPoints?: number }).corruptionPoints).toBe(1);
   });
 });

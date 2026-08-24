@@ -36,10 +36,10 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   Phase, CardStatus, Alignment,
-  ARAGORN, LEGOLAS, BEREGOND, STING, ORC_PATROL,
+  ARAGORN, LEGOLAS, BEREGOND, STING, GLAMDRING, ORC_PATROL,
   RANGERS_OF_THE_NORTH,
   BREE, RIVENDELL, LORIEN, MINAS_TIRITH, THRANDUILS_HALLS,
-  buildTestState, buildSitePhaseState, resetMint,
+  buildTestState, buildSitePhaseState, resetMint, recomputeDerived,
   viableActions, nonViableOfType, dispatch, findCharInstanceId,
   createGame, makePlayDeck, pool, draftInstId, runActions,
   assertEveryInstanceReachable,
@@ -273,6 +273,63 @@ describe('Strider (ba-1)', () => {
     // Aragorn II left the hand; no instance disappeared anywhere.
     expect(next.players[0].hand).toHaveLength(0);
     assertEveryInstanceReachable(next);
+  });
+
+  test('swap preserves the rule-9.16 "in use" declaration (effective stats do not revert)', () => {
+    // Regression: replaceCharacterInPlace transferred items but dropped
+    // itemsInUse, so a character with a declared non-first weapon reverted to
+    // first-carried after the swap — silently changing effective prowess.
+    // Strider carries Sting (+1, first) and Glamdring (+3); Glamdring is
+    // declared in use, so only one weapon (rule 9.15) applies — the declared
+    // Glamdring, +3.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [{ defId: STRIDER, items: [STING, GLAMDRING] }] }],
+          hand: [ARAGORN],
+          siteDeck: [RIVENDELL],
+        },
+        OPPONENT_SETUP,
+      ],
+    });
+    const striderId = findCharInstanceId(built, RESOURCE_PLAYER, STRIDER);
+    const glamdringId = built.players[0].characters[striderId].items.find(i => i.definitionId === GLAMDRING)!.instanceId;
+    // Declare Glamdring in use (rule 9.16), then recompute.
+    const withInUse = recomputeDerived({
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          characters: {
+            ...built.players[0].characters,
+            [striderId as string]: { ...built.players[0].characters[striderId], itemsInUse: [glamdringId] },
+          },
+        },
+        built.players[1],
+      ] as typeof built.players,
+    });
+    const striderProwess = withInUse.players[0].characters[striderId].effectiveStats.prowess;
+
+    const swaps = viableActions(withInUse, PLAYER_1, 'manifestation-swap');
+    const next = dispatch(withInUse, swaps[0].action);
+
+    const aragornId = findCharInstanceId(next, RESOURCE_PLAYER, ARAGORN);
+    const aragorn = next.players[0].characters[aragornId];
+    // The in-use election rode along with the items.
+    expect(aragorn.itemsInUse).toContain(glamdringId);
+    // Effective prowess reflects the declared Glamdring, not first-carried
+    // Sting: strictly more than base + Sting's +1. (Glamdring's raw +3 is
+    // capped at its own max, so assert the inequality rather than a hardcoded
+    // total.) Without the fix itemsInUse is dropped, Sting (first) applies, and
+    // prowess would be exactly base + 1.
+    const aragornBase = (next.cardPool[ARAGORN] as { prowess: number }).prowess;
+    expect(aragorn.effectiveStats.prowess).toBeGreaterThan(aragornBase + 1);
+    // Sanity: the declaration mattered on Strider too (Glamdring active, not Sting).
+    expect(striderProwess).toBeGreaterThan(0);
   });
 
   test('the swap is a resource-style play: it does not consume the one-character-per-turn slot', () => {

@@ -23,7 +23,7 @@ import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { cardStatusToName } from '../../types/common.js';
 import { logDetail } from './log.js';
-import { playerById, getCardEffects, defById, companyById } from '../reducer-utils.js';
+import { playerById, getCardEffects, defById, companyById, pendingChainCards, countUnresolvedChainHazards } from '../reducer-utils.js';
 import { companyContainsBalrogAvatar } from '../../state-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
@@ -97,12 +97,7 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
     const playerIndex = getPlayerIndex(state, playerId);
     const company = state.players[playerIndex].companies[mhState.activeCompanyIndex];
     if (company) {
-      let hazardCount = 0;
-      for (const e of chain.entries) {
-        if (e.resolved || e.negated || !e.card) continue;
-        const def = defById(state, e.card.definitionId);
-        if (def && (def.cardType === 'hazard-creature' || def.cardType === 'hazard-event')) hazardCount++;
-      }
+      const hazardCount = countUnresolvedChainHazards(state);
       actions.push(...emitGrantedActionConstraintActions(state, playerId, company, 'movement-hazard', 'chain-declaring', {
         path: mhState.resolvedSitePath,
         chain: { hazardCount },
@@ -222,9 +217,7 @@ function emitHazardSelfCancelBySkillActions(
   if (!player) return [];
 
   const actions: EvaluatedAction[] = [];
-  for (const entry of chain.entries) {
-    if (entry.resolved || entry.negated || !entry.card) continue;
-    const def = defById(state, entry.card.definitionId);
+  for (const { card, def } of pendingChainCards(state)) {
     const grant = getCardEffects(def).find(
       (e): e is GrantActionEffect =>
         e.type === 'grant-action'
@@ -246,8 +239,8 @@ function emitHazardSelfCancelBySkillActions(
         },
       };
       if (grant.when && !matchesCondition(grant.when, actorCtx)) continue;
-      logDetail(`Hazard self-cancel: ${charDef && isCharacterCard(charDef) ? charDef.name : '?'} may tap to cancel "${(def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string)}" before it resolves`);
-      actions.push(grantedAction(playerId, charInstId, entry.card, 'cancel-chain-entry', 0));
+      logDetail(`Hazard self-cancel: ${charDef && isCharacterCard(charDef) ? charDef.name : '?'} may tap to cancel "${(def as { name?: string } | undefined)?.name ?? (card.definitionId as string)}" before it resolves`);
+      actions.push(grantedAction(playerId, charInstId, card, 'cancel-chain-entry', 0));
     }
   }
   return actions;
@@ -305,9 +298,9 @@ function playShortEventChainActions(state: GameState, playerId: PlayerId): Evalu
  * Fallen-wizard earlier in the same chain of effects".
  */
 function playSkillCancelChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const chain = state.chain;
-  if (!chain) return [];
+  if (!state.chain) return [];
   const player = playerById(state, playerId)!;
+  const pending = pendingChainCards(state);
   const actions: EvaluatedAction[] = [];
 
   for (const handCard of player.hand) {
@@ -329,10 +322,8 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
     const requiredSkill = cancelEffect.apply.requiredSkill;
     const filter = cancelEffect.apply.filter;
 
-    for (const entry of chain.entries) {
-      if (entry.resolved || entry.negated || !entry.card) continue;
-      if (entry.card.instanceId === handCard.instanceId) continue;
-      const targetDef = defById(state, entry.card.definitionId);
+    for (const { entry, card, def: targetDef } of pending) {
+      if (card.instanceId === handCard.instanceId) continue;
       if (requiredSkill != null) {
         const hasSkill = getCardEffects(targetDef).some(
           e => (e as { requiredSkill?: string }).requiredSkill === requiredSkill,
@@ -350,18 +341,18 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
           declaredBy: { alignment: declaredByPlayer?.alignment },
         };
         if (!matchesCondition(filter, entryCtx)) {
-          logDetail(`Chain response: ${hazDef.name} — entry "${(targetDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string)}" does not match filter (cardType ${targetDef?.cardType ?? '?'}, declaredBy ${declaredByPlayer?.alignment ?? '?'})`);
+          logDetail(`Chain response: ${hazDef.name} — entry "${(targetDef as { name?: string } | undefined)?.name ?? (card.definitionId as string)}" does not match filter (cardType ${targetDef?.cardType ?? '?'}, declaredBy ${declaredByPlayer?.alignment ?? '?'})`);
           continue;
         }
       }
 
-      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? entry.card.definitionId}${requiredSkill != null ? ` (requires ${requiredSkill})` : ''}`);
+      logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? card.definitionId}${requiredSkill != null ? ` (requires ${requiredSkill})` : ''}`);
       actions.push({
         action: {
           type: 'play-short-event',
           player: playerId,
           cardInstanceId: handCard.instanceId,
-          targetInstanceId: entry.card.instanceId,
+          targetInstanceId: card.instanceId,
         },
         viable: true,
       });
@@ -380,7 +371,6 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
  * One action is emitted per (ally, target entry) pair.
  */
 function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const chain = state.chain!;
   const mhState = state.phaseState as import('../../index.js').MovementHazardPhaseState;
 
   // Only the resource (active) player may use this ability
@@ -392,16 +382,14 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
 
   // Collect unresolved chain entries carrying force-return-to-origin
   const returnEntries: { instanceId: CardInstanceId; defName: string }[] = [];
-  for (const e of chain.entries) {
-    if (e.resolved || e.negated || !e.card) continue;
-    const def = defById(state, e.card.definitionId);
+  for (const { card, def } of pendingChainCards(state)) {
     const hasTag = getCardEffects(def).some(
       (eff): eff is ForceReturnToOriginEffect => eff.type === 'force-return-to-origin',
     );
     if (hasTag) {
       returnEntries.push({
-        instanceId: e.card.instanceId,
-        defName: (def as { name?: string }).name ?? (e.card.definitionId as string),
+        instanceId: card.instanceId,
+        defName: (def as { name?: string }).name ?? (card.definitionId as string),
       });
     }
   }
@@ -471,17 +459,15 @@ function cancelHazardEventChainActions(state: GameState, playerId: PlayerId): Ev
   // Targets: unresolved, un-negated opponent-declared hazard-event entries
   // not revealed from on-guard.
   const targets: { instanceId: CardInstanceId; name: string }[] = [];
-  for (const e of chain.entries) {
-    if (e.resolved || e.negated || !e.card) continue;
-    if (e.declaredBy === playerId) continue;
-    const def = defById(state, e.card.definitionId);
+  for (const { entry, card, def } of pendingChainCards(state)) {
+    if (entry.declaredBy === playerId) continue;
     if (def?.cardType !== 'hazard-event') continue;
-    if ((e.payload.type === 'short-event' || e.payload.type === 'permanent-event')
-        && e.payload.fromOnGuard) {
+    if ((entry.payload.type === 'short-event' || entry.payload.type === 'permanent-event')
+        && entry.payload.fromOnGuard) {
       logDetail(`cancel-hazard-event: "${def.name}" was revealed from on-guard — not a legal target`);
       continue;
     }
-    targets.push({ instanceId: e.card.instanceId, name: def.name });
+    targets.push({ instanceId: card.instanceId, name: def.name });
   }
   if (targets.length === 0) return [];
 
@@ -503,6 +489,19 @@ function cancelHazardEventChainActions(state: GameState, playerId: PlayerId): Ev
     }
   }
   return actions;
+}
+
+/**
+ * Instance ids of the pending (unresolved, un-negated) chain entries declared
+ * by `playerId`'s opponent whose card carries a `cancel-attack` effect — the
+ * entries that would cancel the attack, and so are the targets of a counter
+ * (Black Vapour ba-14, Great Fissure ba-61).
+ */
+function opponentCancelAttackEntries(state: GameState, playerId: PlayerId): CardInstanceId[] {
+  return pendingChainCards(state)
+    .filter(({ entry, def }) => entry.declaredBy !== playerId
+      && getCardEffects(def).some(eff => eff.type === 'cancel-attack'))
+    .map(({ card }) => card.instanceId);
 }
 
 /**
@@ -530,17 +529,7 @@ function counterCancelAttackChainActions(state: GameState, playerId: PlayerId): 
   const attackingCompany = companyById(player.companies, combat.attackSource.attackingCompanyId);
   if (!attackingCompany || !companyContainsBalrogAvatar(state, player, attackingCompany)) return [];
 
-  // Collect unresolved, un-negated chain entries declared by the opponent that
-  // carry a cancel-attack effect (the effect that would cancel the attack).
-  const cancelEntries: CardInstanceId[] = [];
-  for (const e of chain.entries) {
-    if (e.resolved || e.negated || !e.card) continue;
-    if (e.declaredBy === playerId) continue;
-    const def = defById(state, e.card.definitionId);
-    if (getCardEffects(def).some(eff => eff.type === 'cancel-attack')) {
-      cancelEntries.push(e.card.instanceId);
-    }
-  }
+  const cancelEntries = opponentCancelAttackEntries(state, playerId);
   if (cancelEntries.length === 0) return [];
 
   const actions: EvaluatedAction[] = [];
@@ -621,17 +610,7 @@ function counterCancelRollChainActions(state: GameState, playerId: PlayerId): Ev
   const player = playerById(state, playerId);
   if (!player) return [];
 
-  // Unresolved, un-negated opponent-declared entries that carry a cancel-attack
-  // effect (the effect being countered).
-  const cancelEntries: CardInstanceId[] = [];
-  for (const e of chain.entries) {
-    if (e.resolved || e.negated || !e.card) continue;
-    if (e.declaredBy === playerId) continue;
-    const def = defById(state, e.card.definitionId);
-    if (getCardEffects(def).some(eff => eff.type === 'cancel-attack')) {
-      cancelEntries.push(e.card.instanceId);
-    }
-  }
+  const cancelEntries = opponentCancelAttackEntries(state, playerId);
   if (cancelEntries.length === 0) return [];
 
   // Candidate source cards: hand + unrevealed on-guard cards on the defender.

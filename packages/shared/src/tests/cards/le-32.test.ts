@@ -16,7 +16,7 @@
  *
  * Effects tested:
  * 1. discardBodyCheck [8]: discarded (not eliminated) when a mass body
- *    check fails at the effective threshold; stays in play when it passes.
+ *    check total matches his printed discard value; stays in play otherwise.
  * 2. stat-modifier: +3 DI during influence-check when target race is orc
  * 3. stat-modifier: +3 DI during faction-influence-check when faction race is orc
  * 4. "leader" keyword: offered the leader-control influence variant on
@@ -78,8 +78,8 @@ describe('Orc Chieftain (le-32)', () => {
   // ─── discardBodyCheck [8]: fail → discard to discard pile ────────────────
 
   test('Orc Chieftain is discarded to discard pile when mass body check fails', () => {
-    // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 6 (< 7) → fail → Orc Chieftain discarded to resource player's discard pile.
+    // discardBodyCheck [8]; Veils' -1 rides the roll (CoE 3.I.1) — a total of 8 discards.
+    // Roll 9 (total 8, matching the value) → Orc Chieftain discarded to resource player's discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -99,10 +99,10 @@ describe('Orc Chieftain (le-32)', () => {
     const dc = s.pendingResolutions.find(r => r.kind.type === 'dice-check' && r.kind.targetCharacterId === chieftainId);
     expect(dc).toBeDefined();
     if (dc?.kind.type === 'dice-check') {
-      expect(dc.kind.threshold).toBe(7);
+      expect(dc.kind.threshold).toBe(8);
     }
 
-    s = { ...s, cheatRollTotal: 6 };
+    s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -116,8 +116,8 @@ describe('Orc Chieftain (le-32)', () => {
   });
 
   test('Orc Chieftain stays in play when mass body check passes', () => {
-    // discardBodyCheck [8], Veils modifier -1 → effectiveThreshold = 7.
-    // Roll 7 (= threshold) → pass → Orc Chieftain remains in play.
+    // discardBodyCheck [8]; Veils' -1 rides the roll (CoE 3.I.1) — a total of 8 discards.
+    // Roll 7 (not > threshold) → pass → Orc Chieftain remains in play.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,

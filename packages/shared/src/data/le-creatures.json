@@ -928,8 +928,17 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. Two strikes. If any strike of Brigands wounds a character, the company must immediately discard one item (of defender’s choice)."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-discard-one-company-item"
+        }
+      }
+    ],
+    "text": "Men. Two strikes. If any strike of Brigands wounds a character, the company must immediately discard one item (of defender’s choice).",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hazard-creature",
@@ -1235,15 +1244,34 @@
       {
         "regionTypes": [
           "wilderness",
-          "coastal-sea"
+          "coastal"
         ],
         "siteTypes": [
           "ruins-and-lairs"
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. Three strikes. If any strike of Pirates wounds a character, the company must immediately discard one item (of defender’s choice). Pirates receives +2 prowess when keyed to Coastal Seas [{c}]."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "apply": {
+          "type": "force-discard-one-company-item"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "when": {
+          "attack.keying": {
+            "$includes": "coastal"
+          }
+        }
+      }
+    ],
+    "text": "Men. Three strikes. If any strike of Pirates wounds a character, the company must immediately discard one item (of defender’s choice). Pirates receives +2 prowess when keyed to Coastal Seas [{c}].",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hazard-creature",

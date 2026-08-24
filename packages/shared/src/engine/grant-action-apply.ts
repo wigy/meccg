@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
+import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -543,7 +543,17 @@ function runGrantApply(
           if (!liveChain) return s;
           const newEntries = liveChain.entries.map((e, i) => i === entryIndex ? { ...e, negated: true } : e);
           let nextState: GameState = { ...s, chain: { ...liveChain, entries: newEntries } };
-          if (entry.card) {
+          // A hazard short event was already moved hand → discard at play time
+          // (mh-hazard-play), so pushing the chain entry's copy again would
+          // duplicate the instance — same guard as completeChain's
+          // negated-entry flush. Only cards that still live solely on the
+          // chain (creatures, permanent events) are routed here.
+          const alreadyDiscarded = entry.card !== null && nextState.players.some(p =>
+            p.discardPile.some(c => c.instanceId === entry.card!.instanceId),
+          );
+          if (alreadyDiscarded) {
+            logDetail(`cancel-chain-entry: card ${entry.card.instanceId as string} already in a discard pile — not discarding again`);
+          } else if (entry.card) {
             const hazardPlayerIndex = nextState.players.findIndex(p => p.id === entry.declaredBy);
             if (hazardPlayerIndex >= 0) {
               const hazardPlayer = nextState.players[hazardPlayerIndex];
@@ -924,23 +934,27 @@ function runGrantApply(
 
   // `draw-cards` — draw N cards from the top of the activating player's play
   // deck into their hand (Palantír of Elostirion le-332: "tap Palantír of
-  // Elostirion to draw a card"). Drawing stops at deck exhaustion: no card
-  // instance is invented or lost, the deck simply runs out.
+  // Elostirion to draw a card"). Per CoE rule 2.4, a play deck that runs dry
+  // mid-draw is exhausted and reshuffled immediately, and the draw resumes
+  // from the reshuffled deck — `drawCardsExhausting` handles that; it only
+  // stops short if the discard pile is also empty (nothing left to shuffle in).
   if (apply.type === 'draw-cards') {
-    const drawingPlayer = newPlayers[ctx.playerIndex];
     const wanted = apply.count;
-    const drawCount = Math.min(wanted, drawingPlayer.playDeck.length);
-    if (drawCount < wanted) {
-      logDetail(`Grant-action ${ctx.action.actionId}: play deck exhausted — drawing only ${drawCount} of ${wanted}`);
+    const playerIndex = ctx.playerIndex as 0 | 1;
+    const syntheticState: GameState = { ...state, players: newPlayers as [PlayerState, PlayerState], rng: rngRef.rng };
+    const { state: afterDraw, drawnCards } = drawCardsExhausting(syntheticState, playerIndex, wanted);
+    rngRef.rng = afterDraw.rng;
+    if (drawnCards.length < wanted) {
+      logDetail(`Grant-action ${ctx.action.actionId}: play deck and discard pile both exhausted — drawing only ${drawnCards.length} of ${wanted}`);
     }
-    if (drawCount > 0) {
-      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.sourceName} draws ${drawCount} card(s) from the play deck`);
-      newPlayers[ctx.playerIndex] = {
-        ...drawingPlayer,
-        hand: [...drawingPlayer.hand, ...drawingPlayer.playDeck.slice(0, drawCount)],
-        playDeck: drawingPlayer.playDeck.slice(drawCount),
-      };
+    if (drawnCards.length > 0) {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.sourceName} draws ${drawnCards.length} card(s) from the play deck`);
     }
+    const drawingPlayerAfter = afterDraw.players[playerIndex];
+    newPlayers[ctx.playerIndex] = {
+      ...drawingPlayerAfter,
+      hand: [...drawingPlayerAfter.hand, ...drawnCards],
+    };
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
@@ -978,10 +992,10 @@ function runGrantApply(
       characters: c.characters.filter(ch => ch !== targetCharId),
     }));
 
-    // Build new discard pile: character + items + allies; hazards go to their owner
+    // Build new discard pile: character + items + allies; hazards go to their
+    // owner's discard pile (written directly into newPlayers in the hazard
+    // loop below).
     let newDiscard = [...targetPlayerData.discardPile];
-    const hazardPlayerIdx = 1 - targetPlayerIndex;
-    const newHazardDiscard = [...newPlayers[hazardPlayerIdx].discardPile];
     if (targetDefId) {
       newDiscard = [...newDiscard, { instanceId: targetCharId, definitionId: targetDefId }];
     }
@@ -1025,7 +1039,10 @@ function runGrantApply(
       characters: updatedChars,
       discardPile: newDiscard,
     };
-    newPlayers[hazardPlayerIdx] = { ...newPlayers[hazardPlayerIdx], discardPile: newHazardDiscard };
+    // NOTE: do not write the hazard owner's discard pile from a pre-loop
+    // snapshot here — the hazard loop above already appended each
+    // opponent-owned hazard directly to newPlayers[hazOwnerIdx]. A snapshot
+    // write-back clobbered those, dropping the hazards from the game.
     return { updatedChar: char, effects: [], stateOps: [] };
   }
 
@@ -1110,6 +1127,8 @@ function constraintKindWithoutPayload(
       return { type: 'auto-attack-duplicate' };
     case 'can-use-palantir':
       return { type: 'can-use-palantir' };
+    case 'skip-untap-and-heal':
+      return { type: 'skip-untap-and-heal' };
     default:
       return null;
   }
@@ -1494,6 +1513,75 @@ function handleInPlayCardGrantAction(
 }
 
 /**
+ * Resolve an activated ability on a *bearer-less stored* card — one sitting
+ * in the controller's marshalling-point pile (`killPile`, a `storedAtSite`
+ * entry) rather than `cardsInPlay` or attached to a bearer. Distinct from
+ * {@link storedCardGrantActions}'s `sage-at-haven` shape (Reforging tw-314,
+ * handled generically further down via `player.characters[action.characterId]`
+ * resolving to the tapped sage): this path is for `fromStored` grant-actions
+ * with no tap cost at all, whose `discard: "named-stored-card"` cost spends a
+ * *different* stored card and whose `place-source-with-item` apply relocates
+ * the source itself onto a bearer that already carries a named item.
+ *
+ * Used by Andúril, the Flame of the West (tw-192): "Once stored, you may
+ * discard a stored Reforging and place Andúril with Narsil."
+ */
+function handleStoredCardGrantAction(
+  state: GameState,
+  action: Extract<GameAction, { type: 'activate-granted-action' }>,
+  playerIndex: number,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const source = player.killPile.find(c => c.instanceId === action.sourceCardId && c.storedAtSite);
+  if (!source) return { state, error: `stored grant-action: source ${action.sourceCardId as string} not stored` };
+  const sourceDef = defById(state, source.definitionId);
+  const sourceName = sourceDef?.name ?? '?';
+
+  const effect = getCardEffects(sourceDef).find(
+    (e): e is import('../types/effects.js').GrantActionEffect =>
+      e.type === 'grant-action' && e.action === action.actionId && e.fromStored === true,
+  );
+  if (!effect) return { state, error: `stored grant-action ${action.actionId} not declared on ${sourceName}` };
+  if (effect.cost.tap !== undefined || effect.cost.discard !== 'named-stored-card') {
+    return { state, error: `stored grant-action ${action.actionId}: only a bare named-stored-card discard cost is supported (${sourceName})` };
+  }
+  if (effect.apply?.type !== 'place-source-with-item') {
+    return { state, error: `stored grant-action ${action.actionId}: only place-source-with-item apply is supported (${sourceName})` };
+  }
+
+  const discardId = action.targetCardId;
+  const discardCard = discardId ? player.killPile.find(c => c.instanceId === discardId && c.storedAtSite) : undefined;
+  if (!discardCard) return { state, error: `${sourceName}: no stored ${effect.cost.discardCardName ?? '?'} chosen to discard` };
+  const discardDef = defById(state, discardCard.definitionId);
+  if (discardDef?.name !== effect.cost.discardCardName) {
+    return { state, error: `${sourceName}: chosen card is not a stored ${effect.cost.discardCardName ?? '?'}` };
+  }
+
+  const recipientId = action.recipientCharacterId;
+  const recipient = recipientId ? player.characters[recipientId] : undefined;
+  if (!recipient) return { state, error: `${sourceName}: no recipient character` };
+  const itemName = effect.apply.itemName;
+  if (!recipient.items.some(i => defById(state, i.definitionId)?.name === itemName)) {
+    return { state, error: `${sourceName}: recipient does not bear ${itemName}` };
+  }
+
+  const newState = updatePlayer(state, playerIndex, p => {
+    const withoutStored: PlayerState = {
+      ...p,
+      killPile: p.killPile.filter(c => c.instanceId !== source.instanceId && c.instanceId !== discardCard.instanceId),
+      discardPile: [...p.discardPile, { instanceId: discardCard.instanceId, definitionId: discardCard.definitionId }],
+    };
+    return updateCharacter(withoutStored, recipientId!, c => ({
+      ...c,
+      items: [...c.items, { instanceId: source.instanceId, definitionId: source.definitionId, status: CardStatus.Untapped }],
+    }));
+  });
+
+  logDetail(`Stored grant-action ${action.actionId}: discarded stored ${discardDef?.name ?? '?'}, placed ${sourceName} with ${itemName} on ${defById(state, recipient.definitionId)?.name ?? '?'}`);
+  return { state: recomputeDerived(newState), effects: [] };
+}
+
+/**
  * Generic handler for grant-action effects that declare an `apply`.
  * Pays the effect's cost (discard source attachment or tap the bearer)
  * then dispatches on `apply.type` to mutate state. Shared across all
@@ -1528,6 +1616,14 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     // a self-reference since there is no activating character.
     if (player.cardsInPlay.some(c => c.instanceId === action.sourceCardId)) {
       return handleInPlayCardGrantAction(state, action, playerIndex);
+    }
+    // Bearer-less *stored* source: a `fromStored` grant-action card sitting
+    // in the marshalling-point pile (`killPile`, a `storedAtSite` entry)
+    // rather than `cardsInPlay` — e.g. Andúril tw-192's "discard a stored
+    // Reforging and place Andúril with Narsil". Same self-reference
+    // convention as the `cardsInPlay` branch above.
+    if (player.killPile.some(c => c.instanceId === action.sourceCardId && c.storedAtSite)) {
+      return handleStoredCardGrantAction(state, action, playerIndex);
     }
     return { state, error: 'Character not found' };
   }

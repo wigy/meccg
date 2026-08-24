@@ -31,18 +31,23 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildSitePhaseState, resetMint, mint, Phase, CardStatus,
+  buildSitePhaseState, buildFallenWizardOrgPhaseState, buildFallenWizardSitePhaseState, resetMint, mint, Phase, CardStatus,
   viableActions, dispatch, resolveChain, playPermanentEventAndResolve,
   findCharInstanceId, findHandCardId,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   BILBO, GANDALF, GIMLI, BREE, EDORAS, MORIA,
   AND_FORTH_HE_HASTENED,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction, SitePhaseState } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 const FIREWORKS = 'dm-130' as CardDefinitionId;
 const PALLANDO = 'tw-175' as CardDefinitionId;
+const CHAMBERS_IN_THE_ROYAL_COURT = 'wh-97' as CardDefinitionId;
+// wh-4: the Fallen-wizard Gandalf avatar (distinct from the Wizard-side
+// GANDALF/tw-156 above) — also a sage, and the bearer required to play
+// Chambers in the Royal Court ("Gandalf specific").
+const GANDALF_FW = 'wh-4' as CardDefinitionId;
 // BILBO (tw-131): hobbit sage, mind 5, untapped. GANDALF (tw-156): Wizard sage,
 // mind null (→ 0, +10 wizard bonus). GIMLI (tw-159): warrior/diplomat, NOT a sage.
 // PALLANDO (tw-175): Wizard sage, another eligible bearer when both are untapped
@@ -115,6 +120,60 @@ describe('Fireworks (dm-130)', () => {
 
   test('NOT offered at a tapped non-Border/Free-hold site (Ruins & Lairs)', () => {
     const state = fireworksState({ site: MORIA, chars: [BILBO], siteStatus: CardStatus.Tapped });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  test('NOT offered at a Free-hold converted into a Wizardhaven by Chambers in the Royal Court (bug fb14353f0fe88be1)', () => {
+    // Reported in bug fb14353f0fe88be1 (game mszgyykt-wmmhec, seq 1031): a
+    // Fallen-wizard player had already played Chambers in the Royal Court
+    // (wh-97) on a hero Free-hold, converting it into a Wizardhaven (haven)
+    // for their companies — yet Fireworks was still offered there and,
+    // played, taps the sage and enqueues a site-untap roll on a site that,
+    // per the printed site-type filter check, should no longer count as a
+    // Border-hold or Free-hold. Fireworks' `play-target` site filter checked
+    // the raw (printed) `siteType` instead of `effectiveSiteType`, so the
+    // Chambers-installed `site-type-override` (→ haven) was never consulted.
+    const orgState = buildFallenWizardOrgPhaseState({
+      site: EDORAS, characters: [GANDALF_FW], hand: [CHAMBERS_IN_THE_ROYAL_COURT, FIREWORKS],
+    });
+    const converted = playPermanentEventAndResolve(
+      orgState, PLAYER_1,
+      orgState.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === CHAMBERS_IN_THE_ROYAL_COURT)!.instanceId,
+      undefined, { targetSiteDefinitionId: EDORAS },
+    );
+
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    const state: GameState = {
+      ...converted,
+      players: [
+        {
+          ...converted.players[RESOURCE_PLAYER],
+          companies: [{
+            ...converted.players[RESOURCE_PLAYER].companies[0],
+            currentSite: { ...converted.players[RESOURCE_PLAYER].companies[0].currentSite!, status: CardStatus.Tapped },
+          }],
+        },
+        converted.players[1],
+      ] as GameState['players'],
+      phaseState: sitePhaseState,
+    };
+
     expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
   });
 
@@ -267,6 +326,29 @@ describe('Fireworks (dm-130)', () => {
       { type: 'resolve-dice-check', player: PLAYER_1, explanation: '' },
     );
     expect(heroResolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Tapped);
+  });
+
+  test('a Fallen-wizard avatar sage also adds +10 per g.wiz.F1 (bug 5349ae0a977d2f79)', () => {
+    // Reported in bug 5349ae0a977d2f79 (game mszq6oak-jexnvn, seq 683):
+    // Fireworks played on Gandalf the Fallen-wizard avatar (wh-4, race
+    // "fallen-wizard") never applied the +10 Wizard bonus, so the roll's
+    // constant modifier came out as 0 instead of 10 and the site never
+    // untapped. CoE glossary g.wiz.F1: card text referring to a Fallen-wizard
+    // player's "Wizard" (as Fireworks' "+10 if a Wizard" does) refers to that
+    // player's Fallen-wizard avatar — the "isWizard" check must accept the
+    // avatar's race, not just the raw Race.Wizard value.
+    const fwState = buildFallenWizardSitePhaseState({
+      site: EDORAS, characters: [GANDALF_FW], hand: [FIREWORKS], siteStatus: CardStatus.Tapped,
+    });
+    const gandalfFwId = findCharInstanceId(fwState, RESOURCE_PLAYER, GANDALF_FW);
+    const fwCard = findHandCardId(fwState, RESOURCE_PLAYER, FIREWORKS);
+    const fwPlayed = playPermanentEventAndResolve(fwState, PLAYER_1, fwCard, gandalfFwId, { targetSiteDefinitionId: EDORAS });
+    // Rolled 3 → mind null (→ 0) + 10 wizard bonus = 13 > 12 → pass.
+    const fwResolved = dispatch(
+      { ...fwPlayed, cheatRollTotal: 3 },
+      { type: 'resolve-dice-check', player: PLAYER_1, explanation: '' },
+    );
+    expect(fwResolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Untapped);
   });
 
   // ── Delayed effect: the sage stays tapped next untap + Fireworks is discarded ─

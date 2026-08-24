@@ -144,55 +144,69 @@ export function extractActionCardDefs(
       for (const v of Object.values(value)) visit(v);
     }
   };
-  // fetch-from-pile moves a card from a private pile (discard or sideboard)
-  // into the private play deck. Even if the card was previously revealed
-  // (e.g. played as a hazard earlier), broadcasting its identity here would
-  // tell the opponent which specific card was chosen — private information.
-  // Exclude cardInstanceId so the opponent's toast shows "Fetch a card from …".
-  if (action.type === 'fetch-from-pile') {
-    const { cardInstanceId: _excluded, ...rest } = action;
-    visit(rest);
-    return defs;
-  }
-  // exchange-sideboard swaps one card between discard pile and sideboard —
-  // both are private locations (opponent sees neither). Even if either card
-  // was previously revealed (e.g. played as a hazard), broadcasting its
-  // identity would tell the opponent exactly which cards the player exchanged,
-  // which is hidden information. Exclude both instance IDs.
-  if (action.type === 'exchange-sideboard') {
-    const { discardCardInstanceId: _d, sideboardCardInstanceId: _s, ...rest } = action;
-    visit(rest);
-    return defs;
-  }
-  // arrange-deck-top-card places a set-aside card face-down on top of the
-  // acting player's own play deck "in any order you choose" (Revealed to all
-  // Watchers, dm-85). Although the identities were made public a moment earlier
-  // when the card revealed the player's hand (revealHand), the *ordering* the
-  // player picks is private — the cards go face-down. Broadcasting which card
-  // is placed at each step would leak the exact deck-top order to the opponent
-  // and every spectator, defeating the face-down placement. Exclude the card
-  // instance ID so the audience only sees "Place a card … on top of the play
-  // deck"; the acting player still names their choices via the legal actions.
-  if (action.type === 'arrange-deck-top-card') {
-    const { cardInstanceId: _excluded, ...rest } = action;
-    visit(rest);
-    return defs;
-  }
-  // plan-movement places the destination site face-down (CoE 2.II.7) — it
-  // stays secret from the opponent until revealed during the company's
-  // Movement/Hazard sub-phase. If this exact site instance was already
-  // public earlier in the game (e.g. it was a company's currentSite before
-  // cycling back into the location deck), `revealedInstances` never forgets
-  // that — but re-selecting it as a new destination must not leak its
-  // identity again through the toast. Exclude destinationSite so the
-  // opponent's toast reads "Move company to a site".
-  if (action.type === 'plan-movement') {
-    const { destinationSite: _excluded, ...rest } = action;
-    visit(rest);
+  const hidden = PRIVATE_ACTION_FIELDS[action.type];
+  if (hidden) {
+    visit(Object.fromEntries(Object.entries(action).filter(([k]) => !hidden.includes(k))));
     return defs;
   }
   visit(action);
   return defs;
+}
+
+/**
+ * Action fields that must never be resolved to a public card identity, per
+ * action type — {@link extractActionCardDefs} drops them before visiting the
+ * action. Each entry hides *private information* an otherwise-revealed
+ * instance id would leak through the opponent's toast:
+ *
+ * - `fetch-from-pile` `cardInstanceId` — the fetch moves a card from a
+ *   private pile (discard or sideboard) into the private play deck. Even if
+ *   the card was previously revealed (e.g. played as a hazard earlier),
+ *   broadcasting its identity would tell the opponent which specific card
+ *   was chosen. The toast shows "Fetch a card from …".
+ * - `exchange-sideboard` both instance ids — the swap is between two private
+ *   locations (opponent sees neither), so which cards were exchanged is
+ *   hidden information even when either card was revealed before.
+ * - `arrange-deck-top-card` `cardInstanceId` — the set-aside cards go
+ *   face-down on top of the acting player's own play deck "in any order you
+ *   choose" (Revealed to all Watchers, dm-85). The identities were public a
+ *   moment earlier via revealHand, but the *ordering* the player picks is
+ *   private; per-step broadcasts would leak the exact deck-top order to the
+ *   opponent and every spectator. The audience only sees "Place a card … on
+ *   top of the play deck"; the acting player still names their choices via
+ *   the legal actions.
+ * - `plan-movement` `destinationSite` — the destination is placed face-down
+ *   (CoE 2.II.7) and stays secret until revealed during the company's M/H
+ *   sub-phase. If this exact site instance was public earlier in the game,
+ *   `revealedInstances` never forgets that — but re-selecting it as a new
+ *   destination must not leak its identity again. The opponent's toast
+ *   reads "Move company to a site".
+ */
+const PRIVATE_ACTION_FIELDS: Partial<Record<GameAction['type'], readonly string[]>> = {
+  'fetch-from-pile': ['cardInstanceId'],
+  'exchange-sideboard': ['discardCardInstanceId', 'sideboardCardInstanceId'],
+  'arrange-deck-top-card': ['cardInstanceId'],
+  'plan-movement': ['destinationSite'],
+};
+
+/**
+ * A copy of `action` with its {@link PRIVATE_ACTION_FIELDS} removed — the
+ * form safe to broadcast to recipients other than the acting player.
+ *
+ * Dropping the fields from the card-defs map alone is not enough: instance
+ * ids are stable for the whole game and many identity mappings are public
+ * from earlier broadcasts (a site the company once stood at, a hazard once
+ * played), so shipping the raw action would let the audience resolve e.g. a
+ * `plan-movement.destinationSite` instance id to a site name even though the
+ * destination is placed face-down (CoE 2.II.7). Actions without private
+ * fields are returned unchanged.
+ */
+export function redactActionForAudience(action: GameAction): GameAction {
+  const hidden = PRIVATE_ACTION_FIELDS[action.type];
+  if (!hidden) return action;
+  return Object.fromEntries(
+    Object.entries(action).filter(([k]) => !hidden.includes(k)),
+  ) as unknown as GameAction;
 }
 
 // ---- Action description ----
@@ -267,7 +281,12 @@ export function describeAction(
     case 'untap':
       return 'Untap all cards';
     case 'play-character':
-      return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`;
+      // The same character can be offered at the same site both under general
+      // influence and as another character's direct-influence follower — the
+      // controller must be in the label or the two actions look identical.
+      return action.controlledBy === 'general'
+        ? `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`
+        : `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)} under ${instName(action.controlledBy)}'s direct influence`;
     case 'split-company':
       return `Split ${instName(action.characterId)} from ${compName(action.sourceCompanyId)}`;
     case 'move-to-company':
@@ -389,6 +408,8 @@ export function describeAction(
       return `Play long-event ${instName(action.cardInstanceId)}`;
     case 'exchange-sideboard':
       return `Exchange ${instName(action.discardCardInstanceId)} (discard) ↔ ${instName(action.sideboardCardInstanceId)} (sideboard)`;
+    case 'swap-banned-vs-balrog':
+      return `Remove ${instName(action.cardInstanceId)} from the game (unplayable vs Balrog): bring ${instName(action.sideboardCardInstanceId)} from sideboard into play deck`;
     case 'start-sideboard-to-deck':
       return 'Tap avatar: fetch 1 card from sideboard to play deck';
     case 'start-sideboard-to-discard':
@@ -494,6 +515,10 @@ export function describeAction(
       return `Strike event: play ${instName(action.cardInstanceId)} — ${action.explanation}`;
     case 'cancel-strike':
       return `${instName(action.cancellerInstanceId)} taps to cancel strike against ${instName(action.targetCharacterId)}`;
+    case 'cancel-prisoner-taking':
+      return `Discard ${instName(action.cardInstanceId)} to cancel prisoner-taking (Noble Hound)`;
+    case 'dodge-strike':
+      return `Tap ${instName(action.cardInstanceId)} so ${instName(action.characterInstanceId)} dodges the strike — ${action.explanation}`;
     case 'flee-from-strike':
       return `Play ${instName(action.cardInstanceId)} to flee the strike (cancel it, tap the character)`;
     case 'play-sacrifice-of-form':
@@ -505,7 +530,9 @@ export function describeAction(
     case 'flattery-attempt':
       return `Flattery attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'goodwill-attempt':
-      return `Goodwill attempt by ${instName(action.characterInstanceId)}: discard ${instName(action.itemInstanceId)}, need ${action.need}`;
+      return action.itemInstanceId
+        ? `Goodwill attempt by ${instName(action.characterInstanceId)}: discard ${instName(action.itemInstanceId)}, need ${action.need}`
+        : `Goodwill attempt: ${action.explanation}`;
     case 'riddling-attempt':
       return `Riddling attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'riddling-guess':
@@ -581,7 +608,7 @@ export function describeAction(
     case 'haven-return':
       return `${playerName(action.player)} returns company to its site of origin`;
     case 'run-home':
-      return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move company ${action.companyId} to its nearest haven (Bill the Pony)`;
+      return `${playerName(action.player)} discards ${instName(action.allyInstanceId)} to move ${compName(action.companyId)} to its nearest haven (Bill the Pony)`;
     case 'pay-event-maintenance':
       switch (action.paymentType) {
         case 'discard-self':
@@ -648,11 +675,13 @@ export function describeAction(
     case 'discard-to-recruit':
       return `${playerName(action.player)} discards ${instName(action.characterId)} to bring ${instName(action.cardInstanceId)} into play with his company`;
     case 'rescue-prisoner':
-      return `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
+      return action.characterInstanceId
+        ? `${playerName(action.player)} taps ${instName(action.characterInstanceId)} to free the prisoners held by ${instName(action.hostInstanceId)}`
+        : `${playerName(action.player)} attempts to rescue prisoners held by ${instName(action.hostInstanceId)} (faces the rescue-attack)`;
     case 'tap-alt-permanent-event':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
     case 'attack-alt-permanent-event':
-      return `${playerName(action.player)} attacks with ${instName(action.cardInstanceId)} from its permanent-event state (against company ${action.targetCompanyId as string})`;
+      return `${playerName(action.player)} attacks with ${instName(action.cardInstanceId)} from its permanent-event state (against ${compName(action.targetCompanyId)})`;
     case 'play-agent-manifestation':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
     case 'arrange-deck-top-card':
@@ -686,14 +715,16 @@ export function describeAction(
       // deck/discard, which the acting player's own view may still redact —
       // the action itself carries the definition so the choice stays legible.
       return `${playerName(action.player)} names ${defName(action.definitionId)} to attack (The Hunt)`;
+    case 'choose-long-dark-reach-attacker':
+      return `${playerName(action.player)} names ${defName(action.definitionId)} to attack (Long Dark Reach)`;
     case 'gangways-extra-move':
-      return `${playerName(action.player)} sends company ${action.companyId} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
+      return `${playerName(action.player)} sends ${compName(action.companyId)} on another Under-deeps movement to ${instName(action.destinationSite)} (Gangways over the Fire)`;
     case 'extra-mh-move':
-      return `${playerName(action.player)} sends company ${action.companyId} on another movement to ${instName(action.destinationSite)} (extra movement/hazard phase)`;
+      return `${playerName(action.player)} sends ${compName(action.companyId)} on another movement to ${instName(action.destinationSite)} (extra movement/hazard phase)`;
     case 'ally-tap-extra-mh-phase':
-      return `${playerName(action.player)} taps ${instName(action.allyInstanceId)} to send company ${action.companyId} on another movement/hazard phase (Shadowfax)`;
+      return `${playerName(action.player)} taps ${instName(action.allyInstanceId)} to send ${compName(action.companyId)} on another movement/hazard phase (Shadowfax)`;
     case 'character-tap-extra-mh-phase':
-      return `${playerName(action.player)} taps ${instName(action.characterInstanceId)} to send company ${action.companyId} on another movement/hazard phase (Carambor)`;
+      return `${playerName(action.player)} taps ${instName(action.characterInstanceId)} to send ${compName(action.companyId)} on another movement/hazard phase (Carambor)`;
     case 'apply-attacker-attack-option':
       return `${playerName(action.player)} applies ${instName(action.cardInstanceId)} to the attack (+prowess / detainment)`;
     case 'voluntary-discard-in-play':
@@ -701,15 +732,15 @@ export function describeAction(
     case 'return-attached-to-hand':
       return `${playerName(action.player)} returns ${instName(action.cardInstanceId)} to hand`;
     case 'discard-for-evil-hour-movement':
-      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant company ${action.companyId} the region-movement bonus (A More Evil Hour)`;
+      return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant ${compName(action.companyId)} the region-movement bonus (A More Evil Hour)`;
     case 'left-behind-rejoin':
-      return `${playerName(action.player)} rejoins the left-behind company ${action.companyId} with its original company (Left Behind)`;
+      return `${playerName(action.player)} rejoins the left-behind ${compName(action.companyId)} with its original company (Left Behind)`;
     case 'cancel-weapon-effects':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} to cancel all effects of weapon ${instName(action.weaponInstanceId)} until end of combat (Whip of Many Thongs)`;
     case 'pay-site-tax':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to pay the site tax before playing an ally or item (Eddy in Fate's Tide)`;
     case 'pay-movement-tax':
-      return `${playerName(action.player)} taps ${instName(action.characterId)} to pay company ${action.companyId}'s movement tax (Enchanted Stream)`;
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to pay ${compName(action.companyId)}'s movement tax (Enchanted Stream)`;
     case 'reanimate-from-discard':
       return `${playerName(action.player)} taps Ringwraith ${instName(action.ringwraithInstanceId)} to bring ${instName(action.characterInstanceId)} from the discard pile into play as a new company (Urlurtsu Nurn)`;
     case 'company-tap-roll':

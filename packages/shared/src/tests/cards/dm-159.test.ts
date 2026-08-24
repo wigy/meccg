@@ -20,12 +20,16 @@ import {
   handCardId, dispatch, resolveChain, companyIdAt,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, RegionType, SiteType } from '../../index.js';
+import { computeLegalActions, Phase, RegionType, SiteType, Alignment } from '../../index.js';
 import type { FetchFromPileAction, CardDefinitionId } from '../../index.js';
 
 // Cave Worm (le-65): a region-keyed creature hazard used to open combat as the
 // chain collapses. Region-name keyable to Angmar (see le-65.test.ts).
 const CAVE_WORM = 'le-65' as CardDefinitionId;
+
+// Wild Hounds (wh-40): a minion-resource-faction, dual-alignment card. Legal
+// in a Fallen-wizard's deck alongside hero resources (CoE 1.3.F1/F4).
+const WILD_HOUNDS = 'wh-40' as CardDefinitionId;
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -276,6 +280,52 @@ describe('Smoke Rings (dm-159)', () => {
     // Pass is still available
     const passActions = viableActions(next, PLAYER_1, 'pass');
     expect(passActions).toHaveLength(1);
+  });
+
+  // Regression (game msyowa12-x5dnmx, seq 1271, bug-report bd8a574a2c3ce39f):
+  // a Fallen-wizard player's discard pile legitimately holds minion-typed
+  // resource cards alongside hero-typed ones (CoE 1.3.F1/F4), but Smoke
+  // Rings' fetch filter only listed hero-* cardTypes, so a Fallen-wizard's
+  // own minion-resource-faction card (Wild Hounds) was silently excluded
+  // from the fetch sub-flow even though it sat right there in the discard.
+  test('a Fallen-wizard can fetch their own minion-typed resource from the discard pile', () => {
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [SMOKE_RINGS],
+          siteDeck: [MORIA],
+          discardPile: [WILD_HOUNDS],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
+    const wildHoundsId = state.players[0].discardPile[0].instanceId;
+
+    // Play Smoke Rings and resolve the chain into the fetch sub-flow
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
+
+    // Wild Hounds (minion-resource-faction) is offered even though Smoke
+    // Rings' filter is written for hero-* cardTypes.
+    const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
+    expect(fetchActions.some(
+      ea => actionAs<FetchFromPileAction>(ea.action).cardInstanceId === wildHoundsId,
+    )).toBe(true);
+
+    const afterFetch = dispatch(next, {
+      type: 'fetch-from-pile',
+      player: PLAYER_1,
+      cardInstanceId: wildHoundsId,
+      source: 'discard-pile',
+    });
+    expect(afterFetch.players[0].playDeck.map(c => c.instanceId)).toContain(wildHoundsId);
+    expect(afterFetch.players[0].discardPile.map(c => c.instanceId)).not.toContain(wildHoundsId);
   });
 
   test('opponent has no actions during fetch sub-flow', () => {

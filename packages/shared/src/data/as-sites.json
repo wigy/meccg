@@ -1041,8 +1041,13 @@
     "effects": [
       {
         "type": "site-rule",
-        "rule": "cancel-attacks-if-character-in-play",
-        "characterName": "Radagast"
+        "rule": "cancel-auto-attacks",
+        "scope": "printed",
+        "when": {
+          "charactersInPlayAnywhere": {
+            "$includes": "Radagast"
+          }
+        }
       }
     ],
     "text": "Nearest Darkhaven: Dol GuldurPlayable: Information, Items (minor)Automatic-attacks (2):(1st) Maia — 1 strike with 13 prowess(2nd) Maia — 1 strike with 13 prowessSpecial: If the Wizard card Radagast is in play, the automatic-attacks are removed.",
@@ -1329,8 +1334,13 @@
     "effects": [
       {
         "type": "site-rule",
-        "rule": "cancel-first-attack-if-in-play",
-        "definitionId": "tw-12"
+        "rule": "cancel-auto-attacks",
+        "scope": "first",
+        "when": {
+          "inPlayAnywhere": {
+            "$includes": "Balrog of Moria"
+          }
+        }
       },
       {
         "type": "site-rule",

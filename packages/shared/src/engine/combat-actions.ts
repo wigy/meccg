@@ -29,19 +29,20 @@ import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, Comb
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
-import { currentHazardLimit } from './hazard-limit.js';
+import { chargeHazardLimit } from './hazard-limit.js';
 import { logDetail } from './legal-actions/log.js';
-import { findAllyInCompany } from './legal-actions/combat.js';
+import { findAllyInCompany, buildPlayedModifyAttackContext } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
-import { getAttackSourceCard } from './combat-hazard-play.js';
+import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, completeCombat } from './combat-finalize.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { pruneLeaderFollowers, nextStrikePhase, advanceStrikeOrFinalize, eliminateCombatantFromStrike } from './combat-strike.js';
@@ -269,6 +270,50 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
 
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
   return advanceStrikeOrFinalize(nextState, combatWithAssignments);
+}
+
+/**
+ * Tap an in-play item (or ally) to resolve the current strike against its own
+ * bearer in dodge mode — full prowess, the strike still rolls normally, but
+ * the bearer doesn't tap unless the strike wounds him (CoE 3.iv.3 territory,
+ * paid by tapping the item instead of the usual -3 prowess penalty). Used by
+ * Great-shield of Rohan (tw-250): "Warrior only: tap Great Shield of Rohan to
+ * remain untapped against one strike (unless the bearer is wounded by the
+ * strike)." Reuses `resolveChainStrikeModifier`'s dodge path, matching the
+ * item-tap `cancel-strike` precedent of resolving immediately with no chain.
+ */
+export function handleDodgeStrike(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'dodge-strike') return wrongActionType(state, action, 'dodge-strike');
+
+  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!currentStrike || currentStrike.resolved) return { state, error: 'No active unresolved strike' };
+  if (currentStrike.characterId !== action.characterInstanceId) return { state, error: 'Item bearer is not the current strike target' };
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  if (!defPlayer.characters[action.characterInstanceId]) return { state, error: 'Character not found' };
+
+  const found = findAttachment(defPlayer, 'items', action.cardInstanceId)
+    ?? findAttachment(defPlayer, 'allies', action.cardInstanceId);
+  if (!found || found.charId !== action.characterInstanceId) return { state, error: 'Item not found on character' };
+  if (found.attachment.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
+
+  const itemDef = defById(state, found.attachment.definitionId);
+  const strikeEffect = getCardEffects(itemDef).find(
+    (e): e is StrikeModifierEffect => e.type === 'strike-modifier' && e.dodge === true && e.cost?.tap === 'self',
+  );
+  if (!strikeEffect) return { state, error: 'Item has no dodge strike-modifier effect' };
+
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (found.attachment.definitionId as string);
+  logDetail(`${itemName} taps so ${action.characterInstanceId as string} dodges the current strike (no tap unless wounded)`);
+
+  const tap = <A extends { status: CardStatus }>(a: A): A => ({ ...a, status: CardStatus.Tapped });
+  const tapped = updateAttachment(defPlayer, 'items', action.cardInstanceId, tap)
+    ?? updateAttachment(defPlayer, 'allies', action.cardInstanceId, tap);
+  if (!tapped) return { state, error: 'Item not found on character' };
+
+  const nextState = updatePlayer(state, defPlayerIndex, () => tapped.player);
+  return resolveChainStrikeModifier(nextState, strikeEffect);
 }
 
 /**
@@ -673,6 +718,14 @@ function discardCharacterAfterBodyCheck(
     hazardDiscard = [...hazardDiscard, toCardInstance(hazard)];
   }
   newPlayers[1 - defPlayerIndex] = { ...newPlayers[1 - defPlayerIndex], discardPile: hazardDiscard };
+  // Relocate trophies per CoE 3.IV.4 — worth MP → the holder's marshalling-
+  // point pile, otherwise removed from play — or the creature CardInstance
+  // would vanish with the deleted character.
+  {
+    const { toKillPile, toOutOfPlay } = partitionLeavingTrophies(state, charData, 'discarded character');
+    newPlayerData.killPile = [...newPlayerData.killPile, ...toKillPile];
+    newPlayerData.outOfPlayPile = [...newPlayerData.outOfPlayPile, ...toOutOfPlay];
+  }
   const { [strike.characterId]: _removed, ...remainingChars } = newPlayerData.characters;
   const updatedChars = { ...remainingChars };
   for (const followerId of charData.followers) {
@@ -726,14 +779,14 @@ function removeDefeatedAgent(state: GameState, combat: CombatState, agentInstId:
 export function handleBodyCheckRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'body-check-roll') return wrongActionType(state, action, 'body-check-roll');
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
+  // The roll (and its lastDiceRoll) is recorded on the attacking player.
+  const { roll, total: rollTotal, rollEffect, state: stateWithRoll } = rollDiceForPlayer(state, atkPlayerIndex, `Body check: ${combat.bodyCheckTarget}`);
   const roller = combat.bodyCheckTarget === 'attacker-character' || combat.bodyCheckTarget === 'creature'
     ? combat.defendingPlayerId
     : combat.attackingPlayerId;
   logDetail(`Body check roll: target=${combat.bodyCheckTarget} roller=${roller as string} roll=${roll.die1}+${roll.die2}=${rollTotal} (lastDiceRoll stored on attacker ${combat.attackingPlayerId as string})`);
-  const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, `Body check: ${combat.bodyCheckTarget}`)];
+  const effects: GameEffect[] = [rollEffect];
   // Broadcast the body-check outcome as a text notification so the result is
   // recorded in every client's text log. The dice-roll effect above only
   // carries the raw roll; clients otherwise derive the wounded/eliminated
@@ -742,13 +795,6 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
   // from the engine makes it visible regardless of whether combat continues.
   const noteOutcome = (message: string): void => {
     effects.push({ effect: 'text-notification', message });
-  };
-
-  // Update lastDiceRoll on the attacking player
-  const stateWithRoll: GameState = {
-    ...updatePlayer(state, atkPlayerIndex, p => ({ ...p, lastDiceRoll: roll })),
-    rng,
-    cheatRollTotal,
   };
 
   if (combat.bodyCheckTarget === 'creature') {
@@ -776,6 +822,24 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         if (modifiedBody !== body) {
           logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
           body = modifiedBody;
+        }
+      }
+    }
+    // Biter and Beater! (as-46): "lower the body of strikes their bearers
+    // face by 1" — a short-event counterpart to an item's `enemy-modifier`,
+    // reaching the bearer without requiring the bonus to live on a borne item.
+    // One `character-creature-body-modifier` constraint per matching weapon
+    // (see `handlePlayResourceShortEvent`'s `company-combat-boost` block).
+    if (strike2) {
+      const creatureBodyMods = stateWithRoll.activeConstraints.filter(
+        c => c.kind.type === 'character-creature-body-modifier' && c.kind.characterId === strike2.characterId,
+      );
+      for (const mod of creatureBodyMods) {
+        if (mod.kind.type !== 'character-creature-body-modifier') continue;
+        const reduced = Math.max(0, body - mod.kind.value);
+        if (reduced !== body) {
+          logDetail(`Creature body modified by character-creature-body-modifier constraint: ${body} → ${reduced}`);
+          body = reduced;
         }
       }
     }
@@ -1079,7 +1143,13 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     if (!charData) return { state, error: 'CvCC body check: attacking character not found' };
 
     const charDef = defById(stateWithRoll, charData.definitionId);
-    const body = (charDef as { body?: number } | undefined)?.body ?? 9;
+    // Like the defending-character branch above, check against the *effective*
+    // body: item body modifiers (The Mithril-coat tw-345) and
+    // `character-stat-modifier` constraints are folded into
+    // `effectiveStats.body` by recomputeDerived; the printed value ignores
+    // them, so the two sides of one CvCC would be checked under different
+    // rules.
+    const body = charData.effectiveStats.body;
     const charName = (charDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
 
     // Item-granted body-check modifiers (e.g. Helm of Fear -1) apply to the
@@ -1089,8 +1159,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // parried this attacking character's strike, so a failed strike against the
     // defender raises the attacker's body check.
     const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike);
-    const effectiveRoll = rollTotal + itemBodyMod + bearerMod;
-    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll}`);
+    // CoE rule 3.I: +1 to the body check roll if the character was already
+    // wounded before whatever caused the check — the attacker's pre-strike
+    // status is recorded on the assignment by resolveStrikeCvCC (the character
+    // is Inverted by the lost strike itself, so it cannot be read from status
+    // here).
+    const woundedBonus = strike.attackerWasAlreadyWounded ? 1 : 0;
+    const effectiveRoll = rollTotal + woundedBonus + itemBodyMod + bearerMod;
+    logDetail(`CvCC body check vs attacking character ${charName} (body ${body}): roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll}`);
 
     const newAssignments = combat.strikeAssignments.map((a, i) =>
       i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,
@@ -1105,24 +1181,56 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       const charInstance = toCardInstance(charData);
       const atkCompanySource = combat.attackSource;
       if (atkCompanySource.type !== 'company-attack') return { state, error: 'Not a company attack' };
+      const defIdx = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
 
       // Find attacker's company to remove character from
       const atkCompany = newPlayers[atkPlayerIdx].companies.find(c => c.id === atkCompanySource.attackingCompanyId);
       if (atkCompany) {
         const updatedCompany = { ...atkCompany, characters: atkCompany.characters.filter(id => id !== strike.attackingCharacterId) };
-        const atkRemainingChars = Object.fromEntries(
+        // Disperse the eliminated character's attached cards — they live only
+        // on this CharacterInPlay record, so deleting it without moving them
+        // drops the instances from the game (no-card-disappears invariant).
+        // Mirrors the defender-side eliminateCombatantFromStrike, with the
+        // attacking player as owner:
+        //  - allies to the attacker's hand (Radagast's Black Bird wh-114) or
+        //    discard;
+        //  - items (and non-item permanent events borne alongside them) to the
+        //    attacker's discard pile;
+        //  - hazards to the opposing (defending) player's discard;
+        //  - followers revert to general influence, mind subtraction deferred
+        //    to the controller's next org phase (CoE 3.13).
+        // (The optional CoE 3.I.2 salvage-to-company-mate offer is not made on
+        // the attacker side — the item-salvage phase is defender-scoped; a
+        // separate change would be needed to offer it here.)
+        const { toHand, toDiscard } = partitionLeavingAllies(stateWithRoll, charData.allies);
+        const atkItemsToDiscard = charData.items.map(toCardInstance);
+        const atkRemaining: Record<string, CharacterInPlay> = Object.fromEntries(
           Object.entries(newPlayers[atkPlayerIdx].characters).filter(([id]) => id !== (strike.attackingCharacterId as string)),
-        ) as (typeof newPlayers)[0]['characters'];
+        );
+        for (const followerId of charData.followers) {
+          const follower = atkRemaining[followerId];
+          if (follower) atkRemaining[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateWithRoll, follower) };
+        }
+        // Trophies borne by the eliminated attacker are relocated per CoE
+        // 3.IV.4 — worth MP → the attacker's marshalling-point pile, otherwise
+        // removed from play — or the creature CardInstance would disappear.
+        const { toKillPile: atkTrophyKill, toOutOfPlay: atkTrophyOop } =
+          partitionLeavingTrophies(stateWithRoll, charData, 'eliminated attacker');
         newPlayers[atkPlayerIdx] = {
           ...newPlayers[atkPlayerIdx],
-          characters: pruneLeaderFollowers(atkRemainingChars, strike.attackingCharacterId, charData.controlledBy),
+          characters: pruneLeaderFollowers(atkRemaining, strike.attackingCharacterId, charData.controlledBy),
           companies: newPlayers[atkPlayerIdx].companies.map(c => c.id === atkCompany.id ? updatedCompany : c),
+          hand: [...newPlayers[atkPlayerIdx].hand, ...toHand],
+          discardPile: [...newPlayers[atkPlayerIdx].discardPile, ...toDiscard, ...atkItemsToDiscard],
+          killPile: [...newPlayers[atkPlayerIdx].killPile, ...atkTrophyKill],
+          outOfPlayPile: [...newPlayers[atkPlayerIdx].outOfPlayPile, ...atkTrophyOop],
         };
-        // Defender gets kill MP; eliminated character goes to defender's kill pile only
-        const defIdx = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
+        // Defender gets kill MP (character card) and the eliminated character's
+        // hazards (owned by the opposing/hazard player) return to their discard.
         newPlayers[defIdx] = {
           ...newPlayers[defIdx],
           killPile: [...newPlayers[defIdx].killPile, charInstance],
+          discardPile: [...newPlayers[defIdx].discardPile, ...charData.hazards.map(toCardInstance)],
         };
       }
 
@@ -1150,16 +1258,9 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
 export function handleShieldDiscardRoll(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'shield-discard-roll') return wrongActionType(state, action, 'shield-discard-roll');
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const rollTotal = roll.die1 + roll.die2;
   const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
-  const effects: GameEffect[] = [diceRollEffect(state.players[atkPlayerIndex].name, roll, 'Shield discard roll')];
-
-  const stateWithRoll: GameState = {
-    ...updatePlayer(state, atkPlayerIndex, p => ({ ...p, lastDiceRoll: roll })),
-    rng,
-    cheatRollTotal,
-  };
+  const { total: rollTotal, rollEffect, state: stateWithRoll } = rollDiceForPlayer(state, atkPlayerIndex, 'Shield discard roll');
+  const effects: GameEffect[] = [rollEffect];
 
   const threshold = action.rollThreshold;
   logDetail(`Shield discard roll: attacker rolled ${rollTotal}, threshold ${threshold} — shield ${rollTotal > threshold ? 'DISCARDED' : 'survives'}`);
@@ -1407,6 +1508,7 @@ export function handleHalveStrikes(state: GameState, action: GameAction, combat:
 export function handleProtectFromStrikeAssignment(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'protect-from-assignment') return wrongActionType(state, action, 'protect-from-assignment');
   if (combat.phase !== 'assign-strikes') return { state, error: 'Can only protect from strike assignment before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to protect from assignment' };
   if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can protect a character from strike assignment' };
 
   const defPlayerIndex = getPlayerIndex(state, action.player);
@@ -1834,10 +1936,25 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     const handCard = sourceCard;
     const cardDef = defById(state, handCard.definitionId);
     if (!cardDef) return { state, error: 'Card definition not found' };
-    const effect = getCardEffects(cardDef).find(
+    // A card may declare multiple from-hand modify-attack effects (distinct
+    // modes gated by different `player`/`when` combinations — Adûnaphel
+    // Unleashed le-161). Pick the one matching the acting player and whose
+    // `when` (if any) matches, mirroring `modifyAttackActions`'s selection so
+    // the reducer applies exactly the effect that was offered as legal.
+    const candidateEffects = getCardEffects(cardDef).filter(
       (e): e is import('../types/effects.js').ModifyAttackEffect =>
         e.type === 'modify-attack' && (altPermanentEvent ? !!(e).fromAltPermanentEvent : !!(e).fromHand),
     );
+    const modifyCtx = candidateEffects.length > 1
+      ? buildPlayedModifyAttackContext(state, combat, buildInPlayNames(state))
+      : {};
+    const effect = candidateEffects.find(e => {
+      if (candidateEffects.length <= 1) return true;
+      const expected = e.player === 'attacker' ? combat.attackingPlayerId : combat.defendingPlayerId;
+      if (action.player !== expected) return false;
+      if (e.when && !matchesCondition(e.when, modifyCtx)) return false;
+      return true;
+    });
     if (!effect) return { state, error: `Card has no modify-attack (${altPermanentEvent ? 'fromAltPermanentEvent' : 'fromHand'}) effect` };
 
     if (altPermanentEvent) {
@@ -1850,10 +1967,8 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         return { state, error: 'modify-attack: a creature-permanent-event may only be tapped during the opponent\'s movement/hazard phase' };
       }
       if (!('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
-        const limit = currentHazardLimit(state, state.phaseState, combat.companyId);
-        if ((state.phaseState.hazardsPlayedThisCompany ?? 0) >= limit) {
-          return { state, error: `modify-attack: hazard limit reached (${limit})` };
-        }
+        const charge = chargeHazardLimit(state, state.phaseState, combat.companyId, 'modify-attack');
+        if ('error' in charge) return { state, error: charge.error };
       }
     }
 
@@ -1871,10 +1986,8 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     // on-guard reveals (which reuse this same from-hand path) are unaffected.
     if (!altPermanentEvent && !onGuard && effect.player === 'attacker' && state.phaseState.phase === Phase.MovementHazard
       && !('effects' in cardDef && hasPlayFlag(cardDef, 'no-hazard-limit'))) {
-      const limit = currentHazardLimit(state, state.phaseState, combat.companyId);
-      if ((state.phaseState.hazardsPlayedThisCompany ?? 0) >= limit) {
-        return { state, error: `modify-attack: hazard limit reached (${limit})` };
-      }
+      const charge = chargeHazardLimit(state, state.phaseState, combat.companyId, 'modify-attack');
+      if ('error' in charge) return { state, error: charge.error };
     }
 
     const prowessModifier = effect.prowessModifier ?? 0;
@@ -1964,6 +2077,27 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       }
     }
 
+    // Adûnaphel Unleashed (le-161) Mode B: "You choose defending characters."
+    // Grants attacker-chooses-defenders for this attack. Strike assignment
+    // has not started yet (checked above), so `assignmentPhase` is still
+    // either `'defender'` (the normal CvCC/creature start) or `'cancel-window'`
+    // (an attacker-chooses creature attack already pending the defender's
+    // cancel opportunity) — only the former needs to be redirected; the latter
+    // already routes to the attacker once the defender passes.
+    const grantsAttackerChooses = effect.grantAttackerChoosesDefenders === true;
+    const newAssignmentPhase = grantsAttackerChooses && combat.assignmentPhase === 'defender'
+      ? 'attacker' as const
+      : combat.assignmentPhase;
+    const newBodyCheckModifier = effect.bodyCheckModifier
+      ? (combat.bodyCheckModifier ?? 0) + effect.bodyCheckModifier
+      : combat.bodyCheckModifier;
+    if (grantsAttackerChooses) {
+      logDetail(`${cardLabel}: grants attacker-chooses-defenders — assignment phase ${combat.assignmentPhase} → ${newAssignmentPhase}`);
+    }
+    if (effect.bodyCheckModifier) {
+      logDetail(`${cardLabel}: body-check modifier ${combat.bodyCheckModifier ?? 0} → ${newBodyCheckModifier}`);
+    }
+
     let newState: GameState = {
       ...baseState,
       combat: {
@@ -1972,6 +2106,9 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         creatureBody: newCreatureBody,
         strikesTotal: newStrikesTotal,
         detainment: newDetainment,
+        assignmentPhase: newAssignmentPhase,
+        ...(grantsAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+        ...(newBodyCheckModifier !== undefined ? { bodyCheckModifier: newBodyCheckModifier } : {}),
         ...(cancelProtection ? { cancelProtection } : {}),
         ...(effect.postAttackMindRollSplit
           ? { mindRollSplitPending: { threshold: effect.postAttackMindRollSplit.threshold } }
@@ -2235,9 +2372,11 @@ export function finishSalvage(state: GameState, combat: CombatState): ReducerRes
 }
 
 /**
- * Defender discards one item from the company after a successful agent strike
- * with strikeEffect: 'discard-item' (An Article Missing, dm-43).
- * Once the item is discarded, combat advances to the next strike or finalizes.
+ * Defender discards one item from the offered pool after a successful strike
+ * with a `strikeEffect` (An Article Missing dm-43, Thief tw-102, Pick-pocket
+ * tw-79) — `combat.discardItemOptions` was already scoped to the company or
+ * to the struck character alone when the phase was entered. Once the item is
+ * discarded, combat advances to the next strike or finalizes.
  */
 export function handleDiscardItemFromCompany(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'discard-item-from-company') return wrongActionType(state, action, 'discard-item-from-company');
@@ -2257,7 +2396,7 @@ export function handleDiscardItemFromCompany(state: GameState, action: GameActio
   const removed = removeAttachment(state.players[defIdx], 'items', item.instanceId);
   if (!removed) return { state, error: 'Item not found on any character in company' };
 
-  logDetail(`An Article Missing: discarding item ${item.instanceId as string} from company`);
+  logDetail(`discard-item strike effect: discarding item ${item.instanceId as string}`);
   const newPlayers = clonePlayers(state);
   newPlayers[defIdx] = {
     ...removed.player,
@@ -2266,6 +2405,77 @@ export function handleDiscardItemFromCompany(state: GameState, action: GameActio
 
   const cleanCombat: CombatState = { ...combat, phase: 'resolve-strike', discardItemOptions: undefined };
   return advanceStrikeOrFinalize({ ...state, players: newPlayers }, cleanCombat);
+}
+
+/**
+ * Handle a `cancel-prisoner-taking` action during the
+ * `cancel-prisoner-taking-choice` combat phase (Noble Hound dm-179): the
+ * defending player discards the protecting ally, canceling this strike's
+ * prisoner-taking outcome. The struck character is wounded normally instead
+ * (the card's "resolved normally... per combat result") and the combat
+ * continues to the ordinary body check, exactly as any other wounded
+ * character would.
+ */
+export function handleCancelPrisonerTaking(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'cancel-prisoner-taking') return wrongActionType(state, action, 'cancel-prisoner-taking');
+  if (combat.phase !== 'cancel-prisoner-taking-choice') return { state, error: 'Not in cancel-prisoner-taking-choice phase' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only the defending player can cancel prisoner-taking' };
+  if (combat.cancelPrisonerTakingOffer?.allyId !== action.cardInstanceId) return { state, error: 'Ally not offered for cancel-prisoner-taking' };
+
+  const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+
+  const removed = removeAttachment(state.players[defIdx], 'allies', action.cardInstanceId);
+  if (!removed) return { state, error: 'Ally not found on any character in company' };
+
+  logDetail(`cancel-prisoner-taking: discarding ${action.cardInstanceId as string} — ${removed.charId as string} is wounded instead of taken prisoner`);
+
+  const woundedChar = { ...removed.player.characters[removed.charId], status: CardStatus.Inverted };
+  const newPlayers = clonePlayers(state);
+  newPlayers[defIdx] = {
+    ...removed.player,
+    characters: { ...removed.player.characters, [removed.charId as string]: woundedChar },
+    discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
+  };
+
+  const newCombat: CombatState = { ...combat, phase: 'body-check', bodyCheckTarget: 'character', cancelPrisonerTakingOffer: undefined };
+  return { state: { ...state, players: newPlayers, combat: newCombat } };
+}
+
+/**
+ * Handle a `pass` action during the `cancel-prisoner-taking-choice` combat
+ * phase (Noble Hound dm-179): the defending player declines to discard the
+ * protecting ally, so the prisoner-taking proceeds normally — the character
+ * is bound as a prisoner (CoE rule 8.35) instead of a body check.
+ */
+export function finalizeCombatFromCancelPrisonerTakingOffer(state: GameState, combat: CombatState): ReducerResult {
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  const charData = state.players[defPlayerIndex].characters[strike.characterId];
+
+  let newState = state;
+  if (charData) {
+    const takePrisonerResult = findTakePrisonerHazard(state, defPlayerIndex, charData.hazards);
+    if (takePrisonerResult) {
+      newState = applyTakePrisoner(state, defPlayerIndex, strike.characterId, takePrisonerResult);
+    } else if (combat.trollPursePrisoner) {
+      newState = applyTakePrisonerAtSite(
+        state, defPlayerIndex, strike.characterId,
+        combat.trollPursePrisoner.hostInstanceId, combat.trollPursePrisoner.siteInstanceId,
+      );
+    }
+  }
+
+  logDetail(`cancel-prisoner-taking declined — ${strike.characterId as string} is taken prisoner`);
+  const cleanCombat: CombatState = {
+    ...combat,
+    phase: 'resolve-strike',
+    cancelPrisonerTakingOffer: undefined,
+    // The paused assignment was recorded 'wounded' pending this choice — the
+    // decline resolves it as a capture, so wound triggers must not fire.
+    strikeAssignments: combat.strikeAssignments.map((a, i) =>
+      i === combat.currentStrikeIndex ? { ...a, result: 'captured' as const } : a),
+  };
+  return advanceStrikeOrFinalize(newState, cleanCombat);
 }
 
 /**

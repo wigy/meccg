@@ -385,3 +385,92 @@ describe('organizationEvaluator discard-character', () => {
     expect(organizationEvaluator.score(action, context)).toBe(0);
   });
 });
+
+describe('organizationEvaluator rebuilding after losing every character', () => {
+  // Regression: h1 vs h2, seed 32. A corruption check took the last character
+  // out of play, leaving the player with no companies. Anborn (0 MP, prowess 2,
+  // 0 DI) scored 2 against pass's flat 5, so the player passed every
+  // organization phase from turn 48 to the 25000-decision limit — it could
+  // never move, score, or end the game. With nothing in play, any character
+  // must outrank passing.
+  const ANBORN: CardDefinition = {
+    cardType: 'hero-character',
+    name: 'Anborn',
+    prowess: 2,
+    mind: 2,
+    directInfluence: 0,
+    marshallingPoints: 0,
+  } as unknown as CardDefinition;
+
+  const REBUILD_POOL: Record<string, CardDefinition> = { anborn: ANBORN, 'tw-408': LORIEN };
+
+  /** A view holding Anborn in hand, with `characters` in play as given. */
+  function rebuildView(charactersInPlay: Record<string, unknown>): PlayerView {
+    return {
+      self: {
+        hand: [{ instanceId: 'c1', definitionId: 'anborn' }],
+        siteDeck: [{ instanceId: 's1', definitionId: 'tw-408' }],
+        generalInfluenceUsed: 0,
+        characters: charactersInPlay,
+        companies: Object.keys(charactersInPlay).length > 0
+          ? [{ id: 'company-p2-0', characters: Object.keys(charactersInPlay) }]
+          : [],
+      },
+    } as unknown as PlayerView;
+  }
+
+  const PLAY_ANBORN: GameAction = {
+    type: 'play-character', player: 'p2', characterInstanceId: 'c1', atSite: 's1', controlledBy: 'general',
+  } as unknown as GameAction;
+
+  test('a low-stat character outranks pass when nothing is in play', () => {
+    const view = rebuildView({});
+    const context: AiContext = { view, cardPool: REBUILD_POOL, legalActions: [PLAY_ANBORN, PASS] };
+    const playScore = organizationEvaluator.score(PLAY_ANBORN, context)!;
+    expect(playScore).toBeGreaterThan(5);
+    expect(organizationEvaluator.score(PASS, context)).toBe(0);
+  });
+
+  test('the bonus applies only while nothing is in play', () => {
+    const view = rebuildView({ theoden: { instanceId: 'theoden', definitionId: 'anborn', status: 'inverted', items: [] } });
+    const context: AiContext = { view, cardPool: REBUILD_POOL, legalActions: [PLAY_ANBORN, PASS] };
+    expect(organizationEvaluator.score(PLAY_ANBORN, context)).toBe(2);
+    expect(organizationEvaluator.score(PASS, context)).toBe(5);
+  });
+});
+
+// A combat-only short event with no play-target — never counts as
+// "playable at" any site (mirrors Dark Quarrels, tw-207).
+const COMBAT_ONLY_EVENT: CardDefinition = {
+  cardType: 'hero-resource-event',
+  eventType: 'short',
+} as unknown as CardDefinition;
+
+const DRAW_ONLY_POOL: Record<string, CardDefinition> = {
+  'tw-207': COMBAT_ONLY_EVENT,
+  'tw-408': LORIEN,
+};
+
+describe('organizationEvaluator plan-movement draw-only fallback', () => {
+  // Regression: game mt1hq0up-cuc6lz, stateSeq 144 — the AI's hand held only
+  // combat-only short events (no site-targeted resource cards), so every
+  // plan-movement candidate scored 0 (no direct play, and the haven-in-deck
+  // bonus needs a hand card playable somewhere in the deck too). pass's flat
+  // weight (5) then won every organization phase and the AI camped at
+  // Rivendell for three consecutive turns instead of taking the free
+  // resource draw at a perfectly safe haven.
+  test('a safe haven with a resource-draw box outscores pass even with nothing directly playable', () => {
+    const view = {
+      self: {
+        hand: [{ instanceId: 'h1', definitionId: 'tw-207' }],
+        siteDeck: [{ instanceId: 's2', definitionId: 'tw-408' }],
+        companies: [],
+      },
+    } as unknown as PlayerView;
+    const action = planMovement('s2');
+    const context: AiContext = { view, cardPool: DRAW_ONLY_POOL, legalActions: [action, PASS] };
+    const moveScore = organizationEvaluator.score(action, context)!;
+    const passScore = organizationEvaluator.score(PASS, context)!;
+    expect(moveScore).toBeGreaterThan(passScore);
+  });
+});

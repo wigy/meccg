@@ -15,10 +15,11 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, Race, Alignment } from '../../../index.js';
-import type { CardDefinitionId, CardInstanceId, CombatState } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId, CombatState, FreeCouncilPhaseState } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableActions, executeAction,
   companyIdAt, findCharInstanceId, makeShadowMHState, recomputeDerived,
+  enqueueCorruptionCheck,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, FARAMIR, LEGOLAS, ELROND, BEREGOND, GLORFINDEL_II,
   MORIA, LORIEN, MINAS_TIRITH, RIVENDELL,
@@ -104,6 +105,126 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
     // General influence used dropped by Aragorn's contribution and did NOT
     // pick up Faramir's mind.
     expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBeLessThan(giBefore);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(0);
+  });
+
+  test('controller discarded by a failed corruption check: follower reverts to GI with the mind subtraction deferred', () => {
+    // Faramir follows Aragorn (direct influence). Aragorn fails a corruption
+    // check during the movement/hazard phase and is discarded. A corruption
+    // check resolves mid-turn — not during the organization phase — so per
+    // CoE 2.II.2.2.3 / rule 3.13 Faramir reverts to general influence with his
+    // mind subtraction deferred to the player's next organization phase, NOT
+    // charged to general influence on the spot.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              { defId: ARAGORN },
+              { defId: FARAMIR, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const faramirId = findCharInstanceId(base, RESOURCE_PLAYER, FARAMIR);
+    expect(base.players[RESOURCE_PLAYER].characters[faramirId].controlledBy).toBe(aragornId);
+    // Baseline: only Aragorn (general influence) counts; Faramir is under DI.
+    const giBefore = base.players[RESOURCE_PLAYER].generalInfluenceUsed;
+    expect(giBefore).toBeGreaterThan(0);
+
+    // Enqueue and resolve a corruption check on Aragorn. CP 5, roll 5 == CP
+    // → a hero soft-fails and is discarded (removeFailedCorruptionCharacter).
+    const withCheck = enqueueCorruptionCheck(base, PLAYER_1, aragornId);
+    const after = dispatch({ ...withCheck, cheatRollTotal: 5 }, {
+      type: 'corruption-check',
+      player: PLAYER_1,
+      characterId: aragornId,
+      corruptionPoints: 5,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 6,
+      explanation: 'Test',
+    });
+
+    // Aragorn discarded.
+    expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === aragornId)).toBe(true);
+
+    // Faramir reverted to general influence with the subtraction deferred, and
+    // did NOT pick up his mind against general influence this turn.
+    const faramir = after.players[RESOURCE_PLAYER].characters[faramirId];
+    expect(faramir).toBeDefined();
+    expect(faramir.controlledBy).toBe('general');
+    expect(faramir.influenceUnsubtracted).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === faramirId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(0);
+  });
+
+  test('controller discarded by a failed Free Council corruption check: follower reverts to GI, deferred', () => {
+    // Same deferral on the Free Council (end-of-turn) corruption-check path
+    // (CoE 7.1 is not the organization phase). Faramir follows Aragorn;
+    // Aragorn soft-fails his Free Council check and is discarded → Faramir
+    // reverts to general influence with the mind subtraction deferred.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: ARAGORN },
+              { defId: FARAMIR, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const faramirId = findCharInstanceId(base, RESOURCE_PLAYER, FARAMIR);
+    expect(base.players[RESOURCE_PLAYER].characters[faramirId].controlledBy).toBe(aragornId);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [],
+        need: 6,
+        explanation: 'CP 5, modifier 0',
+        supportCount: 0,
+      },
+    };
+
+    // Roll 5 == CP 5 → hero soft-fails → Aragorn discarded.
+    const after = dispatch({ ...base, cheatRollTotal: 5, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
+    expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeUndefined();
+
+    const faramir = after.players[RESOURCE_PLAYER].characters[faramirId];
+    expect(faramir).toBeDefined();
+    expect(faramir.controlledBy).toBe('general');
+    expect(faramir.influenceUnsubtracted).toBe(true);
     expect(after.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(0);
   });
 

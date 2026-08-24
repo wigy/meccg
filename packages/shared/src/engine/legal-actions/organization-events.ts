@@ -16,6 +16,10 @@ import type {
   MinionResourceEventCard,
   HazardEventCard,
   PlayTargetEffect,
+  PlayerState,
+  SiteCard,
+  Company,
+  SiteInPlay,
 } from '../../index.js';
 import type { ConvertCreatureToAllyEffect, RecruitmentVehicleEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -27,9 +31,9 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
-import { buildPlayerStateContext } from './organization.js';
+import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
 import { isSetAsideCard, cardTargetsSetAside } from '../set-aside.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
@@ -43,8 +47,8 @@ import { findEnvironmentTargets } from '../environment-targets.js';
  */
 function girdleSupporterCount(
   state: GameState,
-  player: import('../../index.js').PlayerState,
-  siteDef: import('../../index.js').SiteCard,
+  player: PlayerState,
+  siteDef: SiteCard,
 ): number {
   // Allies in play — allies attach to characters (CharacterInPlay.allies).
   let count = 0;
@@ -92,6 +96,36 @@ function companyHasOrcOrTroll(
     return !!def && 'race' in def
       && ((def as { race: Race }).race === Race.Orc || (def as { race: Race }).race === Race.Troll);
   });
+}
+
+/**
+ * Yields each of `player`'s companies whose current site resolves to a site
+ * card matching the event's site play-target filter, paired with the resolved
+ * site. Companies without a current site (or whose site does not resolve to a
+ * site card) are skipped silently; a filter mismatch logs a detail line and
+ * is skipped. Callers apply any further per-card gates on the yielded pairs.
+ */
+function* companiesAtMatchingSite(
+  state: GameState,
+  player: PlayerState,
+  def: { name: string },
+  sitePlayTarget: PlayTargetEffect,
+): Generator<{ company: Company; currentSite: SiteInPlay; siteDefId: CardDefinitionId; siteDef: SiteCard }> {
+  for (const company of player.companies) {
+    if (!company.currentSite) continue;
+    const currentSite = company.currentSite;
+    const siteDefId = currentSite.definitionId;
+    const siteDef = defById(state, siteDefId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    if (sitePlayTarget.filter) {
+      const matchTarget = buildSiteFilterContext(state, siteDef, currentSite.instanceId);
+      if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
+        logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
+        continue;
+      }
+    }
+    yield { company, currentSite, siteDefId, siteDef };
+  }
 }
 
 /**
@@ -281,14 +315,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     // Loyalties (wh-70): "Playable if you have more than 3 stage points." and A
     // Strident Spawn (wh-61): "Playable if you are Pallando or Saruman and have
     // 6 or more stage points and a protected Wizardhaven."
-    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
-    if (playerStateCondition?.condition) {
-      const ctx = buildPlayerStateContext(state, player, playerId);
-      if (!matchesCondition(playerStateCondition.condition, ctx)) {
-        logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
-        continue;
-      }
+    if (!playerStateGateMet(state, player, playerId, def)) {
+      logDetail(`Permanent event ${def.name}: play-condition player-state not satisfied (stagePoints=${player.stagePoints})`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play condition not met`));
+      continue;
     }
 
     // play-condition: card-in-play — one or more named cards must already be in
@@ -445,23 +475,11 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const discardNamedCardCond = findPlayConditionEffect(def, 'discard-named-card');
       if (!orgPhaseSiteTiming && discardNamedCardCond?.cardName) {
         const targetCardName = discardNamedCardCond.cardName;
-        const sources = discardNamedCardCond.sources ?? ['character-items'];
         const charPlayTarget = def.effects?.find(
           (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
-          }
+        for (const { company, siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
           const charFilter = charPlayTarget?.filter;
           if (charFilter) {
             const hasEligibleChar = company.characters.some(charId => {
@@ -477,28 +495,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             }
           }
 
-          const discardCandidates: { instanceId: CardInstanceId; source: string }[] = [];
-          for (const source of sources) {
-            if (source === 'character-items') {
-              for (const charId of company.characters) {
-                const ch = player.characters[charId];
-                if (!ch) continue;
-                for (const item of ch.items) {
-                  const itemDef = defById(state, item.definitionId);
-                  if (itemDef && itemDef.name === targetCardName) {
-                    discardCandidates.push({ instanceId: item.instanceId, source: 'character-items' });
-                  }
-                }
-              }
-            } else if (source === 'kill-pile') {
-              for (const card of player.killPile) {
-                const cardDef = defById(state, card.definitionId);
-                if (cardDef && cardDef.name === targetCardName) {
-                  discardCandidates.push({ instanceId: card.instanceId, source: 'kill-pile' });
-                }
-              }
-            }
-          }
+          const discardCandidates = namedDiscardCandidates(state, player, company, discardNamedCardCond);
           if (discardCandidates.length === 0) {
             logDetail(`Permanent event ${def.name}: no ${targetCardName} available to discard at ${siteDef.name}`);
             continue;
@@ -551,21 +548,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         if (blockedByCardInPlay) continue;
 
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
+        for (const { company, siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
           if (!isCompanyAtSite(state, player, company)) {
             logDetail(`Permanent event ${def.name}: company ${company.id as string} moved this turn and is not yet "at" its site (rule 2.IV.5)`);
             continue;
-          }
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
           }
           const charFilter = charPlayTarget?.filter;
           let targetCharacterId: CardInstanceId | undefined;
@@ -618,21 +604,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
         );
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (hasPlayFlag(def, 'tapped-site-only') && company.currentSite.status !== CardStatus.Tapped) {
+        for (const { company, currentSite, siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
+          if (hasPlayFlag(def, 'tapped-site-only') && currentSite.status !== CardStatus.Tapped) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} is not tapped`);
             continue;
-          }
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
           }
           const charFilter = charPlayTarget?.filter;
           if (charFilter) {
@@ -690,60 +665,22 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // phase as long as a company is at a matching site — evaluated
       // directly here rather than deferred to the site phase.
       const havenRestoreTrigger = def.effects?.some(e => e.type === 'on-event' && e.event === 'company-mh-end-at-site');
-      if (!orgPhaseSiteTiming && havenRestoreTrigger) {
-        let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
-          }
-          anyPlayable = true;
-          logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
-          actions.push({
-            action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetSiteDefinitionId: siteDefId },
-            viable: true,
-          });
-        }
-        if (!anyPlayable) {
-          actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: no eligible site target`));
-        }
-        continue;
-      }
-
       // Hidden Haven (wh-75): "Playable on a non-Dragon's lair Ruins & Lairs
       // in a Wilderness, Border-land, or Shadow-land." converts the site into
       // one of the player's Wizardhavens via a `wizardhaven-conversion`
       // constraint (`on-event: self-enters-play`). Its card text declares no
       // site-phase timing — under rule 2.1.1 it is playable during any phase
       // as long as a company is at a matching site, exactly like Return of
-      // the King / Fireworks / Hall of Fire above (game msnfzusi-73w1gh, seq
+      // the King / Fireworks / Hall of Fire (game msnfzusi-73w1gh, seq
       // 725: the engine wrongly restricted it to the site phase, blocking it
       // during the organization phase for a company that had stayed put).
       const wizardhavenConversionTrigger = def.effects?.some(
         e => e.type === 'on-event' && e.event === 'self-enters-play'
           && e.apply.type === 'add-constraint' && e.apply.constraint === 'wizardhaven-conversion',
       );
-      if (!orgPhaseSiteTiming && wizardhavenConversionTrigger) {
+      if (!orgPhaseSiteTiming && (havenRestoreTrigger || wizardhavenConversionTrigger)) {
         let anyPlayable = false;
-        for (const company of player.companies) {
-          if (!company.currentSite) continue;
-          const siteDefId = company.currentSite.definitionId;
-          const siteDef = defById(state, siteDefId);
-          if (!siteDef || !isSiteCard(siteDef)) continue;
-          if (sitePlayTarget.filter) {
-            const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-            if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-              logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-              continue;
-            }
-          }
+        for (const { siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
           anyPlayable = true;
           logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
           actions.push({
@@ -778,23 +715,13 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       const supportersInRegionCond = findPlayConditionEffect(def, 'supporters-in-region');
       const siteDupLimit = findDuplicationLimitEffect(def, 'site');
       let anySite = false;
-      for (const company of player.companies) {
-        if (!company.currentSite) continue;
-        const siteDefId = company.currentSite.definitionId;
-        const siteDef = defById(state, siteDefId);
-        if (!siteDef || !isSiteCard(siteDef)) continue;
-        if (sitePlayTarget.filter) {
-          // The shared site play-target context — the site definition plus its
-          // region type, its *effective* type after any wizardhaven-conversion
-          // / site-type-override, and the Wizardhaven / protected flags — so
-          // filters like Hidden Haven's region gate or Guarded Haven's "your
-          // Wizardhaven [{H}]" match dynamically converted sites.
-          const matchTarget = buildSiteFilterContext(state, siteDef, company.currentSite.instanceId);
-          if (!matchesCondition(sitePlayTarget.filter, matchTarget)) {
-            logDetail(`Permanent event ${def.name}: site ${siteDef.name} does not match play-target filter`);
-            continue;
-          }
-        }
+      // The shared site play-target context (see `companiesAtMatchingSite`)
+      // is the site definition plus its region type, its *effective* type
+      // after any wizardhaven-conversion / site-type-override, and the
+      // Wizardhaven / protected flags — so filters like Hidden Haven's region
+      // gate or Guarded Haven's "your Wizardhaven [{H}]" match dynamically
+      // converted sites.
+      for (const { siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
         if (siteProtectedCond) {
           const protectedForPlayer = isSiteProtectedForPlayer(state, siteDefId, playerId);
           if (!protectedForPlayer) {
@@ -900,8 +827,20 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // avatar rather than being it — `findPlayerAvatar` returns only the
       // generally-controlled one, so followers never match.
       const revealedAvatarId = findPlayerAvatar(state, player)?.instanceId;
+      // play-target `phases` — a per-mode phase gate (Bade to Rule le-167:
+      // "Playable at a Darkhaven during the organization phase on your
+      // Ringwraith. … Alternatively, playable if your Ringwraith is not in
+      // play."). Outside the named phases the targeted candidates are not
+      // offered, but the untargeted play-option fallback below keeps its
+      // rule-2.1.1 any-phase allowance — so this cannot use the card-level
+      // `play-condition requires:phase` gate, which would suppress both modes.
+      const targetModeAllowed = !playTarget.phases
+        || playTarget.phases.includes(state.phaseState.phase);
+      if (!targetModeAllowed) {
+        logDetail(`Permanent event ${def.name}: targeted mode playable only during [${playTarget.phases.join(', ')}] (current phase ${state.phaseState.phase}) — only the untargeted fallback may apply`);
+      }
       let anyTarget = false;
-      for (const company of player.companies) {
+      for (const company of targetModeAllowed ? player.companies : []) {
         if (companyContextCondition?.condition
           && !matchesCompanyContextCondition(state, player, company, companyContextCondition.condition, false)) {
           logDetail(`Permanent event ${def.name}: company ${company.id as string} does not satisfy company-context play-condition`);

@@ -450,6 +450,8 @@ function renderState(input: RenderInput): string {
     'enter-or-skip': 'Enter or Skip',
     'reveal-on-guard-attacks': 'Reveal On-Guard',
     'automatic-attacks': 'Automatic Attacks',
+    'rescue-attacks': 'Rescue Attacks',
+    'rescue-tap': 'Tap to Free Prisoners',
     'declare-agent-attack': 'Agent Attack',
     'resolve-attacks': 'Resolve Attacks',
     'play-resources': 'Play Resources',
@@ -580,12 +582,17 @@ function renderState(input: RenderInput): string {
       lines.push(...formatCompanyLines(company, destinationLabel, i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveCompany));
     }
 
-    // Opponent companies (redacted destination)
+    // Opponent companies: the destination stays hidden as `(planned)` until the
+    // reveal-new-site step makes it public, after which the projection fills in
+    // `revealedDestinationSite` and it is shown by name — the same site every
+    // other opponent-facing renderer (map, combat, sim) already displays.
     if (player.opponentCompanies) {
       for (let i = 0; i < player.opponentCompanies.length; i++) {
         const company = player.opponentCompanies[i];
         const isActiveOppCompany = activeCompanyId !== null && (company.id as string) === activeCompanyId;
-        const destinationLabel = company.hasPlannedMovement ? '(planned)' : null;
+        const destinationLabel = company.revealedDestinationSite
+          ? formatSiteName(company.revealedDestinationSite.instanceId, defOf, instOf)
+          : company.hasPlannedMovement ? '(planned)' : null;
         lines.push(...formatCompanyLines(company, destinationLabel, i, player.characters, defOf, instOf, '  ', cardsInPlay, isActiveOppCompany));
       }
     }

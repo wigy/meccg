@@ -147,6 +147,33 @@ describe('spending a card', () => {
   });
 });
 
+describe('supporting a strike', () => {
+  // support-strike-tap-cost: Halbarad (0 MP) faces the first of a two-strike
+  // attack, with four untapped company mates able to support — one of them,
+  // Thranduil, is the company's only character with free direct influence
+  // left, so tapping him forfeits an influence attempt the other three do not.
+  const evaluations = rank('combat/support-strike-tap-cost');
+  const isSupport = (supporterId: string) => (action: GameAction): boolean =>
+    action.type === 'support-strike'
+    && (action as unknown as { supportingCharacterId?: string }).supportingCharacterId === supporterId;
+
+  test('a supporter who forfeits an influence attempt is priced above a flat tap', () => {
+    const bestInfluencer = find(evaluations, isSupport('p2-109'))!;
+    const spare = find(evaluations, isSupport('p2-98'))!;
+    // Both supporters buy the same improved strike, so any utility gap is the
+    // tap price alone — and a flat tunable would have priced them identically.
+    expect(bestInfluencer.utility).toBeLessThan(spare.utility);
+  });
+
+  test('explains the forfeited influence attempt, not just a flat tap', () => {
+    const bestInfluencer = find(evaluations, isSupport('p2-109'))!;
+    const spare = find(evaluations, isSupport('p2-98'))!;
+    expect(collectTunables(bestInfluencer.rationale).has('tapTempoCost')).toBe(true);
+    expect(JSON.stringify(bestInfluencer.rationale)).toContain('influence attempt forfeited');
+    expect(JSON.stringify(spare.rationale)).not.toContain('influence attempt forfeited');
+  });
+});
+
 describe('explanations', () => {
   test('name every constant they used', () => {
     for (const evaluation of rank('combat/first-strike-resolution')) {

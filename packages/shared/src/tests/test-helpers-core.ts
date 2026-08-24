@@ -371,12 +371,14 @@ export function addToPile(
  * share one site instance — the shape real play produces, where a second
  * company arriving at an occupied site joins the site card already there.
  *
- * `buildTestState` mints a separate site instance per `CompanySetup`, and the
- * engine groups companies "at the same site" by instance id (`merge-companies`,
- * `move-to-company`, the end-of-M/H forced combine), so tests about two
- * companies sharing a site must collapse the instances first. The first company
- * at each site definition keeps its instance and its `siteCardOwned` flag; the
- * rest adopt it.
+ * `buildTestState` mints a separate site instance per `CompanySetup`. The
+ * engine groups companies "at the same site" by site *definition* (rule
+ * g.site.1 — a player may hold multiple physical instances of the same
+ * haven in play at once), so this helper is only needed when a test wants
+ * to exercise the shared-instance case explicitly (e.g. site-card-return
+ * bookkeeping in `merge-companies`). The first company at each site
+ * definition keeps its instance and its `siteCardOwned` flag; the rest
+ * adopt it.
  */
 export function shareSiteInstances(state: GameState, playerIdx: 0 | 1): GameState {
   const player = state.players[playerIdx];

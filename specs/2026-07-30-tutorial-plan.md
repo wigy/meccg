@@ -508,6 +508,15 @@ by the integration test):
 - The tutorial ends at the Mentor's turn-6 end-of-turn; final tally human
   12 MP (6 character + 2 item + 3 faction + 1 ally) vs Mentor 10
   (7 character + 2 item + 1 kill).
+- **Chapter one (2026-08-17).** What ships is the player's own first turn:
+  the script (`TUTORIAL_STEPS` / `TUTORIAL_BEATS`) now stops at the
+  `eot-1-end` End Turn, where a centered completion card recaps the chapter
+  (`TUTORIAL_COMPLETION`) and offers a single "Exit Tutorial" button — the
+  only control left, since the gate demotes every human action once the
+  script is exhausted. The rest of the curriculum (the Mentor's turns and
+  rounds 2–3) moved to `LATER_CHAPTER_STEPS` / `LATER_CHAPTER_BEATS`: still
+  replayed by both tutorial tests as a continuation of chapter one, so it
+  stays engine-verified until it is released as chapters of its own.
 
 Resolved:
 

@@ -22,10 +22,12 @@
  * to a module that owns that concern. What *is* priced, for both actions, is
  * the corruption check CoE 2.II.4.1 and 2.II.5 enqueue unconditionally on the
  * bearer giving up the item — a real, unavoidable risk of losing the
- * character, not a reason to prefer one destination over another. Without it
- * every transfer and store tied at exactly 0 with `pass`, and the agent's
- * tie-break prefers to act over passing — so a chain of pointless transfers
- * scored identically to leaving the item alone, and always won.
+ * character, not a reason to prefer one destination over another. A transfer
+ * nothing needs therefore prices at zero or below, never above — and the
+ * agent's tie-break takes `pass` over any action no module needs, so an
+ * unneeded transfer is never played. When a module one day *wants* an item
+ * moved (corruption relief, arming the character who will face a strike), it
+ * will say so with a positive utility of its own.
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
@@ -33,6 +35,7 @@ import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '..
 import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
+import { scoredEvaluation } from '../../core/evaluation.js';
 import { storeItemMpGain } from '../../../evaluators/common.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 
@@ -136,18 +139,15 @@ export const healthModule: H2Module = {
     const dtsd = netTsdDelta({ realized, tempo: risk.tsd }, tunables);
 
     const outcomes: Outcome[] = [{ p: 1, label, dtsd }];
-    const scored = standing.score(outcomes);
 
-    return {
+    return scoredEvaluation({
       action,
       module: 'health',
       outcomes,
-      expectedTsd: scored.expectedTsd,
-      sigmaTsd: scored.sigmaTsd,
-      utility: scored.utility,
-      method: scored.method,
-      rationale: node(label, scored.utility, [node('item', dtsd, detail), scored.rationale], { unit: 'winprob' }),
+      standing,
+      headline: label,
+      detail: [node('item', dtsd, detail)],
       assumptions: ASSUMPTIONS,
-    };
+    });
   },
 };

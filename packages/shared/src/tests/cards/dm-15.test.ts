@@ -23,7 +23,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, makeMHState, viableActions,
+  buildTestState, resetMint, dispatch, makeMHState, viableActions, reduce,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   LORIEN, MORIA,
@@ -112,6 +112,9 @@ describe('dm-15 — The Grimburgoth', () => {
 
     // Prowess: 7 (base) + 2 (at-home face-up) + 2 (effect) = 11
     expect(after.combat!.strikeProwess).toBe(11);
+    // Rule 3.iv.6.1: at home the agent also gets +1 body — 9 (base) + 1 = 10.
+    // Regression: the M/H helper applied only the prowess half of the rule.
+    expect(after.combat!.creatureBody).toBe(10);
 
     // Agent is tapped
     const agentAfter = after.players[1].agents.find(a => a.character.instanceId === AGENT_CHAR_ID);
@@ -168,22 +171,33 @@ describe('dm-15 — The Grimburgoth', () => {
       phaseState: makeMHState({ hazardLimitAtReveal: 5, hazardsPlayedThisCompany: 0, destinationSiteName: 'Dol Guldur' }),
     };
 
-    // Action should be offered with homeSiteInstanceId
+    // The agent's site card is already on top of its own stack (it holds the
+    // physical Dol Guldur copy), so the reveal needs no deck card: only the
+    // plain action is offered. Regression: a homeSiteInstanceId variant was
+    // offered here and executing it deleted the deck's home-site copy from
+    // the game state.
     const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
-    expect(attackActions.length).toBeGreaterThan(0);
-    const tapAction = attackActions.find(a => (a.action as { homeSiteInstanceId?: CardInstanceId }).homeSiteInstanceId === HOME_SITE_DECK_ID);
-    expect(tapAction).toBeDefined();
+    expect(attackActions.length).toBe(1);
+    expect((attackActions[0].action as { homeSiteInstanceId?: CardInstanceId }).homeSiteInstanceId).toBeUndefined();
 
-    const after = dispatch(withAgent, tapAction!.action);
+    const after = dispatch(withAgent, attackActions[0].action);
 
-    // Agent is now revealed and tapped
+    // Agent is now revealed and tapped, keeping its own site card.
     const agentAfter = after.players[1].agents.find(a => a.character.instanceId === AGENT_CHAR_ID);
     expect(agentAfter).toBeDefined();
     expect(agentAfter!.revealed).toBe(true);
     expect(agentAfter!.character.status).toBe(CardStatus.Tapped);
+    expect(agentAfter!.siteStack.map(s => s.instanceId)).toEqual([DOL_GULDUR_SITE_ID]);
+    // Not doomed: the rule 4.2.2/9.04 discard penalty applies only to reveals
+    // at a home site with no available site card — this agent has its site.
+    expect(agentAfter!.discardAtEndOfTurn).toBe(false);
+    // The deck's Dol Guldur copy is untouched — not deleted from the game.
+    expect(after.players[1].siteDeck.some(s => s.instanceId === HOME_SITE_DECK_ID)).toBe(true);
 
     // Prowess: 7 + 5 (face-down at-home) + 2 (bonus) = 14
     expect(after.combat!.strikeProwess).toBe(14);
+    // Rule 3.iv.6.1: face-down at home also gets +1 body — 9 (base) + 1 = 10.
+    expect(after.combat!.creatureBody).toBe(10);
   });
 
   test('action not offered when agent is at a different site than company destination', () => {
@@ -284,6 +298,60 @@ describe('dm-15 — The Grimburgoth', () => {
     expect(attackActions).toHaveLength(0);
   });
 
+  test('action not offered when agent is already tapped (no repeat attacks in one phase)', () => {
+    // "May tap to attack" is a tap-cost ability: a spent (Tapped) agent cannot
+    // pay it again, so it must not be offered a second attack this phase.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LORIEN, characters: [ARAGORN], destinationSite: DOL_GULDUR }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const tappedAgent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: { ...AGENT_CHAR, status: CardStatus.Tapped },
+      revealed: true,
+      siteStack: [DOL_GULDUR_SITE],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+
+    const withAgent = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], agents: [tappedAgent] },
+      ] as unknown as typeof state.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 5, hazardsPlayedThisCompany: 0, destinationSiteName: 'Dol Guldur' }),
+    };
+
+    const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
+    expect(attackActions).toHaveLength(0);
+
+    // Even a forged action is rejected by the reducer.
+    const forged = reduce(withAgent, {
+      type: 'agent-tap-attack', player: PLAYER_2, agentId: tappedAgent.id,
+    });
+    expect(forged.error).toBeDefined();
+    expect(forged.state.combat).toBeNull();
+  });
+
   test('action not offered when agent was not in play at turn start', () => {
     // Agent played this turn cannot use agent-tap-attack.
     const state = buildTestState({
@@ -328,5 +396,61 @@ describe('dm-15 — The Grimburgoth', () => {
 
     const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
     expect(attackActions).toHaveLength(0);
+  });
+
+  test('agent tap-attack against a Ringwraith company is detainment (rule 3.II.2.R3)', () => {
+    // Regression: the M/H agent-attack builders hard-coded detainment: false;
+    // the site-phase declare-agent-attack path computes it from the defending
+    // player's alignment. A Ringwraith (or Balrog) player treats agent hazard
+    // attacks against their companies as detainment.
+    const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
+    const CARN_DUM = 'le-359' as CardDefinitionId;
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN], destinationSite: DOL_GULDUR }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: AGENT_CHAR,
+      revealed: true,
+      siteStack: [DOL_GULDUR_SITE],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+
+    const withAgent = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], agents: [agent] },
+      ] as unknown as typeof state.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 5, hazardsPlayedThisCompany: 0, destinationSiteName: 'Dol Guldur' }),
+    };
+
+    const attackActions = viableActions(withAgent, PLAYER_2, 'agent-tap-attack');
+    expect(attackActions.length).toBe(1);
+    const after = dispatch(withAgent, attackActions[0].action);
+
+    expect(after.combat).not.toBeNull();
+    expect(after.combat!.detainment).toBe(true);
   });
 });

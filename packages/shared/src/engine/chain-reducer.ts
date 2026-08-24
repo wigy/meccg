@@ -33,10 +33,10 @@ import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWarded
 import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled, getEffectiveSiteType } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
-import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, hasCancelReturnAndSiteTap } from './pending.js';
+import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, removeAttachment, removeById, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -47,6 +47,7 @@ import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
+import { findLongDarkReachCandidates, fizzleLongDarkReach } from './long-dark-reach.js';
 import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay } from './short-event-discard.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { shuffle } from '../rng.js';
@@ -1022,16 +1023,18 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   );
   if (onEvents.length === 0) return state;
 
-  // New Moon (tw-68): a card offering a `tap-character` mode alongside these
-  // arrival-override modes. The two are mutually exclusive ("Alternatively"):
-  // when the player chose the tap mode (a targetCharacterId rides on the
-  // payload), the arrival-override modes must not also fire.
+  // New Moon (tw-68): a card offering a `tap-character` (or, Gloom tw-41,
+  // a `play-target: "character"` + `character-stat-modifier`) mode alongside
+  // these arrival-override modes. The two are mutually exclusive
+  // ("Alternatively"): when the player chose the character-targeted mode (a
+  // targetCharacterId rides on the payload), the arrival-override modes must
+  // not also fire.
   if (
     entry.payload.type === 'short-event'
     && entry.payload.targetCharacterId
-    && getCardEffects(def).some(e => e.type === 'tap-character')
+    && getCardEffects(def).some(e => e.type === 'tap-character' || (e.type === 'play-target' && e.target === 'character'))
   ) {
-    logDetail(`Short-event "${def.name}" tap-character mode chosen — skipping arrival-override modes`);
+    logDetail(`Short-event "${def.name}" character-targeted mode chosen — skipping arrival-override modes`);
     return state;
   }
 
@@ -1158,6 +1161,20 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
         kind: { type: 'character-stat-modifier', stat, value, characterId: targetCharId },
       });
       continue;
+    }
+    // Lost in Dark-domains (tw-52) and any other hazard short-event whose
+    // add-constraint apply is gated on the resolved site path (e.g. "if the
+    // company has a Dark-domain in its site path"): evaluate `when` against
+    // the M/H phase's resolved path before installing the constraint.
+    if (onEvent.when) {
+      const ctx: Record<string, unknown> = { inPlay: buildInPlayNames(newState) };
+      if (newState.phaseState.phase === Phase.MovementHazard) {
+        ctx['sitePath'] = regionTypeCounts(newState.phaseState.resolvedSitePath);
+      }
+      if (!matchesCondition(onEvent.when, ctx)) {
+        logDetail(`"${cardName}": ${onEvent.apply.type} self-enters-play — when gate not met, skip`);
+        continue;
+      }
     }
     newState = applyAddConstraintFromOnEvent(newState, entry, onEvent, cardName);
   }
@@ -1456,6 +1473,134 @@ function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): Ga
 }
 
 /**
+ * Forces the active M/H company back to its site of origin as a `play-option`
+ * apply (rather than the card's own top-level `company-return-to-origin`
+ * effect handled by {@link applyCompanyReturnToOrigin}). Shares the same CoE
+ * rule 2.IV.4 mechanism: keeps the origin site and blocks the site phase.
+ * Idempotent — a no-op if the company already returned this turn or isn't
+ * moving.
+ */
+function performCompanyReturnToOriginOption(state: GameState, cardName: string, sourceInstanceId: import('../types/common.js').CardInstanceId, sourceDefinitionId: import('../types/common.js').CardDefinitionId): GameState {
+  if (state.phaseState.phase !== Phase.MovementHazard) return state;
+  const mhState = state.phaseState;
+  if (mhState.returnedToOrigin) return state;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company || !company.destinationSite) return state;
+
+  logDetail(`${cardName}: option resolved — company ${company.id as string} must return to its site of origin`);
+  let next: GameState = { ...state, phaseState: { ...mhState, returnedToOrigin: true } };
+  next = addConstraint(next, {
+    source: sourceInstanceId,
+    sourceDefinitionId,
+    scope: { kind: 'company-site-phase', companyId: company.id },
+    target: { kind: 'company', companyId: company.id },
+    kind: { type: 'site-phase-do-nothing' },
+  });
+  return next;
+}
+
+/**
+ * Resolves one `TriggeredAction` apply from a company-targeting hazard
+ * short-event's `play-option` (see {@link applyCompanyPlayOption}). Recurses
+ * into `sequence`'s sub-applies. Unsupported apply kinds are a no-op.
+ */
+function applyCompanyPlayOptionApply(
+  state: GameState,
+  apply: import('../types/effects.js').TriggeredAction,
+  cardName: string,
+  sourceInstanceId: import('../types/common.js').CardInstanceId,
+  sourceDefinitionId: import('../types/common.js').CardDefinitionId,
+): GameState {
+  let current = state;
+  if (apply.type === 'sequence') {
+    for (const sub of apply.apps ?? []) {
+      current = applyCompanyPlayOptionApply(current, sub, cardName, sourceInstanceId, sourceDefinitionId);
+    }
+    return current;
+  }
+
+  if (apply.type === 'company-return-to-origin') {
+    return performCompanyReturnToOriginOption(current, cardName, sourceInstanceId, sourceDefinitionId);
+  }
+
+  if (apply.type === 'force-discard-one-company-item') {
+    if (current.phaseState.phase !== Phase.MovementHazard) return current;
+    const mhState = current.phaseState;
+    const resourceIndex = getPlayerIndex(current, current.activePlayer!);
+    const resourcePlayer = current.players[resourceIndex];
+    const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+    if (!company) return current;
+    const hasItems = company.characters.some(charId => {
+      const ch = resourcePlayer.characters[charId];
+      return ch && ch.items.length > 0;
+    });
+    if (!hasItems) {
+      logDetail(`${cardName}: option resolved — company ${company.id as string} has no items to discard`);
+      return current;
+    }
+    logDetail(`${cardName}: option resolved — company ${company.id as string} must discard one item, its choice`);
+    return enqueueResolution(current, {
+      source: sourceInstanceId,
+      actor: resourcePlayer.id,
+      scope: companySubphaseScope(current.phaseState.phase, company.id),
+      kind: { type: 'discard-one-company-item', companyId: company.id },
+    });
+  }
+
+  if (apply.type === 'random-discard-hand') {
+    if (current.phaseState.phase !== Phase.MovementHazard) return current;
+    const mhState = current.phaseState;
+    const resourceIndex = getPlayerIndex(current, current.activePlayer!);
+    const resourcePlayer = current.players[resourceIndex];
+    const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+    if (!company) return current;
+    const [shuffled, nextRng] = shuffle(resourcePlayer.hand, current.rng);
+    const discardCount = Math.min(apply.count, shuffled.length);
+    const toDiscard = shuffled.slice(0, discardCount);
+    const kept = shuffled.slice(discardCount);
+    logDetail(`${cardName}: option resolved — ${resourcePlayer.name} randomly discards ${discardCount}/${resourcePlayer.hand.length} hand card(s)`);
+    current = { ...current, rng: nextRng };
+    current = updatePlayer(current, resourceIndex, p => ({
+      ...p,
+      hand: kept,
+      discardPile: [...p.discardPile, ...toDiscard],
+    }));
+    return current;
+  }
+
+  return current;
+}
+
+/**
+ * Dispatches the chosen `play-option` on a company-targeting hazard
+ * short-event (e.g. Drowning Seas tw-30) once its chain entry resolves
+ * un-negated. The option was chosen at play time (`entry.payload.optionId`);
+ * this only fires for cards whose `play-target` is `"company"` — character-
+ * and untargeted-mode `play-option` dispatch live in their own blocks above.
+ */
+function applyCompanyPlayOption(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event' || !entry.payload.optionId) return state;
+  const def = defById(state, card.definitionId);
+  const playTarget = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target',
+  );
+  if (playTarget?.target !== 'company') return state;
+
+  const optionId = entry.payload.optionId;
+  const opt = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').PlayOptionEffect => e.type === 'play-option' && e.id === optionId,
+  );
+  if (!opt) return state;
+
+  const cardName = (def as { name?: string })?.name ?? (card.definitionId as string);
+  return applyCompanyPlayOptionApply(state, opt.apply, cardName, card.instanceId, card.definitionId);
+}
+
+/**
  * Applies a `site-type-remap` short-event effect on chain resolution: installs
  * the class-wide `site.type` override ("all Shadow-holds [{S}] become
  * Dark-holds [{D}]" — Witch-king of Angmar tw-113's on-tap long-event).
@@ -1564,11 +1709,7 @@ function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameStat
     const isDeclarer = player.id === declarer;
     for (const charId of characterIds(player)) {
       const char = player.characters[charId];
-      const possessions = [
-        ...char.items.map(i => i.instanceId),
-        ...char.allies.map(a => a.instanceId),
-        ...char.hazards.map(h => h.instanceId),
-      ];
+      const possessions = characterPossessions(char);
       current = enqueueCorruptionCheck(current, {
         source: card.instanceId,
         actor: player.id,
@@ -2316,6 +2457,9 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // sources it with `from: 'chain'` (ctx.chainCard, no-op removal).
   const targetCharId = entry.payload.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
   const targetItemId = entry.payload.type === 'permanent-event' ? entry.payload.targetItemInstanceId : undefined;
+  // Helms of Iron (dm-64): the Nazgûl permanent-event chosen at declaration
+  // to discard via this card's self-enters-play move.
+  const targetNazgulId = entry.payload.type === 'permanent-event' ? entry.payload.targetNazgulInstanceId : undefined;
   const moveCtx: import('./reducer-move.js').MoveContext = {
     sourceCardId: card.instanceId,
     sourcePlayerIndex: playerIndex,
@@ -2445,7 +2589,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           const bounced = working.players[pi].cardsInPlay.filter(c => {
             if (c.setAsideHost !== undefined) return false;
             const fDef = defById(working, c.definitionId);
-            return !!fDef && isFactionCard(fDef) && isCardPlayableAtSiteDef(fDef, siteDef);
+            return !!fDef && isFactionCard(fDef) && isCardPlayableAtSiteDef(fDef, siteDef, working);
           });
           if (bounced.length === 0) continue;
           const bouncedIds = new Set(bounced.map(c => c.instanceId as string));
@@ -2632,7 +2776,8 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       const bearer = bearerPi >= 0 ? newState.players[bearerPi].characters[targetCharId] : undefined;
       const bearerDef = bearer ? defById(newState, bearer.definitionId) : undefined;
       const effectiveMind = bearer?.effectiveStats.mind ?? printedMind(bearerDef);
-      const isWizard = bearerDef && isCharacterCard(bearerDef) && bearerDef.race === Race.Wizard;
+      const bearerRace = raceForCardTextFilter(bearerDef);
+      const isWizard = Array.isArray(bearerRace) ? bearerRace.includes(Race.Wizard) : bearerRace === Race.Wizard;
       const rollBonus = effectiveMind + (isWizard ? rollUntapEffect.wizardBonus : 0);
       logDetail(`"${def?.name ?? '?'}" roll-untap-site: enqueuing dice-check (roll + mind ${effectiveMind}${isWizard ? ` + wizard ${rollUntapEffect.wizardBonus}` : ''} = +${rollBonus} > ${rollUntapEffect.threshold}) on ${targetCharId as string}`);
       newState = enqueueResolution(newState, {
@@ -2746,6 +2891,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           sourceCardId: entry.card!.instanceId,
           sourcePlayerIndex: playerIndex,
           ...(targetCharId ? { targetCharacterId: targetCharId } : {}),
+          ...(targetNazgulId ? { targetCardId: targetNazgulId } : {}),
         };
         const stateBefore = newState;
         const r = applyMove(newState, moveEffect, ctx);
@@ -3441,6 +3587,25 @@ function collectHavenJumpOffers(
 }
 
 /**
+ * Finds a creature's `on-event: creature-attack-begins` +
+ * `apply: force-check-all-company` corruption effect (Corpse-candle,
+ * tw-23/le-67), if any. The card text is conditional ("if this attack is not
+ * canceled"), so the caller must defer enqueueing the actual checks until
+ * the pre-assignment cancel-window closes rather than firing immediately.
+ */
+function findAttackBeginsCorruptionEffect(creatureDef: CreatureCard): { modifier: number } | null {
+  for (const effect of creatureDef.effects ?? []) {
+    if (effect.type !== 'on-event') continue;
+    const onEvent: OnEventEffect = effect;
+    if (onEvent.event !== 'creature-attack-begins') continue;
+    if (onEvent.apply.type !== 'force-check-all-company') continue;
+    if (onEvent.apply.check !== 'corruption') continue;
+    return { modifier: onEvent.apply.modifier ?? 0 };
+  }
+  return null;
+}
+
+/**
  * Creates a CombatState when a creature chain entry resolves.
  *
  * The creature card was already moved to the hazard player's discard pile
@@ -3503,9 +3668,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // Hunter as-7 carries both).
   const attackerChooses = resolveAttackerChoosesDefenders(
     state,
-    creatureDef.effects?.some(
+    (creatureDef.effects?.some(
       e => e.type === 'combat-attacker-chooses-defenders' && e.scope !== 'all-attacks',
-    ) ?? false,
+    ) ?? false)
+      // Fell Beast (tw-33): a consumed `nazgul-boost-pending` constraint
+      // grants "attacker chooses defending characters" to this creature's
+      // play, on top of any rule the card itself carries.
+      || (entry.payload.type === 'creature' && entry.payload.grantAttackerChoosesDefenders === true),
     creatureDef.race,
   );
   if (attackerChooses) {
@@ -3561,8 +3730,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail('Creature has tap-low-mind — facing characters with mind ≤ strike prowess tap after their strike');
   }
 
-  // combat-strike-effect (Thief tw-102): a successful strike discards a
-  // company item instead of wounding the defending character.
+  // combat-strike-effect (Thief tw-102, Pick-pocket tw-79): a successful
+  // strike discards an item instead of wounding the defending character —
+  // scope (company vs. struck character alone) depends on strikeEffect.
   const strikeEffect = creatureDef.effects?.find(
     (e): e is CombatStrikeEffectEffect => e.type === 'combat-strike-effect',
   )?.strikeEffect;
@@ -3595,17 +3765,64 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const creatureRaces = creatureDef.additionalRaces?.length
     ? [creatureRace, ...creatureDef.additionalRaces]
     : undefined;
-  const companyFacedRaces = state.phaseState.phase === 'movement-hazard'
+  // Union the phase-local derivation with the turn-scoped races stamped on
+  // the company itself (`facedHazardRaces`, recorded at every attack
+  // teardown) — the persisted set is what survives the M/H → Site phase
+  // transition and covers on-guard attacks faced earlier in the site phase.
+  const derivedFacedRaces = state.phaseState.phase === 'movement-hazard'
     ? deriveFacedRaces(state, state.phaseState.hazardsEncountered)
     : deriveSiteFacedRaces(state);
+  const targetCompanyForFacedRaces = state.players[activePlayerIndex]
+    .companies[state.phaseState.phase === 'movement-hazard' || state.phaseState.phase === 'site'
+      ? state.phaseState.activeCompanyIndex
+      : -1];
+  const companyFacedRaces = Array.from(new Set([
+    ...derivedFacedRaces,
+    ...(targetCompanyForFacedRaces?.facedHazardRaces ?? []),
+  ]));
   const defenderAlignment = defenderAlignmentLabel(state.players[activePlayerIndex].alignment);
+  // A creature's `keyedTo` can list several independent ways it may be
+  // played (e.g. Orc-watch: region type Shadow/Dark *or* site type
+  // Shadow-hold/Dark-hold). When the hazard player declared a specific
+  // match to justify this play (`keyedBy`), the attack is keyed *only* to
+  // that match — not to every alternative the card could have used. This
+  // matters for cards like Stinker ("keyed to Wilderness or Shadow-land",
+  // region types only): an Orc-watch played on the strength of its
+  // site-type match alone must not be cancelable as if it were also keyed
+  // to the Shadow-land region type. Falls back to the union of the card's
+  // `keyedTo` when no declared match is available (on-guard reveals, etc.).
+  // Computed here (before prowess/strikes/body resolution) so a creature's
+  // own self stat-modifier can gate on `attack.keying` — e.g. Pirates
+  // (le-88): "+2 prowess when keyed to Coastal Seas."
+  const declaredKeyedBy = entry.payload.type === 'creature' ? entry.payload.keyedBy : undefined;
+  const attackKeying = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'region-type' ? [declaredKeyedBy.value as RegionType] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
+      ));
+  const attackSiteKeyingTypes = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'site-type' ? [declaredKeyedBy.value as SiteType] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
+      ));
+  const attackKeyingRegionNames = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value] : [])
+    : Array.from(new Set(
+        creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
+      ));
   const creatureSelf = creatureDef.effects?.length
-    ? { effects: creatureDef.effects, companyFacedRaces, defenderAlignment }
+    ? {
+        effects: creatureDef.effects,
+        companyFacedRaces,
+        defenderAlignment,
+        attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
+      }
     : undefined;
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
+  const strikesBonus = entry.payload.type === 'creature' ? (entry.payload.strikesBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx) + strikesBonus;
   let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
 
   // combat-body-per-defender-skill (Little Snuffler dm-108): "Each ranger in
@@ -3706,37 +3923,17 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       ).length
     : 0;
 
-  // A creature's `keyedTo` can list several independent ways it may be
-  // played (e.g. Orc-watch: region type Shadow/Dark *or* site type
-  // Shadow-hold/Dark-hold). When the hazard player declared a specific
-  // match to justify this play (`keyedBy`), the attack is keyed *only* to
-  // that match — not to every alternative the card could have used. This
-  // matters for cards like Stinker ("keyed to Wilderness or Shadow-land",
-  // region types only): an Orc-watch played on the strength of its
-  // site-type match alone must not be cancelable as if it were also keyed
-  // to the Shadow-land region type. Falls back to the union of the card's
-  // `keyedTo` when no declared match is available (on-guard reveals, etc.).
-  const declaredKeyedBy = entry.payload.type === 'creature' ? entry.payload.keyedBy : undefined;
-  const attackKeying = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'region-type' ? [declaredKeyedBy.value as RegionType] : [])
-    : Array.from(new Set(
-        creatureDef.keyedTo.flatMap(k => k.regionTypes ?? []),
-      ));
-  const attackSiteKeyingTypes = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'site-type' ? [declaredKeyedBy.value as SiteType] : [])
-    : Array.from(new Set(
-        creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
-      ));
-  const attackKeyingRegionNames = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value] : [])
-    : Array.from(new Set(
-        creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
-      ));
   // Scan for on-event: creature-attack-begins → offer-char-join-attack
   // (e.g. Alatar). If any pending offers match, force a cancel-window so
   // the defender has an explicit opt-in before strike assignment begins.
   const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
   const defendingSiteDef = resolveDefendingSiteDef(state, company);
+  // Scan for on-event: creature-attack-begins → force-check-all-company
+  // corruption (Corpse-candle). Also forces a cancel-window: the check is
+  // conditioned on "if this attack is not canceled," so it must wait for the
+  // defender's pre-assignment cancel opportunity to close (see
+  // `pendingAttackBeginsCorruption` handling in reducer-combat.ts).
+  const attackBeginsCorruption = findAttackBeginsCorruptionEffect(creatureDef);
 
   let combat: CombatState = makeCombatState({
     attackSource,
@@ -3751,8 +3948,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
-    assignmentPhase: (attackerChooses || havenJumpOffers.length > 0) ? 'cancel-window' : 'defender',
+    assignmentPhase: (attackerChooses || havenJumpOffers.length > 0 || attackBeginsCorruption) ? 'cancel-window' : 'defender',
     havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
+    pendingAttackBeginsCorruption: attackBeginsCorruption ? {
+      source: entry.card!.instanceId,
+      reason: creatureDef.name,
+      modifier: attackBeginsCorruption.modifier,
+    } : undefined,
     attackerChoosesDefenders: attackerChooses ? true : undefined,
     detainment: isDetainmentAttack({
       attackEffects: creatureDef.effects,
@@ -3839,39 +4041,11 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     };
   }
 
-  let finalState: GameState = { ...state, players: newPlayers, combat };
-
-  // Scan for on-event: creature-attack-begins → force-check-all-company
-  // (e.g. Corpse-candle). The attack was not canceled — enqueue a corruption
-  // check for every character in the defending company before defender selection.
-  if (creatureDef.effects) {
-    for (const effect of creatureDef.effects) {
-      if (effect.type !== 'on-event') continue;
-      const onEvent: OnEventEffect = effect;
-      if (onEvent.event !== 'creature-attack-begins') continue;
-      if (onEvent.apply.type !== 'force-check-all-company') continue;
-      if (onEvent.apply.check !== 'corruption') continue;
-      const scope = companySubphaseScope(state.phaseState.phase, company.id);
-      const modifier = onEvent.apply.modifier ?? 0;
-      logDetail(`${creatureDef.name} (creature-attack-begins): enqueueing corruption check for all ${company.characters.length} character(s) in company`);
-      for (const charInstanceId of company.characters) {
-        finalState = enqueueCorruptionCheck(finalState, {
-          source: entry.card!.instanceId,
-          actor: state.activePlayer!,
-          scope,
-          characterId: charInstanceId,
-          modifier,
-          reason: creatureDef.name,
-          // CoE 7.1.1: the resource player may tap other untapped company mates
-          // for +1 each on any corruption check declared but not yet resolved —
-          // this is unconditional, not specific to this card.
-          allowSupport: true,
-        });
-      }
-    }
-  }
-
-  return finalState;
+  // `pendingAttackBeginsCorruption` (Corpse-candle) is deferred — enqueued
+  // when the defender passes out of the cancel-window (reducer-combat.ts)
+  // instead of immediately, since the check only applies "if this attack is
+  // not canceled."
+  return { ...state, players: newPlayers, combat };
 }
 
 /**
@@ -3910,6 +4084,50 @@ function hazardLimitExceededAtResolution(state: GameState, entry: ChainEntry): b
 
   const limit = currentHazardLimit(state, mhState, company.id);
   return mhState.hazardsPlayedThisCompany > limit;
+}
+
+/**
+ * Shared preamble of the race-threshold attempt short events (Flatter a Foe
+ * td-116, Riddling Talk td-148). When `entry` is an un-negated short event
+ * targeting a character while an attack is being faced, and its card carries
+ * an effect of `effectType` whose thresholds list the attacking creature's
+ * race, returns the matched effect and threshold entry together with the
+ * target character and the resolution source/actor/scope to enqueue the
+ * attempt with. Returns undefined when any part does not apply (the caller
+ * then falls through without enqueuing anything).
+ */
+function matchRaceThresholdEffect<E extends FlatteryCancelAttackEffect | RiddlingAttemptEffect>(
+  state: GameState,
+  entry: ChainEntry,
+  effectType: E['type'],
+) {
+  if (entry.payload.type !== 'short-event'
+    || !entry.payload.targetCharacterId
+    || entry.negated
+    || !entry.card
+    || !state.combat) return undefined;
+  const cardDef = defById(state, entry.card.definitionId);
+  const effect = getCardEffects(cardDef).find((e): e is E => e.type === effectType);
+  if (!effect) return undefined;
+  // An attack counts as EVERY race it carries — primary plus additionalRaces
+  // ("Orcs. Men." creatures like Goblin-faces wh-13 populate
+  // `combat.creatureRaces`) — so match the thresholds against the full list
+  // and, when several entries match, use the most favorable (lowest) one.
+  const races = state.combat.creatureRaces
+    ?? (state.combat.creatureRace !== undefined ? [state.combat.creatureRace] : []);
+  const matching = effect.thresholds.filter(t => t.races.some(r => races.includes(r)));
+  if (matching.length === 0) return undefined;
+  const matchedEntry = matching.reduce((best, t) => (t.threshold < best.threshold ? t : best));
+  const creatureRace = matchedEntry.races.find(r => races.includes(r))!;
+  return {
+    effect,
+    creatureRace,
+    threshold: matchedEntry.threshold,
+    characterInstanceId: entry.payload.targetCharacterId,
+    source: entry.card.instanceId,
+    actor: state.combat.defendingPlayerId,
+    scope: companySubphaseScope(state.phaseState.phase, state.combat.companyId),
+  };
 }
 
 function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
@@ -3991,18 +4209,8 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         && e.apply.removeFromGame === true,
     );
     if (removesSelf) {
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const eventInstId = entry.card.instanceId;
-      const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
-      if (eventCard) {
-        const cardName = (def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
-        current = updatePlayer(current, declarerIdx, p => ({
-          ...p,
-          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-          outOfPlayPile: [...p.outOfPlayPile, eventCard],
-        }));
-        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-      }
+      const cardName = (def as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
+      current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardName);
     }
   }
 
@@ -4057,6 +4265,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     current = applyCompanyReturnToOrigin(current, entry);
   }
 
+  // Company-targeting short events declaring play-option modes (e.g. Drowning
+  // Seas tw-30): the hazard player chose one mutually-exclusive option at
+  // play time, carried on the chain entry as `optionId`. Dispatch the chosen
+  // option's `apply` now that the entry resolved un-negated.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card && entry.payload.optionId) {
+    current = applyCompanyPlayOption(current, entry);
+  }
+
   // Short events that forbid the active M/H company from acting during its site
   // phase this turn without moving it back to origin (Darkness Made by Malice
   // ba-15).
@@ -4109,9 +4325,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // the declaring player's play deck into their hand, then dispose of the
   // spent event card: out-of-play when `removeFromGame` is set (so it can
   // never be recurred), otherwise the discard pile. The card rode on the chain
-  // entry (it left the hand at play time), so dispose it now. Drawing stops
-  // early if the deck runs out — no card instance disappears, the deck is
-  // simply exhausted.
+  // entry (it left the hand at play time), so dispose it now. Per CoE rule
+  // 2.4, a play deck that runs dry mid-draw is exhausted and reshuffled
+  // immediately, and the draw resumes from the reshuffled deck —
+  // `drawCardsExhausting` handles that; it only stops short if the discard
+  // pile is also empty (nothing left to shuffle in).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
     const drawEffect = getCardEffects(def).find(
@@ -4119,20 +4337,19 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     );
     if (drawEffect) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
-      const deck = current.players[declaringIndex].playDeck;
-      const drawCount = Math.min(drawEffect.count, deck.length);
-      const drawnCards = deck.slice(0, drawCount);
       const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
-      logDetail(`${cardName}: chain resolves draw-cards — drawing ${drawCount}/${drawEffect.count} card(s) from play deck (deck size ${deck.length})`);
-      if (drawCount < drawEffect.count) {
-        logDetail(`${cardName}: play deck exhausted — drew only ${drawCount} of ${drawEffect.count}`);
+      const deckSizeBefore = current.players[declaringIndex].playDeck.length;
+      logDetail(`${cardName}: chain resolves draw-cards — drawing ${drawEffect.count} card(s) from play deck (deck size ${deckSizeBefore})`);
+      const { state: afterDraw, drawnCards } = drawCardsExhausting(current, declaringIndex, drawEffect.count);
+      current = afterDraw;
+      if (drawnCards.length < drawEffect.count) {
+        logDetail(`${cardName}: play deck and discard pile both exhausted — drew only ${drawnCards.length} of ${drawEffect.count}`);
       }
       const spentCard = toCardInstance(entry.card);
       logDetail(`${cardName}: spent event card → ${drawEffect.removeFromGame ? 'out-of-play (removed from game)' : 'discard'}`);
       current = updatePlayer(current, declaringIndex, p => ({
         ...p,
         hand: [...p.hand, ...drawnCards],
-        playDeck: p.playDeck.slice(drawCount),
         ...(drawEffect.removeFromGame
           ? { outOfPlayPile: [...p.outOfPlayPile, spentCard] }
           : { discardPile: [...p.discardPile, spentCard] }),
@@ -4197,17 +4414,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
     if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const eventInstId = entry.card.instanceId;
-      const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
-      if (spent) {
-        current = updatePlayer(current, declarerIdx, p => ({
-          ...p,
-          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-          outOfPlayPile: [...p.outOfPlayPile, spent],
-        }));
-        logDetail(`${cardDef?.name ?? (entry.card.definitionId as string)}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-      }
+      current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardDef?.name ?? (entry.card.definitionId as string));
     }
   }
 
@@ -4502,17 +4709,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
       // "Remove this card from the game." — move the event from the card-player's
       // discard pile (where it was placed at play time) to their out-of-play pile.
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const eventInstId = entry.card.instanceId;
-      if (current.players[declarerIdx].discardPile.some(c => c.instanceId === eventInstId)) {
-        const eventCard = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId)!;
-        current = updatePlayer(current, declarerIdx, p => ({
-          ...p,
-          discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-          outOfPlayPile: [...p.outOfPlayPile, eventCard],
-        }));
-        logDetail(`${cardName}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-      }
+      current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardName);
 
       if (revealCount === 0) {
         logDetail(`${cardName}: nothing to reveal — the event fizzles`);
@@ -4531,6 +4728,61 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             sourceDefinitionId: entry.card.definitionId,
           },
         });
+      }
+    }
+  }
+
+  // Long Dark Reach (dm-70): a hazard short-event carrying a
+  // `reveal-deck-choose-attacker` effect. When it resolves un-negated, the
+  // card-player reveals the top N cards of THEIR OWN play deck (unlike
+  // reveal-deck-choose-penalty's opponent-deck reveal). If at least one
+  // revealed card is an eligible attacker (Nazgûl, Dragon, or non-unique
+  // creature, playable outside Coastal Sea), enqueue a mandatory
+  // reveal-deck-choose-attacker pending resolution so the card-player names
+  // one to immediately attack the targeted company. With none eligible, every
+  // revealed card is shuffled straight back to the top of the deck (no
+  // pending resolution — see `engine/long-dark-reach.ts`).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const def = defById(current, entry.card.definitionId);
+    const attackerEff = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').RevealDeckChooseAttackerEffect =>
+        e.type === 'reveal-deck-choose-attacker',
+    );
+    if (attackerEff) {
+      const cardName = (def as { name?: string }).name ?? (entry.card.definitionId as string);
+      const cardPlayerId = entry.declaredBy;
+      const targetCompanyId = entry.payload.targetCompanyId;
+      const defendingPlayerId = current.activePlayer;
+      const deck = current.players[getPlayerIndex(current, cardPlayerId)].playDeck;
+      const revealCount = Math.min(attackerEff.count, deck.length);
+
+      if (revealCount === 0 || !targetCompanyId || !defendingPlayerId) {
+        logDetail(`${cardName}: nothing to reveal — the event fizzles`);
+      } else {
+        const revealed = deck.slice(0, revealCount);
+        current = revealInstances(current, revealed);
+        const revealedInstanceIds = revealed.map(c => c.instanceId);
+        logDetail(`${cardName}: ${cardPlayerId as string} reveals the top ${revealCount} card(s) of their own play deck`);
+
+        const eligible = findLongDarkReachCandidates(current, revealedInstanceIds, cardPlayerId);
+        if (eligible.length === 0) {
+          current = fizzleLongDarkReach(current, cardPlayerId, revealedInstanceIds);
+        } else {
+          current = enqueueResolution(current, {
+            source: entry.card.instanceId,
+            actor: cardPlayerId,
+            scope: { kind: 'phase', phase: Phase.MovementHazard },
+            kind: {
+              type: 'reveal-deck-choose-attacker',
+              revealedInstanceIds,
+              eligibleInstanceIds: eligible.map(c => c.instanceId),
+              cardPlayerId,
+              targetCompanyId,
+              defendingPlayerId,
+              sourceInstanceId: entry.card.instanceId,
+            },
+          });
+        }
       }
     }
   }
@@ -4585,81 +4837,49 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // un-negated, create a flattery-attempt pending resolution for the defending
   // player to roll 2d6. The roll determines whether the attack is cancelled and
   // the hazard limit reduced. Do NOT immediately cancel the attack here.
-  if (entry.payload.type === 'short-event'
-    && entry.payload.targetCharacterId
-    && !entry.negated
-    && entry.card
-    && current.combat) {
-    const cardDef = defById(current, entry.card.definitionId);
-    const flatEffect = getCardEffects(cardDef).find(
-      (e): e is FlatteryCancelAttackEffect => e.type === 'flattery-cancel-attack',
-    );
-    if (flatEffect) {
-      const creatureRace = current.combat.creatureRace;
-      const matchedEntry = creatureRace === undefined
-        ? undefined
-        : flatEffect.thresholds.find(t => t.races.includes(creatureRace));
-      if (matchedEntry && creatureRace !== undefined) {
-        const defPlayerId = current.combat.defendingPlayerId;
-        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
-        logDetail(`Flattery-cancel-attack: enqueuing flattery-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
-        current = enqueueResolution(current, {
-          source: entry.card.instanceId,
-          actor: defPlayerId,
-          scope,
-          kind: {
-            type: 'flattery-attempt',
-            characterInstanceId: entry.payload.targetCharacterId,
-            creatureRace,
-            threshold: matchedEntry.threshold,
-            diplomatBonus: flatEffect.diplomatBonus,
-            hazardLimitReduction: flatEffect.hazardLimitReduction,
-          },
-        });
-        return { state: current, needsInput: true };
-      }
-    }
+  const flattery = matchRaceThresholdEffect<FlatteryCancelAttackEffect>(current, entry, 'flattery-cancel-attack');
+  if (flattery) {
+    const { effect, creatureRace, threshold, characterInstanceId, source, actor, scope } = flattery;
+    logDetail(`Flattery-cancel-attack: enqueuing flattery-attempt for character ${characterInstanceId as string} (race "${creatureRace}", threshold ${threshold})`);
+    current = enqueueResolution(current, {
+      source,
+      actor,
+      scope,
+      kind: {
+        type: 'flattery-attempt',
+        characterInstanceId,
+        creatureRace,
+        threshold,
+        diplomatBonus: effect.diplomatBonus,
+        hazardLimitReduction: effect.hazardLimitReduction,
+      },
+    });
+    return { state: current, needsInput: true };
   }
 
   // Riddling-attempt (Riddling Talk td-148): when the chain entry resolves
   // un-negated, create a riddling-attempt pending resolution for the defending
   // player to roll 2d6. The roll only determines whether a follow-up guess is
   // offered — it does not itself cancel the attack. Do NOT cancel here.
-  if (entry.payload.type === 'short-event'
-    && entry.payload.targetCharacterId
-    && !entry.negated
-    && entry.card
-    && current.combat) {
-    const cardDef = defById(current, entry.card.definitionId);
-    const riddlingEffect = getCardEffects(cardDef).find(
-      (e): e is RiddlingAttemptEffect => e.type === 'riddling-attempt',
-    );
-    if (riddlingEffect) {
-      const creatureRace = current.combat.creatureRace;
-      const matchedEntry = creatureRace === undefined
-        ? undefined
-        : riddlingEffect.thresholds.find(t => t.races.includes(creatureRace));
-      if (matchedEntry && creatureRace !== undefined) {
-        const defPlayerId = current.combat.defendingPlayerId;
-        const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
-        logDetail(`Riddling-attempt: enqueuing riddling-attempt for character ${entry.payload.targetCharacterId as string} (race "${creatureRace}", threshold ${matchedEntry.threshold})`);
-        current = enqueueResolution(current, {
-          source: entry.card.instanceId,
-          actor: defPlayerId,
-          scope,
-          kind: {
-            type: 'riddling-attempt',
-            characterInstanceId: entry.payload.targetCharacterId,
-            creatureRace,
-            threshold: matchedEntry.threshold,
-            sageBonus: riddlingEffect.sageBonus,
-            hobbitBonus: riddlingEffect.hobbitBonus,
-            hazardLimitReduction: riddlingEffect.hazardLimitReduction,
-          },
-        });
-        return { state: current, needsInput: true };
-      }
-    }
+  const riddling = matchRaceThresholdEffect<RiddlingAttemptEffect>(current, entry, 'riddling-attempt');
+  if (riddling) {
+    const { effect, creatureRace, threshold, characterInstanceId, source, actor, scope } = riddling;
+    logDetail(`Riddling-attempt: enqueuing riddling-attempt for character ${characterInstanceId as string} (race "${creatureRace}", threshold ${threshold})`);
+    current = enqueueResolution(current, {
+      source,
+      actor,
+      scope,
+      kind: {
+        type: 'riddling-attempt',
+        characterInstanceId,
+        creatureRace,
+        threshold,
+        sageBonus: effect.sageBonus,
+        hobbitBonus: effect.hobbitBonus,
+        hazardLimitReduction: effect.hazardLimitReduction,
+      },
+    });
+    return { state: current, needsInput: true };
   }
 
   // Goodwill-cancel-attack (Token of Goodwill dm-160): when the chain entry
@@ -4882,17 +5102,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         // runs again for it, so the generic remove-from-game block further
         // down would never fire for News of Doom.
         if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'remove-from-game')) {
-          const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-          const eventInstId = entry.card.instanceId;
-          const spent = current.players[declarerIdx].discardPile.find(c => c.instanceId === eventInstId);
-          if (spent) {
-            current = updatePlayer(current, declarerIdx, p => ({
-              ...p,
-              discardPile: p.discardPile.filter(c => c.instanceId !== eventInstId),
-              outOfPlayPile: [...p.outOfPlayPile, spent],
-            }));
-            logDetail(`${cardLabel}: removed from the game (→ ${current.players[declarerIdx].name}'s out-of-play pile)`);
-          }
+          current = removeSpentEventFromGame(current, entry.declaredBy, entry.card.instanceId, cardLabel);
         }
         return { state: current, needsInput: true };
       }
@@ -4915,6 +5125,25 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const cohCharDefId = resolveInstanceId(current, entry.payload.targetCharacterId);
       const cohCharDef = cohCharDefId ? defById(current, cohCharDefId) : undefined;
       const cohCharName = cohCharDef && 'name' in cohCharDef ? cohCharDef.name : (entry.payload.targetCharacterId as string);
+      const cohModifiers: import('../types/pending.js').DiceCheckModifier[] = [
+        { kind: 'unused-gi', player: resourcePlayerId },
+      ];
+      // Call of the Sea (tw-19): roll modified by -3 if the target's company
+      // moved this turn using a site path containing a Coastal Sea. Evaluated
+      // against the active company's resolved path (the target always belongs
+      // to the company currently in its M/H sub-phase).
+      if (cohEffect.rollModifiers && cohEffect.rollModifiers.length > 0) {
+        const cohMhState = current.phaseState as import('../index.js').MovementHazardPhaseState;
+        const cohCtx = { company: { sitePathRegionTypes: cohMhState.resolvedSitePath } };
+        let cohModTotal = 0;
+        for (const m of cohEffect.rollModifiers) {
+          if (matchesCondition(m.when, cohCtx)) cohModTotal += m.value;
+        }
+        if (cohModTotal !== 0) {
+          logDetail(`Call of Home roll modifier: ${cohModTotal} (site path: ${cohMhState.resolvedSitePath.join(', ')})`);
+          cohModifiers.push({ kind: 'constant', value: cohModTotal });
+        }
+      }
       logDetail(`Enqueuing dice-check (call-of-home) pending resolution for character ${entry.payload.targetCharacterId as string}`);
       current = enqueueResolution(current, {
         source: entry.card.instanceId,
@@ -4923,11 +5152,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         kind: {
           type: 'dice-check',
           label: `Call of Home: ${cohCharName}`,
-          modifiers: [{ kind: 'unused-gi', player: resourcePlayerId }],
+          modifiers: cohModifiers,
           threshold: cohEffect.threshold,
           comparison: 'gte',
           // roll + unused GI < threshold → character returns to hand.
-          onFail: { type: 'return-character-to-hand' },
+          // One item may transfer to a company-mate (Pilfer Anything
+          // Unwatched precedent); the rest of the character's cards discard.
+          onFail: { type: 'return-character-to-hand', allowItemTransfer: true },
           continuation: { kind: 'chain-entry', match: 'target-character' },
           requireTargetPresent: true,
           targetCharacterId: entry.payload.targetCharacterId,
@@ -5224,22 +5455,30 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         for (const charId of targetCompany.characters) {
           const cChar = current.players[activeIndex].characters[charId];
           const cDef = cChar ? defById(current, cChar.definitionId) : undefined;
-          // Race-derived discard threshold, computed at enqueue (the card def is
-          // static): Orc/Troll minions use their stated discardBodyCheck array
-          // (min value), others use body. Pre-resolved into the dice-check.
-          const cBody = cDef && isCharacterCard(cDef) && cDef.body != null ? cDef.body : 9;
+          // CoE 3.I.1: the check's modifier applies to the ROLL, and the check
+          // fails when the modified total is HIGHER than the character's body
+          // (rolling low is good) — the card's -1 makes survival easier.
+          // CoE 3.I.4: effects modifying body shift the printed Orc/Troll
+          // discard numbers by the same amount, so both the threshold and the
+          // discard values track effectiveStats.body's delta from print.
+          const cPrintedBody = cDef && isCharacterCard(cDef) && cDef.body != null ? cDef.body : 9;
+          const cBody = cChar?.effectiveStats.body ?? cPrintedBody;
+          const cBodyDelta = cBody - cPrintedBody;
           const cRace = cDef && isCharacterCard(cDef) ? cDef.race : '';
           const cOrcTroll = cRace === 'orc' || cRace === 'troll';
           const cDiscardValues = cOrcTroll && cDef && isCharacterCard(cDef) && cDef.cardType === 'minion-character' && cDef.discardBodyCheck != null
-            ? cDef.discardBodyCheck
-            : [cBody];
-          const cThreshold = Math.min(...cDiscardValues) + bodyModifier;
+            ? cDef.discardBodyCheck.map(v => v + cBodyDelta)
+            : [];
           const cName = cDef && isCharacterCard(cDef) ? cDef.name : (charId as string);
-          // onFail by race: Orc/Troll are discarded; others are tapped only if
-          // currently untapped (the `when` leaves wounded/inverted untouched).
-          const onFail = cOrcTroll
-            ? { type: 'discard-character' as const }
-            : { type: 'set-character-status' as const, status: 'tapped' as const, when: { 'target.status': 'untapped' } };
+          // "Determine if each Orc or Troll character is discarded as
+          // indicated on their cards": a modified total landing exactly on a
+          // printed discard number discards (`matchOutcome`). "Otherwise, the
+          // body checks have no effect unless an untapped character fails his
+          // check, in which case he becomes tapped": every other failed check
+          // — Orc/Troll included — merely taps. The `comparison: 'gt'`
+          // resolver reports "passed" when total > threshold, so the bad
+          // outcome (tap) goes on `onPass` and the good outcome (no effect)
+          // is `onFail`.
           current = enqueueResolution(current, {
             source: entry.card.instanceId,
             actor: activePlayerId,
@@ -5247,10 +5486,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             kind: {
               type: 'dice-check',
               label: `Body check (${bodyCheckSourceName}): ${cName}`,
-              modifiers: [],
-              threshold: cThreshold,
-              comparison: 'gte',
-              onFail,
+              modifiers: [{ kind: 'constant', value: bodyModifier }],
+              threshold: cBody,
+              comparison: 'gt',
+              ...(cDiscardValues.length > 0
+                ? { matchOutcome: { values: cDiscardValues, action: { type: 'discard-character' as const } } }
+                : {}),
+              onPass: { type: 'set-character-status' as const, status: 'tapped' as const, when: { 'target.status': 'untapped' } },
               continuation: { kind: 'chain-entry', match: 'source', drainSameSource: true },
               requireTargetPresent: true,
               targetCharacterId: charId,
@@ -5539,18 +5781,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         });
       } else if (apply.type === 'force-check' && apply.check === 'corruption') {
         const resourcePlayerId = current.activePlayer!;
-        let possessions: CardInstanceId[] = [];
-        for (const p of current.players) {
-          const charData = p.characters[targetCharId];
-          if (charData) {
-            possessions = [
-              ...charData.items.map(i => i.instanceId),
-              ...charData.allies.map(a => a.instanceId),
-              ...charData.hazards.map(h => h.instanceId),
-            ];
-            break;
-          }
-        }
+        const possessions = characterPossessionsById(current, targetCharId);
         logDetail(`${cardNm} option "${opt.id}": enqueuing corruption check (modifier ${apply.modifier ?? 0}) for character ${targetCharId as string}`);
         current = enqueueCorruptionCheck(current, {
           source: entry.card.instanceId,
@@ -5609,6 +5840,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               // Carry the failure fate for the boosted faction (The Dark Power
               // as-79: failed check → shuffle the faction into the play deck).
               ...(apply.onFailure ? { onFailure: apply.onFailure } : {}),
+              // Carry the success bonus (Lordly Presence tw-267: successful
+              // check → draw a card).
+              ...(apply.onSuccess ? { onSuccess: apply.onSuccess } : {}),
               // Carry the prowess substitution (Threats le-244: unused DI
               // replaced by min(effective prowess, max) at resolution).
               ...(apply.prowessSubstitution ? { prowessSubstitution: apply.prowessSubstitution } : {}),
@@ -5782,18 +6016,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const targetCharId = entry.payload.targetCharacterId;
       const modifier = playTargetWithCostCorruption.cost?.modifier ?? 0;
       const resourcePlayerId = current.activePlayer!;
-      let possessions: CardInstanceId[] = [];
-      for (const p of current.players) {
-        const charData = p.characters[targetCharId];
-        if (charData) {
-          possessions = [
-            ...charData.items.map(i => i.instanceId),
-            ...charData.allies.map(a => a.instanceId),
-            ...charData.hazards.map(h => h.instanceId),
-          ];
-          break;
-        }
-      }
+      const possessions = characterPossessionsById(current, targetCharId);
       const cardName = cardDef?.name ?? '';
       const failureMode = playTargetWithCostCorruption.cost?.failureMode;
       logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}${failureMode ? `, failureMode: ${failureMode}` : ''}) for character ${targetCharId as string}`);

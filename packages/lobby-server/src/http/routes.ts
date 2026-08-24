@@ -55,15 +55,15 @@ import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS, isAdminPlayer } from '../config.js';
-import { broadcastNotification, broadcastForceReload } from '../lobby/lobby.js';
+import { broadcastNotification, broadcastForceReload, newestObserverTarget } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
 import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js';
-import { sendMail, writeSentCopy, listInbox, listSent, listOpenRequests, readMessage, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
+import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, peekMessage, readMessage, reviewFinalizeDisposition, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, isValidPlayerName, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signLobbyToken } from '../auth/jwt.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
@@ -356,7 +356,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         sendJson(res, 400, { error: 'Name must be 2-30 characters' });
         return;
       }
-      if (!/^[a-zA-Z0-9 _-]+$/.test(name)) {
+      if (!isValidPlayerName(name)) {
         sendJson(res, 400, { error: 'Name may only contain letters, numbers, spaces, hyphens, and underscores' });
         return;
       }
@@ -725,6 +725,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     await authedRoute(req, res, 'save-check', 'Failed to check save', (playerName) => {
       const opponent = url.searchParams.get('opponent');
       if (!opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
+      // opponent flows into the save-file path below — reject anything that is
+      // not a valid player name so a `../` segment can never escape SAVE_DIR.
+      if (!isValidPlayerName(opponent)) { sendJson(res, 400, { error: 'invalid opponent name' }); return; }
       const names = [playerName.toLowerCase(), opponent.toLowerCase()].sort();
       const key = names.join('_vs_');
       const saveExists = fs.existsSync(path.join(SAVE_DIR, `${key}.json`))
@@ -738,6 +741,9 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
     await authedRoute(req, res, 'save-delete', 'Failed to delete save', async (playerName) => {
       const body = JSON.parse(await readBody(req)) as { opponent?: string };
       if (!body.opponent) { sendJson(res, 400, { error: 'opponent required' }); return; }
+      // opponent flows into the unlink path below — reject anything that is not
+      // a valid player name so a `../` segment can never escape SAVE_DIR.
+      if (!isValidPlayerName(body.opponent)) { sendJson(res, 400, { error: 'invalid opponent name' }); return; }
       const names = [playerName.toLowerCase(), body.opponent.toLowerCase()].sort();
       const key = names.join('_vs_');
       for (const suffix of ['.json', '-autosave.json']) {
@@ -918,10 +924,24 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           // the original terminal, approving here must NOT send it again — it
           // only records the reviewer's verdict on the review-request.
           const originalId = pending.replyTo ?? pending.keywords?.originalMessageId ?? '';
-          const original = originalId ? readMessage('ai', originalId) : null;
-          const alreadyFinalized = original?.status === 'success' || original?.status === 'failed';
-          if (alreadyFinalized) {
-            lobbyLog.log('review-reply-skipped', { msgId, originalId, reason: `original already ${original?.status}` });
+          // peekMessage, not readMessage: readMessage flips a 'new' message
+          // to 'read', and a request the admin just RENEWED back into the AI
+          // work queue is exactly status 'new' — reading it here silently
+          // dropped it from the queue (listUnhandledRequests filters on
+          // status === 'new'), and the finalize below then stamped it
+          // 'success', fully undoing the renew with no error anywhere. Same
+          // rule the admin request-view route documents. A renewed original
+          // also must not be finalized: the admin asked for it to run again.
+          const original = originalId ? peekMessage('ai', originalId) : null;
+          const disposition = reviewFinalizeDisposition(original);
+          if (disposition !== 'send-and-finalize') {
+            lobbyLog.log('review-reply-skipped', {
+              msgId,
+              originalId,
+              reason: disposition === 'skip-requeued'
+                ? 'original re-queued for the AI'
+                : `original already ${original?.status}`,
+            });
           } else if (pending.recipient && pending.topic) {
             sendMail([pending.recipient], {
               from: getDisplayName('ai'),
@@ -1004,8 +1024,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         topic?: MailTopic;
         body?: string;
       };
-      if (!body.recipients?.length || !body.subject || !body.topic || !body.body) {
-        sendJson(res, 400, { error: 'recipients, subject, topic, and body are required' });
+      if (!isRecipientList(body.recipients) || !body.subject || !body.topic || !body.body) {
+        sendJson(res, 400, { error: 'recipients (a non-empty array of player names), subject, topic, and body are required' });
         return;
       }
       const id = sendMail(body.recipients, {
@@ -1081,8 +1101,8 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
           sentBy?: string;
           replyTo?: string;
         };
-        if (!body.recipients?.length || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
-          sendJson(res, 400, { error: 'recipients, from, sender, topic, body, and subject are required' });
+        if (!isRecipientList(body.recipients) || !body.from || !body.sender || !body.topic || !body.body || !body.subject) {
+          sendJson(res, 400, { error: 'recipients (a non-empty array of player names), from, sender, topic, body, and subject are required' });
           return;
         }
         const id = sendMail(body.recipients, {
@@ -1098,6 +1118,36 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         lobbyLog.log('system-mail', { id, recipients: body.recipients, topic: body.topic });
         sendJson(res, 200, { ok: true, id });
       });
+      return;
+    }
+
+    /**
+     * The newest launched game, for an Ask AI observer to attach to
+     * (`specs/2026-08-17-ask-ai-observer.md`). `?since=<ISO>` restricts it to
+     * games launched after that instant, which is how `bin/observe --new`
+     * waits for the next game rather than the running one.
+     *
+     * Dev-only on top of the master key: the observer reads the game log off
+     * the server's own disk, so it is a development tool by construction.
+     */
+    if (urlPath === '/api/system/observer-target' && method === 'GET') {
+      if (!DEV) {
+        sendJson(res, 403, { error: 'observer-target is only available in development mode' });
+        return;
+      }
+      const since = url.searchParams.get('since') ?? undefined;
+      if (since !== undefined && Number.isNaN(Date.parse(since))) {
+        sendJson(res, 400, { error: 'since must be an ISO 8601 timestamp' });
+        return;
+      }
+      const observerName = url.searchParams.get('name') ?? 'Observer';
+      const target = newestObserverTarget(observerName, since);
+      if (!target) {
+        sendJson(res, 404, { error: 'no game' });
+        return;
+      }
+      lobbyLog.log('observer-target', { port: target.port, gameId: target.gameId, observerName });
+      sendJson(res, 200, target);
       return;
     }
 

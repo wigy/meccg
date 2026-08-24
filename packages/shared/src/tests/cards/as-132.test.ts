@@ -23,14 +23,16 @@
  * Playable: YES — CERTIFIED.
  *
  * Modeling notes:
- *  - Rule 2: because the item carries an `item-play-site` restriction, that
- *    restriction *replaces* the site's `playableResources` gate — which is why
- *    a **greater** item is playable at Ovir Hollow (as-157) even though the
- *    site lists only minor/major items. A Ruins & Lairs that does list greater
- *    items but has no hoard (The Pûkel-deeps as-158, keyword `under-deeps`
- *    rather than `hoard`) is still refused. Every Dragon's-lair Ruins & Lairs
- *    (including the minion ones, e.g. Dancing Spire as-143) carries the
- *    `hoard` keyword per CoE g.hoa.1.
+ *  - Rule 2: the `item-play-site` hoard restriction is an *addition* to the
+ *    site's `playableResources` gate, not a replacement (METD Hoards: a hoard
+ *    item "may only be played at a site that contains a hoard" — a
+ *    restriction, never a grant). So this **greater** item needs a hoard site
+ *    that also lists greater items (e.g. Dancing Spire as-143); Ovir Hollow
+ *    (as-157, minor/major only) refuses it even though it has a hoard. A
+ *    Ruins & Lairs that does list greater items but has no hoard (The
+ *    Pûkel-deeps as-158, keyword `under-deeps` rather than `hoard`) is also
+ *    refused. Every Dragon's-lair Ruins & Lairs (including the minion ones,
+ *    e.g. Dancing Spire as-143) carries the `hoard` keyword per CoE g.hoa.1.
  *  - Rule 4 reads the candidate's **effective** prowess (printed + modifiers
  *    from cards already borne). The item being played is not attached yet, so
  *    its own warrior bonus never feeds its own gate.
@@ -204,12 +206,12 @@ describe('Thong of Fire (as-132)', () => {
 
   // ── Rule 2: hoard item — only at a site that contains a hoard ─────────────
 
-  test('playable at a hoard site even though the site lists only minor/major items', () => {
+  test('not playable at a hoard site whose playableResources excludes greater items', () => {
     // Ovir Hollow's playableResources are minor + major; Thong of Fire is a
-    // GREATER item. The `item-play-site` hoard restriction replaces that gate.
+    // GREATER item. The `item-play-site` hoard restriction adds the hoard
+    // requirement on top of the site's tier gate — it does not replace it.
     const state = sitePhaseWith(OVIR_HOLLOW, LIEUTENANT_OF_MORGUL);
-    const lieutenant = findCharInstanceId(state, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL);
-    expect(eligibleBearers(state)).toContain(lieutenant);
+    expect(eligibleBearers(state)).toHaveLength(0);
   });
 
   test('not playable at a Ruins & Lairs without a hoard, even one that allows greater items', () => {
@@ -231,7 +233,7 @@ describe('Thong of Fire (as-132)', () => {
   // ── Rule 4: may only be borne by a character with prowess 6 or more ───────
 
   test('a prowess-8 warrior is an eligible bearer; a prowess-5 warrior in the same company is not', () => {
-    const state = sitePhaseWith(OVIR_HOLLOW, LIEUTENANT_OF_MORGUL, ORC_CAPTAIN);
+    const state = sitePhaseWith(DANCING_SPIRE, LIEUTENANT_OF_MORGUL, ORC_CAPTAIN);
     const lieutenant = findCharInstanceId(state, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL);
     const captain = findCharInstanceId(state, RESOURCE_PLAYER, ORC_CAPTAIN);
     const bearers = eligibleBearers(state);
@@ -240,7 +242,7 @@ describe('Thong of Fire (as-132)', () => {
   });
 
   test('prowess exactly 6 qualifies (the boundary is "6 or more")', () => {
-    const state = sitePhaseWith(OVIR_HOLLOW, ULKAUR);
+    const state = sitePhaseWith(DANCING_SPIRE, ULKAUR);
     const ulkaur = findCharInstanceId(state, RESOURCE_PLAYER, ULKAUR);
     expect(eligibleBearers(state)).toContain(ulkaur);
   });
@@ -248,7 +250,7 @@ describe('Thong of Fire (as-132)', () => {
   test('the gate reads EFFECTIVE prowess: a prowess-5 warrior boosted to 6 becomes eligible', () => {
     // I'll Report You (le-196) gives +1 prowess to every character in the
     // company, lifting Orc Captain's effective prowess from 5 to 6.
-    const base = sitePhaseWith(OVIR_HOLLOW, ORC_CAPTAIN);
+    const base = sitePhaseWith(DANCING_SPIRE, ORC_CAPTAIN);
     expect(eligibleBearers(base)).toHaveLength(0);
 
     const boosted = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, ORC_CAPTAIN, ILL_REPORT_YOU));
@@ -330,7 +332,7 @@ describe('Thong of Fire (as-132)', () => {
   // ── Rule 1: unique ───────────────────────────────────────────────────────
 
   test('a second copy cannot be played while one is already in play', () => {
-    const base = sitePhaseWith(OVIR_HOLLOW, LIEUTENANT_OF_MORGUL, ULKAUR);
+    const base = sitePhaseWith(DANCING_SPIRE, LIEUTENANT_OF_MORGUL, ULKAUR);
     const state = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, LIEUTENANT_OF_MORGUL, THONG_OF_FIRE));
     // Ulkaur (prowess 6) would otherwise be an eligible bearer.
     expect(eligibleBearers(state)).toHaveLength(0);

@@ -14,15 +14,17 @@
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
-import { Phase, CardDefinitionId, Alignment, CompanyId } from '../../../index.js';
+import { Phase, CardDefinitionId, Alignment, CompanyId, CardStatus, THE_MITHRIL_COAT } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
-  dispatch, viableActions,
+  dispatch, viableActions, assertEveryInstanceReachable,
 } from '../../test-helpers.js';
+import type { CharacterEntry } from '../../test-helpers.js';
 import type { SitePhaseState } from '../../../index.js';
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
-const BILBO = 'tw-140' as CardDefinitionId;
+const DENETHOR = 'tw-140' as CardDefinitionId;  // Denethor II: prowess 3, body 6
+const MAUHUR = 'as-2' as CardDefinitionId;      // Mauhúr: prowess 6, body 9 (minion)
 const PERCHEN = 'as-4' as CardDefinitionId;
 const MORIA = 'tw-d21' as CardDefinitionId;
 const MORIA_AS = 'as-169' as CardDefinitionId;  // Weathertop ruins-and-lairs (minion site)
@@ -34,8 +36,8 @@ const EAGLES_EYRIE_MINION = 'as-144' as CardDefinitionId;
 function buildCvCCState(opts: {
   siteEntered?: boolean;
   opponentInteraction?: 'influence' | 'attack' | null;
-  p1Characters?: CardDefinitionId[];
-  p2Characters?: CardDefinitionId[];
+  p1Characters?: CharacterEntry[];
+  p2Characters?: CharacterEntry[];
   p2Alignment?: Alignment;
   sameSite?: boolean;
 }) {
@@ -49,7 +51,7 @@ function buildCvCCState(opts: {
       {
         id: PLAYER_1,
         alignment: Alignment.Wizard,
-        companies: [{ site: p1Site, characters: opts.p1Characters ?? [ARAGORN, BILBO] }],
+        companies: [{ site: p1Site, characters: opts.p1Characters ?? [ARAGORN, DENETHOR] }],
         hand: [],
         siteDeck: [RIVENDELL],
       },
@@ -112,9 +114,49 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     expect(passActions.length).toBeGreaterThan(0);
   });
 
+  test('CvCC: declare-company-attack NOT offered when the active company has no characters left', () => {
+    // Regression (random self-play, seed 661001): a solo attacker eliminated
+    // by the site's automatic-attack body check leaves an empty company that
+    // the site-phase machine still walks through its steps. The
+    // declare-company-attack emitter offered an attack from that empty
+    // company, which the reducer is guaranteed to reject ("Attacking company
+    // has no characters") — an offered-then-rejected action that halts
+    // engine-driven play. Only the pass may be offered.
+    const state = buildCvCCState({ siteEntered: true });
+    const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const ps = afterPass.phaseState as SitePhaseState;
+    expect(ps.step).toBe('declare-company-attack');
+
+    // The active company's characters are wiped out (moved to the
+    // out-of-play pile, keeping every instance reachable in state).
+    const p1 = afterPass.players[0];
+    const company = p1.companies[0];
+    const removedChars = company.characters.map(id => {
+      const ch = p1.characters[id];
+      return { instanceId: ch.instanceId, definitionId: ch.definitionId };
+    });
+    const remainingCharacters = { ...p1.characters };
+    for (const id of company.characters) delete remainingCharacters[id];
+    const wiped = {
+      ...afterPass,
+      players: [
+        {
+          ...p1,
+          characters: remainingCharacters,
+          companies: [{ ...company, characters: [] }],
+          outOfPlayPile: [...p1.outOfPlayPile, ...removedChars],
+        },
+        afterPass.players[1],
+      ] as typeof afterPass.players,
+    };
+
+    expect(viableActions(wiped, PLAYER_1, 'declare-company-attack')).toHaveLength(0);
+    expect(viableActions(wiped, PLAYER_1, 'pass').length).toBeGreaterThan(0);
+  });
+
   test('CvCC: one strike per attacking character (strikesTotal = company size)', () => {
     // Aragorn + Bilbo = 2 attackers → 2 strikes
-    const state = buildCvCCState({ siteEntered: true, p1Characters: [ARAGORN, BILBO] });
+    const state = buildCvCCState({ siteEntered: true, p1Characters: [ARAGORN, DENETHOR] });
     const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
     const declareActions = viableActions(afterPass, PLAYER_1, 'declare-company-attack');
     expect(declareActions.length).toBe(1);
@@ -283,5 +325,193 @@ describe('Rule 8.38 — Company vs Company Combat', () => {
     // Combat must start — the reducer must not reject the action
     expect(afterDeclare.combat).not.toBeNull();
     expect(afterDeclare.combat?.isCvCC).toBe(true);
+  });
+
+  test('CvCC: defending character eliminated by a strike awards its MP to the attacker as kill MP', () => {
+    // Rule bullet above: "Company vs. Company Combat - Each character defeated
+    // by a strike is wounded and must make a body check. If the character is
+    // eliminated, it counts as kill MPs for the opposing player."
+    // Regression: game mt21uvpn-8if830 — PLAYER_1 (attacker) eliminated a
+    // defending character in CvCC but received no kill MP; eliminateCombatantFromStrike
+    // unconditionally sent the eliminated character to the defender's own
+    // outOfPlayPile instead of the attacker's killPile.
+    const state = buildCvCCState({ siteEntered: true, p1Characters: [ARAGORN], p2Characters: [PERCHEN] });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender passes without assigning — leaves Perchen for the attacker to pair with.
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+
+    // Attacker assigns Aragorn to strike Perchen.
+    const atkAssign = viableActions(s, PLAYER_1, 'assign-strike');
+    s = dispatch(s, atkAssign[0].action);
+
+    const perchenId = s.players[1].companies[0].characters[0];
+
+    // Attacker taps to fight at full prowess; force the roll to the max so
+    // Aragorn (prowess 6) beats Perchen (prowess 3) regardless of RNG.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 12 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    expect(s.combat?.phase).toBe('body-check');
+    expect(s.combat?.bodyCheckTarget).toBe('character');
+
+    // Force the body check roll high enough to eliminate Perchen (body 9).
+    s = { ...s, cheatRollTotal: 12 };
+    const bodyCheckActions = viableActions(s, PLAYER_1, 'body-check-roll');
+    expect(bodyCheckActions.length).toBeGreaterThan(0);
+    s = dispatch(s, bodyCheckActions[0].action);
+
+    expect(s.combat).toBeNull();
+    expect(s.players[0].killPile.some(c => c.instanceId === perchenId)).toBe(true);
+    expect(s.players[1].outOfPlayPile.some(c => c.instanceId === perchenId)).toBe(false);
+  });
+
+  test('CvCC: attacking character body check uses effective body, not printed body', () => {
+    // Regression: handleBodyCheckRoll's attacker-character branch read the
+    // printed body from the card definition, while the defending-character
+    // branch checks effectiveStats.body — so a body modifier (The Mithril-coat
+    // +3, Akhôrahil tw-4's -1) protected/exposed a character when defending
+    // but was silently ignored when the same character attacked in CvCC.
+    const state = buildCvCCState({
+      siteEntered: true,
+      p1Characters: [{ defId: DENETHOR, items: [THE_MITHRIL_COAT] }],
+      p2Characters: [MAUHUR],
+    });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender passes without assigning — leaves Mauhúr for the attacker to pair with.
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+    const atkAssign = viableActions(s, PLAYER_1, 'assign-strike');
+    s = dispatch(s, atkAssign[0].action);
+
+    const denethorId = s.players[0].companies[0].characters[0];
+    // Denethor II: printed body 6, +3 from The Mithril-coat → effective body 9.
+    expect(s.players[0].characters[denethorId].effectiveStats.body).toBe(9);
+
+    // The cheat total is consumed by the first (attacker's) roll, so force it
+    // to the minimum: Denethor II totals 2 + prowess 3 = 5, while Mauhúr's
+    // worst case is 2 + prowess 6 = 8 — the defender wins regardless of RNG
+    // and the attacker is wounded and must make a body check.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 2 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    expect(s.combat?.phase).toBe('body-check');
+    expect(s.combat?.bodyCheckTarget).toBe('attacker-character');
+
+    // The defender rolls the attacker's body check; the quoted need must be
+    // computed from effective body 9 (need 10+), not printed body 6.
+    s = { ...s, cheatRollTotal: 8 };
+    const bodyCheckActions = viableActions(s, PLAYER_2, 'body-check-roll');
+    expect(bodyCheckActions.length).toBeGreaterThan(0);
+    expect((bodyCheckActions[0].action as { need: number }).need).toBe(10);
+
+    // Roll 8: above printed body 6, at or below effective body 9 → survives.
+    s = dispatch(s, bodyCheckActions[0].action);
+    expect(s.players[0].characters[denethorId]).toBeDefined();
+    expect(s.players[0].characters[denethorId].status).toBe(CardStatus.Inverted);
+    expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(false);
+  });
+
+  test('CvCC: already-wounded attacking character gets +1 on its body check (CoE 3.I)', () => {
+    // Regression: resolveStrikeCvCC recorded the pre-strike wounded status
+    // only for the defender, so the attacker-character body check never got
+    // the CoE rule 3.I +1 for a character that was already wounded before the
+    // strike — a roll exactly at the attacker's body wrongly let them survive.
+    const state = buildCvCCState({
+      siteEntered: true,
+      p1Characters: [{ defId: DENETHOR, status: CardStatus.Inverted }],
+      p2Characters: [MAUHUR],
+    });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    // Defender assigns untapped Mauhúr against the wounded attacker.
+    const defAssign = viableActions(s, PLAYER_2, 'assign-strike');
+    expect(defAssign.length).toBeGreaterThan(0);
+    s = dispatch(s, defAssign[0].action);
+
+    const denethorId = s.players[0].companies[0].characters[0];
+
+    // Force the attacker's roll to the minimum: wounded Denethor II totals
+    // 2 + (prowess 3 - 2 wounded) = 3, while Mauhúr's worst case is
+    // 2 + prowess 6 = 8 — the defender wins regardless of RNG.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 2 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    expect(s.combat?.phase).toBe('body-check');
+    expect(s.combat?.bodyCheckTarget).toBe('attacker-character');
+
+    // The quoted need accounts for the +1: body 6 → need 6+ instead of 7+.
+    s = { ...s, cheatRollTotal: 6 };
+    const bodyCheckActions = viableActions(s, PLAYER_2, 'body-check-roll');
+    expect(bodyCheckActions.length).toBeGreaterThan(0);
+    expect((bodyCheckActions[0].action as { need: number }).need).toBe(6);
+
+    // Roll 6 + 1 (already wounded) = 7 > body 6 → eliminated, kill MP to the
+    // defender. Without the +1 the roll would tie the body and wrongly spare
+    // the attacker.
+    s = dispatch(s, bodyCheckActions[0].action);
+    expect(s.players[0].characters[denethorId]).toBeUndefined();
+    expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(true);
+  });
+
+  test('CvCC: eliminating an attacking character disposes its items, not drops them', () => {
+    // Regression: the attacker-character body-check elimination pushed only the
+    // character card to the defender's kill pile and deleted the character
+    // record — its attached items (which live only on that record) vanished
+    // from the game state entirely (no-card-disappears invariant violation).
+    const state = buildCvCCState({
+      siteEntered: true,
+      p1Characters: [{ defId: DENETHOR, items: [THE_MITHRIL_COAT] }],
+      p2Characters: [MAUHUR],
+    });
+    let s = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const declareAction = viableActions(s, PLAYER_1, 'declare-company-attack')[0].action as {
+      type: 'declare-company-attack'; player: typeof PLAYER_1; attackingCompanyId: CompanyId; targetCompanyId: CompanyId;
+    };
+    s = dispatch(s, declareAction);
+
+    const denethorId = s.players[0].companies[0].characters[0];
+    const coatId = s.players[0].characters[denethorId].items[0].instanceId;
+
+    // Defender passes, attacker pairs Denethor II against Mauhúr.
+    s = dispatch(s, { type: 'pass', player: PLAYER_2 });
+    const atkAssign = viableActions(s, PLAYER_1, 'assign-strike');
+    s = dispatch(s, atkAssign[0].action);
+
+    // Minimum attacker roll: Denethor II 2 + prowess 3 = 5 < Mauhúr 2 + 6 = 8 —
+    // the defender wins and Denethor II is wounded, then body-checked.
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+    s = { ...s, cheatRollTotal: 2 };
+    s = dispatch(s, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+    expect(s.combat?.bodyCheckTarget).toBe('attacker-character');
+
+    // Force the body check high enough to eliminate: Denethor II printed body 6,
+    // +3 Mithril-coat → effective 9; roll 12 > 9 → eliminated.
+    s = { ...s, cheatRollTotal: 12 };
+    const bodyCheckActions = viableActions(s, PLAYER_2, 'body-check-roll');
+    s = dispatch(s, bodyCheckActions[0].action);
+
+    // Denethor II eliminated to the defender's kill pile.
+    expect(s.players[0].characters[denethorId]).toBeUndefined();
+    expect(s.players[1].killPile.some(c => c.instanceId === denethorId)).toBe(true);
+    // The Mithril-coat did not vanish — it lands in the attacker's discard pile.
+    expect(s.players[0].discardPile.some(c => c.instanceId === coatId)).toBe(true);
+    // Belt-and-braces: every minted instance is still reachable somewhere.
+    assertEveryInstanceReachable(s);
   });
 });

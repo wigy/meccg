@@ -19,7 +19,7 @@ import { matchesDefinition, characterEntries, playerById, getCardEffects, defByI
 import { isCharacterCard, isSiteCard } from '../../types/cards.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
-import { buildGrantActionContext } from './organization.js';
+import { buildGrantActionContext, grantedActionActivations } from './organization.js';
 import { resolveHandSize } from '../effects/index.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
@@ -55,6 +55,10 @@ import { grantedAction } from './granted-action-emit.js';
  * phase the company is at a site" — this includes end-of-turn, so
  * character-recruitment events are also offered here via
  * {@link recruitViaEventActions}.
+ *
+ * Rule 2.1.1: the resource player may also activate any-phase grant-actions
+ * (e.g. Gandalf tapping to test a gold ring in his company, tw-156) during
+ * the end-of-turn phase, via {@link grantedActionActivations}.
  */
 export function endOfTurnActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const eotState = requirePhaseState(state, Phase.EndOfTurn);
@@ -64,10 +68,19 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
   switch (step) {
     case 'discard': {
       const base = viable(discardStepActions(state, playerId));
-      if (state.activePlayer === playerId) {
+      // The rule 2.1.1 / CRF extras are offered only while the player's
+      // step-1 window is still open (`discardDone` not yet set) —
+      // discardStepActions then guarantees a `pass` alongside them. Once the
+      // player has acted, the step offers nothing; appending plays here
+      // without that pass made any playable permanent event a FORCED play,
+      // which livelocked the game with the Demon fána swap pair (playing
+      // Flame of Udûn returns Great Shadow to hand and vice versa, forever).
+      const playerIndex = getPlayerIndex(state, playerId);
+      if (state.activePlayer === playerId && !eotState.discardDone[playerIndex]) {
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
         base.push(...playPermanentEventActions(state, playerId));
         base.push(...recruitViaEventActions(state, playerId));
+        base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
       }
       return base;
     }
@@ -79,6 +92,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
         base.push(...heroResourceShortEventActions(state, playerId, 'end-of-turn'));
         base.push(...playPermanentEventActions(state, playerId));
         base.push(...recruitViaEventActions(state, playerId));
+        base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
       }
       return base;
     }
@@ -335,6 +349,26 @@ function runHomeActions(state: GameState, playerId: PlayerId): GameAction[] {
     }
     if (!siteDef.nearestHaven) {
       logDetail(`run-home: site ${siteDef.name} has no nearest haven — skipping`);
+      continue;
+    }
+
+    // The reducer needs the haven card to be reachable: either a sibling
+    // company already stands at it, or it sits in the location deck
+    // (reducer-end-of-turn.ts). A deck need not carry the haven the site's
+    // `nearestHaven` names at all — e.g. a Fallen-wizard deck whose sites
+    // name "Rivendell" — and offering the action then guarantees the
+    // rejection "nearest haven not found in location deck".
+    const havenName = siteDef.nearestHaven;
+    const havenAvailable = player.companies.some(c => {
+      if (c.id === company.id || !c.currentSite) return false;
+      const d = defById(state, c.currentSite.definitionId);
+      return d !== undefined && isSiteCard(d) && d.name === havenName;
+    }) || player.siteDeck.some(entry => {
+      const d = defById(state, entry.definitionId);
+      return d !== undefined && isSiteCard(d) && d.siteType === 'haven' && d.name === havenName;
+    });
+    if (!havenAvailable) {
+      logDetail(`run-home: nearest haven ${havenName} is neither in the location deck nor under a sibling company — skipping`);
       continue;
     }
 

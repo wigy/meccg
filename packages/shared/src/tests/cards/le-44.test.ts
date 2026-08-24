@@ -18,8 +18,9 @@
  * Playable: YES
  *
  * Rules exercised:
- * 1. discardBodyCheck [8]: troll is discarded when body check roll < effective threshold (8 base).
- *    Verified via Veils Flung Away (le-146, −1 modifier): effective threshold = 7;
+ * 1. discardBodyCheck [8]: the troll is discarded when the modified body-check
+ *    total matches a printed discard value. Verified via Veils Flung Away
+ *    (le-146, -1 roll modifier per CoE 3.I.1): a roll of 9 (total 8) discards;
  *    roll=6 → discard, roll=7 → safe.
  * 2. -1 modifier applied to all corruption checks:
  *    corruptionModifier is -1 and need = CP + 1 − (−1) = CP + 2.
@@ -105,9 +106,9 @@ describe('Troll Lout (le-44)', () => {
 
   // ── Structural: discardBodyCheck [8] ────────────────────────────────────────
 
-  test('Troll Lout is discarded when body check fails (roll < effective threshold)', () => {
-    // discardBodyCheck = [8]; Veils Flung Away applies −1 modifier → effective threshold = 7.
-    // Roll of 6 (< 7) triggers failure → character discarded to discard pile.
+  test('Troll Lout is discarded when the modified total matches his discard value', () => {
+    // discardBodyCheck = [8]; Veils Flung Away applies a -1 roll modifier (CoE 3.I.1).
+    // Roll of 9 (total 8, matching the value) → character discarded to discard pile.
     const state = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -130,8 +131,8 @@ describe('Troll Lout (le-44)', () => {
     expect(s.pendingResolutions).toHaveLength(1);
     expect(s.pendingResolutions[0].kind.type).toBe('dice-check');
 
-    // Force roll of 6 (< 7 effective threshold) → fail → discard
-    s = { ...s, cheatRollTotal: 6 };
+    // Force roll of 9 → total 8 matches the discard value → discard
+    s = { ...s, cheatRollTotal: 9 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');
     expect(rollActions).toHaveLength(1);
@@ -143,8 +144,8 @@ describe('Troll Lout (le-44)', () => {
     expect(discardDefIds).toContain(TROLL_LOUT);
   });
 
-  test('Troll Lout stays in play when body check passes (roll >= effective threshold)', () => {
-    // discardBodyCheck = [8]; Veils Flung Away −1 modifier → effective threshold = 7.
+  test('Troll Lout stays in play when body check passes', () => {
+    // discardBodyCheck = [8]; Veils Flung Away applies a -1 roll modifier (CoE 3.I.1).
     // Roll of 7 (= 7, passes) → character stays in play.
     const state = buildTestState({
       phase: Phase.MovementHazard,
@@ -165,7 +166,7 @@ describe('Troll Lout (le-44)', () => {
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
     s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
 
-    // Force roll of 7 (= 7 effective threshold, passes) → safe
+    // Force roll of 7 → total 6: no match, ≤ body → safe
     s = { ...s, cheatRollTotal: 7 };
     const rollActions = computeLegalActions(s, PLAYER_1)
       .filter(a => a.viable && a.action.type === 'resolve-dice-check');

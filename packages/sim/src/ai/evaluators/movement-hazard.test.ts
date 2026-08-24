@@ -93,10 +93,25 @@ const WOLD_AND_FOOTHILLS: CardDefinition = { cardType: 'region', id: 'tw-490', n
 const HOLLIN: CardDefinition = { cardType: 'region', id: 'tw-466', name: 'Hollin', regionType: 'wilderness' } as unknown as CardDefinition;
 const REDHORN_GATE: CardDefinition = { cardType: 'region', id: 'tw-481', name: 'Redhorn Gate', regionType: 'wilderness' } as unknown as CardDefinition;
 
+// Wandering Eldar (le-97): a creature whose own text makes its attack
+// detainment against a hero company — it taps rather than wounds, and awards
+// no kill marshalling points when it is defeated (CoE 3.II.3).
+const WANDERING_ELDAR: CardDefinition = {
+  cardType: 'hazard-creature',
+  id: 'le-97',
+  name: 'Wandering Eldar',
+  strikes: 1,
+  prowess: 4,
+  race: 'elf',
+  keyedTo: [],
+  effects: [{ type: 'combat-detainment', when: { 'defender.alignment': 'hero' } }],
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
   'as-30': FULL_OF_FROTH_AND_RAGE,
   'td-42': LESSER_SPIDERS,
   'dm-111': STIRRING_BONES,
+  'le-97': WANDERING_ELDAR,
   'tw-28': DOORS_OF_NIGHT,
   'dm-45': UNEXPECTED_OUTPOST,
   'as-24': ALONE_AND_UNADVISED,
@@ -240,6 +255,68 @@ describe('movementHazardEvaluator play-hazard creature keying-variant splitting'
     const perVariantScore = movementHazardEvaluator.score(playHazard('h1'), context)!;
 
     expect(boostScore).toBeGreaterThan(perVariantScore * 2);
+  });
+});
+
+describe('movementHazardEvaluator play-hazard detainment sequencing', () => {
+  /** A hero company of two characters for the hazards to be aimed at. */
+  function contextAgainstHeroCompany(handDefIds: readonly string[]): AiContext {
+    const view = {
+      self: {
+        hand: handDefIds.map((definitionId, i) => ({ instanceId: `h${i}`, definitionId })),
+        cardsInPlay: [],
+      },
+      opponent: {
+        alignment: 'wizard',
+        cardsInPlay: [],
+        companies: [{
+          id: 'company-p1-0',
+          characters: ['c0', 'c1'],
+          currentSite: null,
+          revealedDestinationSite: null,
+        }],
+        characters: {
+          c0: { effectiveStats: { prowess: 5 } },
+          c1: { effectiveStats: { prowess: 4 } },
+        },
+      },
+      combat: null,
+    } as unknown as PlayerView;
+    return {
+      view,
+      cardPool: POOL,
+      legalActions: handDefIds.map((_, i) => playHazard(`h${i}`)),
+    };
+  }
+
+  test('a detainment attack is played before a creature that can be beaten for points', () => {
+    // The reported instinct: tap the defenders with the attack that costs
+    // nothing to lose, and the creature that *can* hand over kill MP arrives
+    // against a tapped company. Lesser Spiders is by far the bigger attack, so
+    // without the lift it is played first and the detainment attack meets an
+    // already-spent hazard limit — or is never played at all.
+    const context = contextAgainstHeroCompany(['td-42', 'le-97']);
+    const spidersScore = movementHazardEvaluator.score(playHazard('h0'), context)!;
+    const eldarScore = movementHazardEvaluator.score(playHazard('h1'), context)!;
+
+    expect(eldarScore).toBeGreaterThan(spidersScore);
+  });
+
+  test('against a company it does not detain, the bigger attack still leads', () => {
+    // The same two cards against a minion company: §3.II.2's hero clause does
+    // not fire, Wandering Eldar wounds like anything else, and the ordering is
+    // decided by threat alone.
+    const context = contextAgainstHeroCompany(['td-42', 'le-97']);
+    const minionView = {
+      ...context.view,
+      opponent: { ...context.view.opponent, alignment: 'ringwraith' },
+    } as unknown as PlayerView;
+    const minionContext: AiContext = { ...context, view: minionView };
+
+    const spidersScore = movementHazardEvaluator.score(playHazard('h0'), minionContext)!;
+    const eldarScore = movementHazardEvaluator.score(playHazard('h1'), minionContext)!;
+
+    expect(spidersScore).toBeGreaterThan(eldarScore);
   });
 });
 

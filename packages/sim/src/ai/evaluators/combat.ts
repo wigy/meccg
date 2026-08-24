@@ -7,7 +7,8 @@
  * rolls.
  *
  * Strategy:
- * - Assign strikes to high-prowess characters first.
+ * - Assign strikes to high-prowess characters first when defending; to the
+ *   weakest defending characters when attacking.
  * - Tap to fight when the unmodified need is hard (>= 8) and the character
  *   is still untapped.
  * - Never play a Dodge-style (no-tap) strike event on a character that's
@@ -26,7 +27,7 @@
 import type { GameAction } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
-import { findCharacterInPlay, isWounded, isTapped, strikeModifierEffect, lookupDef, diceSuccessPct } from './common.js';
+import { findCharacterInPlay, findCompanyOf, isWounded, isTapped, isUntapped, strikeModifierEffect, lookupDef, diceSuccessPct } from './common.js';
 
 export const combatEvaluator: ActionEvaluator = {
   // Combat is phase-independent — these phases are where it most often
@@ -41,9 +42,13 @@ export const combatEvaluator: ActionEvaluator = {
       case 'assign-strike': {
         const found = findCharacterInPlay(view, action.characterId);
         if (!found) return 1;
-        // Higher prowess characters absorb strikes better.
         const prowess = found.character.effectiveStats.prowess;
-        return Math.max(1, prowess + 5);
+        // Defending: higher prowess characters absorb strikes better.
+        // Attacking (the engine also asks the attacker to assign leftover
+        // strikes to the defender's characters): target the weakest defender,
+        // so the scale inverts.
+        if (found.isSelf) return Math.max(1, prowess + 5);
+        return Math.max(1, 25 - prowess);
       }
 
       case 'choose-strike-order': {
@@ -56,11 +61,40 @@ export const combatEvaluator: ActionEvaluator = {
       }
 
       case 'resolve-strike': {
+        // If a company teammate has already resolved its strike and stayed
+        // untapped, the company already has an untapped member — staying
+        // untapped here too is a needless extra risk, since it costs -3
+        // prowess (CoE 3.iv.3) for no further benefit while tapping is
+        // strictly the safer roll. Strongly prefer tapping in that case.
+        const combat = context.view.combat;
+        const struckId = combat?.strikeAssignments[combat.currentStrikeIndex]?.characterId;
+        const struck = struckId ? findCharacterInPlay(view, struckId) : null;
+        if (combat && struck?.isSelf) {
+          const company = findCompanyOf(view, struckId!);
+          const teammateAlreadyUntapped = company?.characters.some(id => {
+            if (id === struckId) return false;
+            const assignment = combat.strikeAssignments.find(sa => sa.characterId === id);
+            if (!assignment?.resolved) return false;
+            const teammate = view.self.characters[id];
+            return teammate ? isUntapped(teammate) : false;
+          }) ?? false;
+          if (teammateAlreadyUntapped) return action.tapToFight ? 20 : 1;
+        }
         // Tap to fight when the roll need is hard and the alternative not.
         if (action.tapToFight && action.need >= 8) return 20;
         if (!action.tapToFight && action.need <= 7) return 20;
         if (action.tapToFight) return 5;
         return 8;
+      }
+
+      case 'tap-item-for-strike': {
+        // Tapping the item to boost prowess for this strike costs nothing
+        // (unlike tap-to-fight, which taps the character). It only ever
+        // improves the roll need, so score it by the resulting success
+        // chance — the same scale used for strike-modifier events — which
+        // beats resolve-strike's fixed 5/8/20 scores whenever the boost
+        // actually helps.
+        return Math.max(1, diceSuccessPct(action.need));
       }
 
       case 'play-strike-event': {

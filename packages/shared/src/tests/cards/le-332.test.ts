@@ -23,7 +23,7 @@
  * | 5 | Bearer able to use a Palantír: tap to draw     | grant-action palantir-draw-card, cost { tap: "self" },           |
  * |   |                                               |   when bearer.canUsePalantir, apply draw-cards count 1           |
  * | 6 | Bearer then makes a corruption check           | enqueue-corruption-check in the same sequence apply               |
- * | 7 | No MPs to a Fallen-wizard, regardless of      | fw-mp-none — checked before the §4 clamp, its `fw-item-mp-full`  |
+ * | 7 | No MPs to a Fallen-wizard, regardless of      | fw-mp-none — checked before the §4 clamp, its `fw-mp-full (cards: items)`  |
  * |   |   other cards in play                         |   exemptions, and every MP override/pin                          |
  *
  * The `can-use-palantir` constraint is keyed to the card instance that placed
@@ -59,7 +59,7 @@ const LUITPRAND           = 'le-23'  as CardDefinitionId; // minion scout, not a
 const WHITE_TOWERS        = 'le-412' as CardDefinitionId; // minion ruins-and-lairs, Arthedain
 const DOL_GULDUR          = 'le-367' as CardDefinitionId; // minion dark-hold
 const MINAS_MORGUL        = 'le-390' as CardDefinitionId; // minion darkhaven
-const SARUMAN_FW          = 'wh-9'   as CardDefinitionId; // FW avatar with fw-item-mp-full
+const SARUMAN_FW          = 'wh-9'   as CardDefinitionId; // FW avatar with fw-mp-full (cards: items)
 const ARAGORN             = 'tw-11'  as CardDefinitionId; // hero character (FW company filler)
 const LEGOLAS             = 'tw-104' as CardDefinitionId;
 const RIVENDELL           = 'tw-419' as CardDefinitionId;
@@ -327,8 +327,8 @@ describe('Palantír of Elostirion (le-332)', () => {
     expect(pending[0].kind.type).toBe('corruption-check');
   });
 
-  test('drawing stops at deck exhaustion instead of inventing a card', () => {
-    const state = buildOrgState({ bearer: CALENDAL });
+  test('drawing stops at deck exhaustion instead of inventing a card when the discard pile is also empty', () => {
+    const state = buildOrgState({ bearer: CALENDAL, discardPile: [] });
     const emptyDeck: GameState = {
       ...state,
       players: [{ ...state.players[0], playDeck: [] }, state.players[1]] as typeof state.players,
@@ -339,6 +339,31 @@ describe('Palantír of Elostirion (le-332)', () => {
 
     expect(after.players[0].hand.length).toBe(handBefore);
     expect(after.players[0].playDeck.length).toBe(0);
+    // The tap and the corruption check still happened.
+    const charId = findCharInstanceId(after, RESOURCE_PLAYER, CALENDAL);
+    expect(after.players[0].characters[charId].items[0].status).toBe(CardStatus.Tapped);
+    expect(after.pendingResolutions.filter(r => r.kind.type === 'corruption-check').length).toBe(1);
+  });
+
+  test('reshuffles the discard pile and draws when the play deck is empty (CoE 2.4)', () => {
+    // Regression alongside the Dark Tryst "Fark Tryst" bug report (game
+    // msxc5o26-l4c4wc, seq 1121): any draw-cards effect must exhaust and
+    // reshuffle a spent play deck immediately rather than silently drawing
+    // nothing, as long as the discard pile has cards to shuffle in.
+    const state = buildOrgState({ bearer: CALENDAL, discardPile: [LUITPRAND] });
+    const emptyDeck: GameState = {
+      ...state,
+      players: [{ ...state.players[0], playDeck: [] }, state.players[1]] as typeof state.players,
+    };
+    const handBefore = emptyDeck.players[0].hand.length;
+    const startingExhaustionCount = emptyDeck.players[0].deckExhaustionCount;
+
+    const after = dispatch(emptyDeck, grantActions(emptyDeck, 'palantir-draw-card')[0]);
+
+    expect(after.players[0].hand.length).toBe(handBefore + 1);
+    expect(after.players[0].playDeck.length).toBe(0);
+    expect(after.players[0].discardPile.length).toBe(0);
+    expect(after.players[0].deckExhaustionCount).toBe(startingExhaustionCount + 1);
     // The tap and the corruption check still happened.
     const charId = findCharInstanceId(after, RESOURCE_PLAYER, CALENDAL);
     expect(after.players[0].characters[charId].items[0].status).toBe(CardStatus.Tapped);
@@ -377,7 +402,7 @@ describe('Palantír of Elostirion (le-332)', () => {
   });
 
   test('a Fallen-wizard scores no MP for it, even with Saruman in play', () => {
-    // Saruman's `fw-item-mp-full` would otherwise exempt this (non-weapon)
+    // Saruman's `fw-mp-full (cards: items)` would otherwise exempt this (non-weapon)
     // item from the MEWH §4 clamp and score its full 3 MP.
     const state = buildTestState({
       activePlayer: PLAYER_1,

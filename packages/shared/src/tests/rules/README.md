@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 339 | 290 | 49 | 85.5% |
+| 342 | 295 | 47 | 86.3% |
 
 ## Section Breakdown
 
@@ -76,7 +76,7 @@
 | 1.33 | Deck Construction & Setup | [Fw Pool Stage Resources](01-deck-construction/rule-1.33-fw-pool-stage-resources.test.ts) | ☑ |
 | 1.34 | Deck Construction & Setup | [Declaring Alignments](01-deck-construction/rule-1.34-declaring-alignments.test.ts) | ☑ |
 | 1.35 | Deck Construction & Setup | [Cards Vs Ringwraith](01-deck-construction/rule-1.35-cards-vs-ringwraith.test.ts) | ☑ |
-| 1.36 | Deck Construction & Setup | [Cards Vs Balrog](01-deck-construction/rule-1.36-cards-vs-balrog.test.ts) | ◐ |
+| 1.36 | Deck Construction & Setup | [Cards Vs Balrog](01-deck-construction/rule-1.36-cards-vs-balrog.test.ts) | ☑ |
 | 1.37 | Deck Construction & Setup | [Fw Declaring Avatar](01-deck-construction/rule-1.37-fw-declaring-avatar.test.ts) | ◐ |
 | 1.38 | Deck Construction & Setup | [Character Draft](01-deck-construction/rule-1.38-character-draft.test.ts) | ☑ |
 | 1.39 | Deck Construction & Setup | [Draft Site Requirement](01-deck-construction/rule-1.39-draft-site-requirement.test.ts) | ☑ |
@@ -246,7 +246,7 @@
 | 8.21 | Combat | [Combat Step5 Resolve Attack](08-combat/rule-8.21-combat-step5-resolve-attack.test.ts) | ☑ |
 | 8.22 | Combat | [Creature Mp By Alignment](08-combat/rule-8.22-creature-mp-by-alignment.test.ts) | ☑ |
 | 8.23 | Combat | [Attack As Action](08-combat/rule-8.23-attack-as-action.test.ts) | ☐ |
-| 8.24 | Combat | [Combat In Chain](08-combat/rule-8.24-combat-in-chain.test.ts) | ☐ |
+| 8.24 | Combat | [Combat In Chain](08-combat/rule-8.24-combat-in-chain.test.ts) | ☑ |
 | 8.25 | Combat | [Defender No Actions](08-combat/rule-8.25-defender-no-actions.test.ts) | ☑ |
 | 8.26 | Combat | [Company Check At Attack](08-combat/rule-8.26-company-check-at-attack.test.ts) | ☐ |
 | 8.27 | Combat | [No Return During Attack](08-combat/rule-8.27-no-return-during-attack.test.ts) | ☑ |

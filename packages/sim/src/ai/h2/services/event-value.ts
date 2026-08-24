@@ -30,7 +30,8 @@ import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { ModuleContext } from '../core/types.js';
 import { namedCharacter, namedDiscardTarget } from '../core/action-fields.js';
 import { computeBeliefs } from './beliefs.js';
-import { computeDefence } from './defence.js';
+import { computeDefence, hazardSlots } from './defence.js';
+import { computeDrawValue } from './draw-value.js';
 import { rosterOf } from './strike/prowess.js';
 import type { StrikeTarget } from './strike/prowess.js';
 
@@ -245,7 +246,7 @@ export function gainOf(
     const target = targetCompanyRoster(action, context);
     if (!target) return null;
     const defence = computeDefence(context.view, context.cardPool, context.standing, tunables);
-    const harm = defence.expectedHarm(target.roster, target.size);
+    const harm = defence.expectedHarm(target.roster, hazardSlots(target.size));
     // Shutting a company to creatures is worth what the opponent *would* have
     // aimed at it, which is nothing if they hold no creature to aim.
     //
@@ -264,6 +265,45 @@ export function gainOf(
         + `of harm they cannot aim at its ${target.size} character(s), at a `
         + `${(threat * 100).toFixed(0)}% chance they hold a creature at all `
         + `(${(beliefs.confidence * 100).toFixed(0)}% confidence, ${beliefs.observed} cards seen)`,
+    };
+  }
+
+  // Cards drawn straight off the deck — Dark Tryst (as-80) draws three. The
+  // whole point of the card, and previously unreadable: `gainOf` knew three
+  // effect families and this was not one of them, so the card fell to the flat
+  // floor alongside a card whose text the DSL has not been taught at all.
+  const drawing = flatten(effects).find(e => e.type === 'draw-cards');
+  if (drawing) {
+    const cards = drawing.count ?? 1;
+    // A draw stops at deck exhaustion, and the deck is the one zone whose size
+    // the view reports honestly even though its contents are hidden.
+    const available = Math.min(cards, context.view.self.playDeck.length);
+    return {
+      tsd: available * tunables.resourceDrawValue,
+      reason: available === cards
+        ? `${cards} card(s) drawn, at what a draw is worth`
+        : `${available} card(s) drawn — the deck holds only that many`,
+    };
+  }
+
+  // A draw-modifier pays on the companies that are *moving*, once per company,
+  // and only for as long as it is in play. `draw-value` computes the difference
+  // the card makes against the movement already planned this turn, which is the
+  // exact number for a long event played after the plan is declared.
+  if (flatten(effects).some(e => e.type === 'draw-modifier')) {
+    const draws = computeDrawValue(context.view, context.cardPool, tunables);
+    const moving = draws.movingCompanies();
+    const extra = draws.extraFrom(flatten(effects));
+    if (moving.length === 0) {
+      return {
+        tsd: 0,
+        reason: 'it adds cards only to a company that draws, and nothing is moving this turn',
+      };
+    }
+    return {
+      tsd: extra * tunables.resourceDrawValue,
+      reason: `${extra} extra card(s) across ${moving.length} moving company(ies) `
+        + `(${moving.map(m => `${m.site.name}: ${m.site.pathLength} region(s)`).join('; ')})`,
     };
   }
 
@@ -341,9 +381,9 @@ function reliefFromRemoval(
     roster: rosterOf(company, view.self.characters, cardPool),
     size: company.characters.length,
   }));
-  const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, c.size), 0);
+  const now = companies.reduce((sum, c) => sum + defence.expectedHarm(c.roster, hazardSlots(c.size)), 0);
   const reliefFrom = (instanceId: string): number => now - companies.reduce(
-    (sum, c) => sum + defence.harmWithout(instanceId, c.roster, c.size), 0,
+    (sum, c) => sum + defence.harmWithout(instanceId, c.roster, hazardSlots(c.size)), 0,
   );
 
   const target = namedDiscardTarget(action);

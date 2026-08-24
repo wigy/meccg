@@ -32,6 +32,8 @@ import type {
   AgentMoveAction,
   CardDefinition,
   GrantActionEffect,
+  DiscardCharacterOrgAction,
+  DiscardItemFromCompanyAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -79,6 +81,21 @@ export function getStoreItemActions(view: PlayerView): Map<string, StoreItemActi
   const result = new Map<string, StoreItemAction>();
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'store-item') continue;
+    result.set(action.itemInstanceId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable discard-item-from-company actions, keyed by the item
+ * instance ID. Enqueued when a `discard-one-company-item` pending resolution
+ * (e.g. Brigands tw-17, An Article Missing dm-43) forces the defending player
+ * to pick which company item is lost. At most one such action exists per item.
+ */
+export function getDiscardItemFromCompanyActions(view: PlayerView): Map<string, DiscardItemFromCompanyAction> {
+  const result = new Map<string, DiscardItemFromCompanyAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'discard-item-from-company') continue;
     result.set(action.itemInstanceId as string, action);
   }
   return result;
@@ -187,6 +204,20 @@ export function getSupportCorruptionCheckActions(view: PlayerView): Map<string, 
 }
 
 /**
+ * Collect all viable discard-character actions (CoE rule 3.22 — discarding a
+ * character while organizing), keyed by the character instance ID. Each
+ * character can have at most one discard action.
+ */
+export function getDiscardCharacterActions(view: PlayerView): Map<string, DiscardCharacterOrgAction> {
+  const result = new Map<string, DiscardCharacterOrgAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'discard-character') continue;
+    result.set(action.characterInstanceId as string, action);
+  }
+  return result;
+}
+
+/**
  * Collect all viable restore-character-by-effect actions, keyed by the
  * character instance ID (Hall of Fire, dm-134). Each restorable character
  * has at most one such action while the `haven-restore-character` pending
@@ -278,13 +309,14 @@ export function getAgentMoveActions(view: PlayerView): Map<string, AgentMoveActi
 
 /**
  * Collect all viable non-move agent actions (heal/untap/turn-face-down/key-creatures/
- * move-back/return-home), keyed by agent company ID.
+ * move-back/return-home/discard-return-to-origin), keyed by agent company ID.
  */
 export function getAgentOtherActions(view: PlayerView): Map<string, GameAction[]> {
   const AGENT_OTHER_TYPES = new Set([
     'agent-move-back', 'agent-return-home',
     'agent-heal', 'agent-untap',
     'agent-turn-face-down', 'agent-key-creatures',
+    'agent-discard-return-to-origin',
   ]);
   const result = new Map<string, GameAction[]>();
   for (const action of viableActions(view.legalActions)) {

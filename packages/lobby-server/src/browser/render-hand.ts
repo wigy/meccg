@@ -13,29 +13,31 @@ import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
 import {
   setTargetingInstruction,
+  type RenderCacheSlot,
   getSelectedItemDefId, setSelectedItemDefId,
-  getItemDraftRenderCache, setItemDraftRenderCache,
+  itemDraftRenderCache,
   getSelectedCharacterForPlay, setSelectedCharacterForPlay,
-  getPlayCharacterRenderCache, setPlayCharacterRenderCache,
+  playCharacterRenderCache,
   getSelectedFactionForInfluence, setSelectedFactionForInfluence,
-  getFactionInfluenceRenderCache, setFactionInfluenceRenderCache,
+  factionInfluenceRenderCache,
   getSelectedResourceForPlay, setSelectedResourceForPlay,
-  getResourcePlayRenderCache, setResourcePlayRenderCache,
+  resourcePlayRenderCache,
   getSelectedAllyForPlay, setSelectedAllyForPlay,
-  getAllyPlayRenderCache, setAllyPlayRenderCache,
+  allyPlayRenderCache,
   getSelectedHazardForPlay, setSelectedHazardForPlay,
-  getHazardPlayRenderCache, setHazardPlayRenderCache,
+  hazardPlayRenderCache,
   getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent,
   getSelectedShortEvent, setSelectedShortEvent,
-  getShortEventRenderCache, setShortEventRenderCache,
+  shortEventRenderCache,
   getSelectedCancelAttack, setSelectedCancelAttack,
-  getCancelAttackRenderCache, setCancelAttackRenderCache,
+  cancelAttackRenderCache,
   getSelectedPermanentEventForPlay, setSelectedPermanentEventForPlay,
-  getPermanentEventPlayRenderCache, setPermanentEventPlayRenderCache,
+  permanentEventPlayRenderCache,
   getSelectedPermanentEventForLongEventTarget, setSelectedPermanentEventForLongEventTarget,
-  getPermanentEventLongEventTargetRenderCache, setPermanentEventLongEventTargetRenderCache,
+  permanentEventLongEventTargetRenderCache,
 } from './render-selection-state.js';
 import { findSelfIndex } from './render-debug-panels.js';
+import { actionsOfTypeFor } from './render-utils.js';
 import { combatButtonLabel } from './combat-button-label.js';
 import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getFocusedCompanyId } from './company-view-state.js';
@@ -105,9 +107,7 @@ function findShortEventActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-short-event' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-short-event', instanceId);
 }
 
 /** Card types that represent allies. */
@@ -136,11 +136,8 @@ function findAllyPlayActions(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-hero-resource'
-      && a.cardInstanceId === instanceId
-      && isAllyAction(a, cardPool),
-  );
+  return actionsOfTypeFor(legalActions, 'play-hero-resource', instanceId)
+    .filter(a => isAllyAction(a, cardPool));
 }
 
 /**
@@ -153,11 +150,8 @@ function findResourcePlayActions(
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item')
-      && a.cardInstanceId === instanceId
-      && !isAllyAction(a, cardPool),
-  );
+  return actionsOfTypeFor(legalActions, ['play-hero-resource', 'play-minor-item'] as const, instanceId)
+    .filter(a => !isAllyAction(a, cardPool));
 }
 
 /**
@@ -169,12 +163,8 @@ function findPermanentEventCharTargetActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-permanent-event'
-      && a.cardInstanceId === instanceId
-      && 'targetCharacterId' in a
-      && !!a.targetCharacterId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-permanent-event', instanceId)
+    .filter(a => 'targetCharacterId' in a && !!a.targetCharacterId);
 }
 
 /**
@@ -187,12 +177,8 @@ export function findPermanentEventLongEventTargetActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-permanent-event'
-      && a.cardInstanceId === instanceId
-      && 'targetLongEventInstanceId' in a
-      && !!a.targetLongEventInstanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-permanent-event', instanceId)
+    .filter(a => 'targetLongEventInstanceId' in a && !!a.targetLongEventInstanceId);
 }
 
 /**
@@ -204,9 +190,7 @@ function findInfluenceActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'influence-attempt' && a.factionInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'influence-attempt', instanceId, 'factionInstanceId');
 }
 
 /**
@@ -218,9 +202,7 @@ function findHazardActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-hazard' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-hazard', instanceId);
 }
 
 /**
@@ -234,9 +216,48 @@ function findCreatureFromDiscardActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-creature-from-discard' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-creature-from-discard', instanceId);
+}
+
+/**
+ * Find the CoE 1.8.2 trade actions for a given hand card — one per sideboard
+ * card the banned card may be exchanged for against a Balrog opponent.
+ */
+function findBalrogSwapActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'swap-banned-vs-balrog', instanceId);
+}
+
+/**
+ * Menu for a card a Balrog opponent has made unplayable (CoE 1.8.2): a
+ * submenu naming every sideboard card it may be traded for, plus the
+ * on-guard option when one is open — the card can still be bluffed
+ * face-down instead of traded away.
+ */
+export function balrogSwapMenuItems(
+  actions: readonly GameAction[],
+  onAction: (action: GameAction) => void,
+  onGuardAction: GameAction | undefined,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): TooltipMenuItem[] {
+  const cachedInstanceLookup = getCachedInstanceLookup();
+  const items: TooltipMenuItem[] = [{
+    label: 'Remove from the game: take a sideboard card',
+    children: actions.flatMap(action => {
+      if (action.type !== 'swap-banned-vs-balrog') return [];
+      const defId = cachedInstanceLookup(action.sideboardCardInstanceId);
+      const def = defId ? cardPool[defId as string] : undefined;
+      return [{
+        label: def ? def.name : action.sideboardCardInstanceId as string,
+        onClick: () => onAction(action),
+      }];
+    }),
+  }];
+  if (onGuardAction) items.push({ label: 'Place on-guard', onClick: () => onAction(onGuardAction) });
+  return items;
 }
 
 /**
@@ -248,9 +269,7 @@ function findAgentHazardAction(
   legalActions: readonly GameAction[],
 ): GameAction | null {
   if (!instanceId) return null;
-  return legalActions.find(
-    a => a.type === 'play-agent-hazard' && a.agentCardInstanceId === instanceId,
-  ) ?? null;
+  return actionsOfTypeFor(legalActions, 'play-agent-hazard', instanceId, 'agentCardInstanceId')[0] ?? null;
 }
 
 /**
@@ -273,9 +292,7 @@ function findStartingCompanyEventActions(
   defId: CardDefinitionId,
   legalActions: readonly GameAction[],
 ): GameAction[] {
-  return legalActions.filter(
-    a => a.type === 'place-starting-company-event' && a.cardDefId === defId,
-  );
+  return actionsOfTypeFor(legalActions, 'place-starting-company-event', defId, 'cardDefId');
 }
 
 /**
@@ -301,9 +318,7 @@ function findCancelAttackActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'cancel-attack' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'cancel-attack', instanceId);
 }
 
 /**
@@ -315,9 +330,7 @@ function findStrikeEventActions(
   legalActions: readonly GameAction[],
 ): GameAction[] {
   if (!instanceId) return [];
-  return legalActions.filter(
-    a => a.type === 'play-strike-event' && a.cardInstanceId === instanceId,
-  );
+  return actionsOfTypeFor(legalActions, 'play-strike-event', instanceId);
 }
 
 /**
@@ -332,9 +345,7 @@ export function findRingAfterTestAction(
   legalActions: readonly GameAction[],
 ): GameAction | null {
   if (!instanceId) return null;
-  return legalActions.find(
-    a => a.type === 'play-ring-after-test' && a.ringInstanceId === instanceId,
-  ) ?? null;
+  return actionsOfTypeFor(legalActions, 'play-ring-after-test', instanceId, 'ringInstanceId')[0] ?? null;
 }
 
 /**
@@ -715,7 +726,7 @@ function getHandCards(view: PlayerView): HandCard[] {
 
 /** Re-render hand and drafted areas using cached state (for item draft selection flow). */
 function reRenderItemDraft(): void {
-  const cache = getItemDraftRenderCache();
+  const cache = itemDraftRenderCache.get();
   if (!cache) return;
   const { view, cardPool, onAction } = cache;
   renderHand(view, cardPool, onAction);
@@ -723,85 +734,25 @@ function reRenderItemDraft(): void {
   void import('./render-board.js').then(m => m.renderDrafted(view, cardPool, onAction));
 }
 
-/** Re-render hand and company views using cached state (for character play selection flow). */
-function reRenderCharacterPlay(): void {
-  const cache = getPlayCharacterRenderCache();
+/**
+ * Re-render hand and company views from a two-step selection flow's cached
+ * render state (no-op when the flow has no cached state).
+ */
+/**
+ * Re-render hand and company views after `allyPlayRenderCache`'s selection
+ * changed from outside the hand-click flow (the discard-pile browser, for a
+ * `grant-ally-play` `fromDiscard` grant such as Glove of Radagast wh-111).
+ */
+export function reRenderAllyPlaySelection(): void {
+  reRenderFromCache(allyPlayRenderCache);
+}
+
+function reRenderFromCache(slot: RenderCacheSlot): void {
+  const cache = slot.get();
   if (!cache) return;
   const { view, cardPool, onAction } = cache;
   renderHand(view, cardPool, onAction);
   // Import is circular-safe since renderCompanyViews is called as a function reference
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and company views using cached state (for faction influence selection flow). */
-function reRenderFactionInfluence(): void {
-  const cache = getFactionInfluenceRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and company views using cached state (for hazard targeting selection flow). */
-function reRenderHazardTarget(): void {
-  const cache = getHazardPlayRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and company views using cached state (for ally play selection flow). */
-function reRenderAllyPlay(): void {
-  const cache = getAllyPlayRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and company views using cached state (for resource/item play selection flow). */
-function reRenderResourcePlay(): void {
-  const cache = getResourcePlayRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and company views using cached state (for short-event character targeting flow). */
-function reRenderShortEventTarget(): void {
-  const cache = getShortEventRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and combat views using cached state (for cancel-attack scout targeting flow). */
-function reRenderCancelAttackTarget(): void {
-  const cache = getCancelAttackRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and company views using cached state (for permanent-event character targeting flow). */
-function reRenderPermanentEventTarget(): void {
-  const cache = getPermanentEventPlayRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
-  void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
-}
-
-/** Re-render hand and company views using cached state (for permanent-event long-event targeting flow). */
-function reRenderPermanentEventLongEventTarget(): void {
-  const cache = getPermanentEventLongEventTargetRenderCache();
-  if (!cache) return;
-  const { view, cardPool, onAction } = cache;
-  renderHand(view, cardPool, onAction);
   void import('./company-view.js').then(m => m.renderCompanyViews(view, cardPool, onAction));
 }
 
@@ -865,7 +816,7 @@ export function renderHand(
   const viable = viableActions(view.legalActions);
   if (onAction && view.phaseState.phase === 'setup'
     && 'setupStep' in view.phaseState && view.phaseState.setupStep.step === 'item-draft') {
-    setItemDraftRenderCache({ view, cardPool, onAction });
+    itemDraftRenderCache.set({ view, cardPool, onAction });
     // Auto-clear selection if the selected item is no longer in legal actions
     const selectedItemDefId = getSelectedItemDefId();
     if (selectedItemDefId && !isItemDraftCard(selectedItemDefId, viable)) {
@@ -876,13 +827,13 @@ export function renderHand(
     // Not in item draft — clear any stale selection
     if (getSelectedItemDefId()) setTargetingInstruction(null);
     setSelectedItemDefId(null);
-    setItemDraftRenderCache(null);
+    itemDraftRenderCache.set(null);
   }
 
   // Cache render state for play-character re-rendering
   const hasPlayCharacters = viable.some(a => a.type === 'play-character');
   if (onAction && hasPlayCharacters) {
-    setPlayCharacterRenderCache({ view, cardPool, onAction });
+    playCharacterRenderCache.set({ view, cardPool, onAction });
     // Auto-clear selection if the selected character is no longer viable
     const selectedCharacterInstanceId = getSelectedCharacterForPlay();
     if (selectedCharacterInstanceId) {
@@ -897,13 +848,13 @@ export function renderHand(
   } else if (!hasPlayCharacters) {
     if (getSelectedCharacterForPlay()) setTargetingInstruction(null);
     setSelectedCharacterForPlay(null);
-    setPlayCharacterRenderCache(null);
+    playCharacterRenderCache.set(null);
   }
 
   // Cache render state for faction influence re-rendering
   const hasInfluenceActions = viable.some(a => a.type === 'influence-attempt');
   if (onAction && hasInfluenceActions) {
-    setFactionInfluenceRenderCache({ view, cardPool, onAction });
+    factionInfluenceRenderCache.set({ view, cardPool, onAction });
     const selectedFactionInstanceId = getSelectedFactionForInfluence();
     if (selectedFactionInstanceId) {
       const stillViable = viable.some(
@@ -917,7 +868,7 @@ export function renderHand(
   } else if (!hasInfluenceActions) {
     if (getSelectedFactionForInfluence()) setTargetingInstruction(null);
     setSelectedFactionForInfluence(null);
-    setFactionInfluenceRenderCache(null);
+    factionInfluenceRenderCache.set(null);
   }
 
   // Cache render state for ally play re-rendering
@@ -925,7 +876,7 @@ export function renderHand(
     a => a.type === 'play-hero-resource' && isAllyAction(a, cardPool),
   );
   if (onAction && hasAllyPlayActions) {
-    setAllyPlayRenderCache({ view, cardPool, onAction });
+    allyPlayRenderCache.set({ view, cardPool, onAction });
     const selectedAllyInstanceId = getSelectedAllyForPlay();
     if (selectedAllyInstanceId) {
       const stillViable = viable.some(
@@ -941,7 +892,7 @@ export function renderHand(
   } else if (!hasAllyPlayActions) {
     if (getSelectedAllyForPlay()) setTargetingInstruction(null);
     setSelectedAllyForPlay(null);
-    setAllyPlayRenderCache(null);
+    allyPlayRenderCache.set(null);
   }
 
   // Cache render state for resource/item play re-rendering
@@ -949,7 +900,7 @@ export function renderHand(
     a => (a.type === 'play-hero-resource' || a.type === 'play-minor-item') && !isAllyAction(a, cardPool),
   );
   if (onAction && hasResourcePlayActions) {
-    setResourcePlayRenderCache({ view, cardPool, onAction });
+    resourcePlayRenderCache.set({ view, cardPool, onAction });
     const selectedResourceInstanceId = getSelectedResourceForPlay();
     if (selectedResourceInstanceId) {
       const stillViable = viable.some(
@@ -965,7 +916,7 @@ export function renderHand(
   } else if (!hasResourcePlayActions) {
     if (getSelectedResourceForPlay()) setTargetingInstruction(null);
     setSelectedResourceForPlay(null);
-    setResourcePlayRenderCache(null);
+    resourcePlayRenderCache.set(null);
   }
 
   // Cache render state for permanent-event character-targeting re-rendering
@@ -973,7 +924,7 @@ export function renderHand(
     a => a.type === 'play-permanent-event' && 'targetCharacterId' in a && a.targetCharacterId,
   );
   if (onAction && hasCharTargetPermanentEventActions) {
-    setPermanentEventPlayRenderCache({ view, cardPool, onAction });
+    permanentEventPlayRenderCache.set({ view, cardPool, onAction });
     const selectedPermEventId = getSelectedPermanentEventForPlay();
     if (selectedPermEventId) {
       const stillViable = viable.some(
@@ -989,7 +940,7 @@ export function renderHand(
   } else if (!hasCharTargetPermanentEventActions) {
     if (getSelectedPermanentEventForPlay()) setTargetingInstruction(null);
     setSelectedPermanentEventForPlay(null);
-    setPermanentEventPlayRenderCache(null);
+    permanentEventPlayRenderCache.set(null);
   }
 
   // Cache render state for permanent-event long-event-targeting re-rendering
@@ -1002,7 +953,7 @@ export function renderHand(
     a => a.type === 'play-permanent-event' && 'targetLongEventInstanceId' in a && a.targetLongEventInstanceId,
   );
   if (onAction && hasLongEventTargetPermanentEventActions) {
-    setPermanentEventLongEventTargetRenderCache({ view, cardPool, onAction });
+    permanentEventLongEventTargetRenderCache.set({ view, cardPool, onAction });
     const selectedLongEventTargetId = getSelectedPermanentEventForLongEventTarget();
     if (selectedLongEventTargetId) {
       const stillViable = viable.some(
@@ -1018,7 +969,7 @@ export function renderHand(
   } else if (!hasLongEventTargetPermanentEventActions) {
     if (getSelectedPermanentEventForLongEventTarget()) setTargetingInstruction(null);
     setSelectedPermanentEventForLongEventTarget(null);
-    setPermanentEventLongEventTargetRenderCache(null);
+    permanentEventLongEventTargetRenderCache.set(null);
   }
 
   // Cache render state for hazard character-targeting re-rendering
@@ -1026,7 +977,7 @@ export function renderHand(
     a => a.type === 'play-hazard' && 'targetCharacterId' in a && a.targetCharacterId,
   );
   if (onAction && hasCharTargetHazardActions) {
-    setHazardPlayRenderCache({ view, cardPool, onAction });
+    hazardPlayRenderCache.set({ view, cardPool, onAction });
     const selectedHazardInstanceId = getSelectedHazardForPlay();
     if (selectedHazardInstanceId) {
       const stillViable = viable.some(
@@ -1042,7 +993,7 @@ export function renderHand(
   } else if (!hasCharTargetHazardActions) {
     if (getSelectedHazardForPlay()) setTargetingInstruction(null);
     setSelectedHazardForPlay(null);
-    setHazardPlayRenderCache(null);
+    hazardPlayRenderCache.set(null);
   }
 
   // Cache render state for opponent influence re-rendering
@@ -1072,7 +1023,7 @@ export function renderHand(
   );
   const hasShortEventTargeting = hasScoutShortEvents || hasDiscardOnlyShortEvents;
   if (onAction && hasShortEventTargeting) {
-    setShortEventRenderCache({ view, cardPool, onAction });
+    shortEventRenderCache.set({ view, cardPool, onAction });
     const selectedSE = getSelectedShortEvent();
     if (selectedSE) {
       const stillViable = viable.some(
@@ -1086,7 +1037,7 @@ export function renderHand(
   } else if (!hasShortEventTargeting) {
     if (getSelectedShortEvent()) setTargetingInstruction(null);
     setSelectedShortEvent(null);
-    setShortEventRenderCache(null);
+    shortEventRenderCache.set(null);
   }
 
   // Cache render state for cancel-attack character targeting: a scout to tap
@@ -1099,7 +1050,7 @@ export function renderHand(
     a => a.type === 'cancel-attack' && (a.scoutInstanceId || a.targetCharacterId),
   );
   if (onAction && hasCancelAttackWithScout) {
-    setCancelAttackRenderCache({ view, cardPool, onAction });
+    cancelAttackRenderCache.set({ view, cardPool, onAction });
     const selectedCA = getSelectedCancelAttack();
     if (selectedCA) {
       const stillViable = viable.some(
@@ -1113,7 +1064,7 @@ export function renderHand(
   } else if (!hasCancelAttackWithScout) {
     if (getSelectedCancelAttack()) setTargetingInstruction(null);
     setSelectedCancelAttack(null);
-    setCancelAttackRenderCache(null);
+    cancelAttackRenderCache.set(null);
   }
 
   // The currently focused company's site, used to default site-targeting
@@ -1163,6 +1114,7 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
+    const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
     const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !discardAction && !onGuardAction && !isStartingCompanyEvent
@@ -1243,7 +1195,7 @@ export function renderHand(
           if (getSelectedCharacterForPlay()) {
             void import('./company-view.js').then(m => m.switchToAllCompanies());
           }
-          reRenderCharacterPlay();
+          reRenderFromCache(playCharacterRenderCache);
         });
       }
     } else if (isShortEvent) {
@@ -1296,7 +1248,7 @@ export function renderHand(
             setTargetingInstruction(
               getSelectedShortEvent() ? `Click a highlighted card to play ${def.name}` : null,
             );
-            reRenderShortEventTarget();
+            reRenderFromCache(shortEventRenderCache);
           });
         }
       } else if (hasDiscardTargets) {
@@ -1319,7 +1271,7 @@ export function renderHand(
             setTargetingInstruction(
               getSelectedShortEvent() ? `Click a highlighted character to play ${def.name}` : null,
             );
-            reRenderShortEventTarget();
+            reRenderFromCache(shortEventRenderCache);
           });
         }
       } else {
@@ -1354,14 +1306,14 @@ export function renderHand(
             setTargetingInstruction(
               `Click a character to play ${def.name}, or a site to place it on-guard`,
             );
-            reRenderHazardTarget();
+            reRenderFromCache(hazardPlayRenderCache);
           };
           img.addEventListener('click', (e) => {
             // Clicking the already-selected card cancels the targeting mode.
             if (isHazardSelected) {
               setSelectedHazardForPlay(null);
               setTargetingInstruction(null);
-              reRenderHazardTarget();
+              reRenderFromCache(hazardPlayRenderCache);
               return;
             }
             // Both plays are legal, so neither may be assumed: offer them by name.
@@ -1418,7 +1370,7 @@ export function renderHand(
             setTargetingInstruction(
               getSelectedAllyForPlay() ? `Click an untapped character to control ${def.name}` : null,
             );
-            reRenderAllyPlay();
+            reRenderFromCache(allyPlayRenderCache);
           });
         }
       }
@@ -1440,7 +1392,7 @@ export function renderHand(
             setTargetingInstruction(
               getSelectedResourceForPlay() ? `Click an untapped character to bear ${def.name}` : null,
             );
-            reRenderResourcePlay();
+            reRenderFromCache(resourcePlayRenderCache);
           });
         }
       }
@@ -1464,7 +1416,7 @@ export function renderHand(
           setTargetingInstruction(
             getSelectedFactionForInfluence() ? `Click an untapped character to influence ${def.name}` : null,
           );
-          reRenderFactionInfluence();
+          reRenderFromCache(factionInfluenceRenderCache);
         });
       }
     } else if (isCancelAttack) {
@@ -1498,7 +1450,7 @@ export function renderHand(
             setTargetingInstruction(
               getSelectedCancelAttack() ? `Click a highlighted ${noun} to play ${def.name}` : null,
             );
-            reRenderCancelAttackTarget();
+            reRenderFromCache(cancelAttackRenderCache);
           });
         }
       }
@@ -1514,7 +1466,7 @@ export function renderHand(
           setTargetingInstruction(
             getSelectedPermanentEventForPlay() ? `Click a character to attach ${def.name}` : null,
           );
-          reRenderPermanentEventTarget();
+          reRenderFromCache(permanentEventPlayRenderCache);
         });
       }
     } else if (isPermanentEventWithLongEventTarget) {
@@ -1530,7 +1482,7 @@ export function renderHand(
           setTargetingInstruction(
             getSelectedPermanentEventForLongEventTarget() ? `Click a highlighted long-event to attach ${def.name}` : null,
           );
-          reRenderPermanentEventLongEventTarget();
+          reRenderFromCache(permanentEventLongEventTargetRenderCache);
         });
       }
     } else if (isStrikeEvent) {
@@ -1601,17 +1553,26 @@ export function renderHand(
           showCursorTooltipMenu(e, items);
         });
       }
+    } else if (balrogSwapActions.length > 0) {
+      // CoE 1.8.2: against a Balrog opponent this card cannot be played, so it
+      // keeps the dimmed styling of a card with no play — but it is not dead
+      // weight: clicking offers the trade of it for any one sideboard card.
+      img.className = 'hand-card hand-card-dimmed';
+      if (nonViableReason) {
+        img.title = nonViableReason;
+      }
+      if (onAction) {
+        img.addEventListener('click', (e) => {
+          showCursorTooltipMenu(e, balrogSwapMenuItems(balrogSwapActions, onAction, onGuardAction, cardPool));
+        });
+      }
     } else if (onGuardAction) {
-      // Not otherwise playable, but CoE 2.IV.vii.4 lets the hazard player place
-      // any hand card on-guard (bluffing allowed). Rendering this the same as a
-      // genuinely dead card (`hand-card-dimmed`) — as opposed to the golden
-      // "playable" glow every other actionable branch above uses — made the
-      // option undiscoverable: for a company whose hazard creatures don't key
-      // to the site (common when the company hasn't moved), the *entire* hand
-      // looked uniformly unplayable with no bright card to reveal the on-guard
-      // menu, so players never thought to click anything (bug 0b917d21c4bd17fa,
-      // "Cant select any card on non-moving companies").
-      img.className = 'hand-card hand-card-playable';
+      // CoE 2.IV.vii.4 lets the hazard player place *any* hand card on-guard
+      // (bluffing allowed), so this branch matches every card in hand whenever
+      // an on-guard slot is open — glowing them all would drown out the cards
+      // that are genuinely playable. Keep the dimmed styling of a card with no
+      // real play, but stay clickable so the on-guard menu is still reachable.
+      img.className = 'hand-card hand-card-dimmed';
       if (onAction) {
         img.addEventListener('click', (e) => {
           showHazardKeyingMenu(e, [], onAction, onGuardAction, cardPool);
@@ -1678,9 +1639,10 @@ function getOpponentCards(view: PlayerView): { cards: CardDefinitionId[]; hidden
       || view.phaseState.setupStep.step === 'deck-shuffle')) {
     return { cards: [], hidden: true };
   }
-  // Outside draft, show card backs for each card in opponent's hand
-  const count = view.opponent.hand.length;
-  return { cards: new Array<CardDefinitionId>(count).fill('unknown-card' as CardDefinitionId), hidden: true };
+  // Outside draft, show card backs for each card in opponent's hand, except
+  // any instance an effect has revealed (e.g. Palantír of Amon Sûl's peek),
+  // which the server already resolves to its real definitionId in the view.
+  return { cards: view.opponent.hand.map(c => c.definitionId), hidden: false };
 }
 
 /** Render the opponent's hand (or draft pool) as an arc at the top of the visual view. */

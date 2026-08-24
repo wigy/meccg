@@ -27,10 +27,13 @@ import { getPlayerIndex } from '../state-utils.js';
 import type { CardEffect } from '../types/effects.js';
 import type { MoveContext } from './reducer-move.js';
 import { applyMove } from './reducer-move.js';
-import { resolveCancelAttackEntry, resolveChainStrikeModifier } from './combat-cancel.js';
-import { addConstraint } from './pending.js';
+import { resolveCancelAttackEntry, resolveChainStrikeModifier, triggerBellsRingingReface } from './combat-cancel.js';
+import { addConstraint, enqueueResolution } from './pending.js';
+import { companyById, companySubphaseScope, defById } from './reducer-utils.js';
+import { isCharacterCard } from '../types/cards.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
+import { Phase } from '../types/state-phases.js';
 
 /**
  * Runtime context passed to {@link applyEffect} from a chain-resolution
@@ -83,12 +86,60 @@ export function applyEffect(
     // Combat cancel fired from chain resolution (e.g. Concealment,
     // Vanishment, Dark Quarrels, Many Turns and Doublings).
     logDetail(`applyEffect: cancel-attack dispatched for ${ctx.sourceCardId as string}`);
+
+    // Roll-to-cancel from hand (Trickery td-159): the chain entry resolving
+    // un-negated does not cancel outright — it enqueues a 2d6 dice-check that
+    // only cancels the attack on success (mirrors the in-play-faction roll
+    // path in `handleCancelAttackByInPlayFaction`, combat-cancel.ts).
+    if (effect.roll) {
+      const combat = state.combat;
+      if (!combat) {
+        logDetail('applyEffect: cancel-attack roll — no active combat, fizzle');
+        return { state };
+      }
+      const roll = effect.roll;
+      const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+      const defPlayer = state.players[defPlayerIndex];
+      const company = defPlayer ? companyById(defPlayer.companies, combat.companyId) : undefined;
+      let skillBonus = 0;
+      if (roll.skillBonus && company) {
+        for (const charId of company.characters) {
+          const ch = defPlayer.characters[charId];
+          const cDef = ch ? defById(state, ch.definitionId) : undefined;
+          if (cDef && isCharacterCard(cDef) && cDef.skills.includes(roll.skillBonus)) skillBonus++;
+        }
+      }
+      logDetail(`applyEffect: cancel-attack roll-to-cancel — enqueuing dice-check (threshold ${roll.comparison} ${roll.threshold}, +${skillBonus} ${roll.skillBonus ?? 'n/a'})`);
+      const scope = companySubphaseScope(state.phaseState.phase, combat.companyId);
+      const queued = enqueueResolution(state, {
+        source: ctx.sourceCardId,
+        actor: ctx.declaredBy,
+        scope,
+        kind: {
+          type: 'dice-check',
+          label: 'Roll to cancel attack',
+          roller: ctx.declaredBy,
+          modifiers: skillBonus > 0 ? [{ kind: 'constant', value: skillBonus }] : [],
+          threshold: roll.threshold,
+          comparison: roll.comparison,
+          onPass: { type: 'cancel-current-attack' },
+          continuation: { kind: 'chain-entry', match: 'source' },
+        },
+      });
+      return { state: queued, needsInput: true };
+    }
+
     // Capture the defending player/company before the cancel clears combat —
     // needed to target the deferred free-cancel grant (Darkness Wielded
     // ba-55) and the tap-on-strike-assignment constraint (Fifteen Birds in
     // Five Firtrees dm-129).
     const defendingPlayerId = state.combat?.defendingPlayerId;
     const defendingCompanyId = state.combat?.companyId;
+    // Attacking side of a CvCC combat — needed by All the Bells Ringing
+    // (as-44) to identify the minion company that must re-face the site's
+    // automatic-attacks after its attack is canceled.
+    const attackingPlayerId = state.combat?.attackingPlayerId;
+    const attackSource = state.combat?.attackSource;
     let next = resolveCancelAttackEntry(state);
     if (effect.alsoCancelLaterAttack && defendingPlayerId) {
       const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
@@ -122,6 +173,36 @@ export function applyEffect(
         });
         logDetail(`applyEffect: cancel-attack installed tap-on-strike-assignment on company ${defendingCompanyId as string} for the rest of the turn (source: ${sourceDefinitionId as string})`);
       }
+    }
+    // Riven Gate (as-98): "All automatic-attacks at the site are canceled" —
+    // abandon the rest of this company's site-phase automatic-attack
+    // sequence, the same "sequence abandoned" flag Farmer Maggot's site-swap
+    // and Burglary's success use.
+    if (effect.cancelsRemainingSiteAttacks && next.phaseState.phase === Phase.Site) {
+      logDetail('applyEffect: cancel-attack abandons the remaining automatic-attack sequence at the site');
+      next = { ...next, phaseState: { ...next.phaseState, autoAttacksSkipped: true } };
+    }
+    if (effect.influenceAtSiteModifier !== undefined && defendingPlayerId && defendingCompanyId) {
+      const defPlayerIdx = getPlayerIndex(next, defendingPlayerId);
+      const defCompany = next.players[defPlayerIdx].companies.find(c => c.id === defendingCompanyId);
+      const siteDefId = defCompany?.currentSite?.definitionId;
+      const sourceDefinitionId = resolveInstanceId(next, ctx.sourceCardId);
+      if (siteDefId && sourceDefinitionId) {
+        next = addConstraint(next, {
+          source: ctx.sourceCardId,
+          sourceDefinitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'player', playerId: defendingPlayerId },
+          kind: { type: 'influence-at-site-modifier', siteDefinitionId: siteDefId, value: effect.influenceAtSiteModifier },
+        });
+        logDetail(`applyEffect: cancel-attack added a +${effect.influenceAtSiteModifier} influence-at-site-modifier for site ${siteDefId as string}, rest of turn (source: ${sourceDefinitionId as string})`);
+      }
+    }
+    // All the Bells Ringing (as-44): the (minion) attacking company must
+    // re-face all of the site's automatic-attacks, forced normal (not
+    // detainment), before it may declare the CvCC attack again.
+    if (effect.forceSiteAutoAttacksNormalReface && attackingPlayerId && attackSource?.type === 'company-attack') {
+      next = triggerBellsRingingReface(next, attackingPlayerId, attackSource.attackingCompanyId);
     }
     return { state: next };
   }
@@ -187,10 +268,25 @@ export function buildChainApplyContext(
  * for permanent/long events). `move` is intentionally NOT approved yet —
  * move effects are not dispatched through this loop today — and is added
  * when the move-dependent phases land.
+ *
+ * A dual-mode card that carries both `cancel-attack` and a discard-in-play
+ * `move` effect (The Cock Crows tw-342, Wizard's River-horses tw-364,
+ * Darkness Wielded ba-55) pushes a bare `short-event` payload when played
+ * in its cancel-attack mode, but stamps `discardTargetInstanceId` /
+ * `discardAllInPlay` on the payload when played in its discard mode
+ * instead (see `handleCancelAttack` / the discard-in-play branches in
+ * `reducer-events.ts`). Since this loop iterates every effect the card
+ * *defines* rather than the one the play action actually selected, a
+ * resolving discard-mode entry must not also fire the card's unrelated
+ * cancel-attack effect — that would end whatever attack merely happens to
+ * be active at resolution time, entirely by coincidence.
  */
 export function shouldFireOnChainResolution(
   effect: CardEffect,
-  _entry: { readonly payload: { readonly type: string } },
+  entry: { readonly payload: { readonly type: string; readonly discardTargetInstanceId?: unknown; readonly discardAllInPlay?: unknown } },
 ): boolean {
-  return effect.type === 'cancel-attack' || effect.type === 'strike-modifier';
+  if (effect.type === 'cancel-attack') {
+    return !entry.payload.discardTargetInstanceId && !entry.payload.discardAllInPlay;
+  }
+  return effect.type === 'strike-modifier';
 }

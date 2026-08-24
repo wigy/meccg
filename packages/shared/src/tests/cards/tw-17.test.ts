@@ -224,6 +224,45 @@ describe('Brigands (tw-17)', () => {
     expect(resolveInstanceId(s, offeredId)).toBe(GLAMDRING);
   });
 
+  test('no pending resolution when the company\'s only "item" entry is a non-item card', () => {
+    // Regression (deadlock): the enqueue guard counted raw `items.length`, so
+    // a company whose only `items` entry was Thrall of the Voice (a permanent
+    // resource-event placed *with* a character, never a discard target) got a
+    // discard-one-company-item resolution with an empty action menu — no
+    // player had any legal action.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [THRALL_OF_THE_VOICE] }, BILBO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BRIGANDS], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeBorderMHState() };
+
+    const brigandId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    let s = playCreatureHazardAndResolve(ready, PLAYER_2, brigandId, companyId, BORDER_KEYING);
+
+    // Assign, choose order, resolve: ARAGORN wounded, BILBO wins
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'choose-strike-order');
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2);  // ARAGORN wounded
+    s = executeAction(s, PLAYER_2, 'body-check-roll', 2); // survives (2 < body 9)
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 12); // BILBO wins
+
+    expect(s.combat).toBeNull();
+    // No discardable item in the company → no resolution enqueued.
+    expect(s.pendingResolutions.filter(r => r.actor === PLAYER_1)).toHaveLength(0);
+  });
+
   test('no pending resolution when no character is wounded', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
@@ -332,5 +371,84 @@ describe('Brigands (tw-17)', () => {
     // Items from both characters are available as options (2 total)
     const discardActions = viableActions(s, PLAYER_1, 'discard-item-from-company');
     expect(discardActions).toHaveLength(2);
+  });
+
+  test('no pending resolution when the only attachments are non-items (Thrall of the Voice) — regression: an unsatisfiable forced discard deadlocked the game', () => {
+    // q/d bench seed 10800010: a wounded character bore only permanent events
+    // (placed "with" the character, riding in `items`). The enqueue guard
+    // counted them as items, enqueued the forced discard, the emitter rightly
+    // offered none of them — and no pass either, so neither player had any
+    // action and the game deadlocked.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [THRALL_OF_THE_VOICE] }, BILBO] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BRIGANDS], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeBorderMHState() };
+
+    const brigandId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    let s = playCreatureHazardAndResolve(ready, PLAYER_2, brigandId, companyId, BORDER_KEYING);
+
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'assign-strike');
+    s = executeAction(s, PLAYER_1, 'choose-strike-order');
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2);  // ARAGORN wounded
+    s = executeAction(s, PLAYER_2, 'body-check-roll', 2); // survives
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 12); // BILBO wins
+
+    expect(s.combat).toBeNull();
+    // No genuine item in the company → the resolution is not enqueued at all.
+    expect(s.pendingResolutions.filter(r => r.actor === PLAYER_1)).toHaveLength(0);
+  });
+
+  test('a queued discard-one-company-item whose last eligible item vanished offers pass, and the pass dismisses it', () => {
+    // Backstop for the same deadlock class: the resolution was legally
+    // enqueued but the company's only genuine item left play while it waited
+    // in the queue. The emitter must offer the pass and the reducer must
+    // dequeue on it — with an eligible item present the pass stays rejected
+    // (covered implicitly: the choose-item tests never offer a pass).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [THRALL_OF_THE_VOICE] }] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeBorderMHState() };
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const seeded = {
+      ...ready,
+      pendingResolutions: [
+        {
+          source: null,
+          actor: PLAYER_1,
+          scope: { kind: 'company-mh-subphase' as const, companyId },
+          kind: { type: 'discard-one-company-item' as const, companyId },
+          id: 'r-test-1' as (typeof ready.pendingResolutions)[number]['id'],
+        },
+      ],
+    };
+
+    const passes = viableActions(seeded, PLAYER_1, 'pass');
+    expect(passes.length).toBeGreaterThan(0);
+    const after = dispatch(seeded, passes[0].action);
+    expect(after.pendingResolutions).toHaveLength(0);
   });
 });

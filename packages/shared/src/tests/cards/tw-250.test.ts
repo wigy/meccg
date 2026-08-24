@@ -15,16 +15,18 @@
  * |---|--------------------------------------------------------------|--------|
  * | 1 | Unique (at most 1 copy per deck)                        | data   |
  * | 2 | +2 body (max 9) — unconditional, applies to any bearer  | effect |
- * | 3 | Warrior-only tap to cancel a strike against bearer      | effect |
+ * | 3 | Warrior-only tap to dodge a strike against bearer       | effect |
  *
  * "Shield" is a thematic keyword with no additional engine behaviour —
  * MECCG has no rules that reference the shield subtype separately from
  * the item's stat modifiers.
  *
- * "(unless the bearer is wounded by the strike)" is a rules clarification
- * that if the bearer is wounded after using the shield (e.g. through another
- * mechanic), they still tap/wound. In engine terms, cancel-strike prevents
- * the strike entirely so the parenthetical has no separate implementation.
+ * Rule 3 is a `strike-modifier` dodge effect (`cost: { tap: "self" }`), not a
+ * `cancel-strike` effect: tapping the shield does NOT cancel the strike or
+ * skip its roll. The struck bearer resolves the strike normally at full
+ * prowess; he simply doesn't tap on a non-wounding outcome. "(unless the
+ * bearer is wounded by the strike)" is the operative clause — if the strike
+ * wounds him, he is inverted exactly as if he had no shield.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -32,7 +34,6 @@ import type { CardInstanceId } from '../../index.js';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, FRODO, LEGOLAS, GIMLI,
-  ORC_LIEUTENANT,
   MORIA, LORIEN, MINAS_TIRITH, RIVENDELL,
   pool,
   buildSitePhaseState, buildTestState, resetMint, makeMHState,
@@ -41,9 +42,14 @@ import {
   actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType, CardStatus } from '../../index.js';
-import type { CardDefinitionId, CharacterCard, CancelStrikeAction } from '../../index.js';
+import type { CardDefinitionId, CharacterCard, DodgeStrikeAction } from '../../index.js';
 
 const GREAT_SHIELD = 'tw-250' as CardDefinitionId;
+// Single-use fixture (not shared outside this file, per card-ids.ts policy):
+// Drake, one strike, prowess 8, no printed effects — keeps the strike math
+// simple (Gimli has no racial prowess bonus vs drakes) so a low cheat roll
+// produces a genuine wound rather than a tie.
+const LAND_DRAKE = 'le-80' as CardDefinitionId;
 
 describe('Great-shield of Rohan (tw-250)', () => {
   beforeEach(() => resetMint());
@@ -83,7 +89,7 @@ describe('Great-shield of Rohan (tw-250)', () => {
   });
 
   test('non-warrior bearer also gets the +2 body (Frodo 9 → capped at 9)', () => {
-    // Body bonus is unconditional; only the tap-to-cancel ability is
+    // Body bonus is unconditional; only the tap-to-dodge ability is
     // warrior-gated.
     const state = buildTestState({
       phase: Phase.Organization,
@@ -128,9 +134,9 @@ describe('Great-shield of Rohan (tw-250)', () => {
     expect(plays.length).toBeGreaterThanOrEqual(1);
   });
 
-  // ─── Rule 3: Warrior-only tap to cancel a strike against bearer ──────────
+  // ─── Rule 3: Warrior-only tap to dodge a strike against bearer ───────────
 
-  test('warrior bearer: tapping Great-shield cancels a strike against the bearer', () => {
+  function buildDrakeAttackOnGimli() {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -148,7 +154,7 @@ describe('Great-shield of Rohan (tw-250)', () => {
         {
           id: PLAYER_2,
           companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-          hand: [ORC_LIEUTENANT],
+          hand: [LAND_DRAKE],
           siteDeck: [RIVENDELL],
         },
       ],
@@ -171,7 +177,11 @@ describe('Great-shield of Rohan (tw-250)', () => {
       targetCompanyId: companyId,
       keyedBy: { method: 'site-type' as const, value: 'ruins-and-lairs' },
     });
-    const afterChain = resolveChain(afterPlay);
+    return resolveChain(afterPlay);
+  }
+
+  test('warrior bearer: dodge-strike is offered (not cancel-strike) once the strike is assigned', () => {
+    const afterChain = buildDrakeAttackOnGimli();
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikesTotal).toBe(1);
 
@@ -187,35 +197,97 @@ describe('Great-shield of Rohan (tw-250)', () => {
     expect(r2.combat!.phase).toBe('resolve-strike');
 
     const defActions = computeLegalActions(r2, PLAYER_1);
-    const cancelStrikeActions = defActions.filter(
-      a => a.viable && a.action.type === 'cancel-strike',
-    );
-    expect(cancelStrikeActions.length).toBe(1);
-    expect(actionAs<CancelStrikeAction>(cancelStrikeActions[0].action).cancellerInstanceId).toBe(shieldId);
-    expect(actionAs<CancelStrikeAction>(cancelStrikeActions[0].action).targetCharacterId).toBe(gimliId);
 
-    const r3 = dispatch(r2, cancelStrikeActions[0].action);
+    // The old (buggy) implementation offered `cancel-strike`, which skips the
+    // roll entirely — Great-shield of Rohan's text has no such ability.
+    const cancelStrikeActions = defActions.filter(a => a.viable && a.action.type === 'cancel-strike');
+    expect(cancelStrikeActions).toHaveLength(0);
 
-    // Shield is tapped; Gimli is NOT tapped
+    const dodgeActions = defActions.filter(a => a.viable && a.action.type === 'dodge-strike');
+    expect(dodgeActions).toHaveLength(1);
+    expect(actionAs<DodgeStrikeAction>(dodgeActions[0].action).cardInstanceId).toBe(shieldId);
+    expect(actionAs<DodgeStrikeAction>(dodgeActions[0].action).characterInstanceId).toBe(gimliId);
+
+    // Dodge uses full (tap) prowess, same as tap-to-fight.
+    const tapAction = defActions.find(
+      a => a.viable && a.action.type === 'resolve-strike' && (a.action as { tapToFight?: boolean }).tapToFight === true,
+    )!;
+    expect(actionAs<DodgeStrikeAction>(dodgeActions[0].action).need).toBe((tapAction.action as { need: number }).need);
+  });
+
+  test('successful dodge: shield taps, bearer stays untapped, strike still rolled (not outright canceled)', () => {
+    const afterChain = buildDrakeAttackOnGimli();
+    const gimliId = findCharInstanceId(afterChain, RESOURCE_PLAYER, GIMLI);
+    const shieldId = getCharacter(afterChain, RESOURCE_PLAYER, GIMLI).items[0].instanceId;
+
+    const r2 = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_1,
+      characterId: gimliId,
+      tapped: false,
+    });
+
+    const dodgeAction = computeLegalActions(r2, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'dodge-strike')!;
+
+    // Gimli prowess 5 vs Land-drake prowess 8: cheat roll high (12) → 5 + 12 = 17 > 8, success.
+    const r3 = dispatch({ ...r2, cheatRollTotal: 12 }, dodgeAction.action);
+
     const gimliAfter = r3.players[0].characters[gimliId];
     const shieldAfter = gimliAfter.items.find(i => i.instanceId === shieldId)!;
     expect(shieldAfter.status).toBe(CardStatus.Tapped);
     expect(gimliAfter.status).toBe(CardStatus.Untapped);
 
-    // The strike is resolved as canceled (or combat finalized with Gimli untapped)
+    // The strike was actually resolved via a roll (dodge mode), not
+    // outright canceled without a roll.
     const gimliStrike = r3.combat === null
       ? undefined
       : r3.combat.strikeAssignments.find(sa => sa.characterId === gimliId);
     if (gimliStrike) {
       expect(gimliStrike.resolved).toBe(true);
-      expect(gimliStrike.result).toBe('canceled');
+      expect(gimliStrike.result).not.toBe('canceled');
+      expect(gimliStrike.dodged).toBe(true);
     } else {
       expect(r3.combat).toBeNull();
       expect(gimliAfter.status).toBe(CardStatus.Untapped);
     }
   });
 
-  test('non-warrior bearer: cancel-strike is NOT offered (Frodo)', () => {
+  test('bearer wounded despite tapping the shield: strike is not canceled, no immunity to wounding', () => {
+    // This is the exact scenario from the bug report: the AI opponent tapped
+    // Great-shield of Rohan to try to dodge a strike, but the strike still
+    // wounds the bearer normally — the shield only protects against tapping,
+    // never against being wounded.
+    const afterChain = buildDrakeAttackOnGimli();
+    const gimliId = findCharInstanceId(afterChain, RESOURCE_PLAYER, GIMLI);
+    const shieldId = getCharacter(afterChain, RESOURCE_PLAYER, GIMLI).items[0].instanceId;
+
+    const r2 = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_1,
+      characterId: gimliId,
+      tapped: false,
+    });
+
+    const dodgeAction = computeLegalActions(r2, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'dodge-strike')!;
+
+    // Gimli prowess 5 vs Land-drake prowess 8: cheat roll low (2) → 5 + 2 = 7 < 8, wounded.
+    const r3 = dispatch({ ...r2, cheatRollTotal: 2 }, dodgeAction.action);
+
+    // The shield still taps (cost was paid) but Gimli is wounded (inverted)
+    // regardless — the ability does not cancel the strike or block the wound.
+    const gimliAfter = r3.players[0].characters[gimliId];
+    const shieldAfter = gimliAfter.items.find(i => i.instanceId === shieldId)!;
+    expect(shieldAfter.status).toBe(CardStatus.Tapped);
+    expect(gimliAfter.status).toBe(CardStatus.Inverted);
+
+    const gimliStrike = r3.combat!.strikeAssignments.find(sa => sa.characterId === gimliId)!;
+    expect(gimliStrike.result).toBe('wounded');
+    expect(gimliStrike.dodged).toBe(true);
+  });
+
+  test('non-warrior bearer: dodge-strike is NOT offered (Frodo)', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -233,7 +305,7 @@ describe('Great-shield of Rohan (tw-250)', () => {
         {
           id: PLAYER_2,
           companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-          hand: [ORC_LIEUTENANT],
+          hand: [LAND_DRAKE],
           siteDeck: [RIVENDELL],
         },
       ],
@@ -269,13 +341,11 @@ describe('Great-shield of Rohan (tw-250)', () => {
     expect(r2.combat!.phase).toBe('resolve-strike');
 
     const defActions = computeLegalActions(r2, PLAYER_1);
-    const cancelStrikeActions = defActions.filter(
-      a => a.viable && a.action.type === 'cancel-strike',
-    );
-    expect(cancelStrikeActions).toHaveLength(0);
+    const dodgeActions = defActions.filter(a => a.viable && a.action.type === 'dodge-strike');
+    expect(dodgeActions).toHaveLength(0);
   });
 
-  test('tapped Great-shield cannot cancel a strike', () => {
+  test('tapped Great-shield cannot offer dodge-strike', () => {
     const baseState = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -293,7 +363,7 @@ describe('Great-shield of Rohan (tw-250)', () => {
         {
           id: PLAYER_2,
           companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-          hand: [ORC_LIEUTENANT],
+          hand: [LAND_DRAKE],
           siteDeck: [RIVENDELL],
         },
       ],
@@ -345,15 +415,13 @@ describe('Great-shield of Rohan (tw-250)', () => {
     });
 
     const defActions = computeLegalActions(r2, PLAYER_1);
-    const cancelStrikeActions = defActions.filter(
-      a => a.viable && a.action.type === 'cancel-strike',
-    );
-    expect(cancelStrikeActions).toHaveLength(0);
+    const dodgeActions = defActions.filter(a => a.viable && a.action.type === 'dodge-strike');
+    expect(dodgeActions).toHaveLength(0);
   });
 
-  test('Great-shield does NOT cancel a strike against another character in the company', () => {
+  test('Great-shield does NOT offer dodge-strike for another character in the company', () => {
     // Gimli bears the shield; Legolas is also in the company. A strike
-    // assigned to Legolas must not be cancelable by Gimli's shield.
+    // assigned to Legolas must not be dodgeable via Gimli's shield.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -374,7 +442,7 @@ describe('Great-shield of Rohan (tw-250)', () => {
         {
           id: PLAYER_2,
           companies: [{ site: LORIEN, characters: [ARAGORN] }],
-          hand: [ORC_LIEUTENANT],
+          hand: [LAND_DRAKE],
           siteDeck: [RIVENDELL],
         },
       ],
@@ -409,9 +477,7 @@ describe('Great-shield of Rohan (tw-250)', () => {
     expect(r2.combat!.phase).toBe('resolve-strike');
 
     const defActions = computeLegalActions(r2, PLAYER_1);
-    const cancelStrikeActions = defActions.filter(
-      a => a.viable && a.action.type === 'cancel-strike',
-    );
-    expect(cancelStrikeActions).toHaveLength(0);
+    const dodgeActions = defActions.filter(a => a.viable && a.action.type === 'dodge-strike');
+    expect(dodgeActions).toHaveLength(0);
   });
 });

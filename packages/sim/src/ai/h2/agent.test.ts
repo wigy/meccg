@@ -218,18 +218,47 @@ describe('a tie at the top with an unrelated worse candidate', () => {
     },
   };
 
-  test('acts on a tie instead of passing, because not acting is not neutral', () => {
-    // A turn spent passing plays no resource, attempts no faction and scores
-    // nothing, while the opponent's turn arrives regardless. `pass` is a move
-    // with its own cost, so it does not win a tie merely by being the option
-    // that changes nothing.
+  test('passes on a tie, because an action no module needs serves no plan', () => {
+    // Every action worth taking is priced strictly positive by the module
+    // whose plan needs it, and wins through `speaks`. A `transfer-item` still
+    // tied with `pass` down in the fallback is an action nothing needs, and
+    // playing it anyway is busywork: it handed away two starting items (game
+    // msp8zwew-ddwnxz, turn 2) and toured a minor item around a whole
+    // five-character company one hop per decision (game mt1j9m0i-5d4lze,
+    // turn 7). Pass wins any tie, on every random stream — this is a policy,
+    // not a draw.
     const agent = createHeuristic2Agent({
       available: [tiedTopWorseOutlier], model, temperature: 0.0001,
     });
-    const decision = agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT, PASS_A]));
+    for (const r of [0, 0.5, 0.999999]) {
+      const decision = agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT, PASS_A], () => r));
+      expect(decision.action).toBe(PASS_A);
+      expect(decision.note).toContain('no opinion');
+    }
+  });
+
+  test('unless a module priced passing strictly below the tied best', () => {
+    // A tie among actions is only surrendered to `pass` when `pass` is tied
+    // with them (or unscored). A module that priced passing *worse* has a
+    // real preference against it, and that is respected: the choice falls
+    // among the tied best instead.
+    const passCosts: H2Module = {
+      name: 'pass-costs',
+      ownedActionTypes: ['transfer-item', 'store-item', 'split-company', 'pass'],
+      evaluate(action) {
+        const utility = action.type === 'pass' ? -0.01 : 0;
+        return {
+          action, module: 'pass-costs',
+          outcomes: [{ p: 1, label: 'x', dtsd: utility * 100 }],
+          expectedTsd: utility * 100, sigmaTsd: 0, utility,
+          method: 'integrated', rationale: leaf('x', 0), assumptions: [],
+        };
+      },
+    };
+    const agent = createHeuristic2Agent({ available: [passCosts], model, temperature: 0.0001 });
+    const decision = agent.chooseAction(decisionContext([TRANSFER, STORE, PASS_A]));
     expect(decision.action).not.toBe(PASS_A);
-    expect(decision.action).not.toBe(SPLIT);
-    expect(decision.note).toContain('no opinion');
+    expect(decision.note).toContain('tied at random');
   });
 
   test('and picks uniformly among the tied, not whichever sorted first', () => {
@@ -244,6 +273,39 @@ describe('a tie at the top with an unrelated worse candidate', () => {
       agent.chooseAction(decisionContext([TRANSFER, STORE, SPLIT], () => r)).action));
     expect(drawn.size).toBe(2);
     expect(drawn.has(SPLIT)).toBe(false);
+  });
+
+  test('does not let an item action out-vote a plan-movement merely by having more targets', () => {
+    // Game mt3e57h3-9f79dh, turn 1: organization phase withholds `pass` under
+    // CoE 2.II.3.6 until all but one split company has declared movement. A
+    // Cram sitting at corruption 0-1 can `transfer-item` to any of several
+    // other characters at zero real cost (2d6 cannot fail the check below
+    // corruption 2), correctly tying at utility 0 with the `plan-movement`
+    // still owed. Sampling uniformly over the raw action list gave the item
+    // six action records against the move's one, so a draw that should have
+    // been a fair choice between two real alternatives instead sent the move
+    // to the back of the queue and toured the item around the company
+    // instead. Drawing the action type first, then a target within it, keeps
+    // the two alternatives equally likely.
+    const items: readonly GameAction[] = Array.from({ length: 6 }, (_, i) =>
+      ({ type: 'transfer-item', id: `t${i}` } as unknown as GameAction));
+    const MOVE = { type: 'plan-movement', id: 'm' } as unknown as GameAction;
+    const zeroEverywhere: H2Module = {
+      name: 'zero',
+      ownedActionTypes: ['transfer-item', 'plan-movement'],
+      evaluate: action => ({
+        action, module: 'zero',
+        outcomes: [{ p: 1, label: 'x', dtsd: 0 }],
+        expectedTsd: 0, sigmaTsd: 0, utility: 0,
+        method: 'integrated', rationale: leaf('x', 0), assumptions: [],
+      }),
+    };
+    const agent = createHeuristic2Agent({ available: [zeroEverywhere], model, temperature: 0.0001 });
+    // Sampling uniformly over the raw 7-item list at r=0.8 lands on index 5
+    // (Math.floor(0.8 * 7) === 5), one of the six transfers. Drawing the type
+    // first (2 types, Math.floor(0.8 * 2) === 1) reaches `plan-movement`.
+    const decision = agent.chooseAction(decisionContext([...items, MOVE], () => 0.8));
+    expect(decision.action).toBe(MOVE);
   });
 
   test('takes its own best when there is nothing to pass with', () => {

@@ -14,7 +14,7 @@
  * le-116 is the LE-set reprint of Incite Denizens (td-34); it shares the same
  * text and engine support:
  * - play-target site with filter for ruins-and-lairs with auto-attacks
- * - duplication-limit scope:turn max:1
+ * - duplication-limit scope:site max:1 ("Cannot be duplicated on a given site")
  * - on-event company-arrives-at-site → auto-attack-duplicate constraint
  * - reducer-site handles the duplicate attack during automatic-attacks step
  */
@@ -233,6 +233,81 @@ describe('Incite Denizens (le-116)', () => {
 
     const actions = viableActions(afterFirst, PLAYER_2, 'play-hazard');
     expect(actions).toHaveLength(0);
+  });
+
+  test('second copy playable at a different site — the printed limit is per site, not per turn', () => {
+    // A resolved first copy lives on as an auto-attack-duplicate constraint
+    // targeting the company it was played against. "Cannot be duplicated on a
+    // given site" must not block a second copy against another company headed
+    // to a *different* site in the same turn — but must still block one
+    // against the same site.
+    const SECOND_COMPANY = `company-${PLAYER_1 as string}-1` as CompanyId;
+    const CONSTRAINT_SOURCE = 'incite-first-copy' as CardInstanceId;
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [] },
+            { site: RIVENDELL, characters: [ARAGORN] },
+          ],
+          hand: [],
+          siteDeck: [ISENGARD],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [INCITE_DENIZENS], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const destCard = state.players[0].siteDeck[0];
+    const stateWithDest: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          companies: [
+            state.players[0].companies[0],
+            {
+              ...state.players[0].companies[1],
+              destinationSite: { instanceId: destCard.instanceId, definitionId: destCard.definitionId, status: CardStatus.Untapped },
+            },
+          ],
+        },
+        state.players[1],
+      ] as typeof state.players,
+    };
+
+    const mh: MovementHazardPhaseState = makeMHState({
+      activeCompanyIndex: 1,
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Isengard',
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Gap of Isen'],
+    });
+    const mhGameState: GameState = { ...stateWithDest, phaseState: mh };
+
+    // First copy's constraint targets the OTHER company (at Moria):
+    // playing against the Isengard-bound company stays legal.
+    const differentSite = addConstraint(mhGameState, {
+      source: CONSTRAINT_SOURCE,
+      sourceDefinitionId: INCITE_DENIZENS,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId: P1_COMPANY },
+      kind: { type: 'auto-attack-duplicate' },
+    });
+    expect(viableActions(differentSite, PLAYER_2, 'play-hazard').length).toBeGreaterThan(0);
+
+    // First copy's constraint targets the active company itself (same site):
+    // the second copy is blocked.
+    const sameSite = addConstraint(mhGameState, {
+      source: CONSTRAINT_SOURCE,
+      sourceDefinitionId: INCITE_DENIZENS,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId: SECOND_COMPANY },
+      kind: { type: 'auto-attack-duplicate' },
+    });
+    expect(viableActions(sameSite, PLAYER_2, 'play-hazard')).toHaveLength(0);
   });
 
   // ─── Constraint creation ───────────────────────────────────────────────

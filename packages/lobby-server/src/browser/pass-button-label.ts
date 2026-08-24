@@ -16,7 +16,6 @@
  */
 import type { GameAction, PlayerView } from '@meccg/shared';
 import { Phase } from '@meccg/shared';
-import { getHazardLimitLabel } from './render-player-names.js';
 
 /**
  * Short label for the bottom-bar pass/action button.
@@ -51,7 +50,7 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
 
   // Rule 9.21's ring-play-offer: the plain `pass` here declines playing the
   // offered special ring, not the ordinary end-of-phase pass it would
-  // otherwise be read as (e.g. "Long-event" during Organization) — without
+  // otherwise be read as (e.g. "Continue" during Organization) — without
   // this the button read as an unrelated phase-advance action and the
   // player had no visible way to decline the ring.
   if (passAction.type === 'pass'
@@ -59,21 +58,37 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
     return 'Skip Ring';
   }
 
+  // Hall of Fire (dm-134) haven-restore-character resolution: `pass` here
+  // declines the optional untap/heal, not the ordinary phase-advance pass it
+  // would otherwise be read as. The resolution can become active mid-M/H
+  // (immediately after the company's own hazard sub-phase) or at the very
+  // start of the Site phase, while `phaseState` still reflects the step it
+  // was queued from (e.g. "play-hazards" or the Site phase's default
+  // "select-company") — without this the button read as an unrelated
+  // phase-advance action ("Pass Hazards" / "Continue") with no hint that
+  // skipping meant declining the untap/heal offer.
+  if (passAction.type === 'pass'
+    && view.legalActions.some(ea => ea.viable && ea.action.type === 'restore-character-by-effect')) {
+    return 'Skip Untap/Heal';
+  }
+
   if (view.phaseState.phase === Phase.Untap) return 'End Untap';
-  if (view.phaseState.phase === Phase.Organization) return 'Long-event';
+  // Deliberately not "Long-event" (naming the next phase, per the usual
+  // convention below): Organization is where long-event cards actually get
+  // played, so that label read as an instruction to play one rather than as
+  // the end-of-phase pass it is.
+  if (view.phaseState.phase === Phase.Organization) return 'Continue';
   if (view.phaseState.phase === Phase.LongEvent) return 'Movement/Hazard';
 
   if (view.phaseState.phase === Phase.MovementHazard) {
     switch (view.phaseState.step) {
       case 'set-hazard-limit': return 'Continue';
       case 'draw-cards': return 'Pass Draw';
-      case 'play-hazards': {
-        // Name what's actually being given up: clicking Pass looks harmless
-        // from the all-companies overview, but ends hazard opportunities
-        // against whichever company is currently active.
-        const remaining = getHazardLimitLabel(view);
-        return remaining !== null ? `Pass Hazards (${remaining} left)` : 'Pass Hazards';
-      }
+      // Name what's actually being given up: clicking Pass looks harmless
+      // from the all-companies overview, but ends hazard opportunities
+      // against whichever company is currently active. The remaining
+      // hazard limit is shown by the HL box, not repeated here.
+      case 'play-hazards': return 'Pass Hazards';
       case 'reset-hand': return 'Continue';
       default: return 'Continue';
     }

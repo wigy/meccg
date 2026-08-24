@@ -25,11 +25,11 @@ import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, buildPlayerStateContext, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -96,9 +96,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
       // evaluated against the player's avatar/alignment context, mirroring
       // the short-event path below (The Great Eye as-85: "Playable if you
       // are Sauron" via player.playsAsSauron).
-      const longPlayerStateCondition = findPlayConditionEffect(def, 'player-state');
-      if (longPlayerStateCondition?.condition
-          && !matchesCondition(longPlayerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
+      if (!playerStateGateMet(state, player, playerId, def)) {
         logDetail(`${def.name}: play-condition player-state not satisfied`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
         continue;
@@ -320,13 +318,10 @@ export function heroResourceShortEventActions(
     // organization-phase path so any-phase and chain-window plays honour the
     // same gate (The Dark Power as-79: "Playable if you are Sauron" via
     // player.playsAsSauron).
-    const playerStateCondition = findPlayConditionEffect(def, 'player-state');
-    if (playerStateCondition?.condition) {
-      if (!matchesCondition(playerStateCondition.condition, buildPlayerStateContext(state, player, playerId))) {
-        logDetail(`${def.name}: play-condition player-state not satisfied`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
-        continue;
-      }
+    if (!playerStateGateMet(state, player, playerId, def)) {
+      logDetail(`${def.name}: play-condition player-state not satisfied`);
+      actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
+      continue;
     }
 
     // Skip short events whose effects are only usable during combat
@@ -415,7 +410,7 @@ export function heroResourceShortEventActions(
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
     if (discardWhenMet && discardInPlay && discardInPlay.filter) {
-      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter);
+      discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no valid target to discard`));
@@ -431,7 +426,7 @@ export function heroResourceShortEventActions(
     // combat cancel stays playable in that mode via the combat path.
     const discardAllInPlay = findMoveEffectByShape(def, 'filter-all', 'in-play', 'discard');
     if (discardAllInPlay?.filter) {
-      const sweepTargets = collectDiscardInPlayTargets(state, discardAllInPlay.filter);
+      const sweepTargets = collectDiscardInPlayTargets(state, discardAllInPlay.filter, playerId);
       if (sweepTargets.length === 0) {
         logDetail(`${def.name}: nothing in play matches the discard-all filter — not playable`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has nothing in play to discard`));
@@ -467,10 +462,36 @@ export function heroResourceShortEventActions(
     // If the card has a play-target with a tap cost (e.g. Marvels Told taps
     // a sage), emit one action per eligible target. Otherwise emit a single
     // action with no target. When a discard-in-play target is also required,
-    // emit the cross-product of sage × discard-target.
+    // emit the cross-product of sage × discard-target. When the play-target
+    // declares an `itemFilter` (Use Palantír tw-355), emit the cross-product
+    // of sage × qualifying-item instead — the player picks which of the
+    // sage's matching items (e.g. which Palantír) the card resolves against.
     const playTarget = getPlayTargetEffect(def);
     const emitPlay = (sageId: CardInstanceId | undefined) => {
-      if (discardTargetIds) {
+      const itemFilter = playTarget?.itemFilter;
+      const sageChar = sageId ? player.characters[sageId] : undefined;
+      const itemIds = itemFilter && sageChar
+        ? itemsMatchingFilter(state, sageChar.items, itemFilter)
+        : null;
+      if (itemIds) {
+        if (itemIds.length === 0) {
+          logDetail(`${def.name}: sage ${String(sageId)} has no item matching itemFilter — skipping`);
+          return;
+        }
+        for (const itemId of itemIds) {
+          logDetail(`Resource short-event playable (sage ${String(sageId)}, item ${String(itemId)}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId,
+              targetScoutInstanceId: sageId,
+              targetItemInstanceId: itemId,
+            },
+            viable: true,
+          });
+        }
+      } else if (discardTargetIds) {
         for (const discardId of discardTargetIds) {
           logDetail(`Resource short-event playable (sage ${String(sageId)}, discard ${String(discardId)}): ${def.name}`);
           actions.push({

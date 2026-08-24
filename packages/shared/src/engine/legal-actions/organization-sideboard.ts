@@ -11,11 +11,13 @@ import type {
   PlayerId,
   EvaluatedAction,
   PlayerState,
+  CardDefinition,
 } from '../../index.js';
 import { requirePhaseState } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
+import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById, defById, selfSideboardToDeckMove } from '../reducer-utils.js';
 
 /**
@@ -48,15 +50,19 @@ const MAX_SIDEBOARD_TO_DISCARD = 5;
 const MIN_DECK_SIZE_FOR_SIDEBOARD_TO_DECK = 5;
 
 /**
+ * Eligibility predicate for the CoE 2.II.6 sideboard fetch: resources and
+ * characters may be fetched.
+ */
+function isFetchableSideboardDef(def: CardDefinition): boolean {
+  return def.cardType.includes('character') || def.cardType.includes('resource');
+}
+
+/**
  * Returns eligible sideboard cards (resources and characters) for fetch
  * actions per CoE rule 2.II.6.
  */
 function getEligibleSideboardCards(state: GameState, player: PlayerState) {
-  return filterSideboardByDef(
-    state,
-    player.sideboard,
-    def => def.cardType.includes('character') || def.cardType.includes('resource'),
-  );
+  return filterSideboardByDef(state, player.sideboard, isFetchableSideboardDef);
 }
 
 /**
@@ -76,52 +82,16 @@ export function fetchFromSideboardActions(state: GameState, playerId: PlayerId):
 
   // ── Active sub-flow: generate fetch actions ──
 
-  if (orgState.sideboardFetchDestination === 'deck') {
-    if (orgState.sideboardFetchedThisTurn >= 1) {
-      // The fetch counter is shared with the to-discard sub-flow, so the
-      // deck sub-flow can be entered with nothing left to fetch — pass must
-      // be available to exit it, or the phase deadlocks.
-      logDetail('Sideboard access: already fetched a card this turn — must pass to close the sub-flow');
-      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-      return actions;
-    }
-    // Must pick exactly 1 card — no pass while a pick is possible
-    const eligible = getEligibleSideboardCards(state, player);
-    for (const card of eligible) {
-      logDetail(`Sideboard access: ${card.name} → play deck (viable)`);
-      actions.push({
-        action: { type: 'fetch-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-    if (actions.length === 0) {
-      logDetail('Sideboard access: no eligible cards to fetch to deck — must pass to close the sub-flow');
-      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-    }
-    return actions;
-  }
-
-  if (orgState.sideboardFetchDestination === 'discard') {
-    if (orgState.sideboardFetchedThisTurn >= MAX_SIDEBOARD_TO_DISCARD) {
-      // The sub-flow only closes on pass (the reducer clears the destination
-      // there) — pass must stay available or the phase deadlocks at the cap.
-      logDetail('Sideboard access: already fetched 5 cards to discard this turn — must pass to close the sub-flow');
-      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-      return actions;
-    }
-    const eligible = getEligibleSideboardCards(state, player);
-    for (const card of eligible) {
-      logDetail(`Sideboard access: ${card.name} → discard pile (viable)`);
-      actions.push({
-        action: { type: 'fetch-from-sideboard', player: playerId, sideboardCardInstanceId: card.instanceId },
-        viable: true,
-      });
-    }
-    // Pass available after at least 1 card fetched
-    if (orgState.sideboardFetchedThisTurn >= 1) {
-      actions.push({ action: { type: 'pass', player: playerId }, viable: true });
-    }
-    return actions;
+  if (orgState.sideboardFetchDestination !== null) {
+    return sideboardFetchSubflowActions(state, playerId, {
+      destination: orgState.sideboardFetchDestination,
+      fetched: orgState.sideboardFetchedThisTurn,
+      maxToDiscard: MAX_SIDEBOARD_TO_DISCARD,
+      fetchActionType: 'fetch-from-sideboard',
+      isEligible: isFetchableSideboardDef,
+      logPrefix: 'Sideboard access',
+      guardWithPass: true,
+    });
   }
 
   // ── No intent declared: generate start actions ──

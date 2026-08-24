@@ -33,14 +33,15 @@ function position() {
 }
 
 describe('what each hazard is for', () => {
-  test('every creature in hand gets an answer, and nothing else does', () => {
+  test('every creature in hand gets an answer, and an unreadable event does not', () => {
     const { view, cardPool, plan } = position();
     const creatures = view.self.hand.filter(card =>
       (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-creature');
     expect(creatures.length).toBeGreaterThan(0);
-    expect(plan.assignments).toHaveLength(creatures.length);
     for (const card of creatures) expect(plan.worth(card.instanceId)).not.toBeNull();
 
+    // An event whose value is not a declared attack modifier — Doors of Night is
+    // worth what *other* cards make of it — has no place in an attack plan.
     const event = view.self.hand.find(card =>
       (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event');
     if (event) expect(plan.worth(event.instanceId)).toBeNull();
@@ -76,6 +77,146 @@ describe('what each hazard is for', () => {
     const { plan } = position();
     const summed = plan.assignments.reduce((sum, a) => sum + a.marginal, 0);
     expect(summed).toBeCloseTo(plan.totalHarm, 6);
+  });
+});
+
+describe('the order the attacks are played in', () => {
+  /** The plan for the hazard player at a captured position. */
+  function planAt(id: string) {
+    const scenario = loadScenario(id);
+    const view = scenarioView(scenario, 'p1' as never);
+    const cardPool = loadCardPool();
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    const plan = computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES);
+    const orderOf = (name: string) => plan.assignments.find(a => a.name === name);
+    return { plan, orderOf };
+  }
+
+  test('leads with the attack that softens the company for the one behind it', () => {
+    // Two defenders. Wargs is worth less alone than the four-strike Lesser
+    // Spiders, so a greedy plan led with the Spiders — but taking a defender out
+    // first and following with four strikes into the gap is worth more than the
+    // reverse, and the `hazards` module's own bundle search says so too. The
+    // plan used to inherit the order it happened to pick cards in.
+    const { orderOf } = planAt('hazards/order-two-defenders');
+    const wargs = orderOf('Wargs');
+    const spiders = orderOf('Lesser Spiders');
+    expect(wargs?.targetCompanyId).not.toBeNull();
+    expect(spiders?.targetCompanyId).toBe(wargs?.targetCompanyId);
+    expect(wargs!.order).toBeLessThan(spiders!.order);
+  });
+
+  test('but leads with the many-strike attack against a lone wounded defender', () => {
+    // The same reasoning, reversed by the position: one already-wounded
+    // character, where the near-certain kill ends the company and leaves the
+    // follow-up nothing to hit. "Highest chance of wounding first" is a
+    // consequence of the numbers, not a rule above them.
+    const { orderOf } = planAt('hazards/order-lone-wounded-defender');
+    const spiders = orderOf('Lesser Spiders');
+    const worm = orderOf('Cave Worm');
+    expect(spiders?.targetCompanyId).not.toBeNull();
+    expect(worm?.targetCompanyId).toBe(spiders?.targetCompanyId);
+    expect(spiders!.order).toBeLessThan(worm!.order);
+  });
+
+  test('credits each attack for what it adds in the order it will be played', () => {
+    // The lead attack is credited what it denies on its own and the follower
+    // what it adds behind it, so the two still sum to the plan's total — the
+    // property that makes these numbers usable as prices.
+    const { plan } = planAt('hazards/order-two-defenders');
+    const summed = plan.assignments.reduce((sum, a) => sum + a.marginal, 0);
+    expect(summed).toBeCloseTo(plan.totalHarm, 6);
+    const [lead, follower] = plan.assignments
+      .filter(a => a.targetCompanyId !== null)
+      .sort((a, b) => a.order - b.order);
+    expect(lead.order).toBe(1);
+    expect(follower.order).toBe(2);
+  });
+});
+
+describe('a support event in hand', () => {
+  /**
+   * The plan with a readable boost in hand: "all Spider and Animal attacks
+   * receive +2 prowess", beside creatures it reaches.
+   *
+   * Swapping definitions under the hand's own instances is the trick the module
+   * tests use — the position keeps its shape and only the cards change.
+   */
+  function withSupport(supportName = 'Full of Froth and Rage') {
+    const scenario = loadScenario(SCENARIO);
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
+      (cardPool[id] as unknown as { name?: string }).name === name)!;
+    const hand = view.self.hand as unknown as { definitionId: string }[];
+    const creatures = hand.filter(card =>
+      (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-creature');
+    expect(creatures.length).toBeGreaterThan(0);
+    // Make the creatures Spiders, so the boost reaches them, and put the boost
+    // where a non-creature card was.
+    for (const creature of creatures) creature.definitionId = definitionOf('Lesser Spiders');
+    const slot = hand.find(card =>
+      (cardPool[card.definitionId] as unknown as { cardType?: string })?.cardType !== 'hazard-creature')!;
+    slot.definitionId = definitionOf(supportName);
+    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
+    return {
+      support: slot as unknown as { instanceId: string },
+      definitionOf,
+      plan: computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES),
+    };
+  }
+
+  test('is priced, so nothing discards the card the module would play first', () => {
+    const { support, plan } = withSupport();
+    // Before the plan could read a race list, this card was not in the plan at
+    // all — and `card-price`, which asks the plan what a card is worth to keep,
+    // was free to throw away the boost the `hazards` module plays first.
+    expect(plan.worth(support.instanceId as never)).not.toBeNull();
+    expect(plan.worth(support.instanceId as never)!.support).toBe(true);
+  });
+
+  test('is never planned behind an attack it would boost', () => {
+    const { plan } = withSupport();
+    for (const assignment of plan.assignments) {
+      if (!assignment.support || assignment.targetCompanyId === null) continue;
+      // A modifier reaches the table before the attacks it improves, or it
+      // improves nothing. This is the whole of the reported bug.
+      expect(assignment.order).toBe(1);
+      const behind = plan.assignments.filter(other =>
+        !other.support && other.targetCompanyId === assignment.targetCompanyId);
+      for (const attack of behind) expect(attack.order).toBeGreaterThan(1);
+    }
+  });
+
+  test('the marginals still sum to the total with a support in the plan', () => {
+    const { plan } = withSupport();
+    const summed = plan.assignments.reduce((sum, a) => sum + a.marginal, 0);
+    expect(summed).toBeCloseTo(plan.totalHarm, 6);
+  });
+
+  test('does not inflate the quote of a creature the support never reaches', () => {
+    // `marginalFor` subtracts the company's *contribution* — attacks less a
+    // card per support played there — from an attacks-only candidate arm.
+    // Mixed like that, the difference credited every candidate with the
+    // supports' card prices: with one support adopted, each quote from that
+    // company came out a full provisionalCardPrice too high, skewing the
+    // exchange/fetch/draft comparisons `card-price` feeds (routinely decided
+    // by sub-price differences). An Orc pins it cleanly: the Spider/Animal
+    // boost never touches an Orc attack, and appending it behind *boosted*
+    // spiders can only find a softer roster — so its quote with the support
+    // adopted must not exceed its quote from the boost-free twin by the
+    // price the old subtraction leaked.
+    const boosted = withSupport();
+    // Doors of Night alone declares no attack modifier the plan can read
+    // (see "an unreadable event does not [get an answer]" above), so this
+    // twin position adopts no support.
+    const bare = withSupport('Doors of Night');
+    const orc = boosted.definitionOf('Hobgoblins');
+
+    const inflated = boosted.plan.marginalFor(orc);
+    const honest = bare.plan.marginalFor(orc);
+    expect(honest).toBeGreaterThan(0);
+    expect(inflated).toBeLessThanOrEqual(honest + DEFAULT_TUNABLES.provisionalCardPrice / 2);
   });
 });
 

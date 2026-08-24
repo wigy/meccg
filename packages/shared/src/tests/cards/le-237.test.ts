@@ -113,6 +113,32 @@ describe('Swarm of Bats (le-237)', () => {
     );
   });
 
+  test('NOT playable outside the organization phase ("during the organization phase")', () => {
+    // Regression: the card declared no phase gate, so the permanent-event
+    // emitter offered it in every resource-play window (movement/hazard,
+    // site, end-of-turn) despite the printed restriction.
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [GORBAG, ORC_CAPTAIN] }],
+          hand: [SWARM_OF_BATS],
+          siteDeck: [MORIA_MINION],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: BARAD_DUR, characters: [ASTERNAK] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   test('playable at a Shadow-hold with 2+ Orcs', () => {
     const state = buildTestState({
       phase: Phase.Organization,

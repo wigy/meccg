@@ -179,6 +179,28 @@ export interface Tunables {
    * made of, and during movement/hazard the draw is the whole reason to
    * resolve one company before another. A price rather than a tally, so the
    * criterion can be compared against everything else in the same currency.
+   *
+   * It is pinned to {@link provisionalCardPrice} and must never fall below it.
+   * A draw hands over a card in hand, and `provisionalCardPrice` is what the
+   * *worst* card in hand is worth to keep — the price `hand` charges itself to
+   * discard a card whose use it cannot even model. At 0.35 against that 1.00
+   * the two halves of one exchange were quoted in different currencies, and
+   * the incoherence was visible in play rather than merely on paper:
+   *
+   * - `hand` charged 1.00 to throw the deadest card in hand and credited 0.35
+   *   to draw a fresh one, so cycling always lost to hoarding.
+   * - A Short Rest adding **two** cards was worth 0.70 against the 1.00 the
+   *   card cost to play, so the agent declined to double a turn's draws.
+   * - A two-draw site contributed 0.35 to a destination against the 12.0 an
+   *   item already in hand contributed, a ratio of 34:1, so routes were only
+   *   ever chosen to cash cards already held and never to acquire any.
+   *
+   * The floor is conservative rather than fitted. Measured on a real position
+   * (`explain --game msxd2ban-qoqtc7 --seq 73`) the shadow price of the seven
+   * cards actually in hand averaged 1.86, so 1.00 still understates an average
+   * draw — deliberately, because it is the one figure here that can be argued
+   * from the rules rather than tuned: whatever a drawn card turns out to be, it
+   * is at least a card in hand.
    */
   readonly resourceDrawValue: number;
   /**
@@ -216,6 +238,47 @@ export interface Tunables {
    * this long are rare in play; when the cap binds it is reported.
    */
   readonly hazardMaxBundle: number;
+  /**
+   * TSD denied by tapping a character out of one combat-relevant ability.
+   *
+   * The Fatty Bolger number. He can tap to cancel a strike against another
+   * Hobbit in his company, so tapping him first is worth roughly the strike he
+   * would have cancelled — and a strike is what `tapTempoCost` plus a wound's
+   * share of `woundTempoCost` costs the defender, which is where this sits. It
+   * is charged per ability rather than per character: a character with two
+   * tap-gated abilities loses both to the one tap.
+   *
+   * Deliberately not the value of the ability to its owner. What the attacker
+   * gains is the *use* of it for this combat, which is bounded by the combat,
+   * while a card that reads "cancel a strike" is worth more than that across a
+   * whole game.
+   */
+  readonly abilityTapDenialTsd: number;
+  /**
+   * TSD denied by removing a passive combat ability from play.
+   *
+   * A character who weakens attacking creatures (`enemy-modifier`) goes on doing
+   * it while he is tapped, so only elimination stops him — and a kill is already
+   * priced by `eliminationTempoCost` and his marshalling points. This is what it
+   * adds on top, per ability.
+   */
+  readonly abilityLossDenialTsd: number;
+  /**
+   * Risk posture at or above which the attacker's target choice is searched
+   * exhaustively rather than greedily.
+   *
+   * `risk.lambda` is `1 − 2W`: positive when losing, negative when winning, zero
+   * at an even game (`core/risk.ts`). A player who is ahead can afford the cheap
+   * one-step answer, because the greedy choice is right in the ordinary case and
+   * the difference is small; a player who is behind needs the attack that
+   * actually maximises the damage, and the exhaustive search is what finds the
+   * two-strike plans — tap the parrier, then wound the character his ability was
+   * protecting — that no one-step rule can see.
+   *
+   * Zero therefore means "search whenever the game is not already won", which is
+   * the reading the curvature itself suggests.
+   */
+  readonly attackerChoiceSearchLambda: number;
   /**
    * The chance an on-guard card is ever revealed and pays, in [0, 1].
    *
@@ -357,6 +420,62 @@ export interface Tunables {
    * expectation so the *decision* is priced rather than the event.
    */
   readonly gatingResolutionTsd: number;
+  /**
+   * How many goals the organization potential's matching considers at once.
+   *
+   * A performance bound like `hazardBeamWidth`, not a gameplay choice: the
+   * goal-to-company matching is exact over permutations, so its cost grows
+   * with the goal list, and the list is truncated to the top so-many by
+   * discounted payoff with a deterministic tie-break. When the cap binds it
+   * is reported in the rationale, so a reader can see how much of the hand
+   * was actually considered.
+   */
+  readonly organizationGoalCap: number;
+  /**
+   * What having an avatar in play is worth, in TSD, beyond the marshalling
+   * points it carries (often zero — an avatar's value is not in its MP).
+   *
+   * Two capabilities are gated on an avatar (`mind === null`) being in play
+   * and priced nowhere else at decision time: tapping it to fetch up to five
+   * cards from the sideboard (CoE 2.II.6), and making a company eligible to
+   * draw resources at all when none of its other characters has mind ≥ 3
+   * (CoE 2.IV.v, `draw-value.ts`'s `hasEligibleDrawer`). Both are exact rules,
+   * not guesses, but pricing either in full needs the sideboard's actual
+   * contents or a company's actual composition, which `play-character` does
+   * not have yet. A flat floor is the honest middle ground: without it, an
+   * avatar with 0 marshalling points reads as worth exactly what a Hobbit is
+   * worth, and is never played.
+   *
+   * Ships well above `eliminationTempoCost`, deliberately: an avatar is not
+   * one character among others but the card the deck is built around — the
+   * avatar-specific resources want it named, a Fallen-wizard's stage payoffs
+   * want it in play, and the sideboard fetch it alone provides is the deck's
+   * recovery valve. A floor that merely matched a good character kept losing
+   * the play to marginal alternatives, which is how the figure moved from its
+   * original 2.
+   */
+  readonly avatarInPlayTsd: number;
+  /**
+   * What one Fallen-wizard stage point is worth, in TSD, beyond the
+   * marshalling points the stage card happens to carry.
+   *
+   * Not a reading of the scoreboard — stage points score nothing directly. It
+   * is the price of *progression*: the deck's payoff cards are gated on the
+   * running total (Await the Onset wh-96, Prophet of Doom wh-106 and The White
+   * Hand wh-122 all demand 12 or more; A Strident Spawn wh-61 demands 6 and a
+   * protected Wizardhaven, which itself wants the total above 6), so a stage
+   * point banked now is a play unlocked later. Fallen-wizard decks in this
+   * project are built on the assumption that every stage card reaches the
+   * table, which is why the term exists at all: without it a stage card with
+   * no printed marshalling points prices at exactly zero and ties with `pass`
+   * forever.
+   *
+   * Charged through the *potential* channel, so `potentialDiscount` applies —
+   * progression is precisely "points a play unlocks but does not bank yet".
+   * The same figure prices the loss side when a `discard-stage-resource` is on
+   * offer, which is what keeps that action ranked below doing nothing.
+   */
+  readonly stagePointTsd: number;
 }
 
 /** The shipped constant set. Overridden per-run by `sweep --over tunable:*`. */
@@ -379,10 +498,13 @@ export const DEFAULT_TUNABLES: Tunables = {
   decisiveMargin: 0,
   gatingResolutionTsd: 1,
   revisitedSiteCost: 1.5,
-  resourceDrawValue: 0.35,
+  resourceDrawValue: 1,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,
   hazardMaxBundle: 3,
+  abilityTapDenialTsd: 1,
+  abilityLossDenialTsd: 0.5,
+  attackerChoiceSearchLambda: 0,
   onGuardDiscount: 0.5,
   planSwitchMarginTsd: 1,
   planAbandonProbability: 0.05,
@@ -392,6 +514,9 @@ export const DEFAULT_TUNABLES: Tunables = {
   planUnroutedReachProbability: 0.25,
   planHorizonTurns: 6,
   heldCardFloor: 1,
+  organizationGoalCap: 4,
+  avatarInPlayTsd: 6,
+  stagePointTsd: 0.5,
 };
 
 /**

@@ -17,7 +17,9 @@
  *    duplicated."
  *
  * Card shape (data):
- *   - `alignment: "stage"`, `eventType: "permanent"`, MP 0 (category misc);
+ *   - `alignment: "stage"`, `eventType: "permanent"`, MP 3 (category misc,
+ *     unconditional — printed in the top-left corner independent of the
+ *     play-condition that gates playing the card);
  *     carries the `pallando-specific` keyword.
  *   - effects:
  *     1. stage-points (3) — its printed stage value (MEWH §1).
@@ -232,5 +234,20 @@ describe('Prophet of Doom (wh-106)', () => {
     });
     state = sweepDiscardSelfWhen(state);
     expect(state.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === PROPHET_OF_DOOM)).toBe(true);
+  });
+
+  // ─── Miscellaneous marshalling points: 3, unconditional ─────────────────────
+  //
+  // The card's printed MP value (top-left corner) is separate from its
+  // stage-points value and from the play-condition that gates playing it —
+  // once in play, it scores 3 misc MP regardless of stage points or faction
+  // count (a report incorrectly assumed it was gated on the play-condition).
+
+  test('scores 3 misc marshalling points while in play, independent of stage points', () => {
+    const state = buildFallenWizardInfluenceState({
+      avatar: PALLANDO_FW, p1Site: ISENGARD, p2Site: RIVENDELL,
+      p1CardsInPlay: [PROPHET_OF_DOOM], stagePoints: 0,
+    });
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(3);
   });
 });

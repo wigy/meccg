@@ -91,6 +91,8 @@ export function buildConstraintKind(
       return { type: 'only-creatures-keyed-to-site' };
     case 'only-creatures-keyed-to-site-at-ruins-lairs':
       return { type: 'only-creatures-keyed-to-site-at-ruins-lairs' };
+    case 'only-creatures-keyed-to-site-if-safe-path':
+      return { type: 'only-creatures-keyed-to-site-if-safe-path' };
     case 'extra-mh-phase': {
       // Master of Esgaroth (td-135). The destination gate is stored on the
       // constraint and evaluated when the company's M/H phase ends, since the
@@ -269,6 +271,11 @@ export function buildConstraintKind(
         detainmentAgainstOvert: true,
       };
     }
+    case 'hazard-limit-multiplier': {
+      const value = (onEvent.apply as { value?: number }).value;
+      if (typeof value !== 'number') return null;
+      return { type: 'hazard-limit-multiplier', value };
+    }
     case 'auto-attack-duplicate':
       return { type: 'auto-attack-duplicate' };
     case 'auto-attack-race-duplicate': {
@@ -280,6 +287,47 @@ export function buildConstraintKind(
       const race = (onEvent.apply as { race?: Race }).race;
       if (!race) return null;
       return { type: 'only-race-creatures-on-company', race };
+    }
+    case 'hazard-limit-modifier': {
+      const value = (onEvent.apply as { value?: number }).value;
+      if (typeof value !== 'number') return null;
+      return { type: 'hazard-limit-modifier', value };
+    }
+    case 'hazard-limit-region-count': {
+      // Lost in Border-lands (tw-51/le-118) and its "Lost in X" siblings: a
+      // hazard-event short event ("its hazard limit increases by one for
+      // every <region type> in its site path"), unlike Fair Sailing
+      // (tw-232, a resource short event routed through
+      // `applyShortEventOnEntersPlay` in reducer-events.ts). Hazard short
+      // events resolve through the chain's generic self-enters-play
+      // add-constraint path (`applyAddConstraintFromOnEvent`), which builds
+      // its constraint kind here — so this kind needs its own case in this
+      // builder even though the constraint itself (and its consumption in
+      // `snapshotHazardLimit`/`effectiveHazardLimit`) is shared.
+      const apply = onEvent.apply as { regionType?: import('../types/common.js').RegionType; value?: number; floor?: number };
+      const { regionType, value: perCount, floor } = apply;
+      if (!regionType || typeof perCount !== 'number' || typeof floor !== 'number') return null;
+      return { type: 'hazard-limit-region-count', regionType, perCount, floor };
+    }
+    case 'nazgul-boost-pending': {
+      const apply = onEvent.apply as {
+        race?: Race;
+        strikesModifier?: number;
+        prowessModifier?: number;
+        grantAttackerChoosesDefenders?: true;
+        keyingRegionTypes?: import('../types/common.js').RegionType[];
+        keyingSiteTypes?: import('../types/common.js').SiteType[];
+      };
+      if (!apply.race || apply.strikesModifier === undefined || apply.prowessModifier === undefined) return null;
+      return {
+        type: 'nazgul-boost-pending',
+        race: apply.race,
+        strikesModifier: apply.strikesModifier,
+        prowessModifier: apply.prowessModifier,
+        grantAttackerChoosesDefenders: true,
+        ...(apply.keyingRegionTypes ? { keyingRegionTypes: apply.keyingRegionTypes } : {}),
+        ...(apply.keyingSiteTypes ? { keyingSiteTypes: apply.keyingSiteTypes } : {}),
+      };
     }
     case 'granted-action': {
       const payload = (onEvent.apply as { grantedAction?: import('../types/effects.js').GrantedActionConstraintPayload }).grantedAction;

@@ -34,6 +34,7 @@ import type {
 } from '@meccg/shared';
 import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, PALLANDO, THE_GREAT_HUNT } from '@meccg/shared';
 import { computeLegalActions, stampActionIds } from '@meccg/shared';
+import type { EvaluatedAction } from '@meccg/shared';
 
 /** Convert a pile of card instances to view cards (structurally identical). */
 function toViewCards(pile: readonly CardInstance[]): ViewCard[] {
@@ -69,14 +70,60 @@ function revealedCardPile(
 }
 
 /**
+ * Unmasks the play-deck instances a player's own `fetch-from-pile` legal
+ * actions currently target with `source: 'deck'`.
+ *
+ * {@link buildSelfView}'s play-deck redaction only unmasks identities already
+ * recorded in {@link GameState.revealedInstances} (e.g. Revealed to all
+ * Watchers, dm-85). A grant-action fetch that can pull from the play deck
+ * (Mistress Lobelia dm-178, Palantír of Amon Sûl tw-296, etc. — any
+ * `enqueue-pending-fetch` apply with `deck` among its sources) never records
+ * that reveal, so the candidate stayed masked: the pile browser then rendered
+ * an undifferentiated stack of card backs with no way to see, or click,
+ * the one legal pick — reported as "can't figure out how to use it, the
+ * only way out is to decline". Since `legalActions` is already computed by
+ * the time `buildSelfView` runs, unmask exactly the instances the player's
+ * own viable `fetch-from-pile` actions reference in their own play deck —
+ * no persisted state change, so it never leaks to the opponent or outlives
+ * the fetch itself.
+ */
+function unmaskOwnDeckFetchCandidates(
+  playDeckView: readonly ViewCard[],
+  realPlayDeck: readonly CardInstance[],
+  legalActions: readonly EvaluatedAction[],
+): readonly ViewCard[] {
+  const candidateIds = new Set(
+    legalActions
+      .filter((ea): ea is EvaluatedAction & { action: { type: 'fetch-from-pile'; source: string; cardInstanceId: CardInstanceId } } =>
+        ea.viable && ea.action.type === 'fetch-from-pile' && (ea.action as { source: string }).source === 'deck')
+      .map(ea => ea.action.cardInstanceId as string),
+  );
+  if (candidateIds.size === 0) return playDeckView;
+  const realDefById = new Map(realPlayDeck.map(c => [c.instanceId as string, c.definitionId]));
+  return playDeckView.map(c =>
+    candidateIds.has(c.instanceId as string)
+      ? { instanceId: c.instanceId, definitionId: realDefById.get(c.instanceId as string) ?? c.definitionId }
+      : c,
+  );
+}
+
+/**
  * Redacts a discard pile like {@link hiddenCardPile}, but keeps the true
  * identity of the top (most recently discarded) card. Used when the viewing
  * player controls Pallando (tw-175): CRF 22 rules that Pallando "can only see
  * the top card of an opponent's discard pile" — not the whole pile.
+ *
+ * Cards explicitly revealed via `handRevealedInstances` (e.g. Aware of their
+ * Ways dm-46 drawing buried discard cards for a pick) stay revealed: this
+ * override narrows the default redaction's *hidden* set only for the top
+ * card, it must never re-hide what an effect has already revealed.
  */
-function hiddenPileRevealTop(pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[]): readonly ViewCard[] {
+function hiddenPileRevealTop(
+  pile: readonly { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId }[],
+  revealed: GameState['handRevealedInstances'] | undefined,
+): readonly ViewCard[] {
   return pile.map((c, i) =>
-    i === pile.length - 1
+    i === pile.length - 1 || revealed?.[c.instanceId] !== undefined
       ? { instanceId: c.instanceId, definitionId: c.definitionId }
       : { instanceId: c.instanceId, definitionId: UNKNOWN_CARD },
   );
@@ -170,8 +217,15 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
  * Builds the "opponent" portion of a player's view. Hides the opponent's
  * hand contents, play deck, site deck, sideboard, and discard pile
  * (represented as arrays of {@link UNKNOWN_INSTANCE} / {@link UNKNOWN_CARD}
- * — cards are discarded face-down per the CoE glossary), and redacts planned
- * movement destinations to a boolean `hasPlannedMovement` flag.
+ * — cards are discarded face-down per the CoE glossary), except for any
+ * discard-pile instance already made public per
+ * {@link GameState.handRevealedInstances} (e.g. Aware of their Ways, dm-46,
+ * which reveals a random subset of the opponent's discard pile so the
+ * card-player may choose one to remove from the game — without this, the
+ * chosen instances stayed `UNKNOWN_CARD` in the card-player's own view,
+ * so the pile browser rendered them as an anonymous face-down stack with no
+ * click targets), and redacts planned movement destinations to a boolean
+ * `hasPlannedMovement` flag.
  * Public information — characters in play, company locations — is passed
  * through. {@link projectPlayerView} layers on top of this for exceptions
  * that depend on the *viewing* player's own state, such as Pallando's
@@ -209,7 +263,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     hand: revealedCardPile(player.hand, state.handRevealedInstances),
     playDeck: revealedCardPile(player.playDeck, state.handRevealedInstances),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
-    discardPile: hiddenCardPile(player.discardPile),
+    discardPile: revealedCardPile(player.discardPile, state.handRevealedInstances),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
     killPile: toViewCards(player.killPile),
     outOfPlayPile: toViewCards(player.outOfPlayPile),
@@ -238,6 +292,34 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
 export function projectSpectatorView(state: GameState): PlayerView {
   const p1 = state.players[0];
   const p2 = state.players[1];
+
+  // The bottom player's companies are shown raw below (public info: sites,
+  // characters, planned movement), but their on-guard cards are the OPPONENT's
+  // face-down hazards — hidden information no one but that opponent may see.
+  // buildSelfView redacts these; the spectator "self" slot must too, or a
+  // watcher sees the face-down bluffs on p1's companies.
+  const p1Companies = p1.companies.map(c =>
+    c.onGuardCards.length > 0
+      ? { ...c, onGuardCards: c.onGuardCards.map(og => (og.revealed ? og : { ...og, definitionId: UNKNOWN_CARD })) }
+      : c,
+  );
+
+  // A face-down agent's identity, its carried cards, and the sites it has
+  // visited are all hidden information — the opponent view exposes only that
+  // one exists and how many sites it holds. The bottom player owns these
+  // agents, so buildSelfView shows them raw, but a spectator is not the owner:
+  // redact a face-down agent's card identity, attachments, and the identity of
+  // every site in its stack (the count, which is public, is preserved). A
+  // revealed agent is public and passes through.
+  const p1Agents = p1.agents.map(a =>
+    a.revealed
+      ? a
+      : {
+        ...a,
+        character: { ...a.character, definitionId: UNKNOWN_CARD, items: [], allies: [], hazards: [], followers: [] },
+        siteStack: a.siteStack.map(s => ({ ...s, definitionId: UNKNOWN_SITE })),
+      },
+  );
 
   const _self = buildOpponentView(state, p1);
   // Reveal the opponent-side player's planned movement to spectators. The
@@ -269,8 +351,8 @@ export function projectSpectatorView(state: GameState): PlayerView {
       sideboard: [],
       killPile: [],
       outOfPlayPile: [],
-      companies: p1.companies,
-      agents: p1.agents,
+      companies: p1Companies,
+      agents: p1Agents,
     },
     opponent,
     activePlayer: state.activePlayer,
@@ -324,6 +406,20 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
     return { ...phaseState, setupStep: { ...step, draftState: newDraftState } };
   }
 
+  // The item-draft step carries both players' undrafted pool characters
+  // (`remainingPool`) — the very cards the NEXT step shuffles into each
+  // player's play deck (CoE 1.8). Their identities are hidden deck contents
+  // already during this step (see engine/visibility.ts), so the opponent's
+  // half must be hidden exactly like the character-deck-draft pool below.
+  if (step.step === 'item-draft') {
+    const newRemainingPool: [readonly CardInstance[], readonly CardInstance[]] = [
+      step.remainingPool[0],
+      step.remainingPool[1],
+    ];
+    newRemainingPool[opponentIndex] = hiddenCardPile(step.remainingPool[opponentIndex]);
+    return { ...phaseState, setupStep: { ...step, remainingPool: newRemainingPool } };
+  }
+
   if (step.step === 'character-deck-draft') {
     const newDeckDraftState: [CharacterDeckDraftPlayerState, CharacterDeckDraftPlayerState] = [
       step.deckDraftState[0],
@@ -341,23 +437,58 @@ function redactPhaseForPlayer(phaseState: PhaseState, selfIndex: number): PhaseS
 
 /**
  * Redacts draft state for spectators: both players' drafted and
- * set-aside are visible, but pools, picks, and starting items are hidden.
+ * set-aside are visible, but pools, picks, favourites, and the
+ * deck-draft remaining pools are hidden — a spectator sees at most what
+ * either player sees of the other, never more.
  */
 function redactPhaseForSpectator(phaseState: PhaseState): PhaseState {
-  if (phaseState.phase !== 'setup' || phaseState.setupStep.step !== 'character-draft') return phaseState;
+  if (phaseState.phase !== 'setup') return phaseState;
 
-  const step = phaseState.setupStep;
-  const redact = (d: DraftPlayerState): DraftPlayerState => ({
-    ...d,
-    pool: hiddenCardPile(d.pool),
-    // drafted stays visible — it's public after reveal
-    currentPick: null,
-  });
+  if (phaseState.setupStep.step === 'character-draft') {
+    const step = phaseState.setupStep;
+    const redact = (d: DraftPlayerState): DraftPlayerState => ({
+      ...d,
+      pool: hiddenCardPile(d.pool),
+      // drafted stays visible — it's public after reveal
+      currentPick: null,
+      // The players' plans, hidden from each other — and from spectators.
+      favourites: undefined,
+    });
 
-  return {
-    ...phaseState,
-    setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
-  };
+    return {
+      ...phaseState,
+      setupStep: { ...step, draftState: [redact(step.draftState[0]), redact(step.draftState[1])] },
+    };
+  }
+
+  // Leftover pool characters are shuffled into the play deck — knowing them is
+  // knowing hidden deck contents, so both players' remaining pools are hidden
+  // from spectators exactly as each is from the opponent. The item-draft step
+  // carries the same pools at step level.
+  if (phaseState.setupStep.step === 'item-draft') {
+    const step = phaseState.setupStep;
+    return {
+      ...phaseState,
+      setupStep: {
+        ...step,
+        remainingPool: [hiddenCardPile(step.remainingPool[0]), hiddenCardPile(step.remainingPool[1])],
+      },
+    };
+  }
+
+  if (phaseState.setupStep.step === 'character-deck-draft') {
+    const step = phaseState.setupStep;
+    const redact = (d: CharacterDeckDraftPlayerState): CharacterDeckDraftPlayerState => ({
+      ...d,
+      remainingPool: hiddenCardPile(d.remainingPool),
+    });
+    return {
+      ...phaseState,
+      setupStep: { ...step, deckDraftState: [redact(step.deckDraftState[0]), redact(step.deckDraftState[1])] },
+    };
+  }
+
+  return phaseState;
 }
 
 /**
@@ -378,7 +509,8 @@ function buildPlayerView(
   const selfPlayer = state.players[selfIndex];
   const opponentPlayer = state.players[opponentIndex];
 
-  const self = buildSelfView(state, selfPlayer);
+  let self = buildSelfView(state, selfPlayer);
+  self = { ...self, playDeck: unmaskOwnDeckFetchCandidates(self.playDeck, selfPlayer.playDeck, legalActions) };
   let opponent = buildOpponentView(state, opponentPlayer);
 
   // Reveal the active company's destination site to the opponent when the
@@ -415,17 +547,18 @@ function buildPlayerView(
     }
   }
 
-  // The Great Hunt (wh-91) forces the opponent to discard face-up for as
-  // long as it is in play: the engine reveals every newly discarded card via
-  // {@link sweepGreatHuntDiscards} (growing `handRevealedInstances`), so a
-  // later discard landing on top does not re-hide an earlier one.
-  if (selfPlayer.cardsInPlay.some(c => c.definitionId === THE_GREAT_HUNT)) {
-    opponent = { ...opponent, discardPile: revealedCardPile(opponentPlayer.discardPile, state.handRevealedInstances) };
-  } else if (Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)) {
+  // The Great Hunt (wh-91) forces the opponent to discard face-up for as long
+  // as it is in play: the engine reveals every newly discarded card via
+  // {@link sweepGreatHuntDiscards} (growing `handRevealedInstances`), which
+  // `buildOpponentView`'s discard-pile redaction already consults — so a
+  // later discard landing on top does not re-hide an earlier one, with no
+  // extra handling needed here.
+  if (!selfPlayer.cardsInPlay.some(c => c.definitionId === THE_GREAT_HUNT)
+    && Object.values(selfPlayer.characters).some(c => c.definitionId === PALLANDO)) {
     // Pallando (tw-175, CRF 22): the controlling player can see only the top
     // card of the opponent's discard pile (discards happen one at a time, so
     // this lets them see each card as it is discarded).
-    opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile) };
+    opponent = { ...opponent, discardPile: hiddenPileRevealTop(opponentPlayer.discardPile, state.handRevealedInstances) };
   }
 
   const redactedPhase = redactPhaseForPlayer(state.phaseState, selfIndex);

@@ -29,6 +29,7 @@ import {
   RESOURCE_PLAYER,
   withSiteTapped,
   buildSitePhaseState,
+  pool,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 
@@ -117,5 +118,10 @@ describe("Thrór's Map (td-158)", () => {
 
     const next = dispatch(state, untapActions[0].action);
     expect(next.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
+  });
+
+  test('carries 1 corruption point (authoritative card data)', () => {
+    const def = pool['td-158'];
+    expect(def && 'corruptionPoints' in def && (def as { corruptionPoints?: number }).corruptionPoints).toBe(1);
   });
 });

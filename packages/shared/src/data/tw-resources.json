@@ -679,6 +679,21 @@
           "from": "self-location",
           "to": "discard"
         }
+      },
+      {
+        "type": "on-event",
+        "event": "host-item-stored",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "kill-pile"
+        },
+        "when": {
+          "storedItem.itemKeywords": {
+            "$includes": "palantir"
+          }
+        }
       }
     ],
     "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír.",
@@ -2167,8 +2182,61 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Rohan and Dagorlad, Anórien and Dagorlad, Anórien and Ithilien, Lebennin and Ithilien, Lebennin and Harondor.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by two (to a minimum of 2). Cannot be duplicated on a given company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": { "company.skills": { "$includes": "ranger" } },
+        "cost": { "tap": "skilled-character-in-company", "skill": "ranger" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-adjacency-shortcut",
+          "scope": "turn",
+          "regionPairs": [
+            ["Rohan", "Dagorlad"],
+            ["Anórien", "Dagorlad"],
+            ["Anórien", "Ithilien"],
+            ["Lebennin", "Ithilien"],
+            ["Lebennin", "Harondor"]
+          ]
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": { "company.skills": { "$includes": "ranger" } }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-region-name-match",
+          "scope": "turn",
+          "regionNames": ["Rohan", "Dagorlad", "Anórien", "Ithilien", "Lebennin", "Harondor"],
+          "value": -2,
+          "floor": 2
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Rohan and Dagorlad, Anórien and Dagorlad, Anórien and Ithilien, Lebennin and Ithilien, Lebennin and Harondor.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by two (to a minimum of 2). Cannot be duplicated on a given company.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
@@ -2238,6 +2306,19 @@
           "type": "enqueue-corruption-check",
           "modifier": -3
         }
+      },
+      {
+        "type": "grant-action",
+        "action": "anduril-combine-with-narsil",
+        "fromStored": true,
+        "cost": {
+          "discard": "named-stored-card",
+          "discardCardName": "Reforging"
+        },
+        "apply": {
+          "type": "place-source-with-item",
+          "itemName": "Narsil"
+        }
       }
     ],
     "text": "Unique. Sage only during the site phase at an untapped site where Information is playable. Tap the sage and the site. Sage makes a corruption check modified by -3. Keep sage tapped until Andúril is stored at a Haven [{H}]. Once stored, you may discard a stored Reforging and place Andúril with Narsil.In addition to Narsil’s effects, Andúril gives its bearer 4 marshalling points, +4 prowess (to a maximum of 11), +1 direct influence, and one more corruption point. Andúril may be tapped to untap a Dúnadan character in the same company, but its bearer must make a corruption check modified by -1.",
@@ -2283,8 +2364,49 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Dagorlad and Gorgoroth, Horse Plains and Gorgoroth. The company faces an attack at the beginning of its movement/hazard phase: Orcs — 4 strikes with 8 prowess.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by 2 (to a minimum of 2). Cannot be duplicated on a given company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.skills": {
+            "$includes": "ranger"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "region-shortcut",
+          "scope": "turn",
+          "pairs": [
+            ["Dagorlad", "Gorgoroth"],
+            ["Horse Plains", "Gorgoroth"]
+          ],
+          "requiredSkill": "ranger",
+          "race": "orc",
+          "strikes": 4,
+          "prowess": 8,
+          "value": -2,
+          "floor": 2
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "text": "Playable at the end of the organization phase on a company containing a ranger. If the company uses region cards for its site path, tap the ranger to move as if the following pairs of regions were adjacent: Dagorlad and Gorgoroth, Horse Plains and Gorgoroth. The company faces an attack at the beginning of its movement/hazard phase: Orcs — 4 strikes with 8 prowess.Alternatively, if the site moved to is in one of the regions listed above, the hazard limit is reduced by 2 (to a minimum of 2). Cannot be duplicated on a given company.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-ally",
@@ -2476,8 +2598,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable only at the end of the organization phase on a company with a diplomat that begins the turn at Eagles’ Eyrie. Company may move to any site that is not a Shadow-hold [{S}], Dark-hold [{D}], or Under-deeps. Opponent may only play hazard creatures that are keyed to the company’s new site."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "diplomat" } },
+            { "company.siteName": "Eagles’ Eyrie" }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "eagle-mounts"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable only at the end of the organization phase on a company with a diplomat that begins the turn at Eagles’ Eyrie. Company may move to any site that is not a Shadow-hold [{S}], Dark-hold [{D}], or Under-deeps. Opponent may only play hazard creatures that are keyed to the company’s new site.",
+    "certified": "2026-08-23"
   },
   {
     "cardType": "hero-resource-event",
@@ -2550,8 +2698,11 @@
         "site": "Wellinghall"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Wellinghall if the influence check is greater than 9. Standard Modifications: Hobbits (+4)."
+    "effects": [
+      { "type": "check-modifier", "check": "influence", "value": 4, "when": { "bearer.race": "hobbit" } }
+    ],
+    "text": "Unique. Playable at Wellinghall if the influence check is greater than 9. Standard Modifications: Hobbits (+4).",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-event",
@@ -2673,8 +2824,40 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Wilderness [{w}] in its site path (to a minimum of two). Cannot be duplicated on the same company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "hazard-limit-region-count",
+          "scope": "turn",
+          "regionType": "wilderness",
+          "value": -1,
+          "floor": 2
+        },
+        "target": "target-company"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
+    "text": "Playable at the end of the organization phase if target company plays a new site card. The hazard limit for the target company decreases by one for every Wilderness [{w}] in its site path (to a minimum of two). Cannot be duplicated on the same company.",
+    "certified": "2026-08-22"
   },
   {
     "cardType": "hero-resource-event",
@@ -2839,8 +3022,17 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Hobbit only. Cancel one strike against the Hobbit."
+    "effects": [
+      {
+        "type": "strike-modifier",
+        "cancel": true,
+        "filter": {
+          "target.race": "hobbit"
+        }
+      }
+    ],
+    "text": "Hobbit only. Cancel one strike against the Hobbit.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
@@ -2905,11 +3097,21 @@
     "race": "hobbit",
     "playableAt": [
       {
-        "site": "Bag"
+        "site": "Bag End"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Bag End if the influence check is greater than 8. Standard Modifications: Hobbits (+4)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 4,
+        "when": {
+          "bearer.race": "hobbit"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Bag End if the influence check is greater than 8. Standard Modifications: Hobbits (+4).",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
@@ -2985,8 +3187,52 @@
         "site": "Wellinghall"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Wellinghall.Tap to cancel a hazard that targets (as an active condition of playing the card itself) Leaflock’s company or an entity associated with his company.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Leaflock if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "cancel-chain-entry",
+        "cost": {
+          "tap": "self"
+        },
+        "apply": {
+          "type": "cancel-chain-entry",
+          "select": "most-recent-unresolved-hazard"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "$not": {
+            "site.region": {
+              "$in": [
+                "Fangorn",
+                "Rohan",
+                "Gap of Isen",
+                "Wold & Foothills",
+                "Enedhwaith",
+                "Old Pûkel-land",
+                "Brown Lands",
+                "Anduin Vales",
+                "Redhorn Gate"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "text": "Unique. Playable at Wellinghall.Tap to cancel a hazard that targets (as an active condition of playing the card itself) Leaflock’s company or an entity associated with his company.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Leaflock if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales, or Redhorn Gate.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-event",
@@ -2998,8 +3244,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Diplomat only. +5 to an influence check against a faction.If the influence check is successful, draw a card."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "diplomat"
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "lordly-presence-boost",
+        "when": {
+          "player.hasFactionInHand": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "value": 5,
+          "scope": "until-cleared",
+          "onSuccess": "draw-card"
+        }
+      }
+    ],
+    "text": "Diplomat only. +5 to an influence check against a faction.If the influence check is successful, draw a card.",
+    "certified": "2026-08-20"
   },
   {
     "cardType": "hero-resource-faction",
@@ -3173,8 +3445,67 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Gandalf. +4 prowess, +1 body, +2 direct influence for the rest of the turn.Immediately untap all unwounded characters in Gandalf’s company. Gandalf makes a corruption check modified by -5."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Gandalf"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": 4,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "body",
+          "value": 1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "direct-influence",
+          "value": 2,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-character-status",
+          "target": "company",
+          "status": "untapped"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -5
+        }
+      }
+    ],
+    "text": "Playable on Gandalf. +4 prowess, +1 body, +2 direct influence for the rest of the turn.Immediately untap all unwounded characters in Gandalf’s company. Gandalf makes a corruption check modified by -5.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
@@ -3199,8 +3530,51 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Diplomat only. +5 to an influence check against a character by a diplomat. Alternatively, +4 to a corruption check by a character in a diplomat's company."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.containsDiplomat": true
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "influence-check-boost",
+        "when": {
+          "target.skills": {
+            "$includes": "diplomat"
+          }
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "influence",
+          "scope": "until-cleared",
+          "value": 5,
+          "constraintWhen": {
+            "reason": "opponent-influence-check",
+            "target.kind": "character"
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "corruption-check-boost",
+        "when": {
+          "pending.corruptionCheckTargetsMe": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "corruption",
+          "scope": "until-cleared",
+          "value": 4
+        }
+      }
+    ],
+    "text": "Diplomat only. +5 to an influence check against a character by a diplomat. Alternatively, +4 to a corruption check by a character in a diplomat's company.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-event",
@@ -3421,7 +3795,8 @@
         "type": "storable-at",
         "siteTypes": [
           "haven"
-        ]
+        ],
+        "marshallingPoints": 1
       },
       {
         "type": "play-flag",
@@ -3612,6 +3987,7 @@
     "unique": true,
     "prowess": 10,
     "body": 9,
+    "mind": 3,
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "playableAt": [
@@ -3619,8 +3995,38 @@
         "site": "Wellinghall"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Skinbark if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Anduin Vales, or Redhorn Gate."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "no-attack-site-keyed"
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "$not": {
+            "site.region": {
+              "$in": [
+                "Fangorn",
+                "Rohan",
+                "Gap of Isen",
+                "Wold & Foothills",
+                "Anduin Vales",
+                "Redhorn Gate"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "text": "Unique. Playable at Wellinghall.May not be attacked by automatic-attacks or hazards keyed to his site. Discard Skinbark if his company moves to a site that is not in: Fangorn, Rohan, Gap of Isen, Wold & Foothills, Anduin Vales, or Redhorn Gate.",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-faction",
@@ -3691,10 +4097,26 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/StoneofErech.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Playable at the Vale of Erech and if the Men of Lamedon are already in play. Discard if the Men of Lamedon leave play."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Men of Lamedon"
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "name": "Vale of Erech" }
+      },
+      {
+        "type": "discard-on-card-leaves-play",
+        "filter": { "card.name": "Men of Lamedon" }
+      }
+    ],
+    "text": "Unique. Playable at the Vale of Erech and if the Men of Lamedon are already in play. Discard if the Men of Lamedon leave play.",
+    "certified": "2026-08-19"
   },
   {
     "cardType": "hero-resource-event",
@@ -3878,8 +4300,27 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "sage" } },
+            { "target.itemKeywords": { "$includes": "palantir" } }
+          ]
+        },
+        "itemFilter": { "keywords": { "$includes": "palantir" } },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "can-use-palantir", "scope": "turn" }
+      }
+    ],
+    "text": "Sage only. Tap sage to enable him to use one Palantír he bears for the rest of the turn.",
+    "certified": "2026-08-21"
   },
   {
     "cardType": "hero-resource-faction",
@@ -4131,8 +4572,18 @@
         "site": "Woodmen-town"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Woodmen-town if the influence check is greater than 7. Standard Modifications: Men (+1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Woodmen-town if the influence check is greater than 7. Standard Modifications: Men (+1).",
+    "certified": "2026-08-18"
   },
   {
     "cardType": "hero-resource-faction",

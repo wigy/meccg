@@ -51,6 +51,22 @@ export interface CardInstance {
    * until played).
    */
   readonly pendingDraftStagePoints?: true;
+  /**
+   * Stamped on pool leftovers (unassigned minor items, undrafted starting
+   * characters) sunk into `outOfPlayPile` at the end of the item/character
+   * draft — CoE 1.9: "All other unused or duplicated cards in each player's
+   * pool are removed from the game." The glossary distinguishes this from
+   * ordinary elimination: "remove from play" (removed-from-play pile) cards
+   * still count for uniqueness (docs/coe-rules.md's "remove from play" entry),
+   * but cards "removed from the game" no longer do (docs/coe-rules.md's
+   * "remove from the game" entry) — "if a unique card is discarded... or
+   * removed from the game entirely, it may be played again by either player"
+   * (the "unique" glossary entry). `outOfPlayPile` otherwise holds genuinely
+   * eliminated cards, which must still block replay of their unique name, so
+   * `isUniqueCharacterInPlay` checks this flag to tell the two apart within
+   * the same pile.
+   */
+  readonly removedFromGame?: true;
 }
 
 // ---- Characters in play ----
@@ -174,13 +190,15 @@ export interface CardInPlay {
    */
   readonly attachedToSite?: CardDefinitionId;
   /**
-   * If this permanent event is attached to one of its controller's *face-down
-   * agents* (Inner Cunning dm-68), the agent's virtual-company id
+   * If this permanent event is attached to one of its controller's *agents*
+   * (`play-target: "agent"`), the agent's virtual-company id
    * ({@link AgentInPlay.id}). The event lives in the controller's `cardsInPlay`
-   * while so attached; it broadens the agent's legal reveal sites (see the
-   * `agent-reveal-site-override` effect) and is discarded once the agent is no
-   * longer a face-down agent (revealed or gone) via the orphaned-agent-attached
-   * event sweep.
+   * while so attached, and is discarded once the bound agent leaves play
+   * entirely — via the orphaned-agent-attached event sweep
+   * (`discardOrphanedAgentAttachedEvents`). A card additionally carrying
+   * `agent-reveal-site-override` (Inner Cunning dm-68) discards early, the
+   * moment the agent is revealed ("Discard when the agent is revealed"); one
+   * without that marker (Never Seen Him dm-74) persists through reveal.
    */
   readonly attachedToAgentId?: import('./common.js').CompanyId;
   /**
@@ -507,14 +525,36 @@ export interface Company {
   /** Hazard cards targeting this company as a whole (not a specific character). */
   readonly hazards: readonly CardInPlay[];
   /**
+   * Races of the attacks this company has faced this turn (CoE 8.03: an
+   * attack is "faced" once combat is initiated, even if later canceled).
+   * Stamped at every attack teardown ({@link recordHazardEncountered}) and
+   * cleared for every company at the start of each new turn
+   * (`enterUntapPhase`). Backs "played on a company that has already faced a
+   * [race] attack this turn" self-effects (Orc-lieutenant tw-073,
+   * Orc-warband tw-076) across phase boundaries — the M/H phase state's
+   * `hazardsEncountered` list does not survive into the site phase.
+   */
+  readonly facedHazardRaces?: readonly Race[];
+  /**
    * Special movement granted by a card effect (e.g. Gwaihir, Paths of the Dead).
    * When set, the company uses special movement rules during planning and M/H phase:
-   * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site.
+   * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site
+   *   (region-type exclusion — tw-251's printed {s}/{d} symbols).
    *   Only site-keyed hazard creatures may be played. No region path is traversed.
+   * - `'eagle-mounts'`: Can move to any site that is not itself a Shadow-hold/
+   *   Dark-hold/Under-deeps (site-type exclusion — tw-220's printed {S}/{D}
+   *   symbols, distinct from Gwaihir's region-type exclusion — e.g. Moria is a
+   *   Shadow-hold sitting in a wilderness region: reachable via Gwaihir, not
+   *   via Eagle-mounts). Only site-keyed hazard creatures may be played. No
+   *   region path is traversed.
    * - `'paths-of-the-dead'`: Can move directly to the Vale of Erech site (CoE IE
    *   2018 erratum, tw-302). No region path is traversed.
+   * - `'belegaer'`: Can move directly between sites in the Belegaer coastal
+   *   regions (Lindon, Elven Shores, etc. — td-100), bypassing region
+   *   adjacency. The path is treated as three coastal-sea regions for hazard
+   *   keying purposes, and the hazard limit is reduced by 2 (floor 2).
    */
-  readonly specialMovement?: 'gwaihir' | 'paths-of-the-dead' | undefined;
+  readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer' | undefined;
   /**
    * Extra region distance granted by a card effect (e.g. Cram).
    * Added to {@link BASE_MAX_REGION_DISTANCE} when computing maximum region

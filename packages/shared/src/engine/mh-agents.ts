@@ -16,11 +16,11 @@
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, GameEffect } from '../index.js';
 import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect } from '../types/effects.js';
-import type { CardInstanceId, Race } from '../types/common.js';
+import type { CardInstanceId, CompanyId, Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard } from '../types/cards.js';
-import { CardStatus } from '../types/common.js';
+import { Alignment, CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -33,11 +33,23 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 
 /**
- * Count the total extra agent actions granted by `extra-agent-actions` effects
- * currently in play across all players (e.g. Great Need or Purpose).
- * Exported so legal-actions can reuse the same logic.
+ * Count the total extra agent actions in play, e.g. Great Need or Purpose
+ * (dm-62). Three sources contribute:
+ *  - Untargeted cardsInPlay effects (no `attachedToAgentId`), which grant the
+ *    bonus to every agent — summed across both players.
+ *  - A revealed agent's own `whileRevealed` effect (My Precious dm-29),
+ *    scoped to that agent alone.
+ *  - A permanent event attached to one specific agent via
+ *    `CardInPlay.attachedToAgentId` (Never Seen Him dm-74), scoped to that
+ *    agent alone.
+ *
+ * When `agentId` is given, the result is the total applicable to that one
+ * agent (untargeted + its own self/attached bonuses). When omitted (legacy
+ * callers), self/attached bonuses are summed across every agent — the
+ * pre-existing behavior for callers that don't yet know which agent they
+ * care about. Exported so legal-actions can reuse the same logic.
  */
-export function countExtraAgentActions(state: GameState): number {
+export function countExtraAgentActions(state: GameState, agentId?: CompanyId): number {
   const sumEffects = (defId: CardDefinition['id'], requireGlobal: boolean, revealed: boolean): number =>
     getCardEffects(defById(state, defId)).reduce(
       (n, e) => {
@@ -52,8 +64,12 @@ export function countExtraAgentActions(state: GameState): number {
     );
   return state.players.reduce((sum, p) =>
     sum
-      + p.cardsInPlay.reduce((s, card) => s + sumEffects(card.definitionId, true, false), 0)
-      + p.agents.reduce((s, a) => s + sumEffects(a.character.definitionId, false, a.revealed), 0),
+      + p.cardsInPlay
+        .filter(card => card.attachedToAgentId === undefined || card.attachedToAgentId === agentId)
+        .reduce((s, card) => s + sumEffects(card.definitionId, true, false), 0)
+      + p.agents
+        .filter(a => agentId === undefined || a.id === agentId)
+        .reduce((s, a) => s + sumEffects(a.character.definitionId, false, a.revealed), 0),
   0);
 }
 
@@ -121,7 +137,7 @@ function chargeAgentActionTail(
   agentRef: { hazardIndex: number; agentIdx: number; agent: AgentInPlay },
   mutate: (a: AgentInPlay) => AgentInPlay,
 ): ReducerResult {
-  const isExtra = agentRef.agent.remainingActions <= countExtraAgentActions(state);
+  const isExtra = agentRef.agent.remainingActions <= countExtraAgentActions(state, agentRef.agent.id);
   const newState = updateAgent(state, agentRef.hazardIndex, agentRef.agentIdx,
     a => ({ ...mutate(a), remainingActions: a.remainingActions - 1 }));
   return { state: { ...newState, phaseState: chargeAgentAction(mhState, isExtra) } };
@@ -146,7 +162,7 @@ export function handleAgentMove(state: GameState, action: GameAction, mhState: M
     status: CardStatus.Untapped,
   };
 
-  const isExtraMove = agentBeforeMove.remainingActions <= countExtraAgentActions(state);
+  const isExtraMove = agentBeforeMove.remainingActions <= countExtraAgentActions(state, agentBeforeMove.id);
 
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
@@ -179,7 +195,7 @@ export function handleAgentMoveBack(state: GameState, action: GameAction, mhStat
   const backName = backDef && isSiteCard(backDef) ? backDef.name : 'previous site';
   logDetail(`Agent ${action.agentId as string}: moving back to "${backName}", returning ${topSite.instanceId as string} to deck`);
 
-  const isExtraMoveBack = agent.remainingActions <= countExtraAgentActions(state);
+  const isExtraMoveBack = agent.remainingActions <= countExtraAgentActions(state, agent.id);
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -228,7 +244,7 @@ export function handleAgentReturnHome(state: GameState, action: GameAction, mhSt
       status: CardStatus.Untapped,
     };
 
-    const isExtraReturnFaceUp = agent.remainingActions <= countExtraAgentActions(state);
+    const isExtraReturnFaceUp = agent.remainingActions <= countExtraAgentActions(state, agent.id);
     const newState = updatePlayer(state, hazardIndex, p => ({
       ...p,
       agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -245,7 +261,7 @@ export function handleAgentReturnHome(state: GameState, action: GameAction, mhSt
   // Face-down: siteStack becomes empty, no site card needed
   logDetail(`Agent ${action.agentId as string}: returning home (face-down), returning ${agent.siteStack.length} site(s) to deck`);
 
-  const isExtraReturnFaceDown = agent.remainingActions <= countExtraAgentActions(state);
+  const isExtraReturnFaceDown = agent.remainingActions <= countExtraAgentActions(state, agent.id);
   const newState = updatePlayer(state, hazardIndex, p => ({
     ...p,
     agents: p.agents.map((a, i) => i !== agentIdx ? a : {
@@ -367,6 +383,7 @@ export function handleAgentInfluenceAttempt(
     (e): e is AgentTapInfluenceEffect => e.type === 'agent-tap-influence',
   );
   if (!tapInfluenceEff) return { state, error: 'Agent does not have agent-tap-influence effect' };
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
 
   logDetail(`Agent influence attempt: ${agentDef.name} (agent-${agent.id as string}) → ${action.targetKind} ${action.targetInstanceId as string}`);
 
@@ -564,12 +581,16 @@ function computeAgentAttackProwess(
   const isAtHome = destSiteName !== undefined && homesiteNames.includes(destSiteName);
 
   let prowess = agentDef.prowess;
+  let body = agentDef.body;
   if (isWounded) prowess -= 2;
   if (isFaceDown && !isAtHome) prowess += 2;
-  if (isFaceDown && isAtHome) prowess += 5;
-  if (!isFaceDown && isAtHome) prowess += 2;
+  // Rule 3.iv.6.1: at its home site the agent also gets +1 body (both
+  // face-down +5 and face-up +2 prowess tiers carry it) — mirrors the
+  // site-phase declare-agent-attack path in reducer-site.ts.
+  if (isFaceDown && isAtHome) { prowess += 5; body += 1; }
+  if (!isFaceDown && isAtHome) { prowess += 2; body += 1; }
   prowess += prowessBonus;
-  return { prowess, body: agentDef.body, isFaceDown, isAtHome, destSiteInst, company };
+  return { prowess, body, isFaceDown, isAtHome, destSiteInst, company };
 }
 
 /**
@@ -604,6 +625,24 @@ function revealAgentForAttack(
     ? agent.siteStack[agent.siteStack.length - 1]
     : destSiteInst;
   const emptyStack = agent.siteStack.length === 0;
+  // Traveled agent (non-empty stack): its current site card already sits on
+  // top of its own stack — no deck card is needed, and the rule 4.2.2 / 9.04
+  // reveal penalty ("discard at end of turn if revealed without a site") is
+  // scoped to reveals AT A HOME SITE, so it never applies here. The earlier
+  // code conflated the two cases: with a homeSiteInstanceId it deleted the
+  // home-site deck card into nothing; without one it wrongly doomed the agent.
+  if (!emptyStack) {
+    const priorStackSites = agent.siteStack.slice(0, -1);
+    const newSiteStack = [{ instanceId: currentSiteEntry!.instanceId, definitionId: currentSiteEntry!.definitionId, status: CardStatus.Untapped as const }];
+    return updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      agents: p.agents.map(a => a.character.instanceId === agentInstanceId
+        ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped as const }, siteStack: newSiteStack, ...acted }
+        : a,
+      ),
+      siteDeck: [...p.siteDeck, ...priorStackSites],
+    }));
+  }
   if (homeSiteInstanceId) {
     const homeSiteCard = findById(hazardPlayer.siteDeck, homeSiteInstanceId);
     if (!homeSiteCard) {
@@ -659,6 +698,7 @@ export function handleAgentTapAttack(
     (e): e is AgentTapAttackEffect => e.type === 'agent-tap-attack',
   );
   if (!tapAttackEff) return { state, error: 'Agent does not have agent-tap-attack effect' };
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
 
   const { prowess, body, isFaceDown, isAtHome, destSiteInst, company } =
     computeAgentAttackProwess(state, mhState, agent, agentDef, tapAttackEff.prowessBonus);
@@ -672,6 +712,12 @@ export function handleAgentTapAttack(
   if ('error' in revealed) return { state, error: revealed.error };
   const newState = revealed;
 
+  // Rule 3.II.2.R3/B3: a Ringwraith or Balrog player treats agent hazard
+  // attacks against their companies as detainment — mirrors the site-phase
+  // declare-agent-attack path.
+  const defendingAlignment = state.players[getPlayerIndex(state, state.activePlayer!)].alignment;
+  const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
+
   // Build CombatState
   const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: agent.character.instanceId },
@@ -682,7 +728,7 @@ export function handleAgentTapAttack(
     strikeProwess: prowess,
     creatureBody: body,
     assignmentPhase: tapAttackEff.attackerAssigns ? 'attacker' : 'defender',
-    detainment: false,
+    detainment,
     ...(tapAttackEff.attackerAssigns ? { forceSingleTarget: true } : {}),
   });
 
@@ -1005,6 +1051,12 @@ export function handleTapAgentAtSite(
     ? mhState.hazardsPlayedThisCompany
     : mhState.hazardsPlayedThisCompany + 1;
 
+  // Rule 3.II.2.R3/B3: a Ringwraith or Balrog player treats agent hazard
+  // attacks against their companies as detainment — mirrors the site-phase
+  // declare-agent-attack path.
+  const defendingAlignment = state.players[getPlayerIndex(state, state.activePlayer!)].alignment;
+  const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
+
   // --- Build CombatState ---
   const combat: CombatState = makeCombatState({
     attackSource: { type: 'agent', instanceId: agentInstanceId },
@@ -1015,7 +1067,7 @@ export function handleTapAgentAtSite(
     strikeProwess: prowess,
     creatureBody: body,
     assignmentPhase: tapAgentEff.attackerAssigns ? 'attacker' : 'defender',
-    detainment: false,
+    detainment,
     ...(tapAgentEff.attackerAssigns ? { forceSingleTarget: true } : {}),
     ...(tapAgentEff.strikeEffect ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
   });

@@ -8,7 +8,7 @@
  */
 
 import type { PlayerView, GameAction } from '@meccg/shared';
-import { Phase } from '@meccg/shared';
+import { Phase, getTitleCharacter } from '@meccg/shared';
 import { appState, cardPool } from './app-state.js';
 import { passButtonLabel } from './pass-button-label.js';
 
@@ -27,7 +27,9 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
   document.querySelectorAll('.gold-ring-choice-btn').forEach(b => b.remove());
   document.querySelectorAll('.great-hunt-choice-btn').forEach(b => b.remove());
+  document.querySelectorAll('.hunt-target-choice-btn').forEach(b => b.remove());
   document.querySelectorAll('.influence-overflow-discard-btn').forEach(b => b.remove());
+  document.querySelectorAll('.cvcc-attack-btn').forEach(b => b.remove());
 
   // Spectators never act: hide both the pass button and the "Waiting…" box
   // (which would otherwise show permanently, since they have no legal actions).
@@ -97,6 +99,33 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         const chooseBtn = document.createElement('button');
         chooseBtn.className = 'enter-site-btn great-hunt-choice-btn';
         chooseBtn.textContent = chooseAction.source === 'deck' ? 'Reveal Play Deck' : 'Reveal Discard Pile';
+        chooseBtn.onclick = () => onAction(chooseAction);
+        document.getElementById('visual-panel')?.appendChild(chooseBtn);
+      }
+      return;
+    }
+
+    // The Hunt (dm-143): the controller names one hazard-creature instance
+    // among the candidates `findHuntCandidates` found in the opponent's play
+    // deck/discard pile (`choose-hunt-target`). Like the two choices above,
+    // there is no safe default creature to name silently, so it is
+    // deliberately absent from the pass-like whitelist — render one button
+    // per named candidate instead of hiding the whole panel. The action
+    // carries `definitionId` directly (see `ChooseHuntTargetAction`), so the
+    // label never needs to resolve the creature's identity through the
+    // acting player's own (possibly still-redacted) view of the opponent's
+    // deck/discard pile.
+    const huntTargetEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'choose-hunt-target');
+    if (huntTargetEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of huntTargetEvals) {
+        const chooseAction = ea.action;
+        if (chooseAction.type !== 'choose-hunt-target') continue;
+        const creatureName = cardPool[chooseAction.definitionId as string]?.name ?? chooseAction.definitionId as string;
+        const chooseBtn = document.createElement('button');
+        chooseBtn.className = 'enter-site-btn hunt-target-choice-btn';
+        chooseBtn.textContent = `Name ${creatureName}`;
         chooseBtn.onclick = () => onAction(chooseAction);
         document.getElementById('visual-panel')?.appendChild(chooseBtn);
       }
@@ -232,11 +261,18 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       skipBtn.onclick = () => onAction(passAction);
       panel?.appendChild(skipBtn);
     } else if (attackEvals.length > 1) {
+      // Several opponent companies share the site: label each button with the
+      // target company's title character so the player can tell them apart.
       for (const atk of attackEvals) {
+        const action = atk.action;
+        if (action.type !== 'declare-company-attack') continue;
+        const target = view.opponent.companies.find(c => c.id === action.targetCompanyId);
+        const titleChar = target ? getTitleCharacter(target.characters, view.opponent.characters, cardPool) : undefined;
+        const titleName = titleChar ? cardPool[titleChar.definitionId as string]?.name : undefined;
         const attackBtn = document.createElement('button');
-        attackBtn.className = 'enter-site-btn';
-        attackBtn.textContent = 'Attack';
-        attackBtn.onclick = () => onAction(atk.action);
+        attackBtn.className = 'enter-site-btn cvcc-attack-btn';
+        attackBtn.textContent = titleName ? `Attack ${titleName}'s company` : 'Attack';
+        attackBtn.onclick = () => onAction(action);
         panel?.appendChild(attackBtn);
       }
     }

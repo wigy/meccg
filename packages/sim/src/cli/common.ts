@@ -13,8 +13,7 @@ import { createBcAgent } from '../agents/bc-agent.js';
 import { createRouteAgent } from '../agents/route-agent.js';
 import { createSearchAgent } from '../agents/search-agent.js';
 import { createHeuristic2Agent } from '../ai/h2/agent.js';
-import { DEFAULT_TUNABLES, withTunable } from '../ai/h2/core/tunables.js';
-import type { Tunables } from '../ai/h2/core/tunables.js';
+import { parseH2Spec } from '../ai/h2/spec.js';
 import { createMcAgent } from '../agents/mc-agent.js';
 import type { McAgentOptions } from '../agents/mc-agent.js';
 import { loadDeck, listDecks } from '../decks.js';
@@ -48,6 +47,21 @@ export function parseCliArgs(argv: readonly string[]): CliArgs {
   return { positional, flags };
 }
 
+/**
+ * Standard sim-CLI opening: parse `argv` and honor `--help` / `-h` by
+ * printing `usage` and exiting. Returns the parsed args otherwise. Engine
+ * console-log toggling deliberately stays with each CLI — a few re-set it
+ * from their own flags (`--engine-log`).
+ */
+export function cliPreamble(usage: string, argv: readonly string[] = process.argv.slice(2)): CliArgs {
+  const args = parseCliArgs(argv);
+  if (args.flags['help'] === true || args.flags['h'] === true) {
+    console.log(usage);
+    process.exit(0);
+  }
+  return args;
+}
+
 /** Read a numeric flag with a default. */
 export function numberFlag(args: CliArgs, name: string, defaultValue: number): number {
   const raw = args.flags[name];
@@ -68,12 +82,8 @@ export const AGENT_NAMES = [
   'random', 'heuristic', 'noisy-heuristic', 'h2', 'bc', 'search', 'search-h2', 'mc', 'route',
 ] as const;
 
-/**
- * `h2` spec grammar, for the CLIs that print it.
- *
- * `h2[:<modules>][@<temperature>][/<tunable>=<value>…]`
- */
-export const H2_SPEC_GRAMMAR = 'h2[:<modules>][@<temperature>][/<tunable>=<value>...]';
+/** `h2` spec grammar, for the CLIs that print it. Defined with the parser. */
+export { H2_SPEC_GRAMMAR } from '../ai/h2/spec.js';
 
 /**
  * Parses an `mc` spec's `key=value/key=value` parameter list. The
@@ -123,29 +133,6 @@ function parseMcOptions(param: string | undefined): McAgentOptions {
     }
   }
   return options;
-}
-
-/**
- * Parses an `h2` spec's `/name=value` tunable overrides.
- *
- * The separator is `/` for the same reason `mc` uses it — `--agents` splits
- * specs on commas, and the module selector spends commas already. Unknown
- * names throw via `withTunable`, so a typo in a gate fails at launch rather
- * than quietly rating the shipped defaults against themselves.
- */
-function parseH2Tunables(param: string): Tunables {
-  let tunables = DEFAULT_TUNABLES;
-  for (const part of param.split('/')) {
-    const eq = part.indexOf('=');
-    if (eq < 0) throw new Error(`h2 expects name=value tunables separated by "/", got "${part}"`);
-    const name = part.slice(0, eq).trim();
-    const value = Number(part.slice(eq + 1).trim());
-    if (!Number.isFinite(value)) {
-      throw new Error(`h2 tunable ${name} expects a number, got "${part.slice(eq + 1).trim()}"`);
-    }
-    tunables = withTunable(tunables, name, value);
-  }
-  return tunables;
 }
 
 /**
@@ -204,31 +191,16 @@ export function resolveAgent(spec: string): Agent {
       // it a constant can only be swept on a single scenario, and every
       // question of the form "is this number right" needs a strength gate —
       // which spawns children that receive an agent *spec* and nothing else.
-      const opIndexes = param === undefined
-        ? []
-        : [param.indexOf('+'), param.indexOf('>')].filter(i => i >= 0);
-      const plus = opIndexes.length === 0 ? -1 : Math.min(...opIndexes);
-      if (plus >= 0) {
-        throw new Error(
-          `h2 no longer composes a fallback, so "${param!.slice(plus, plus + 1)}" is not accepted: `
-          + 'it answers every decision with its own modules. Use plain `h2`.',
-        );
-      }
-      const beforeFallback = param;
-      const slash = beforeFallback === undefined ? -1 : beforeFallback.indexOf('/');
-      const head = slash >= 0 ? beforeFallback!.slice(0, slash) : beforeFallback;
-      const tunables = slash >= 0 ? parseH2Tunables(beforeFallback!.slice(slash + 1)) : undefined;
-      const at = head === undefined ? -1 : head.lastIndexOf('@');
-      const modules = head === undefined || head.length === 0 ? undefined : at > 0 ? head.slice(0, at) : head;
-      const temperature = at > 0 ? Number(head!.slice(at + 1)) : undefined;
-      if (temperature !== undefined && !Number.isFinite(temperature)) {
-        throw new Error(`h2 expects a numeric temperature after "@", got "${head!.slice(at + 1)}"`);
-      }
+      //
+      // The grammar is parsed by `ai/h2/spec`, which the explainer reads too:
+      // an explanation of `h2:combat/tapTempoCost=0.6` derived from a second
+      // parser would be an explanation of a different agent.
+      const h2Spec = parseH2Spec(param);
       return createHeuristic2Agent({
-        modules,
-        temperature,
-        tunables,
-        sample: temperature !== undefined,
+        modules: h2Spec.modules,
+        temperature: h2Spec.temperature,
+        tunables: h2Spec.hasTunableOverrides ? h2Spec.tunables : undefined,
+        sample: h2Spec.temperature !== undefined,
       });
     }
     case 'search-h2': {
