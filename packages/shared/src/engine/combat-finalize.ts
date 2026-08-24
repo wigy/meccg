@@ -1760,20 +1760,44 @@ export function recordHazardEncountered(
   originalState: GameState,
   combat: CombatState,
 ): GameState {
-  if (originalState.phaseState.phase !== Phase.MovementHazard) return stateAfterCombat;
-  if (combat.attackSource.type !== 'creature') return stateAfterCombat;
+  // Stamp the faced attack's race(s) on the defending company — turn-scoped
+  // (cleared in enterUntapPhase). Unlike the M/H `hazardsEncountered` list
+  // below, this survives the M/H → Site phase transition, so "played on a
+  // company that has already faced a [race] attack this turn" self-effects
+  // (Orc-lieutenant tw-073, Orc-warband tw-076) still see attacks faced
+  // earlier in the turn when an on-guard creature is revealed at the site.
+  let s = stateAfterCombat;
+  const facedRaces = combat.creatureRaces
+    ?? (combat.creatureRace !== undefined ? [combat.creatureRace] : []);
+  if (facedRaces.length > 0) {
+    const defIdx = getPlayerIndex(s, combat.defendingPlayerId);
+    s = updatePlayer(s, defIdx, p => ({
+      ...p,
+      companies: p.companies.map(c => {
+        if (c.id !== combat.companyId) return c;
+        const existing = c.facedHazardRaces ?? [];
+        const added = facedRaces.filter(r => !existing.includes(r));
+        if (added.length === 0) return c;
+        logDetail(`Recording faced attack race(s) ${added.join('/')} on company ${c.id as string} (turn-scoped)`);
+        return { ...c, facedHazardRaces: [...existing, ...added] };
+      }),
+    }));
+  }
+
+  if (originalState.phaseState.phase !== Phase.MovementHazard) return s;
+  if (combat.attackSource.type !== 'creature') return s;
 
   const creatureDefId = resolveInstanceId(originalState, combat.attackSource.instanceId);
-  if (!creatureDefId) return stateAfterCombat;
+  if (!creatureDefId) return s;
 
   const creatureDef = originalState.cardPool[creatureDefId] as { name?: string } | undefined;
   const creatureName = creatureDef?.name;
-  if (!creatureName) return stateAfterCombat;
+  if (!creatureName) return s;
 
-  const mhState = stateAfterCombat.phaseState as MovementHazardPhaseState;
+  const mhState = s.phaseState as MovementHazardPhaseState;
   logDetail(`Recording hazard "${creatureName}" in hazardsEncountered`);
   return {
-    ...stateAfterCombat,
+    ...s,
     phaseState: {
       ...mhState,
       hazardsEncountered: [...mhState.hazardsEncountered, creatureName],
