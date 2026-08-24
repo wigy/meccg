@@ -4735,10 +4735,16 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
     const emptyCompanies = player.companies.filter(c => c.characters.length === 0);
     const keptCompanies = player.companies.filter(c => c.characters.length > 0);
 
-    // Build a set of site instance IDs still occupied by a kept company.
-    // If another company is at the same site, the site stays in play (CoE rule 2.07).
+    // Build a set of site instance IDs still claimed by a kept company —
+    // as the site it is at (CoE rule 2.07: another company at the same site
+    // keeps it in play) or as its planned destination. The physical card was
+    // drawn from the location deck exactly once (see clearPlannedMovement's
+    // symmetric guard), so returning it while a kept company's
+    // destinationSite still holds the same instance would duplicate it:
+    // once in the site deck, once in play.
     const occupiedSiteIds = new Set(
-      keptCompanies.map(c => c.currentSite?.instanceId as string).filter(Boolean),
+      keptCompanies.flatMap(c =>
+        [c.currentSite?.instanceId as string, c.destinationSite?.instanceId as string].filter(Boolean)),
     );
 
     // Return sites from empty companies: tapped sites go to discard, untapped to site deck.

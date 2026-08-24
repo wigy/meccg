@@ -184,6 +184,79 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     expect(after.players[RESOURCE_PLAYER].companies.some(c => c.currentSite?.instanceId === rivendellSite.instanceId)).toBe(true);
   });
 
+  test('site claimed as a sibling company\'s destination is not returned when its company empties', () => {
+    // Regression (card-duplication): the empty-company cleanup returned the
+    // dissolved company's current site to the location deck whenever no kept
+    // company was AT that site — but a kept company merely HEADING there
+    // (destinationSite holds the same instance) still claims the physical
+    // card, which was drawn from the location deck exactly once. Returning
+    // it duplicated the instance: once in the site deck, once in play as the
+    // sibling's destination (seen in random self-play when a lone character
+    // was discarded during the organization phase while another company was
+    // moving to his site).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: LORIEN, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    // The second company is moving to the first company's site — the SAME
+    // site instance, as plan-movement produces when heading to an
+    // already-occupied site.
+    const p1 = base.players[RESOURCE_PLAYER];
+    const moriaSite = p1.companies[0].currentSite!;
+    const state = {
+      ...base,
+      players: [
+        {
+          ...p1,
+          companies: [p1.companies[0], { ...p1.companies[1], destinationSite: moriaSite }],
+        },
+        base.players[1],
+      ] as typeof base.players,
+    };
+
+    const aragornId = state.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5',
+        supportCount: 0,
+      },
+    };
+    const after = dispatch({ ...state, cheatRollTotal: 2, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 });
+
+    // Aragorn's company dissolved, but the site instance must NOT be
+    // returned to the location deck — the surviving company still claims it
+    // as its destination.
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(1);
+    expect(after.players[RESOURCE_PLAYER].companies[0].destinationSite?.instanceId).toBe(moriaSite.instanceId);
+    expect(after.players[RESOURCE_PLAYER].siteDeck.some(c => c.instanceId === moriaSite.instanceId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].siteDiscardPile.some(c => c.instanceId === moriaSite.instanceId)).toBe(false);
+  });
+
   test('No other company at same site and site untapped: site returned to location deck', () => {
     // Aragorn at RIVENDELL (untapped). CP=5, roll=2 → 2 <= 5-2=3 → eliminated.
     // After elimination: RIVENDELL site (untapped) must go to siteDeck.
