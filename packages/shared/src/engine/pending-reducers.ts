@@ -50,7 +50,7 @@ import type { EliminateInsteadOfDiscardHost } from './eliminate-instead-of-disca
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
-import { placeCardSetAside } from './set-aside.js';
+import { placeCardSetAside, removeItemFromSetAside } from './set-aside.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import {
@@ -630,26 +630,91 @@ export function applyCorruptionCheckResolution(
   /** Set when an `eliminate-instead-of-discard` host turned this discard into an elimination. */
   let elimHost: EliminateInsteadOfDiscardHost | null = null;
 
-  // For transfer checks, remove the transferred item from its new bearer
-  // (the transfer didn't stick — the item is included in the discard via
-  // action.possessions).
+  // For transfer/store checks the item already physically moved — to the new
+  // bearer (transfer), the player's marshalling-point pile (store), or an
+  // item cache's set-aside slot (Armory dm-116 store). The failed check means
+  // the move didn't stick, so the item must be pulled back out of wherever it
+  // landed before it is routed to the discard pile, or the same instance
+  // would exist in two places at once (e.g. a failed store left the item in
+  // the kill pile — still scoring its MP — while also pushing a copy into
+  // the discard pile).
+  //
+  // `transferredItemPreDiscarded` marks the store/cache cases, where the pull
+  // and the discard both happen right here — the possessions list passed to
+  // `removeFailedCorruptionCharacter` is filtered so the item is not
+  // discarded a second time. In the transfer case the item is only pulled
+  // off the new bearer here (via `newCharacters`) and the possessions route
+  // performs the discard as before.
+  let transferredItemPreDiscarded = false;
+  let transferredItemOnBearer = false;
   if (transferredItemId) {
     for (const [cid, cData] of Object.entries(newCharacters)) {
       if (cid === characterId as string) continue;
       const itemIdx = cData.items.findIndex(i => i.instanceId === transferredItemId);
       if (itemIdx >= 0) {
         newCharacters[cid as CardInstanceId] = { ...cData, items: cData.items.filter(i => i.instanceId !== transferredItemId) };
+        transferredItemOnBearer = true;
         break;
       }
     }
+    if (!transferredItemOnBearer) {
+      const itemCard: CardInstance = { instanceId: transferredItemId, definitionId: resolveInstanceId(state, transferredItemId)! };
+      if (playersAfterRoll[playerIndex].killPile.some(c => c.instanceId === transferredItemId)) {
+        logDetail(`Failed store: pulling ${transferredItemId as string} back out of the marshalling-point pile → discard`);
+        playersAfterRoll[playerIndex] = {
+          ...playersAfterRoll[playerIndex],
+          killPile: playersAfterRoll[playerIndex].killPile.filter(c => c.instanceId !== transferredItemId),
+          discardPile: [...playersAfterRoll[playerIndex].discardPile, itemCard],
+        };
+        transferredItemPreDiscarded = true;
+      } else if (playersAfterRoll.some(p => p.cardsInPlay.some(c => c.instanceId === transferredItemId))) {
+        logDetail(`Failed store: pulling ${transferredItemId as string} back out of its item-cache set-aside slot → discard`);
+        const pulled = removeItemFromSetAside({ ...postRollState, players: playersAfterRoll }, transferredItemId);
+        playersAfterRoll[0] = pulled.players[0];
+        playersAfterRoll[1] = pulled.players[1];
+        playersAfterRoll[playerIndex] = {
+          ...playersAfterRoll[playerIndex],
+          discardPile: [...playersAfterRoll[playerIndex].discardPile, itemCard],
+        };
+        transferredItemPreDiscarded = true;
+      }
+    }
   }
+  const failedPossessions = transferredItemPreDiscarded
+    ? action.possessions.filter(id => id !== transferredItemId)
+    : action.possessions;
 
   if (outcome === 'discard') {
     // Press-gang (ba-22): redirect the would-be discard to the opponent's
     // Press-gang, if one is in play.
-    const stateAfterRoll: GameState = { ...postRollState, players: playersAfterRoll };
+    let stateAfterRoll: GameState = { ...postRollState, players: playersAfterRoll };
     const pressHost = findCapturingPressGang(stateAfterRoll, playerIndex);
     if (pressHost) {
+      // Press-gang replaces only the character's own discard with a capture —
+      // the failed transfer still doesn't stick. The pull-off-the-new-bearer
+      // edit above lives in `newCharacters`, which this path never applies,
+      // so pull the item off the bearer and discard it here. (The store/cache
+      // cases were already fully handled in `playersAfterRoll` above.)
+      if (transferredItemId && transferredItemOnBearer) {
+        const players = [...stateAfterRoll.players] as typeof playersAfterRoll;
+        const holder = players[playerIndex];
+        const bearerEntry = Object.entries(holder.characters)
+          .find(([cid, cData]) => cid !== (characterId as string)
+            && cData.items.some(i => i.instanceId === transferredItemId));
+        if (bearerEntry) {
+          const [bearerId, bearerData] = bearerEntry;
+          logDetail(`Failed transfer (press-gang capture): pulling ${transferredItemId as string} off ${bearerId} → discard`);
+          players[playerIndex] = {
+            ...holder,
+            characters: {
+              ...holder.characters,
+              [bearerId]: { ...bearerData, items: bearerData.items.filter(i => i.instanceId !== transferredItemId) },
+            },
+            discardPile: [...holder.discardPile, { instanceId: transferredItemId, definitionId: resolveInstanceId(state, transferredItemId)! }],
+          };
+          stateAfterRoll = { ...stateAfterRoll, players };
+        }
+      }
       const captured = capturePressGang(stateAfterRoll, playerIndex, characterId, pressHost);
       const capturedState = dequeueResolution(captured, top.id);
       return {
@@ -663,17 +728,17 @@ export function applyCorruptionCheckResolution(
     elimHost = findEliminateInsteadOfDiscardHost(stateAfterRoll, charDef);
     if (elimHost) {
       logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — ${charName} is eliminated instead of discarded, and ${action.possessions.length} possession(s) discarded`);
-      removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'out-of-play');
+      removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, failedPossessions, 'out-of-play');
     } else {
       // Roll == CP or CP - 1 on a hero character: it + possessions discarded (not followers)
       logDetail(`Corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName} and ${action.possessions.length} possession(s)`);
-      removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'discard');
+      removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, failedPossessions, 'discard');
     }
   } else {
     // outcome === 'eliminate': hard fail (≥2 below CP) or a Wizard avatar on any
     // failure — character eliminated, possessions discarded.
     logDetail(`Corruption check FAILED (outcome eliminate, ${total} vs CP ${cp}) — eliminating ${charName}, discarding ${action.possessions.length} possession(s)`);
-    removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, action.possessions, 'out-of-play');
+    removeFailedCorruptionCharacter(state, playersAfterRoll, playerIndex, characterId, char, newCharacters, failedPossessions, 'out-of-play');
 
     // A Malady Without Healing (le-159): a hero target eliminated by this
     // corruption check credits the caster the hero's kill marshalling points.
