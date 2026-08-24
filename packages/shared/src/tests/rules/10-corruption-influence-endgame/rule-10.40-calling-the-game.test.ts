@@ -19,13 +19,14 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, viableFor, Phase,
+  buildTestState, resetMint, viableFor, dispatch, Phase,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { formatGameState } from '../../../index.js';
 import type { EndOfTurnPhaseState } from '../../../index.js';
+import { addConstraint } from '../../../engine/pending.js';
 
 describe('Rule 10.40 — Calling the Game', () => {
   beforeEach(() => resetMint());
@@ -114,5 +115,50 @@ describe('Rule 10.40 — Calling the Game', () => {
 
     const text = formatGameState(state);
     expect(text).toContain('33 MP (25 unmodified)');
+  });
+});
+
+describe('Rule 10.40: calling the Council ends the turn', () => {
+  beforeEach(() => resetMint());
+
+  function buildWithTurnConstraint() {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 25 }, deckExhaustionCount: 1,
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const eot: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn, step: 'signal-end', discardDone: [true, true], resetHandDone: [true, true],
+    };
+    const aragornId = base.players[0].companies[0].characters[0];
+    return addConstraint({ ...base, phaseState: eot }, {
+      source: aragornId,
+      sourceDefinitionId: base.players[0].characters[aragornId].definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'character-removal-protected' },
+    });
+  }
+
+  test('normal pass sweeps turn-scoped constraints', () => {
+    const state = buildWithTurnConstraint();
+    expect(state.activeConstraints.some(c => c.scope.kind === 'turn')).toBe(true);
+    const after = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(after.activePlayer).toBe(PLAYER_2);
+    expect(after.activeConstraints.some(c => c.scope.kind === 'turn')).toBe(false);
+  });
+
+  test('call-free-council also sweeps turn-scoped constraints before the opponent\'s last turn', () => {
+    const state = buildWithTurnConstraint();
+    const after = dispatch(state, { type: 'call-free-council', player: PLAYER_1 });
+    expect(after.activePlayer).toBe(PLAYER_2);
+    expect(after.lastTurnFor).toBe(PLAYER_2);
+    expect(after.activeConstraints.some(c => c.scope.kind === 'turn')).toBe(false);
   });
 });

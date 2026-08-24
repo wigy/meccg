@@ -679,10 +679,13 @@ export function triggerCouncilCall(
   const nextActive = opponent;
   const lastTurnFor = direction === 'opponent' ? opponent : caller;
 
+  // Calling the Council still ends the caller's turn: sweep turn-scoped
+  // pending resolutions and constraints exactly like a normal pass does.
+  const swept = sweepExpired(state, { kind: 'turn-end' });
   return enterUntapPhase({
-    ...updatePlayer(state, callerIndex, p => ({ ...p, freeCouncilCalled: true })),
+    ...updatePlayer(swept, callerIndex, p => ({ ...p, freeCouncilCalled: true })),
     activePlayer: nextActive,
-    turnNumber: state.turnNumber + 1,
+    turnNumber: swept.turnNumber + 1,
     lastTurnFor,
   });
 }
