@@ -350,6 +350,20 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
     }
   }
 
+  // Combat item stores. During the item-salvage phase an eliminated
+  // character's items live ONLY in `combat.salvageItems` (they have already
+  // left the character), so skipping them here made every salvaged item
+  // unresolvable for the duration of the sub-phase. `discardItemOptions`
+  // (An Article Missing, Pick-pocket) is scanned for the same reason.
+  if (state.combat) {
+    for (const item of state.combat.salvageItems ?? []) {
+      if (item.instanceId === instanceId) return item.definitionId;
+    }
+    for (const item of state.combat.discardItemOptions ?? []) {
+      if (item.instanceId === instanceId) return item.definitionId;
+    }
+  }
+
   // Hazard hosts (prisoner-holding cards: Troll-purse dm-95, etc.). The host
   // card and its rescue-site reference live only here while the host is active.
   // (`prisoners` are instance-id references to characters held elsewhere.)
