@@ -2652,6 +2652,10 @@ export function selectCardBearerActions(
  * (Indûr Dawndeath tw-46): `characterId` limits the choice to one character's
  * items, and `itemFilter` is matched against each item's card definition
  * ("but not a ring").
+ *
+ * When no eligible item remains the discard is unsatisfiable and a `pass` is
+ * offered instead, so the resolution can be dismissed rather than deadlocking
+ * the game. See {@link eligibleCompanyDiscardItems}.
  */
 export function discardOneCompanyItemActions(
   state: GameState,
@@ -2670,11 +2674,15 @@ export function discardOneCompanyItemActions(
   }));
 
   if (actions.length === 0) {
-    // No eligible item (the enqueue guard should prevent this, but the state
-    // may change between enqueue and resolution) — offer a pass so a stale
-    // resolution can be dismissed instead of deadlocking the game. The
-    // reducer accepts the pass only while no eligible item exists.
-    logDetail('discard-one-company-item: no eligible item in the company — offering pass to dismiss the stale resolution');
+    // The forced discard is unsatisfiable: the company is gone (every member
+    // eliminated while the resolution waited in the queue), or none of its
+    // characters bears a genuine item passing the source card's filter
+    // (q/d bench seed 10800010: Brigands wounded a character whose only
+    // attachments were two permanent events). Returning no actions would
+    // deadlock the game outright — this resolution heads the queue and
+    // nothing else can act until it is consumed — so offer a pass instead.
+    // The reducer accepts that pass only while no eligible item exists.
+    logDetail('discard-one-company-item: no eligible item in the company — only pass is offered');
     actions.push({ action: { type: 'pass', player: actor }, viable: true });
   }
 
@@ -2697,10 +2705,14 @@ export function eligibleCompanyDiscardItems(
 ): CardInstanceId[] {
   const { companyId, characterId, itemFilter } = kind;
 
+  // The company may have vanished while this resolution waited in the queue
+  // (every member eliminated), leaving nothing to discard.
   const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
-  if (!defPlayer) return [];
-  const company = companyById(defPlayer.companies, companyId);
-  if (!company) return [];
+  const company = defPlayer ? companyById(defPlayer.companies, companyId) : undefined;
+  if (!defPlayer || !company) {
+    logDetail(`discard-one-company-item: company ${companyId as string} no longer exists`);
+    return [];
+  }
 
   const eligible: CardInstanceId[] = [];
   for (const charId of company.characters) {

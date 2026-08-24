@@ -695,6 +695,9 @@
       {
         "type": "play-target",
         "target": "character",
+        "phases": [
+          "organization"
+        ],
         "filter": {
           "target.race": "ringwraith"
         }
@@ -4488,7 +4491,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/StabbedHiminHisSleep.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Playable during the site phase on an untapped scout in a covert company at an already tapped Border-hold [{B}] or Free-hold [{F}]. The scout faces an attack (attack type as first automatic-attack at site — 1 strike with 8 prowess). If the scout is not untapped after the attack, discard this card. Otherwise, the scout may tap and place this card in his player’s marshalling point pile."

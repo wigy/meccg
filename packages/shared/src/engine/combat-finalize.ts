@@ -31,7 +31,7 @@ import { shuffle } from '../rng.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { isSiteCard, isCharacterCard, isItemCard, isHalfOrc, printedMind } from '../types/cards.js';
+import { isSiteCard, isCharacterCard, isHalfOrc, isItemCard, printedMind } from '../types/cards.js';
 import { CardStatus, Alignment, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { getActiveAutoAttacks } from './manifestations.js';
@@ -661,13 +661,14 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         const defendingIndex = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
         const defPlayer = stateAfterCombat.players[defendingIndex];
         const company = companyById(defPlayer?.companies ?? [], companyId);
-        // A character's `items` list may hold non-item cards placed "with" the
-        // character (Thrall of the Voice wh-82). Only genuine item cards are
-        // discard targets — enqueueing on the raw list would create a
-        // resolution with no legal action (deadlock).
+        // Count only genuine item cards — a character's `items` list may also
+        // hold permanent events placed "with" the character (e.g. Thrall of
+        // the Voice), which the resolution's emitter rightly refuses to offer.
+        // Counting those enqueued an unsatisfiable forced discard with zero
+        // legal actions and deadlocked the game (q/d bench seed 10800010).
         const hasItems = (company?.characters ?? []).some(charId => {
           const ch = defPlayer.characters[charId];
-          return !!ch && ch.items.some(it => isItemCard(defById(stateAfterCombat, it.definitionId)));
+          return !!ch && ch.items.some(item => isItemCard(defById(stateAfterCombat, item.definitionId)));
         });
         if (hasItems) {
           const scope = companySubphaseScope(state.phaseState.phase, companyId);

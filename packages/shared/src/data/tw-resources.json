@@ -4097,7 +4097,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/StoneofErech.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
     "effects": [
       {

@@ -3615,18 +3615,24 @@ export function applyDiscardOneCompanyItemResolution(
   rawAction: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
-  // The forced discard is mandatory while an eligible item exists, but the
-  // company's eligible items can vanish between enqueue and resolution (or
-  // every `items` entry may be a non-item card like Thrall of the Voice).
-  // Accept a pass ONLY in that stale case so the game cannot deadlock on a
-  // resolution with no legal action.
-  if (top.kind.type === 'discard-one-company-item' && rawAction.type === 'pass' && rawAction.player === top.actor) {
-    if (eligibleCompanyDiscardItems(state, top.kind).length === 0) {
-      logDetail('discard-one-company-item: no eligible item remains — stale resolution dismissed by pass');
-      return { state: dequeueResolution(state, top.id) };
+  if (top.kind.type !== 'discard-one-company-item') return null;
+
+  // A pass dismisses the resolution ONLY when the forced discard is
+  // unsatisfiable — the company is gone, or none of its characters bears a
+  // genuine item passing the source card's filter (attachments may be
+  // permanent events placed "with" a character, e.g. Thrall of the Voice).
+  // The emitter offers the pass in exactly those situations, and shares
+  // `eligibleCompanyDiscardItems` with this check so the two cannot drift.
+  // With an eligible item present the discard stays forced and a pass is
+  // rejected.
+  if (rawAction.type === 'pass' && rawAction.player === top.actor) {
+    if (eligibleCompanyDiscardItems(state, top.kind).length > 0) {
+      return { state, error: 'An eligible item exists — the forced discard cannot be declined' };
     }
-    return { state, error: 'An eligible item must be discarded' };
+    logDetail(`discard-one-company-item: no eligible item in company ${top.kind.companyId as string} — resolution dismissed`);
+    return { state: dequeueResolution(state, top.id) };
   }
+
   const g = guardResolution(state, rawAction, top, 'discard-item-from-company', 'discard-one-company-item');
   if (!g.ok) return g.result;
   const { action, kind } = g;

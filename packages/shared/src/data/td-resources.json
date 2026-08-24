@@ -563,7 +563,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/Dragonlore.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 1,
     "marshallingCategory": "misc",
     "effects": [
       {
@@ -872,7 +872,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/KingundertheMountain.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 5,
     "marshallingCategory": "misc",
     "effects": [],
     "text": "Unique. Playable on Balin, Dáin II, Thorin II, or Thráin II if his company has defeated an at home Dragon manifestation attack other than Eärcaraxë at Home. The target Dwarf receives +5 direct influence against Dwarves and Dwarf factions.The site where the Dragon was defeated becomes a Border-hold [{B}] and Dwarf-hold for all purposes and has no Dragon automatic-attacks. Only Dwarves may play items at this site."
@@ -940,7 +940,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/MaptoMithril.jpg",
     "unique": false,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
     "effects": [
       {
