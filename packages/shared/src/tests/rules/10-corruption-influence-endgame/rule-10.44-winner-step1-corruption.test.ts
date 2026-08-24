@@ -16,7 +16,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase } from '../../../index.js';
 import { recomputeDerived } from '../../../engine/recompute-derived.js';
-import type { FreeCouncilPhaseState, CardDefinitionId, CorruptionCheckAction } from '../../../index.js';
+import type { FreeCouncilPhaseState, CardDefinitionId, CorruptionCheckAction, ActiveConstraint, CardInstanceId, ConstraintId } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableFor,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
@@ -189,6 +189,67 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
 
     const copies = after.players[HAZARD_PLAYER].discardPile.filter(c => c.instanceId === hazardId);
     expect(copies).toHaveLength(1);
+  });
+
+  test('Company-scoped corruption check-modifiers apply to non-minion characters too (bug regression)', () => {
+    // Shifter of Hues (wh-115): tapping Radagast gives "+2 to the corruption
+    // checks of the characters in one company through your next organization
+    // phase" — a company-wide, `when`-less, lasting check-modifier constraint.
+    // Played on the final turn, its scope survives into the Free Council,
+    // where the resolver used to apply company-scoped modifiers only to
+    // minion characters — silently dropping the +2 for everyone else.
+    const LURE_OF_THE_SENSES = 'tw-60' as CardDefinitionId; // +2 CP corruption card
+    const LURE_OF_NATURE = 'tw-58' as CardDefinitionId;     // +2 CP corruption card
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    let withHazard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES, HAZARD_PLAYER);
+    withHazard = attachHazardToChar(withHazard, RESOURCE_PLAYER, ARAGORN, LURE_OF_NATURE, HAZARD_PLAYER);
+    withHazard = recomputeDerived(withHazard);
+    const aragornId = findCharInstanceId(withHazard, RESOURCE_PLAYER, ARAGORN);
+    const companyId = withHazard.players[RESOURCE_PLAYER].companies[0].id;
+
+    const constraint: ActiveConstraint = {
+      id: 'test-1044-shifter' as ConstraintId,
+      source: 'test-1044-shifter-src' as CardInstanceId,
+      sourceDefinitionId: 'wh-115' as CardDefinitionId,
+      scope: { kind: 'next-organization-phase', playerId: PLAYER_1, afterTurn: withHazard.turnNumber },
+      target: { kind: 'company', companyId },
+      kind: { type: 'check-modifier', check: 'corruption', value: 2, lasting: true },
+    };
+    const withConstraint = {
+      ...withHazard,
+      activeConstraints: [...withHazard.activeConstraints, constraint],
+    };
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+
+    // Aragorn: CP 4, no check modifier of his own. A roll of 4 == CP would
+    // discard a hero character; the company-wide +2 lifts the total to
+    // 6 > 4, so the check must pass and Aragorn stays in play.
+    const state = { ...withConstraint, cheatRollTotal: 4, phaseState: fcState };
+    const checkActions = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'corruption-check')
+      .map(a => a.action as CorruptionCheckAction)
+      .filter(a => a.characterId === aragornId);
+    expect(checkActions).toHaveLength(1);
+    const after = dispatch(state, checkActions[0]);
+
+    expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === aragornId)).toBe(false);
   });
 
   test('Ringwraith and Balrog avatars are skipped — only their non-Ringwraith, non-Balrog company mate is checked', () => {
