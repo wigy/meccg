@@ -58,6 +58,8 @@ function buildInfluenceState(opts: {
   agentAtHome?: boolean;   // true → agent at Minas Morgul (home); false → at Moria
   target?: CardDefinitionId; // resource char def — defaults to ARAGORN
   destinationSite?: CardDefinitionId; // company's destination
+  agentSiteStack?: SiteInPlay[]; // override the agent's site stack (e.g. [] for a hidden at-home agent)
+  hazardSiteDeck?: CardDefinitionId[]; // hazard player's site deck contents
 } = {}) {
   const atHome = opts.agentAtHome ?? true;
   const targetChar = opts.target ?? ARAGORN;
@@ -68,13 +70,13 @@ function buildInfluenceState(opts: {
     phase: Phase.MovementHazard,
     players: [
       { id: PLAYER_1, companies: [{ site: LORIEN, characters: [targetChar], destinationSite: destSite }], hand: [], siteDeck: [] },
-      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: opts.hazardSiteDeck ?? [] },
     ],
   });
 
-  const agentSiteStack: SiteInPlay[] = atHome ? [MINAS_MORGUL_IN_PLAY] : [
+  const agentSiteStack: SiteInPlay[] = opts.agentSiteStack ?? (atHome ? [MINAS_MORGUL_IN_PLAY] : [
     { instanceId: 'test-1014-moria' as CardInstanceId, definitionId: MORIA, status: CardStatus.Untapped },
-  ];
+  ]);
 
   const agent: AgentInPlay = {
     id: AGENT_COMP_ID,
@@ -172,6 +174,68 @@ describe('Rule 10.14 — Influencing with an Agent', () => {
     const attempt = (pending!.kind as { attempt: { targetMind: number } }).attempt;
     // Gorbag mind 6 → shared home → treated as 0
     expect(attempt.targetMind).toBe(0);
+  });
+
+  test('reveal via influence returns a traveled agent\'s prior stack sites to the site deck (bug regression)', () => {
+    // A face-down agent that traveled (Moria under Minas Morgul on its
+    // stack) is revealed by the influence attempt. Rule 9.04 reveal
+    // bookkeeping — as performed by the attack-reveal paths — keeps only the
+    // top (current) site under the agent and returns the prior stack sites
+    // to the site deck. The influence path used to flip `revealed` without
+    // any of this.
+    const moriaInst: SiteInPlay = { instanceId: 'test-1014-moria' as CardInstanceId, definitionId: MORIA, status: CardStatus.Untapped };
+    const state = buildInfluenceState({
+      agentSiteStack: [moriaInst, MINAS_MORGUL_IN_PLAY],
+    });
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, actions[0].action);
+    const agent = after.players[HAZARD_PLAYER].agents[0];
+    expect(agent.revealed).toBe(true);
+    // Only the current site remains under the agent…
+    expect(agent.siteStack.map(s => s.instanceId)).toEqual([SITE_INST_ID]);
+    // …and the prior stack site went back to the site deck.
+    expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === moriaInst.instanceId)).toBe(true);
+  });
+
+  test('reveal via influence binds a hidden at-home agent\'s home site from the site deck (bug regression)', () => {
+    // A hidden agent sitting at home has an EMPTY site stack. On reveal, the
+    // home site card is taken from the site deck and placed under the agent
+    // (rule 9.04) — mirroring the attack-reveal path. The influence path used
+    // to leave the agent revealed with no site at all.
+    const state = buildInfluenceState({
+      agentSiteStack: [],
+      hazardSiteDeck: [MINAS_MORGUL_SITE],
+    });
+    const homeSiteInst = state.players[HAZARD_PLAYER].siteDeck[0].instanceId;
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, actions[0].action);
+    const agent = after.players[HAZARD_PLAYER].agents[0];
+    expect(agent.revealed).toBe(true);
+    // The home site card moved from the site deck to the agent's stack.
+    expect(agent.siteStack.map(s => s.instanceId)).toEqual([homeSiteInst]);
+    expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === homeSiteInst)).toBe(false);
+    expect(agent.discardAtEndOfTurn ?? false).toBe(false);
+  });
+
+  test('reveal via influence with no site card available flags the agent for end-of-turn discard (rule 9.04)', () => {
+    // Hidden at-home agent whose home site card is NOT in the site deck: the
+    // reveal cannot bind a site, so the agent is flagged discardAtEndOfTurn.
+    const state = buildInfluenceState({
+      agentSiteStack: [],
+      hazardSiteDeck: [],
+    });
+    const actions = viableActions(state, PLAYER_2, 'agent-influence-attempt');
+    expect(actions.length).toBeGreaterThan(0);
+
+    const after = dispatch(state, actions[0].action);
+    const agent = after.players[HAZARD_PLAYER].agents[0];
+    expect(agent.revealed).toBe(true);
+    expect(agent.siteStack).toHaveLength(0);
+    expect(agent.discardAtEndOfTurn).toBe(true);
   });
 
   test('agent remainingActions not consumed by influence (influence is not an agent action)', () => {
