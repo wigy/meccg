@@ -1871,7 +1871,14 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
   for (const i of [0, 1] as const) {
     const p = intermediateState.players[i];
     const handSize = resolveHandSize(intermediateState, i);
-    if (p.hand.length < handSize) {
+    // A play deck that is *already* empty when the draw starts draws nothing
+    // and does not exhaust. Rule 2.4 fires the moment a draw takes the last
+    // card, so a deck empty before the draw has either exhausted already or
+    // has nothing left to reshuffle — the same reading the M/H draw-cards step
+    // and the end-of-turn reset-hand draw apply. Without this guard, step 8
+    // would retroactively exhaust and sweep the cards discarded moments
+    // earlier in steps 8a-2/8a-3 out of the discard pile and into a new deck.
+    if (p.hand.length < handSize && p.playDeck.length > 0) {
       const wanted = handSize - p.hand.length;
       const { state: drawnState, drawnCards } = drawCardsExhausting(intermediateState, i, wanted);
       if (drawnCards.length > 0) {
