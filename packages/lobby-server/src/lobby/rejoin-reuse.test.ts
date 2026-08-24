@@ -144,3 +144,41 @@ describe('fresh tutorial start with a lingering Mentor server', () => {
     expect(players.find(p => p.name === 'sam')?.inGame).toBe(true);
   });
 });
+
+describe('both players rejoining after a game-server crash', () => {
+  // The per-player rejoin guards (from.rejoining / activeGame) all pass for
+  // the SECOND of two symmetric rejoins: when a human-vs-human game server
+  // crashes, both clients' sockets close at once and both send rejoin-game
+  // within the same tick, while the first relaunch has not yet stored
+  // anyone's activeGame. Without the opponent-rejoining guard the lobby
+  // launched a server for each rejoin — two processes restoring the same
+  // save and racing each other's autosaves.
+  test('launches exactly one replacement server, answering both seats', async () => {
+    const ws1 = makeWs();
+    const ws2 = makeWs();
+    playerConnected('aragorn', ws1 as unknown as WebSocket);
+    playerConnected('boromir', ws2 as unknown as WebSocket);
+    ws1.message({ type: 'challenge', opponentName: 'boromir' });
+    ws2.message({ type: 'accept-challenge', from: 'aragorn' });
+    await settle();
+    const firstPort = (ws1.sent.find(m => m.type === 'game-starting'))?.port as number;
+    expect(firstPort).toBeDefined();
+    const launchCount = harness.launches.length;
+
+    // The game server crashes: its exit callbacks fire, clearing both
+    // players' active-game state...
+    const crashed = harness.launches.find(l => l.port === firstPort)!;
+    for (const cb of crashed.endCbs) cb();
+
+    // ...and both clients react to their closed game sockets by sending a
+    // symmetric rejoin, back to back.
+    ws1.message({ type: 'rejoin-game', opponent: 'boromir' });
+    ws2.message({ type: 'rejoin-game', opponent: 'aragorn' });
+    await settle();
+
+    expect(harness.launches.length).toBe(launchCount + 1);
+    const newPort = harness.launches[harness.launches.length - 1].port;
+    expect(ws1.sent.filter(m => m.type === 'game-starting').map(m => m.port)).toContain(newPort);
+    expect(ws2.sent.filter(m => m.type === 'game-starting').map(m => m.port)).toContain(newPort);
+  });
+});
