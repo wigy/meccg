@@ -25,6 +25,7 @@ import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
 import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
+import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
 import { removeConstraint } from './pending.js';
 
@@ -387,6 +388,14 @@ function resolveCorruptionCheck(
     };
   }
 
+  // Trophies live only on the bearer's `trophies` list — disperse them per
+  // CoE 3.IV.4 (MP-worth → marshalling-point pile, otherwise removed from
+  // play), or the creature CardInstance would vanish with the removed
+  // character (violating the "no card instance may ever disappear" invariant)
+  // and its kill MP would be lost from the final score.
+  const { toKillPile: trophyKill, toOutOfPlay: trophyOop } =
+    partitionLeavingTrophies(state, char, 'free-council corruption removal');
+
   if (outcome === 'discard') {
     // Roll == CP or CP-1 on a hero character: it and its possessions are discarded
     logDetail(`Free Council corruption check FAILED (${total} within 1 of ${cp}) — discarding ${charName}`);
@@ -399,6 +408,8 @@ function resolveCorruptionCheck(
       characters: newCharacters,
       companies: newCompanies,
       discardPile: [...newPlayers[playerIndex].discardPile, ...toDiscard],
+      killPile: [...newPlayers[playerIndex].killPile, ...trophyKill],
+      outOfPlayPile: [...newPlayers[playerIndex].outOfPlayPile, ...trophyOop],
     };
     // (Attached hazards were already discarded to their owners above.)
   } else {
@@ -409,7 +420,8 @@ function resolveCorruptionCheck(
       ...newPlayers[playerIndex],
       characters: newCharacters,
       companies: newCompanies,
-      outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }],
+      outOfPlayPile: [...player.outOfPlayPile, { instanceId: pending.characterId, definitionId: char.definitionId }, ...trophyOop],
+      killPile: [...newPlayers[playerIndex].killPile, ...trophyKill],
       discardPile: [...newPlayers[playerIndex].discardPile, ...nonHazardPossessions],
     };
     // (Attached hazards were already discarded to their owners above.)

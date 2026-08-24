@@ -19,8 +19,8 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, BILBO, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  GATES_OF_MORNING,
-  CardStatus, addCardInPlay, setCharStatus, expectCharNotInPlay,
+  GATES_OF_MORNING, ORC_PATROL, SUN,
+  CardStatus, addCardInPlay, setCharStatus, expectCharNotInPlay, placeOnGuard, mint,
   makeShadowMHState, makeBodyCheckCombat, findCharInstanceId, companyIdAt,
 } from '../../test-helpers.js';
 import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
@@ -341,6 +341,70 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
 
     expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(0);
     expect(sitesOf(after.players[RESOURCE_PLAYER])).toBe(before);
+  });
+
+  test('on-guard cards and company hazards survive the company dissolving', () => {
+    // Regression (card-disappears invariant): cleanupEmptyCompanies returned
+    // the dissolved company's sites and discarded its bound permanent-events,
+    // but dropped the company's onGuardCards and hazards arrays on the floor.
+    // In a self-play game the hazard player's face-down on-guard bluff
+    // (Orcrist, tw-295) vanished from the game when the company's last
+    // character failed a corruption check. On-guard cards must return to the
+    // hazard player's hand — exactly what the site-phase cleanup
+    // (returnOnGuardCardsToHand) would have done — and company-targeting
+    // hazards must go to the hazard player's discard pile.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    // P2 has a face-down on-guard card at Aragorn's company…
+    const { state: withOnGuard, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, 0, ORC_PATROL);
+    // …and a hazard permanent-event targeting the company as a whole.
+    const companyHazard = { instanceId: mint(), definitionId: SUN, status: CardStatus.Untapped };
+    const company = withOnGuard.players[RESOURCE_PLAYER].companies[0];
+    const state = {
+      ...withOnGuard,
+      players: [
+        {
+          ...withOnGuard.players[RESOURCE_PLAYER],
+          companies: [{ ...company, hazards: [companyHazard] }],
+        },
+        withOnGuard.players[HAZARD_PLAYER],
+      ] as typeof withOnGuard.players,
+    };
+
+    const aragornId = state.players[RESOURCE_PLAYER].companies[0].characters[0];
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: {
+        characterId: aragornId,
+        corruptionPoints: 5,
+        corruptionModifier: 0,
+        possessions: [] as CardInstanceId[],
+        need: 6,
+        explanation: 'CP 5',
+        supportCount: 0,
+      },
+    };
+    const after = dispatch({ ...state, cheatRollTotal: 2, phaseState: fcState },
+      { type: 'pass', player: PLAYER_1 });
+
+    // The company dissolved…
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(0);
+    // …the on-guard card is back in the hazard player's hand…
+    expect(after.players[HAZARD_PLAYER].hand.some(c => c.instanceId === ogCard.instanceId)).toBe(true);
+    // …and the company hazard is in the hazard player's discard pile.
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === companyHazard.instanceId)).toBe(true);
   });
 
   test('During movement/hazard phase: site stays until end of all M/H phases', () => {

@@ -167,6 +167,48 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(completedP1.deckExhaustionCount).toBe(1);
   });
 
+  test('a card entering the play deck during the exhaust exchange window survives the reshuffle', () => {
+    // Regression (card-disappears invariant): completeDeckExhaust built the
+    // new play deck from the discard pile alone. The play deck is normally
+    // empty at that point, but the exchange sub-flow (`deckExhaustPending`)
+    // is an interactive window in which a card can legally enter the play
+    // deck first — Sudden Call (le-235) must be revealed and reshuffled
+    // into the play deck from hand when it cannot be played. Completing the
+    // exhaust then replaced the play deck wholesale, destroying the card:
+    // in a livelocked self-play game the minion player's only
+    // council-calling card vanished this way and the game could never end.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [DAGGER_OF_WESTERNESSE], // entered during the exchange window
+          discardPile: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+    const daggerInstance = state.players[0].playDeck[0].instanceId;
+
+    const after = completeDeckExhaust(state, 0);
+
+    // The reshuffled play deck holds the discard pile AND the card that was
+    // already in the play deck — no instance may disappear from the game.
+    const p1 = after.players[0];
+    expect(p1.discardPile).toHaveLength(0);
+    expect(p1.playDeck).toHaveLength(3);
+    expect(p1.playDeck.some(c => c.instanceId === daggerInstance)).toBe(true);
+  });
+
   test('Exhaustion discards cards in play that trigger on deck exhaustion', () => {
     // Set up P1 with Safe from the Shadow (as-54) in cardsInPlay.
     // Safe from the Shadow has: on-event play-deck-exhausted → discard-self.

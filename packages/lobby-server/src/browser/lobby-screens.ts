@@ -20,6 +20,7 @@ import { openScoreboardPage } from './scoreboard-page.js';
 import { openChangelogPage } from './changelog-page.js';
 import { openAdminPage, updateAdminNavVisibility } from './admin-page.js';
 import { renderLog } from './render-log.js';
+import { challengeReceived, challengeWithdrawn, clearChallenges } from './challenge-queue.js';
 import { loadGameBundle, loadDeckEditorBundle } from './lazy-load.js';
 
 /** All screen IDs in the lobby UI. */
@@ -299,11 +300,8 @@ export function connectLobbyWs(): void {
         break;
       }
       case 'challenge-received': {
-        appState.challengeFrom = msg.from as string;
-        const incoming = document.getElementById('challenge-incoming')!;
-        const fromDisplay = (msg.fromDisplayName as string) ?? appState.challengeFrom;
-        document.getElementById('challenge-text')!.textContent = `${fromDisplay} wants to play!`;
-        incoming.classList.remove('hidden');
+        const from = msg.from as string;
+        challengeReceived(from, (msg.fromDisplayName as string) ?? from);
         break;
       }
       case 'challenge-declined': {
@@ -314,18 +312,17 @@ export function connectLobbyWs(): void {
         break;
       }
       case 'challenge-cancelled': {
-        // The challenger withdrew (or entered a game): dismiss the incoming
-        // prompt if it is the one currently showing.
-        if (appState.challengeFrom === (msg.from as string)) {
-          document.getElementById('challenge-incoming')!.classList.add('hidden');
-          appState.challengeFrom = null;
-        }
+        // The challenger withdrew (or entered a game): drop their challenge —
+        // shown or still queued — and reveal the next waiting one, if any.
+        challengeWithdrawn(msg.from as string);
         break;
       }
       case 'game-starting': {
         // Entering a game withdraws every challenge we sent (the server does the
         // same), so forget them rather than show stale "Cancel" buttons later.
+        // Incoming challenges are cancelled server-side too — clear the queue.
         appState.sentChallenges.clear();
+        clearChallenges();
         appState.gamePort = msg.port as number;
         appState.gameToken = msg.token as string;
         appState.opponentName = (msg.opponent as string) ?? null;
@@ -430,6 +427,7 @@ export async function initLobby(): Promise<void> {
   // Register lobby callbacks on window.__meccg so game and deck-editor bundles can call back.
   window.__meccg!.showScreen = showScreen;
   window.__meccg!.connectLobbyWs = connectLobbyWs;
+  window.__meccg!.renderOnlineList = renderOnlineList;
 
   try {
     const resp = await fetch('/api/me');

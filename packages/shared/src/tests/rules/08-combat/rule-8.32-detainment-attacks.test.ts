@@ -28,6 +28,7 @@ import {
   executeAction,
   makeDetainmentStrikeState,
   CardStatus, RESOURCE_PLAYER,
+  GWAIHIR,
 } from '../../test-helpers.js';
 
 describe('Rule 8.32 — Detainment Attacks', () => {
@@ -117,5 +118,40 @@ describe('Rule 8.32 — Detainment Attacks', () => {
     // An already-wounded character stays Inverted — a detainment strike must
     // not heal it to Tapped (see Neeker-Breekers bug report).
     expect(after.players[RESOURCE_PLAYER].characters[characterId].status).toBe(CardStatus.Inverted);
+  });
+
+  test('3.II.1 — untapped ally hit by detainment strike is tapped, not wounded', () => {
+    // Gwaihir prowess 4. Strike prowess 15. Roll 3 → total 7 < 15 → wound
+    // path, converted to a tap by detainment.
+    const { state, characterId, allyId } = makeDetainmentStrikeState({
+      detainment: true,
+      strikeProwess: 15,
+      allyDefId: GWAIHIR,
+    });
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 3, false);
+
+    const ally = after.players[RESOURCE_PLAYER].characters[characterId].allies
+      .find(a => a.instanceId === allyId);
+    expect(ally?.status).toBe(CardStatus.Tapped);
+    expect(after.combat?.phase).not.toBe('body-check');
+  });
+
+  test('3.II.1.1 — pre-Inverted ally hit by detainment strike stays wounded (not healed to Tapped)', () => {
+    // Same as the pre-Inverted character case above, but the strike faces an
+    // already-wounded ally: "tap" requires the card be initially upright, so
+    // the detainment strike must leave the ally Inverted rather than healing
+    // it to Tapped.
+    const { state, characterId, allyId } = makeDetainmentStrikeState({
+      detainment: true,
+      strikeProwess: 15,
+      allyDefId: GWAIHIR,
+      allyStatus: CardStatus.Inverted,
+    });
+    const after = executeAction(state, PLAYER_1, 'resolve-strike', 3, false);
+
+    const ally = after.players[RESOURCE_PLAYER].characters[characterId].allies
+      .find(a => a.instanceId === allyId);
+    expect(ally?.status).toBe(CardStatus.Inverted);
+    expect(after.combat?.phase).not.toBe('body-check');
   });
 });

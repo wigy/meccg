@@ -28,7 +28,7 @@ import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test
 import { companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 import { getCharacter } from './test-helpers-assertions.js';
 import { dispatch, executeAction, resolveChain, runActions } from './test-helpers-dispatch.js';
-import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, setCharStatus } from './test-helpers-core.js';
+import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, setAllyStatus, setCharStatus } from './test-helpers-core.js';
 import type { CharacterEntry } from './test-helpers-core.js';
 
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
@@ -2638,6 +2638,14 @@ export interface DetainmentStrikeOpts {
    * card lands after `finalizeCombat`.
    */
   creatureInPlay?: CardDefinitionId;
+  /**
+   * If set, an ally with this definition is attached to Aragorn and the
+   * strike is assigned to the ally instead of the character. Used by the
+   * rule-8.32 ally-detainment tests.
+   */
+  allyDefId?: CardDefinitionId;
+  /** Pre-strike status of the ally (default Untapped). */
+  allyStatus?: CardStatus;
 }
 
 /**
@@ -2653,6 +2661,7 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
   state: GameState;
   characterId: CardInstanceId;
   creatureInstanceId: CardInstanceId;
+  allyId: CardInstanceId | null;
 } {
   const base = buildTestState({
     phase: Phase.MovementHazard,
@@ -2667,8 +2676,18 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
   const companyId = companyIdAt(base, RESOURCE_PLAYER);
   const withStatus = opts.charStatus ? setCharStatus(base, RESOURCE_PLAYER, ARAGORN, opts.charStatus) : base;
 
+  let withAlly = withStatus;
+  let allyId: CardInstanceId | null = null;
+  if (opts.allyDefId) {
+    withAlly = attachAllyToChar(withStatus, RESOURCE_PLAYER, ARAGORN, opts.allyDefId);
+    if (opts.allyStatus) {
+      withAlly = setAllyStatus(withAlly, RESOURCE_PLAYER, ARAGORN, opts.allyDefId, opts.allyStatus);
+    }
+    allyId = withAlly.players[RESOURCE_PLAYER].characters[characterId].allies[0].instanceId;
+  }
+
   let creatureInstanceId: CardInstanceId = 'fake-creature' as CardInstanceId;
-  let stateWithCreature: GameState = withStatus;
+  let stateWithCreature: GameState = withAlly;
   if (opts.creatureInPlay) {
     creatureInstanceId = mint();
     const hazardIdx = stateWithCreature.players.findIndex(p => p.id === PLAYER_2);
@@ -2695,7 +2714,7 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
     strikeProwess: opts.strikeProwess,
     creatureBody: opts.creatureBody ?? null,
     creatureRace: Race.Orc,
-    strikeAssignments: [{ characterId, excessStrikes: 0, resolved: false }],
+    strikeAssignments: [{ characterId: allyId ?? characterId, excessStrikes: 0, resolved: false }],
     currentStrikeIndex: 0,
     phase: 'resolve-strike',
     assignmentPhase: 'done',
@@ -2707,6 +2726,7 @@ export function makeDetainmentStrikeState(opts: DetainmentStrikeOpts): {
     state: { ...stateWithCreature, phaseState: makeShadowMHState(), combat },
     characterId,
     creatureInstanceId,
+    allyId,
   };
 }
 
