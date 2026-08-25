@@ -29,34 +29,41 @@ import {
 import type { FreeCouncilPhaseState } from '../../../index.js';
 import type { CardDefinitionId, CardInstanceId } from '../../../index.js';
 
+/** Hero item, CP 3, no effects: the Free Council resolver reads CP live. */
+const DWARVEN_RING_OF_BARIN = 'tw-213' as CardDefinitionId;
+/** Gold ring, CP 4: cheat rolls span 2–12, so CP ≥ 4 is needed to reach CP-2. */
+const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;
+
 describe('Rule 10.01 — Corruption Check', () => {
   beforeEach(() => resetMint());
 
   test('Roll vs corruption point total: greater = success; equal or -1 = depends on alignment; less than by 2+ = eliminated', () => {
-    // Aragorn is a hero character. Corruption points (CP) = 5, modifier = 0.
-    // Roll 6: total = 6 > 5 → success (character remains in play).
-    // Roll 5: total = 5 = CP → discard (hero fails at equal).
-    // Roll 4: total = 4 = CP-1 → discard (hero fails at CP-1).
-    // Roll 3: total = 3 = CP-2 → eliminate (less than CP by 2).
+    // Aragorn is a hero character bearing a gold ring: CP = 4, modifier = 0.
+    // Roll 5: total = 5 > 4 → success (character remains in play).
+    // Roll 4: total = 4 = CP → discard (hero fails at equal).
+    // Roll 3: total = 3 = CP-1 → discard (hero fails at CP-1).
+    // Roll 2: total = 2 = CP-2 → eliminate (less than CP by 2).
 
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [LEAST_OF_GOLD_RINGS] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
 
     const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    expect(base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(4);
 
     const pendingCheck = {
       characterId: aragornId,
-      corruptionPoints: 5,
+      corruptionPoints: 4,
       corruptionModifier: 0,
       possessions: [] as CardInstanceId[],
-      need: 6,
-      explanation: 'CP 5, modifier 0',
+      need: 5,
+      explanation: 'CP 4, modifier 0',
       supportCount: 0,
     };
 
@@ -76,24 +83,24 @@ describe('Rule 10.01 — Corruption Check', () => {
       phaseState: fcState,
     });
 
-    // Case 1: roll > CP (6 > 5) → success: character still in characters
-    const afterSuccess = dispatch(buildFcState(6), { type: 'pass', player: PLAYER_1 });
+    // Case 1: roll > CP (5 > 4) → success: character still in characters
+    const afterSuccess = dispatch(buildFcState(5), { type: 'pass', player: PLAYER_1 });
     expectCharInPlay(afterSuccess, RESOURCE_PLAYER, aragornId);
     expectNotInDiscardPile(afterSuccess, RESOURCE_PLAYER, aragornId);
 
-    // Case 2: roll == CP (5 == 5) → hero fails: character discarded (not eliminated)
-    const afterDiscard = dispatch(buildFcState(5), { type: 'pass', player: PLAYER_1 });
+    // Case 2: roll == CP (4 == 4) → hero fails: character discarded (not eliminated)
+    const afterDiscard = dispatch(buildFcState(4), { type: 'pass', player: PLAYER_1 });
     expectCharNotInPlay(afterDiscard, RESOURCE_PLAYER, aragornId);
     expectInDiscardPile(afterDiscard, RESOURCE_PLAYER, aragornId);
     expectNotInPile(afterDiscard, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
 
-    // Case 3: roll == CP-1 (4 == 5-1) → hero fails: character discarded
-    const afterDiscard2 = dispatch(buildFcState(4), { type: 'pass', player: PLAYER_1 });
+    // Case 3: roll == CP-1 (3 == 4-1) → hero fails: character discarded
+    const afterDiscard2 = dispatch(buildFcState(3), { type: 'pass', player: PLAYER_1 });
     expectInDiscardPile(afterDiscard2, RESOURCE_PLAYER, aragornId);
     expectNotInPile(afterDiscard2, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
 
-    // Case 4: roll <= CP-2 (3 <= 5-2=3) → eliminated: character in outOfPlayPile
-    const afterElim = dispatch(buildFcState(3), { type: 'pass', player: PLAYER_1 });
+    // Case 4: roll <= CP-2 (2 <= 4-2=2) → eliminated: character in outOfPlayPile
+    const afterElim = dispatch(buildFcState(2), { type: 'pass', player: PLAYER_1 });
     expectCharNotInPlay(afterElim, RESOURCE_PLAYER, aragornId);
     expectInPile(afterElim, RESOURCE_PLAYER, 'outOfPlayPile', aragornId);
     expectNotInDiscardPile(afterElim, RESOURCE_PLAYER, aragornId);
@@ -109,12 +116,14 @@ describe('Rule 10.01 — Corruption Check', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [LEAST_OF_GOLD_RINGS] }, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GANDALF] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    expect(base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(4);
     const trophy = { instanceId: 'p1-trophy-inst' as CardInstanceId, definitionId: ORC_GUARD };
     const withTrophy = {
       ...base,
@@ -136,27 +145,27 @@ describe('Rule 10.01 — Corruption Check', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 4,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5, modifier 0',
+        need: 5,
+        explanation: 'CP 4, modifier 0',
         supportCount: 0,
       },
     };
 
-    // Discard branch (roll 4 == CP-1): trophy (worth kill MP) relocates to
+    // Discard branch (roll 3 == CP-1): trophy (worth kill MP) relocates to
     // the marshalling-point pile; every instance stays reachable.
     const afterDiscard = dispatch(
-      { ...withTrophy, cheatRollTotal: 4, phaseState: fcState },
+      { ...withTrophy, cheatRollTotal: 3, phaseState: fcState },
       { type: 'pass', player: PLAYER_1 },
     );
     expect(afterDiscard.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophy.instanceId)).toBe(true);
     assertEveryInstanceReachable(afterDiscard);
 
-    // Eliminate branch (roll 3 == CP-2): same trophy relocation.
+    // Eliminate branch (roll 2 == CP-2): same trophy relocation.
     const afterElim2 = dispatch(
-      { ...withTrophy, cheatRollTotal: 3, phaseState: fcState },
+      { ...withTrophy, cheatRollTotal: 2, phaseState: fcState },
       { type: 'pass', player: PLAYER_1 },
     );
     expect(afterElim2.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophy.instanceId)).toBe(true);
@@ -164,29 +173,31 @@ describe('Rule 10.01 — Corruption Check', () => {
   });
 
   test('Wizard avatar is eliminated (not discarded) on soft-fail corruption check', () => {
-    // Gandalf is a Wizard avatar (mind === null). With CP = 5 and modifier = 0,
-    // a roll of 5 (== CP) is a "soft fail" that would merely discard a hero —
+    // Gandalf is a Wizard avatar (mind === null) bearing a Dwarven Ring: CP = 3,
+    // modifier = 0. A roll of 3 (== CP) is a "soft fail" that would merely discard a hero —
     // but rule 10.01 says a Wizard avatar "is immediately eliminated" on any
     // failed check. Gandalf must go to outOfPlayPile, not discardPile.
     // Bilbo keeps the company non-empty so cleanup logic doesn't interfere.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF, items: [DWARVEN_RING_OF_BARIN] }, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
       ],
     });
 
     const gandalfId = findCharInstanceId(base, RESOURCE_PLAYER, GANDALF);
+    expect(base.players[RESOURCE_PLAYER].characters[gandalfId].effectiveStats.corruptionPoints).toBe(3);
 
     const pendingCheck = {
       characterId: gandalfId,
-      corruptionPoints: 5,
+      corruptionPoints: 3,
       corruptionModifier: 0,
       possessions: [] as CardInstanceId[],
-      need: 6,
-      explanation: 'CP 5, modifier 0',
+      need: 4,
+      explanation: 'CP 3, modifier 0',
       supportCount: 0,
     };
 
@@ -200,9 +211,9 @@ describe('Rule 10.01 — Corruption Check', () => {
       pendingCheck,
     };
 
-    // Roll 5 == CP: soft fail for a hero → discard, but wizard → must eliminate
+    // Roll 3 == CP: soft fail for a hero → discard, but wizard → must eliminate
     const afterFail = dispatch(
-      { ...base, cheatRollTotal: 5, phaseState: fcState },
+      { ...base, cheatRollTotal: 3, phaseState: fcState },
       { type: 'pass', player: PLAYER_1 },
     );
 

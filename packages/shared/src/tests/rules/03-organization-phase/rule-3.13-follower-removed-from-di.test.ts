@@ -31,6 +31,7 @@ import {
 const INDUR = 'le-54' as CardDefinitionId;
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
 const BADE_TO_RULE = 'le-167' as CardDefinitionId;
+const DWARVEN_RING_OF_BARIN = 'tw-213' as CardDefinitionId; // hero item, CP 3, no effects
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // Darkhaven
 
 describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
@@ -185,7 +186,7 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
           companies: [{
             site: RIVENDELL,
             characters: [
-              { defId: ARAGORN },
+              { defId: ARAGORN, items: [DWARVEN_RING_OF_BARIN] },
               { defId: FARAMIR, followerOf: 0 },
             ],
           }],
@@ -198,6 +199,8 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const faramirId = findCharInstanceId(base, RESOURCE_PLAYER, FARAMIR);
     expect(base.players[RESOURCE_PLAYER].characters[faramirId].controlledBy).toBe(aragornId);
+    // The Free Council resolver reads CP from live state: the ring gives CP 3.
+    expect(base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(3);
 
     const fcState: FreeCouncilPhaseState = {
       phase: Phase.FreeCouncil,
@@ -208,17 +211,17 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 3,
         corruptionModifier: 0,
         possessions: [],
-        need: 6,
-        explanation: 'CP 5, modifier 0',
+        need: 4,
+        explanation: 'CP 3, modifier 0',
         supportCount: 0,
       },
     };
 
-    // Roll 5 == CP 5 → hero soft-fails → Aragorn discarded.
-    const after = dispatch({ ...base, cheatRollTotal: 5, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
+    // Roll 3 == CP 3 → hero soft-fails → Aragorn discarded.
+    const after = dispatch({ ...base, cheatRollTotal: 3, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
     expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeUndefined();
 
     const faramir = after.players[RESOURCE_PLAYER].characters[faramirId];
