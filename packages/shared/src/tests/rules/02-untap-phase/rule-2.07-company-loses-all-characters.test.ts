@@ -24,7 +24,12 @@ import {
   makeShadowMHState, makeBodyCheckCombat, findCharInstanceId, companyIdAt,
 } from '../../test-helpers.js';
 import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
-import type { FreeCouncilPhaseState } from '../../../index.js';
+import type { CardDefinitionId, FreeCouncilPhaseState } from '../../../index.js';
+
+// The Free Council resolver reads the checked character's corruption point
+// total from live state, so the CP 5 these fixtures roll against has to come
+// from a real borne item rather than the `pendingCheck` snapshot.
+const IRON_CROWN = 'tw-496' as CardDefinitionId; // hero item, CP 5
 
 describe('Rule 2.07 — Company Loses All Characters', () => {
   beforeEach(() => resetMint());
@@ -39,8 +44,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -116,8 +122,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -197,11 +204,12 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           companies: [
-            { site: MORIA, characters: [ARAGORN] },
+            { site: MORIA, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] },
             { site: LORIEN, characters: [LEGOLAS] },
           ],
           hand: [],
@@ -263,8 +271,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -310,8 +319,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -370,8 +380,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH, RIVENDELL] },
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] }], hand: [], siteDeck: [MINAS_TIRITH, RIVENDELL] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -429,8 +440,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });

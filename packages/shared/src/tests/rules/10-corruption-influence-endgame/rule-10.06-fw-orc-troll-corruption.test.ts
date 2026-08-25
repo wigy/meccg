@@ -13,7 +13,7 @@
  * [FALLEN-WIZARD] A Fallen-wizard player treats their Orc and/or Troll characters as minion characters when determining the results of a corruption check.
  */
 
-import { describe, test, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { Alignment, CardStatus } from '../../../index.js';
 import type { CardDefinitionId, CardInstanceId, FreeCouncilPhaseState } from '../../../index.js';
 import {
@@ -25,6 +25,7 @@ import {
 
 const ALATAR_FW = 'wh-1' as CardDefinitionId; // Fallen-wizard avatar (filler, keeps company non-empty)
 const GORBAG = 'le-11' as CardDefinitionId;    // minion Orc character
+const IRON_CROWN = 'le-314' as CardDefinitionId; // minion item, CP 5
 
 describe('Rule 10.06 — Fallen-Wizard Orc/Troll Corruption', () => {
   beforeEach(() => resetMint());
@@ -36,11 +37,12 @@ describe('Rule 10.06 — Fallen-Wizard Orc/Troll Corruption', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.FallenWizard,
-          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, GORBAG] }],
+          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, { defId: GORBAG, items: [IRON_CROWN] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -49,6 +51,9 @@ describe('Rule 10.06 — Fallen-Wizard Orc/Troll Corruption', () => {
     });
 
     const gorbagId = findCharInstanceId(base, RESOURCE_PLAYER, GORBAG);
+    // The resolver reads the corruption point total from live state, so the CP
+    // must come from a real borne item rather than the `pendingCheck` snapshot.
+    expect(base.players[RESOURCE_PLAYER].characters[gorbagId].effectiveStats.corruptionPoints).toBe(5);
 
     const pendingCheck = {
       characterId: gorbagId,

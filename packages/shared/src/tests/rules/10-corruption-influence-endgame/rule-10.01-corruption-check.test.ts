@@ -29,6 +29,11 @@ import {
 import type { FreeCouncilPhaseState } from '../../../index.js';
 import type { CardDefinitionId, CardInstanceId } from '../../../index.js';
 
+// The Free Council resolver reads the checked character's corruption point
+// total from live state, so every CP in these fixtures has to come from a real
+// borne item rather than the `pendingCheck` snapshot.
+const IRON_CROWN = 'tw-496' as CardDefinitionId; // hero item, CP 5
+
 describe('Rule 10.01 — Corruption Check', () => {
   beforeEach(() => resetMint());
 
@@ -42,13 +47,15 @@ describe('Rule 10.01 — Corruption Check', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
 
     const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    expect(base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(5);
 
     const pendingCheck = {
       characterId: aragornId,
@@ -109,8 +116,9 @@ describe('Rule 10.01 — Corruption Check', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [IRON_CROWN] }, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GANDALF] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -172,8 +180,9 @@ describe('Rule 10.01 — Corruption Check', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [GANDALF, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: GANDALF, items: [IRON_CROWN] }, BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
       ],
     });

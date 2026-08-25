@@ -32,6 +32,7 @@ const INDUR = 'le-54' as CardDefinitionId;
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
 const BADE_TO_RULE = 'le-167' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // Darkhaven
+const IRON_CROWN = 'tw-496' as CardDefinitionId;   // hero item, CP 5
 
 describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
   beforeEach(() => resetMint());
@@ -185,7 +186,10 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
           companies: [{
             site: RIVENDELL,
             characters: [
-              { defId: ARAGORN },
+              // The resolver reads the corruption point total from live state,
+              // so Aragorn's CP 5 must come from a real borne item rather than
+              // from the `pendingCheck` snapshot.
+              { defId: ARAGORN, items: [IRON_CROWN] },
               { defId: FARAMIR, followerOf: 0 },
             ],
           }],
@@ -198,6 +202,7 @@ describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
     const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
     const faramirId = findCharInstanceId(base, RESOURCE_PLAYER, FARAMIR);
     expect(base.players[RESOURCE_PLAYER].characters[faramirId].controlledBy).toBe(aragornId);
+    expect(base.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(5);
 
     const fcState: FreeCouncilPhaseState = {
       phase: Phase.FreeCouncil,

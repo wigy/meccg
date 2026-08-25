@@ -30,7 +30,13 @@ import {
 const ALATAR_FW = 'wh-1' as CardDefinitionId; // Fallen-wizard avatar (mind null)
 const ASTERNAK = 'le-1' as CardDefinitionId;  // minion-character, race Man
 
-/** Build a Free Council corruption-check state for `checkedId` with CP 5. */
+// CP 5 has to come from a real borne item: the resolver reads the checked
+// character's corruption point total from live state, not from the snapshot
+// stored in `pendingCheck`.
+const IRON_CROWN_HERO = 'tw-496' as CardDefinitionId;    // hero item, CP 5
+const IRON_CROWN_MINION = 'le-314' as CardDefinitionId;  // minion item, CP 5
+
+/** Build a Free Council corruption-check state for `checkedId`, whose CP is 5. */
 function fcCheck(base: ReturnType<typeof buildTestState>, checkedId: CardInstanceId, roll: number) {
   const pendingCheck = {
     characterId: checkedId,
@@ -60,11 +66,12 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.FallenWizard,
-          companies: [{ site: RIVENDELL, characters: [ALATAR_FW] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: ALATAR_FW, items: [IRON_CROWN_HERO] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -84,11 +91,12 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.FallenWizard,
-          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, ASTERNAK] }],
+          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, { defId: ASTERNAK, items: [IRON_CROWN_HERO] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -107,11 +115,12 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: RIVENDELL, characters: [ASTERNAK] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: ASTERNAK, items: [IRON_CROWN_MINION] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
