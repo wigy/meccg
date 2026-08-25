@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.131.0 — 2026-08-25
+
+Free Council fixes: live corruption checks, turn-end sweep on Council call, and step 8 deck exhaustion
+
+### Game Engine
+
+- Free Council corruption checks now resolve against the character's live corruption points and possessions instead of the snapshot frozen at declare time. A Pledge of Conduct played in the support window previously left the transferred item both on its new bearer and in the discard pile, and the lowered CP never reached the roll (#2824).
+- Calling the Free Council now sweeps turn-scoped constraints before handing the turn over, matching the `pass` path — effects such as Tookish Blood protection no longer leak into the opponent's final turn (#2823).
+- The automatic draw at movement/hazard step 8 now exhausts and reshuffles the play deck when it runs dry, records the exhaustion, and resumes the draw, per CoE 2.4 (#2822).
+
+### Tests
+
+- Free Council rule tests bear real corruption-point items instead of fabricated snapshot values (#2824).
+- Regression tests for Council-call constraint sweep and step 8 deck exhaustion (#2822, #2823).
+
 ## 0.130.0 — 2026-08-24
 
 Card-conservation sweep: nineteen engine and lobby fixes for vanishing and duplicated cards

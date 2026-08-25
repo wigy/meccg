@@ -733,7 +733,7 @@
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 12 | ☑ |
-| td-144 | Pledge of Conduct | — | 8 | ☑ |
+| td-144 | Pledge of Conduct | — | 9 | ☑ |
 | td-148 | Riddling Talk | — | 16 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
 | td-157 | Three Golden Hairs | — | 11 | ☑ |
