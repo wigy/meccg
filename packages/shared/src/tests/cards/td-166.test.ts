@@ -55,6 +55,7 @@ import { addConstraint } from '../../engine/pending.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const WHEN_I_KNOW_ANYTHING = 'td-166' as CardDefinitionId;
+const SWORD_OF_GONDOLIN = 'tw-336' as CardDefinitionId;   // hero item, CP 2
 
 // Hero sites where Information is playable (ruins-and-lairs)
 const DIMRILL_DALE = 'tw-385' as CardDefinitionId;  // information
@@ -333,7 +334,9 @@ describe('When I Know Anything (td-166)', () => {
   });
 
   test('a +3 modifier constraint is consumed and applied when a Free Council check resolves', () => {
-    // Aragorn has 8 CP; a roll of 6 fails (eliminate) but +3 → 9 passes.
+    // Aragorn bears Sword of Gondolin (CP 2); a roll of 2 fails (discard)
+    // but +3 → 5 passes. The resolver reads CP and possessions from live
+    // state, so the CP must come from a real item rather than the snapshot.
     const makeFcState = (aragornId: CardInstanceId): FreeCouncilPhaseState => ({
       phase: Phase.FreeCouncil,
       tiebreaker: false,
@@ -343,10 +346,10 @@ describe('When I Know Anything (td-166)', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 8,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [],
-        need: 9,
+        need: 3,
         explanation: 'test',
         supportCount: 0,
       },
@@ -358,27 +361,28 @@ describe('When I Know Anything (td-166)', () => {
         phase: Phase.FreeCouncil,
         recompute: true,
         players: [
-          { id: PLAYER_1, companies: [{ site: DIMRILL_DALE, characters: [ARAGORN] }], hand: [], siteDeck: [WEATHERTOP], playDeck: makePlayDeck() },
+          { id: PLAYER_1, companies: [{ site: DIMRILL_DALE, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }], hand: [], siteDeck: [WEATHERTOP], playDeck: makePlayDeck() },
           { id: PLAYER_2, companies: [{ site: WEATHERTOP, characters: [] }], hand: [], siteDeck: [WEATHERTOP] },
         ],
       });
       return s;
     };
 
-    // Control: no +3 — roll 6 vs CP 8 → eliminated (removed from play).
+    // Control: no +3 — roll 2 vs CP 2 → discarded (removed from play).
     {
       const s = build();
       const aragornId = findCharInstanceId(s, RESOURCE_PLAYER, ARAGORN);
-      const withFc = { ...s, phaseState: makeFcState(aragornId), cheatRollTotal: 6 };
+      expect(s.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints).toBe(2);
+      const withFc = { ...s, phaseState: makeFcState(aragornId), cheatRollTotal: 2 };
       const after = dispatch(withFc, { type: 'pass', player: PLAYER_1 });
       expect(after.players[RESOURCE_PLAYER].characters[aragornId]).toBeUndefined();
     }
 
-    // With +3 constraint targeting Aragorn — roll 6 + 3 = 9 > 8 → survives, constraint consumed.
+    // With +3 constraint targeting Aragorn — roll 2 + 3 = 5 > 2 → survives, constraint consumed.
     {
       const s = build();
       const aragornId = findCharInstanceId(s, RESOURCE_PLAYER, ARAGORN);
-      let withFc: GameState = { ...s, phaseState: makeFcState(aragornId), cheatRollTotal: 6 };
+      let withFc: GameState = { ...s, phaseState: makeFcState(aragornId), cheatRollTotal: 2 };
       withFc = addConstraint(withFc, {
         source: aragornId,
         sourceDefinitionId: WHEN_I_KNOW_ANYTHING,
