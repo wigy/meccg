@@ -16,7 +16,7 @@
  * Exercised through the Free Council corruption-check dispatch path, mirroring
  * rule-10.01.
  */
-import { describe, test, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { Alignment, CardStatus } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, FreeCouncilPhaseState } from '../../index.js';
 import {
@@ -29,16 +29,21 @@ import {
 
 const ALATAR_FW = 'wh-1' as CardDefinitionId; // Fallen-wizard avatar (mind null)
 const ASTERNAK = 'le-1' as CardDefinitionId;  // minion-character, race Man
+const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId; // minion item, CP 4
 
-/** Build a Free Council corruption-check state for `checkedId` with CP 5. */
+/**
+ * Build a Free Council corruption-check state for `checkedId`. The resolver
+ * reads CP and possessions from live state, so the checked character must
+ * bear The Least of Gold Rings (CP 4) — the snapshot only mirrors it.
+ */
 function fcCheck(base: ReturnType<typeof buildTestState>, checkedId: CardInstanceId, roll: number) {
   const pendingCheck = {
     characterId: checkedId,
-    corruptionPoints: 5,
+    corruptionPoints: 4,
     corruptionModifier: 0,
     possessions: [] as CardInstanceId[],
-    need: 6,
-    explanation: 'CP 5, modifier 0',
+    need: 5,
+    explanation: 'CP 4, modifier 0',
     supportCount: 0,
   };
   const fcState: FreeCouncilPhaseState = {
@@ -50,6 +55,7 @@ function fcCheck(base: ReturnType<typeof buildTestState>, checkedId: CardInstanc
     firstPlayerDone: false,
     pendingCheck,
   };
+  expect(base.players[RESOURCE_PLAYER].characters[checkedId].effectiveStats.corruptionPoints).toBe(4);
   return dispatch({ ...base, cheatRollTotal: roll, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
 }
 
@@ -60,11 +66,12 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.FallenWizard,
-          companies: [{ site: RIVENDELL, characters: [ALATAR_FW] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: ALATAR_FW, items: [LEAST_OF_GOLD_RINGS] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -72,7 +79,7 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
       ],
     });
     const alatarId = charIdAt(base, RESOURCE_PLAYER);
-    const after = fcCheck(base, alatarId, 5); // 5 == CP → tap, success
+    const after = fcCheck(base, alatarId, 4); // 4 == CP → tap, success
     expectCharInPlay(after, RESOURCE_PLAYER, alatarId);
     expectCharStatus(after, RESOURCE_PLAYER, ALATAR_FW, CardStatus.Tapped);
   });
@@ -84,11 +91,12 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.FallenWizard,
-          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, ASTERNAK] }],
+          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, { defId: ASTERNAK, items: [LEAST_OF_GOLD_RINGS] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -96,7 +104,7 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
       ],
     });
     const asternakId = findCharInstanceId(base, RESOURCE_PLAYER, ASTERNAK);
-    const after = fcCheck(base, asternakId, 4); // 4 == CP-1 → hero discard
+    const after = fcCheck(base, asternakId, 3); // 3 == CP-1 → hero discard
     expectCharNotInPlay(after, RESOURCE_PLAYER, asternakId);
     expectInDiscardPile(after, RESOURCE_PLAYER, asternakId);
   });
@@ -107,11 +115,12 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: RIVENDELL, characters: [ASTERNAK] }],
+          companies: [{ site: RIVENDELL, characters: [{ defId: ASTERNAK, items: [LEAST_OF_GOLD_RINGS] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -119,7 +128,7 @@ describe('MEWH §6 — Fallen-wizard corruption checks', () => {
       ],
     });
     const asternakId = charIdAt(base, RESOURCE_PLAYER);
-    const after = fcCheck(base, asternakId, 4); // 4 == CP-1 → minion tap, success
+    const after = fcCheck(base, asternakId, 3); // 3 == CP-1 → minion tap, success
     expectCharInPlay(after, RESOURCE_PLAYER, asternakId);
     expectCharStatus(after, RESOURCE_PLAYER, ASTERNAK, CardStatus.Tapped);
   });

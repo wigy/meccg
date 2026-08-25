@@ -28,7 +28,7 @@ import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
-import { removeConstraint } from './pending.js';
+import { removeConstraint, characterPossessions } from './pending.js';
 
 
 /**
@@ -298,7 +298,17 @@ function resolveCorruptionCheck(
   const char = player.characters[pending.characterId];
   const charDef = resolveDef(state, pending.characterId);
   const charName = charDef?.name ?? '?';
-  const cp = pending.corruptionPoints;
+  // Re-derive CP and possessions from live state rather than the snapshot
+  // frozen into `pendingCheck` at declare time: the support window allows
+  // reactive plays that change both — Pledge of Conduct (td-144) moves an
+  // item to a company mate, lowering the checked character's CP and taking
+  // the item out of the set discarded on failure. Resolving from the stale
+  // snapshot rolled against the old CP and pushed the transferred item into
+  // the discard pile while it still sat on the new bearer (duplicating the
+  // instance). Mirrors the generic corruption-check path, whose roll action
+  // recomputes both every time legal actions are generated.
+  const cp = char.effectiveStats.corruptionPoints;
+  const possessions = characterPossessions(char);
   const modifier = pending.corruptionModifier + pending.supportCount + effectModifier;
 
   const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, playerIndex, `Corruption: ${charName}`);
@@ -373,15 +383,15 @@ function resolveCorruptionCheck(
   // Separate hazards (owned by opponent) from non-hazard possessions (owned by
   // resource player). The character's *attached* hazards were already routed
   // to their owner's discard pile by the char.hazards loop above — and the
-  // engine's own legal action populates `pending.possessions` with
-  // characterPossessions (items + allies + hazards), so those same instance
-  // IDs appear here too. Skip them, or each attached hazard would be pushed
-  // to the discard pile twice (duplicating the instance).
+  // live `possessions` list is characterPossessions (items + allies +
+  // hazards), so those same instance IDs appear here too. Skip them, or each
+  // attached hazard would be pushed to the discard pile twice (duplicating
+  // the instance).
   const attachedHazardIds = new Set(char.hazards.map(h => h.instanceId as string));
   const hazardPlayerIndex = playerIndex === 0 ? 1 : 0;
   const hazardPossessions: CardInstance[] = [];
   const nonHazardPossessions: CardInstance[] = [];
-  for (const id of pending.possessions) {
+  for (const id of possessions) {
     if (attachedHazardIds.has(id as string)) continue;
     const hazOwner = ownerOf(id) as string;
     const defId = resolveInstanceId(state, id)!;

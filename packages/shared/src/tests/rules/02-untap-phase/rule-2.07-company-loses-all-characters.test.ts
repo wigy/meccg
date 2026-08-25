@@ -24,23 +24,29 @@ import {
   makeShadowMHState, makeBodyCheckCombat, findCharInstanceId, companyIdAt,
 } from '../../test-helpers.js';
 import type { CardInstanceId, CompanyId } from '../../test-helpers.js';
-import type { FreeCouncilPhaseState } from '../../../index.js';
+import type { CardDefinitionId, FreeCouncilPhaseState } from '../../../index.js';
+
+/** Hero major item, CP 2 — gives the checked character live CP so a roll of 2 fails the Free Council check (CoE 10.01: = CP → hero discarded). */
+const SWORD_OF_GONDOLIN = 'tw-336' as CardDefinitionId;
 
 describe('Rule 2.07 — Company Loses All Characters', () => {
   beforeEach(() => resetMint());
 
-  // When a character is eliminated, cleanupEmptyCompanies handles the site routing.
-  // We trigger character elimination via a Free Council corruption check (roll <= CP-2).
+  // When a character leaves play, cleanupEmptyCompanies handles the site routing.
+  // We trigger it via a failed Free Council corruption check: Aragorn bears Sword of
+  // Gondolin (CP 2) and rolls 2 — the resolver reads CP from live state, so the CP
+  // must come from a real item. His sword is discarded along with him.
 
   test('All characters leave play: company permanent-events are discarded', () => {
     // Aragorn at Rivendell with a permanent-event bound to his company.
-    // When Aragorn is eliminated (CP=5, roll=2), the company empties and
+    // When Aragorn is discarded (CP=2, roll=2), the company empties and
     // the permanent-event must be moved to the discard pile.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -61,11 +67,11 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5',
+        need: 3,
+        explanation: 'CP 2',
         supportCount: 0,
       },
     };
@@ -116,8 +122,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -164,11 +171,11 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5',
+        need: 3,
+        explanation: 'CP 2',
         supportCount: 0,
       },
     };
@@ -197,11 +204,12 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           companies: [
-            { site: MORIA, characters: [ARAGORN] },
+            { site: MORIA, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] },
             { site: LORIEN, characters: [LEGOLAS] },
           ],
           hand: [],
@@ -237,11 +245,11 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5',
+        need: 3,
+        explanation: 'CP 2',
         supportCount: 0,
       },
     };
@@ -258,13 +266,14 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
   });
 
   test('No other company at same site and site untapped: site returned to location deck', () => {
-    // Aragorn at RIVENDELL (untapped). CP=5, roll=2 → 2 <= 5-2=3 → eliminated.
+    // Aragorn at RIVENDELL (untapped). CP=2, roll=2 → hero fails → discarded.
     // After elimination: RIVENDELL site (untapped) must go to siteDeck.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -281,11 +290,11 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5',
+        need: 3,
+        explanation: 'CP 2',
         supportCount: 0,
       },
     };
@@ -299,7 +308,7 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
   });
 
   test('No other company at same site and site tapped: site goes to the site discard pile', () => {
-    // Aragorn at MORIA (tapped). CP=5, roll=2 → eliminated.
+    // Aragorn at MORIA (tapped). CP=2, roll=2 → hero fails → discarded.
     // After elimination: MORIA (tapped) must go to the *site* discard pile.
     //
     // This test used to assert `discardPile`, which is the play deck's discard
@@ -310,8 +319,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -341,11 +351,11 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5',
+        need: 3,
+        explanation: 'CP 2',
         supportCount: 0,
       },
     };
@@ -370,8 +380,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH, RIVENDELL] },
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }], hand: [], siteDeck: [MINAS_TIRITH, RIVENDELL] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -401,11 +412,11 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5',
+        need: 3,
+        explanation: 'CP 2',
         supportCount: 0,
       },
     };
@@ -429,8 +440,9 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }], hand: [], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
@@ -461,11 +473,11 @@ describe('Rule 2.07 — Company Loses All Characters', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: aragornId,
-        corruptionPoints: 5,
+        corruptionPoints: 2,
         corruptionModifier: 0,
         possessions: [] as CardInstanceId[],
-        need: 6,
-        explanation: 'CP 5',
+        need: 3,
+        explanation: 'CP 2',
         supportCount: 0,
       },
     };

@@ -13,7 +13,7 @@
  * [FALLEN-WIZARD] A Fallen-wizard player treats their Orc and/or Troll characters as minion characters when determining the results of a corruption check.
  */
 
-import { describe, test, beforeEach } from 'vitest';
+import { describe, test, beforeEach, expect } from 'vitest';
 import { Alignment, CardStatus } from '../../../index.js';
 import type { CardDefinitionId, CardInstanceId, FreeCouncilPhaseState } from '../../../index.js';
 import {
@@ -25,6 +25,7 @@ import {
 
 const ALATAR_FW = 'wh-1' as CardDefinitionId; // Fallen-wizard avatar (filler, keeps company non-empty)
 const GORBAG = 'le-11' as CardDefinitionId;    // minion Orc character
+const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId; // minion item, CP 4
 
 describe('Rule 10.06 — Fallen-Wizard Orc/Troll Corruption', () => {
   beforeEach(() => resetMint());
@@ -36,11 +37,12 @@ describe('Rule 10.06 — Fallen-Wizard Orc/Troll Corruption', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.FreeCouncil,
+      recompute: true,
       players: [
         {
           id: PLAYER_1,
           alignment: Alignment.FallenWizard,
-          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, GORBAG] }],
+          companies: [{ site: RIVENDELL, characters: [ALATAR_FW, { defId: GORBAG, items: [LEAST_OF_GOLD_RINGS] }] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -49,14 +51,16 @@ describe('Rule 10.06 — Fallen-Wizard Orc/Troll Corruption', () => {
     });
 
     const gorbagId = findCharInstanceId(base, RESOURCE_PLAYER, GORBAG);
+    // The resolver reads CP from live state: Gorbag bears the ring (CP 4).
+    expect(base.players[RESOURCE_PLAYER].characters[gorbagId].effectiveStats.corruptionPoints).toBe(4);
 
     const pendingCheck = {
       characterId: gorbagId,
-      corruptionPoints: 5,
+      corruptionPoints: 4,
       corruptionModifier: 0,
       possessions: [] as CardInstanceId[],
-      need: 6,
-      explanation: 'CP 5, modifier 0',
+      need: 5,
+      explanation: 'CP 4, modifier 0',
       supportCount: 0,
     };
     const fcState: FreeCouncilPhaseState = {
@@ -69,8 +73,8 @@ describe('Rule 10.06 — Fallen-Wizard Orc/Troll Corruption', () => {
       pendingCheck,
     };
 
-    // Roll 4 == CP-1 → minion tap (success): the Orc stays in play, now tapped.
-    const after = dispatch({ ...base, cheatRollTotal: 4, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
+    // Roll 3 == CP-1 → minion tap (success): the Orc stays in play, now tapped.
+    const after = dispatch({ ...base, cheatRollTotal: 3, phaseState: fcState }, { type: 'pass', player: PLAYER_1 });
     expectCharInPlay(after, RESOURCE_PLAYER, gorbagId);
     expectCharStatus(after, RESOURCE_PLAYER, GORBAG, CardStatus.Tapped);
   });

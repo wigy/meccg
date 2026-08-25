@@ -52,14 +52,16 @@ import {
   DAGGER_OF_WESTERNESSE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   RESOURCE_PLAYER,
-  expectInDiscardPile,
+  expectInDiscardPile, dispatch,
 } from '../test-helpers.js';
-import type { CardDefinitionId, PlayShortEventAction } from '../../index.js';
+import type { CardDefinitionId, PlayShortEventAction, FreeCouncilPhaseState } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { enqueueResolution } from '../../engine/pending.js';
 import { reduce } from '../../index.js';
 
 const PLEDGE_OF_CONDUCT = 'td-144' as CardDefinitionId;
+/** Hero major item, CP 2, transferable — makes a roll of 2 fail the check. */
+const SWORD_OF_GONDOLIN = 'tw-336' as CardDefinitionId;
 
 describe('Pledge of Conduct (td-144)', () => {
   beforeEach(() => resetMint());
@@ -336,5 +338,72 @@ describe('Pledge of Conduct (td-144)', () => {
       .map(a => a.action as PlayShortEventAction)
       .filter(a => a.optionId === 'transfer-item');
     expect(offers.length).toBeGreaterThan(0);
+  });
+
+  test('Free Council: an item transferred by Pledge of Conduct during the check is not discarded with the failing character (regression)', () => {
+    // Regression: the Free Council window froze the checked character's
+    // possessions (and CP) into `phaseState.pendingCheck` at declare time.
+    // Pledge of Conduct moved the item to a company mate, but the resolver
+    // still discarded every frozen possession — the same CardInstance ended
+    // up both on Gimli and in the discard pile, and the lowered CP never
+    // reached the roll.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [GIMLI, { defId: ARAGORN, items: [SWORD_OF_GONDOLIN] }] }],
+          hand: [PLEDGE_OF_CONDUCT],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const gimli = findCharInstanceId(base, RESOURCE_PLAYER, GIMLI);
+    const aragorn = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const sword = base.players[RESOURCE_PLAYER].characters[aragorn].items[0].instanceId;
+    expect(base.players[RESOURCE_PLAYER].characters[aragorn].effectiveStats.corruptionPoints).toBe(2);
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+    const start = { ...base, phaseState: fcState };
+
+    const declare = computeLegalActions(start, PLAYER_1)
+      .find(ea => ea.viable && ea.action.type === 'corruption-check' && ea.action.characterId === aragorn);
+    expect(declare).toBeDefined();
+    const declared = dispatch(start, declare!.action);
+    expect((declared.phaseState as FreeCouncilPhaseState).pendingCheck?.possessions).toContain(sword);
+
+    const transfer = computeLegalActions(declared, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction)
+      .find(a => a.optionId === 'transfer-item' && a.transferItemInstanceId === sword);
+    expect(transfer).toBeDefined();
+    const transferred = dispatch(declared, transfer!);
+    expect(transferred.players[RESOURCE_PLAYER].characters[gimli].items.map(i => i.instanceId)).toContain(sword);
+
+    // Aragorn now bears nothing (CP 0): a roll of 2 succeeds against the
+    // live total. Against the frozen CP 2 it would have been a failure that
+    // discarded him — and the sword along with him.
+    const resolved = dispatch({ ...transferred, cheatRollTotal: 2 }, { type: 'pass', player: PLAYER_1 });
+    const p = resolved.players[RESOURCE_PLAYER];
+    expect(p.characters[aragorn]).toBeDefined();
+    expect(p.characters[gimli].items.map(i => i.instanceId)).toContain(sword);
+    expect(p.discardPile.map(c => c.instanceId)).not.toContain(sword);
+    // Exactly one copy of the sword exists anywhere.
+    const copies = [
+      ...Object.values(p.characters).flatMap(c => c.items.map(i => i.instanceId)),
+      ...p.discardPile.map(c => c.instanceId),
+    ].filter(id => id === sword);
+    expect(copies).toHaveLength(1);
   });
 });

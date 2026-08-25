@@ -59,6 +59,7 @@ const FELL_RIDER = 'le-183' as CardDefinitionId;
 
 // Non-avatar minion characters (cardType minion-character).
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;   // no inherent corruption modifier
+const LEAST_OF_GOLD_RINGS = 'le-315' as CardDefinitionId;  // minion item, CP 4
 const ORC_SNIFFLER = 'le-33' as CardDefinitionId;  // no inherent corruption modifier
 
 // Minion Darkhavens (siteType haven, alignment ringwraith).
@@ -359,8 +360,10 @@ describe('Ren the Ringwraith (le-56)', () => {
   // ── The +2 in the Free Council end-of-turn corruption window ──────────────
 
   test('the +2 lets a Free Council corruption check by a targeted minion survive', () => {
-    // Orc Captain has 8 CP; a roll of 6 fails without help, but +2 → 8 ≥ CP
-    // taps-and-succeeds for a minion (CoE 7.1). Compare with/without the boost.
+    // Orc Captain bears The Least of Gold Rings (CP 4); a roll of 2 fails
+    // without help, but +2 → 4 ≥ CP-1 taps-and-succeeds for a minion (CoE
+    // 7.1). Compare with/without the boost. The resolver reads CP from live
+    // state, so the CP must come from a real item rather than the snapshot.
     const makeFc = (captainId: CardInstanceId): FreeCouncilPhaseState => ({
       phase: Phase.FreeCouncil,
       tiebreaker: false,
@@ -370,10 +373,10 @@ describe('Ren the Ringwraith (le-56)', () => {
       firstPlayerDone: false,
       pendingCheck: {
         characterId: captainId,
-        corruptionPoints: 8,
+        corruptionPoints: 4,
         corruptionModifier: 0,
         possessions: [],
-        need: 9,
+        need: 5,
         explanation: 'test',
         supportCount: 0,
       },
@@ -390,7 +393,7 @@ describe('Ren the Ringwraith (le-56)', () => {
           id: PLAYER_1, alignment: Alignment.Ringwraith,
           companies: [
             { site: DOL_GULDUR, characters: [REN] },
-            { site: MINAS_MORGUL, characters: [ORC_CAPTAIN] },
+            { site: MINAS_MORGUL, characters: [{ defId: ORC_CAPTAIN, items: [LEAST_OF_GOLD_RINGS] }] },
           ],
           hand: [], siteDeck: [MORIA],
         },
@@ -398,24 +401,25 @@ describe('Ren the Ringwraith (le-56)', () => {
       ],
     });
 
-    // Control: no boost — roll 6 vs CP 8 → far below, minion is eliminated.
+    // Control: no boost — roll 2 vs CP 4 → two below, minion is eliminated.
     {
       const s = build();
       const captainId = findCharInstanceId(s, RESOURCE_PLAYER, ORC_CAPTAIN);
-      const withFc: GameState = { ...s, phaseState: makeFc(captainId), cheatRollTotal: 6 };
+      expect(s.players[RESOURCE_PLAYER].characters[captainId].effectiveStats.corruptionPoints).toBe(4);
+      const withFc: GameState = { ...s, phaseState: makeFc(captainId), cheatRollTotal: 2 };
       const after = dispatch(withFc, { type: 'pass', player: PLAYER_1 });
       expect(after.players[RESOURCE_PLAYER].characters[captainId]).toBeUndefined();
     }
 
-    // With Ren's +2 targeting the Captain's company — roll 6 + 2 = 8; a minion
-    // taps and succeeds on CP or CP-1 (8 within 1 of 8), so it survives.
+    // With Ren's +2 targeting the Captain's company — roll 2 + 2 = 4; a minion
+    // taps and succeeds on CP or CP-1 (4 within 1 of 4), so it survives.
     {
       let s = build();
       const captainId = findCharInstanceId(s, RESOURCE_PLAYER, ORC_CAPTAIN);
       const company1Id = companyIdAt(s, RESOURCE_PLAYER, 1);
       const grant = renGrants(s).find(g => g.targetCompanyId === company1Id)!;
       s = dispatch(s, grant);
-      s = { ...s, phaseState: makeFc(captainId), cheatRollTotal: 6 };
+      s = { ...s, phaseState: makeFc(captainId), cheatRollTotal: 2 };
       const after = dispatch(s, { type: 'pass', player: PLAYER_1 });
       expect(after.players[RESOURCE_PLAYER].characters[captainId]).toBeDefined();
     }
