@@ -33,7 +33,6 @@ const ORC_CAPTAIN = 'le-31' as CardDefinitionId;
 const BADE_TO_RULE = 'le-167' as CardDefinitionId;
 const DWARVEN_RING_OF_BARIN = 'tw-213' as CardDefinitionId; // hero item, CP 3, no effects
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // Darkhaven
-const IRON_CROWN = 'tw-496' as CardDefinitionId;   // hero item, CP 5
 
 describe('Rule 3.13 — Follower Removed from Direct Influence', () => {
   beforeEach(() => resetMint());
