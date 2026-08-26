@@ -16,7 +16,7 @@
 
 :root {
   --card-height: 28vh;
-  --card-table-height: 22vh;
+  --card-table-height: 24vh;
 
   /* Interactive highlight colors: golden → green → blue */
   --color-selectable: 255, 215, 100;   /* golden — first available click */
@@ -2074,6 +2074,21 @@ h2 {
 #feature-request-subject,
 #bug-report-subject {
   margin-bottom: 0.5rem;
+}
+
+.report-modal-category {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: #ccc;
+}
+
+.report-modal-category label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
 }
 
 #feature-request-body,
