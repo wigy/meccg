@@ -51,6 +51,7 @@ const BARROW_WIGHT   = 'tw-015' as CardDefinitionId; // hazard-creature, race un
 const ORC_GUARD      = 'tw-072' as CardDefinitionId; // hazard-creature, race orc
 const GLAMDRING      = 'tw-244' as CardDefinitionId; // non-creature filler for the opponent deck/discard
 const WATCHER_IN_THE_WATER = 'tw-110' as CardDefinitionId; // hazard-creature, "each character faces one strike"
+const SLAYER         = 'le-90'  as CardDefinitionId; // hazard-creature — two attacks of one strike each, attacker chooses
 
 // A Fallen-wizard organization-phase state: P1 (active) is the Alatar player
 // with one company at Moria; P2 is a placeholder Wizard whose play deck /
@@ -190,6 +191,41 @@ describe('The Great Hunt (wh-91)', () => {
     // Two characters in Alatar's company → two strikes, not the printed 1.
     expect(state2.combat!.strikesTotal).toBe(2);
     expect(state2.combat!.eachCharacterFacesOneStrike).toBe(true);
+  });
+
+  // A revealed multi-attack creature (Slayer — "Two attacks (of one strike
+  // each) all against the same character. Attacker chooses defending
+  // character. The defender may tap any one character in the company to
+  // cancel one of these attacks.") must carry all of its printed combat
+  // rules into the Great Hunt attack — `buildGreatHuntCombat` used to ignore
+  // the creature's combat effects entirely and spawn a single one-strike
+  // attack with defender assignment (bug report: game mt5thy36-dmgviv).
+  test('a revealed Slayer makes two attacks of one strike each with attacker choosing the defender', () => {
+    const state0 = greatHuntState({ hand: [THE_GREAT_HUNT], p2Deck: [SLAYER] });
+    const ghId = findInPile(state0, 0, 'hand', THE_GREAT_HUNT)!.instanceId;
+    const state1 = playPermanentEventAndResolve(state0, PLAYER_1, ghId);
+    const state2 = dispatch(state1, { type: 'choose-great-hunt-source', player: PLAYER_1, source: 'deck' });
+
+    expect(state2.combat).not.toBeNull();
+    const combat = state2.combat!;
+    expect(combat.creatureRace).toBe('slayer');
+    // Two attacks of one strike each — pooled as 2 total strikes, all
+    // forced onto the same character.
+    expect(combat.strikesTotal).toBe(2);
+    expect(combat.multiAttackCount).toBe(2);
+    expect(combat.strikesPerAttack).toBe(1);
+    expect(combat.forceSingleTarget).toBe(true);
+    // "Attacker chooses defending character" → the defender first gets a
+    // pre-assignment cancel-window, then the attacker assigns.
+    expect(combat.attackerChoosesDefenders).toBe(true);
+    expect(combat.assignmentPhase).toBe('cancel-window');
+    // "The defender may tap any one character ... to cancel one of these attacks."
+    expect(combat.cancelByTapRemaining).toBe(1);
+    expect(combat.cancelByTapAllowTarget).toBe(true);
+
+    // Closing the cancel window hands strike assignment to the attacker.
+    const state3 = dispatch(state2, { type: 'pass', player: PLAYER_1 });
+    expect(viableActions(state3, PLAYER_2, 'assign-strike').length).toBeGreaterThan(0);
   });
 
   test('the reveal queue caps at 5 creatures even when more are present', () => {

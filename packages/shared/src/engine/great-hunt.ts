@@ -53,7 +53,9 @@ import { resolveInstanceId } from '../types/state.js';
 import {
   defById, cardName, updatePlayer, companyById, getCardEffects,
   playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, makeCombatState,
+  resolveAttackerChoosesDefenders,
 } from './reducer-utils.js';
+import { isReduceAttacksToOneInPlay } from './manifestations.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, resolveDef } from './effects/resolver.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -146,14 +148,60 @@ export function buildGreatHuntCombat(
     (e): e is import('../types/effects.js').CombatOneStrikePerCharacterEffect => e.type === 'combat-one-strike-per-character',
   );
   const excludeAvatarStrikes = oneStrikePerCharacterEffect?.excludeAvatars === true;
+
+  // Multi-attack "N attacks, all against one character" creatures (Slayer
+  // le-90/tw-89, Assassin tw-8): the combat pools `count × printed strikes`
+  // as `strikesTotal` with `forceSingleTarget`; a boosted strikes value
+  // becomes a per-attack excess strike (-1 prowess), never a genuine extra
+  // strike (CRF 22 Assassin). Forewarned Is Forearmed reduces any
+  // multi-attack creature to a single uncancelable attack. Mirrors
+  // `initiateCreatureCombat` — a Great Hunt reveal-and-attack must apply the
+  // same card effects as the creature played normally.
+  const multiAttackEffect = cDef.effects?.find(
+    (e): e is import('../types/effects.js').CombatMultiAttackEffect => e.type === 'combat-multi-attack',
+  );
+  const rawMultiAttackCount = multiAttackEffect?.count ?? 1;
+  const forewarnedActive = rawMultiAttackCount > 1 && isReduceAttacksToOneInPlay(state, controllerIndex);
+  if (forewarnedActive) {
+    logDetail(`Forewarned Is Forearmed: reducing multi-attack from ${rawMultiAttackCount} to 1`);
+  }
+  const multiAttackCount = forewarnedActive ? 1 : rawMultiAttackCount;
+  const excessStrikesPerAttack = multiAttackCount > 1 ? Math.max(0, effectiveStrikes - cDef.strikes) : 0;
+
+  // "Attacker chooses defending character" (Slayer, Assassin): the opponent
+  // assigns the strikes; the defender first gets a pre-assignment
+  // cancel-window exactly as for the creature played normally.
+  const attackerChooses = resolveAttackerChoosesDefenders(
+    state,
+    cDef.effects?.some(
+      e => e.type === 'combat-attacker-chooses-defenders' && e.scope !== 'all-attacks',
+    ) ?? false,
+    creatureRace,
+  );
+
+  // "The defender may tap any one character in the company to cancel one of
+  // these attacks" (Slayer, Assassin) — per-attack tap-cancel budget.
+  const cancelByTapEffect = cDef.effects?.find(
+    (e): e is import('../types/effects.js').CombatCancelAttackByTapEffect => e.type === 'combat-cancel-attack-by-tap',
+  );
+  const cancelByTapMax = cancelByTapEffect?.maxCancels ?? 0;
+  const cancelByTapAllowTarget = cancelByTapEffect?.allowTargetToCancel ?? false;
+
   const strikesTotal = oneStrikePerCharacterEffect
     ? (excludeAvatarStrikes
       ? company.characters.filter(charId => !isAvatarCharacter(resolveDef(state, charId))).length
       : company.characters.length)
-    : effectiveStrikes;
+    : multiAttackCount > 1
+      ? cDef.strikes * multiAttackCount
+      : effectiveStrikes;
   if (oneStrikePerCharacterEffect) {
     logDetail(
       `The Great Hunt: "${creatureDef.name}" faces one strike per${excludeAvatarStrikes ? ' non-avatar' : ''} character → ${strikesTotal} total strikes`,
+    );
+  } else if (multiAttackCount > 1) {
+    logDetail(
+      `The Great Hunt: "${creatureDef.name}" multi-attack: ${multiAttackCount} attacks × ${cDef.strikes} strike(s) = ${strikesTotal} total strikes`
+      + (excessStrikesPerAttack > 0 ? ` (+${excessStrikesPerAttack} excess strike(s) each from boosted strikes)` : ''),
     );
   }
 
@@ -178,7 +226,14 @@ export function buildGreatHuntCombat(
     creatureRace,
     eachCharacterFacesOneStrike: oneStrikePerCharacterEffect ? true : undefined,
     excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
-    assignmentPhase: 'defender',
+    attackerChoosesDefenders: attackerChooses ? true : undefined,
+    forceSingleTarget: multiAttackCount > 1 ? true : undefined,
+    multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
+    strikesPerAttack: multiAttackCount > 1 ? cDef.strikes : undefined,
+    excessStrikesPerAttack: multiAttackCount > 1 && excessStrikesPerAttack > 0 ? excessStrikesPerAttack : undefined,
+    cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
+    cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
+    assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     detainment: isDetainmentAttack({
       attackEffects: cDef.effects,
       attackRace: creatureRace,
@@ -190,6 +245,7 @@ export function buildGreatHuntCombat(
       // to the union of the creature's currently-valid keyedTo site types.
       normalIfKeyedToSiteTypes: companyKeyedAttacksNormalSiteTypes(state, companyId),
     }),
+    ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   });
 }
 
