@@ -17,6 +17,13 @@
  *
  * The fix resolves each region name's icon from its own region card instead
  * of indexing into the unrelated site-path leg array.
+ *
+ * Also covers bug report cf1a46eed29ea0ac (game mt7a24d0-qcbgun, seq 149):
+ * that first fix still only rendered 2 icons (one per endpoint name) for a
+ * Lórien→Edhellond starter move, even though the printed site path has 6
+ * legs. `buildMovementPathHtml` now renders one icon per
+ * `resolvedSitePath` leg for non-region movement, labeling only the first
+ * and last legs with their endpoint region names.
  */
 
 import './test-dom-bootstrap.js'; // must precede the render import (load-time window access)
@@ -27,6 +34,8 @@ describe('buildMovementPathHtml (opponent-turn movement path readout)', () => {
   test('shows Anfalas as wilderness, not the unrelated site-path leg type', () => {
     const html = buildMovementPathHtml({
       resolvedSitePathNames: ['Wold & Foothills', 'Anfalas'],
+      resolvedSitePath: ['wilderness', 'wilderness'],
+      movementType: 'starter',
     });
 
     expect(html).toContain('Anfalas');
@@ -38,6 +47,19 @@ describe('buildMovementPathHtml (opponent-turn movement path readout)', () => {
   });
 
   test('returns null when the company is not moving', () => {
-    expect(buildMovementPathHtml({ resolvedSitePathNames: [] })).toBeNull();
+    expect(buildMovementPathHtml({ resolvedSitePathNames: [], resolvedSitePath: [] })).toBeNull();
+  });
+
+  test('renders all 6 legs of a starter haven-to-haven path, not just the 2 endpoint names', () => {
+    const html = buildMovementPathHtml({
+      resolvedSitePathNames: ['Wold & Foothills', 'Anfalas'],
+      resolvedSitePath: ['wilderness', 'border', 'free', 'free', 'border', 'wilderness'],
+      movementType: 'starter',
+    });
+
+    const iconCount = (html?.match(/<img /g) ?? []).length;
+    expect(iconCount).toBe(6);
+    expect(html).toContain('Wold & Foothills');
+    expect(html).toContain('Anfalas');
   });
 });
