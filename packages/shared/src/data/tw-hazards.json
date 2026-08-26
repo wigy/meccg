@@ -2352,10 +2352,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/StormsofOsse.jpg",
     "unique": false,
     "eventType": "long",
+    "certified": "2026-08-27",
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Doors of Night"
+      },
+      {
+        "type": "tap-sites-in-play",
+        "condition": {
+          "$and": [
+            {
+              "site.type": {
+                "$ne": "haven"
+              }
+            },
+            {
+              "sitePath.coastalCount": {
+                "$gte": 1
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
     "text": "Environment. Playable if Doors of Night is in play. Each non-Haven/non-Darkhaven site in play with a Coastal Sea [{c}] in its site path is tapped.Cannot be duplicated."
   },
   {
