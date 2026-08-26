@@ -34,16 +34,18 @@ import {
   dispatch, viableActions,
   findCharInstanceId, findItemInstanceId,
   getCharacter, playPermanentEventAndResolve, playCreatureHazardAndResolve,
-  addP1CardsInPlay, mint, actionAs, handCardId, companyIdAt,
+  addP1CardsInPlay, mint, actionAs, handCardId, companyIdAt, recomputeDerived,
 } from '../test-helpers.js';
 import {
   ARAGORN, DAGGER_OF_WESTERNESSE, GLAMDRING, BARROW_WIGHT, BERT_BURAT,
-  BARROW_DOWNS, MINAS_TIRITH, MORIA,
+  BARROW_DOWNS, MINAS_TIRITH, MORIA, RIVENDELL,
   Phase, RegionType, SiteType, CardStatus, computeLegalActions,
 } from '../../index.js';
-import type { CardDefinitionId, ResolveStrikeAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, ResolveStrikeAction } from '../../index.js';
 
 const BARROW_BLADE = 'dm-119' as CardDefinitionId;
+const ARMORY = 'dm-116' as CardDefinitionId;
+const ARMORY_INSTANCE = 'armory-inst' as CardInstanceId;
 
 // ── Playability (site phase, Ruins & Lairs, on the Dagger) ────────────────────
 
@@ -333,5 +335,49 @@ describe('Barrow-blade (dm-119)', () => {
     const swept = dispatch(orphaned, { type: 'pass', player: PLAYER_1 });
     expect(swept.players[0].cardsInPlay.some(c => c.definitionId === BARROW_BLADE)).toBe(false);
     expect(swept.players[0].discardPile.some(c => c.definitionId === BARROW_BLADE)).toBe(true);
+  });
+
+  // ── Storage: stays in play (still scoring MP) when the Dagger is stored ────
+
+  test('stays in play and keeps its item MP when its host Dagger is stored under Armory (not discarded)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [DAGGER_OF_WESTERNESSE] }] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          cardsInPlay: [{ instanceId: ARMORY_INSTANCE, definitionId: ARMORY, status: CardStatus.Untapped }],
+        },
+        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const daggerId = findItemInstanceId(base, RESOURCE_PLAYER, DAGGER_OF_WESTERNESSE);
+    const withBlade = addP1CardsInPlay(base, [{
+      instanceId: mint(),
+      definitionId: BARROW_BLADE,
+      status: CardStatus.Untapped,
+      attachedToItem: daggerId,
+    }]);
+    expect(recomputeDerived(withBlade).players[RESOURCE_PLAYER].marshallingPoints.item).toBe(1);
+
+    const aragornId = findCharInstanceId(withBlade, RESOURCE_PLAYER, ARAGORN);
+    const stored = dispatch(withBlade, {
+      type: 'store-item',
+      player: PLAYER_1,
+      itemInstanceId: daggerId,
+      characterId: aragornId,
+      cacheHostInstanceId: ARMORY_INSTANCE,
+    });
+
+    // Barrow-blade stays in cardsInPlay, bound to the now-cached Dagger.
+    expect(stored.players[RESOURCE_PLAYER].cardsInPlay.some(
+      c => c.definitionId === BARROW_BLADE && c.attachedToItem === daggerId,
+    )).toBe(true);
+    // Its 1 item MP is not lost by the Dagger being stored rather than discarded.
+    expect(stored.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(1);
   });
 });

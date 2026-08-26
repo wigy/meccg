@@ -5755,16 +5755,29 @@ export function discardOrphanedAgentAttachedEvents(state: GameState): GameState 
  * Discard item-attached permanent events whose host item has left play. A card
  * with `attachedToItem` set (Barrow-blade dm-119, "play this with the Dagger")
  * is kept in cards-in-play bound to a specific item instance. When that item is
- * no longer borne by any character on either side (discarded, stored, returned
- * to hand, …) the event is orphaned and must be discarded. Mirrors
+ * no longer borne by any character on either side and has not merely been
+ * stored (discarded, returned to hand, transferred away, eliminated, …) the
+ * event is orphaned and must be discarded. Mirrors
  * {@link discardOrphanedSiteAttachedEvents}.
+ *
+ * CoE 2.II.4.1: storing an item places it in its player's marshalling point
+ * pile — it has not left play, so a permanent event bonded to it (with no
+ * `host-item-stored` self-store move of its own, e.g. Align Palantír tw-190)
+ * keeps scoring its own MP rather than being swept as orphaned. This applies
+ * whether the item lands in `killPile` (CoE 2.II.4.1) or under an item-cache
+ * host's `setAside` (Armory dm-116's alternate storage destination).
  */
 export function discardOrphanedItemAttachedEvents(state: GameState): GameState {
-  // Collect every item instance currently borne by a character in play.
+  // Collect every item instance still in play: borne by a character, stored
+  // in the marshalling point pile, or cached under an item-cache host.
   const itemIds = new Set<string>();
   for (const p of state.players) {
     for (const ch of Object.values(p.characters)) {
       for (const it of ch.items) itemIds.add(it.instanceId as string);
+    }
+    for (const card of p.killPile) itemIds.add(card.instanceId as string);
+    for (const host of p.cardsInPlay) {
+      for (const cached of host.setAside ?? []) itemIds.add(cached as string);
     }
   }
 
