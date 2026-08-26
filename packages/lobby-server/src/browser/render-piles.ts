@@ -7,11 +7,13 @@
  * reveal-remove-from-discard, and arrange-deck-top sub-flows.
  */
 
-import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard, PlayHeroResourceAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard, PlayHeroResourceAction, ActivateGrantedAction } from '@meccg/shared';
 import { cardImageProxyPath, isCardHidden } from '@meccg/shared';
 import { buildCardAttributes } from './render-card-preview.js';
 import { setSelectedAllyForPlay, setTargetingInstruction } from './render-selection-state.js';
 import { reRenderAllyPlaySelection } from './render-hand.js';
+import { getGrantedActions } from './company-actions.js';
+import { showInPlayGrantedActionMenu } from './company-modals.js';
 
 // ---- Deck pile rendering ----
 
@@ -79,7 +81,7 @@ export function resetDeckPiles(): void {
 }
 
 /** Render both players' draw deck, site deck, sideboard, victory display, and discard piles. */
-export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>): void {
+export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>, onAction?: (action: GameAction) => void): void {
   const ids = (cards: readonly ViewCard[]) => cards.map(c => c.instanceId);
 
   const selfEl = document.getElementById('self-deck-pile');
@@ -136,6 +138,8 @@ export function renderDeckPiles(view: PlayerView, cardPool?: Readonly<Record<str
   cachedOppKillPile = view.opponent.killPile;
   cachedOppOutOfPlay = view.opponent.outOfPlayPile;
   if (cardPool) cachedCardPool = cardPool;
+  if (onAction) cachedOnAction = onAction;
+  cachedKillPileGrantedActions = getGrantedActions(view);
   // Collect actionable instance IDs from viable legal actions
   actionableInstanceIds = collectActionInstanceIds(view.legalActions);
   // Viable `play-hero-resource` actions sourced from the self discard pile
@@ -167,6 +171,22 @@ let discardAllyPlayActions: readonly PlayHeroResourceAction[] = [];
 
 /** True while the pile browser modal is showing the self discard pile. */
 let cachedBrowsingSelfDiscard = false;
+
+/** True while the pile browser modal is showing the self MP (marshalling-point/kill) pile. */
+let cachedBrowsingSelfKillPile = false;
+
+/**
+ * Viable `activate-granted-action`s keyed by `sourceCardId`, recomputed on every
+ * render pass. Checked against the currently-browsed pile when it is the self MP
+ * pile, so a `storedAtSite` card sitting there (Reforging tw-314, Andúril tw-192)
+ * offers its ability the same way an attached item or bearer-less in-play card
+ * does — the MP pile browser is otherwise the only place such a card is ever
+ * shown to the player, since it has no bearer to render it on the board.
+ */
+let cachedKillPileGrantedActions: ReadonlyMap<string, ActivateGrantedAction[]> = new Map();
+
+/** `onAction` callback for the pile browser's granted-action clicks. */
+let cachedOnAction: ((action: GameAction) => void) | null = null;
 
 /** Extract all CardInstanceId values from a game action object. */
 function collectActionInstanceIds(actions: readonly EvaluatedAction[]): Set<string> {
@@ -218,12 +238,13 @@ let arrangeDeckTopBrowserOpened = false;
  * Open the pile browser modal showing a list of cards (known or unknown).
  * Used by site deck, sideboard, and victory display piles.
  */
-function openPileBrowser(title: string, cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>>, backImage = '/images/card-back.jpg', isSelfDiscard = false): void {
+function openPileBrowser(title: string, cards: readonly ViewCard[], cardPool: Readonly<Record<string, CardDefinition>>, backImage = '/images/card-back.jpg', isSelfDiscard = false, isSelfKillPile = false): void {
   cachedBrowserCards = cards;
   cachedBrowserTitle = title;
   cachedBrowserBackImage = backImage;
   cachedCardPool = cardPool;
   cachedBrowsingSelfDiscard = isSelfDiscard;
+  cachedBrowsingSelfKillPile = isSelfKillPile;
   populateBrowserGrid();
 }
 
@@ -358,6 +379,23 @@ function populateBrowserGrid(): void {
         reRenderAllyPlaySelection();
         closeSelectionViewer();
       });
+    } else if (cachedBrowsingSelfKillPile) {
+      // A `storedAtSite` card (Reforging tw-314, Andúril tw-192) offering a
+      // `fromStored` grant-action: the MP pile browser is the only place this
+      // bearer-less card is ever shown, so its ability menu is wired up here
+      // instead of on a company-block card image.
+      const grantedActions = cachedKillPileGrantedActions.get(card.instanceId as string) ?? [];
+      if (grantedActions.length > 0 && cachedOnAction) {
+        const onAction = cachedOnAction;
+        img.classList.add('site-selectable');
+        img.title = 'Click to activate this card\'s ability';
+        img.addEventListener('click', () => {
+          showInPlayGrantedActionMenu(img, grantedActions, cachedCardPool!, (action) => {
+            onAction(action);
+            closeSelectionViewer();
+          });
+        });
+      }
     }
 
     grid.appendChild(img);
@@ -527,17 +565,17 @@ function installPileBrowserClickHandlers(): void {
   pileBrowserClickHandlersInstalled = true;
 
   /** Helper to wire a pile element to the browser modal. */
-  function wirePile(elementId: string, title: string, getCards: () => readonly ViewCard[], backImage = '/images/card-back.jpg', isSelfDiscard = false): void {
+  function wirePile(elementId: string, title: string, getCards: () => readonly ViewCard[], backImage = '/images/card-back.jpg', isSelfDiscard = false, isSelfKillPile = false): void {
     const el = document.getElementById(elementId);
     if (el) {
       el.addEventListener('click', () => {
-        if (cachedCardPool) openPileBrowser(title, getCards(), cachedCardPool, backImage, isSelfDiscard);
+        if (cachedCardPool) openPileBrowser(title, getCards(), cachedCardPool, backImage, isSelfDiscard, isSelfKillPile);
       });
     }
   }
 
   // Self piles
-  wirePile('self-mp-pile', 'MP Pile', () => cachedSelfKillPile);
+  wirePile('self-mp-pile', 'MP Pile', () => cachedSelfKillPile, '/images/card-back.jpg', false, true);
   wirePile('self-eliminated-pile', 'Eliminated', () => cachedSelfOutOfPlay);
   wirePile('self-sideboard-pile', 'Sideboard', () => cachedSelfSideboard);
   wirePile('self-discard-pile', 'Discard Pile', () => cachedSelfDiscard, '/images/card-back.jpg', true);

@@ -512,7 +512,7 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   renderPhaseMeter(msg.view, appState.lastCompanyNames);
   renderDrafted(msg.view, cardPool, sendAction);
   renderPassButton(msg.view, sendAction);
-  renderDeckPiles(msg.view, cardPool);
+  renderDeckPiles(msg.view, cardPool, sendAction);
   renderCompanyViews(msg.view, cardPool, sendAction);
   renderGameOverView(msg.view, cardPool);
   renderChainPanel(msg.view, cardPool, sendAction);
