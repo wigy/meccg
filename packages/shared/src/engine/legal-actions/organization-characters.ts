@@ -187,12 +187,19 @@ function playerHasAvatarHomeSiteRestriction(
  * Returns true if the player has an eliminated avatar (a character with
  * `mind === null` in their outOfPlayPile). CoE rule 2.05 forbids revealing
  * a replacement avatar in this case.
+ *
+ * Entries flagged `removedFromGame` are skipped: undrafted pool avatars
+ * (e.g. spare wizard copies left in the starting pool, CoE 1.9) are sunk
+ * into the same pile but were never in play, so they cannot have been
+ * eliminated — per the glossary, removed-from-game cards "no longer have
+ * any affect or interaction with the game."
  */
 function hasEliminatedAvatar(
   state: GameState,
   player: { readonly outOfPlayPile: readonly import('../../index.js').CardInstance[] },
 ): boolean {
   return player.outOfPlayPile.some(c => {
+    if (c.removedFromGame) return false;
     const def = defById(state, c.definitionId);
     return isCharacterCard(def) && def.mind === null;
   });
