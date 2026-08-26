@@ -159,6 +159,7 @@ export type {
   CancelInfluenceAction,
   FactionInfluenceRollAction,
   PlayMinorItemAction,
+  SelectForewarnedAttackAction,
   DeclareCompanyAttackAction,
   PaySiteTaxAction,
   PlayRevealedCardAction,

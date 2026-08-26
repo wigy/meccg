@@ -22,6 +22,7 @@ import type {
   ActivateGrantedAction,
   DeclareAgentAttackAction,
   HavenReturnAction,
+  SelectForewarnedAttackAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
@@ -420,6 +421,44 @@ export function renderSiteArea(
         tapList.appendChild(btn);
       }
       area.appendChild(tapList);
+    }
+  }
+
+  // Forewarned Is Forearmed choice list during the forewarned-select-attack
+  // step (dm-132): the engine legally offers `select-forewarned-attack` to
+  // the hazard player when a site's automatic-attacks are reduced to one of
+  // their choosing, but the board never rendered it — no widget listed the
+  // action anywhere, so the hazard player's screen had nothing to click and
+  // the site phase stalled forever (reported as a freeze when Beorn entered
+  // Moria with Balrog of Moria in play). List the offered attack indices as
+  // clickable buttons, mirroring the extra-mh-move-offer choice list above.
+  if (options?.onAction && view.phaseState.phase === Phase.Site && view.phaseState.step === 'forewarned-select-attack') {
+    const isSelfTurn = view.activePlayer === view.self.id;
+    const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
+    const siteActiveCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
+    const isActiveCompany = siteActiveCompany && company.id === siteActiveCompany.id;
+    const attackActions = isActiveCompany ? viableActions(view.legalActions).filter(
+      (a): a is SelectForewarnedAttackAction => a.type === 'select-forewarned-attack',
+    ) : [];
+    if (attackActions.length > 0) {
+      const attackList = document.createElement('div');
+      attackList.className = 'path-choice-list';
+      for (const action of attackActions) {
+        const btn = document.createElement('button');
+        btn.className = 'char-action-tooltip__btn';
+
+        const label = document.createElement('div');
+        label.textContent = describeAction(action, cardPool);
+        btn.appendChild(label);
+
+        const onAction = options.onAction;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          onAction(action);
+        });
+        attackList.appendChild(btn);
+      }
+      area.appendChild(attackList);
     }
   }
 
