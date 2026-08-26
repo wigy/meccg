@@ -1718,9 +1718,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       }
       // Apply bearer-conditional mp-modifier effects on items
       // (e.g. Durin's Axe: +2 MP if held by a Dwarf). Skipped for a Fallen-wizard
-      // (MEWH §4): his items are worth a flat 1 MP and cannot be boosted by such
-      // hero/minion resource modifiers.
-      const itemEffects = player.alignment === 'fallen-wizard'
+      // whose item is still under the flat-1 §4 clamp — but CoE 10.F1 lifts the
+      // clamp "unless that value is modified by a stage resource" (fwExempt,
+      // e.g. Legacy of Smiths wh-76), in which case the item scores its
+      // ordinary computed value, bonuses included.
+      const itemEffects = (player.alignment === 'fallen-wizard' && !fwExempt)
         ? undefined
         : (itemDef as { effects?: readonly CardEffect[] }).effects;
       if (itemEffects) {
@@ -2033,7 +2035,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
           : 'item' as MarshallingCategory;
         mp = { ...mp, [cat]: mp[cat] + finalMp };
       } else {
-        mp = addItemMP(mp, def, player.alignment);
+        const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(def, fwItemExemptions, false);
+        mp = addItemMP(mp, def, player.alignment, fwExempt);
       }
       continue;
     }
@@ -2041,9 +2044,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // Regular items (CoE rule 2.II.4): storable at any Haven without a
     // `storable-at` effect on the card — see storeItemActions in
     // organization-companies.ts. These still earn their printed MP once
-    // stored, same as items with an explicit storable-at effect above.
+    // stored, same as items with an explicit storable-at effect above — and,
+    // per CoE 10.F1, remain subject to a Fallen-wizard's stage-resource full-MP
+    // exemptions (e.g. Legacy of Smiths wh-76) exactly like an item on a
+    // character (fwItemExemptions was collected once for the player above).
     if (isItemCard(def)) {
-      mp = addItemMP(mp, def, player.alignment);
+      const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(def, fwItemExemptions, false);
+      mp = addItemMP(mp, def, player.alignment, fwExempt);
       continue;
     }
 
