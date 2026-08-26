@@ -354,6 +354,14 @@ export function heroResourceShortEventActions(
       // as-82: "Playable if you are Sauron. Cancel one hazard creature
       // attack.") is still combat-only.
       if (hasCombatEffect && e.type === 'play-condition') return true;
+      // company-site-phase-do-nothing is a downside companion to a
+      // cancel-attack effect (Fifteen Birds in Five Firtrees dm-129: "The
+      // company can do nothing during its site phase unless ..."), not an
+      // independent non-combat mode. Without this, dm-129 fell through to
+      // the generic (ungated) short-event path below and was offered even
+      // when its cancel-attack `when` clause (Gates of Morning in play)
+      // was unmet — wasting the card for no effect.
+      if (hasCombatEffect && e.type === 'company-site-phase-do-nothing') return true;
       return false;
     });
     if (allCombatOnly) {

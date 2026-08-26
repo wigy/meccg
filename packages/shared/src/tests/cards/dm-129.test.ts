@@ -157,6 +157,16 @@ describe('Fifteen Birds in Five Firtrees (dm-129)', () => {
     expect(cancelActions).toHaveLength(0);
   });
 
+  test('play-short-event is NOT offered as an ungated fallback without Gates of Morning (bug: card wasted the attack was not cancelled)', () => {
+    const state = faceCreature(baseState([STIRRING_BONES]), STIRRING_BONES);
+    expect(state.combat).toBeDefined();
+
+    const fifteenBirdsId = findHandCardId(state, RESOURCE_PLAYER, FIFTEEN_BIRDS);
+    const shortEventActions = viableActions(state, PLAYER_1, 'play-short-event')
+      .filter(ea => (ea.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === fifteenBirdsId);
+    expect(shortEventActions).toHaveLength(0);
+  });
+
   test('cancel-attack available against non-unique creature attack (Stirring Bones) when Gates of Morning is in play', () => {
     const withGoM = addP1CardsInPlay(baseState([STIRRING_BONES]), [gomInPlay()]);
     const state = faceCreature(withGoM, STIRRING_BONES);

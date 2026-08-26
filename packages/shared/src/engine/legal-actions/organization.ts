@@ -3671,10 +3671,21 @@ export function playResourceShortEventActions(
     // non-combat playability either.
     const combatSupportTypes = new Set([...combatOnlyTypes, 'modify-attack', 'play-target', 'set-character-status', 'play-condition', 'deck-restriction']);
     const hasEffects = def.effects && def.effects.length > 0;
+    const hasCombatEffect = hasEffects && def.effects.some(
+      e => e.type === 'cancel-attack' || e.type === 'modify-attack' || e.type === 'company-combat-boost',
+    );
     const allCombatOnly = hasEffects && def.effects.every(e => {
       if (combatSupportTypes.has(e.type)) return true;
       if (e.type === 'duplication-limit' && (e as { scope?: string }).scope === 'attack') return true;
+      // A turn/company/character-scoped duplication-limit is also a
+      // companion when the card's primary effect is combat-only (mirrors
+      // `heroResourceShortEventActions`'s any-scope handling).
+      if (hasCombatEffect && e.type === 'duplication-limit') return true;
       if (e.type === 'move' && e.when && !matchesCondition(e.when, { inPlay: inPlayNames })) return true;
+      // company-site-phase-do-nothing is a downside companion to a
+      // cancel-attack effect (Fifteen Birds in Five Firtrees dm-129), not an
+      // independent non-combat mode — mirrors `heroResourceShortEventActions`.
+      if (hasCombatEffect && e.type === 'company-site-phase-do-nothing') return true;
       return false;
     });
     if (allCombatOnly) {
