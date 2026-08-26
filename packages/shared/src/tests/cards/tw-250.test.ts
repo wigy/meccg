@@ -419,6 +419,64 @@ describe('Great-shield of Rohan (tw-250)', () => {
     expect(dodgeActions).toHaveLength(0);
   });
 
+  test('Great-shield in hand is not offered as a play-strike-event (it is an item, not a short-event)', () => {
+    // Bug report: the engine let Great-shield of Rohan be played from hand
+    // like the Dodge short-event while it sat unattached in hand. Its
+    // strike-modifier ability may only be used once it is attached to a
+    // character as an item (see the `dodge-strike` tests above).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [GIMLI] }],
+          hand: [GREAT_SHIELD],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [LAND_DRAKE],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const ltId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: ltId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'ruins-and-lairs' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const gimliId = findCharInstanceId(afterChain, RESOURCE_PLAYER, GIMLI);
+    const r2 = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_1,
+      characterId: gimliId,
+      tapped: false,
+    });
+    expect(r2.combat!.phase).toBe('resolve-strike');
+
+    const defActions = computeLegalActions(r2, PLAYER_1);
+    const strikeEventActions = defActions.filter(a => a.viable && a.action.type === 'play-strike-event');
+    expect(strikeEventActions).toHaveLength(0);
+  });
+
   test('Great-shield does NOT offer dodge-strike for another character in the company', () => {
     // Gimli bears the shield; Legolas is also in the company. A strike
     // assigned to Legolas must not be dodgeable via Gimli's shield.
