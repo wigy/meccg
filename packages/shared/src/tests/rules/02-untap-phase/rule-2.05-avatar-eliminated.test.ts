@@ -182,4 +182,61 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     });
     expect(sarumanViable).toHaveLength(0);
   });
+
+  test('Undrafted wizard copies removed from the game do not count as an eliminated avatar', () => {
+    // Bug report (game mt69c3u4-eeo6e0, seq 225): spare wizard copies left
+    // undrafted in the starting pool are sunk into outOfPlayPile flagged
+    // `removedFromGame` (CoE 1.9). They were never in play, so they were never
+    // eliminated — yet the engine treated them as an eliminated avatar,
+    // blocking the player from ever revealing their wizard at a Haven and
+    // wrongly applying the -5 misc MP penalty (CoE 2.2).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          // No avatar in play; Gandalf is in hand, company sits at Rivendell
+          // (a Haven where a Wizard avatar may be revealed, rule 2.II.2.1.W1).
+          companies: [{ site: RIVENDELL, characters: [BILBO] }],
+          hand: [GANDALF],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+      recompute: true,
+    });
+
+    // Undrafted spare Saruman copies from the starting pool: in the same pile
+    // as eliminated characters, but flagged removed-from-game.
+    const withUndrafted = recomputeDerived({
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          outOfPlayPile: [
+            { instanceId: 'pool-saruman-1' as CardInstanceId, definitionId: SARUMAN, removedFromGame: true as const },
+            { instanceId: 'pool-saruman-2' as CardInstanceId, definitionId: SARUMAN, removedFromGame: true as const },
+          ],
+        },
+        state.players[1],
+      ] as unknown as typeof state.players,
+    });
+
+    // Gandalf must still be offered as a viable play-character action.
+    const viable = viablePlayCharacterActions(withUndrafted, PLAYER_1);
+    const gandalfViable = viable.filter(a => {
+      const inst = withUndrafted.players[0].hand.find(c => c.instanceId === a.characterInstanceId);
+      return inst?.definitionId === GANDALF;
+    });
+    expect(gandalfViable.length).toBeGreaterThan(0);
+
+    // And the -5 eliminated-avatar penalty must not apply.
+    expect(withUndrafted.players[0].marshallingPoints.misc).toBe(0);
+  });
 });

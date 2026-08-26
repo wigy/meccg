@@ -685,11 +685,17 @@ export function applyTapSiteOnPlayFlag(
  * a character is the canonical check. Shared by {@link recomputeDerived} (which
  * folds the -5 into the running misc tally) and the Free Council end-game scorer
  * so both agree on when the penalty applies.
+ *
+ * Entries flagged `removedFromGame` are skipped: undrafted pool avatars (e.g.
+ * spare wizard copies left in the starting pool, CoE 1.9) are sunk into the
+ * same pile but were never in play, so they were not eliminated and must not
+ * trigger the -5 penalty or the no-replacement-avatar restriction.
  */
 export function hasEliminatedAvatar(state: GameState, playerIndex: number): boolean {
   const player = state.players[playerIndex];
   if (!player) return false;
-  return player.outOfPlayPile.some(card => isAvatarCharacter(defById(state, card.definitionId)));
+  return player.outOfPlayPile.some(card =>
+    !card.removedFromGame && isAvatarCharacter(defById(state, card.definitionId)));
 }
 
 /**
