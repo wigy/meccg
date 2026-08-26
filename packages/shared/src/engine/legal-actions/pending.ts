@@ -2171,7 +2171,12 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
-type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
+type CreaturePlayAction = {
+  targetCompanyId?: CompanyId;
+  cardInstanceId?: CardInstanceId;
+  keyedBy?: { method: string };
+  altEventMode?: 'short-event' | 'permanent-event';
+};
 
 /**
  * Shared post-filter for constraints restricting hazard-creature plays against
@@ -2179,6 +2184,11 @@ type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardIn
  * creature against `protectedCompany` passes through untouched; for the rest,
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
+ *
+ * A dual-mode creature (`creature-alt-event`, e.g. Ren the Unclean tw-83) being
+ * played in its short-event or permanent-event mode carries `altEventMode` on
+ * the action and is not a creature play, so these creature-only constraints
+ * (e.g. Stealth's `no-creature-hazards-on-company`) do not apply to it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,
@@ -2191,6 +2201,7 @@ function filterCreaturePlaysAgainstCompany(
   return base.filter(ea => {
     if (ea.action.type !== 'play-hazard') return true;
     const action = ea.action as CreaturePlayAction;
+    if (action.altEventMode) return true;
     if (action.targetCompanyId !== protectedCompany) return true;
     const cardInstId = action.cardInstanceId;
     if (!cardInstId) return true;
