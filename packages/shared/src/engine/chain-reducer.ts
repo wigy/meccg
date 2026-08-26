@@ -3885,7 +3885,14 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       totalStrikes = company.characters.length;
       logDetail(`One strike per character: ${totalStrikes} character(s) in company → ${totalStrikes} total strikes`);
     }
-  } else if (multiAttackCount > 1) {
+  } else if (rawMultiAttackCount > 1) {
+    // Gate on the creature's *printed* multi-attack count, not the
+    // Forewarned-reduced `multiAttackCount`: even when Forewarned Is
+    // Forearmed reduces Assassin to a single remaining attack, that attack
+    // still keeps Assassin's "one character only" restriction — a strikes
+    // boost (Rank upon Rank) must still become a same-character excess
+    // strike, not a genuine second strike assignable to a different
+    // character.
     totalStrikes = creatureDef.strikes * multiAttackCount;
     excessStrikesPerAttack = Math.max(0, effectiveStrikes - creatureDef.strikes);
     logDetail(
@@ -3973,10 +3980,10 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       attackDeclaredRegionTypes: attackKeying,
       normalIfKeyedToSiteTypes: companyKeyedAttacksNormalSiteTypes(state, company.id),
     }),
-    forceSingleTarget: multiAttackCount > 1 ? true : undefined,
-    multiAttackCount: multiAttackCount > 1 ? multiAttackCount : undefined,
-    strikesPerAttack: multiAttackCount > 1 ? creatureDef.strikes : undefined,
-    excessStrikesPerAttack: multiAttackCount > 1 && excessStrikesPerAttack > 0 ? excessStrikesPerAttack : undefined,
+    forceSingleTarget: rawMultiAttackCount > 1 ? true : undefined,
+    multiAttackCount: rawMultiAttackCount > 1 ? multiAttackCount : undefined,
+    strikesPerAttack: rawMultiAttackCount > 1 ? creatureDef.strikes : undefined,
+    excessStrikesPerAttack: rawMultiAttackCount > 1 && excessStrikesPerAttack > 0 ? excessStrikesPerAttack : undefined,
     cancelByTapRemaining: cancelByTapMax > 0 ? cancelByTapMax : undefined,
     cancelByTapAllowTarget: cancelByTapAllowTarget ? true : undefined,
     excludeAvatarStrikes: excludeAvatarStrikes ? true : undefined,
