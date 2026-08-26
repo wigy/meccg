@@ -42,28 +42,50 @@ function findRegionType(name: string): string | undefined {
   return undefined;
 }
 
+function regionTypeIconHtml(type: string | undefined): string {
+  const code = REGION_ICON_CODES[type ?? ''];
+  return code
+    ? `<img src="/images/regions/${code}.png" alt="${type}" width="22" height="22" style="vertical-align:middle;position:relative;top:-3px">`
+    : '';
+}
+
 /**
  * Build a compact movement-path readout (region names + type icons) for the
  * company currently being resolved, sourced from the Movement/Hazard phase
  * state. Used to show the opponent's path while they move — the on-board
  * visual path (company-site.ts) only renders for the viewer's own companies.
  * Returns null if the active company is not moving.
+ *
+ * For region movement, `resolvedSitePathNames` names every traversed region
+ * and is index-parallel with `resolvedSitePath` — one icon per named region.
+ * For starter (haven-to-haven/haven-to-site) movement, `resolvedSitePathNames`
+ * only holds the two endpoint region names while `resolvedSitePath` holds
+ * every leg of the printed site path (e.g. Lórien→Edhellond prints six legs:
+ * wilderness/border/free/free/border/wilderness), so one icon per leg is
+ * rendered instead, with only the first and last legs labeled by their
+ * endpoint region name.
  */
 export function buildMovementPathHtml(
-  mh: { resolvedSitePathNames?: readonly string[] },
+  mh: {
+    resolvedSitePathNames?: readonly string[];
+    resolvedSitePath?: readonly string[];
+    movementType?: string | null;
+  },
 ): string | null {
   const names = mh.resolvedSitePathNames ?? [];
-  if (names.length === 0) return null;
-  const parts: string[] = [];
-  for (const name of names) {
-    const type = findRegionType(name);
-    const code = REGION_ICON_CODES[type ?? ''];
-    const icon = code
-      ? `<img src="/images/regions/${code}.png" alt="${type}" width="22" height="22" style="vertical-align:middle;position:relative;top:-3px">`
-      : '';
-    parts.push(`${name} ${icon}`);
+  const types = mh.resolvedSitePath ?? [];
+  if (names.length === 0 && types.length === 0) return null;
+
+  if (mh.movementType !== 'region' && types.length > 0) {
+    const parts: string[] = [];
+    types.forEach((type, i) => {
+      const label = i === 0 ? names[0] : i === types.length - 1 ? names[names.length - 1] : undefined;
+      parts.push(label ? `${label} ${regionTypeIconHtml(type)}` : regionTypeIconHtml(type));
+    });
+    return parts.join(' ');
   }
-  return parts.join(' ');
+
+  return names.map(name => `${name} ${regionTypeIconHtml(findRegionType(name))}`).join(' ');
 }
 
 /** Visual state of a single segment in either track. */
