@@ -665,6 +665,8 @@ export const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
   'cancel-chain-entry': 'Cancel',
   'sauron-sideboard-fetch': 'Fetch from Sideboard',
   'sauron-peek-hand': 'Discard to Peek at Opponent\'s Hand',
+  'anduril-combine-with-narsil': 'Combine with Narsil',
+  'reforging-retrieve-item': 'Retrieve Item from Discard',
 };
 
 /**
