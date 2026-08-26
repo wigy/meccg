@@ -678,3 +678,69 @@ describe('renderPassButton — multi-target CvCC attack buttons', () => {
     expect(visualPanel.children.filter(c => c.textContent.startsWith('Attack'))).toHaveLength(0);
   });
 });
+
+/**
+ * Regression test for bug report fee86d3b1b398160 (game mt90y8eu-u0ndem, seq
+ * 52): "Game froze after opponent successfully played Call of Home on my
+ * Círdan. No option to move game state forward." Call of Home (tw-18)
+ * returning a character with an item enqueues a `transfer-returned-item`
+ * resolution — one "give item to mate" action per company-mate plus a
+ * decline. That action type was entirely absent from
+ * {@link renderPassButton}'s pass-like whitelist and had no fallback branch,
+ * so (like `influence-overflow-discard` above) the button hid and the
+ * "Waiting…" indicator was suppressed too, even though three viable actions
+ * existed. It now renders one "Give <item> to <character>" button per mate
+ * plus a "Leave Discarded" button.
+ */
+const transferReturnedItem = (targetCharacterId?: string): EvaluatedAction => ({
+  action: {
+    type: 'transfer-returned-item',
+    player: 'p1',
+    itemInstanceId: targetCharacterId ? 'p1-182' : undefined,
+    targetCharacterId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — transfer-returned-item (Call of Home / Pilfer Anything Unwatched)', () => {
+  test('renders one Give button per company-mate plus a Leave Discarded button', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p1-182': 'tw-259', 'p1-184': 'tw-134', 'p1-188': 'tw-131' });
+
+    renderPassButton(
+      viewWith([transferReturnedItem('p1-184'), transferReturnedItem('p1-188'), transferReturnedItem()]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(visualPanel.children.map(c => c.textContent)).toEqual([
+      'Give Horn of Anor to Boromir II',
+      'Give Horn of Anor to Bilbo',
+      'Leave Discarded',
+    ]);
+  });
+
+  test('clicking a Give button sends that item/mate transfer action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p1-182': 'tw-259', 'p1-184': 'tw-134' });
+    const giveToMate = transferReturnedItem('p1-184');
+
+    renderPassButton(viewWith([giveToMate, transferReturnedItem()]), action => { sent = action; });
+
+    visualPanel.children[0].onclick?.();
+
+    expect(sent).toEqual(giveToMate.action);
+  });
+
+  test('clicking Leave Discarded sends the decline action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p1-182': 'tw-259', 'p1-184': 'tw-134' });
+    const decline = transferReturnedItem();
+
+    renderPassButton(viewWith([transferReturnedItem('p1-184'), decline]), action => { sent = action; });
+
+    visualPanel.children[1].onclick?.();
+
+    expect(sent).toEqual(decline.action);
+  });
+});
