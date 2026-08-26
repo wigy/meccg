@@ -38,4 +38,17 @@ describe('deck editor pool browser — Starting items toggle', () => {
   test('still matches minor items explicitly tagged starting-item (Dagger of Westernesse, tw-206)', () => {
     expect(startingItemsMatch('tw-206' as CardDefinitionId)).toBe(true);
   });
+
+  // Bug report 654db5ace3a9b7ba: "Both Lost Tome and Forgotten Scrolls are
+  // currently in the starting pool but they should not be." Both are
+  // non-unique, non-hoard minor items, so the CoE 1.7 fallback matched them —
+  // but both carry the `no-starting-company` play-flag ("Cannot be included
+  // with a starting company"), which the toggle ignored.
+  test('excludes a non-unique, non-hoard minor item flagged no-starting-company (Lost Tome, dm-172)', () => {
+    expect(startingItemsMatch('dm-172' as CardDefinitionId)).toBe(false);
+  });
+
+  test('excludes a non-unique, non-hoard minor item flagged no-starting-company (Forgotten Scrolls, dm-169)', () => {
+    expect(startingItemsMatch('dm-169' as CardDefinitionId)).toBe(false);
+  });
 });

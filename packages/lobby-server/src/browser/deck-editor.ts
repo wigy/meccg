@@ -7,7 +7,7 @@
  */
 
 import {
-  getCardCss, validateDeck, CHARACTER_CARD_TYPES, Race,
+  getCardCss, validateDeck, CHARACTER_CARD_TYPES, Race, hasPlayFlag,
   type CardDefinition, type DeckList,
 } from '@meccg/shared';
 import {
@@ -276,7 +276,11 @@ export function typeToggles(preset: TogglePreset): BrowserToggle[] {
   // item, whether or not it carries the `starting-item` keyword — that
   // keyword instead marks non-item cards (Stage resources, resource-events)
   // that may be placed with a starting company in lieu of a minor item.
+  // Items flagged `no-starting-company` (e.g. Lost Tome, Forgotten Scrolls)
+  // are explicitly barred from the starting company by their card text, so
+  // they must never appear in this browser regardless of subtype/uniqueness.
   const isStartingItem = (def: CardDefinition) => {
+    if (isItem(def) && 'effects' in def && hasPlayFlag(def, 'no-starting-company')) return false;
     const t = traits(def);
     const isNonUniqueMinorItem = isItem(def) && t.subtype === 'minor' && t.unique === false
       && !(t.keywords ?? []).includes('hoard');
