@@ -235,6 +235,30 @@ describe('The Great Hunt (wh-91)', () => {
     }
   });
 
+  // ── Kill marshalling points on defeat (CoE rule 964) ─────────────────────
+  // Bug report: killing a Great Hunt-revealed creature awarded no MP — the
+  // creature was never moved into the attacker's cardsInPlay, so the generic
+  // creature-attack disposal in combat-finalize never found it and silently
+  // did nothing. Analogous to The Hunt (dm-143) and Long Dark Reach (dm-70).
+  test('awards kill marshalling points: defeating a revealed creature moves it to the defender\'s kill pile', () => {
+    const state0 = greatHuntState({ hand: [THE_GREAT_HUNT], p2Deck: [BARROW_WIGHT] });
+    const ghId = findInPile(state0, 0, 'hand', THE_GREAT_HUNT)!.instanceId;
+    const wightId = findInPile(state0, 1, 'playDeck', BARROW_WIGHT)!.instanceId;
+    const state1 = playPermanentEventAndResolve(state0, PLAYER_1, ghId);
+    const state2 = dispatch(state1, { type: 'choose-great-hunt-source', player: PLAYER_1, source: 'deck' });
+
+    // Barrow-wight has one strike and no body — resolving it with a high roll
+    // (Alatar parries) defeats it outright, without a body check.
+    const alatarId = findCharInstanceId(state2, 0, ALATAR);
+    const afterAssign = dispatch(state2, { type: 'assign-strike', player: PLAYER_1, characterId: alatarId });
+    const afterStrike = executeAction(afterAssign, PLAYER_1, 'resolve-strike', 12);
+
+    expect(afterStrike.combat).toBeNull();
+    expect(findInPile(afterStrike, 1, 'playDeck', wightId)).toBeUndefined();
+    expect(findInPile(afterStrike, 1, 'discardPile', wightId)).toBeUndefined();
+    expect(findInPile(afterStrike, 0, 'killPile', wightId)).toBeDefined();
+  });
+
   test('revealing an all-non-creature deck spawns no attack and reshuffles it', () => {
     const state0 = greatHuntState({ hand: [THE_GREAT_HUNT], p2Deck: [GLAMDRING, GLAMDRING] });
     const ghId = findInPile(state0, 0, 'hand', THE_GREAT_HUNT)!.instanceId;
