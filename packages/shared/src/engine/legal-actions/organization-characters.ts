@@ -187,12 +187,18 @@ function playerHasAvatarHomeSiteRestriction(
  * Returns true if the player has an eliminated avatar (a character with
  * `mind === null` in their outOfPlayPile). CoE rule 2.05 forbids revealing
  * a replacement avatar in this case.
+ *
+ * Entries flagged `removedFromGame` (undrafted duplicate avatars left over
+ * from the character-deck-draft pool, CoE 1.9) are skipped: those avatars
+ * were never revealed or eliminated, so they must not block revealing an
+ * avatar.
  */
 function hasEliminatedAvatar(
   state: GameState,
   player: { readonly outOfPlayPile: readonly import('../../index.js').CardInstance[] },
 ): boolean {
   return player.outOfPlayPile.some(c => {
+    if (c.removedFromGame) return false;
     const def = defById(state, c.definitionId);
     return isCharacterCard(def) && def.mind === null;
   });

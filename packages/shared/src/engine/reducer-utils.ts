@@ -685,11 +685,16 @@ export function applyTapSiteOnPlayFlag(
  * a character is the canonical check. Shared by {@link recomputeDerived} (which
  * folds the -5 into the running misc tally) and the Free Council end-game scorer
  * so both agree on when the penalty applies.
+ *
+ * Entries flagged `removedFromGame` (undrafted duplicate avatars left over
+ * from the character-deck-draft pool, CoE 1.9) are skipped: those avatars
+ * were never revealed or eliminated, so they must not trigger the rule 2.2
+ * "cannot reveal another avatar" block — mirrors {@link isUniqueCharacterInPlay}.
  */
 export function hasEliminatedAvatar(state: GameState, playerIndex: number): boolean {
   const player = state.players[playerIndex];
   if (!player) return false;
-  return player.outOfPlayPile.some(card => isAvatarCharacter(defById(state, card.definitionId)));
+  return player.outOfPlayPile.some(card => !card.removedFromGame && isAvatarCharacter(defById(state, card.definitionId)));
 }
 
 /**

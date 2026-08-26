@@ -182,4 +182,56 @@ describe('Rule 2.05 — Avatar Eliminated', () => {
     });
     expect(sarumanViable).toHaveLength(0);
   });
+
+  test('Undrafted duplicate avatar in outOfPlayPile does not block revealing an avatar', () => {
+    // Bug report (game mt7jeidp-flyki4, seq 76): during character-deck-draft,
+    // duplicate copies of an avatar left in the pool are moved to the
+    // outOfPlayPile flagged `removedFromGame` (CoE 1.9 — "removed from the
+    // game", not "eliminated"). Those copies were never revealed, so they
+    // must not trip the rule 2.05 "cannot reveal another avatar" block for a
+    // *different* avatar still in hand.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          // No avatar in play — only undrafted duplicate Gandalf copies sit
+          // in the removed-from-game pile.
+          companies: [{ site: RIVENDELL, characters: [BILBO] }],
+          hand: [SARUMAN],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+      recompute: true,
+    });
+
+    const withUndraftedDuplicates = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          outOfPlayPile: [
+            { instanceId: 'undrafted-gandalf-1' as CardInstanceId, definitionId: GANDALF, removedFromGame: true as const },
+            { instanceId: 'undrafted-gandalf-2' as CardInstanceId, definitionId: GANDALF, removedFromGame: true as const },
+          ],
+        },
+        state.players[1],
+      ] as unknown as typeof state.players,
+    };
+
+    // Saruman must still be offered as a viable play-character action.
+    const viable = viablePlayCharacterActions(withUndraftedDuplicates, PLAYER_1);
+    const sarumanViable = viable.filter(a => {
+      const inst = withUndraftedDuplicates.players[0].hand.find(c => c.instanceId === a.characterInstanceId);
+      return inst?.definitionId === SARUMAN;
+    });
+    expect(sarumanViable.length).toBeGreaterThan(0);
+  });
 });
