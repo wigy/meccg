@@ -86,7 +86,7 @@
 | as-102 | The Tormented Earth | — | 9 | ☑ |
 | as-106 | The Under-roads | — | 8 | ☑ |
 | as-108 | Well-preserved | — | 13 | ☑ |
-| as-110 | World Gnawed by the Nameless | — | 12 | ☑ |
+| as-110 | World Gnawed by the Nameless | — | 13 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
@@ -267,7 +267,7 @@
 | dm-41 | The Under-vaults | — | 14 | ☑ |
 | dm-42 | Urlurtsu Nurn | — | 7 | ☑ |
 | dm-43 | An Article Missing | — | 15 | ☑ |
-| dm-45 | An Unexpected Outpost | — | 13 | ☑ |
+| dm-45 | An Unexpected Outpost | — | 14 | ☑ |
 | dm-46 | Aware of their Ways | — | 7 | ☑ |
 | dm-50 | Cunning Foes | — | 8 | ☑ |
 | dm-51 | Doubled Vigilance | — | 18 | ☑ |
@@ -309,13 +309,13 @@
 | dm-116 | Armory | — | 10 | ☑ |
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
-| dm-119 | Barrow-blade | — | 11 | ☑ |
+| dm-119 | Barrow-blade | — | 12 | ☑ |
 | dm-120 | Choice of Lúthien | — | 14 | ☑ |
 | dm-121 | Crown of Flowers | — | 8 | ☑ |
 | dm-123 | Dark Numbers | — | 15 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
-| dm-129 | Fifteen Birds in Five Firtrees | — | 14 | ☑ |
+| dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
 | dm-130 | Fireworks | — | 19 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 14 | ☑ |
 | dm-134 | Hall of Fire | — | 13 | ☑ |
@@ -324,7 +324,7 @@
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
 | dm-143 | The Hunt | — | 18 | ☑ |
-| dm-145 | Into Dark Tunnels | — | 8 | ☑ |
+| dm-145 | Into Dark Tunnels | — | 9 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
@@ -491,7 +491,7 @@
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 16 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
-| le-185 | Forced March | — | 7 | ☑ |
+| le-185 | Forced March | — | 8 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-190 | Heralded Lord | — | 10 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
@@ -761,7 +761,7 @@
 | tw-5 | Ambusher | — | 3 | ☑ |
 | tw-6 | Arouse Denizens | — | 9 | ☑ |
 | tw-7 | Arouse Minions | — | 10 | ☑ |
-| tw-008 | — | — | 13 | ☑ |
+| tw-008 | — | — | 14 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |
 | tw-011 | — | — | 14 | ☑ |
@@ -977,7 +977,7 @@
 | tw-247 | Gollum’s Fate | — | 4 | ☑ |
 | tw-248 | Great Ship | — | 12 | ☑ |
 | tw-249 | Great-road | — | 8 | ☑ |
-| tw-250 | Great-shield of Rohan | — | 11 | ☑ |
+| tw-250 | Great-shield of Rohan | — | 12 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-252 | Halfling Stealth | — | 4 | ☑ |
 | tw-253 | Halfling Strength | — | 14 | ☑ |
@@ -1212,7 +1212,7 @@
 | wh-87 | Half-orcs | — | 10 | ☑ |
 | wh-89 | Keys to the White Towers | — | 10 | ☑ |
 | wh-90 | Bow of Alatar | — | 13 | ☑ |
-| wh-91 | The Great Hunt | — | 14 | ☑ |
+| wh-91 | The Great Hunt | — | 16 | ☑ |
 | wh-92 | Huntsman’s Garb | — | 14 | ☑ |
 | wh-93 | Join the Hunt | — | 14 | ☑ |
 | wh-94 | Oromë’s Warders | — | 20 | ☑ |

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.132.0 — 2026-08-26
+
+The Great Hunt fixed, Forewarned Is Forearmed UI, and h2 AI stops camping at Minas Tirith
+
+### Game Engine
+
+- The Great Hunt now awards kill MP for defeated creatures and honors multi-attack, attacker-chooses and tap-cancel in its attacks (#2827, #2828)
+- Assassin no longer splits strikes across characters under Forewarned Is Forearmed + Rank upon Rank (#2826)
+- Grant-extra-M/H-phase resource short events are routed through the chain of effects (#2825)
+- Fifteen Birds' play-short-event fallback is gated on its cancel-attack when-clause (#2839)
+- Great-shield of Rohan is no longer playable from hand as a strike event (#2836)
+- An Unexpected Outpost can fetch agent characters again (#2829)
+- Item-attached permanent events are no longer orphaned when their host item is stored (#2838)
+- Undrafted wizard copies removed from the game no longer count as an eliminated avatar (#2830)
+
+### Web Client
+
+- Rendered the missing Forewarned Is Forearmed attack-choice UI (#2831)
+- Granted actions for stored (MP pile) cards are now clickable (#2834)
+- Opponent movement path readout shows all legs of a starter-movement site path (#2832)
+- Deck editor pool browser excludes items that cannot start in a company (#2833)
+
+### AI
+
+- h2 `computeReach` recognizes starter-movement shortcuts to havens, so wounded companies detour to heal instead of camping (#2835)
+
 ## 0.131.0 — 2026-08-25
 
 Free Council fixes: live corruption checks, turn-end sweep on Council call, and step 8 deck exhaustion
