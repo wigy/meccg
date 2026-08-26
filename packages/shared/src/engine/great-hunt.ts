@@ -33,10 +33,14 @@
  *    discards are revealed or offered.
  *
  * Both attack modes reference the creature in place (deck/discard) via its
- * instance id and read its stats from the card definition, never moving it —
- * `great-hunt-attack` is not one of the attack-source types finalization
- * disposes of, so the creature stays where it is and is neither discarded nor
- * awarded as a trophy.
+ * instance id and read its stats from the card definition — it is never
+ * moved into the attacking player's `cardsInPlay`, so the generic
+ * creature-attack disposal in `combat-finalize.ts` (which only inspects
+ * `cardsInPlay`) never finds it. A dedicated `great-hunt-attack` block there
+ * instead disposes of it directly from the deck/discard pile: a defeated
+ * creature moves to the defender's kill pile for marshalling points (CoE
+ * rule 964, unless detainment), while an undefeated one is simply left where
+ * it already was.
  */
 import type { GameState } from '../index.js';
 import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId } from '../types/common.js';

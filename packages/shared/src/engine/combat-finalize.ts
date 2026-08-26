@@ -449,6 +449,43 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
+  // The Great Hunt (wh-91): the revealed/discarded creature attacks "in
+  // place" out of the opponent's own play deck or discard pile — never moved
+  // into the attacker's cardsInPlay, so the generic creature-attack disposal
+  // above never finds it. CoE rule 964 still governs a defeated attack: it
+  // belongs in the defending player's kill pile for marshalling points
+  // (unless detainment — CoE 3.II.3 — in which case it's discarded with no
+  // kill-MP). An undefeated attack leaves the creature exactly where it
+  // already was — rule 964's "immediately discarded" is already satisfied by
+  // its resting place.
+  if (allDefeated && combat.attackSource.type === 'great-hunt-attack') {
+    const ghCreatureId = combat.attackSource.creatureInstanceId;
+    const atkIdxG = getPlayerIndex(state, combat.attackingPlayerId);
+    const defIdxG = getPlayerIndex(state, combat.defendingPlayerId);
+    const ghCreatureCard = findById(newPlayers[atkIdxG].discardPile, ghCreatureId)
+      ?? findById(newPlayers[atkIdxG].playDeck, ghCreatureId);
+    if (ghCreatureCard) {
+      newPlayers[atkIdxG] = {
+        ...newPlayers[atkIdxG],
+        discardPile: newPlayers[atkIdxG].discardPile.filter(c => c.instanceId !== ghCreatureId),
+        playDeck: newPlayers[atkIdxG].playDeck.filter(c => c.instanceId !== ghCreatureId),
+      };
+      if (combat.detainment && !playerHasKillMpExemption(state, state.players[defIdxG])) {
+        newPlayers[atkIdxG] = {
+          ...newPlayers[atkIdxG],
+          discardPile: [...newPlayers[atkIdxG].discardPile, ghCreatureCard],
+        };
+        logDetail(`The Great Hunt: all strikes defeated (detainment) — creature discarded instead of kill pile (§3.II.3)`);
+      } else {
+        newPlayers[defIdxG] = {
+          ...newPlayers[defIdxG],
+          killPile: [...newPlayers[defIdxG].killPile, ghCreatureCard],
+        };
+        logDetail(`The Great Hunt: all strikes defeated — creature moved to defender's kill pile`);
+      }
+    }
+  }
+
   // Long Dark Reach (dm-70): the named creature attacks "in place" out of the
   // card-player's own play deck — never moved into the attacker's
   // cardsInPlay, so the generic creature-attack disposal above never finds
@@ -1252,8 +1289,9 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   // The Great Hunt (wh-91): after a reveal-sequence attack finalizes, advance
   // the reveal queue — initiate the next queued creature's attack or complete
-  // the process (reshuffling the opponent play deck). The creature that just
-  // attacked was never moved out of its pile, so nothing is disposed here.
+  // the process (reshuffling the opponent play deck). Disposal of the
+  // creature that just attacked (kill pile if defeated, left in place
+  // otherwise) already happened above.
   if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
     stateAfterCombat = advanceGreatHuntReveal(stateAfterCombat, combat.attackSource.greatHuntInstanceId);
   }
