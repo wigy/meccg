@@ -148,6 +148,25 @@ describe('An Unexpected Outpost (dm-45)', () => {
     expect(afterPass.players[1].discardPile.map(c => c.instanceId)).toContain(cardId);
   });
 
+  test('agent character cards in sideboard are eligible for fetch (treated as hazards)', () => {
+    const WORMTONGUE = 'dm-27' as CardDefinitionId;
+    const state = buildAnUnexpectedOutpostMH({ sideboard: [WORMTONGUE] });
+    const cardId = handCardId(state, HAZARD_PLAYER);
+    const wormtongueId = state.players[1].sideboard[0].instanceId;
+
+    const afterPlay = dispatch(state, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: cardId,
+      targetCompanyId: P1_COMPANY,
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const fetchActions = viableActions(afterChain, PLAYER_2, 'fetch-from-pile');
+    expect(fetchActions).toHaveLength(1);
+    expect(actionAs<FetchFromPileAction>(fetchActions[0].action).cardInstanceId).toBe(wormtongueId);
+  });
+
   test('non-hazard cards in sideboard are not eligible for fetch', () => {
     const state = buildAnUnexpectedOutpostMH({ sideboard: [ARAGORN] });
     const cardId = handCardId(state, HAZARD_PLAYER);

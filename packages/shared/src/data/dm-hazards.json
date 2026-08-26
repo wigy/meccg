@@ -17,12 +17,21 @@
         "to": "deck",
         "shuffleAfter": true,
         "filter": {
-          "cardType": {
-            "$in": [
-              "hazard-event",
-              "hazard-creature"
-            ]
-          }
+          "$or": [
+            {
+              "cardType": {
+                "$in": [
+                  "hazard-event",
+                  "hazard-creature"
+                ]
+              }
+            },
+            {
+              "keywords": {
+                "$includes": "agent"
+              }
+            }
+          ]
         },
         "count": 1
       },
@@ -36,12 +45,21 @@
         "to": "deck",
         "shuffleAfter": true,
         "filter": {
-          "cardType": {
-            "$in": [
-              "hazard-event",
-              "hazard-creature"
-            ]
-          }
+          "$or": [
+            {
+              "cardType": {
+                "$in": [
+                  "hazard-event",
+                  "hazard-creature"
+                ]
+              }
+            },
+            {
+              "keywords": {
+                "$includes": "agent"
+              }
+            }
+          ]
         },
         "count": 1,
         "when": {
