@@ -29,6 +29,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   document.querySelectorAll('.great-hunt-choice-btn').forEach(b => b.remove());
   document.querySelectorAll('.hunt-target-choice-btn').forEach(b => b.remove());
   document.querySelectorAll('.influence-overflow-discard-btn').forEach(b => b.remove());
+  document.querySelectorAll('.transfer-returned-item-btn').forEach(b => b.remove());
   document.querySelectorAll('.cvcc-attack-btn').forEach(b => b.remove());
 
   // Spectators never act: hide both the pass button and the "Waiting…" box
@@ -153,6 +154,42 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         discardBtn.textContent = `Remove ${charName ?? discardAction.characterInstanceId as string}`;
         discardBtn.onclick = () => onAction(discardAction);
         document.getElementById('visual-panel')?.appendChild(discardBtn);
+      }
+      return;
+    }
+
+    // Call of Home / Pilfer Anything Unwatched (tw-18, as-33): a character
+    // returned to hand may have one held item transferred to a company-mate
+    // (`transfer-returned-item`) instead of it staying discarded. Like the
+    // three choices above, declining is not a privileged default — the
+    // player must actively choose which mate (if any) receives the item —
+    // so it is deliberately absent from the pass-like whitelist. Render one
+    // button per item/mate pair plus a "Leave Discarded" button rather than
+    // falling through to the "no pass action" branch below, which would hide
+    // the panel entirely while these actions are viable — bug report
+    // fee86d3b1b398160 (game mt90y8eu-u0ndem, seq 52): "Game froze after
+    // opponent successfully played Call of Home on my Círdan. No option to
+    // move game state forward."
+    const transferReturnedItemEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'transfer-returned-item');
+    if (transferReturnedItemEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of transferReturnedItemEvals) {
+        const transferAction = ea.action;
+        if (transferAction.type !== 'transfer-returned-item') continue;
+        const transferBtn = document.createElement('button');
+        transferBtn.className = 'enter-site-btn transfer-returned-item-btn';
+        if (transferAction.itemInstanceId && transferAction.targetCharacterId) {
+          const itemDefId = appState.lastInstanceLookup(transferAction.itemInstanceId);
+          const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
+          const targetDefId = appState.lastInstanceLookup(transferAction.targetCharacterId);
+          const targetName = targetDefId ? cardPool[targetDefId as string]?.name : undefined;
+          transferBtn.textContent = `Give ${itemName ?? transferAction.itemInstanceId as string} to ${targetName ?? transferAction.targetCharacterId as string}`;
+        } else {
+          transferBtn.textContent = 'Leave Discarded';
+        }
+        transferBtn.onclick = () => onAction(transferAction);
+        document.getElementById('visual-panel')?.appendChild(transferBtn);
       }
       return;
     }
