@@ -2256,7 +2256,45 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -1,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "target.race": "dunadan" },
+            { "$not": { "target.skills": { "$includes": "ranger" } } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "inPlay": "Doors of Night" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -1,
+        "target": "all-characters",
+        "when": {
+          "$and": [
+            { "target.race": { "$in": ["man", "dunadan"] } },
+            { "inPlay": "Doors of Night" }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-08-27",
     "text": "Environment. The prowess of each non-ranger Dúnadan is modified by -1.Additionally, if Doors of Night is in play, the prowesses of all attacks are modified by +1 and the prowess of each Man and Dúnadan is modified by -1.Cannot be duplicated."
   },
   {
