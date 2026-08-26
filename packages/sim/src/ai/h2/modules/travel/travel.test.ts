@@ -10,7 +10,9 @@
 
 import { describe, expect, test } from 'vitest';
 import { computeLegalActions, loadCardPool } from '@meccg/shared';
-import type { GameAction } from '@meccg/shared';
+import type { CompanyId, GameAction } from '@meccg/shared';
+import { ROUTE_STEP } from '../../core/plan.js';
+import type { Plan, PlanStep } from '../../core/plan.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import type { ModuleContext } from '../../core/types.js';
 import { computeStanding } from '../../services/standing.js';
@@ -243,5 +245,68 @@ describe('a destination\'s own automatic attacks', () => {
     const toShadowHold = travelModule.evaluate(planTo(context, actions, 'Dead Marshes'), context)!;
     const text = JSON.stringify(toShadowHold.rationale);
     expect(text).toContain('automatic attacks');
+  });
+});
+
+describe('a detour to a starter-movement-adjacent haven', () => {
+  // Regression: a company at Minas Tirith (tw-412) with a wounded character
+  // and a committed resource-play plan sat still for turns 18-26 of a real
+  // game (bug report, game mt7a24d0-qcbgun, stateSeq 1077) — `plan-movement`
+  // to Lórien (tw-408, Minas Tirith's own `nearestHaven`, the closest place
+  // to heal) always scored below `pass`. `travel`'s route-step pricing asks
+  // `computeReach` how likely the company is to still complete the plan after
+  // detouring, and `computeReach` reported the *region graph's* distance
+  // between Minas Tirith (Anórien) and Lórien (Wold & Foothills) — three
+  // regions apart — even though a company at either site reaches the other in
+  // one starter-movement hop, same as the trip that got it there. This priced
+  // the return as needing two region-crossings instead of the one it actually
+  // costs.
+  const COMPANY = 'company-p2-0' as CompanyId;
+  const MINAS_TIRITH = 'tw-412';
+  const LORIEN = 'tw-408';
+
+  test('a nearest-haven detour prices the return as one hop, not the region graph\'s longer path', () => {
+    const cardPool = loadCardPool();
+    const plan: Plan = {
+      id: 'test/plan',
+      module: 'resources',
+      goal: { label: 'play a card at Minas Tirith', source: 'item', mp: 5 },
+      payoffTsd: 5,
+      deadline: 32,
+      requirements: [{
+        kind: 'company-at-site', companyId: COMPANY, siteDefinitionId: MINAS_TIRITH, byTurn: 32,
+      }],
+      steps: [{ label: 'route step', p: 1, owner: 'travel', tag: ROUTE_STEP } satisfies PlanStep],
+    };
+    const action = {
+      type: 'plan-movement', player: 'p2', companyId: COMPANY, destinationSite: 'lorien-inst',
+    } as unknown as GameAction;
+    const context: ModuleContext = {
+      view: {
+        turnNumber: 26,
+        self: {
+          companies: [{
+            id: COMPANY,
+            characters: [],
+            currentSite: { instanceId: 'mt-inst', definitionId: MINAS_TIRITH, status: 'untapped' },
+            destinationSite: null,
+          }],
+          characters: {},
+          hand: [],
+          siteDeck: [{ instanceId: 'lorien-inst', definitionId: LORIEN }],
+        },
+        opponent: {},
+        phaseState: { phase: 'organization' },
+      } as never,
+      cardPool,
+      legalActions: [],
+      tunables: DEFAULT_TUNABLES,
+      standing: {} as never,
+    };
+
+    const probability = travelModule.planStepDelta!(action, plan, plan.steps[0], 0, context);
+    // Same probability a plain one-region-away destination would get — not
+    // the near-zero result the raw three-region graph distance produced.
+    expect(probability).toBeCloseTo(DEFAULT_TUNABLES.planUnroutedReachProbability, 6);
   });
 });

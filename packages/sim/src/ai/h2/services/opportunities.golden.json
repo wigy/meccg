@@ -23,10 +23,10 @@
       "steps": [
         {
           "label": "route to Carn Dûm",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Scroll of Isildur",
@@ -233,10 +233,10 @@
       "steps": [
         {
           "label": "route to Carn Dûm",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Sword of Gondolin",
@@ -997,10 +997,10 @@
       "steps": [
         {
           "label": "route to Henneth Annûn",
-          "p": 0.015625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Rangers of Ithilien",
@@ -1046,10 +1046,10 @@
       "steps": [
         {
           "label": "route to Henneth Annûn",
-          "p": 0.015625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Rangers of Ithilien",
@@ -1258,10 +1258,10 @@
       "steps": [
         {
           "label": "route to Old Forest",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Goldberry",
@@ -2681,10 +2681,10 @@
       "steps": [
         {
           "label": "route to Isle of the Ulond",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Glamdring",
@@ -2723,10 +2723,10 @@
       "steps": [
         {
           "label": "route to Tolfalas",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Glamdring",
@@ -2902,10 +2902,10 @@
       "steps": [
         {
           "label": "route to Carn Dûm",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Scroll of Isildur",
@@ -3112,10 +3112,10 @@
       "steps": [
         {
           "label": "route to Carn Dûm",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Sword of Gondolin",
@@ -3765,10 +3765,10 @@
       "steps": [
         {
           "label": "route to Goblin-gate",
-          "p": 0.0625,
+          "p": 0.25,
           "owner": "travel",
           "tag": "route",
-          "source": "3 region(s) away, at planUnroutedReachProbability per region"
+          "source": "2 region(s) away, at planUnroutedReachProbability per region"
         },
         {
           "label": "still hold Gollum",
