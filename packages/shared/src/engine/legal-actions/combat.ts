@@ -1507,6 +1507,7 @@ function resolveStrikeActions(
   const struckSkills = charData && charDef && isCharacterCard(charDef) ? getEffectiveSkills(state, charData, charDef) : [];
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
+    if (!cardDef || (cardDef.cardType !== 'hero-resource-event' && cardDef.cardType !== 'minion-resource-event') || cardDef.eventType !== 'short') continue;
     const strikeEffect = getCardEffects(cardDef).find(
       (e): e is StrikeModifierEffect => e.type === 'strike-modifier',
     );
