@@ -18,7 +18,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, makeMHState, resetMint, dispatch, viableFor,
+  buildTestState, makeMHState, resetMint, dispatch, resolveChain, viableFor,
   Phase, PLAYER_1, PLAYER_2,
 } from '../test-helpers.js';
 import { Alignment, LORIEN, LEGOLAS } from '../../index.js';
@@ -68,7 +68,7 @@ function movingTo(destination: CardDefinitionId) {
 function offeredExtraMove() {
   let state: GameState = { ...movingTo(CARN_DUM), phaseState: makeMHState({ activeCompanyIndex: 0 }) };
   const fmInst = state.players[0].hand.find(c => c.definitionId === FORCED_MARCH)!.instanceId;
-  state = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst });
+  state = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst }));
   state = dispatch(state, { type: 'pass', player: PLAYER_1 });
   state = dispatch(state, { type: 'pass', player: PLAYER_2 });
   return state;
@@ -97,11 +97,39 @@ describe('le-185 — Forced March', () => {
     expect(plays.length).toBe(0);
   });
 
+  test('is declared on the chain of effects rather than resolving immediately (CoE 9.4/9.5)', () => {
+    // Regression for the "Troll-Chief" bug report (game mt5thy36-dmgviv, seq
+    // 113): the opponent reported the AI granting itself a second
+    // movement/hazard phase "so fast it wasn't visible" — the resource
+    // short event was resolving inline instead of being declared on the
+    // chain of effects, denying the opponent any window to respond (e.g.
+    // with a short-event canceller) before the company was flagged.
+    const state = { ...movingTo(CARN_DUM), phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+    const fmInst = state.players[0].hand.find(c => c.definitionId === FORCED_MARCH)!.instanceId;
+
+    const onChain = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst });
+
+    // A chain is now active and the card rides on it (left the hand) — the
+    // company has NOT been flagged yet.
+    expect(onChain.chain).not.toBeNull();
+    expect(onChain.chain!.entries).toHaveLength(1);
+    expect(onChain.chain!.entries[0].card?.instanceId).toBe(fmInst);
+    expect(onChain.chain!.priority).toBe(PLAYER_2);
+    expect(onChain.players[0].companies[0].extraMHPhasePending).toBeFalsy();
+    expect(onChain.players[0].hand.some(c => c.instanceId === fmInst)).toBe(false);
+
+    // The opponent has chain priority and may respond before it resolves.
+    const oppActions = viableFor(onChain, PLAYER_2)
+      .map(a => a.action)
+      .filter(a => a.type === 'pass-chain-priority');
+    expect(oppActions.length).toBe(1);
+  });
+
   test('resolving Forced March flags the company for an extra M/H phase and discards the card', () => {
     const state = { ...movingTo(CARN_DUM), phaseState: makeMHState({ activeCompanyIndex: 0 }) };
     const fmInst = state.players[0].hand.find(c => c.definitionId === FORCED_MARCH)!.instanceId;
 
-    const after = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst });
+    const after = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst }));
 
     expect(after.players[0].companies[0].extraMHPhasePending).toBe(true);
     expect(after.players[0].hand.some(c => c.instanceId === fmInst)).toBe(false);
@@ -198,7 +226,7 @@ describe('le-185 — Forced March', () => {
       phaseState: makeMHState({ activeCompanyIndex: 0 }),
     };
     const fmInst = state.players[0].hand.find(c => c.definitionId === FORCED_MARCH)!.instanceId;
-    state = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst });
+    state = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst }));
     state = dispatch(state, { type: 'pass', player: PLAYER_1 });
     state = dispatch(state, { type: 'pass', player: PLAYER_2 });
 

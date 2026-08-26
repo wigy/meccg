@@ -22,7 +22,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, makeMHState, resetMint, dispatch, viableFor,
+  buildTestState, makeMHState, resetMint, dispatch, resolveChain, viableFor,
   LEGOLAS, LORIEN,
   Phase, PLAYER_1, PLAYER_2,
 } from '../test-helpers.js';
@@ -72,10 +72,11 @@ function movingTo(destination: CardDefinitionId) {
   };
 }
 
-/** Play Into Dark Tunnels from PLAYER_1's hand. */
+/** Play Into Dark Tunnels from PLAYER_1's hand, resolving the chain of
+ *  effects it is declared on (CoE 9.4/9.5). */
 function playIntoDarkTunnels(state: GameState): GameState {
   const instId = state.players[0].hand.find(c => c.definitionId === INTO_DARK_TUNNELS)!.instanceId;
-  return dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: instId });
+  return resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: instId }));
 }
 
 /** Reach the Under-deeps `extra-mh-move-offer` step: play the event, then both
@@ -137,6 +138,24 @@ describe('dm-145 — Into Dark Tunnels', () => {
       .map(a => a.action)
       .filter(a => a.type === 'play-short-event' && a.cardInstanceId === instId);
     expect(plays.length).toBe(0);
+  });
+
+  test('is declared on the chain of effects rather than resolving immediately (CoE 9.4/9.5)', () => {
+    // Same class of bug as the "Troll-Chief" report (game mt5thy36-dmgviv,
+    // seq 113) fixed for Forced March (le-185): a grant-extra-mh-phase
+    // resource short event must give the opponent a chance to respond
+    // before the company is flagged, not resolve inline at play time.
+    const state = movingTo(THE_UNDER_LEAS);
+    const instId = state.players[0].hand.find(c => c.definitionId === INTO_DARK_TUNNELS)!.instanceId;
+
+    const onChain = dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: instId });
+
+    expect(onChain.chain).not.toBeNull();
+    expect(onChain.chain!.entries).toHaveLength(1);
+    expect(onChain.chain!.entries[0].card?.instanceId).toBe(instId);
+    expect(onChain.chain!.priority).toBe(PLAYER_2);
+    expect(onChain.players[0].companies[0].extraMHPhasePending).toBeFalsy();
+    expect(onChain.players[0].hand.some(c => c.instanceId === instId)).toBe(false);
   });
 
   test('resolving it flags the company for an Under-deeps extra phase and discards the card', () => {

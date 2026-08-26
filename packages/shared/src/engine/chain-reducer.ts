@@ -4397,6 +4397,58 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
+  // Quick le-202, World Gnawed by the Nameless as-110): a resource short
+  // event that flags the target company so that once its current move
+  // commits, `advanceAfterCompanyMH` offers it another movement/hazard
+  // phase. Routes through the chain (see handlePlayResourceShortEvent) and
+  // resolves here once both players pass priority — CoE 9.4/9.5 gives the
+  // opponent a chance to respond (e.g. cancel the event) before the company
+  // is flagged.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const card = entry.card;
+    const def = defById(current, card.definitionId);
+    const grantExtraMHPhase = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').GrantExtraMHPhaseEffect => e.type === 'grant-extra-mh-phase',
+    );
+    const targetCompanyId = entry.payload.targetCompanyId;
+    if (grantExtraMHPhase && targetCompanyId) {
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+      const pendingValue = grantExtraMHPhase.movement === 'under-deeps' ? 'under-deeps' as const : true;
+      logDetail(`${cardName}: chain resolves grant-extra-mh-phase — flagging company ${targetCompanyId as string} for an extra ${pendingValue === 'under-deeps' ? 'Under-deeps ' : ''}movement/hazard phase this turn`);
+      const spentCard = toCardInstance(card);
+      // "Return this card to your hand" (World Gnawed by the Nameless as-110):
+      // the spent event goes back to its owner's hand instead of the discard
+      // pile, so it can be replayed in a later M/H phase this turn.
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        hand: grantExtraMHPhase.returnToHand ? [...p.hand, spentCard] : p.hand,
+        discardPile: grantExtraMHPhase.returnToHand ? p.discardPile : [...p.discardPile, spentCard],
+        companies: p.companies.map(c => c.id === targetCompanyId ? { ...c, extraMHPhasePending: pendingValue } : c),
+      }));
+      if (grantExtraMHPhase.returnToHand) {
+        logDetail(`${cardName}: returned to its owner's hand`);
+      }
+      // Companion keyed-attacks-normal effect (as-110): "All hazard creatures
+      // the company faces this turn keyed to Shadow-holds attack normally,
+      // not as detainment" — a turn-scoped constraint on the target company.
+      const keyedNormal = getCardEffects(def).find(
+        (e): e is import('../types/effects.js').KeyedAttacksNormalEffect => e.type === 'keyed-attacks-normal',
+      );
+      if (keyedNormal) {
+        logDetail(`${cardName}: attacks keyed to [${keyedNormal.siteTypes.join(', ')}] against company ${targetCompanyId as string} are normal (not detainment) this turn`);
+        current = addConstraint(current, {
+          source: card.instanceId,
+          sourceDefinitionId: card.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'company', companyId: targetCompanyId },
+          kind: { type: 'keyed-attacks-normal', siteTypes: keyedNormal.siteTypes },
+        });
+      }
+    }
+  }
+
   // `play-flag: remove-from-game` — "Remove this card from the game." A hazard
   // short event is discarded at play time, so once its own chain entry resolves
   // un-negated the spent card moves on from the declaring player's discard pile

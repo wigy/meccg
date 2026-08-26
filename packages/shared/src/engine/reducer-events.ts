@@ -502,6 +502,26 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     });
   }
 
+  // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
+  // Quick le-202, World Gnawed by the Nameless as-110): must be declared on
+  // the chain of effects (CoE 9.4/9.5) so the opponent has a chance to
+  // respond before the target company is flagged for its extra
+  // movement/hazard phase. The legal-action emitter has already verified the
+  // M/H window and the destination requirement; the flag (and the
+  // return-to-hand / keyed-attacks-normal variants) are applied once the
+  // chain resolves — see the `grant-extra-mh-phase` block in
+  // `chain-reducer.ts`.
+  const grantExtraMHPhaseEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').GrantExtraMHPhaseEffect => e.type === 'grant-extra-mh-phase',
+  );
+  if (grantExtraMHPhaseEffect && state.phaseState.phase === Phase.MovementHazard) {
+    const company = player.companies[state.phaseState.activeCompanyIndex];
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'extra M/H phase', {
+      type: 'short-event',
+      targetCompanyId: company?.id,
+    });
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent
@@ -547,53 +567,6 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       discardPile: [...p.discardPile, handCard],
     }));
     return { state: flagCouncilCall(afterDiscard, action.player, 'opponent') };
-  }
-
-  // grant-extra-mh-phase (Forced March le-185, Bridge tw-202, Leg It Double
-  // Quick le-202): flag the active company so that once its current move
-  // commits, `advanceAfterCompanyMH` offers it another movement/hazard phase.
-  // The legal-action emitter has already verified the M/H window and the
-  // destination requirement, so resolution simply sets the flag and discards
-  // the spent event.
-  const grantExtraMHPhase = def.effects?.find(
-    (e): e is import('../types/effects.js').GrantExtraMHPhaseEffect => e.type === 'grant-extra-mh-phase',
-  );
-  if (grantExtraMHPhase && state.phaseState.phase === Phase.MovementHazard) {
-    const companyIndex = state.phaseState.activeCompanyIndex;
-    const pendingValue = grantExtraMHPhase.movement === 'under-deeps' ? 'under-deeps' as const : true;
-    logDetail(`${def.name}: granting company (index ${companyIndex}) an extra ${pendingValue === 'under-deeps' ? 'Under-deeps ' : ''}movement/hazard phase this turn`);
-    // "Return this card to your hand" (World Gnawed by the Nameless as-110):
-    // the spent event goes back to its owner's hand instead of the discard
-    // pile, so it can be replayed in a later M/H phase this turn.
-    const afterFlag = updatePlayer(state, playerIndex, p => ({
-      ...p,
-      hand: grantExtraMHPhase.returnToHand ? p.hand : newHand,
-      discardPile: grantExtraMHPhase.returnToHand ? p.discardPile : [...p.discardPile, handCard],
-      companies: p.companies.map((c, idx) => idx === companyIndex ? { ...c, extraMHPhasePending: pendingValue } : c),
-    }));
-    if (grantExtraMHPhase.returnToHand) {
-      logDetail(`${def.name}: returned to its owner's hand`);
-    }
-    // Companion keyed-attacks-normal effect (as-110): "All hazard creatures
-    // the company faces this turn keyed to Shadow-holds attack normally, not
-    // as detainment" — a turn-scoped constraint on the target company.
-    const keyedNormal = def.effects?.find(
-      (e): e is import('../types/effects.js').KeyedAttacksNormalEffect => e.type === 'keyed-attacks-normal',
-    );
-    const targetCompany = afterFlag.players[playerIndex].companies[companyIndex];
-    if (keyedNormal && targetCompany) {
-      logDetail(`${def.name}: attacks keyed to [${keyedNormal.siteTypes.join(', ')}] against company ${targetCompany.id as string} are normal (not detainment) this turn`);
-      return {
-        state: addConstraint(afterFlag, {
-          source: handCard.instanceId,
-          sourceDefinitionId: handCard.definitionId,
-          scope: { kind: 'turn' },
-          target: { kind: 'company', companyId: targetCompany.id },
-          kind: { type: 'keyed-attacks-normal', siteTypes: keyedNormal.siteTypes },
-        }),
-      };
-    }
-    return { state: afterFlag };
   }
 
   // Apply play-target tap cost (e.g. Stealth taps the chosen scout). The

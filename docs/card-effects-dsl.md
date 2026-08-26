@@ -13494,9 +13494,14 @@ Behaviour: the card is offered during the play-hazards step by
 `extraMHPhaseResourceActions` (`legal-actions/movement-hazard.ts`) only when the
 active company is moving and its destination meets the requirements; it is
 excluded from the generic resource-short-event path
-(`heroResourceShortEventActions`). Resolving it (`handlePlayResourceShortEvent`,
-`reducer-events.ts`) sets `extraMHPhasePending` on the active company. After the
-company commits its move (`endCompanyMH`), `advanceAfterCompanyMH`
+(`heroResourceShortEventActions`). Per CoE 9.4/9.5, playing it declares an
+entry on the chain of effects rather than resolving inline
+(`handlePlayResourceShortEvent`, `reducer-events.ts`, routing through
+`routeShortEventToChain`) so the opponent has a chance to respond before the
+company is flagged; once both players pass priority, the chain resolver (the
+`grant-extra-mh-phase` block in `chain-reducer.ts`) sets `extraMHPhasePending`
+on the target company. After the company commits its move (`endCompanyMH`),
+`advanceAfterCompanyMH`
 (`mh-hazard-play.ts`) consumes the flag and enters the dedicated
 `extra-mh-move-offer` step: the active player either chooses a new destination
 reachable from the current site (`extra-mh-move`, `handleExtraMHMoveOffer`
