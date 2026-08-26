@@ -35,6 +35,7 @@ import { computeLegalActions, Phase, SiteType } from '../../index.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../index.js';
 
 const RANK_UPON_RANK = 'dm-80' as CardDefinitionId;
+const FOREWARNED_IS_FOREARMED = 'dm-132' as CardDefinitionId;
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('Assassin (tw-8)', () => {
@@ -758,6 +759,97 @@ describe('Assassin (tw-8)', () => {
     expect(combat.strikeAssignments).toHaveLength(3);
     expect(combat.strikeAssignments.every(sa => sa.characterId === aragornCharId)).toBe(true);
     expect(combat.strikeAssignments.every(sa => sa.excessStrikes === 1)).toBe(true);
+  });
+
+  test('Forewarned Is Forearmed + Rank upon Rank together still force all strikes onto one character (bug report regression)', () => {
+    // Bug report: with both Rank upon Rank and Forewarned Is Forearmed in
+    // play, Assassin's remaining (isolated) attack still picked up RoR's +1
+    // strike, but forceSingleTarget was cleared because the reduction logic
+    // gated on the *reduced* attack count (1) instead of the creature's own
+    // printed multi-attack count (3). That let the attacker assign the two
+    // strikes of this single attack to two different characters (e.g. a
+    // strike-shield ally and then the shielded character behind it) instead
+    // of forcing both onto the same character as Assassin requires.
+    const rankInPlay: CardInPlay = {
+      instanceId: 'rank-1' as CardInstanceId,
+      definitionId: RANK_UPON_RANK,
+      status: CardStatus.Untapped,
+    };
+    const fiaInPlay: CardInPlay = {
+      instanceId: 'fia-1' as CardInstanceId,
+      definitionId: FOREWARNED_IS_FOREARMED,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          cardsInPlay: [fiaInPlay],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [ASSASSIN],
+          siteDeck: [RIVENDELL],
+          cardsInPlay: [rankInPlay],
+        },
+      ],
+    });
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...state, phaseState: mhState };
+
+    const assassinId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: assassinId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    // Reduced to a single isolated attack (Forewarned), but still forced to
+    // one character (Assassin's own restriction) with RoR's boost folded in
+    // as a same-character excess strike, not a second, separately-assignable
+    // strike.
+    expect(afterChain.combat!.isolated).toBe(true);
+    expect(afterChain.combat!.uncancelable).toBe(true);
+    expect(afterChain.combat!.forceSingleTarget).toBe(true);
+    expect(afterChain.combat!.strikesTotal).toBe(1);
+    expect(afterChain.combat!.strikeProwess).toBe(12);
+    expect(afterChain.combat!.excessStrikesPerAttack).toBe(1);
+
+    // Defender passes cancel-window (Forewarned's attack cannot be canceled
+    // anyway), attacker assigns the strike to Aragorn.
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
+    const assignResult = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+
+    // Exactly one assignment, carrying the excess strike against the SAME
+    // character — never a second assignment against a different character.
+    const combat = assignResult.combat!;
+    expect(combat.strikeAssignments).toHaveLength(1);
+    expect(combat.strikeAssignments[0].characterId).toBe(aragornCharId);
+    expect(combat.strikeAssignments[0].excessStrikes).toBe(1);
   });
 
   test('canceling 2 of 3 attacks then defeating the 3rd does NOT award kill MP (bug report regression)', () => {
