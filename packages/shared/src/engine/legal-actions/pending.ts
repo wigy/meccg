@@ -43,6 +43,7 @@ import { characterPossessions, constraintFromCard } from '../pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
+import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
@@ -3509,6 +3510,40 @@ export function revealHazardsChoiceActions(
   }
 
   actions.push({ action: { type: 'pass', player: actor }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `play-or-discard-fetched-item` resolution is
+ * pending (Dwarven Ring of Bávor's Tribe tw-214): the found item must be
+ * played immediately or discarded — no other action is offered.
+ *
+ * Reuses {@link playResourcesActions} in full (the ordinary site-phase
+ * play-resources legal-action computer, which the item is already eligible
+ * under since the fetch filtered on `playableAtBearerSite`) and narrows the
+ * result to just this one card instance, so every existing item-play
+ * precedent (recipient choice, site-tap gates, duplication limits, etc.)
+ * applies unchanged. A `discard-card` action for the same instance is
+ * always offered alongside — covering both the player's free choice to
+ * decline and the case where no untapped character can carry the item.
+ */
+export function playOrDiscardFetchedItemActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'play-or-discard-fetched-item') return [];
+  const { cardInstanceId } = top.kind;
+  const actions: EvaluatedAction[] = [];
+
+  if (state.phaseState.phase === Phase.Site) {
+    const playActions = playResourcesActions(state, actor, state.phaseState).filter(
+      ea => ea.viable && 'cardInstanceId' in ea.action && ea.action.cardInstanceId === cardInstanceId,
+    );
+    actions.push(...playActions);
+  }
+
+  actions.push({ action: { type: 'discard-card', player: actor, cardInstanceId }, viable: true });
   return actions;
 }
 

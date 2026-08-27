@@ -1280,6 +1280,36 @@ export interface PendingResolution {
         readonly defendingPlayerId: PlayerId;
         /** The Long Dark Reach event instance (for logging / attackSource attribution). */
         readonly sourceInstanceId: CardInstanceId;
+      }
+    | {
+        /**
+         * A card fetched to hand by an `enqueue-pending-fetch` with
+         * `mustPlayOrDiscard: true` must be resolved before anything else:
+         * play it immediately at the bearer's site, or discard it. Blocks
+         * every other action for the actor in the meantime (Shape A — "the
+         * only legal actions are this resolution's actions"). Resolved by
+         * either an ordinary `play-hero-resource` action naming
+         * {@link cardInstanceId} (falls through to the normal site-phase
+         * handler, which also dequeues this resolution) or a `discard-card`
+         * action naming the same instance. Used by Dwarven Ring of Bávor's
+         * Tribe (tw-214): "Tap a Dwarf bearer to search your play deck for a
+         * greater item playable at the bearer's site. Play this item
+         * immediately or discard; reshuffle the play deck."
+         */
+        readonly type: 'play-or-discard-fetched-item';
+        /** The fetched item now sitting in the actor's hand. */
+        readonly cardInstanceId: CardInstanceId;
+        /** The company whose site phase hosted the search, if resolvable (for logging). */
+        readonly companyId?: CompanyId;
+        /**
+         * Corruption check enqueued on this bearer once the play-or-discard
+         * choice resolves (CoE precedent: the check follows resolution of
+         * the found item, not the search itself).
+         */
+        readonly postCorruptionCheck?: {
+          readonly characterId: CardInstanceId;
+          readonly modifier: number;
+        };
       };
 }
 

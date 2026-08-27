@@ -25,7 +25,7 @@ import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRac
 import { matchesCondition, matchesContext } from '../effects/index.js';
 import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext, resolveAttackerChosenStrikeReduction } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
-import { enqueueCorruptionCheck } from './pending.js';
+import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { revealInstances, forgetDeckReveals } from './visibility.js';
 import { evaluateRules } from '../rules/evaluator.js';
 import { STAGE_RESOURCE_DRAFT_RULES } from '../rules/definitions/character-draft.js';
@@ -6875,7 +6875,27 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   }
   if (remaining.length === 0) {
     if (current.skipDiscard) {
-      if (current.postCorruptionCheck) {
+      // mustPlayOrDiscard (Dwarven Ring of Bávor's Tribe tw-214): the found
+      // item cannot simply sit in hand — block every other action until the
+      // actor plays it at the bearer's site or discards it. The corruption
+      // check (if any) is deferred to fire once that choice resolves,
+      // instead of immediately after the fetch.
+      if (fetchTo === 'hand' && current.effect.type === 'fetch-to-deck' && current.effect.mustPlayOrDiscard) {
+        const bearerId = current.postCorruptionCheck?.characterId;
+        const bearerCompany = bearerId ? findCharacterCompany(player.companies, bearerId) : undefined;
+        logDetail(`Fetch: ${def?.name ?? '?'} (${fetchedCard.instanceId as string}) must be played or discarded immediately`);
+        newState = enqueueResolution(newState, {
+          source: current.cardInstanceId,
+          actor: action.player,
+          scope: { kind: 'phase', phase: newState.phaseState.phase },
+          kind: {
+            type: 'play-or-discard-fetched-item',
+            cardInstanceId: fetchedCard.instanceId,
+            ...(bearerCompany ? { companyId: bearerCompany.id } : {}),
+            ...(current.postCorruptionCheck ? { postCorruptionCheck: current.postCorruptionCheck } : {}),
+          },
+        });
+      } else if (current.postCorruptionCheck) {
         newState = enqueueCorruptionCheck(newState, {
           source: current.cardInstanceId,
           actor: action.player,

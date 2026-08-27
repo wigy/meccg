@@ -3073,6 +3073,31 @@ your discard pile for any one item, ally, or faction playable at his current
 site. You may bring it to your hand. The site must be in Arthedain, Cardolan,
 Rhudaur, or The Shire."
 
+**`mustPlayOrDiscard: true`** (only meaningful with `fetchTo: "hand"`) — the
+fetched card cannot simply sit in hand: a `play-or-discard-fetched-item`
+pending resolution blocks *every other action* for the actor (Shape A — see
+`types/pending.ts`) until they either play that specific card via the
+ordinary site-phase item-play flow (a ordinary `play-hero-resource` action
+naming the fetched instance, which falls through to the normal reducer and
+also dequeues the resolution) or discard it (a `discard-card` action naming
+the same instance). Any `postCorruptionCheck` is deferred to fire once that
+choice resolves, instead of immediately after the fetch — CoE precedent has
+the check follow the found item's resolution, not the search itself. If the
+search comes up empty (the actor `pass`es the `fetch-from-pile` step instead
+of picking a card), nothing was fetched to hand, so no blocking resolution is
+created — any `postCorruptionCheck` fires immediately as usual. Implemented
+in `handleFetchFromPile` (`reducer-utils.ts`), the `play-or-discard-fetched-item`
+kind (`types/pending.ts`, `legal-actions/pending.ts`'s
+`playOrDiscardFetchedItemActions`, `pending-reducers.ts`'s
+`applyPlayOrDiscardFetchedItemResolution`). The legal-action side reuses
+`playResourcesActions` (`legal-actions/site.ts`) in full, filtered to the one
+fetched instance, so every existing item-play precedent (recipient choice,
+site-tap gates, duplication limits) applies unchanged; the reducer side calls
+`handleSitePlayHeroResource` (`reducer-site.ts`) directly. Used by Dwarven
+Ring of Bávor's Tribe (tw-214): "Tap a Dwarf bearer to search your play deck
+for a greater item playable at the bearer's site. Play this item immediately
+or discard; reshuffle the play deck."
+
 ```json
 { "type": "grant-action", "action": "fetch-playable-from-discard",
   "cost": { "tap": "self" },
