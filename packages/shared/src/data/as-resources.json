@@ -1084,8 +1084,21 @@
     "eventType": "permanent",
     "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during any player’s turn if a strike against one of your companies from a Ringwraith attack or Nazgûl creature fails. If still in active play following its body check, discard the Ringwraith."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "after-attack",
+        "when": { "attack.ringwraithStrikeFailed": true }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "mount-slain" }
+      }
+    ],
+    "text": "Playable during any player’s turn if a strike against one of your companies from a Ringwraith attack or Nazgûl creature fails. If still in active play following its body check, discard the Ringwraith.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

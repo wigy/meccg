@@ -73,7 +73,7 @@ import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
 import { findHuntCandidates, buildHuntCombat } from './hunt.js';
 import { findLongDarkReachCandidates, buildLongDarkReachCombat } from './long-dark-reach.js';
-import { afterAttackPlayTargets } from './post-attack-play.js';
+import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from './post-attack-play.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 
 /**
@@ -5126,16 +5126,22 @@ export function applyPostAttackPlayOfferResolution(
   }
   const company = player.companies.find(co => co.id === companyId);
   if (!company) return { state, error: `Company ${companyId as string} not found` };
-  if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
-    return { state, error: 'After-attack play requires a target character in the company that faced the attack' };
-  }
 
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'After-attack play card not in hand' };
   const def = defById(state, handCard.definitionId);
   if (!def) return { state, error: 'After-attack play card definition not found' };
-  if (afterAttackPlayTargets(state, player, company, def).every(id => id !== action.targetCharacterId)) {
-    return { state, error: 'Target character is not a legal bearer for this card' };
+
+  // Cards with no character play-target (e.g. Mount Slain as-50) resolve
+  // against a programmatically-found target, not a chosen bearer — no
+  // targetCharacterId is expected.
+  if (afterAttackCharacterPlayTarget(def)) {
+    if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
+      return { state, error: 'After-attack play requires a target character in the company that faced the attack' };
+    }
+    if (afterAttackPlayTargets(state, player, company, def).every(id => id !== action.targetCharacterId)) {
+      return { state, error: 'Target character is not a legal bearer for this card' };
+    }
   }
 
   logDetail(`post-attack-play-offer: playing ${def.name ?? action.cardInstanceId as string} on ${action.targetCharacterId as string}`);

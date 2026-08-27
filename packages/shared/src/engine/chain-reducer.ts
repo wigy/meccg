@@ -3036,6 +3036,8 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         } else {
           logDetail(`"${def?.name ?? '?'}" discard-bearer-corruption: no target character — fizzle`);
         }
+      } else if (effect.apply.type === 'mount-slain') {
+        newState = resolveMountSlain(newState, card, playerIndex);
       }
   }
 
@@ -3141,6 +3143,52 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   newState = fireStageCardPlayedTriggers(newState, playerIndex, def);
 
   return newState;
+}
+
+/**
+ * `mount-slain` self-enters-play orchestrator (Mount Slain as-50). The card
+ * itself is discarded immediately — it never remains in play — and, if the
+ * opponent has a revealed Ringwraith avatar in play ({@link findPlayerAvatar}),
+ * enqueues a standalone body check on it: `onPass` (fails, CoE 3.I.2.1)
+ * eliminates the avatar; `onFail` (survives) discards it anyway per the
+ * card's forced "discard the Ringwraith". No avatar in play → fizzle.
+ */
+function resolveMountSlain(state: GameState, card: CardInstance, ownerIndex: number): GameState {
+  const opponentIndex = ownerIndex === 0 ? 1 : 0;
+  const opponent = state.players[opponentIndex];
+
+  // The card is one-shot and never lingers in play — discard it immediately.
+  const working = updatePlayer(state, ownerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== card.instanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+
+  const avatar = findPlayerAvatar(working, opponent);
+  const avatarDef = avatar ? defById(working, avatar.definitionId) : undefined;
+  if (!avatar || !avatarDef || !isCharacterCard(avatarDef) || avatarDef.race !== Race.Ringwraith) {
+    logDetail(`Mount Slain: opponent has no Ringwraith avatar in play — fizzle`);
+    return working;
+  }
+
+  logDetail(`Mount Slain: forcing a body check on ${avatarDef.name} (body ${avatar.effectiveStats.body}) — discarded if still in play afterward`);
+  return enqueueResolution(working, {
+    source: card.instanceId,
+    actor: opponent.id,
+    scope: { kind: 'phase', phase: working.phaseState.phase },
+    kind: {
+      type: 'dice-check',
+      label: `Mount Slain: ${avatarDef.name} body check`,
+      modifiers: [],
+      threshold: avatar.effectiveStats.body,
+      comparison: 'gt',
+      onPass: { type: 'eliminate-character' },
+      onFail: { type: 'discard-character' },
+      continuation: { kind: 'dequeue-only' },
+      requireTargetPresent: true,
+      targetCharacterId: avatar.instanceId,
+    },
+  });
 }
 
 /**

@@ -48,7 +48,7 @@ import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
-import { afterAttackPlayTargets } from '../post-attack-play.js';
+import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
@@ -3800,14 +3800,28 @@ export function postAttackPlayOfferActions(
       if (!handCard) continue;
       const def = defById(state, handCard.definitionId);
       if (!def) continue;
-      for (const charId of afterAttackPlayTargets(state, player, company, def)) {
-        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+      if (afterAttackCharacterPlayTarget(def)) {
+        for (const charId of afterAttackPlayTargets(state, player, company, def)) {
+          logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event' as const,
+              player: actor,
+              cardInstanceId,
+              targetCharacterId: charId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        // No character play-target (e.g. Mount Slain as-50): the card resolves
+        // against a programmatically-found target, not a chosen bearer.
+        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable (no bearer required)`);
         actions.push({
           action: {
             type: 'play-permanent-event' as const,
             player: actor,
             cardInstanceId,
-            targetCharacterId: charId,
           },
           viable: true,
         });
