@@ -7,6 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
+import type { AttackSource } from '../types/state-combat.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
@@ -6072,6 +6073,49 @@ export function resolveAttackerChoosesDefenders(
   creatureRace: Race | undefined,
 ): boolean {
   return printedRule || globalAttackerChoosesDefenders(state, creatureRace);
+}
+
+/**
+ * True when a `free-strike-assignment` environment effect (Cloudless Day
+ * td-104) is in play, granting the defender free choice of strike targets
+ * for the attack about to begin. Scoped to hazard-creature-sourced attacks
+ * only — `attackSourceType` of `"creature"`, `"on-guard-creature"`, or
+ * `"played-auto-attack"` — the same set `applyTapOnStrikeAssignment`
+ * (`reducer-combat.ts`) uses to mean "hazard creature attack"; a site's own
+ * automatic-attack, an agent, or a CvCC attack never qualifies.
+ *
+ * Called at every hazard-creature-sourced combat-initiation site alongside
+ * {@link resolveAttackerChoosesDefenders}, mirroring how
+ * {@link globalAttackerChoosesDefenders} scans `cardsInPlay` for a global
+ * grant. When true, callers must both skip the attack's own
+ * attacker-chooses-defenders rule and set
+ * `CombatState.defenderFreeStrikeAssignment` so `assignStrikeActions`
+ * (`legal-actions/combat.ts`) drops its untapped-only gate.
+ */
+export function resolveDefenderFreeStrikeAssignment(
+  state: GameState,
+  attackSourceType: AttackSource['type'],
+  creatureRace: Race | undefined,
+): boolean {
+  if (attackSourceType !== 'creature'
+    && attackSourceType !== 'on-guard-creature'
+    && attackSourceType !== 'played-auto-attack') {
+    return false;
+  }
+  const ctx = { attack: { creatureRace } };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'free-strike-assignment') continue;
+        if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+        logDetail(`Free strike assignment granted by "${(def as { name?: string }).name ?? (card.definitionId as string)}" — defender may assign to any character regardless of status`);
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 /**

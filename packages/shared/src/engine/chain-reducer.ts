@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -3729,6 +3729,19 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail('Creature has attacker-chooses-defenders — skipping defender assignment');
   }
 
+  // Cloudless Day (td-104): a `free-strike-assignment` environment grants the
+  // defender free choice of strike targets for this hazard-creature-sourced
+  // attack, overriding the attack's own attacker-chooses-defenders rule.
+  const defenderFreeStrikeAssignment = resolveDefenderFreeStrikeAssignment(
+    state,
+    state.phaseState.phase === 'site' ? 'on-guard-creature' : 'creature',
+    creatureDef.race,
+  );
+  if (defenderFreeStrikeAssignment && attackerChooses) {
+    logDetail('Free strike assignment overrides attacker-chooses-defenders — defender assigns instead');
+  }
+  const effectiveAttackerChooses = attackerChooses && !defenderFreeStrikeAssignment;
+
   // Check for multi-attack combat rule (e.g. Assassin — three attacks of one strike each)
   const multiAttackEffect = creatureDef.effects?.find(
     e => e.type === 'combat-multi-attack',
@@ -4003,14 +4016,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
-    assignmentPhase: (attackerChooses || havenJumpOffers.length > 0 || attackBeginsCorruption) ? 'cancel-window' : 'defender',
+    assignmentPhase: (effectiveAttackerChooses || havenJumpOffers.length > 0 || attackBeginsCorruption) ? 'cancel-window' : 'defender',
     havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
     pendingAttackBeginsCorruption: attackBeginsCorruption ? {
       source: entry.card!.instanceId,
       reason: creatureDef.name,
       modifier: attackBeginsCorruption.modifier,
     } : undefined,
-    attackerChoosesDefenders: attackerChooses ? true : undefined,
+    attackerChoosesDefenders: effectiveAttackerChooses ? true : undefined,
+    defenderFreeStrikeAssignment: defenderFreeStrikeAssignment ? true : undefined,
     detainment: isDetainmentAttack({
       attackEffects: creatureDef.effects,
       attackRace: creatureRace,

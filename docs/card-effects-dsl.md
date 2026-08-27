@@ -11595,7 +11595,43 @@ to this ally as though it were untapped."
 
 ---
 
-### 53a-bis. `company-combat-boost`
+### 53a-bis. `free-strike-assignment`
+
+An **environment** effect: while the carrying card sits in a player's
+`cardsInPlay`, the defender of any **hazard-creature-sourced** attack
+(`attack.source` of `"creature"`, `"on-guard-creature"`, or
+`"played-auto-attack"` — the same set `tap-on-strike-assignment` uses to mean
+"hazard creature attack"; never a site's own automatic-attack, an agent, or a
+CvCC attack) may assign that attack's strikes to **any** character or ally in
+the defending company, regardless of tapped/wounded status, and the attack's
+own `combat-attacker-chooses-defenders` rule (if any) is suppressed for that
+attack — assignment always opens in the defender's own phase instead of a
+cancel-window/attacker phase.
+
+No fields beyond `type` (and the inherited optional `when`, matched against
+`{ attack: { creatureRace } }`).
+
+```json
+{ "type": "free-strike-assignment" }
+```
+
+Resolved by `resolveDefenderFreeStrikeAssignment` (`reducer-utils.ts`),
+mirroring `resolveAttackerChoosesDefenders`'s global-`cardsInPlay` scan, at
+every hazard-creature-sourced combat-initiation site (`chain-reducer.ts`
+`initiateCreatureCombat`, `reducer-site.ts`'s played-auto-attack path). When
+granted, the initiation site both drops its own `attackerChoosesDefenders`
+value and sets `CombatState.defenderFreeStrikeAssignment`, which
+`assignStrikeActions` (`legal-actions/combat.ts`) consults to drop its
+untapped-only gate for characters and allies alike.
+
+Used by Cloudless Day (td-104): "Whenever a company faces a hazard creature
+attack, the defender may choose which characters in the company will be the
+targets of the attack's strikes (regardless of tapped status, wounded status,
+and the normal abilities of the attack)."
+
+---
+
+### 53a-ter. `company-combat-boost`
 
 Played from hand as a resource **short event during combat** (the pre-assignment
 window of the defending company's `assign-strikes` phase). Applies an
