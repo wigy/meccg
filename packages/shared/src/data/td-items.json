@@ -881,8 +881,12 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Only playable at Lórien. +1 direct influence to bearer."
+    "effects": [
+      { "type": "item-play-site", "sites": ["Lórien"] },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1 }
+    ],
+    "text": "Unique. Only playable at Lórien. +1 direct influence to bearer.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",
