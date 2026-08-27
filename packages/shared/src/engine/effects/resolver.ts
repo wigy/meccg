@@ -255,6 +255,19 @@ export interface ResolverContext {
      */
     readonly prowess?: number;
   };
+  /**
+   * The item card whose own effects are currently being collected — set only
+   * for the duration of an item's own `collectFromDef` call inside
+   * `collectCharacterEffects`'s item loop (never leaks onto the bearer's own
+   * effects or other items). Lets a `stat-modifier`'s `when` gate on the
+   * item's own restore state, e.g. Ringil (td-184) pairing a pre-restore
+   * `+1 prowess (max 8)` with a post-restore `+5 prowess (max 11)`:
+   * `{ "item.restored": { "$ne": true } }` / `{ "item.restored": true }`.
+   */
+  readonly item?: {
+    /** {@link ItemInPlay.restored} — true once the item has been "restored". */
+    readonly restored?: boolean;
+  };
   /** Additional context properties for extensibility. */
   readonly [key: string]: unknown;
 }
@@ -556,7 +569,11 @@ export function collectCharacterEffects(
     const itemDef = resolveDef(state, item.instanceId);
     if (!itemDef) continue;
     const itemResults: CollectedEffect[] = [];
-    collectFromDef(itemDef, item.instanceId, context, itemResults);
+    // Expose this item's own `restored` flag only while collecting its own
+    // effects (Ringil td-184's pre-/post-restore stat-modifier pair) — never
+    // leaked onto the bearer's own effects or sibling items.
+    const itemContext: ResolverContext = item.restored ? { ...context, item: { restored: true } } : context;
+    collectFromDef(itemDef, item.instanceId, itemContext, itemResults);
     for (const r of itemResults) {
       if (r.effect.type === 'stat-modifier' && r.effect.target === 'company') continue;
       // Company-scoped check-modifiers are re-collected for every company

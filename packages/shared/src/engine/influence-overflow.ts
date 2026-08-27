@@ -72,7 +72,7 @@ function chargesGeneralInfluence(state: GameState, playerId: PlayerId, char: Cha
   const isPrisoner = state.activeConstraints.some(
     c => c.target.kind === 'character'
       && c.target.characterId === char.instanceId
-      && (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed'),
+      && (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed' || c.kind.type === 'character-captured-by-bearer'),
   );
   if (isPrisoner) return false;
   const company = findCharacterCompany(player.companies, char.instanceId);

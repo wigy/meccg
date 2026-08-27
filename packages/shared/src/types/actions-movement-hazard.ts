@@ -191,6 +191,12 @@ export interface PlayHazardAction {
    * chooses which card to sacrifice; the reducer moves it to the discard pile.
    */
   readonly costDiscardInstanceId?: CardInstanceId;
+  /**
+   * For a `swap-new-site` hazard short-event (Winds of Wrath td-82): the site
+   * instance from the hazard player's own location deck chosen to replace the
+   * target company's declared destination site.
+   */
+  readonly replacementSiteInstanceId?: CardInstanceId;
 }
 
 /**
@@ -626,6 +632,23 @@ export interface TapAllyBodyCheckBoostAction {
   /** The player who owns the ally being tapped. */
   readonly player: PlayerId;
   /** The in-play ally being tapped. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * No Better Use (ba-41): offered alongside `body-check-roll` while a CvCC
+ * character body check is pending. Instead of rolling, the roller taps an
+ * untapped character bearing an unused `cvcc-capture-in-lieu-of-body-check`
+ * card to place the opposing character "off to the side" with it.
+ */
+export interface CaptureInLieuOfBodyCheckAction {
+  /** Action discriminant. */
+  readonly type: 'capture-in-lieu-of-body-check';
+  /** The player activating the ability (the body-check roller). */
+  readonly player: PlayerId;
+  /** The bearer character being tapped to activate the ability. */
+  readonly characterId: CardInstanceId;
+  /** The in-play card (attached to the bearer) carrying the effect. */
   readonly cardInstanceId: CardInstanceId;
 }
 

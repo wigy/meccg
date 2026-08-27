@@ -34,7 +34,7 @@ import { companyMovementRestrictions } from '../effects/company-restrictions.js'
 import { logDetail, logHeading } from './log.js';
 import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
-import { grantedActionActivations, buildPlayOptionContext } from './organization.js';
+import { grantedActionActivations, buildPlayOptionContext, playerStateGateMet } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -2489,6 +2489,57 @@ function playHazardsActions(
           }
         }
 
+        // play-condition: player-state — a generic DSL condition evaluated
+        // against the hazard player's own alignment/avatar context (e.g.
+        // Winds of Wrath td-82: "opponent is using the same type of location
+        // deck (minion/hero) as yourself" → `player.sameLocationDeckTypeAsOpponent`).
+        if (!playerStateGateMet(state, player, playerId, def)) {
+          logDetail(`Hazard short-event "${def.name}": play-condition player-state not satisfied`);
+          actions.push({ action, viable: false, reason: `${def.name}: play conditions not met` });
+          continue;
+        }
+
+        // Winds of Wrath (td-82): replace the moving company's destination
+        // site card with one from the hazard player's own location deck.
+        // One action per eligible replacement site left in the hazard
+        // player's siteDeck (both the current destination and the
+        // replacement must satisfy the site-path requirement).
+        const swapNewSiteEff = getCardEffects(def).find(
+          (e): e is import('../../types/effects.js').SwapNewSiteEffect => e.type === 'swap-new-site',
+        );
+        if (swapNewSiteEff) {
+          if (!targetCompany.destinationSite) {
+            logDetail(`Hazard short-event "${def.name}": company is not moving — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name}: company must be moving to a new site` });
+            continue;
+          }
+          const destDef = resolveSiteDef(state, targetCompany.destinationSite.instanceId);
+          const destPath = destDef?.sitePath ?? [];
+          const destMatches = swapNewSiteEff.requiresDestinationSitePathIncludes.some(rt => destPath.includes(rt));
+          if (!destMatches) {
+            logDetail(`Hazard short-event "${def.name}": destination site path [${destPath.join(',')}] doesn't include a required region type`);
+            actions.push({ action, viable: false, reason: `${def.name}: destination site's path doesn't match` });
+            continue;
+          }
+          let offeredAny = false;
+          for (const siteCard of player.siteDeck) {
+            const siteDef = defById(state, siteCard.definitionId);
+            if (!siteDef || !isSiteCard(siteDef)) continue;
+            if (!swapNewSiteEff.requiresDestinationSitePathIncludes.some(rt => siteDef.sitePath.includes(rt))) continue;
+            logDetail(`Hazard short-event "${def.name}": may replace destination with "${siteDef.name}" from own location deck`);
+            actions.push({
+              action: { ...action, replacementSiteInstanceId: siteCard.instanceId },
+              viable: true,
+            });
+            offeredAny = true;
+          }
+          if (!offeredAny) {
+            logDetail(`Hazard short-event "${def.name}": no eligible replacement site in own location deck`);
+            actions.push({ action, viable: false, reason: `${def.name}: no eligible site in your location deck` });
+          }
+          continue;
+        }
+
         // Duplication-limit: non-viable if max copies already on chain / in play / still in effect
         {
           let blocked = false;
@@ -2946,6 +2997,106 @@ function playHazardsActions(
           if (!offeredAny) {
             logDetail(`Hazard short-event "${def.name}" not playable — no eligible untapped agent with an opponent faction playable at its site`);
             actions.push({ action, viable: false, reason: 'No eligible untapped agent with an opponent faction playable at its site' });
+          }
+          continue;
+        }
+
+        // Good Sense Revolts (dm-61): two mutually exclusive modes on one
+        // card. Mode A grants any of the hazard player's own untapped agents
+        // a rule-10.14 influence attempt against an opponent's ally, faction,
+        // or character (no `agentFilter` restriction, unlike dm-96). Mode B
+        // banks a one-shot +N influence check-modifier on one of the hazard
+        // player's own agents (any tap status), for later consumption by that
+        // agent's own influence attempt (native ability or a granted one).
+        const multiInfluenceGrantEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').AgentTapMultiInfluenceEffect => e.type === 'agent-tap-multi-influence',
+        );
+        const influenceBoostEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').AgentInfluenceBoostEffect => e.type === 'agent-influence-boost',
+        );
+        if (multiInfluenceGrantEffect || influenceBoostEffect) {
+          if (isMinionOrBalrog(resourcePlayer)) {
+            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+            continue;
+          }
+          let offeredAny = false;
+
+          if (multiInfluenceGrantEffect) {
+            for (const agent of player.agents) {
+              if (agent.character.status !== CardStatus.Untapped) continue;
+              const agentDef = defById(state, agent.character.definitionId);
+              if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+              const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+              const companySiteName = companyTargetSiteName(state, targetCompany, mhState.destinationSiteName);
+              const isAgentAtCompanySite = agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
+
+              if (isAgentAtCompanySite) {
+                for (const oppCharId of targetCompany.characters) {
+                  const oppChar = resourcePlayer.characters[oppCharId];
+                  if (!oppChar) continue;
+                  const oppCharDef = defById(state, oppChar.definitionId);
+                  if (!oppCharDef || !isCharacterCard(oppCharDef)) continue;
+                  if (isAvatarCharacter(oppCharDef)) continue;
+
+                  if (multiInfluenceGrantEffect.targetKinds.includes('character')) {
+                    logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" may influence character "${oppCharDef.name}"`);
+                    actions.push({
+                      action: { ...action, agentInstanceId: agent.character.instanceId, targetCharacterId: oppCharId },
+                      viable: true,
+                    });
+                    offeredAny = true;
+                  }
+
+                  if (multiInfluenceGrantEffect.targetKinds.includes('ally')) {
+                    for (const allyInst of oppChar.allies) {
+                      const allyDef = defById(state, allyInst.definitionId);
+                      if (!allyDef || !isAllyCard(allyDef)) continue;
+                      logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" may influence ally "${allyDef.name}"`);
+                      actions.push({
+                        action: { ...action, agentInstanceId: agent.character.instanceId, targetAllyId: allyInst.instanceId },
+                        viable: true,
+                      });
+                      offeredAny = true;
+                    }
+                  }
+                }
+              }
+
+              if (multiInfluenceGrantEffect.targetKinds.includes('faction') && agentSiteName !== null) {
+                for (const cip of resourcePlayer.cardsInPlay) {
+                  const factionDef = defById(state, cip.definitionId);
+                  if (!factionDef || !isFactionCard(factionDef)) continue;
+                  if (!(factionDef.playableAt ?? []).some(e => 'site' in e && e.site === agentSiteName)) continue;
+                  if (factionDef.noOpponentInfluence) continue;
+                  logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" (at ${agentSiteName}) may influence faction "${factionDef.name}"`);
+                  actions.push({
+                    action: { ...action, agentInstanceId: agent.character.instanceId, targetFactionInstanceId: cip.instanceId },
+                    viable: true,
+                  });
+                  offeredAny = true;
+                }
+              }
+            }
+          }
+
+          if (influenceBoostEffect) {
+            for (const agent of player.agents) {
+              const agentDef = defById(state, agent.character.definitionId);
+              if (!agentDef || !isCharacterCard(agentDef)) continue;
+              logDetail(`Hazard short-event "${def.name}": may bank an influence boost on agent "${agentDef.name}"`);
+              actions.push({
+                action: { ...action, agentInstanceId: agent.character.instanceId },
+                viable: true,
+              });
+              offeredAny = true;
+            }
+          }
+
+          if (!offeredAny) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no eligible agent`);
+            actions.push({ action, viable: false, reason: 'No eligible agent' });
           }
           continue;
         }

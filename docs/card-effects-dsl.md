@@ -545,6 +545,26 @@ attempts this turn by any of your characters."
              "check": "influence", "value": 2, "scope": "turn", "target": "player" } }
 ```
 
+The same `target: "player"` `check-modifier` shape also works for
+`check: "corruption"`, and additionally accepts `autoPass` and
+`constraintWhen` (mirroring the character-targeted Ancient Black Axe as-122
+shape — see the `check-modifier` section above). With no `lasting` flag it is
+**consumed by the first matching corruption check**, so it reads as "any ONE
+corruption check by any of your characters (matching `constraintWhen`) is
+automatically successful" — no character needs to be chosen up front.
+`constraintWhen` is evaluated against `{ target: { siteType } }`, built from
+the *checking* character's current site. Used by Nenya (tw-291): "Any one
+corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold
+[{D}] is automatically successful."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier",
+             "check": "corruption", "value": 0, "autoPass": true, "scope": "until-cleared",
+             "target": "player",
+             "constraintWhen": { "$not": { "target.siteType": { "$in": ["shadow-hold", "dark-hold"] } } } } }
+```
+
 A **player-scoped, ongoing** influence `check-modifier` is instead expressed as
 a bare `check-modifier` effect carrying `"target": "player-in-play"`, borne by a
 bare permanent-event in the influencing player's `cardsInPlay` (not attached to
@@ -3392,6 +3412,20 @@ Apply types:
   `reducer-events.ts` (`applyShortEventOnEntersPlay`) and `reducer-utils.ts`
   (`handleFetchFromPile`, `resolvePendingEffect`).
 
+  For short events, an outer `when` on the `on-event` entry itself (sibling of
+  `apply`, not inside it) gates whether that entry's `enqueue-corruption-check`
+  fires at all — evaluated against `{ target: { race, siteType } }`, built from
+  the target character's definition and current company site. Two
+  mutually-exclusive entries can thus pick a different `modifier` depending on
+  the target's race (*Deeper Shadow*: skip for a Ringwraith) or current site
+  type (*Nenya* tw-291: -1 if Galadriel is at a Haven [{H}], else -3):
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "when": { "target.siteType": "haven" },
+    "apply": { "type": "enqueue-corruption-check", "modifier": -1 } }
+  ```
+
   **Permanent events** (character-attached): targets `action.targetCharacterId`
   by default. When `apply.target === "company-member"`, the reducer targets the
   first character in the bearer's company whose card definition matches
@@ -4260,6 +4294,54 @@ it, it never enters that site: during the site phase the remaining
 automatic-attack sequence for the company is abandoned via
 `SitePhaseState.autoAttacksSkipped`, which also suppresses race-duplicated
 attacks (*The Moon Is Dead*) and is cleared when the next company is selected.
+
+**Cross-player new-site swap (`swap-new-site`).** A hazard short-event may
+substitute a different site card, drawn from the **hazard player's own**
+location deck, for a moving company's already-declared `destinationSite` —
+overriding CoE 2.II.7's normal rule that a company's new site always comes
+from its own owner's location deck. Used by *Winds of Wrath* (td-82):
+"Playable if Doors of Night is in play and opponent is using the same type of
+location deck (minion/hero) as yourself. Replace the new site card of a
+moving company with a Coastal Sea [{c}] in its site path with a card from
+your location deck that has a Coastal Sea [{c}] in its site path."
+
+```json
+{ "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" },
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.sameLocationDeckTypeAsOpponent": true } },
+{ "type": "swap-new-site", "requiresDestinationSitePathIncludes": ["coastal"] }
+```
+
+`requiresDestinationSitePathIncludes` gates both sides of the swap: the
+company's current `destinationSite` must have a static `sitePath` including
+at least one of the listed {@link RegionType}s, and so must the replacement.
+`player.sameLocationDeckTypeAsOpponent` (new `player-state` context field,
+`buildPlayerStateContext`, `legal-actions/organization.ts`) is `true` when
+`isMinionOrBalrog` agrees for the player and their opponent — CoE
+1.4.W1/R1: two Wizards or two Ringwraiths always match; a Fallen-wizard or
+Balrog opponent only matches the corresponding minion/hero side of the
+`isMinionOrBalrog` split, since their location decks straddle both (1.4.F1/B1)
+in a way a single boolean can't fully capture — the primary two-player
+hero-mirror / minion-mirror case these two cards were designed for reads
+correctly regardless. The `player-state` play-condition is now also wired
+into the M/H phase's play-hazards step for hazard short-events (previously
+only resource short-events read it) — `playerStateGateMet`, imported into
+`legal-actions/movement-hazard.ts` from `organization.ts`.
+
+`swapNewSiteActions` (inlined in the hazard short-event branch of
+`legal-actions/movement-hazard.ts`, guarded by a `swap-new-site` effect on the
+card) offers one `play-hazard` action per eligible site left in the hazard
+player's own `siteDeck`, each carrying its instance in the action's
+`replacementSiteInstanceId`. `handleSwapNewSite` (`mh-hazard-play.ts`) then:
+returns the company's original destination site, untapped, to its own owner's
+location deck (mirroring `clearPlannedMovement` — it was only declared, never
+entered), pulls the chosen replacement out of the hazard player's own
+location deck as the company's new untapped `destinationSite`, and refreshes
+the M/H phase state's cached `destinationSiteName` / `destinationSiteType`
+(both already resolved earlier in the phase, well before play-hazards) to
+describe the replacement. `resolvedSitePath` (the region types the company
+actually traveled through) is a movement-path record, not a site-identity
+one, so the swap leaves it untouched.
 
 Example (Wild Hounds — discard):
 
@@ -17013,6 +17095,100 @@ done if his company is at a tapped site." — `playableAt: [{ "region":
 "Northern Rhovanion" }]` (the Noble Steed wh-33 region-`playableAt`
 precedent).
 
+### 80. `cvcc-capture-in-lieu-of-body-check` + `eliminate-captured-character` (No Better Use)
+
+Carried by a permanent-event attached to the controller's own character (a
+`play-target: "character"` resource-event played during the organization
+phase, e.g. No Better Use ba-41). Grants a one-time activated ability offered
+*alongside* the mandatory `body-check-roll` action whenever a **company-vs-
+company** character body check is pending against the opposing company: the
+bearer's controller may tap the bearer instead of rolling, placing the
+opposing character "off to the side" with this card. The card's own site-
+phase `grant-action` (documented below) later either releases the capture
+automatically (bearer wounded/leaves play) or lets the bearer eliminate it
+outright at a named site.
+
+```json
+{ "type": "cvcc-capture-in-lieu-of-body-check" }
+```
+
+Engine mechanics (`engine/no-better-use.ts`, `legal-actions/combat.ts`
+`captureInLieuOfBodyCheckActions`, `combat-actions.ts`
+`handleCaptureInLieuOfBodyCheck`):
+
+- **Offering the choice.** While `combat.isCvCC` and `combat.bodyCheckTarget`
+  is `'character'` or `'attacker-character'`, the same roller who would
+  otherwise face `body-check-roll` (CoE 3.I.1: whichever side's strike put the
+  opposing side's character in jeopardy) may instead activate this ability
+  from any untapped character of theirs bearing an unused instance of the
+  effect. Ally targets are exempt — the card text says "opponent's
+  character" — so the action is withheld when the pending check targets an
+  ally rather than a character.
+- **Bypassing the roll.** Activating the ability skips `body-check-roll`
+  entirely: the current strike is marked `resolved: true, result: 'captured'`
+  (the same disposition `take-prisoner` uses) so `combat-finalize.ts`'s
+  wound-triggered passives never fire on it, and combat advances via the
+  normal `advanceStrikeOrFinalize` machinery.
+- **The capture itself** (`captureCharacterInLieuOfBodyCheck`) reuses the
+  Press-gang (ba-22) "off to the side" shape: every item/ally/hazard on the
+  captured character is discarded ("discard all cards on opponent's
+  character"), its followers revert to general influence (CoE 2.II.2.2.3,
+  same CRF treatment as Press-gang), it is dropped from every company, and
+  the bare card is marked with a `character-captured-by-bearer` active
+  constraint (negative MP, 0 GI, never untaps/heals — treated identically to
+  Press-gang's `character-pressed` kind by `recompute-derived.ts` /
+  `reducer-untap.ts` / `influence-overflow.ts`, which score and lock it with no new
+  code). Unlike Press-gang's constraint, this one additionally records
+  `bearerCharacterId` / `bearerOwnerId` / `bearerLastKnownSite` — the
+  capturing character and its company's site at capture time — read only by
+  this mechanism (Press-gang's own constraints leave these fields unset).
+- **One-time use.** A persistent `granted-action-used` constraint
+  (`actionId: "no-better-use-capture"`, scope `until-cleared` — never
+  cleared) is recorded on the host the moment it captures, so the ability can
+  never fire again from that card instance, even after the capture is later
+  released.
+- **Automatic release** (`sweepNoBetterUseCaptures`, a `postReduce` sweep
+  alongside `sweepSetAside`/`sweepPressGang`): every pass, each capture's
+  recorded bearer is checked. Untapped and un-wounded — the bearer's company's
+  current site is refreshed into `bearerLastKnownSite` (so a later release
+  uses the bearer's *current* site, tracking its movement) and the capture
+  continues. Wounded (`CardStatus.Inverted`) — the host card is discarded from
+  the bearer's items and the captured character is released. Not found at all
+  (discarded/eliminated by *any* removal path, covered uniformly with no
+  per-seam interception) — released using the last refreshed site snapshot.
+  Release forms a fresh one-character company for the captured character at
+  that site, with no planned movement — "opponent's character then forms a
+  company at your character's current or new site."
+
+```json
+{
+  "type": "grant-action",
+  "action": "no-better-use-eliminate",
+  "anyPhase": true,
+  "cost": { "tap": "bearer", "discard": "self" },
+  "when": { "$and": [{ "phase": "site" }, { "site.name": "Shelob’s Lair" }] },
+  "apply": { "type": "eliminate-captured-character" }
+}
+```
+
+**`eliminate-captured-character` grant-action apply.** Eliminates the
+character currently held by the activating source card (found via its
+`character-captured-by-bearer` constraint — already stripped of every possession at
+capture time, so only the bare card is relocated) and credits its kill
+marshalling points to the activating player, then removes the constraint.
+Implemented in `grant-action-apply.ts`, using the same `no-better-use.ts`
+lookup/removal helpers the automatic-release sweep uses. Combined with
+`anyPhase: true` + `when: { "phase": "site", "site.name": "..." }` (the
+documented pattern for restricting a grant-action to a single phase — see
+§7's "Gating a grant-action to one phase via `when`") and a composable
+`cost: { "tap": "bearer", "discard": "self" }`, this realizes "during the
+site phase at Shelob's Lair, your character may tap and discard this card to
+eliminate opponent's character — whom you then receive as kill marshalling
+points." The `siteCtx` object exposed to every `grant-action` `when` clause
+(`buildGrantActionContext`, `legal-actions/organization.ts`) now also carries
+`name` (the current site's printed name), previously absent — the first
+grant-action to gate on a specific site by name rather than type/keyword.
+
 ### 79. `restore-item` grant-action + `restored-item-stats` + `face-all-strikes-option` (Horn of Defiance)
 
 Three primitives backing the Reforging family of hoard items — Horn of
@@ -17139,3 +17315,73 @@ modifiers, already read independently by `resolveStrikeCore`
 (`combat-actions.ts`) — the same fields Risky Blow (tw-319) uses for its flat
 +3/-1 — so no new resolution code was needed, only new callers of the
 existing fields.
+
+### 80. `force-agent-attack` + `discard-unrevealed-on-guard` (Ordered to Kill)
+
+Two global, unconditional rules-changing effects for an in-play permanent
+event (either player's `cardsInPlay`), used together by Ordered to Kill
+(dm-152): "Each face up agent must attack if a company enters a site where
+he is located. Additionally, any unrevealed on-guard cards are discarded
+instead of being returned to their owner's hand. Discard when any play deck
+is exhausted. Cannot be duplicated."
+
+```json
+{ "type": "force-agent-attack" },
+{ "type": "discard-unrevealed-on-guard" },
+{ "type": "duplication-limit", "scope": "game", "max": 1 },
+{ "type": "on-event", "event": "play-deck-exhausted",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+- **`force-agent-attack`** — while any in-play copy is present, the hazard
+  player's usual option to pass on an agent attack (CoE 2.V.iii, "the hazard
+  player *may* declare that an agent … will attack") is removed whenever a
+  **revealed** agent stands at the company's current site and has not yet
+  attacked this site phase. Detected by `agentAttackIsMandatory`
+  (`reducer-utils.ts`, scans both players' `cardsInPlay`) and consulted by
+  `declareAgentAttackActions` (`legal-actions/site.ts`): the loop that builds
+  `declare-agent-attack` actions now also sets a `mandatoryAttackDeclared`
+  flag whenever it offers an action for a *face-up* agent while the effect is
+  active, and the trailing `pass` action is only pushed when that flag is
+  clear. Face-down agents are unaffected — revealing one to attack remains
+  optional, and pass stays available when only face-down options exist.
+  (The engine currently supports declaring at most one agent attack per site
+  visit regardless of this effect — a pre-existing limitation of the
+  declare-agent-attack → resolve-attacks → play-resources step chain, which
+  does not loop back for a second agent. `force-agent-attack` only removes
+  the choice to skip the single attack opportunity the engine already offers;
+  it does not attempt to force a second, simultaneous face-up agent at the
+  same site to also attack in the same visit.)
+- **`discard-unrevealed-on-guard`** — while any in-play copy is present,
+  `returnOnGuardCardsToHand` (`reducer-site.ts`, site-phase cleanup) routes
+  every company's leftover `onGuardCards` to the hazard player's **discard
+  pile** instead of their hand. Detected by `unrevealedOnGuardDiscarded`
+  (`reducer-utils.ts`), mirroring `agentAttackIsMandatory`'s scan shape. Every
+  card still sitting in `onGuardCards` at cleanup time is by definition
+  unrevealed (a reveal always removes the card from `onGuardCards`), so no
+  extra revealed/unrevealed filtering is needed at the call site.
+- The remaining two clauses reuse shipped primitives, following the Prone to
+  Violence (ba-42) precedent: `duplication-limit` (scope `game`, max 1) for
+  "Cannot be duplicated", and `on-event: play-deck-exhausted` → `move` self to
+  `discard` for "Discard when any play deck is exhausted".
+**`item.restored` resolver context (Ringil td-184)** — `collectCharacterEffects`
+(`effects/resolver.ts`) sets `item: { restored: true }` on the context only
+while collecting that specific item's own effects (an item's `restored` flag
+never leaks onto the bearer's own effects or sibling items), so a
+`stat-modifier`'s `when` can pair a pre-restore and a post-restore variant of
+the same bonus. Ringil ("Warrior only: +1 prowess (to a maximum of 8) …
+Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5
+prowess (to a maximum of 11)") declares:
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": { "$ne": true } } ] } },
+{ "type": "stat-modifier", "stat": "prowess", "value": 5, "max": 11,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": true } ] } },
+{ "type": "grant-action", "action": "restore-item",
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "restore-item" } },
+{ "type": "restored-item-stats", "marshallingPoints": 4, "corruptionPoints": 3 }
+```

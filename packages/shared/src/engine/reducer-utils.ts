@@ -1656,6 +1656,47 @@ export function siteTypeForcesAutoAttacksNormal(
 }
 
 /**
+ * True when some in-play permanent-event (either player's `cardsInPlay`)
+ * carries a `force-agent-attack` effect — Ordered to Kill (dm-152): "Each
+ * face up agent must attack if a company enters a site where he is
+ * located." While true, `declareAgentAttackActions` omits the `pass` action
+ * whenever a revealed agent stands at the company's current site and has not
+ * yet attacked this site phase, forcing the hazard player to declare its
+ * attack instead of skipping it.
+ */
+export function agentAttackIsMandatory(state: GameState): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type === 'force-agent-attack') return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * True when some in-play permanent-event (either player's `cardsInPlay`)
+ * carries a `discard-unrevealed-on-guard` effect — Ordered to Kill (dm-152):
+ * "any unrevealed on-guard cards are discarded instead of being returned to
+ * their owner's hand." While true, `returnOnGuardCardsToHand` routes
+ * leftover on-guard cards to the hazard player's discard pile instead of
+ * their hand at site-phase cleanup.
+ */
+export function unrevealedOnGuardDiscarded(state: GameState): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type === 'discard-unrevealed-on-guard') return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * The `<wizard>-specific` avatar name a site definition binds to (e.g.
  * "Radagast" for Rhosgobel's `radagast-specific` keyword), or `null` when the
  * site carries no such keyword. Kept local to avoid a module cycle with
@@ -6148,6 +6189,23 @@ export function resolveDefenderFreeStrikeAssignment(
  * `fields.attackerChoosesDefenders` are both final — see
  * {@link resolveAttackerChosenStrikeReduction}.
  */
+/**
+ * Prowess penalty for a strike's excess strikes (CoE 3.iv.2/3.V.ii: -1 per
+ * excess strike allocated to a character facing more than one strike this
+ * attack). Normally this is a flat `excessStrikes`, but
+ * `CombatState.firstExcessStrikePenalty` (from a `modify-attack`
+ * `firstExcessStrikePenalty`, e.g. Pierced by Many Wounds dm-79) overrides
+ * the first excess strike's cost while leaving every further excess strike
+ * on the same character at -1. Shared by the reducer (`combat-strike.ts`,
+ * the actual resolution) and the legal-action "need" preview
+ * (`legal-actions/combat.ts`) so both agree on the same number.
+ */
+export function excessStrikePenalty(combat: CombatState, excessStrikes: number): number {
+  if (excessStrikes <= 0) return 0;
+  if (combat.firstExcessStrikePenalty === undefined) return excessStrikes;
+  return combat.firstExcessStrikePenalty + (excessStrikes - 1);
+}
+
 export function makeCombatState(
   state: GameState,
   fields: Omit<CombatState, 'strikeAssignments' | 'currentStrikeIndex' | 'phase' | 'bodyCheckTarget'>,

@@ -1455,6 +1455,30 @@ function corruptionCheckEntryActions(
     }
   }
 
+  // Player-scoped corruption check-modifier constraints (Nenya tw-291: "Any
+  // one corruption check made by a character not in a Shadow-hold [{S}] or
+  // Dark-hold [{D}] is automatically successful"): applies to any corruption
+  // check by a character of the targeted player. The `when` (constraintWhen)
+  // narrows by the checking character's current site type. `autoPass`
+  // constraints contribute 0 here — the unconditional-success override is
+  // applied after the roll, in the corruption-check resolver.
+  {
+    const siteDef = checkCompany?.currentSite ? defById(state, checkCompany.currentSite.definitionId) : undefined;
+    const siteCtx = { target: { siteType: (siteDef as { siteType?: string } | undefined)?.siteType } } as Record<string, unknown>;
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'corruption') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== playerId) continue;
+      if (constraint.kind.when && !matchesCondition(constraint.kind.when, siteCtx)) {
+        logDetail(`Player-wide corruption check-modifier from constraint ${constraint.id} does not apply to ${charName} (site condition not met)`);
+        continue;
+      }
+      totalModifier += constraint.kind.value;
+      logDetail(`Player-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)}${constraint.kind.autoPass ? ' (auto-pass)' : ''} from constraint ${constraint.id}`);
+    }
+  }
+
   // Build the source-card keyword list so item check-modifiers can gate
   // on what produced the check (e.g. Wizard's Staff keys off source.keywords
   // $includes 'spell'). The source is the PendingResolution's source card.
@@ -1963,6 +1987,11 @@ function applyOneConstraint(
       // so it never surfaces in company-driven action menus. Its negative MP / 0
       // GI / no-untap are enforced in `recompute-derived.ts` / `reducer-untap.ts`.
       return base;
+    case 'character-captured-by-bearer':
+      // No Better Use (ba-41): same off-to-the-side shape as `character-pressed`
+      // (see that case) — the held character is in no company, so it never
+      // surfaces in company-driven action menus.
+      return base;
     case 'tidings-attacks-queue':
       // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to
       // chain successive Tidings of Bold Spies attacks — no broad legal-action
@@ -2198,7 +2227,12 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
-type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string }; altEventMode?: string };
+type CreaturePlayAction = {
+  targetCompanyId?: CompanyId;
+  cardInstanceId?: CardInstanceId;
+  keyedBy?: { method: string };
+  altEventMode?: 'short-event' | 'permanent-event';
+};
 
 /**
  * Shared post-filter for constraints restricting hazard-creature plays against
@@ -2207,10 +2241,12 @@ type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardIn
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
  *
- * A dual-mode card (`creature-alt-event`, e.g. Akhôrahil tw-4) offered here
- * with `altEventMode` set is being played as a hazard *event*, not as a
- * creature — CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct
- * categories, so a "no creature hazards" restriction must not reach it.
+ * A dual-mode card (`creature-alt-event`, e.g. Ren the Unclean tw-83 or
+ * Akhôrahil tw-4) offered here with `altEventMode` set is being played in its
+ * short-event or permanent-event mode as a hazard *event*, not as a creature —
+ * CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct categories,
+ * so creature-only constraints (e.g. Stealth's `no-creature-hazards-on-company`)
+ * must not reach it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,

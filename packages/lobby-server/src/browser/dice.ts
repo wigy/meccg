@@ -251,6 +251,14 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
   animateDie(dieEl1, die1, 0);
   animateDie(dieEl2, die2, 100);
 
+  // Hold the landed result on screen before sliding to the tray, so players
+  // get a moment of anticipation instead of the result vanishing right away.
+  // A double-1 ("snake eyes", the worst possible roll) gets an even longer
+  // hold — that's the exact moment the reporter wanted to savor rather than
+  // have flash by.
+  const isSnakeEyes = die1 === 1 && die2 === 1;
+  const resultHoldMs = isSnakeEyes ? 3800 : 2800;
+
   // After roll animation, slide dice toward the tray, then settle into it
   setTimeout(() => {
     const trayId = variant === 'black' ? 'self-dice-tray' : 'opponent-dice-tray';
@@ -292,7 +300,7 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
       restoreDice();
       finishAnimation();
     }
-  }, 1800);
+  }, resultHoldMs);
 }
 
 /**

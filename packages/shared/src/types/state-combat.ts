@@ -778,6 +778,16 @@ export interface CombatState {
    */
   readonly bodyCheckModifier?: number;
   /**
+   * When set (from a `modify-attack` `firstExcessStrikePenalty`, e.g.
+   * Pierced by Many Wounds dm-79), overrides the prowess penalty for a
+   * defending character's *first* excess strike this attack. Normally an
+   * excess strike costs a flat -1 prowess per {@link StrikeAssignment.excessStrikes};
+   * with this set, `resolveStrikeCore`/`resolveStrikeCvCC` charge this amount
+   * for the first excess strike and -1 for each further one on the same
+   * character (total for N excess strikes: `firstExcessStrikePenalty + (N - 1)`).
+   */
+  readonly firstExcessStrikePenalty?: number;
+  /**
    * When true, every strike of this attack automatically resolves as
    * defeated (as if parried), regardless of the roll. Two sources:
    * - Set at combat initiation from a consumed `defeat-attack-strikes`
