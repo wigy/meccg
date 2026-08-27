@@ -464,9 +464,23 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "body-check-modifier",
+        "value": -1,
+        "scope": "bearer-combat",
+        "when": {
+          "bodyCheck.fromFailedStrike": true
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
       }
     ],
-    "text": "Hoard item. -1 body to all failed strikes against bearer. Cannot be duplicated on a given character."
+    "text": "Hoard item. -1 body to all failed strikes against bearer. Cannot be duplicated on a given character.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",
