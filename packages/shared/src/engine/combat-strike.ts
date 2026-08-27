@@ -30,7 +30,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
-import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, getOnEventEffects, isSelfDiscardMove, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from './recompute-derived.js';
 import { enemyRaceContext } from './effects/index.js';
@@ -179,6 +179,73 @@ export function creatureDefenderProwessDelta(
 }
 
 /**
+ * Sums the `prowessModifier` of every passive `modify-attack` (`scope:
+ * "current-strike"`, `passive: true`) effect carried by items attached to
+ * the struck character. Unlike the activated `current-strike` path (which
+ * requires a `tap-item-for-strike` action), a passive modifier applies to
+ * every strike against its bearer automatically, with no cost and no
+ * consumption. Added directly to the defender's own effective prowess for
+ * the strike — mathematically identical to reducing the attack's prowess,
+ * since the strike is decided by comparing the two. Used by Morgul-blade
+ * (le-205): "Each strike against the Ringwraith receives ... -1 prowess."
+ * Returns 0 when the character bears no such item.
+ */
+function passiveModifyAttackProwessBonus(
+  state: GameState,
+  charData: CharacterInPlay,
+): number {
+  let total = 0;
+  for (const item of charData.items) {
+    const itemDef = defById(state, item.definitionId);
+    if (!itemDef) continue;
+    for (const effect of getCardEffects(itemDef)) {
+      if (effect.type !== 'modify-attack' || effect.scope !== 'current-strike' || !effect.passive) continue;
+      if (typeof effect.prowessModifier !== 'number') continue;
+      logDetail(`Passive modify-attack prowess bonus ${formatSignedNumber(effect.prowessModifier)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)}`);
+      total += effect.prowessModifier;
+    }
+  }
+  return total;
+}
+
+/**
+ * Discards items on the struck character carrying `on-event:
+ * "bearer-strike-defeated"` with a self-discard `move` apply, immediately
+ * after a strike against them fails (was not wounded — success or tie,
+ * including a forced strike defeat). Fires per-strike rather than at combat
+ * finalization so a later strike within the same attack no longer benefits
+ * from an item discarded by an earlier one. Used by Morgul-blade (le-205)
+ * and The Fiery Blade (wh-44): "Discard ... after a strike against the
+ * Ringwraith fails."
+ */
+function dischargeBearerStrikeDefeatedItems(
+  state: GameState,
+  playerIndex: number,
+  charId: CardInstanceId,
+): GameState {
+  const player = state.players[playerIndex];
+  const charData = player.characters[charId];
+  if (!charData) return state;
+  const itemsToDiscard: ItemInPlay[] = [];
+  for (const item of charData.items) {
+    const itemDef = defById(state, item.definitionId);
+    if (getOnEventEffects(itemDef, 'bearer-strike-defeated').some(e => isSelfDiscardMove(e.apply))) {
+      const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+      logDetail(`bearer-strike-defeated: discarding "${itemName}" from ${charId as string} — a strike against him failed`);
+      itemsToDiscard.push(item);
+    }
+  }
+  if (itemsToDiscard.length === 0) return state;
+  const remainingItems = charData.items.filter(i => !itemsToDiscard.some(d => d.instanceId === i.instanceId));
+  const newDiscard = [...player.discardPile, ...itemsToDiscard.map(toCardInstance)];
+  return updatePlayer(state, playerIndex, p => ({
+    ...p,
+    characters: { ...p.characters, [charId as string]: { ...charData, items: remainingItems } },
+    discardPile: newDiscard,
+  }));
+}
+
+/**
  * Search a character's own allies for one carrying `cancel-prisoner-taking`
  * (`scope: "controlling-character"`) — the ally the player may discard to
  * cancel a prisoner-taking outcome against this character (Noble Hound
@@ -275,6 +342,10 @@ export function resolveStrikeCore(
     logDetail(`Strike event prowess modifier: ${formatSignedNumber(modifyStrikeBonus)}`);
     prowess += modifyStrikeBonus;
   }
+  if (charData && !allyMatch) {
+    const passiveBonus = passiveModifyAttackProwessBonus(state, charData);
+    if (passiveBonus !== 0) prowess += passiveBonus;
+  }
 
   // Roll dice. Reroll mode makes two rolls and keeps the better total; the
   // discarded roll is logged and emitted as an effect so both rolls appear
@@ -354,6 +425,13 @@ export function resolveStrikeCore(
     bodyCheckTarget = combat.creatureBody !== null ? 'creature' : null;
     logDetail(`Forced strike defeat (Liquid Fire) — strike automatically fails${bodyCheckTarget ? ', creature body check pending' : ''}`);
   }
+
+  // Captured before the discard-item/absorb-wound/take-prisoner overrides
+  // below (which only rewrite a 'wounded' result into 'success' via a
+  // *different* item substituting for the wound) — a genuine strike failure
+  // against the defender, for `bearer-strike-defeated` self-discard items
+  // (Morgul-blade le-205, The Fiery Blade wh-44).
+  const strikeFailedAgainstDefender = result === 'success';
 
   // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25,
   // Thief tw-102, Pick-pocket tw-79): on a successful strike the defender is
@@ -591,6 +669,14 @@ export function resolveStrikeCore(
       trollPursePrisoner.siteInstanceId,
     );
     bodyCheckTarget = null;
+  }
+
+  // bearer-strike-defeated: a strike against the defender failed outright —
+  // discard any of the defender's items reacting to that (Morgul-blade
+  // le-205, The Fiery Blade wh-44) immediately, before any later strike of
+  // the same attack is resolved.
+  if (strikeFailedAgainstDefender && charData && !allyMatch) {
+    postPrisonerState = dischargeBearerStrikeDefeatedItems(postPrisonerState, defPlayerIndex, strike.characterId);
   }
 
   // absorb-wound: shield absorbed the strike; transition to shield-discard-roll
@@ -936,6 +1022,7 @@ export function resolveStrikeCvCC(
   if (strike.excessStrikes > 0) defProwess -= strike.excessStrikes;
   defProwess += (strike.supportCount ?? 0);
   defProwess += (strike.strikeProwessBonus ?? 0);
+  defProwess += passiveModifyAttackProwessBonus(state, defCharData);
 
   // Roll for attacker
   const atkRollResult = roll2d6(state);
@@ -957,7 +1044,7 @@ export function resolveStrikeCvCC(
   ];
 
   // Determine outcome
-  const newPlayers = clonePlayers(state);
+  let newPlayers = clonePlayers(state);
   // Store dice rolls so the UI can display them in the text log
   newPlayers[atkPlayerIdx] = { ...newPlayers[atkPlayerIdx], lastDiceRoll: atkRoll };
   newPlayers[defPlayerIdx] = { ...newPlayers[defPlayerIdx], lastDiceRoll: defRoll };
@@ -1010,6 +1097,18 @@ export function resolveStrikeCvCC(
   if (atkResult === 'wounded') {
     newPlayers[atkPlayerIdx] = updatePlayerCharacterStatus(newPlayers[atkPlayerIdx], strike.attackingCharacterId, CardStatus.Inverted);
     logDetail(`CvCC: attacking character ${atkCharName} is wounded`);
+  }
+
+  // bearer-strike-defeated: the attacker's CvCC strike against the defender
+  // failed (defender won or tied) — discard any reacting items immediately
+  // (Morgul-blade le-205, The Fiery Blade wh-44).
+  if (defResult === 'success') {
+    const dischargedState = dischargeBearerStrikeDefeatedItems(
+      { ...state, players: newPlayers },
+      defPlayerIdx,
+      strike.characterId,
+    );
+    newPlayers = [dischargedState.players[0], dischargedState.players[1]];
   }
 
   const newAssignments = combat.strikeAssignments.map((a, i) =>

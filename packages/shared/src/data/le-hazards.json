@@ -1323,7 +1323,8 @@
       }
     ],
     "text": "Corruption. Playable on a non-Hobbit, non-Wizard, non-Ringwraith character. Target character receives 2 corruption points and makes a corruption check each time a character in his company becomes wounded. During his organization phase, the character may tap to attempt to remove this card. Make a roll—if the result is greater than 4, discard this card. Cannot be duplicated on a given character.",
-    "removalNumber": 4
+    "removalNumber": 4,
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",

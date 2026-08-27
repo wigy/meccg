@@ -48,7 +48,7 @@ import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
-import { afterAttackPlayTargets } from '../post-attack-play.js';
+import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
@@ -2171,7 +2171,7 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
-type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
+type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string }; altEventMode?: string };
 
 /**
  * Shared post-filter for constraints restricting hazard-creature plays against
@@ -2179,6 +2179,11 @@ type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardIn
  * creature against `protectedCompany` passes through untouched; for the rest,
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
+ *
+ * A dual-mode card (`creature-alt-event`, e.g. Akhôrahil tw-4) offered here
+ * with `altEventMode` set is being played as a hazard *event*, not as a
+ * creature — CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct
+ * categories, so a "no creature hazards" restriction must not reach it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,
@@ -2191,6 +2196,7 @@ function filterCreaturePlaysAgainstCompany(
   return base.filter(ea => {
     if (ea.action.type !== 'play-hazard') return true;
     const action = ea.action as CreaturePlayAction;
+    if (action.altEventMode) return true;
     if (action.targetCompanyId !== protectedCompany) return true;
     const cardInstId = action.cardInstanceId;
     if (!cardInstId) return true;
@@ -3794,14 +3800,28 @@ export function postAttackPlayOfferActions(
       if (!handCard) continue;
       const def = defById(state, handCard.definitionId);
       if (!def) continue;
-      for (const charId of afterAttackPlayTargets(state, player, company, def)) {
-        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+      if (afterAttackCharacterPlayTarget(def)) {
+        for (const charId of afterAttackPlayTargets(state, player, company, def)) {
+          logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event' as const,
+              player: actor,
+              cardInstanceId,
+              targetCharacterId: charId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        // No character play-target (e.g. Mount Slain as-50): the card resolves
+        // against a programmatically-found target, not a chosen bearer.
+        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable (no bearer required)`);
         actions.push({
           action: {
             type: 'play-permanent-event' as const,
             player: actor,
             cardInstanceId,
-            targetCharacterId: charId,
           },
           viable: true,
         });

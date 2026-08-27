@@ -3499,6 +3499,29 @@ Apply types:
   `recompute-derived.ts`). The `corruption-check` pending kind gains the same
   `awardKillMpTo` field for hero eliminations by the corruption check itself.
 
+- `mount-slain` -- the bespoke `self-enters-play` orchestrator for Mount Slain
+  (as-50), a resource permanent-event with the combat `after-attack`
+  target-less play window described above (`attack.ringwraithStrikeFailed`
+  gate). It takes no target from the player — "the Ringwraith" is the idiom
+  used throughout the AS/LE/WH pool for the opponent's own singular revealed
+  Ringwraith avatar (Morgul-blade le-205: "your Ringwraith"; Helm of Fear
+  as-126: "the Ringwraith's company"), found programmatically via
+  `findPlayerAvatar` (race `ringwraith`), not necessarily the specific
+  creature/character whose strike triggered the window. On resolution
+  (`resolveMountSlain`, `chain-reducer.ts`): the Mount Slain card is discarded
+  immediately (it never remains in play — `resolvePermanentEvent` placed it
+  bare via `in-play-general`, and this apply removes it right back out to its
+  owner's discard pile); if the opponent has no revealed Ringwraith avatar,
+  the card fizzles there. Otherwise it enqueues a standalone body check (2d6
+  vs the avatar's effective body, rolled by its own controller, comparison
+  `gt` per CoE 3.I.2.1): `onPass` (fails) `eliminate-character`; `onFail`
+  (survives) `discard-character` per the card's forced "discard the
+  Ringwraith" regardless of outcome.
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play", "apply": { "type": "mount-slain" } }
+  ```
+
 - `whip-discipline` -- an `on-event: self-enters-play` apply for a resource
   short event with a character `play-target` (Where There's a Whip le-254:
   "Each tapped character in the bearer's company with a mind and prowess less
@@ -4884,6 +4907,50 @@ Implemented in `engine/legal-actions/combat.ts` (`tapItemForStrikeActions`,
 (`handleTapItemForStrike`, `handleBodyCheckRoll`) and
 `engine/combat-strike.ts` (`resolveStrikeCore`).
 
+**Passive mode** (`"passive": true`, `scope: "current-strike"` only): no
+`cost`, no action, no consumption — the modifier applies automatically to
+every strike whose target is the item's own bearer, for as long as the item
+stays in play. Only `prowessModifier` is honoured (added directly to the
+defender's own effective prowess for the strike, in both `resolveStrikeCore`
+and `resolveStrikeCvCC` — mathematically identical to reducing the attack's
+prowess, since the strike is decided by comparing the two).
+
+```json
+{ "type": "modify-attack", "scope": "current-strike",
+  "passive": true, "prowessModifier": 1 }
+```
+
+Used by Morgul-blade (le-205): "Each strike against the Ringwraith
+receives ... -1 prowess." `bodyModifier` is *not* read in passive mode — a
+passive body reduction against the attacker should instead use
+`body-check-modifier`'s `scope: "bearer-combat"` with
+`when: { "bodyCheck.fromFailedStrike": true }` (§2a), which also covers the
+CvCC `attacker-character` body check this scope does not reach.
+
+Implemented in `engine/combat-strike.ts`
+(`passiveModifyAttackProwessBonus`).
+
+**`bearer-strike-defeated` on-event.** A card carrying an `on-event`
+effect with `event: "bearer-strike-defeated"` and a self-discard `move`
+apply (`{ "type": "move", "select": "self", "from": "self-location", "to":
+"discard" }`) is discarded immediately after a strike against its bearer
+resolves as a genuine parry (success or tie — captured *before* any
+discard-item / absorb-wound / take-prisoner override that substitutes a
+different outcome for what would otherwise have been a wound). Fires
+per-strike, not at combat finalization (contrast `bearer-wounded`), so a
+later strike within the same attack no longer benefits from an item a
+prior strike already discarded. Covers both creature/agent strikes
+(`resolveStrikeCore`) and CvCC (`resolveStrikeCvCC`).
+
+```json
+{ "type": "on-event", "event": "bearer-strike-defeated",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+Used by Morgul-blade (le-205): "Discard Morgul-blade after a strike
+against the Ringwraith fails." Implemented in `engine/combat-strike.ts`
+(`dischargeBearerStrikeDefeatedItems`).
+
 ### 10e. `modify-attack` — played from hand (`fromHand: true`)
 
 When `fromHand: true` is set on a `modify-attack` effect, the card is
@@ -5147,6 +5214,39 @@ keyed by card definition ID, not by which mode was played.
 Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`,
 `buildPlayedModifyAttackContext`) and `engine/combat-actions.ts`
 (`handleModifyAttack`).
+
+### 10e-quinquies. `modify-attack` `prowessModifierExpr` (computed prowess bonus)
+
+An alternative to the flat `prowessModifier` field: a [value
+expression](#value-expressions) evaluated at play time instead of a fixed
+number, for a from-hand bonus that scales with in-play state rather than a
+constant. The expression context exposes `nazgulPermanentEventsInPlay` — the
+count of Nazgûl permanent-events currently in play across both players,
+from `countNazgulPermanentEventsInPlay` (`engine/reducer-utils.ts`), which
+scans both players' `cardsInPlay` for cards satisfying
+`isNazgulPermanentEvent`.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "prowessModifierExpr": "1 + nazgulPermanentEventsInPlay",
+  "attachCorruptionOnWound": true,
+  "when": { "enemy.name": "Witch-king of Angmar" } }
+```
+
+Used by The Pale Sword (tw-97): "The Nazgûl's prowess is modified by +1. If
+played on a company facing an attack from the Witch-king of Angmar, his
+prowess is increased by +1 plus the number of Nazgûl permanent-events in
+play." Modeled as two from-hand `modify-attack` modes tried in order
+(§10e-quater): a Witch-king-specific mode first (`when: { "enemy.name":
+"Witch-king of Angmar" }`, `prowessModifierExpr`), falling through to the
+general `when: { "enemy.race": "ringwraith" }` mode with a flat
+`prowessModifier: 1` for every other Nazgûl. A card sets either
+`prowessModifierExpr` or `prowessModifier`, never both.
+
+`handleModifyAttack` (`engine/combat-actions.ts`) evaluates the expression
+via `evaluateExpr` (`engine/effects/expression-eval.ts`) when
+`prowessModifierExpr` is set, rounding the result, in place of reading
+`prowessModifier` directly.
 
 ### 10f-bis. `counter-cancel-attack-roll`
 
@@ -6534,6 +6634,13 @@ Used by *The Burden of Time* (tw-94): "Playable on an Elf not in a
 Haven/Darkhaven" — `filter: { "$and": [ { "target.race": "elf" },
 { "company.atHaven": false } ] }`.
 
+The **short-event** character-targeting path specifically (the one that also
+supports `play-option` modes, corruption-duplication tracking, and
+`play-discard-cost`) additionally exposes `company.itemNames` — every item
+name borne by any character in the target's company, aggregated the same way
+as the resource-side `active-company` context. Used by *The Precious*
+(tw-98) to express "in the same company as The One Ring".
+
 **Per-mode phase gate.** An optional `phases` array restricts the *targeted*
 play mode to the named phases (e.g. `["organization"]`). Unlike the card-level
 `play-condition requires:phase` — which suppresses the card in every other
@@ -6727,7 +6834,28 @@ Optional fields:
     `"discard-ring-only"` discards only the bearer's Ring on a failed check
     (The Ring's Betrayal); `"discard-instead-of-eliminate"` downgrades any
     would-be *elimination* to a plain discard of the character + his
-    non-follower possessions (The Roving Eye le-135).
+    non-follower possessions (The Roving Eye le-135). An optional
+    `alsoDiscardItemName` names an item to discard on a **failed** check even
+    though it is borne by a *different* character in the target's company —
+    resolved to a concrete instance at chain-resolution time and pulled off
+    its real bearer before the normal discard/eliminate branch runs, so it
+    never sits twice in state. Combine with a `target: "character"` `filter`
+    that checks `company.itemNames` (the same item, aggregated across the
+    whole company) and excludes the bearer via `target.possessions` to
+    express "not the bearer himself". Used by The Precious (tw-98): "A
+    character in the same company (hazard player's choice) as The One Ring
+    (not the bearer himself) must make a corruption check modified by -2. If
+    he fails, discard The One Ring along with the target character."
+
+    ```json
+    { "type": "play-target", "target": "character",
+      "filter": { "$and": [
+        { "company.itemNames": { "$includes": "The One Ring" } },
+        { "$not": { "target.possessions": { "$includes": "The One Ring" } } }
+      ] },
+      "cost": { "check": "corruption", "modifier": -2,
+                 "alsoDiscardItemName": "The One Ring" } }
+    ```
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
 - `itemFilter` — restricts a `target: "character"` play-target to a
@@ -9479,6 +9607,38 @@ emitter skips cards whose `play-window.phase` is not
 `"movement-hazard"`, so a combat-tagged hazard is not accidentally
 offered during the M/H phase.
 
+A `short` (not `permanent`) hazard-event may use the same window with a
+different companion apply: `on-event self-enters-play-combat` →
+`{ "type": "add-constraint", "constraint": "company-stat-modifier",
+"stat": "prowess", "value": -1, "scope": "turn" }`. Unlike the
+`modify-current-strike-prowess` shape, the card does not attach to the
+targeted defender — `handleCombatPlayHazard` (`combat-hazard-play.ts`)
+discards it immediately (to the hazard player's discard pile) and adds
+a turn-scoped `company-stat-modifier` constraint (§6a's sibling) bound
+to `combat.companyId`, so every character in the **defending company**
+gets the stat change for the rest of the turn, not just the character
+currently facing the strike. `combatHazardPermanentPlays`'s
+`eventType !== 'permanent'` gate admits this shape via
+`isCombatCompanyStatModifierShortEvent`. Because the card discards
+rather than staying attached, a `duplication-limit` of `scope:
+"company"` is enforced by counting active `company-stat-modifier`
+constraints on the target company sourced from a same-named
+definition (`constraintsOnCompany`), not by scanning attachments.
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-condition", "requires": "combat-creature-race", "race": "ringwraith" }
+{ "type": "play-target", "target": "character" }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "add-constraint", "constraint": "company-stat-modifier",
+             "stat": "prowess", "value": -1, "scope": "turn" } }
+{ "type": "duplication-limit", "scope": "company", "max": 1 }
+```
+
+Used by Words of Power and Terror (tw-115): "Modify the prowesses of
+all characters in a company attacked by a Nazgûl by -1 until the end
+of the turn. Cannot be duplicated on a given company."
+
 Resource short-events may also declare `play-window` with `phase:
 "site"` and `step: "play-resources"` to restrict play to the site
 phase. An optional `siteTypes` array further restricts the card to
@@ -9546,6 +9706,32 @@ character's `items`, so the existing in-play-item `cancel-attack` path
 (`legal-actions/combat.ts` → `handleCancelAttackByInPlayItem`) provides the
 "later tap to cancel" with no further engine work: the bearer must be untapped
 and taps, while the card itself stays untapped and in play for later turns.
+
+**Race-aware failed-strike gating (`attack.ringwraithStrikeFailed`).** The
+`when` context for an `after-attack` window also exposes
+`attack.ringwraithStrikeFailed: boolean` — true when at least one strike in
+the just-ended combat was delivered by a ringwraith-race attacker and failed
+to wound the defending character (`StrikeAssignment.result` `'success'`,
+`'survived'`, or `'tie'` — CoE 3.iv.7). For a creature-sourced attack the
+race is `combat.creatureRace`; for a CvCC strike it is read from the specific
+attacking character's definition (`StrikeAssignment.attackingCharacterId`),
+since a company-vs-company attack can mix races. Computed by
+`hasFailedRingwraithStrike` in `engine/post-attack-play.ts`. Used by Mount
+Slain (as-50): "Playable … if a strike against one of your companies from a
+Ringwraith attack or Nazgûl creature fails."
+
+**Target-less after-attack cards.** A resource permanent-event with an
+`after-attack` `play-window` and **no** `play-target: character` effect
+resolves against a target the engine finds programmatically, rather than a
+player-chosen bearer in the company. `afterAttackPlayTargets`/
+`matchingHandCards` (`engine/post-attack-play.ts`) skip the bearer-eligibility
+check for such cards, and `postAttackPlayOfferActions`
+(`legal-actions/pending.ts`) emits a single `play-permanent-event` action with
+no `targetCharacterId`. `applyPostAttackPlayOfferResolution`
+(`pending-reducers.ts`) mirrors the same target-less path on resolution. The
+card resolves via `resolvePermanentEvent`'s `in-play-general` placement (no
+character/site/company binding) and its own `self-enters-play` apply performs
+the actual effect and self-discard — see `mount-slain` below.
 
 ### 33. `combat-protection`
 
@@ -11536,7 +11722,43 @@ to this ally as though it were untapped."
 
 ---
 
-### 53a-bis. `company-combat-boost`
+### 53a-bis. `free-strike-assignment`
+
+An **environment** effect: while the carrying card sits in a player's
+`cardsInPlay`, the defender of any **hazard-creature-sourced** attack
+(`attack.source` of `"creature"`, `"on-guard-creature"`, or
+`"played-auto-attack"` — the same set `tap-on-strike-assignment` uses to mean
+"hazard creature attack"; never a site's own automatic-attack, an agent, or a
+CvCC attack) may assign that attack's strikes to **any** character or ally in
+the defending company, regardless of tapped/wounded status, and the attack's
+own `combat-attacker-chooses-defenders` rule (if any) is suppressed for that
+attack — assignment always opens in the defender's own phase instead of a
+cancel-window/attacker phase.
+
+No fields beyond `type` (and the inherited optional `when`, matched against
+`{ attack: { creatureRace } }`).
+
+```json
+{ "type": "free-strike-assignment" }
+```
+
+Resolved by `resolveDefenderFreeStrikeAssignment` (`reducer-utils.ts`),
+mirroring `resolveAttackerChoosesDefenders`'s global-`cardsInPlay` scan, at
+every hazard-creature-sourced combat-initiation site (`chain-reducer.ts`
+`initiateCreatureCombat`, `reducer-site.ts`'s played-auto-attack path). When
+granted, the initiation site both drops its own `attackerChoosesDefenders`
+value and sets `CombatState.defenderFreeStrikeAssignment`, which
+`assignStrikeActions` (`legal-actions/combat.ts`) consults to drop its
+untapped-only gate for characters and allies alike.
+
+Used by Cloudless Day (td-104): "Whenever a company faces a hazard creature
+attack, the defender may choose which characters in the company will be the
+targets of the attack's strikes (regardless of tapped status, wounded status,
+and the normal abilities of the attack)."
+
+---
+
+### 53a-ter. `company-combat-boost`
 
 Played from hand as a resource **short event during combat** (the pre-assignment
 window of the defending company's `assign-strikes` phase). Applies an
@@ -16139,6 +16361,62 @@ opponent is a minion player."
 
 ---
 
+### 71a. `agent-tap-opponent-influence` (Your Welcome Is Doubtful)
+
+Sibling of `agent-tap-faction-influence` for non-faction targets: a hazard
+short-event that *grants* one of the hazard player's own untapped agents a
+rule-10.14 influence attempt against an opponent's in-play **character or
+ally** rather than a faction. The acting agent needs no `agent-tap-influence`
+effect of its own.
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `targetKinds` | yes | Which target kinds this grant covers — `character`, `ally`, or both. |
+| `agentFilter` | no | Condition the acting agent's definition must satisfy, evaluated against `{ target: { name, race, skills, keywords } }`. Omit to allow any untapped agent. |
+| `attemptBonus` | yes | Flat modifier added to the attacker's side of the influence attempt. |
+| `diplomatAttemptBonus` | no | Overrides `attemptBonus` when the acting agent has the diplomat skill. |
+| `homeSiteBonus` | no | Additional flat bonus applied when the target character shares a home site with the agent, or the target ally is playable at one of the agent's home sites. |
+
+```json
+{ "type": "agent-tap-opponent-influence",
+  "targetKinds": ["character", "ally"],
+  "attemptBonus": 6, "diplomatAttemptBonus": 10, "homeSiteBonus": 7 }
+```
+
+- **Legal actions** (short-event branch of `movementHazardActions`,
+  `legal-actions/movement-hazard.ts`): one `play-hazard` action per (untapped
+  agent passing `agentFilter`, opponent character not an avatar, or opponent
+  ally attached to any of the opponent's characters), carrying
+  `agentInstanceId` plus `targetCharacterId` or `targetAllyId`. Independent of
+  the active company — like Pilfer Anything Unwatched (`agent-tap-return-
+  character`), an opponent-influence attempt is not restricted to the company
+  currently in its M/H sub-phase. Blocked when the opponent is a
+  minion/Balrog player (`isMinionOrBalrog`).
+- **Reducer** (`handleAgentTapOpponentInfluence`, `mh-agents.ts`, dispatched
+  from `mh-hazard-play.ts`): taps **and reveals** the agent, discards the
+  event, counts it against the hazard limit (`remainingActions` untouched —
+  not an agent action). Rule-10.14 bonuses apply as usual: +2 direct
+  influence at a home site, plus the agent's own conditional `direct-
+  influence` stat-modifiers against the target's race; the target's mind is
+  treated as 0 with a further +2 to the roll when a character shares a home
+  site with the agent (`parseHomesiteNames` overlap) or an ally is playable
+  at one of the agent's home sites (`playableAt` overlap, mirroring the
+  faction-at-home-site check). On top of that, `boostModifier` carries this
+  card's own `attemptBonus` (or `diplomatAttemptBonus` for a diplomat agent)
+  plus `homeSiteBonus` under that same shared-home-site condition.
+- **Resolution**: the standard `opponent-influence-defend` pending
+  resolution — no `autoSuccess` path (unlike the faction variant); the
+  defender always rolls.
+
+Used by Your Welcome Is Doubtful (dm-104): "Playable on an untapped agent. Tap
+the agent who may then make an influence attempt against an ally or character.
++6 to influence attempt (+10 if the agent is a diplomat). An additional +7 to
+the attempt if target character has the same home site as the agent or if
+target ally is playable at the agent's home site. Cannot be played if your
+opponent is a minion player."
+
+---
+
 ### 72. `un-eliminate-creature` + instance-targeted untargeted `play-option` modes
 
 Returned Beyond All Hope (as-35) is a hazard short-event with **three**
@@ -16672,3 +16950,76 @@ company faces an attack at the beginning of its movement/hazard phase: Orcs —
 the regions listed above, the hazard limit is reduced by 2 (to a minimum of
 2). Cannot be duplicated on a given company." (CRF 22: the printed
 "otherwise" should be read as "alternatively".)
+
+### 79. `restore-item` grant-action + `restored-item-stats` + `face-all-strikes-option` (Horn of Defiance)
+
+Three primitives backing the Reforging family of hoard items — Horn of
+Defiance (td-183), and (by the same shape) its siblings Ringil (td-184) and
+Belegennon (td-185): "A stored Reforging may be placed with this item to
+'restore' it. Once restored, [it] gives 3 marshalling points and 2 corruption
+points. If its bearer is the first to face a strike, that character may
+choose to face all strikes of an attack. The character faces a separate
+strike sequence for each strike."
+
+**`restore-item` (grant-action `apply`)** — declared as an ordinary
+(non-`fromStored`) `grant-action` on the item itself:
+
+```json
+{ "type": "grant-action",
+  "action": "restore-item",
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "restore-item" } }
+```
+
+Unlike the `fromStored` shape (Andúril tw-192's `place-source-with-item`,
+where the *stored* card being discarded is also the one relocated), here the
+grant-action's source is the bearer-owned item, and `discard:
+"named-stored-card"` reaches into the acting player's own kill pile for a
+*different* card (matched by `discardCardName`) without touching the item
+itself. `applyCost` (`cost-evaluator.ts`) now pays this cost generically for
+any bearer-owned grant-action, keyed off the activation's `targetCardId`
+(threaded through as `CostContext.discardTargetId`) — no longer exclusive to
+`handleStoredCardGrantAction`. `restore-item` (`apply.type`, resolved in
+`runGrantApply`, `grant-action-apply.ts`) then sets `restored: true` on the
+`ItemInPlay` entry, leaving it right where it is on the bearer. The
+legal-action scanner (`char.items` loop in `legal-actions/organization.ts`)
+offers one activation per stored candidate matching `discardCardName`,
+withdrawn once `item.restored` is already true — restoring is a one-way,
+permanent flag, not a repeatable action.
+
+**`restored-item-stats`** — declared alongside `restore-item` on the same
+item, and read directly (not through the resolver) by
+`recompute-derived.ts`'s per-item corruption and marshalling-point loops:
+
+```json
+{ "type": "restored-item-stats", "marshallingPoints": 3, "corruptionPoints": 2 }
+```
+
+Whenever `item.restored` is true, these values *replace* the item's printed
+`marshallingPoints` / `corruptionPoints` (rather than adding to them) for
+that one item instance; other in-play modifiers (global item-MP bonuses,
+bearer-conditional corruption, cross-alignment factors) still layer on top
+exactly as they do for the printed value. A field left absent here leaves the
+printed value untouched even once restored.
+
+**`face-all-strikes-option`** — declared on the item, gates a new choice
+during the `assign-strikes` defender phase:
+
+```json
+{ "type": "face-all-strikes-option" }
+```
+
+`assignStrikeActions` (`legal-actions/combat.ts`) offers an extra
+`assign-strike` action (carrying `allStrikes: true`) for the bearer whenever
+`combat.strikeAssignments.length === 0` (no strike yet assigned this attack —
+CoE 3.i.5's "must be declared before strikes are assigned") and
+`combat.strikesTotal > 1`. `handleAssignStrike` (`reducer-combat.ts`) treats
+`action.allStrikes` exactly like `combat.forceSingleTarget`: it runs the same
+multi-attack auto-assignment loop, building one `StrikeAssignment` per
+remaining strike — each with `excessStrikes: 0`, a genuinely separate strike
+sequence per CoE 3.i.5, rather than the "excess strikes" -1-prowess pool a
+repeat assignment to an already-assigned character would otherwise produce
+(CoE 3.iv.2). The resulting combat state also gets `forceSingleTarget: true`
+stamped so downstream cancel/resolution logic (`combat-cancel.ts`,
+`combat-strike.ts`) treats every strike identically to a printed multi-attack
+creature's.

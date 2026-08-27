@@ -27,6 +27,7 @@ import type {
   OpponentInfluenceAttemptAction,
   ActivateGrantedAction,
   DiscardCharacterOrgAction,
+  DeclareBurglaryAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus } from '@meccg/shared';
 import {
@@ -440,6 +441,7 @@ export function showCharacterActionTooltip(
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     restoreCharacterActions?: Map<string, RestoreCharacterByEffectAction>;
+    declareBurglaryActions?: Map<string, DeclareBurglaryAction[]>;
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     discardCharacterActions?: Map<string, DiscardCharacterOrgAction>;
     companyId?: CompanyId;
@@ -538,6 +540,16 @@ export function showCharacterActionTooltip(
     const charStatus = lastView?.self.characters[charInstId]?.status;
     const label = charStatus === CardStatus.Inverted ? 'Heal (Hall of Fire)' : 'Untap (Hall of Fire)';
     items.push({ label, onClick: () => onAction(restoreAction) });
+  }
+
+  const burglaryActions = options.declareBurglaryActions?.get(charInstId as string) ?? [];
+  for (const ba of burglaryActions) {
+    const cardDefId = cachedInstanceLookup(ba.cardInstanceId);
+    const cardName = cardDefId ? cardPool[cardDefId as string]?.name : undefined;
+    items.push({
+      label: `Attempt Burglary${cardName ? ` (${cardName.trim()})` : ''}`,
+      onClick: () => onAction(ba),
+    });
   }
 
   const grantedActionsForChar = options.grantedActions?.get(charInstId as string) ?? [];

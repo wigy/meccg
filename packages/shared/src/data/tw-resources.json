@@ -3406,8 +3406,31 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Environment. If Gates of Morning is in play, treat all Wildernesses [{w}] as Border-lands [{b}] and all Border-lands [{b}] as Free-domains [{f}] for the purposes of playing hazards.If Doors of Night is in play, treat all Dark-domains [{d}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Wildernesses [{w}] for the purposes of playing hazards.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "region-type-remap",
+        "when": { "inPlay": "Gates of Morning" },
+        "remap": [
+          { "from": "wilderness", "to": "border" },
+          { "from": "border", "to": "free" }
+        ]
+      },
+      {
+        "type": "region-type-remap",
+        "when": { "inPlay": "Doors of Night" },
+        "remap": [
+          { "from": "dark", "to": "shadow" },
+          { "from": "shadow", "to": "wilderness" }
+        ]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. If Gates of Morning is in play, treat all Wildernesses [{w}] as Border-lands [{b}] and all Border-lands [{b}] as Free-domains [{f}] for the purposes of playing hazards.If Doors of Night is in play, treat all Dark-domains [{d}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Wildernesses [{w}] for the purposes of playing hazards.Cannot be duplicated.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",
@@ -4363,9 +4386,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsFire.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 5,
+        "requiredRace": "wizard",
+        "cost": {
+          "check": "corruption",
+          "modifier": -4
+        }
+      }
+    ],
+    "certified": "2026-08-27",
     "text": "Spell. Wizard only. +5 prowess for the Wizard against one attack. Wizard makes a corruption check modified by -4."
   },
   {
@@ -4475,10 +4513,6 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      {
-        "type": "play-window",
-        "phase": "organization"
-      },
       {
         "type": "play-target",
         "target": "character",
@@ -4598,11 +4632,12 @@
     "race": "wose",
     "playableAt": [
       {
-        "site": "Wose"
+        "site": "Wose Passage-hold"
       }
     ],
     "effects": [],
-    "text": "Unique. Playable at Wose Passage-hold if the influence check is greater than 8. Standard Modifications: none."
+    "text": "Unique. Playable at Wose Passage-hold if the influence check is greater than 8. Standard Modifications: none.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-faction",

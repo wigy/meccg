@@ -34,6 +34,7 @@ import type {
   GrantActionEffect,
   DiscardCharacterOrgAction,
   DiscardItemFromCompanyAction,
+  DeclareBurglaryAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -213,6 +214,23 @@ export function getDiscardCharacterActions(view: PlayerView): Map<string, Discar
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'discard-character') continue;
     result.set(action.characterInstanceId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable declare-burglary actions (Burglary, td-103), keyed by
+ * the attempting character's instance ID. A character may have more than
+ * one action here if multiple copies of Burglary are in hand.
+ */
+export function getDeclareBurglaryActions(view: PlayerView): Map<string, DeclareBurglaryAction[]> {
+  const result = new Map<string, DeclareBurglaryAction[]>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'declare-burglary') continue;
+    const key = action.characterInstanceId as string;
+    const existing = result.get(key) ?? [];
+    existing.push(action);
+    result.set(key, existing);
   }
   return result;
 }
