@@ -19,6 +19,7 @@
  * | 5 | Not offered when no candidate exists for a mode                  | IMPLEMENTED | scanner returns no action when the candidate list is empty |
  * | 6 | Bearer must be untapped to activate either mode                  | IMPLEMENTED | `canPayCost` gates on `tap: "bearer"` — a tapped bearer cannot activate |
  * | 7 | Activate during any phase of the player's turn (2.1.1)           | IMPLEMENTED | grant-action carries `anyPhase: true` in JSON |
+ * | 8 | healing-affects-all (Ioreth) extends the heal in the company     | IMPLEMENTED | `extendHealingToCompany` stateOp, shared with the chain-reducer path |
  *
  * Playable: YES
  */
@@ -31,7 +32,7 @@ import {
   expectCharStatus, expectCharItemCount, expectInDiscardPile,
   findCharInstanceId,
   RESOURCE_PLAYER,
-  ARAGORN, BILBO, LEGOLAS,
+  ARAGORN, BILBO, LEGOLAS, IORETH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus, makeMHState, makeSitePhase,
 } from '../test-helpers.js';
@@ -145,6 +146,36 @@ describe('Healing Herbs (tw-255)', () => {
     expectInDiscardPile(next, RESOURCE_PLAYER, HEALING_HERBS);
     // Bilbo (the bearer) paid the tap cost.
     expectCharStatus(next, RESOURCE_PLAYER, BILBO, CardStatus.Tapped);
+  });
+
+  test('healing-affects-all: activating heal-company-character with Ioreth in the company also heals other wounded members', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [
+            { defId: BILBO, items: [HEALING_HERBS] },
+            { defId: ARAGORN, status: CardStatus.Inverted },
+            { defId: IORETH, status: CardStatus.Inverted },
+          ] }],
+          hand: [], siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeMHState() };
+
+    const action = viableActions(ready, PLAYER_1, 'activate-granted-action')
+      .find(ea => (ea.action as ActivateGrantedAction).actionId === 'heal-company-character'
+        && (ea.action as ActivateGrantedAction).targetCardId === findCharInstanceId(ready, RESOURCE_PLAYER, ARAGORN))!.action;
+    const next = dispatch(ready, action);
+
+    // Aragorn (the direct target) is healed.
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    // Ioreth's healing-affects-all play-flag extends the heal to her too.
+    expectCharStatus(next, RESOURCE_PLAYER, IORETH, CardStatus.Untapped);
   });
 
   // ── untap-company-character (mode B: untap a non-wounded character) ──────

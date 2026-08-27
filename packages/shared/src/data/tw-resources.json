@@ -4324,8 +4324,13 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Play to test a gold ring in a sage’s company; subtract one from the result of the roll."
+    "effects": [
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "sage" } } },
+      { "type": "on-event", "event": "self-enters-play", "apply": { "type": "enqueue-gold-ring-test", "rollModifier": -1 } }
+    ],
+    "text": "Sage only. Play to test a gold ring in a sage’s company; subtract one from the result of the roll.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",
