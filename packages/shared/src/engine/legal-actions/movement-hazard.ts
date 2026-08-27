@@ -4389,6 +4389,7 @@ function playHazardsActions(
   if (!isResourcePlayer) {
     actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
     actions.push(...attackFromAltPermanentEventActions(state, playerId, mhState));
+    actions.push(...returnAltPermanentEventActions(state, playerId, mhState));
   }
 
   // Player who already passed gets no actions (waiting for opponent)
@@ -4559,6 +4560,46 @@ function tapAltPermanentEventActions(
     }
 
     actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+  }
+  return actions;
+}
+
+/**
+ * Offer returning an in-play dual-mode creature-permanent-event
+ * (`creature-alt-event` mode `permanent-event`, `returnToHandOption: true` —
+ * Spider of the Môrlat dm-110) to the hazard player's own hand, during the
+ * opponent's movement/hazard phase. Unlike {@link tapAltPermanentEventActions},
+ * the card is persistent (no tap-to-short-event conversion) — this is its own
+ * distinct voluntary action, still charging the hazard limit.
+ */
+function returnAltPermanentEventActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
+  const limitReached = activeCompany
+    ? mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id)
+    : false;
+
+  for (const card of player.cardsInPlay) {
+    if (card.status === CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+    if (altEvent?.mode !== 'permanent-event' || !altEvent.returnToHandOption) continue;
+
+    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+    if (limitReached && !bypassesLimit) {
+      actions.push({ action: { type: 'return-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'Hazard limit reached' });
+      continue;
+    }
+    actions.push({ action: { type: 'return-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
   }
   return actions;
 }

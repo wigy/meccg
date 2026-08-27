@@ -244,6 +244,22 @@ export interface AttackFromAltPermanentEventAction {
 }
 
 /**
+ * Return an in-play dual-mode creature-permanent-event to its owner's hand
+ * (`creature-alt-event` mode `permanent-event`, `returnToHandOption: true` —
+ * Spider of the Môrlat dm-110), during the opponent's movement/hazard phase.
+ * Unlike {@link TapAltPermanentEventAction}, the card goes to **hand**, not
+ * the discard pile, and no on-tap short-event effects resolve — the return
+ * itself is the entire ability. Still counts one against the hazard limit.
+ */
+export interface ReturnAltPermanentEventAction {
+  readonly type: 'return-alt-permanent-event';
+  /** The hazard player returning their in-play creature-permanent-event. */
+  readonly player: PlayerId;
+  /** The creature-permanent-event instance in `cardsInPlay`. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * My Precious (dm-29): resolving an `agent-play-manifestation-offer` — the
  * defender taps one character in the target company and plays the agent's other
  * manifestation (Gollum) from hand; the attacking agent is then discarded. (The

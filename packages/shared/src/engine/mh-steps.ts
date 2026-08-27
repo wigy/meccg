@@ -1337,11 +1337,13 @@ function buildAhuntCombat(
     creatureRace: effect.race,
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     ...(attackerChooses ? { attackerChoosesDefenders: true } : {}),
-    detainment: isDetainmentAttack({
-      attackRace: effect.race,
-      defendingAlignment: state.players[activePlayerIndex].alignment,
-      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
-    }),
+    detainment: effect.detainmentAgainstMinion
+      ? isMinionOrBalrog(state.players[activePlayerIndex]) && !playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+      : isDetainmentAttack({
+        attackRace: effect.race,
+        defendingAlignment: state.players[activePlayerIndex].alignment,
+        defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
+      }),
   });
 }
 
