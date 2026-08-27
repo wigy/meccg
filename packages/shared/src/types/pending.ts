@@ -268,6 +268,14 @@ export interface PendingResolution {
          * checks."
          */
         readonly noResourceAid?: boolean;
+        /**
+         * The Precious (tw-98): on a **failed** check, also discard this
+         * item — resolved at enqueue time to the item's current bearer
+         * within the checking character's company, which may be a
+         * *different* character than the one making the check. Null when
+         * the named item could not be resolved (already left play).
+         */
+        readonly alsoDiscardItemId?: CardInstanceId | null;
       }
     | {
         readonly type: 'order-effects';

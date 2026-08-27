@@ -6140,6 +6140,26 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const possessions = characterPossessionsById(current, targetCharId);
       const cardName = cardDef?.name ?? '';
       const failureMode = playTargetWithCostCorruption.cost?.failureMode;
+      // The Precious (tw-98): "discard The One Ring along with the target
+      // character" — the Ring sits on a *different* company member (the
+      // target is defined by the play-target filter as "not the bearer"),
+      // so it cannot ride the normal `possessions` list. Resolve the named
+      // item to its current bearer's instance within the target's own
+      // company now, while the chain entry still knows who was targeted.
+      const alsoDiscardItemName = playTargetWithCostCorruption.cost?.alsoDiscardItemName;
+      let alsoDiscardItemId: CardInstanceId | null = null;
+      if (alsoDiscardItemName) {
+        const resourcePlayer = current.players[getPlayerIndex(current, resourcePlayerId)];
+        const targetCompany = findCharacterCompany(resourcePlayer.companies, targetCharId);
+        for (const cid of targetCompany?.characters ?? []) {
+          const bearer = resourcePlayer.characters[cid];
+          const item = bearer?.items.find(i => defById(current, i.definitionId)?.name === alsoDiscardItemName);
+          if (item) { alsoDiscardItemId = item.instanceId; break; }
+        }
+        if (!alsoDiscardItemId) {
+          logDetail(`${cardName}: "${alsoDiscardItemName}" not found in ${targetCharId as string}'s company — nothing to discard alongside a failed check`);
+        }
+      }
       logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}${failureMode ? `, failureMode: ${failureMode}` : ''}) for character ${targetCharId as string}`);
       current = enqueueCorruptionCheck(current, {
         source: entry.card.instanceId,
@@ -6150,6 +6170,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         modifier,
         possessions,
         failureMode,
+        alsoDiscardItemId,
       });
     }
   }

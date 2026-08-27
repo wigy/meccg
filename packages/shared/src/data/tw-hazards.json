@@ -2601,8 +2601,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThePrecious.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "A character in the same company (hazard player’s choice) as The One Ring (not the bearer himself) must make a corruption check modified by -2. If he fails, discard The One Ring along with the target character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "company.itemNames": { "$includes": "The One Ring" } },
+            { "$not": { "target.possessions": { "$includes": "The One Ring" } } }
+          ]
+        },
+        "cost": {
+          "check": "corruption",
+          "modifier": -2,
+          "alsoDiscardItemName": "The One Ring"
+        }
+      }
+    ],
+    "text": "A character in the same company (hazard player’s choice) as The One Ring (not the bearer himself) must make a corruption check modified by -2. If he fails, discard The One Ring along with the target character.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",

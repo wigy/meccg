@@ -3207,6 +3207,13 @@ function playHazardsActions(
           const targetedCandidates = allShortPlayOptions.length > 0 && shortPlayOptions.length === 0
             ? []
             : targetCompany.characters;
+          // Aggregated once per company for `company.itemNames` (The
+          // Precious tw-98: "a character in the same company … as The One
+          // Ring"), mirroring the resource-side `active-company` context.
+          const targetCompanyItemNames = targetCompany.characters.flatMap(cid => {
+            const cd = resourcePlayer.characters[cid];
+            return cd ? defNamesOf(state, cd.items) : [];
+          });
           for (const charId of targetedCandidates) {
             const charData = resourcePlayer.characters[charId];
             const charDef = charData ? defById(state, charData.definitionId) : undefined;
@@ -3233,6 +3240,7 @@ function playHazardsActions(
                 // (Heedless Revelry le-114).
                 company: {
                   moving: !!targetCompany.destinationSite,
+                  itemNames: targetCompanyItemNames,
                 },
               };
               if (!matchesCondition(shortPlayTarget.filter, ctx)) {

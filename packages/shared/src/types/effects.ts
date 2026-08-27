@@ -2119,6 +2119,19 @@ export interface ActionCost {
    * possessions (e.g. The Roving Eye le-135).
    */
   readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
+  /**
+   * For `check: "corruption"` costs on a character-targeting hazard
+   * short-event: on a **failed** check, also discard the named item
+   * wherever it is borne within the target character's own company (not
+   * necessarily on the target himself) — The Precious (tw-98): "discard The
+   * One Ring along with the target character." Resolved to a concrete
+   * instance at chain-resolution time (`resolveAlsoDiscardItemId`,
+   * `chain-reducer.ts`) and carried on the pending `corruption-check` as
+   * `alsoDiscardItemId`; on failure the item is pulled off its real bearer
+   * and folded into the same discard-pile routing as the target's own
+   * possessions (`pending-reducers.ts`).
+   */
+  readonly alsoDiscardItemName?: string;
 }
 
 /**
