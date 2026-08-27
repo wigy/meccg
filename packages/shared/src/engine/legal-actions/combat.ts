@@ -649,7 +649,7 @@ function assignStrikeActions(
       // "regardless of any conflicting effects" — including his own tapped
       // status from making the burglary attempt itself.
       const isSoloDefender = combat.soloDefenderInstanceId === charId;
-      if (charData.status !== CardStatus.Untapped && !isForcedTarget && !isSoloDefender) {
+      if (charData.status !== CardStatus.Untapped && !isForcedTarget && !isSoloDefender && !combat.defenderFreeStrikeAssignment) {
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
@@ -669,7 +669,7 @@ function assignStrikeActions(
           continue;
         }
       }
-      logDetail(`Defender can assign strike to ${charId as string} (untapped)${restrictToForced ? ' [forced target]' : ''}`);
+      logDetail(`Defender can assign strike to ${charId as string} (${charData.status})${restrictToForced ? ' [forced target]' : ''}${combat.defenderFreeStrikeAssignment ? ' [free strike assignment]' : ''}`);
       actions.push({
         action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
         viable: true,
@@ -702,7 +702,7 @@ function assignStrikeActions(
           e => (e.type === 'strike-shield' && (e as { alwaysCountsAsUntapped?: boolean }).alwaysCountsAsUntapped)
             || e.type === 'assign-strike-when-tapped',
         );
-        if (!alwaysUntapped && ally.status !== CardStatus.Untapped) {
+        if (!alwaysUntapped && ally.status !== CardStatus.Untapped && !combat.defenderFreeStrikeAssignment) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
           continue;
         }

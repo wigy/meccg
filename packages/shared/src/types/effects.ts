@@ -8946,6 +8946,7 @@ export type CardEffect =
   | ItemSlotModifierEffect
   | CompanyOvertEffect
   | AssignStrikeWhenTappedEffect
+  | FreeStrikeAssignmentEffect
   | AvatarHomeSiteRestrictionEffect
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
@@ -10435,6 +10436,33 @@ export interface CompanyOvertEffect extends EffectBase {
  */
 export interface AssignStrikeWhenTappedEffect extends EffectBase {
   readonly type: 'assign-strike-when-tapped';
+}
+
+/**
+ * While the carrying card sits in a player's `cardsInPlay`, the defender of
+ * any hazard-creature-sourced attack (`attack.source` of `"creature"`,
+ * `"on-guard-creature"`, or `"played-auto-attack"` — the same set
+ * `tap-on-strike-assignment` uses to mean "hazard creature attack", never a
+ * site's own automatic-attack or a CvCC/agent attack) may assign that
+ * attack's strikes to any character or ally in the defending company
+ * regardless of tapped/wounded status, and the attack's own
+ * `combat-attacker-chooses-defenders` rule (if any) is suppressed for that
+ * attack — assignment always opens in the defender's own phase.
+ *
+ * Resolved by `resolveDefenderFreeStrikeAssignment` (`reducer-utils.ts`) at
+ * every hazard-creature-sourced combat-initiation site, mirroring
+ * `resolveAttackerChoosesDefenders`'s global-grant scan. Consumed by
+ * `assignStrikeActions` (`legal-actions/combat.ts`), which drops the
+ * untapped-only gate for characters and allies when
+ * `CombatState.defenderFreeStrikeAssignment` is set.
+ *
+ * Used by Cloudless Day (td-104): "Whenever a company faces a hazard
+ * creature attack, the defender may choose which characters in the company
+ * will be the targets of the attack's strikes (regardless of tapped status,
+ * wounded status, and the normal abilities of the attack)."
+ */
+export interface FreeStrikeAssignmentEffect extends EffectBase {
+  readonly type: 'free-strike-assignment';
 }
 
 /**
