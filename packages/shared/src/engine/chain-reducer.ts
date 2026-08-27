@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -6006,41 +6006,10 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               updateCharacter(p, targetCharId as string, c => ({ ...c, status: statusEnum })));
 
             // healing-affects-all — if this was a heal (wounded → well), extend
-            // the healing to all other wounded characters in the same company.
-            // Triggers either from a character in the company carrying the
-            // `healing-affects-all` play-flag (e.g. Ioreth) or from the
-            // company's current site carrying the `site-rule` variant (e.g.
-            // Rhosgobel, Old Forest).
+            // the healing to all other wounded characters in the same company
+            // (Ioreth's play-flag or a site-rule like Rhosgobel/Old Forest).
             if (isHeal) {
-              const company = findCharacterCompany(current.players[charPlayerIdx].companies, targetCharId);
-              if (company) {
-                const hasCompanyFlag = company.characters.some(charId => {
-                  const ch = current.players[charPlayerIdx].characters[charId];
-                  if (!ch) return false;
-                  const charDef = defById(current, ch.definitionId);
-                  return hasPlayFlag(charDef as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'healing-affects-all');
-                });
-                let hasSiteRule = false;
-                if (company.currentSite) {
-                  const siteDef = defById(current, company.currentSite.definitionId);
-                  hasSiteRule = !!(siteDef && 'effects' in siteDef &&
-                    (siteDef as { effects?: readonly import('../types/effects.js').CardEffect[] }).effects?.some(
-                      e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
-                    ));
-                }
-                if (hasCompanyFlag || hasSiteRule) {
-                  const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
-                  for (const charId of company.characters) {
-                    if (charId === targetCharId) continue;
-                    const ch = current.players[charPlayerIdx].characters[charId];
-                    if (ch && ch.status === CardStatus.Inverted) {
-                      logDetail(`${source} healing-affects-all: extending heal to ${charId as string}`);
-                      current = updatePlayer(current, charPlayerIdx, p =>
-                        updateCharacter(p, charId as string, c => ({ ...c, status: statusEnum })));
-                    }
-                  }
-                }
-              }
+              current = extendHealingToCompany(current, charPlayerIdx, targetCharId, statusEnum);
             }
           }
         }
