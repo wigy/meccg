@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
-import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, AgentTapMultiInfluenceEffect, AgentInfluenceBoostEffect, AgentTapOpponentInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, CreatureAltEventEffect } from '../types/effects.js';
+import type { AgentInfluenceBoostEffect, AgentTapFactionInfluenceEffect, AgentTapMultiInfluenceEffect, AgentTapOpponentInfluenceEffect, AgentTapReturnCharacterEffect, AllyTapExtraMHPhaseEffect, CallCouncilEffect, CardEffect, CharacterTapExtraMHPhaseEffect, Condition, CreatureAltEventEffect, HazardLimitSwapEffect, PlayDiscardCostEffect, RegionKeyingBoostEffect, SwapNewSiteEffect, TapAgentEffect } from '../types/effects.js';
 import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -907,6 +907,15 @@ export function handlePlayHazardCard(
       return handleAgentTapOpponentInfluence(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, agentOpponentInfluenceEff);
     }
 
+    // Winds of Wrath (td-82): swap the moving company's destination site
+    // card for one from the hazard player's own location deck.
+    const swapNewSiteEff = def.effects?.find(
+      (e): e is SwapNewSiteEffect => e.type === 'swap-new-site',
+    );
+    if (swapNewSiteEff && action.type === 'play-hazard' && action.replacementSiteInstanceId) {
+      return handleSwapNewSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, swapNewSiteEff);
+    }
+
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
@@ -1168,6 +1177,105 @@ export function handlePlayHazardCard(
       }
     : { type: 'long-event' };
   newState = initiateOrPushChain(newState, action.player, handCard, payload, true);
+
+  return { state: newState };
+}
+
+/**
+ * Handle a `swap-new-site` hazard short-event (Winds of Wrath td-82):
+ * replace the target company's already-declared destination site card with
+ * one drawn from the hazard player's own location deck — overriding CoE
+ * 2.II.7's normal rule that a company's new site always comes from its own
+ * owner's location deck.
+ *
+ * - The company's original destination site returns, untapped, to its own
+ *   owner's location deck: it was only declared, never entered, mirroring
+ *   `clearPlannedMovement`'s disposal of an un-arrived destination.
+ * - The chosen replacement is pulled out of the hazard player's own
+ *   `siteDeck` and becomes the company's new untapped `destinationSite`.
+ * - `mhState.destinationSiteName` / `destinationSiteType` are already
+ *   resolved earlier in the M/H phase (the declare-movement step, well
+ *   before play-hazards); they are refreshed here to describe the
+ *   replacement so downstream creature-keying / arrival logic sees the new
+ *   site, not the old one. `resolvedSitePath` (the region types the company
+ *   traveled through to get here) is a movement-path record, not a
+ *   site-identity one, so it is left untouched.
+ */
+export function handleSwapNewSite(
+  state: GameState,
+  action: PlayHazardAction,
+  mhState: MovementHazardPhaseState,
+  hazardPlayer: PlayerState,
+  hazardIndex: number,
+  handCard: CardInstance,
+  def: CardDefinition,
+  effect: import('../types/effects.js').SwapNewSiteEffect,
+): ReducerResult {
+  const replacementInstanceId = action.replacementSiteInstanceId!;
+
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return { state, error: 'No active company' };
+  const destination = company.destinationSite;
+  if (!destination) return { state, error: 'Company is not moving to a new site' };
+
+  const destDef = defById(state, destination.definitionId);
+  if (!destDef || !isSiteCard(destDef)) return { state, error: 'Destination site definition not found' };
+  if (!effect.requiresDestinationSitePathIncludes.some(rt => destDef.sitePath.includes(rt))) {
+    return { state, error: `${def.name}: destination site's path doesn't match` };
+  }
+
+  const replacement = findById(hazardPlayer.siteDeck, replacementInstanceId);
+  if (!replacement) return { state, error: 'Replacement site not found in your location deck' };
+  const replacementDef = defById(state, replacement.definitionId);
+  if (!replacementDef || !isSiteCard(replacementDef)) return { state, error: 'Replacement site definition not found' };
+  if (!effect.requiresDestinationSitePathIncludes.some(rt => replacementDef.sitePath.includes(rt))) {
+    return { state, error: `${def.name}: replacement site's path doesn't match` };
+  }
+
+  logDetail(`${def.name}: replacing "${destDef.name}" (company ${company.id as string}'s new site) with "${replacementDef.name}" from ${hazardPlayer.name}'s location deck`);
+
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  // Discard the short-event and remove the replacement from the hazard
+  // player's own location deck.
+  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, handCard.instanceId),
+    discardPile: [...p.discardPile, handCard],
+    siteDeck: removeById(p.siteDeck, replacementInstanceId),
+  }));
+
+  // Return the original (never-entered) destination site to its own owner's
+  // location deck, untapped, then install the replacement as the company's
+  // new destination.
+  newState = updatePlayer(newState, resourceIndex, p => ({
+    ...p,
+    siteDeck: [...p.siteDeck, toCardInstance(destination)],
+    companies: p.companies.map(c => c.id === company.id
+      ? {
+          ...c,
+          destinationSite: {
+            instanceId: replacement.instanceId,
+            definitionId: replacement.definitionId,
+            status: CardStatus.Untapped,
+          },
+        }
+      : c),
+  }));
+
+  newState = {
+    ...newState,
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: newHazardCount,
+      resourcePlayerPassed: false,
+      destinationSiteName: replacementDef.name,
+      destinationSiteType: replacementDef.siteType,
+    },
+  };
 
   return { state: newState };
 }

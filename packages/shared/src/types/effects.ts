@@ -9243,7 +9243,8 @@ export type CardEffect =
   | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
   | TapDiscardInPlayEffect
-  | RemovalProtectionEffect;
+  | RemovalProtectionEffect
+  | SwapNewSiteEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
@@ -9899,6 +9900,49 @@ export interface CharacterTapExtraMHPhaseEffect extends EffectBase {
   readonly type: 'character-tap-extra-mh-phase';
   /** Destination site's `sitePath` must include at least one of these region types. */
   readonly requiresDestinationSitePathIncludes?: readonly RegionType[];
+}
+
+/**
+ * Hazard short-event that substitutes a *different* site card, drawn from the
+ * hazard player's own location deck, for a moving company's already-declared
+ * destination site — CoE 2.II.7's normal rule that a company's new site
+ * always comes from its own owner's location deck is overridden for this one
+ * substitution. Playable only while the destination site's static `sitePath`
+ * includes at least one of {@link requiresDestinationSitePathIncludes}; the
+ * replacement drawn from the hazard player's location deck must satisfy the
+ * same site-path requirement.
+ *
+ * `swapNewSiteActions` (`legal-actions/movement-hazard.ts`) offers one
+ * `play-hazard` action per eligible site left in the hazard player's own
+ * `siteDeck`, each carrying its instance in `replacementSiteInstanceId`.
+ * `handleSwapNewSite` (`mh-hazard-play.ts`) then: returns the company's
+ * original destination site card, untapped, to its own owner's location deck
+ * (mirroring `clearPlannedMovement` — it was never entered, only declared),
+ * pulls the chosen replacement out of the hazard player's location deck as
+ * the company's new untapped `destinationSite`, and refreshes the cached
+ * `destinationSiteName` / `destinationSiteType` on the movement/hazard phase
+ * state (both already resolved by the time the play-hazards step runs) to
+ * match the replacement. `resolvedSitePath` (the region types the company
+ * actually traveled through) is a movement-path record, not a site-identity
+ * one, so it is untouched by the swap.
+ *
+ * Used by *Winds of Wrath* (td-82): "Playable if Doors of Night is in play
+ * and opponent is using the same type of location deck (minion/hero) as
+ * yourself. Replace the new site card of a moving company with a Coastal Sea
+ * [{c}] in its site path with a card from your location deck that has a
+ * Coastal Sea [{c}] in its site path." — `requiresDestinationSitePathIncludes:
+ * ["coastal"]`, paired with a `play-condition` `requires: "card-in-play"`
+ * (Doors of Night) and a `play-condition` `requires: "player-state"` gate on
+ * `player.sameLocationDeckTypeAsOpponent`.
+ */
+export interface SwapNewSiteEffect extends EffectBase {
+  readonly type: 'swap-new-site';
+  /**
+   * Both the company's current destination site and the replacement site
+   * must have a static `sitePath` including at least one of these region
+   * types.
+   */
+  readonly requiresDestinationSitePathIncludes: readonly RegionType[];
 }
 
 /**
