@@ -42,6 +42,7 @@ import type {
   DiscardCharacterOrgAction,
   DiscardItemFromCompanyAction,
   PlayHazardAction,
+  DeclareBurglaryAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -336,6 +337,8 @@ export function renderCompanyBlock(
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     /** Map from character instance ID to restore-character-by-effect action (Hall of Fire). */
     restoreCharacterActions?: Map<string, RestoreCharacterByEffectAction>;
+    /** Map from character instance ID to declare-burglary actions (Burglary, td-103). */
+    declareBurglaryActions?: Map<string, DeclareBurglaryAction[]>;
     /** Map from source card instance ID to activate-granted-action actions. */
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     /** Map from character instance ID to select-card-bearer action. */
@@ -909,6 +912,8 @@ export function renderCompanyBlock(
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
     const restoreAction = options?.restoreCharacterActions?.get(charInstId as string);
+    const burglaryActionsForChar = options?.declareBurglaryActions?.get(charInstId as string) ?? [];
+    const hasBurglary = burglaryActionsForChar.length > 0;
     const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
     const discardAction = options?.discardCharacterActions?.get(charInstId as string);
     // Grant-actions declared directly on the character card itself (e.g.
@@ -925,7 +930,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasOppInfluence, bearerAction, hasGrantedActions, discardAction].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasBurglary, hasOppInfluence, bearerAction, hasGrantedActions, discardAction].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -940,6 +945,7 @@ export function renderCompanyBlock(
       const cls = influenceResult?.cls || companyResult?.cls || mergeCls
         || (hasSideboard ? 'company-card--influence-source' : '')
         || (ccAction ? 'company-card--influence-source' : '')
+        || (hasBurglary ? 'company-card--influence-source' : '')
         || (hasGrantedActions ? 'company-card--transfer-source' : '');
       return {
         cls,
@@ -1042,6 +1048,34 @@ export function renderCompanyBlock(
         handler: (e) => {
           e.stopPropagation();
           options!.onAction!(restoreAction);
+        },
+      };
+    }
+
+    // Single type: declare-burglary (Burglary, td-103) — tap character and site
+    // to attempt burglary in lieu of facing automatic-attacks. Execute directly
+    // if there's only one card/character combination, otherwise show a menu
+    // (multiple copies of Burglary in hand).
+    if (hasBurglary) {
+      const onAction = options!.onAction!;
+      if (burglaryActionsForChar.length === 1) {
+        const onlyAction = burglaryActionsForChar[0];
+        return {
+          cls: 'company-card--influence-source',
+          handler: (e) => {
+            e.stopPropagation();
+            onAction(onlyAction);
+          },
+        };
+      }
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          showCharacterActionTooltip(e.target as HTMLElement, charInstId, cardPool, {
+            ...options!,
+            companyId: company.id,
+          });
         },
       };
     }

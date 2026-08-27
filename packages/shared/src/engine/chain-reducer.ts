@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -3036,6 +3036,8 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         } else {
           logDetail(`"${def?.name ?? '?'}" discard-bearer-corruption: no target character — fizzle`);
         }
+      } else if (effect.apply.type === 'mount-slain') {
+        newState = resolveMountSlain(newState, card, playerIndex);
       }
   }
 
@@ -3141,6 +3143,52 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   newState = fireStageCardPlayedTriggers(newState, playerIndex, def);
 
   return newState;
+}
+
+/**
+ * `mount-slain` self-enters-play orchestrator (Mount Slain as-50). The card
+ * itself is discarded immediately — it never remains in play — and, if the
+ * opponent has a revealed Ringwraith avatar in play ({@link findPlayerAvatar}),
+ * enqueues a standalone body check on it: `onPass` (fails, CoE 3.I.2.1)
+ * eliminates the avatar; `onFail` (survives) discards it anyway per the
+ * card's forced "discard the Ringwraith". No avatar in play → fizzle.
+ */
+function resolveMountSlain(state: GameState, card: CardInstance, ownerIndex: number): GameState {
+  const opponentIndex = ownerIndex === 0 ? 1 : 0;
+  const opponent = state.players[opponentIndex];
+
+  // The card is one-shot and never lingers in play — discard it immediately.
+  const working = updatePlayer(state, ownerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== card.instanceId),
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+
+  const avatar = findPlayerAvatar(working, opponent);
+  const avatarDef = avatar ? defById(working, avatar.definitionId) : undefined;
+  if (!avatar || !avatarDef || !isCharacterCard(avatarDef) || avatarDef.race !== Race.Ringwraith) {
+    logDetail(`Mount Slain: opponent has no Ringwraith avatar in play — fizzle`);
+    return working;
+  }
+
+  logDetail(`Mount Slain: forcing a body check on ${avatarDef.name} (body ${avatar.effectiveStats.body}) — discarded if still in play afterward`);
+  return enqueueResolution(working, {
+    source: card.instanceId,
+    actor: opponent.id,
+    scope: { kind: 'phase', phase: working.phaseState.phase },
+    kind: {
+      type: 'dice-check',
+      label: `Mount Slain: ${avatarDef.name} body check`,
+      modifiers: [],
+      threshold: avatar.effectiveStats.body,
+      comparison: 'gt',
+      onPass: { type: 'eliminate-character' },
+      onFail: { type: 'discard-character' },
+      continuation: { kind: 'dequeue-only' },
+      requireTargetPresent: true,
+      targetCharacterId: avatar.instanceId,
+    },
+  });
 }
 
 /**
@@ -3677,6 +3725,19 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail('Creature has attacker-chooses-defenders — skipping defender assignment');
   }
 
+  // Cloudless Day (td-104): a `free-strike-assignment` environment grants the
+  // defender free choice of strike targets for this hazard-creature-sourced
+  // attack, overriding the attack's own attacker-chooses-defenders rule.
+  const defenderFreeStrikeAssignment = resolveDefenderFreeStrikeAssignment(
+    state,
+    state.phaseState.phase === 'site' ? 'on-guard-creature' : 'creature',
+    creatureDef.race,
+  );
+  if (defenderFreeStrikeAssignment && attackerChooses) {
+    logDetail('Free strike assignment overrides attacker-chooses-defenders — defender assigns instead');
+  }
+  const effectiveAttackerChooses = attackerChooses && !defenderFreeStrikeAssignment;
+
   // Check for multi-attack combat rule (e.g. Assassin — three attacks of one strike each)
   const multiAttackEffect = creatureDef.effects?.find(
     e => e.type === 'combat-multi-attack',
@@ -3951,14 +4012,15 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
-    assignmentPhase: (attackerChooses || havenJumpOffers.length > 0 || attackBeginsCorruption) ? 'cancel-window' : 'defender',
+    assignmentPhase: (effectiveAttackerChooses || havenJumpOffers.length > 0 || attackBeginsCorruption) ? 'cancel-window' : 'defender',
     havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
     pendingAttackBeginsCorruption: attackBeginsCorruption ? {
       source: entry.card!.instanceId,
       reason: creatureDef.name,
       modifier: attackBeginsCorruption.modifier,
     } : undefined,
-    attackerChoosesDefenders: attackerChooses ? true : undefined,
+    attackerChoosesDefenders: effectiveAttackerChooses ? true : undefined,
+    defenderFreeStrikeAssignment: defenderFreeStrikeAssignment ? true : undefined,
     detainment: isDetainmentAttack({
       attackEffects: creatureDef.effects,
       attackRace: creatureRace,
@@ -6074,6 +6136,26 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const possessions = characterPossessionsById(current, targetCharId);
       const cardName = cardDef?.name ?? '';
       const failureMode = playTargetWithCostCorruption.cost?.failureMode;
+      // The Precious (tw-98): "discard The One Ring along with the target
+      // character" — the Ring sits on a *different* company member (the
+      // target is defined by the play-target filter as "not the bearer"),
+      // so it cannot ride the normal `possessions` list. Resolve the named
+      // item to its current bearer's instance within the target's own
+      // company now, while the chain entry still knows who was targeted.
+      const alsoDiscardItemName = playTargetWithCostCorruption.cost?.alsoDiscardItemName;
+      let alsoDiscardItemId: CardInstanceId | null = null;
+      if (alsoDiscardItemName) {
+        const resourcePlayer = current.players[getPlayerIndex(current, resourcePlayerId)];
+        const targetCompany = findCharacterCompany(resourcePlayer.companies, targetCharId);
+        for (const cid of targetCompany?.characters ?? []) {
+          const bearer = resourcePlayer.characters[cid];
+          const item = bearer?.items.find(i => defById(current, i.definitionId)?.name === alsoDiscardItemName);
+          if (item) { alsoDiscardItemId = item.instanceId; break; }
+        }
+        if (!alsoDiscardItemId) {
+          logDetail(`${cardName}: "${alsoDiscardItemName}" not found in ${targetCharId as string}'s company — nothing to discard alongside a failed check`);
+        }
+      }
       logDetail(`${cardName}: enqueuing corruption check (modifier ${modifier}${failureMode ? `, failureMode: ${failureMode}` : ''}) for character ${targetCharId as string}`);
       current = enqueueCorruptionCheck(current, {
         source: entry.card.instanceId,
@@ -6084,6 +6166,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         modifier,
         possessions,
         failureMode,
+        alsoDiscardItemId,
       });
     }
   }
