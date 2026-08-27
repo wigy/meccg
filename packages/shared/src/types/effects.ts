@@ -6266,6 +6266,19 @@ export interface ModifyAttackEffect extends EffectBase {
    * "Any resulting body checks for defending characters are modified by +2."
    */
   readonly bodyCheckModifier?: number;
+  /**
+   * When set (`fromHand` path, whole-attack scope), overrides the prowess
+   * penalty for the *first* excess strike assigned to each defending
+   * character this attack — {@link CombatState.firstExcessStrikePenalty}.
+   * Normally each excess strike costs a flat -1 prowess
+   * (`StrikeAssignment.excessStrikes`); with this set, a character's first
+   * excess strike costs this amount instead, and any further excess strikes
+   * on the same character still cost -1 each (so total penalty for N excess
+   * strikes on one character is `firstExcessStrikePenalty + (N - 1)`). Used
+   * by Pierced by Many Wounds (dm-79): "The first excess strike assigned to
+   * each character gives a -4 modification to his prowess instead of -1."
+   */
+  readonly firstExcessStrikePenalty?: number;
 }
 
 /**

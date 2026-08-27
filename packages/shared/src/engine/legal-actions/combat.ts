@@ -28,7 +28,7 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -1468,7 +1468,7 @@ function resolveStrikeActions(
   let statusPenalty = 0;
   if (targetStatus === CardStatus.Tapped) statusPenalty = 1;
   if (targetStatus === CardStatus.Inverted) statusPenalty = 2; // Wounded
-  const excessPenalty = currentStrike.excessStrikes > 0 ? currentStrike.excessStrikes : 0;
+  const excessPenalty = excessStrikePenalty(combat, currentStrike.excessStrikes);
 
   // Tap: full prowess; Untap: -3 prowess penalty.
   // Add +1 per character/ally that has tapped to support this strike
@@ -3794,7 +3794,7 @@ export function buildPlayedModifyAttackContext(
   const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
   if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
   if (creatureName) enemyCtx['name'] = creatureName;
-  const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic, detainment: combat.detainment };
+  const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic, detainment: combat.detainment, strikesTotal: combat.strikesTotal };
   if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
   const defendingPlayer = playerById(state, combat.defendingPlayerId);
   const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;
