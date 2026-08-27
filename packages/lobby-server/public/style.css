@@ -3137,6 +3137,15 @@ h2 {
   outline-offset: -1px;
 }
 
+.card-browser-item--added {
+  animation: card-browser-item-added 0.4s ease-out;
+}
+
+@keyframes card-browser-item-added {
+  0% { background: rgba(196, 163, 90, 0.6); }
+  100% { background: #16213e; }
+}
+
 .card-browser-preview {
   width: calc(18rem + 1.4rem + 2px);
   flex-shrink: 0;

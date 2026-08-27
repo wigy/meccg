@@ -50,7 +50,7 @@ import {
   dispatch, recomputeDerived,
   assertEveryInstanceReachable,
 } from '../test-helpers.js';
-import { CardStatus, Phase } from '../../index.js';
+import { CardStatus, Phase, computeLegalActions } from '../../index.js';
 import type {
   CardDefinitionId, CardInstanceId, CardInPlay, GameState,
   StoreItemAction, StoreItemInCacheAction, PlayHeroResourceAction,
@@ -115,6 +115,38 @@ describe('Armory (dm-116)', () => {
 
     expect(actions.some(a => a.itemInstanceId === cramId && a.hostInstanceId === ARMORY_INSTANCE)).toBe(true);
     expect(actions.some(a => a.itemInstanceId === scrollId)).toBe(false);
+  });
+
+  test('a hand item offered via store-item-in-cache is not also reported as not-playable', () => {
+    // Regression: the generic not-playable sweep in legal-actions/index.ts
+    // keyed coverage off cardInstanceId/characterInstanceId/viaEventInstanceId
+    // only, missing itemInstanceId — so a minor item whose sole action was
+    // store-item-in-cache got a spurious "cannot be played" entry stacked
+    // alongside the genuinely viable one, and clients that key off card
+    // playability by instance ID (rather than by exact action) treated the
+    // item as unplayable (bug report: game mtasepv8-2pzfv3, turn 12 org phase).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [CRAM],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+          cardsInPlay: [armoryCardInPlay()],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const cramId = findHandCardId(state, RESOURCE_PLAYER, CRAM);
+    const allActions = computeLegalActions(state, PLAYER_1);
+    const notPlayable = allActions.filter(
+      a => a.action.type === 'not-playable' && (a.action as { cardInstanceId: CardInstanceId }).cardInstanceId === cramId,
+    );
+    expect(notPlayable).toHaveLength(0);
   });
 
   test('placing a minor item under Armory from hand moves it to the set-aside pile with no marshalling points', () => {
