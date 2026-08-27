@@ -2171,7 +2171,7 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
-type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
+type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string }; altEventMode?: string };
 
 /**
  * Shared post-filter for constraints restricting hazard-creature plays against
@@ -2179,6 +2179,11 @@ type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardIn
  * creature against `protectedCompany` passes through untouched; for the rest,
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
+ *
+ * A dual-mode card (`creature-alt-event`, e.g. Akhôrahil tw-4) offered here
+ * with `altEventMode` set is being played as a hazard *event*, not as a
+ * creature — CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct
+ * categories, so a "no creature hazards" restriction must not reach it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,
@@ -2191,6 +2196,7 @@ function filterCreaturePlaysAgainstCompany(
   return base.filter(ea => {
     if (ea.action.type !== 'play-hazard') return true;
     const action = ea.action as CreaturePlayAction;
+    if (action.altEventMode) return true;
     if (action.targetCompanyId !== protectedCompany) return true;
     const cardInstId = action.cardInstanceId;
     if (!cardInstId) return true;
