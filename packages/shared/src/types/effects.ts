@@ -6159,6 +6159,21 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly cost?: ActionCost;
   /**
+   * `"current-strike"` scope only. When true, the modifier applies
+   * automatically to every strike whose target is the item's own bearer —
+   * no action, no cost, no consumption. Mutually exclusive with `cost` /
+   * `fromHand`. Only `prowessModifier` is honoured in this mode (added
+   * directly to the defender's effective prowess for the strike, exactly
+   * like the activated `current-strike` path's `StrikeAssignment.strikeProwessBonus`);
+   * `bodyModifier` is not read here — a passive body reduction against the
+   * *attacker* should instead use `body-check-modifier`'s `scope:
+   * "bearer-combat"` with `when: { "bodyCheck.fromFailedStrike": true }`,
+   * which (unlike this scope's `bodyModifier`) also covers CvCC. Used by
+   * Morgul-blade (le-205): "Each strike against the Ringwraith receives...
+   * -1 prowess" (expressed as `prowessModifier: 1`, favouring the bearer).
+   */
+  readonly passive?: true;
+  /**
    * When true, the card is played from hand and discarded — not an in-play item.
    * Either the `attacker` (hazard player) or the `defender` (resource player)
    * may play, controlled by the `player` field.

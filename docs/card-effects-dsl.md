@@ -4885,6 +4885,50 @@ Implemented in `engine/legal-actions/combat.ts` (`tapItemForStrikeActions`,
 (`handleTapItemForStrike`, `handleBodyCheckRoll`) and
 `engine/combat-strike.ts` (`resolveStrikeCore`).
 
+**Passive mode** (`"passive": true`, `scope: "current-strike"` only): no
+`cost`, no action, no consumption — the modifier applies automatically to
+every strike whose target is the item's own bearer, for as long as the item
+stays in play. Only `prowessModifier` is honoured (added directly to the
+defender's own effective prowess for the strike, in both `resolveStrikeCore`
+and `resolveStrikeCvCC` — mathematically identical to reducing the attack's
+prowess, since the strike is decided by comparing the two).
+
+```json
+{ "type": "modify-attack", "scope": "current-strike",
+  "passive": true, "prowessModifier": 1 }
+```
+
+Used by Morgul-blade (le-205): "Each strike against the Ringwraith
+receives ... -1 prowess." `bodyModifier` is *not* read in passive mode — a
+passive body reduction against the attacker should instead use
+`body-check-modifier`'s `scope: "bearer-combat"` with
+`when: { "bodyCheck.fromFailedStrike": true }` (§2a), which also covers the
+CvCC `attacker-character` body check this scope does not reach.
+
+Implemented in `engine/combat-strike.ts`
+(`passiveModifyAttackProwessBonus`).
+
+**`bearer-strike-defeated` on-event.** A card carrying an `on-event`
+effect with `event: "bearer-strike-defeated"` and a self-discard `move`
+apply (`{ "type": "move", "select": "self", "from": "self-location", "to":
+"discard" }`) is discarded immediately after a strike against its bearer
+resolves as a genuine parry (success or tie — captured *before* any
+discard-item / absorb-wound / take-prisoner override that substitutes a
+different outcome for what would otherwise have been a wound). Fires
+per-strike, not at combat finalization (contrast `bearer-wounded`), so a
+later strike within the same attack no longer benefits from an item a
+prior strike already discarded. Covers both creature/agent strikes
+(`resolveStrikeCore`) and CvCC (`resolveStrikeCvCC`).
+
+```json
+{ "type": "on-event", "event": "bearer-strike-defeated",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+Used by Morgul-blade (le-205): "Discard Morgul-blade after a strike
+against the Ringwraith fails." Implemented in `engine/combat-strike.ts`
+(`dischargeBearerStrikeDefeatedItems`).
+
 ### 10e. `modify-attack` — played from hand (`fromHand: true`)
 
 When `fromHand: true` is set on a `modify-attack` effect, the card is
