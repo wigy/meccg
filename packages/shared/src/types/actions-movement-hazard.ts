@@ -191,6 +191,12 @@ export interface PlayHazardAction {
    * chooses which card to sacrifice; the reducer moves it to the discard pile.
    */
   readonly costDiscardInstanceId?: CardInstanceId;
+  /**
+   * For a `swap-new-site` hazard short-event (Winds of Wrath td-82): the site
+   * instance from the hazard player's own location deck chosen to replace the
+   * target company's declared destination site.
+   */
+  readonly replacementSiteInstanceId?: CardInstanceId;
 }
 
 /**

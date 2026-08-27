@@ -1219,8 +1219,37 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "The number of strikes of any attack that chooses defending characters is reduced by one (by 2 if Gates of Morning is in play) to a minimum of one. Discard when such an attack is defeated. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "target": "attacker-chooses-defenders-attacks",
+        "value": -1,
+        "min": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "target": "attacker-chooses-defenders-attacks",
+        "value": -1,
+        "min": 1,
+        "when": { "inPlay": "Gates of Morning" }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": { "attack.attackerChoosesDefenders": true }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "text": "The number of strikes of any attack that chooses defending characters is reduced by one (by 2 if Gates of Morning is in play) to a minimum of one. Discard when such an attack is defeated. Cannot be duplicated.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

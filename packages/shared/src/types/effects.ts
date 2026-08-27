@@ -218,6 +218,14 @@ export interface StatModifierEffect extends EffectBase {
    *   matching characters are unaffected.
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
+   * - `"attacker-chooses-defenders-attacks"` — `stat: "strikes"` only. Applies
+   *   to an attack only once its final `attackerChoosesDefenders` flag
+   *   (printed rule OR'd with any global grant) is known, at combat creation —
+   *   kept separate from `"all-attacks"` so this later pass never double-counts
+   *   an unrelated all-attacks strikes modifier already folded into the base
+   *   total by {@link resolveAttackStrikes}. Used by More Alert than Most
+   *   (dm-150): "-1 strike (-2 if Gates of Morning is in play), minimum 1, to
+   *   any attack that chooses defending characters."
    * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
    * - `"company-others"` — applies to every *other* character in the bearer's
    *   company, excluding the bearer itself (e.g. So You've Come Back le-138:
@@ -225,7 +233,7 @@ export interface StatModifierEffect extends EffectBase {
    *   Collected from a company member's attached hazards/items for every *other*
    *   member; the effect's `when` gates the modified character (via `bearer.*`).
    */
-  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company' | 'company-others';
+  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'attacker-chooses-defenders-attacks' | 'company' | 'company-others';
   /**
    * Only meaningful for `stat: 'general-influence'`. Caps how many of the
    * `value` points added to the general-influence pool may be spent to control
@@ -1990,12 +1998,16 @@ export interface GrantActionEffect extends EffectBase {
  *   matched against the bearer character's definition. Backs "remove a
  *   corruption card from a character in his company" (Athelas tw-195,
  *   Aragorn II's ability).
+ * - `"own-hand-factions"` — faction cards (`hero-resource-faction` /
+ *   `minion-resource-faction`, matching the activating player's own
+ *   alignment) sitting in the activating player's hand. Backs Roäc the Raven
+ *   (tw-320): "tap and discard … to attempt to bring any faction into play."
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards';
+  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards' | 'own-hand-factions';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
@@ -2231,6 +2243,7 @@ export type TriggeredActionType =
   | 'offer-corruption-removal-at-site'
   | 'roll-check'
   | 'roll-then-apply'
+  | 'faction-influence-untethered'
   | 'un-eliminate-creature'
   | 'transform-site'
   | 'untap-site'
@@ -2507,6 +2520,35 @@ export interface RollThenApplyAction extends TriggeredActionBase {
   readonly onSuccess?: TriggeredAction;
   /** Apply run when the roll is below `threshold`. */
   readonly onFailure?: TriggeredAction;
+}
+
+/**
+ * `faction-influence-untethered` — declare and immediately resolve an
+ * influence attempt to bring a faction card from hand into play, without any
+ * tie to the activating company's current site: the site need not match the
+ * faction's printed `playableAt`, need not be untapped, and — win or lose —
+ * is never tapped by the attempt. Used by Roäc the Raven (tw-320): "tap and
+ * discard Roäc … to attempt to bring any faction into play — treat this
+ * influence check as if it was made by a diplomat at any site where the
+ * faction could be played. Using Roäc … does not tap a site, and may be done
+ * if his company is at a tapped site."
+ *
+ * The grant-action's `targets` descriptor (scope `"own-hand-factions"`)
+ * supplies the chosen faction on `action.targetCardId`. Resolution mirrors
+ * the ally branch of {@link resolveInfluenceAttemptRoll} (Radagast's Black
+ * Bird wh-114) — the source ally's printed `directInfluence` (0 if unprinted)
+ * plus player-wide `check-modifier` constraints and the game-wide influence
+ * check-modifier — but omits every *site*-tied modifier (region-based
+ * faction-influence-restriction, site-bound influence modifiers), since the
+ * card text detaches the check from any real site. No on-guard/chain window
+ * is opened: CoE 2.V.6 only opens on-guard for a resource "that would tap
+ * the site if successfully played", and this one never does. Resolves
+ * synchronously — no chain — moving the faction card straight from hand into
+ * `cardsInPlay` (untapped, no site touched) on success or to the discard
+ * pile on failure.
+ */
+export interface FactionInfluenceUntetheredAction extends TriggeredActionBase {
+  readonly type: 'faction-influence-untethered';
 }
 
 /**
@@ -3563,6 +3605,7 @@ export type TriggeredAction =
   | MountSlainAction
   | RollCheckAction
   | RollThenApplyAction
+  | FactionInfluenceUntetheredAction
   | UnEliminateCreatureAction
   | WinConditionRollAction
   | WinGameAction
@@ -8311,6 +8354,37 @@ export interface FactionMpBonusEffect extends EffectBase {
 }
 
 /**
+ * A resource permanent event played on (`play-target: "faction"`) a single
+ * in-play faction instance grants that specific faction's owner a flat MP
+ * bonus, credited in `category` (independent of the faction's own printed
+ * `marshallingCategory`).
+ *
+ * Distinct from {@link FactionMpBonusEffect} (as-45's race-diversity gate over
+ * a *class* of factions): this effect is anchored to one attached instance
+ * (`CardInPlay.attachedTo`) via the generic faction play-target binding
+ * (chain-reducer.ts, the same mechanism Long Grievous Siege ba-40 uses), so
+ * the bonus follows that one faction rather than every faction of a race.
+ * Collected in `recompute-derived.ts` from the controller's own `cardsInPlay`
+ * entries carrying an `attachedTo` pointer, and applied only while the target
+ * faction remains in play — `discardOrphanedFactionAttachedEvents`
+ * (reducer-utils.ts) discards the carrier once its target faction leaves.
+ *
+ * Used by Tribute Garnered (as-104): "Playable on a faction in play. That
+ * faction gives an additional miscellaneous marshalling point."
+ *
+ * ```json
+ * { "type": "attached-faction-mp-bonus", "value": 1, "category": "misc" }
+ * ```
+ */
+export interface AttachedFactionMpBonusEffect extends EffectBase {
+  readonly type: 'attached-faction-mp-bonus';
+  /** Marshalling points added to the target faction's owner. */
+  readonly value: number;
+  /** Category the bonus is credited to (defaults to `misc`). */
+  readonly category?: MarshallingCategory;
+}
+
+/**
  * A card that discards **itself** the moment another card matching `filter`
  * leaves its controller's play area (present in the controller's `cardsInPlay`
  * before an action, absent after). Evaluated as a `postReduce` prev/next diff
@@ -9159,6 +9233,7 @@ export type CardEffect =
   | CvccAttackPermissionEffect
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
+  | AttachedFactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
   | RetainHazardLongEventsEffect
   | OpposedRollEffect
@@ -9168,7 +9243,8 @@ export type CardEffect =
   | TapDiscardInPlayEffect
   | RemovalProtectionEffect
   | ForceAgentAttackEffect
-  | DiscardUnrevealedOnGuardEffect;
+  | DiscardUnrevealedOnGuardEffect
+  | SwapNewSiteEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
@@ -9859,6 +9935,49 @@ export interface CharacterTapExtraMHPhaseEffect extends EffectBase {
   readonly type: 'character-tap-extra-mh-phase';
   /** Destination site's `sitePath` must include at least one of these region types. */
   readonly requiresDestinationSitePathIncludes?: readonly RegionType[];
+}
+
+/**
+ * Hazard short-event that substitutes a *different* site card, drawn from the
+ * hazard player's own location deck, for a moving company's already-declared
+ * destination site — CoE 2.II.7's normal rule that a company's new site
+ * always comes from its own owner's location deck is overridden for this one
+ * substitution. Playable only while the destination site's static `sitePath`
+ * includes at least one of {@link requiresDestinationSitePathIncludes}; the
+ * replacement drawn from the hazard player's location deck must satisfy the
+ * same site-path requirement.
+ *
+ * `swapNewSiteActions` (`legal-actions/movement-hazard.ts`) offers one
+ * `play-hazard` action per eligible site left in the hazard player's own
+ * `siteDeck`, each carrying its instance in `replacementSiteInstanceId`.
+ * `handleSwapNewSite` (`mh-hazard-play.ts`) then: returns the company's
+ * original destination site card, untapped, to its own owner's location deck
+ * (mirroring `clearPlannedMovement` — it was never entered, only declared),
+ * pulls the chosen replacement out of the hazard player's location deck as
+ * the company's new untapped `destinationSite`, and refreshes the cached
+ * `destinationSiteName` / `destinationSiteType` on the movement/hazard phase
+ * state (both already resolved by the time the play-hazards step runs) to
+ * match the replacement. `resolvedSitePath` (the region types the company
+ * actually traveled through) is a movement-path record, not a site-identity
+ * one, so it is untouched by the swap.
+ *
+ * Used by *Winds of Wrath* (td-82): "Playable if Doors of Night is in play
+ * and opponent is using the same type of location deck (minion/hero) as
+ * yourself. Replace the new site card of a moving company with a Coastal Sea
+ * [{c}] in its site path with a card from your location deck that has a
+ * Coastal Sea [{c}] in its site path." — `requiresDestinationSitePathIncludes:
+ * ["coastal"]`, paired with a `play-condition` `requires: "card-in-play"`
+ * (Doors of Night) and a `play-condition` `requires: "player-state"` gate on
+ * `player.sameLocationDeckTypeAsOpponent`.
+ */
+export interface SwapNewSiteEffect extends EffectBase {
+  readonly type: 'swap-new-site';
+  /**
+   * Both the company's current destination site and the replacement site
+   * must have a static `sitePath` including at least one of these region
+   * types.
+   */
+  readonly requiresDestinationSitePathIncludes: readonly RegionType[];
 }
 
 /**

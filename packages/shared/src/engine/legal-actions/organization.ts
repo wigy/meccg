@@ -28,7 +28,7 @@ import type {
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
-import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow } from '../../state-utils.js';
+import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { CardStatus, cardStatusToName, Race, Skill } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect } from '../../types/effects.js';
@@ -1459,6 +1459,37 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         const charDef = defById(state, char.definitionId);
         const def = defById(state, ally.definitionId);
+
+        // `targets: { scope: "own-hand-factions" }` — Roäc the Raven (tw-320):
+        // one activation per faction card of the player's own alignment
+        // sitting in hand, offered only while the bearer's company is the
+        // one currently taking its site phase ("during the site phase …
+        // his company").
+        if (effect.targets?.scope === 'own-hand-factions') {
+          const isActiveSiteCompany = state.phaseState.phase === Phase.Site
+            && !!company
+            && player.companies[state.phaseState.activeCompanyIndex]?.id === company.id;
+          if (!isActiveSiteCompany) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer's company is not the active site-phase company`);
+            continue;
+          }
+          const handFactions = player.hand.filter(c => {
+            const cardDef = defById(state, c.definitionId);
+            return !!cardDef && isFactionCard(cardDef)
+              && (!effect.targets!.filter || matchesDefinition(cardDef, effect.targets!.filter));
+          });
+          if (handFactions.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no faction card in hand`);
+            continue;
+          }
+          for (const faction of handFactions) {
+            const factionDef = defById(state, faction.definitionId);
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to attempt influencing ${factionDef?.name ?? '?'}`);
+            actions.push(grantedActionFor(playerId, charId, ally, effect, { targetCardId: faction.instanceId }));
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to activate`);
 
         actions.push(grantedActionFor(playerId, charId, ally, effect));
@@ -2849,6 +2880,14 @@ export function buildPlayOptionContext(
   if (!def || !isCharacterCard(def)) {
     return { target: {}, pending: { corruptionCheckTargetsMe: false } };
   }
+  // Mirrors `corruptionCheckTargetsMe` for the riddling-attempt window: true
+  // only while a `riddling-attempt` pending resolution is awaiting its roll
+  // for this exact character. Gates reactive roll-boosting short events (Wit
+  // td-168: "Modify one riddling roll by +3") so they are offered only in
+  // response to an actual pending riddling roll, never speculatively.
+  const riddlingAttemptTargetsMe = state.pendingResolutions.some(
+    r => r.kind.type === 'riddling-attempt' && r.kind.characterInstanceId === char.instanceId,
+  );
   const corruptionCheckTargetsMe = state.pendingResolutions.some(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   ) || (
@@ -3000,6 +3039,7 @@ export function buildPlayOptionContext(
     },
     pending: {
       corruptionCheckTargetsMe,
+      riddlingAttemptTargetsMe,
     },
     player: {
       hasFactionInHand,
@@ -3110,6 +3150,13 @@ export function buildActiveCompanyContext(
  *   so every printing of a character counts (Gandalf is tw-156 and wh-4). Used
  *   by Gandalf the White Rider (as-11): "Discard this card if Gandalf comes
  *   into play" → `{ "charactersInPlayAnywhere": "Gandalf" }`.
+ * - `player.sameLocationDeckTypeAsOpponent` — `true` when the player and their
+ *   opponent draw from the same *type* of location deck: `isMinionOrBalrog`
+ *   agrees for both sides (CoE 1.4.W1/R1: a Wizard's location deck is
+ *   hero-only, a Ringwraith's minion-only, so two Wizards or two Ringwraiths
+ *   always match). Used by Winds of Wrath (td-82) and Chance of Being Lost
+ *   (dm-49): "Playable ... if opponent is using the same type of location
+ *   deck (minion/hero) as yourself."
  */
 export function buildPlayerStateContext(
   state: GameState,
@@ -3175,6 +3222,7 @@ export function buildPlayerStateContext(
       // player counts as Sauron via a `play-as-sauron` marker in play (The
       // Lidless Eye le-203 / Sauron ba-43).
       playsAsSauron: playerPlaysAsSauron(state, player),
+      sameLocationDeckTypeAsOpponent: opponent !== undefined && isMinionOrBalrog(player) === isMinionOrBalrog(opponent),
     },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),

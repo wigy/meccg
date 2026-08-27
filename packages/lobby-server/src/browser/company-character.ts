@@ -9,10 +9,11 @@
 import type {
   Alignment,
   CardDefinition,
+  CardInPlay,
   CardInstanceId,
   CharacterInPlay,
 } from '@meccg/shared';
-import { cardImageProxyPath, effectiveItemCorruptionPoints, isCharacterCard, isItemCard, CardStatus } from '@meccg/shared';
+import { cardImageProxyPath, effectiveItemCorruptionPoints, isCharacterCard, isItemCard, CardStatus, cardsAttachedToCharacter } from '@meccg/shared';
 import { createCardImage } from './render-utils.js';
 
 /** Highlight class + click handler applied to a card image. */
@@ -112,6 +113,10 @@ interface AttachmentRowContext {
   hazardClickBuilder?: ((hazardInstId: CardInstanceId) => CardClick | undefined) | undefined;
   inPlayDefs: readonly CardDefinition[];
   bearerAlignment?: Alignment | undefined;
+  /** Both players' `cardsInPlay`, searched for cards attached to each bearer (CardInPlay.attachedTo) via {@link cardsAttachedToCharacter}. */
+  attachedEventCandidates?: readonly CardInPlay[] | undefined;
+  /** Renders one character-attached card, reusing the same board affordances (tap, discard, click-to-preview) as the flat cards-in-play row. */
+  renderAttachedEvent?: ((card: CardInPlay) => HTMLElement | null) | undefined;
 }
 
 /**
@@ -168,6 +173,24 @@ function appendAttachmentCards(
       row.appendChild(attEl);
     }
   }
+
+  // Character-attached permanent/short events (e.g. a corruption card, or
+  // Flee from Strike once it stays in play on the fleeing character) render
+  // alongside items/allies/hazards, inline with their bearer, instead of the
+  // detached flat cards-in-play row (bug: such a card rendered as a
+  // disconnected sliver in a corner of the board).
+  if (ctx.attachedEventCandidates && ctx.renderAttachedEvent) {
+    for (const card of cardsAttachedToCharacter(ctx.attachedEventCandidates, bearer.instanceId)) {
+      const img = ctx.renderAttachedEvent(card);
+      if (img) row.appendChild(img);
+    }
+  }
+}
+
+/** Whether `bearer` has any character-attached cards (CardInPlay.attachedTo) in `ctx`. */
+function hasAttachedEvents(bearer: CharacterInPlay, ctx: AttachmentRowContext): boolean {
+  return ctx.attachedEventCandidates != null
+    && cardsAttachedToCharacter(ctx.attachedEventCandidates, bearer.instanceId).length > 0;
 }
 
 /**
@@ -193,6 +216,8 @@ export function renderCharacterColumn(
   hazardClickBuilder?: (hazardInstId: CardInstanceId) => { cls: string; handler: (e: Event) => void } | undefined,
   inPlayDefs: readonly CardDefinition[] = [],
   bearerAlignment?: Alignment,
+  attachedEventCandidates?: readonly CardInPlay[],
+  renderAttachedEvent?: (card: CardInPlay) => HTMLElement | null,
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -203,10 +228,10 @@ export function renderCharacterColumn(
   const imgPath = cardImageProxyPath(def);
   if (!imgPath) return col;
 
-  const ctx: AttachmentRowContext = { cardPool, itemClickBuilder, hazardClickBuilder, inPlayDefs, bearerAlignment };
+  const ctx: AttachmentRowContext = { cardPool, itemClickBuilder, hazardClickBuilder, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent };
 
   const hasFollowers = charMap != null && char.followers.length > 0;
-  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0 || hasFollowers;
+  const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0 || hasFollowers || hasAttachedEvents(char, ctx);
   col.appendChild(buildCharacterCardWrap(char, def, imgPath, {
     cardClass: 'company-card',
     hasAttachments,
@@ -214,8 +239,8 @@ export function renderCharacterColumn(
     influenceClick,
   }));
 
-  // Items, allies, and followers — shown side by side in one row
-  const hasOwnAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0;
+  // Items, allies, followers, and character-attached events — shown side by side in one row
+  const hasOwnAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0 || hasAttachedEvents(char, ctx);
   if (hasOwnAttachments || hasFollowers) {
     const attachments = document.createElement('div');
     attachments.className = 'character-attachments';
@@ -234,7 +259,7 @@ export function renderCharacterColumn(
         const followerCol = document.createElement('div');
         followerCol.className = 'follower-column';
 
-        const followerHasItems = follower.items.length > 0 || follower.allies.length > 0 || follower.hazards.length > 0;
+        const followerHasItems = follower.items.length > 0 || follower.allies.length > 0 || follower.hazards.length > 0 || hasAttachedEvents(follower, ctx);
         followerCol.appendChild(buildCharacterCardWrap(follower, fDef, fImg, {
           cardClass: 'company-card company-card--follower',
           hasAttachments: followerHasItems,

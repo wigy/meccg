@@ -291,6 +291,28 @@ Optional `target` scopes:
   ```
 
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
+- `"attacker-chooses-defenders-attacks"` — `stat: "strikes"` only. Unlike
+  `"all-attacks"`, this scope is resolved separately at combat creation, once
+  the attack's final `attackerChoosesDefenders` flag (printed creature/site
+  rule OR'd with any global grant) is known — `resolveAttackStrikes` has
+  already produced the base strikes total from `"all-attacks"`/
+  `"all-automatic-attacks"` by then, so reusing that scope here would
+  double-count unrelated modifiers (e.g. The Moon Is Dead's +1 strike to
+  Undead attacks). `makeCombatState` (`reducer-utils.ts`) applies it via
+  `resolveAttackerChosenStrikeReduction` (`effects/resolver.ts`) once
+  `strikesTotal` and `attackerChoosesDefenders` are both final; it is a no-op
+  when the attack does not choose defending characters. Used by *More Alert
+  than Most* (dm-150): "The number of strikes of any attack that chooses
+  defending characters is reduced by one (by 2 if Gates of Morning is in
+  play) to a minimum of one" — two effects, each floored independently so the
+  pair nets -1 or -2 down to a floor of 1:
+
+  ```json
+  { "type": "stat-modifier", "stat": "strikes", "value": -1, "min": 1, "target": "attacker-chooses-defenders-attacks" }
+  { "type": "stat-modifier", "stat": "strikes", "value": -1, "min": 1, "target": "attacker-chooses-defenders-attacks",
+    "when": { "inPlay": "Gates of Morning" } }
+  ```
+
 - `"company-others"` — applies to every **other** character in the bearer's
   company, excluding the bearer itself. Collected in `collectCharacterEffects`
   by scanning the attached hazards/items of every *other* company member; the
@@ -4238,6 +4260,54 @@ it, it never enters that site: during the site phase the remaining
 automatic-attack sequence for the company is abandoned via
 `SitePhaseState.autoAttacksSkipped`, which also suppresses race-duplicated
 attacks (*The Moon Is Dead*) and is cleared when the next company is selected.
+
+**Cross-player new-site swap (`swap-new-site`).** A hazard short-event may
+substitute a different site card, drawn from the **hazard player's own**
+location deck, for a moving company's already-declared `destinationSite` —
+overriding CoE 2.II.7's normal rule that a company's new site always comes
+from its own owner's location deck. Used by *Winds of Wrath* (td-82):
+"Playable if Doors of Night is in play and opponent is using the same type of
+location deck (minion/hero) as yourself. Replace the new site card of a
+moving company with a Coastal Sea [{c}] in its site path with a card from
+your location deck that has a Coastal Sea [{c}] in its site path."
+
+```json
+{ "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" },
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.sameLocationDeckTypeAsOpponent": true } },
+{ "type": "swap-new-site", "requiresDestinationSitePathIncludes": ["coastal"] }
+```
+
+`requiresDestinationSitePathIncludes` gates both sides of the swap: the
+company's current `destinationSite` must have a static `sitePath` including
+at least one of the listed {@link RegionType}s, and so must the replacement.
+`player.sameLocationDeckTypeAsOpponent` (new `player-state` context field,
+`buildPlayerStateContext`, `legal-actions/organization.ts`) is `true` when
+`isMinionOrBalrog` agrees for the player and their opponent — CoE
+1.4.W1/R1: two Wizards or two Ringwraiths always match; a Fallen-wizard or
+Balrog opponent only matches the corresponding minion/hero side of the
+`isMinionOrBalrog` split, since their location decks straddle both (1.4.F1/B1)
+in a way a single boolean can't fully capture — the primary two-player
+hero-mirror / minion-mirror case these two cards were designed for reads
+correctly regardless. The `player-state` play-condition is now also wired
+into the M/H phase's play-hazards step for hazard short-events (previously
+only resource short-events read it) — `playerStateGateMet`, imported into
+`legal-actions/movement-hazard.ts` from `organization.ts`.
+
+`swapNewSiteActions` (inlined in the hazard short-event branch of
+`legal-actions/movement-hazard.ts`, guarded by a `swap-new-site` effect on the
+card) offers one `play-hazard` action per eligible site left in the hazard
+player's own `siteDeck`, each carrying its instance in the action's
+`replacementSiteInstanceId`. `handleSwapNewSite` (`mh-hazard-play.ts`) then:
+returns the company's original destination site, untapped, to its own owner's
+location deck (mirroring `clearPlannedMovement` — it was only declared, never
+entered), pulls the chosen replacement out of the hazard player's own
+location deck as the company's new untapped `destinationSite`, and refreshes
+the M/H phase state's cached `destinationSiteName` / `destinationSiteType`
+(both already resolved earlier in the phase, well before play-hazards) to
+describe the replacement. `resolvedSitePath` (the region types the company
+actually traveled through) is a movement-path record, not a site-identity
+one, so the swap leaves it untouched.
 
 Example (Wild Hounds — discard):
 
@@ -16930,6 +17000,67 @@ the regions listed above, the hazard limit is reduced by 2 (to a minimum of
 2). Cannot be duplicated on a given company." (CRF 22: the printed
 "otherwise" should be read as "alternatively".)
 
+### 79. `targets.scope: "own-hand-factions"` + `faction-influence-untethered` (Roäc the Raven)
+
+An ally's own tap-and-discard ability to declare and immediately resolve an
+influence attempt against a faction card in the controller's hand, with **no
+tie to the activating company's current site** — unlike the ordinary
+faction-play path (CoE 2.V.3, `legal-actions/site.ts`), the site need not be
+untapped and the targeted faction need not be playable there, and — win or
+lose — the site is never tapped by the attempt.
+
+`targets: { scope: "own-hand-factions" }` on a `grant-action` enumerates the
+activating player's own faction cards in hand (`hero-resource-faction` /
+`minion-resource-faction`), each producing one activation carrying the
+faction's instance on `targetCardId`; an optional `filter` narrows the
+candidates (matched against each faction's definition). Unlike every other
+`targets.scope`, this one is read directly in the **ally** grant-action
+scanner (`legal-actions/organization.ts`, the "Scan allies attached to this
+character" loop) rather than through the shared `enumerateGrantActionTargets`
+helper, since the candidates live in the player's `hand`, a zone that helper's
+`{companies, characters}` parameter shape doesn't see. The scan additionally
+requires the bearer's company to be the site phase's *active* company
+(`state.phaseState.activeCompanyIndex`) — "during the site phase … his
+company."
+
+```json
+{ "type": "grant-action", "action": "roac-faction-influence",
+  "activeSitePhase": true,
+  "cost": { "tap": "self", "discard": "self" },
+  "targets": { "scope": "own-hand-factions" },
+  "apply": { "type": "faction-influence-untethered" } }
+```
+
+The `apply.type: "faction-influence-untethered"` (`grant-action-apply.ts`)
+resolves synchronously — no chain, no on-guard window, since CoE 2.V.6 only
+opens on-guard for a resource "that would tap the site if successfully
+played" and this one never does. It computes a modifier from the source
+ally's own printed `directInfluence` (0 if unprinted) plus player-wide
+`check-modifier` constraints and the game-wide influence check-modifier
+(`collectGlobalCheckModifier`) — mirroring the **ally** branch of
+`resolveInfluenceAttemptRoll` (Radagast's Black Bird wh-114) but omitting
+every *site*-tied modifier (region-based faction-influence-restriction,
+site-bound influence modifiers), since the card text detaches the check from
+any real site — rolls 2d6, and compares the total to the target faction's
+`influenceNumber`. On success the faction moves from hand straight into
+`cardsInPlay` untapped (honoring `playedAfterFactionMpPin`, Await the Onset
+wh-96); on failure it moves to the discard pile. Neither branch touches any
+site, so `resourcePlayed`/`minorItemAvailable` are unaffected either way. The
+ally itself is already tapped-and-discarded by the shared `cost: { tap:
+"self", discard: "self" }` payment (`cost-evaluator.ts`) *before* this apply
+runs — unlike Black Bird's "stays in company, just tapped" ability, the
+activation cost removes the ally from play regardless of whether the roll
+then succeeds.
+
+Used by Roäc the Raven (tw-320): "Unique. Playable at any site in Northern
+Rhovanion. During the site phase you can tap and discard Roäc the Raven to
+attempt to bring any faction into play — treat this influence check as if it
+was made by a diplomat at any site where the faction could be played. Using
+Roäc the Raven to make an influence attempt does not tap a site, and may be
+done if his company is at a tapped site." — `playableAt: [{ "region":
+"Northern Rhovanion" }]` (the Noble Steed wh-33 region-`playableAt`
+precedent).
+
 ### 79. `restore-item` grant-action + `restored-item-stats` + `face-all-strikes-option` (Horn of Defiance)
 
 Three primitives backing the Reforging family of hoard items — Horn of
@@ -17051,3 +17182,24 @@ is exhausted. Cannot be duplicated."
   Violence (ba-42) precedent: `duplication-limit` (scope `game`, max 1) for
   "Cannot be duplicated", and `on-event: play-deck-exhausted` → `move` self to
   `discard` for "Discard when any play deck is exhausted".
+**`item.restored` resolver context (Ringil td-184)** — `collectCharacterEffects`
+(`effects/resolver.ts`) sets `item: { restored: true }` on the context only
+while collecting that specific item's own effects (an item's `restored` flag
+never leaks onto the bearer's own effects or sibling items), so a
+`stat-modifier`'s `when` can pair a pre-restore and a post-restore variant of
+the same bonus. Ringil ("Warrior only: +1 prowess (to a maximum of 8) …
+Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5
+prowess (to a maximum of 11)") declares:
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": { "$ne": true } } ] } },
+{ "type": "stat-modifier", "stat": "prowess", "value": 5, "max": 11,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": true } ] } },
+{ "type": "grant-action", "action": "restore-item",
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "restore-item" } },
+{ "type": "restored-item-stats", "marshallingPoints": 4, "corruptionPoints": 3 }
+```
