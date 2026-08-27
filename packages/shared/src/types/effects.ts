@@ -8995,6 +8995,8 @@ export type CardEffect =
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
   | AgentTapFactionInfluenceEffect
+  | AgentTapMultiInfluenceEffect
+  | AgentInfluenceBoostEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | ReturnSelfToHandWhenEffect
@@ -10940,6 +10942,57 @@ export interface AgentTapFactionInfluenceEffect extends EffectBase {
    * target faction is playable at one of the agent's home sites.
    */
   readonly autoSuccessAtHomeSite?: boolean;
+}
+
+/**
+ * Hazard short-event mode A for Good Sense Revolts (dm-61).
+ *
+ * "Playable on an untapped agent. Tap the agent who may then make an
+ * influence attempt against an ally, faction, or character. +4 to influence
+ * attempt. +8 if ally, faction, or character is playable at agent's home
+ * site."
+ *
+ * The multi-target counterpart of {@link AgentTapFactionInfluenceEffect}: the
+ * card *grants* any of the hazard player's own untapped agents a rule-10.14
+ * influence attempt against an opponent's ally, faction, or character — the
+ * same target kinds the native {@link AgentTapInfluenceEffect} ability covers
+ * — without requiring the agent to carry that ability itself. Instead of an
+ * auto-success tier (dm-96), this card's own bonus is tiered: {@link
+ * attemptBonus} normally, {@link attemptBonusAtHomeSite} when the target
+ * shares (character/ally) or is playable at (faction) one of the agent's home
+ * sites — the same condition rule 10.14 already zeroes the target's value
+ * for.
+ */
+export interface AgentTapMultiInfluenceEffect extends EffectBase {
+  readonly type: 'agent-tap-multi-influence';
+  /** Which kinds of opponent target the granted attempt may be made against. */
+  readonly targetKinds: readonly ('character' | 'ally' | 'faction')[];
+  /** Modifier added to the attacker's side of the influence attempt (+4). */
+  readonly attemptBonus: number;
+  /**
+   * Replaces {@link attemptBonus} when the target is playable at (or shares)
+   * one of the agent's home sites (+8).
+   */
+  readonly attemptBonusAtHomeSite?: number;
+}
+
+/**
+ * Hazard short-event mode B for Good Sense Revolts (dm-61): "Alternatively,
+ * modify an influence attempt by an agent by +4. This card cannot serve both
+ * functions."
+ *
+ * Banks a one-shot `check-modifier` {@link ActiveConstraint} (`check:
+ * "influence"`, gated by `when: { reason: "opponent-influence-check" }`) on
+ * one of the hazard player's own agents (any tap status) — the same
+ * constraint kind Mine or No One's (ba-68) uses — consumed by that agent's
+ * next qualifying rule-10.14 attempt, whether via a native {@link
+ * AgentTapInfluenceEffect} ability or a granted attempt such as this same
+ * card's own mode A. Does not tap or reveal the target agent by itself.
+ */
+export interface AgentInfluenceBoostEffect extends EffectBase {
+  readonly type: 'agent-influence-boost';
+  /** Modifier banked onto the target agent's next qualifying attempt (+4). */
+  readonly attemptBonus: number;
 }
 
 /**
