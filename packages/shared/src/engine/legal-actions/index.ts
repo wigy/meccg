@@ -14,6 +14,7 @@
 import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
 import type { PlayRestrictionEffect, TapDiscardInPlayEffect } from '../../types/effects.js';
 import { Alignment, CardStatus } from '../../types/common.js';
+import { Phase } from '../../types/state-phases.js';
 import { matchesContext } from '../../effects/condition-matcher.js';
 import { matchesDefinitionAcrossFallenWizardAlignment, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
@@ -339,13 +340,20 @@ function applyOpponentBans(
  * card can be played from — phase menus, the chain, and combat responses alike.
  */
 export function computeLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  return applyPendingPlayFilter(
+  const evaluated = applyPendingPlayFilter(
     state, playerId,
     applyLocationMagicRestriction(
       state, playerId,
       applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId)),
     ),
   );
+  // Concede is offered unconditionally, in every phase and sub-state
+  // (chain, combat, pending resolution) except once the game has already
+  // ended — deliberately outside computePhaseLegalActions's chain/combat/
+  // pending early-returns, which restrict every other action to a narrow
+  // resolution-specific set.
+  if (state.phaseState.phase === Phase.GameOver) return evaluated;
+  return [...evaluated, { action: { type: 'concede', player: playerId }, viable: true }];
 }
 
 /**

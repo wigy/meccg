@@ -111,7 +111,7 @@ import { triggerAhuntOnLongEventPlay } from './mh-steps.js';
 import { handleSite } from './reducer-site.js';
 import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js';
 import { applyBannedVsBalrogSwap } from './balrog-banned-swap.js';
-import { handleFreeCouncil } from './reducer-free-council.js';
+import { handleFreeCouncil, endGame } from './reducer-free-council.js';
 import { handleCombatAction, COMBAT_ACTION_TYPES } from './reducer-combat.js';
 
 /**
@@ -139,6 +139,19 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   state = accrueRevealedInstances(state);
 
   const phase = state.phaseState.phase;
+
+  // Concede takes priority over everything else — chain, combat, pending
+  // resolutions/effects — so a player is never stuck unable to end a match
+  // they no longer want to play, regardless of what sub-state is active.
+  // Not offered once the game is already over (see legal-actions/index.ts).
+  if (action.type === 'concede') {
+    logDetail(`${action.player as string} concedes — ending the game immediately`);
+    const opponent = state.players.find(p => p.id !== action.player);
+    if (!opponent) return { state, error: 'Cannot concede: no opponent found' };
+    const finalState = endGame(state, { kind: 'concession', concededBy: action.player }, opponent.id);
+    const recomputed = postReduce(finalState, state);
+    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+  }
 
   // Chain of effects: dispatch chain-specific actions when a chain is active
   if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'reveal-on-guard' || action.type === 'cancel-return-to-origin' || action.type === 'cancel-hazard-event' || action.type === 'counter-cancel-roll' || action.type === 'counter-cancel-attack')) {

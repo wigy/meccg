@@ -406,10 +406,13 @@ export const WIZARD_SPECIFIC_KEYWORD_NAMES: Readonly<Record<string, string>> = {
  *   (`tw-205` Cracks of Doom, `tw-247` Gollum's Fate, `wh-60` A New Ringlord,
  *   or `ba-52` Challenge the Power), or `null` for the Ringwraith positional
  *   win at Barad-dûr (which has no card).
+ * - `concession` — `concededBy` conceded the game; the opponent wins
+ *   immediately regardless of the current marshalling-point standing.
  */
 export type WinReason =
   | { readonly kind: 'marshalling-points' }
-  | { readonly kind: 'one-ring'; readonly alignment: Alignment; readonly card: CardDefinitionId | null };
+  | { readonly kind: 'one-ring'; readonly alignment: Alignment; readonly card: CardDefinitionId | null }
+  | { readonly kind: 'concession'; readonly concededBy: PlayerId };
 
 /**
  * A card reference carrying both its instance ID and definition ID.

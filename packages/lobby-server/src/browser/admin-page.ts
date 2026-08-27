@@ -151,6 +151,7 @@ function formatWinReason(game: AdminGame): string {
   if (game.result === 'draw') return 'Draw';
   if (game.winReason === 'one-ring') return 'The One Ring';
   if (game.winReason === 'marshalling-points') return 'Marshalling points';
+  if (game.winReason === 'concession') return 'Conceded';
   return orDash(game.winReason);
 }
 

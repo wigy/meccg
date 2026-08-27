@@ -10,12 +10,13 @@
  * populated with `appState`, `cardPool`, `showScreen`, and `connectLobbyWs`.
  */
 
-import type { ClientMessage } from '@meccg/shared';
+import type { ClientMessage, PlayerId } from '@meccg/shared';
+import { Phase } from '@meccg/shared';
 import {
   appState, cardPool,
   VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY,
 } from './app-state.js';
-import { connect, disconnect, resetVisualBoard, setLobbyCallbacks } from './game-connection.js';
+import { connect, disconnect, resetVisualBoard, setLobbyCallbacks, sendAction } from './game-connection.js';
 import { startReplay } from './replay.js';
 import { connectPseudoAi } from './pseudo-ai.js';
 import { resetCompanyViews } from './company-view.js';
@@ -213,6 +214,18 @@ if (pseudoAiMinimizeBtn) {
 disconnectBtn.addEventListener('click', () => {
   disconnect();
 });
+
+const concedeBtn = document.getElementById('concede-btn') as HTMLButtonElement | null;
+concedeBtn?.addEventListener('click', () => { void (async () => {
+  if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;
+  if (!appState.playerId || appState.spectating || appState.currentPhase === Phase.GameOver) return;
+  const ok = await showConfirm(
+    'Concede this game? Your opponent immediately wins and this cannot be undone.',
+    { okLabel: 'Concede', cancelLabel: 'Cancel' },
+  );
+  if (!ok) return;
+  sendAction({ type: 'concede', player: appState.playerId as PlayerId });
+})(); });
 
 undoBtn.addEventListener('click', () => { void (async () => {
   if (appState.ws && appState.ws.readyState === WebSocket.OPEN) {
