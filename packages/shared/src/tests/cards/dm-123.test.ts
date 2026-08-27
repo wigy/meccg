@@ -3,7 +3,9 @@
  *
  * Card test: Dark Numbers (dm-123)
  * Type: hero-resource-event (permanent), Stolen Knowledge, alignment wizard,
- * non-unique. Marshalling points: 0 (miscellaneous).
+ * non-unique. Marshalling points: 1 (miscellaneous) — printed without
+ * parentheses, so (unlike e.g. Rescue Prisoners tw-315) the point is earned
+ * as soon as the card is in play, not gated on being stored.
  *
  * Card text: "Stolen Knowledge. Playable on an untapped scout immediately
  * after facing an Orc, Troll, or Man attack. Tap scout. Can be stored at a
@@ -40,6 +42,7 @@ import type {
   ActivateGrantedAction, InfluenceAttemptAction,
 } from '../../index.js';
 import { enqueuePostAttackPlayOffers } from '../../engine/post-attack-play.js';
+import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const DARK_NUMBERS = 'dm-123' as CardDefinitionId;
 
@@ -244,6 +247,16 @@ describe('Dark Numbers (dm-123)', () => {
 
   // ── Rule 5: storable at a Haven ────────────────────────────────────────────
 
+  test('the printed 1 misc marshalling point is earned while attached, before storing', () => {
+    const base = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: PELARGIR,
+    });
+    const attached = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, DARK_NUMBERS);
+    const state = recomputeDerived(attached);
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);
+  });
+
   test('Dark Numbers can be stored at a Haven during organization', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
@@ -261,7 +274,8 @@ describe('Dark Numbers (dm-123)', () => {
     const storeActions = viableActions(state, PLAYER_1, 'store-item');
     expect(storeActions.length).toBe(1);
 
-    // Storing awards the printed 1 misc marshalling point (storable-at MP).
+    // The printed 1 misc marshalling point carries over unchanged once stored
+    // (storable-at declares the same value as the card's base MP).
     const stored = dispatch(state, storeActions[0].action);
     expect(stored.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === DARK_NUMBERS)).toBe(true);
     expect(stored.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(1);

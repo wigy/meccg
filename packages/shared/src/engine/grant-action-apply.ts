@@ -161,6 +161,21 @@ function runGrantApply(
     return { updatedChar: { ...char, items: updatedItems }, effects: [], stateOps: [] };
   }
 
+  // Reforging family of hoard items (Horn of Defiance td-183, Ringil td-184,
+  // Belegennon td-185): "A stored Reforging may be placed with this item to
+  // 'restore' it." The cost already discarded the stored Reforging
+  // (`applyCost`'s `discard: "named-stored-card"` branch); this just flags
+  // the source item itself — it stays right where it is, on its bearer.
+  if (apply.type === 'restore-item') {
+    const itemIdx = char.items.findIndex(i => i.instanceId === ctx.action.sourceCardId);
+    if (itemIdx < 0) {
+      return { error: `restore-item: source ${ctx.sourceName} not found in ${ctx.charName}'s items` };
+    }
+    logDetail(`Grant-action ${ctx.action.actionId}: restored "${ctx.sourceName}" on ${ctx.charName}`);
+    const updatedItems = char.items.map((it, i) => i === itemIdx ? { ...it, restored: true as const } : it);
+    return { updatedChar: { ...char, items: updatedItems }, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'set-character-status' && apply.target === 'bearer') {
     if (apply.status === undefined) {
       return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
@@ -1769,6 +1784,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     sourceCardDefId: action.sourceCardDefinitionId,
     noTap,
     label: `${action.actionId}/${sourceName}`,
+    discardTargetId: action.targetCardId,
   });
   if ('error' in costResult) return { state, error: `${sourceName}: ${costResult.error}` };
 

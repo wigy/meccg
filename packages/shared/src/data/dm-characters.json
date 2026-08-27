@@ -130,7 +130,8 @@
       "agent"
     ],
     "effects": [],
-    "text": "Unique. Agent."
+    "text": "Unique. Agent.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "minion-character",
@@ -406,6 +407,7 @@
       "agent"
     ],
     "effects": [],
+    "certified": "2026-08-27",
     "text": "Unique. Agent."
   },
   {
