@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -647,6 +647,72 @@ function revealNewSiteActions(
         movementType: MovementType.Region,
         regionPath: regionIds,
       });
+    }
+  } else if (!isUnderDeepsMovement && (!balrogMovementLocked || balrogRegionAllowed) && !ringwraithRegionLocked) {
+    // Wondrous Maps (td-171) / Refuge (td-145): one side of this move is an
+    // `acts-as-site` virtual site. Its synthesized definition has an empty
+    // `region` (deliberately — see `synthesizeActsAsSiteDefinition`), so it
+    // never matches the generic branch above. The origin side substitutes
+    // the company's dynamically-recorded `virtualSiteRegionName` (set when
+    // it arrived); the destination side has no single fixed region at all —
+    // every region of the required type reachable within range is offered
+    // as a candidate ending region.
+    const destActsAsSite = getCardEffects(destDef).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+    const originActsAsSite = getCardEffects(originDef).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+    const virtualOriginRegion = originActsAsSite ? company.virtualSiteRegionName : originRegion;
+    if ((destActsAsSite || originActsAsSite) && virtualOriginRegion) {
+      const regionNameToId = buildRegionNameMap(state);
+      let regionCap = outHeSprangAllowance ?? mhState.maxRegionDistance;
+      if (outHeSprangAllowance === null) {
+        regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
+      }
+      const adjacencyShortcutPairs = state.activeConstraints
+        .filter(c => c.kind.type === 'region-adjacency-shortcut'
+          && c.target.kind === 'company' && c.target.companyId === company.id)
+        .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+      let pathMovementMap = adjacencyShortcutPairs.length > 0
+        ? withExtraRegionAdjacency(movementMap, adjacencyShortcutPairs)
+        : movementMap;
+      const regionShortcutPairs = companyRegionShortcutPairs(state, player, company);
+      if (regionShortcutPairs) pathMovementMap = withVirtualAdjacency(pathMovementMap, regionShortcutPairs);
+
+      const destRegionCandidates = destActsAsSite
+        ? Array.from(pathMovementMap.regionGraph.keys()).filter(name => {
+            const id = regionNameToId.get(name);
+            const regionDef = id ? defById(state, id) : undefined;
+            return regionDef?.cardType === 'region' && regionDef.regionType === destActsAsSite.requiredLastRegionType;
+          })
+        : (destRegion ? [destRegion] : []);
+
+      const seenPaths = new Set<string>();
+      const allPaths: string[][] = [];
+      for (const candidateDestRegion of destRegionCandidates) {
+        for (const path of findRegionPaths(pathMovementMap, virtualOriginRegion, candidateDestRegion, regionCap)) {
+          const key = path.join('>');
+          if (seenPaths.has(key)) continue;
+          seenPaths.add(key);
+          allPaths.push(path);
+        }
+      }
+      allPaths.sort((a, b) => {
+        const lenDiff = a.length - b.length;
+        if (lenDiff !== 0) return lenDiff;
+        return new Set(a).size - new Set(b).size;
+      });
+      for (const path of allPaths) {
+        const regionIds = path.map(name => regionNameToId.get(name)).filter((id): id is CardDefinitionId => id !== undefined);
+        if (regionIds.length !== path.length) {
+          logDetail(`Region path ${path.join(' → ')} has unresolvable region names — skipping`);
+          continue;
+        }
+        logDetail(`Region path (virtual site): ${path.join(' → ')} (${path.length} regions)`);
+        actions.push({
+          type: 'declare-path',
+          player: playerId,
+          movementType: MovementType.Region,
+          regionPath: regionIds,
+        });
+      }
     }
   }
 

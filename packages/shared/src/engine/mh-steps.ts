@@ -16,7 +16,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, PlayerState } from '../index.js';
-import type { AhuntAttackEffect, UnderDeepsRollModifierEffect } from '../types/effects.js';
+import type { AhuntAttackEffect, UnderDeepsRollModifierEffect, ActsAsSiteEffect } from '../types/effects.js';
 import type { CardInstanceId } from '../types/common.js';
 import type { ActiveConstraint } from '../types/pending.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
@@ -545,6 +545,31 @@ export function handleRevealNewSite(
     destinationSiteType: destDef.siteType,
     destinationSiteName: destDef.name,
   };
+
+  // Wondrous Maps (td-171) / Refuge (td-145): arriving at an `acts-as-site`
+  // virtual site requires Region Movement with the declared path's last
+  // (site-adjacent) region matching `requiredLastRegionType` — e.g. a
+  // Shadow-land for Wondrous Maps. Per CoE 2.IV.i.2, a movement that turns
+  // out illegal when the new site is revealed is simply rejected here so the
+  // player must declare a different, legal path (or, if none exists, the
+  // `pass` branch above negates the movement and returns this card to hand).
+  const destActsAsSite = getCardEffects(destDef).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+  if (destActsAsSite) {
+    if (action.movementType !== destActsAsSite.requiredMovementType) {
+      return { state, error: `${destDef.name} may only be reached via ${destActsAsSite.requiredMovementType} movement` };
+    }
+    const lastRegionType = reduced.path[reduced.path.length - 1];
+    if (lastRegionType !== destActsAsSite.requiredLastRegionType) {
+      return { state, error: `${destDef.name} requires the path's last region to be ${destActsAsSite.requiredLastRegionType} (was ${lastRegionType ?? 'none'})` };
+    }
+  }
+  // "The company may only leave the site using region movement" — the
+  // symmetric check on the *origin* side when departing an `acts-as-site`
+  // virtual site.
+  const originActsAsSite = getCardEffects(originDef).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+  if (originActsAsSite?.leaveRequiresRegionMovement && action.movementType !== 'region') {
+    return { state, error: `${originDef.name} may only be left via region movement` };
+  }
 
   // Ash Mountains (tw-194) and its "movement enhancer" family: if this
   // company's declared region path actually crosses one of a bound

@@ -11,7 +11,10 @@
  * {@link loadCardPool} for a consistent, read-only view of the card universe.
  */
 
-import type { CardDefinition } from '../types/cards.js';
+import { isResourceEventCard, type CardDefinition, type ResourceEventCard, type SiteCard } from '../types/cards.js';
+import { ACTS_AS_SITE_ID_SUFFIX, type ActsAsSiteEffect } from '../types/effects.js';
+import type { HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard } from '../types/cards-sites.js';
+import type { CardDefinitionId } from '../types/common.js';
 // ---- The Wizards (TW) — base set ----
 import twCharacters from './tw-characters.json';
 import twItems from './tw-items.json';
@@ -137,10 +140,72 @@ const allCards: readonly CardDefinition[] = [
  *
  * @returns A frozen record mapping definition ID → card definition.
  */
+/**
+ * Site-card `cardType` discriminant for each alignment, used to synthesize
+ * `acts-as-site` companion definitions with the correct type for their
+ * source card's alignment.
+ */
+const SITE_CARD_TYPE_BY_ALIGNMENT: Readonly<Record<string, SiteCard['cardType']>> = {
+  wizard: 'hero-site',
+  ringwraith: 'minion-site',
+  'fallen-wizard': 'fallen-wizard-site',
+  balrog: 'balrog-site',
+};
+
+/**
+ * Synthesizes a `SiteCard`-shaped companion definition for a card carrying an
+ * `acts-as-site` effect (Wondrous Maps td-171, Refuge td-145), so every
+ * existing site-lookup path (`isSiteCard`, automatic attacks, playable
+ * resources, hazard/resource draws) treats it exactly like a real site once
+ * a company is there — see {@link ActsAsSiteEffect} for the full mechanism.
+ *
+ * `region` and `nearestHaven` are deliberately left empty: `buildMovementMap`
+ * only indexes a site into the shared movement graph when those fields are
+ * non-empty, so the synthesized site can never be offered as a generic
+ * movement destination — it is reachable only via its source card's own
+ * `declare-virtual-site-movement` apply.
+ */
+function synthesizeActsAsSiteDefinition(source: ResourceEventCard, effect: ActsAsSiteEffect): SiteCard {
+  const cardType = SITE_CARD_TYPE_BY_ALIGNMENT[source.alignment as string] ?? 'hero-site';
+  return {
+    cardType,
+    alignment: source.alignment,
+    id: `${source.id as string}${ACTS_AS_SITE_ID_SUFFIX}` as CardDefinitionId,
+    name: source.name,
+    image: source.image,
+    siteType: effect.siteType,
+    sitePath: [],
+    nearestHaven: '',
+    region: '',
+    playableResources: effect.playableResources,
+    automaticAttacks: effect.automaticAttacks,
+    resourceDraws: effect.resourceDraws,
+    hazardDraws: effect.hazardDraws,
+    text: source.text,
+    // Carries the same `acts-as-site` effect object so movement-legality
+    // checks (`handleRevealNewSite`) can read `requiredMovementType` /
+    // `requiredLastRegionType` / `leaveRequiresRegionMovement` directly off
+    // whichever side (origin or destination) resolves to this definition,
+    // without needing to strip the id suffix to find the source card.
+    effects: [effect],
+  } as HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
+}
+
 export function loadCardPool(): Readonly<Record<string, CardDefinition>> {
   const pool: Record<string, CardDefinition> = {};
   for (const card of allCards) {
     pool[card.id as string] = card;
+  }
+  // Synthesize `acts-as-site` companion definitions (see
+  // synthesizeActsAsSiteDefinition) for every card that carries one, after
+  // the real pool is fully populated so `source.text`/`source.image` etc.
+  // are read from the finished card object.
+  for (const card of allCards) {
+    if (!isResourceEventCard(card)) continue;
+    const actsAsSite = card.effects?.find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+    if (!actsAsSite) continue;
+    const siteDef = synthesizeActsAsSiteDefinition(card, actsAsSite);
+    pool[siteDef.id as string] = siteDef;
   }
   return pool;
 }

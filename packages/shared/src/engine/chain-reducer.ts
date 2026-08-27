@@ -15,7 +15,8 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect, ActsAsSiteEffect } from '../types/effects.js';
+import { ACTS_AS_SITE_ID_SUFFIX } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
@@ -2902,6 +2903,37 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         }
       } else if (effect.apply.type === 'add-constraint') {
         newState = applyAddConstraintFromOnEvent(newState, entry, effect, def?.name ?? '?');
+      } else if (effect.apply.type === 'declare-virtual-site-movement') {
+        // Wondrous Maps (td-171) / Refuge (td-145): declares this card's
+        // bound company as moving to the card itself instead of a real site
+        // — no site-deck draw. The instance ID is shared between this card's
+        // `cardsInPlay` entry (definitionId: the resource-event card) and the
+        // company's `destinationSite` (definitionId: the synthesized
+        // `acts-as-site` companion, id `<this card's id>-site`) — see
+        // `ActsAsSiteEffect`. `resolveInstanceId` checks company sites before
+        // `cardsInPlay` so both resolve correctly. The declared path's
+        // legality (region movement only, last region matching
+        // `requiredLastRegionType`) is validated later at the company's own
+        // M/H phase `declare-path` step (`handleRevealNewSite`) — mirrors
+        // Master of Esgaroth's (td-135) deferred site-type check.
+        const actsAsSite = getCardEffects(def).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+        const targetCompany = boundCompanyId
+          ? newState.players[playerIndex].companies.find(c => c.id === boundCompanyId)
+          : undefined;
+        if (!actsAsSite || !targetCompany) {
+          logDetail(`"${def?.name ?? '?'}" declare-virtual-site-movement: no acts-as-site effect or no target company — fizzle`);
+        } else if (targetCompany.destinationSite || !targetCompany.currentSite) {
+          logDetail(`"${def?.name ?? '?'}" declare-virtual-site-movement: company ${boundCompanyId as string} already has a destination or no current site — fizzle`);
+        } else {
+          const siteDefId = `${card.definitionId as string}${ACTS_AS_SITE_ID_SUFFIX}` as import('../types/common.js').CardDefinitionId;
+          logDetail(`"${def?.name ?? '?'}" declare-virtual-site-movement: company ${boundCompanyId as string} declares movement to itself (${siteDefId as string})`);
+          newState = updatePlayer(newState, playerIndex, p => ({
+            ...p,
+            companies: p.companies.map(c => c.id === boundCompanyId
+              ? { ...c, destinationSite: { instanceId: card.instanceId, definitionId: siteDefId, status: CardStatus.Untapped } }
+              : c),
+          }));
+        }
       } else if (effect.apply.type === 'offer-resource-play') {
         // Crown of Flowers (dm-121) enters play unlinked and simply remains in
         // play as an environment with "no effect until you play a resource with

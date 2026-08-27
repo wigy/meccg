@@ -1693,7 +1693,43 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase on a company using region cards with the last one being a Shadow-land [{s}]. (Play regions face-up.)This card is used as a site card, Ruins & Lairs [{R}] (automatic-attack: Orcs—4 strikes at 7 prowess, items: (minor, major), cards opponent draws: 3, you draw: 1). The company may only leave the site using region movement. Discard Wonderous Maps when the company moves to a new site."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.moving": false
+        }
+      },
+      {
+        "type": "acts-as-site",
+        "siteType": "ruins-and-lairs",
+        "automaticAttacks": [
+          { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
+        ],
+        "playableResources": ["minor", "major"],
+        "resourceDraws": 1,
+        "hazardDraws": 3,
+        "requiredMovementType": "region",
+        "requiredLastRegionType": "shadow",
+        "leaveRequiresRegionMovement": true,
+        "discardOnLeaveSite": true
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "declare-virtual-site-movement"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable at the end of the organization phase on a company using region cards with the last one being a Shadow-land [{s}]. (Play regions face-up.)This card is used as a site card, Ruins & Lairs [{R}] (automatic-attack: Orcs—4 strikes at 7 prowess, items: (minor, major), cards opponent draws: 3, you draw: 1). The company may only leave the site using region movement. Discard Wonderous Maps when the company moves to a new site.",
+    "certified": "2026-08-28"
   }
 ]

@@ -885,10 +885,31 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       .filter(c => c.kind.type === 'region-adjacency-shortcut'
         && c.target.kind === 'company' && c.target.companyId === company.id)
       .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
-    const companyMovementMap = shortcutPairs.length > 0
+    let companyMovementMap = shortcutPairs.length > 0
       ? withExtraRegionAdjacency(movementMap, shortcutPairs)
       : movementMap;
+    // Wondrous Maps (td-171) / Refuge (td-145): the company's `currentSite`
+    // is an `acts-as-site` virtual site — its synthesized definition has no
+    // static `region` (see `synthesizeActsAsSiteDefinition`), so it is
+    // invisible to the shared movement graph. Patch in the company's
+    // dynamically-recorded `virtualSiteRegionName` (captured on arrival) so
+    // `getReachableSites` can compute region-movement reachability from it.
+    const currentActsAsSite = getCardEffects(currentSiteDef).find(
+      (e): e is import('../../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
+    );
+    if (currentActsAsSite && company.virtualSiteRegionName) {
+      const patchedSiteRegion = new Map(companyMovementMap.siteRegion);
+      patchedSiteRegion.set(currentSiteDef.name, company.virtualSiteRegionName);
+      companyMovementMap = { ...companyMovementMap, siteRegion: patchedSiteRegion };
+    }
     let reachable = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, planMax);
+    // "The company may only leave the site using region movement" —
+    // Starter Movement destinations are never legal from an acts-as-site
+    // virtual site (there is no printed site path to key off in the first
+    // place, so this is mostly a defensive filter).
+    if (currentActsAsSite?.leaveRequiresRegionMovement) {
+      reachable = reachable.filter(r => r.movementType === 'region');
+    }
     if (evilHour && !originHasOpp) {
       const extended = getReachableSites(companyMovementMap, currentSiteDef, regularCandidates, effectiveMaxRegions + 2);
       const seenExt = new Set(reachable.map(r => `${r.site.name}:${r.movementType}`));
