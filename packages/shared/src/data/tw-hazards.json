@@ -2545,7 +2545,53 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/ThePaleSword.jpg",
     "unique": true,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "removalNumber": 5,
+    "certified": "2026-08-27",
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifierExpr": "1 + nazgulPermanentEventsInPlay",
+        "attachCorruptionOnWound": true,
+        "when": { "enemy.name": "Witch-king of Angmar" }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifier": 1,
+        "attachCorruptionOnWound": true,
+        "when": { "enemy.race": "ringwraith" }
+      },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 6 },
+      {
+        "type": "grant-action",
+        "action": "remove-corruption-instead-of-untap",
+        "cost": {},
+        "anyPhase": true,
+        "oncePerTurn": true,
+        "when": {
+          "$and": [
+            { "phase": "untap" },
+            { "bearer.atHaven": true },
+            { "untap.resourcePlayerUntapped": false }
+          ]
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "roll-then-apply",
+              "threshold": 6,
+              "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+            },
+            { "type": "add-constraint", "constraint": "skip-untap-and-heal", "scope": "turn", "target": "bearer" }
+          ]
+        }
+      }
+    ],
     "text": "Unique. Playable on a company facing a Nazgûl attack. The Nazgûl’s prowess is modified by +1. If played on a company facing an attack from The Witch-king of Angmar, his prowess is increased by +1 plus the number of Nazgûl permanent-events in play. Cannot be duplicated on a company facing such an attack.‌ Discard if attack doesn’t wound a character.Corruption. One character of attacker’s choice wounded by this attack (on whom a corruption card has not already been played this turn) receives 6 corruption points (place this card under the character).If at a Haven/Darkhaven [{H}] during his untap phase, a character with this card may attempt to remove it instead of untapping or healing. Make a roll: if this result is greater than 5, discard this card. Cannot be duplicated on a given Nazgûl."
   },
   {

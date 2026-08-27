@@ -3761,7 +3761,7 @@ function modifyAttackActions(
       }
     }
 
-    logDetail(`Modify-attack (from hand) available: ${handCard.definitionId as string} (prowess ${effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
+    logDetail(`Modify-attack (from hand) available: ${handCard.definitionId as string} (prowess ${effect.prowessModifierExpr ?? effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
     actions.push({
       action: { type: 'modify-attack', player: playerId, cardInstanceId: handCard.instanceId },
       viable: true,

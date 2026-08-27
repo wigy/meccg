@@ -6207,6 +6207,20 @@ export interface ModifyAttackEffect extends EffectBase {
   /** Amount added to the attack's strike prowess or current-strike prowess bonus. */
   readonly prowessModifier?: number;
   /**
+   * Alternative to {@link prowessModifier}: a MathJS value expression
+   * evaluated at play time instead of a flat number, for a bonus that scales
+   * with in-play state. The expression context exposes
+   * `nazgulPermanentEventsInPlay` — the count of Nazgûl permanent-events
+   * currently in play across both players (see
+   * {@link countNazgulPermanentEventsInPlay}). Used by The Pale Sword
+   * (tw-97): "If played on a company facing an attack from the Witch-king of
+   * Angmar, his prowess is increased by +1 plus the number of Nazgûl
+   * permanent-events in play" — `"1 + nazgulPermanentEventsInPlay"`. The
+   * result is rounded to the nearest integer. A card sets either this or
+   * {@link prowessModifier}, never both.
+   */
+  readonly prowessModifierExpr?: string;
+  /**
    * Amount added to the creature's body value for the creature body check.
    * Whole-attack scope: added persistently to `CombatState.creatureBody`.
    * `"current-strike"` scope: added only to this one strike's own creature
