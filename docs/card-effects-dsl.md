@@ -6512,6 +6512,13 @@ Used by *The Burden of Time* (tw-94): "Playable on an Elf not in a
 Haven/Darkhaven" — `filter: { "$and": [ { "target.race": "elf" },
 { "company.atHaven": false } ] }`.
 
+The **short-event** character-targeting path specifically (the one that also
+supports `play-option` modes, corruption-duplication tracking, and
+`play-discard-cost`) additionally exposes `company.itemNames` — every item
+name borne by any character in the target's company, aggregated the same way
+as the resource-side `active-company` context. Used by *The Precious*
+(tw-98) to express "in the same company as The One Ring".
+
 **Per-mode phase gate.** An optional `phases` array restricts the *targeted*
 play mode to the named phases (e.g. `["organization"]`). Unlike the card-level
 `play-condition requires:phase` — which suppresses the card in every other
@@ -6705,7 +6712,28 @@ Optional fields:
     `"discard-ring-only"` discards only the bearer's Ring on a failed check
     (The Ring's Betrayal); `"discard-instead-of-eliminate"` downgrades any
     would-be *elimination* to a plain discard of the character + his
-    non-follower possessions (The Roving Eye le-135).
+    non-follower possessions (The Roving Eye le-135). An optional
+    `alsoDiscardItemName` names an item to discard on a **failed** check even
+    though it is borne by a *different* character in the target's company —
+    resolved to a concrete instance at chain-resolution time and pulled off
+    its real bearer before the normal discard/eliminate branch runs, so it
+    never sits twice in state. Combine with a `target: "character"` `filter`
+    that checks `company.itemNames` (the same item, aggregated across the
+    whole company) and excludes the bearer via `target.possessions` to
+    express "not the bearer himself". Used by The Precious (tw-98): "A
+    character in the same company (hazard player's choice) as The One Ring
+    (not the bearer himself) must make a corruption check modified by -2. If
+    he fails, discard The One Ring along with the target character."
+
+    ```json
+    { "type": "play-target", "target": "character",
+      "filter": { "$and": [
+        { "company.itemNames": { "$includes": "The One Ring" } },
+        { "$not": { "target.possessions": { "$includes": "The One Ring" } } }
+      ] },
+      "cost": { "check": "corruption", "modifier": -2,
+                 "alsoDiscardItemName": "The One Ring" } }
+    ```
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
 - `itemFilter` — restricts a `target: "character"` play-target to a

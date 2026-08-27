@@ -680,9 +680,28 @@ export function applyCorruptionCheckResolution(
       }
     }
   }
-  const failedPossessions = transferredItemPreDiscarded
+  let failedPossessions = transferredItemPreDiscarded
     ? action.possessions.filter(id => id !== transferredItemId)
     : action.possessions;
+
+  // The Precious (tw-98): on failure, also discard a named item borne by a
+  // *different* company member (the checking character is "not the bearer").
+  // Pull it off its real bearer here — `removeFailedCorruptionCharacter`
+  // only ever deletes `characterId`'s own entry — then fold it into the
+  // possessions list so it rides the same discard-pile routing below.
+  const alsoDiscardItemId = top.kind.alsoDiscardItemId;
+  if (alsoDiscardItemId) {
+    for (const [cid, cData] of Object.entries(newCharacters)) {
+      if (cid === characterId as string) continue;
+      const itemIdx = cData.items.findIndex(i => i.instanceId === alsoDiscardItemId);
+      if (itemIdx >= 0) {
+        newCharacters[cid as CardInstanceId] = { ...cData, items: cData.items.filter(i => i.instanceId !== alsoDiscardItemId) };
+        logDetail(`Corruption check failed: also discarding ${alsoDiscardItemId as string} from ${cid} (The Precious)`);
+        failedPossessions = [...failedPossessions, alsoDiscardItemId];
+        break;
+      }
+    }
+  }
 
   if (outcome === 'discard') {
     // Press-gang (ba-22): redirect the would-be discard to the opponent's
