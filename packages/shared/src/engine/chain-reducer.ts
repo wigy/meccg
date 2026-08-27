@@ -3479,11 +3479,7 @@ function applyTapSitesInPlayOnResolve(
         if (!siteDef || !isSiteCard(siteDef)) return co;
         const ctx = {
           site: { type: siteDef.siteType },
-          sitePath: {
-            wildernessCount: siteDef.sitePath.filter(r => r === RegionType.Wilderness).length,
-            shadowCount: siteDef.sitePath.filter(r => r === RegionType.Shadow).length,
-            darkCount: siteDef.sitePath.filter(r => r === RegionType.Dark).length,
-          },
+          sitePath: regionTypeCounts(siteDef.sitePath),
           // Owning player's alignment, so a card with "no effect on a minion
           // player" can exclude minion/Balrog-owned sites (Foul Fumes tw-36).
           player: { minion: ownerIsMinion },
