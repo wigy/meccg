@@ -9457,6 +9457,38 @@ emitter skips cards whose `play-window.phase` is not
 `"movement-hazard"`, so a combat-tagged hazard is not accidentally
 offered during the M/H phase.
 
+A `short` (not `permanent`) hazard-event may use the same window with a
+different companion apply: `on-event self-enters-play-combat` →
+`{ "type": "add-constraint", "constraint": "company-stat-modifier",
+"stat": "prowess", "value": -1, "scope": "turn" }`. Unlike the
+`modify-current-strike-prowess` shape, the card does not attach to the
+targeted defender — `handleCombatPlayHazard` (`combat-hazard-play.ts`)
+discards it immediately (to the hazard player's discard pile) and adds
+a turn-scoped `company-stat-modifier` constraint (§6a's sibling) bound
+to `combat.companyId`, so every character in the **defending company**
+gets the stat change for the rest of the turn, not just the character
+currently facing the strike. `combatHazardPermanentPlays`'s
+`eventType !== 'permanent'` gate admits this shape via
+`isCombatCompanyStatModifierShortEvent`. Because the card discards
+rather than staying attached, a `duplication-limit` of `scope:
+"company"` is enforced by counting active `company-stat-modifier`
+constraints on the target company sourced from a same-named
+definition (`constraintsOnCompany`), not by scanning attachments.
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-condition", "requires": "combat-creature-race", "race": "ringwraith" }
+{ "type": "play-target", "target": "character" }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "add-constraint", "constraint": "company-stat-modifier",
+             "stat": "prowess", "value": -1, "scope": "turn" } }
+{ "type": "duplication-limit", "scope": "company", "max": 1 }
+```
+
+Used by Words of Power and Terror (tw-115): "Modify the prowesses of
+all characters in a company attacked by a Nazgûl by -1 until the end
+of the turn. Cannot be duplicated on a given company."
+
 Resource short-events may also declare `play-window` with `phase:
 "site"` and `step: "play-resources"` to restrict play to the site
 phase. An optional `siteTypes` array further restricts the card to
