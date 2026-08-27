@@ -6070,14 +6070,14 @@ export interface HalveStrikesEffect extends EffectBase {
 
 /**
  * Played from hand as a short event during the assign-strikes phase, targeting
- * a character in the defending company meeting the eligibility gate (a
- * required skill and/or a generic `filter`). No strike from the current
- * attack may be assigned to that character for the rest of the attack's
- * assign-strikes phase.
+ * a character (or, with `includeAllies`, an ally) in the defending company
+ * meeting the eligibility gate (a required skill and/or a generic `filter`).
+ * No strike from the current attack may be assigned to that target for the
+ * rest of the attack's assign-strikes phase.
  *
  * Unlike `cancel-attack` (which cancels the entire attack), this only prevents
- * assignment to the targeted character — other characters may still be assigned
- * strikes normally.
+ * assignment to the targeted character/ally — other company members may still
+ * be assigned strikes normally.
  *
  * Used by Ruse (le-225) mode B: play on a scout facing an attack; no strikes
  * of the attack may be assigned to the scout — `requiredSkill: "scout"`.
@@ -6088,6 +6088,13 @@ export interface HalveStrikesEffect extends EffectBase {
  * `target.*` character fields plus `company.hasShadowMagicUser`) — and
  * `corruptionCheck` forces the company's shadow-magic user (skipped entirely
  * if a Ringwraith qualifies) to check at the given modifier.
+ *
+ * More Sense than You (td-140): "Playable before strikes are assigned on an
+ * untapped character or ally … Tap target character or ally. He may not be
+ * assigned a strike from this attack." — `includeAllies: true` widens the
+ * candidate pool to allies (in addition to characters), `requireUntapped:
+ * true` restricts eligibility to untapped targets, and `tapTarget: true` taps
+ * the chosen target as a side effect of playing the card.
  */
 export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
   readonly type: 'protect-from-strike-assignment';
@@ -6097,9 +6104,29 @@ export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
    * Generic eligibility filter, evaluated per candidate character against
    * `{ target: { race, status, skills, name, mind, keywords, itemKeywords,
    * itemNames, isAvatar, homeSiteTypes }, company: { skills, hasShadowMagicUser } }`.
-   * Combined with `requiredSkill` via AND when both are present.
+   * Combined with `requiredSkill` via AND when both are present. Not
+   * evaluated against ally candidates (`includeAllies`) — only `requireUntapped`
+   * applies to those.
    */
   readonly filter?: Condition;
+  /**
+   * When true, allies hosted by the defending company are also eligible
+   * targets, not just characters (More Sense than You td-140: "character or
+   * ally"). `requiredSkill`/`filter` are not evaluated against ally candidates.
+   */
+  readonly includeAllies?: true;
+  /**
+   * When true, only an untapped candidate (character or ally) is a legal
+   * target — a tapped candidate is skipped entirely (More Sense than You
+   * td-140: "on an untapped character or ally").
+   */
+  readonly requireUntapped?: true;
+  /**
+   * When true, playing this card taps the chosen target as a side effect,
+   * in addition to protecting it from strike assignment (More Sense than You
+   * td-140: "Tap target character or ally.").
+   */
+  readonly tapTarget?: true;
   /**
    * When present, playing this protection also forces a corruption check
    * (CoE "unless he is a Ringwraith" wording): the company's shadow-magic

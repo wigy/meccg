@@ -5780,6 +5780,19 @@ modified by -4." — `filter: { "company.hasShadowMagicUser": true }` (any
 company member is a valid target, not just the shadow-magic user) +
 `corruptionCheck: { modifier: -4, on: "shadow-magic-user" }`.
 
+Three further flags widen the eligible pool and add a play-time side effect:
+`includeAllies` (also offer allies hosted by the company, not just
+characters — `requiredSkill`/`filter` are not evaluated against ally
+candidates), `requireUntapped` (skip any candidate, character or ally, that
+isn't untapped), and `tapTarget` (tap the chosen target as part of resolving
+the card, in addition to protecting it).
+
+Used by More Sense than You (td-140): "Playable before strikes are assigned
+on an untapped character or ally whose company is facing an attack. Tap
+target character or ally. He may not be assigned a strike from this attack."
+— `{ "includeAllies": true, "requireUntapped": true, "tapTarget": true }`,
+no `requiredSkill`/`filter`/`corruptionCheck`.
+
 ### 12. Combat-rule effects
 
 Each combat-mechanics override is a distinct effect type. The chain

@@ -1136,8 +1136,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable before strikes are assigned on an untapped character or ally whose company is facing an attack. Tap target character or ally. He may not be assigned a strike from this attack."
+    "effects": [
+      {
+        "type": "protect-from-strike-assignment",
+        "includeAllies": true,
+        "requireUntapped": true,
+        "tapTarget": true
+      }
+    ],
+    "text": "Playable before strikes are assigned on an untapped character or ally whose company is facing an attack. Tap target character or ally. He may not be assigned a strike from this attack.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-ally",
