@@ -26,7 +26,8 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere } from './reducer-utils.js';
+import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext } from './reducer-utils.js';
+import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -816,6 +817,90 @@ function runGrantApply(
     const inner = runGrantApply(state, branch, char, newPlayers, ctx, rngRef);
     if ('error' in inner) return inner;
     return { updatedChar: inner.updatedChar, effects: [rollEffect, ...inner.effects], stateOps: [...stateOpsExtra, ...inner.stateOps] };
+  }
+
+  if (apply.type === 'faction-influence-untethered') {
+    // Roäc the Raven (tw-320): declare and immediately resolve an influence
+    // attempt against a faction card in hand, with no tie to the bearer's
+    // company's current site — see FactionInfluenceUntetheredAction for the
+    // full rules mapping. The ally paying the cost (`ctx.sourceCardId`) is
+    // already tapped-and-discarded by `applyCost` before this runs.
+    const bearerPlayer = newPlayers[ctx.playerIndex];
+    const targetId = ctx.action.targetCardId;
+    if (!targetId) {
+      return { error: `faction-influence-untethered: no target faction on ${ctx.sourceName}` };
+    }
+    const handIdx = bearerPlayer.hand.findIndex(c => c.instanceId === targetId);
+    if (handIdx === -1) {
+      return { error: `faction-influence-untethered: target faction ${targetId as string} not in hand` };
+    }
+    const handCard = bearerPlayer.hand[handIdx];
+    const factionDef = defById(state, handCard.definitionId);
+    if (!factionDef || !isFactionCard(factionDef)) {
+      return { error: `faction-influence-untethered: ${handCard.definitionId as string} is not a faction` };
+    }
+
+    const nullifyMods = influenceModificationsNullified(state);
+
+    // Roäc's own printed direct influence (unprinted — treated as 0 per CoE
+    // rules glossary: "direct influence … or zero for characters without a
+    // listed value"), mirroring the ally branch of resolveInfluenceAttemptRoll
+    // (Radagast's Black Bird wh-114).
+    const sourceAllyDef = defById(state, ctx.sourceCardDefinitionId);
+    const allyDI = (sourceAllyDef && 'directInfluence' in sourceAllyDef
+      ? (sourceAllyDef as { directInfluence?: number }).directInfluence
+      : undefined) ?? 0;
+
+    let modifier = allyDI;
+    if (!nullifyMods) {
+      for (const constraint of state.activeConstraints) {
+        if (constraint.kind.type !== 'check-modifier') continue;
+        if (constraint.kind.check !== 'influence') continue;
+        if (constraint.target.kind !== 'player') continue;
+        if (constraint.target.playerId !== bearerPlayer.id) continue;
+        modifier += constraint.kind.value;
+        logDetail(`Grant-action ${ctx.action.actionId}: influence player-wide constraint ${formatSignedNumber(constraint.kind.value)} from ${constraint.sourceDefinitionId as string}`);
+      }
+      const globalMod = collectGlobalCheckModifier(state, 'influence', buildFactionCheckContext(state, factionDef));
+      if (globalMod !== 0) {
+        modifier += globalMod;
+        logDetail(`Grant-action ${ctx.action.actionId}: game-wide influence check-modifier ${formatSignedNumber(globalMod)}`);
+      }
+    }
+
+    const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
+    rngRef.rng = rng;
+    rngRef.cheatRollTotal = cheatRollTotal;
+    const total = roll.die1 + roll.die2 + modifier;
+    const modStr = modifier !== 0 ? ` + ${modifier}` : '';
+    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} discards ${ctx.sourceName} to attempt influencing ${factionDef.name} — rolls ${roll.die1} + ${roll.die2}${modStr} = ${total} vs influence # ${factionDef.influenceNumber}`);
+    const rollEffect = diceRollEffect(bearerPlayer.name, roll, `Influence (${ctx.sourceName}): ${factionDef.name}`);
+
+    const newHand = bearerPlayer.hand.filter((_, i) => i !== handIdx);
+    const succeeded = total >= factionDef.influenceNumber;
+    if (succeeded) {
+      const mpPin = playedAfterFactionMpPin(state, bearerPlayer);
+      logDetail(`Grant-action ${ctx.action.actionId}: influence attempt succeeded — ${factionDef.name} enters play untapped, no site tapped`);
+      newPlayers[ctx.playerIndex] = {
+        ...bearerPlayer,
+        hand: newHand,
+        cardsInPlay: [
+          ...bearerPlayer.cardsInPlay,
+          { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) },
+        ],
+        lastDiceRoll: roll,
+      };
+    } else {
+      logDetail(`Grant-action ${ctx.action.actionId}: influence attempt failed — ${factionDef.name} discarded`);
+      newPlayers[ctx.playerIndex] = {
+        ...bearerPlayer,
+        hand: newHand,
+        discardPile: [...bearerPlayer.discardPile, toCardInstance(handCard)],
+        lastDiceRoll: roll,
+      };
+    }
+
+    return { updatedChar: char, effects: [rollEffect], stateOps: [] };
   }
 
   if (apply.type === 'untap-site') {

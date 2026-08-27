@@ -16650,3 +16650,64 @@ company faces an attack at the beginning of its movement/hazard phase: Orcs —
 the regions listed above, the hazard limit is reduced by 2 (to a minimum of
 2). Cannot be duplicated on a given company." (CRF 22: the printed
 "otherwise" should be read as "alternatively".)
+
+### 79. `targets.scope: "own-hand-factions"` + `faction-influence-untethered` (Roäc the Raven)
+
+An ally's own tap-and-discard ability to declare and immediately resolve an
+influence attempt against a faction card in the controller's hand, with **no
+tie to the activating company's current site** — unlike the ordinary
+faction-play path (CoE 2.V.3, `legal-actions/site.ts`), the site need not be
+untapped and the targeted faction need not be playable there, and — win or
+lose — the site is never tapped by the attempt.
+
+`targets: { scope: "own-hand-factions" }` on a `grant-action` enumerates the
+activating player's own faction cards in hand (`hero-resource-faction` /
+`minion-resource-faction`), each producing one activation carrying the
+faction's instance on `targetCardId`; an optional `filter` narrows the
+candidates (matched against each faction's definition). Unlike every other
+`targets.scope`, this one is read directly in the **ally** grant-action
+scanner (`legal-actions/organization.ts`, the "Scan allies attached to this
+character" loop) rather than through the shared `enumerateGrantActionTargets`
+helper, since the candidates live in the player's `hand`, a zone that helper's
+`{companies, characters}` parameter shape doesn't see. The scan additionally
+requires the bearer's company to be the site phase's *active* company
+(`state.phaseState.activeCompanyIndex`) — "during the site phase … his
+company."
+
+```json
+{ "type": "grant-action", "action": "roac-faction-influence",
+  "activeSitePhase": true,
+  "cost": { "tap": "self", "discard": "self" },
+  "targets": { "scope": "own-hand-factions" },
+  "apply": { "type": "faction-influence-untethered" } }
+```
+
+The `apply.type: "faction-influence-untethered"` (`grant-action-apply.ts`)
+resolves synchronously — no chain, no on-guard window, since CoE 2.V.6 only
+opens on-guard for a resource "that would tap the site if successfully
+played" and this one never does. It computes a modifier from the source
+ally's own printed `directInfluence` (0 if unprinted) plus player-wide
+`check-modifier` constraints and the game-wide influence check-modifier
+(`collectGlobalCheckModifier`) — mirroring the **ally** branch of
+`resolveInfluenceAttemptRoll` (Radagast's Black Bird wh-114) but omitting
+every *site*-tied modifier (region-based faction-influence-restriction,
+site-bound influence modifiers), since the card text detaches the check from
+any real site — rolls 2d6, and compares the total to the target faction's
+`influenceNumber`. On success the faction moves from hand straight into
+`cardsInPlay` untapped (honoring `playedAfterFactionMpPin`, Await the Onset
+wh-96); on failure it moves to the discard pile. Neither branch touches any
+site, so `resourcePlayed`/`minorItemAvailable` are unaffected either way. The
+ally itself is already tapped-and-discarded by the shared `cost: { tap:
+"self", discard: "self" }` payment (`cost-evaluator.ts`) *before* this apply
+runs — unlike Black Bird's "stays in company, just tapped" ability, the
+activation cost removes the ally from play regardless of whether the roll
+then succeeds.
+
+Used by Roäc the Raven (tw-320): "Unique. Playable at any site in Northern
+Rhovanion. During the site phase you can tap and discard Roäc the Raven to
+attempt to bring any faction into play — treat this influence check as if it
+was made by a diplomat at any site where the faction could be played. Using
+Roäc the Raven to make an influence attempt does not tap a site, and may be
+done if his company is at a tapped site." — `playableAt: [{ "region":
+"Northern Rhovanion" }]` (the Noble Steed wh-33 region-`playableAt`
+precedent).

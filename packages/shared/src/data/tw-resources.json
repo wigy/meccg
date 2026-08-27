@@ -3858,14 +3858,28 @@
     "unique": true,
     "prowess": -3,
     "body": 8,
+    "mind": 1,
+    "skills": [
+      "diplomat"
+    ],
     "marshallingPoints": 1,
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "any site in Northern Rhovanion"
+        "region": "Northern Rhovanion"
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "roac-faction-influence",
+        "activeSitePhase": true,
+        "cost": { "tap": "self", "discard": "self" },
+        "targets": { "scope": "own-hand-factions" },
+        "apply": { "type": "faction-influence-untethered" }
+      }
+    ],
+    "certified": "2026-08-27",
     "text": "Unique. Playable at any site in Northern Rhovanion. During the site phase you can tap and discard Roäc the Raven to attempt to bring any faction into play —treat this influence check as if it was made by a diplomat at any site where the faction could be played. Using Roäc the Raven to make an influence attempt does not tap a site, and may be done if his company is at a tapped site."
   },
   {
