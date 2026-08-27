@@ -475,6 +475,19 @@ export interface CharacterInPlay {
    * every character at the start of each new turn (`enterUntapPhase`).
    */
   readonly woundedByRaceThisTurn?: readonly Race[];
+  /**
+   * Definition ID of the Dragon's-lair site where this character's company
+   * defeated an "At Home" Dragon manifestation automatic-attack — the
+   * *augmented* attack an in-play "<Dragon> at Home" permanent-event
+   * contributes to its lair (`dragon-at-home` effect), not the lair's
+   * baseline printed attack — other than Eärcaraxë at Home (td-22).
+   * Recorded once in `combat-finalize.ts` for every member of the
+   * defending company at the moment of defeat, and never cleared, so a
+   * resource event playable "if his company has defeated an at home Dragon
+   * manifestation attack" (King under the Mountain td-126) can query it via
+   * a `play-target` filter on `target.dragonAtHomeVictorySiteId`.
+   */
+  readonly dragonAtHomeVictorySiteId?: CardDefinitionId;
 }
 
 // ---- Company ----

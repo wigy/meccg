@@ -41,7 +41,7 @@ import { buildSiteFilterContext } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
-import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, hasSiteFlag } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -2314,8 +2314,13 @@ export function buildGrantActionContext(
     // Site-carried DSL keywords (e.g. `dwarf-hold`), for grant-actions gated
     // on a race-flavor site tag rather than the formal `siteType`. Used by
     // Map to Mithril (td-133): "If ... at a Dwarf-hold ..." —
-    // `{ "site.keywords": { "$includes": "dwarf-hold" } }`.
-    keywords: (siteDef as { keywords?: readonly string[] } | undefined)?.keywords ?? [],
+    // `{ "site.keywords": { "$includes": "dwarf-hold" } }`. A `dwarf-hold-
+    // override` site-flag (King under the Mountain td-126: "becomes ... a
+    // Dwarf-hold for all purposes") folds the tag in dynamically alongside
+    // any printed keywords.
+    keywords: hasSiteFlag(state.activeConstraints, 'dwarf-hold-override', siteDef?.id)
+      ? [...((siteDef as { keywords?: readonly string[] } | undefined)?.keywords ?? []), 'dwarf-hold']
+      : (siteDef as { keywords?: readonly string[] } | undefined)?.keywords ?? [],
   } : null;
   // Current phase, exposed so a grant-action `when` clause can restrict an
   // ability to a specific phase (e.g. Strangling Coils ba-76's company untap

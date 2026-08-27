@@ -657,6 +657,12 @@ function collectAtHomeAttacks(state: GameState, m: ManifestId): AutomaticAttack[
             strikes: attack.strikes,
             prowess: attack.prowess,
             ...(attack.body !== undefined ? { body: attack.body } : {}),
+            // King under the Mountain (td-126): lets `finalizeCombat`
+            // identify this attack as the augmented "at home" attack (as
+            // opposed to the lair's baseline printed attack) by resolving
+            // this instance's definition and checking for a `dragon-at-home`
+            // effect — mirrors `collectPermanentEventAttacks`'s `sourceInstanceId`.
+            sourceInstanceId: card.instanceId,
           });
         }
       }

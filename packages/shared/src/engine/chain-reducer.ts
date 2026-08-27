@@ -3237,9 +3237,22 @@ function applyAddConstraintFromOnEvent(
   // through so site-bound constraints resolve correctly even outside the site
   // phase — e.g. Stage resources played during the organization phase (rule
   // 5.F1: The Fortress of Isen wh-68, Guarded Haven wh-74, …).
-  const boundSiteDefId = entry.payload?.type === 'permanent-event'
-    ? entry.payload.targetSiteDefinitionId
+  //
+  // King under the Mountain (td-126): a character-targeted permanent event
+  // whose site-bound constraints (`siteFrom: 'dragon-at-home-victory'`) bind
+  // not to where the card was played, but to the site recorded on the
+  // play-target character (`dragonAtHomeVictorySiteId`) — the Dragon's lair
+  // his company defeated an at-home manifestation attack at.
+  const targetCharId = entry.payload?.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
+  const dragonAtHomeSiteId = effect.apply.type === 'add-constraint' && effect.apply.siteFrom === 'dragon-at-home-victory' && targetCharId
+    ? (() => {
+      const bearerPlayer = state.players.find(p => p.characters[targetCharId]);
+      return bearerPlayer?.characters[targetCharId]?.dragonAtHomeVictorySiteId;
+    })()
     : undefined;
+  const boundSiteDefId = dragonAtHomeSiteId ?? (entry.payload?.type === 'permanent-event'
+    ? entry.payload.targetSiteDefinitionId
+    : undefined);
 
   // For `until-cleared` scope, target the active player (the effect applies
   // globally, not to a specific company that may later disband); other scopes
