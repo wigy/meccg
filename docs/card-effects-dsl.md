@@ -7415,15 +7415,17 @@ Rules:
 
 - `cancel-auto-attacks` — cancels this site's automatic-attacks while the
   rule's `when` condition holds. The condition is evaluated against the
-  card-name context `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same
-  name lists the player-state context exposes (`inPlayAnywhere`: names of
-  every card in either player's `cardsInPlay`, with name-aliases and
-  environment overrides applied; `charactersInPlayAnywhere`: names of every
-  character in play for either player). Name matching means every printing of
-  a card counts (Radagast is tw-178 as a hero Wizard and wh-8 as a
-  Fallen-wizard). `scope` selects what is canceled, and thereby where in the
-  attack pipeline the rule applies. Consumed by `getActiveAutoAttacks()` in
-  `engine/manifestations.ts`.
+  card-name context `{ inPlayAnywhere, charactersInPlayAnywhere,
+  defeatedAnywhere }` — the same name lists the player-state context exposes
+  (`inPlayAnywhere`: names of every card in either player's `cardsInPlay`,
+  with name-aliases and environment overrides applied; `charactersInPlayAnywhere`:
+  names of every character in play for either player; `defeatedAnywhere`:
+  names of every card in either player's `killPile` or `outOfPlayPile`, so a
+  rule can key off a card having *ever* been defeated, not just its current
+  presence in play). Name matching means every printing of a card counts
+  (Radagast is tw-178 as a hero Wizard and wh-8 as a Fallen-wizard). `scope`
+  selects what is canceled, and thereby where in the attack pipeline the rule
+  applies. Consumed by `getActiveAutoAttacks()` in `engine/manifestations.ts`.
 
   - `"scope": "printed"` — removes ALL of the site's own printed
     automatic-attacks, before hazard augments, so attacks added to the site
@@ -7432,13 +7434,18 @@ Rules:
     Wizard card Radagast is in play, the automatic-attacks are removed."
   - `"scope": "first"` — removes the first attack of the final combined
     list. Used by *The Under-gates* (dm-38 / as-165) — "If Balrog of Moria
-    is in play ... the first automatic attack is canceled."
+    is in play or if it ... has been defeated, the first automatic attack is
+    canceled." The cancellation is permanent once Balrog of Moria has been
+    defeated, so the `when` ORs `inPlayAnywhere` with `defeatedAnywhere`.
 
   ```json
   { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "printed",
     "when": { "charactersInPlayAnywhere": { "$includes": "Radagast" } } }
   { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "first",
-    "when": { "inPlayAnywhere": { "$includes": "Balrog of Moria" } } }
+    "when": { "$or": [
+      { "inPlayAnywhere": { "$includes": "Balrog of Moria" } },
+      { "defeatedAnywhere": { "$includes": "Balrog of Moria" } }
+    ] } }
   ```
 
 - `deep-mines-movement` — marks a Fallen-wizard site as an Under-deeps-style
