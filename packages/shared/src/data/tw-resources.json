@@ -4514,10 +4514,6 @@
     "marshallingCategory": "misc",
     "effects": [
       {
-        "type": "play-window",
-        "phase": "organization"
-      },
-      {
         "type": "play-target",
         "target": "character",
         "filter": {
