@@ -31,7 +31,7 @@ import {
   LORIEN, MORIA, RIVENDELL, MINAS_TIRITH,
   resetMint, mint,
   buildSitePhaseState, buildTestState, makePlayDeck,
-  findCharInstanceId, findItemInstanceId, findInPile, addToPile,
+  findCharInstanceId, findInPile, addToPile,
   viableActions, dispatch, getCharacter, Phase,
 } from '../test-helpers.js';
 import type { CardDefinitionId, GameAction } from '../../index.js';
@@ -141,7 +141,7 @@ describe('Ringil (td-184)', () => {
     const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
     const act = restoreAction(state) as GameAction & { targetCardId?: unknown };
     expect(act).toBeDefined();
-    expect(act!.targetCardId).toBe(reforgingId);
+    expect(act.targetCardId).toBe(reforgingId);
   });
 
   test('activating it discards the stored Reforging and marks Ringil restored', () => {

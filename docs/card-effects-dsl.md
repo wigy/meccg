@@ -16657,11 +16657,12 @@ The "restore" family of Third Age hoard items (Ringil td-184, Horn of
 Defiance td-183, Belegennon td-185): "A stored *Reforging* may be placed with
 this item to 'restore' it. Once restored, [Ringil] gives 4 marshalling
 points, 3 corruption points and +5 prowess (to a maximum of 11)." Unlike the
-`fromStored` `place-source-with-item` shape (Andúril tw-192 §"named-stored-card
-+ place-source-with-item" above), the restorable item here is **already
-borne** — nothing is relocated. Discarding the stored Reforging just flips a
-permanent flag on the item's own `ItemInPlay` entry, and the item's own
-effects read that flag to swap in their post-restore values.
+`fromStored` `place-source-with-item` shape (Andúril tw-192's
+"named-stored-card + place-source-with-item" section above), the restorable
+item here is **already borne** — nothing is relocated. Discarding the stored
+Reforging just flips a permanent flag on the item's own `ItemInPlay` entry,
+and the item's own effects read that flag to swap in their post-restore
+values.
 
 ```json
 { "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8,
