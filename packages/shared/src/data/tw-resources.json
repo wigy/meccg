@@ -4363,9 +4363,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WizardsFire.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 5,
+        "requiredRace": "wizard",
+        "cost": {
+          "check": "corruption",
+          "modifier": -4
+        }
+      }
+    ],
+    "certified": "2026-08-27",
     "text": "Spell. Wizard only. +5 prowess for the Wizard against one attack. Wizard makes a corruption check modified by -4."
   },
   {

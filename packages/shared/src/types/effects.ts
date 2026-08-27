@@ -4652,9 +4652,17 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    */
   readonly requiredSkill?: string;
   /**
+   * The race required on the character who both pays `cost` and receives
+   * the boost — alternative to {@link requiredSkill} for race-gated spells.
+   * Only meaningful alongside `cost` (see `requiredSkill`). Used by
+   * Wizard's Fire (tw-360): "Wizard only. +5 prowess for the Wizard against
+   * one attack." — `requiredRace: "wizard"`.
+   */
+  readonly requiredRace?: Race;
+  /**
    * The cost the chosen character pays to receive the boost (e.g. a
    * corruption check). Presence of `cost` switches the effect to
-   * single-target mode — see {@link requiredSkill}.
+   * single-target mode — see {@link requiredSkill} / {@link requiredRace}.
    */
   readonly cost?: ActionCost;
   /**
