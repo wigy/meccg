@@ -181,9 +181,13 @@ describe('Pierced by Many Wounds (dm-79)', () => {
       .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === pbmwInst);
     expect(viable).toHaveLength(0);
 
+    // #2861 regression (game mtasepv8-2pzfv3 seq 850): the `play-window: combat`
+    // gate keeps the card out of the plain hazard menu entirely — not even a
+    // greyed-out (non-viable) entry — since no attack exists yet.
     const gated = nonViableOfType(computeLegalActions(state, PLAYER_2), 'play-hazard')
       .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === pbmwInst);
-    expect(gated).toHaveLength(1);
+    expect(gated).toHaveLength(0);
+    expect(viableActions(state, PLAYER_2, 'modify-attack')).toHaveLength(0);
   });
 
   // ─── The effect: overrides the first excess strike's penalty ────────────
@@ -338,16 +342,5 @@ describe('Pierced by Many Wounds (dm-79)', () => {
     const resolved = executeAction(r.state, PLAYER_1, 'resolve-strike', 7, true);
     const aragorn = resolved.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragorn.status).toBe(CardStatus.Inverted);
-  });
-
-  test('NOT offered during movement-hazard phase when the company faces no creature attack (#2861 regression, game mtasepv8-2pzfv3 seq 850)', () => {
-    // No combat exists yet — the card requires an actual attack and must not
-    // appear in the plain hazard menu.
-    const base = baseWithHazardHand([PIERCED_BY_MANY_WOUNDS]);
-    const state = { ...base, phaseState: makeMHState() };
-
-    expect(state.combat).toBeNull();
-    expect(viableActions(state, PLAYER_2, 'play-hazard')).toHaveLength(0);
-    expect(viableActions(state, PLAYER_2, 'modify-attack')).toHaveLength(0);
   });
 });
