@@ -895,6 +895,17 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (a.cardInstanceId) recruitViaEventInstances.add(a.cardInstanceId as string);
   }
 
+  // Item-cache hand-store actions (Armory dm-116): place minor items from hand
+  // under a cache host directly, without playing them. Computed here (ahead of
+  // the not-playable sweep below) so eligible hand items are excluded from it.
+  const itemCacheHandStoreEvaluated = itemCacheHandStoreActions(state, playerId);
+  actions.push(...itemCacheHandStoreEvaluated);
+  const itemCacheHandStoreInstances = new Set(
+    itemCacheHandStoreEvaluated.map(ea =>
+      (ea.action as { itemInstanceId: CardInstanceId }).itemInstanceId as string,
+    ),
+  );
+
   // Mark remaining hand cards as not playable during organization
   for (const handCard of player.hand) {
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
@@ -903,6 +914,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (resourceShortEventInstances.has(handCard.instanceId as string)) continue;
     if (recruitViaEventInstances.has(handCard.instanceId as string)) continue;
     if (cofPairInstances.has(handCard.instanceId as string)) continue;
+    if (itemCacheHandStoreInstances.has(handCard.instanceId as string)) continue;
     actions.push(notPlayable(playerId, handCard.instanceId, 'Not playable during the organization'));
   }
 
@@ -925,10 +937,6 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Store-item actions (store items at matching sites)
   actions.push(...storeItemActions(state, playerId));
-
-  // Item-cache hand-store actions (Armory dm-116): place minor items from hand
-  // under a cache host directly, without playing them.
-  actions.push(...itemCacheHandStoreActions(state, playerId));
 
   // Split-company actions (move GI character + followers to a new company)
   actions.push(...splitCompanyActions(state, playerId));
