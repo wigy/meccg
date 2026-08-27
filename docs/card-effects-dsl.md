@@ -6834,6 +6834,7 @@ Optional fields:
       "cost": { "check": "corruption", "modifier": -2,
                  "alsoDiscardItemName": "The One Ring" } }
     ```
+
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
 - `itemFilter` — restricts a `target: "character"` play-target to a
@@ -16989,6 +16990,7 @@ Roäc the Raven to make an influence attempt does not tap a site, and may be
 done if his company is at a tapped site." — `playableAt: [{ "region":
 "Northern Rhovanion" }]` (the Noble Steed wh-33 region-`playableAt`
 precedent).
+
 ### 79. `restore-item` grant-action + `restored-item-stats` + `face-all-strikes-option` (Horn of Defiance)
 
 Three primitives backing the Reforging family of hoard items — Horn of
