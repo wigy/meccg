@@ -17044,6 +17044,7 @@ points." The `siteCtx` object exposed to every `grant-action` `when` clause
 (`buildGrantActionContext`, `legal-actions/organization.ts`) now also carries
 `name` (the current site's printed name), previously absent — the first
 grant-action to gate on a specific site by name rather than type/keyword.
+
 ### 79. `restore-item` grant-action + `restored-item-stats` + `face-all-strikes-option` (Horn of Defiance)
 
 Three primitives backing the Reforging family of hoard items — Horn of
