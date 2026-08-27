@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.133.0 — 2026-08-27
+
+Concede and Resume Game, 42 cards certified, and a sweep of card-play fixes
+
+### Game Engine
+
+- Concede action: either player may resign in any phase or sub-state (mid-chain, mid-combat, mid-pending), ending the game via `endGame()` with a `concession` win reason; offered per human connection, never to AI/sim agents (#2887)
+- No Better Use (ba-41) capture-in-lieu-of-body-check recovered and certified; empty-company cleanup no longer runs on every action (#2883)
+- Horn of Defiance / Ringil `restore-item` grant-action, `restored-item-stats` and face-all-strikes option (#2863, #2864)
+- Many Foes He Fought multi-strike option (#2888); Pierced by Many Wounds first-excess-strike penalty, now combat-only (#2861, #2880)
+- Ordered to Kill `force-agent-attack` + `discard-unrevealed-on-guard` (#2879); Good Sense Revolts multi-target agent influence + bankable boost (#2867); Your Welcome Is Doubtful agent tap vs opponent influence (#2870)
+- Winds of Wrath `swap-new-site` (#2871); Storms of Ossë coastal site-path tapping (#2853); Roäc the Raven own-hand faction influence (#2886)
+- Stealth no longer blocks dual-mode creatures' (Ren, Akhôrahil) permanent-event mode (#2848, #2859); Spider of the Môrlat playable as a permanent-event (#2844)
+- Legacy of Smiths exempts stored items and item MP-modifier bonuses (#2846); Dark Numbers gives its printed 1 MP (#2856); Beorning Toll region keying restored (#2845)
+- Wizard's Test playable in any phase (#2847); Armory minor items no longer flagged not-playable (#2860); Ioreth's healing-affects-all extends grant-action heals (#2890)
+- Call of Home item-transfer offer no longer freezes the game (#2841); (S) Await the Onset challenge deck uses the right Beornings card (#2840)
+- Certified: Despair of the Heart, Night, The Pale Sword, The Precious, The Will of the Ring, Words of Power and Terror, More Alert than Most, Moon, Great Secrets Buried There, Deallus, Gergeli, Woses of Old Pûkel-land, Woses of the Eryn Vorn, Mount Slain, Cloudless Day, Wit, Wizard's Fire, Ghân-buri-Ghân, Leg It Double Quick, Morgul-blade, Tribute Garnered, Shámas, Nenya, Gold Belt of Lórien, Magic Ring of Words, Test of Lore, Scabbard of Chalcedony, Earth of Galadriel's Orchard, Mallorn (#2851–#2896)
+
+### Web Client
+
+- Resume Game button on the lobby screen recovers an in-progress game after the tab was closed (#2887)
+- Concede button in the in-game toolbar; concessions shown on the scoreboard, admin page and result screen (#2887)
+- Declare-burglary wired into the board UI (#2842); Rule 10.13 influence-reveal-play offer in hand is clickable again (#2843)
+- Character-attached events render inline instead of as a corner sliver; slower dice-result hold; slightly larger board cards; bug-report modal gains a Bug Report / Improvement category (#2849)
+- Deck editor keeps the card browser open after adding a card (#2850)
+
+### Text Client
+
+- AI client never picks the concede meta-action (#2887)
+
+### Infrastructure
+
+- `concede`, `enable-multi-strike-option` and `capture-in-lieu-of-body-check` appended to the sim action-type vocabulary (#2883, #2887, #2888)
+
 ## 0.132.0 — 2026-08-26
 
 The Great Hunt fixed, Forewarned Is Forearmed UI, and h2 AI stops camping at Minas Tirith
