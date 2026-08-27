@@ -1459,6 +1459,37 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         const charDef = defById(state, char.definitionId);
         const def = defById(state, ally.definitionId);
+
+        // `targets: { scope: "own-hand-factions" }` — Roäc the Raven (tw-320):
+        // one activation per faction card of the player's own alignment
+        // sitting in hand, offered only while the bearer's company is the
+        // one currently taking its site phase ("during the site phase …
+        // his company").
+        if (effect.targets?.scope === 'own-hand-factions') {
+          const isActiveSiteCompany = state.phaseState.phase === Phase.Site
+            && !!company
+            && player.companies[state.phaseState.activeCompanyIndex]?.id === company.id;
+          if (!isActiveSiteCompany) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer's company is not the active site-phase company`);
+            continue;
+          }
+          const handFactions = player.hand.filter(c => {
+            const cardDef = defById(state, c.definitionId);
+            return !!cardDef && isFactionCard(cardDef)
+              && (!effect.targets!.filter || matchesDefinition(cardDef, effect.targets!.filter));
+          });
+          if (handFactions.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no faction card in hand`);
+            continue;
+          }
+          for (const faction of handFactions) {
+            const factionDef = defById(state, faction.definitionId);
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to attempt influencing ${factionDef?.name ?? '?'}`);
+            actions.push(grantedActionFor(playerId, charId, ally, effect, { targetCardId: faction.instanceId }));
+          }
+          continue;
+        }
+
         logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to activate`);
 
         actions.push(grantedActionFor(playerId, charId, ally, effect));
