@@ -6882,6 +6882,7 @@ Optional fields:
       "cost": { "check": "corruption", "modifier": -2,
                  "alsoDiscardItemName": "The One Ring" } }
     ```
+
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
 - `itemFilter` — restricts a `target: "character"` play-target to a
