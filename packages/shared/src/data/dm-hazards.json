@@ -796,8 +796,20 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/GnawwithWords.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Tap a sage if another sage is in his company or at his current site or at his new site.Alternatively, tap a diplomat if another diplomat is in his company or at his current site or at his new site."
+    "effects": [
+      {
+        "type": "tap-character",
+        "filter": { "skills": { "$includes": "sage" } },
+        "requiresCompanionSkill": "sage"
+      },
+      {
+        "type": "tap-character",
+        "filter": { "skills": { "$includes": "diplomat" } },
+        "requiresCompanionSkill": "diplomat"
+      }
+    ],
+    "text": "Tap a sage if another sage is in his company or at his current site or at his new site.Alternatively, tap a diplomat if another diplomat is in his company or at his current site or at his new site.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",
