@@ -42,13 +42,16 @@ import {
   mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch,
-  viableActions, RESOURCE_PLAYER,
+  viableActions, RESOURCE_PLAYER, HAZARD_PLAYER,
+  findHandCardId,
 } from '../test-helpers.js';
 import type {
-  PlayHazardAction, CardInstanceId,
+  PlayHazardAction, CardInstanceId, CardDefinitionId,
 } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
+
+const REN = 'tw-83' as CardDefinitionId;
 
 describe('Stealth (tw-332)', () => {
   beforeEach(() => resetMint());
@@ -394,5 +397,60 @@ describe('Stealth (tw-332)', () => {
       .map(ea => ea.action as PlayHazardAction);
     const againstOther = actions.filter(a => a.targetCompanyId === otherCompanyId);
     expect(againstOther.length).toBeGreaterThan(0);
+  });
+
+  test('constraint blocks a dual-mode creature\'s creature-mode play but not its permanent-event mode', () => {
+    // Regression (bug report, game mtakr7pw-dqxsu4): Ren the Unclean (tw-83)
+    // may be played as a hazard creature OR as a permanent-event. The
+    // no-creature-hazards-on-company constraint only bars playing it as a
+    // creature — its permanent-event mode carries no creature attack and
+    // must still be offered. The filter used to key off the card's static
+    // cardType ('hazard-creature') alone, dropping every play-hazard action
+    // for the card regardless of which mode was being offered.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [REN], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const targetCompanyId = companyIdAt(base, RESOURCE_PLAYER);
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Dark],
+      resolvedSitePathNames: ['Gorgoroth'],
+      destinationSiteType: SiteType.DarkHold,
+      destinationSiteName: 'Barad-dûr',
+    });
+    const stateAtPlayHazards = { ...base, phaseState: mhState };
+    const renId = findHandCardId(stateAtPlayHazards, HAZARD_PLAYER, REN);
+
+    // Before the constraint: both the creature-mode keyed play and the
+    // permanent-event mode are offered against the target company.
+    const beforeActions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction & { altEventMode?: string })
+      .filter(a => a.cardInstanceId === renId && a.targetCompanyId === targetCompanyId);
+    expect(beforeActions.some(a => !a.altEventMode)).toBe(true);
+    expect(beforeActions.some(a => a.altEventMode === 'permanent-event')).toBe(true);
+
+    const constrained = addConstraint(stateAtPlayHazards, {
+      source: 'stealth-1' as CardInstanceId,
+      sourceDefinitionId: STEALTH,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId: targetCompanyId },
+      kind: { type: 'no-creature-hazards-on-company' },
+    });
+
+    const afterActions = viableActions(constrained, PLAYER_2, 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction & { altEventMode?: string })
+      .filter(a => a.cardInstanceId === renId && a.targetCompanyId === targetCompanyId);
+
+    // The creature-mode play is dropped by the constraint...
+    expect(afterActions.some(a => !a.altEventMode)).toBe(false);
+    // ...but the permanent-event mode survives.
+    expect(afterActions.some(a => a.altEventMode === 'permanent-event')).toBe(true);
   });
 });
