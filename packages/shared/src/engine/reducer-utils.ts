@@ -6052,6 +6052,45 @@ export function factionSiegeEligibleSites(
 }
 
 /**
+ * `regionName` plus every region adjacent to it (region cards carry the
+ * adjacency graph via `adjacentRegions`). Shared "same region or adjacent
+ * thereto" primitive — used by {@link factionSiegeEligibleSites} (Long
+ * Grievous Siege ba-40) and the `roll-then-swap-new-site` effect (Chance of
+ * Being Lost dm-49): "a different site … located in the same region or an
+ * adjacent region as the company's new site."
+ */
+export function regionAndAdjacentRegions(state: GameState, regionName: string): Set<string> {
+  const regions = new Set<string>([regionName]);
+  for (const def of Object.values(state.cardPool)) {
+    const rc = def as { cardType?: string; name?: string; adjacentRegions?: readonly string[] };
+    if (rc.cardType !== 'region' || rc.name !== regionName) continue;
+    for (const adj of rc.adjacentRegions ?? []) regions.add(adj);
+  }
+  return regions;
+}
+
+/**
+ * Candidate replacement sites for `roll-then-swap-new-site` (Chance of Being
+ * Lost dm-49): entries of `hazardSiteDeck` that are a *different* site (by
+ * name) than `destinationDef`, whose region is `destinationDef`'s region or
+ * a region adjacent to it. Empty when `destinationDef` has no region (should
+ * not happen for a real site card).
+ */
+export function regionAdjacentSwapEligibleSites(
+  state: GameState,
+  hazardSiteDeck: readonly CardInstance[],
+  destinationDef: { readonly name: string; readonly region?: string | null },
+): CardInstance[] {
+  if (!destinationDef.region) return [];
+  const regions = regionAndAdjacentRegions(state, destinationDef.region);
+  return hazardSiteDeck.filter(inst => {
+    const def = defById(state, inst.definitionId);
+    return !!def && isSiteCard(def) && def.name !== destinationDef.name
+      && !!def.region && regions.has(def.region);
+  });
+}
+
+/**
  * Saruman's Machinery (wh-120): returns true when an active
  * `technology-item-unlocked` constraint binds `siteDefId` and is owned by
  * `playerId`. While such a constraint is active, the owning player may play one

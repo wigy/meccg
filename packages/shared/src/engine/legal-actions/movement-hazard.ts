@@ -2753,6 +2753,7 @@ function playHazardsActions(
         {
           const sitePathCondition = findPlayConditionEffect(def, 'site-path');
           const regionThroughCondition = findPlayConditionEffect(def, 'region-through-or-leave');
+          const regionMovementCondition = findPlayConditionEffect(def, 'region-movement');
           const companySiteCondition = findPlayConditionEffect(def, 'company-site');
           if (sitePathCondition) {
             if (!checkSitePathCondition(mhState, sitePathCondition, state, targetCompany)) {
@@ -2766,6 +2767,14 @@ function playHazardsActions(
             if (!checkRegionThroughOrLeave(mhState, regionThroughCondition.regionNames ?? [])) {
               logDetail(`Hazard short-event "${def.name}": company is not moving through or leaving a required region`);
               actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
+              continue;
+            }
+          } else if (regionMovementCondition) {
+            // Chance of Being Lost (dm-49): playable only on a company using
+            // region movement (no named-region restriction).
+            if (!checkRegionMovement(mhState)) {
+              logDetail(`Hazard short-event "${def.name}": company is not using region movement`);
+              actions.push({ action, viable: false, reason: `${def.name} requires region movement` });
               continue;
             }
           } else if (companySiteCondition?.condition) {
@@ -2826,6 +2835,24 @@ function playHazardsActions(
             }
             continue;
           }
+        }
+
+        // Chance of Being Lost (dm-49): region-movement + player-state
+        // (checked above) are satisfied; offer a single action — the roll
+        // and the resulting site-choice are resolved after the card is
+        // played, via a `dice-check` pending resolution.
+        const rollThenSwapEff = getCardEffects(def).find(
+          (e): e is import('../../types/effects.js').RollThenSwapNewSiteEffect => e.type === 'roll-then-swap-new-site',
+        );
+        if (rollThenSwapEff) {
+          if (!targetCompany.destinationSite) {
+            logDetail(`Hazard short-event "${def.name}": company is not moving — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name}: company must be moving to a new site` });
+            continue;
+          }
+          logDetail(`Hazard short-event "${def.name}": playable — will roll for a forced site swap`);
+          actions.push({ action, viable: true });
+          continue;
         }
 
         const shortPlayTarget = def.effects?.find(
@@ -5406,6 +5433,17 @@ function checkRegionThroughOrLeave(
   }
   logDetail(`region-through-or-leave: none of [${regionNames.join(', ')}] is left or passed through (through/leave regions: ${throughOrLeaveRegions.join(', ') || 'none'})`);
   return false;
+}
+
+/**
+ * Evaluate a `play-condition` with `requires: 'region-movement'` (Chance of
+ * Being Lost dm-49): the card is only playable on a company using **region**
+ * movement, with no named-region restriction (unlike
+ * `region-through-or-leave`, which additionally requires the path to leave
+ * or pass through one of a named set of regions).
+ */
+function checkRegionMovement(mhState: MovementHazardPhaseState): boolean {
+  return mhState.movementType === 'region';
 }
 
 // mhWoundCorruptionCheckActions removed: wound corruption checks are
