@@ -17085,3 +17085,25 @@ repeat assignment to an already-assigned character would otherwise produce
 stamped so downstream cancel/resolution logic (`combat-cancel.ts`,
 `combat-strike.ts`) treats every strike identically to a printed multi-attack
 creature's.
+
+**`item.restored` resolver context (Ringil td-184)** — `collectCharacterEffects`
+(`effects/resolver.ts`) sets `item: { restored: true }` on the context only
+while collecting that specific item's own effects (an item's `restored` flag
+never leaks onto the bearer's own effects or sibling items), so a
+`stat-modifier`'s `when` can pair a pre-restore and a post-restore variant of
+the same bonus. Ringil ("Warrior only: +1 prowess (to a maximum of 8) …
+Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5
+prowess (to a maximum of 11)") declares:
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": { "$ne": true } } ] } },
+{ "type": "stat-modifier", "stat": "prowess", "value": 5, "max": 11,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": true } ] } },
+{ "type": "grant-action", "action": "restore-item",
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "restore-item" } },
+{ "type": "restored-item-stats", "marshallingPoints": 4, "corruptionPoints": 3 }
+```
