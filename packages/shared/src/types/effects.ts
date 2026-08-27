@@ -8995,6 +8995,7 @@ export type CardEffect =
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
   | AgentTapFactionInfluenceEffect
+  | AgentTapOpponentInfluenceEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | ReturnSelfToHandWhenEffect
@@ -10940,6 +10941,52 @@ export interface AgentTapFactionInfluenceEffect extends EffectBase {
    * target faction is playable at one of the agent's home sites.
    */
   readonly autoSuccessAtHomeSite?: boolean;
+}
+
+/**
+ * Hazard short-event effect for Your Welcome Is Doubtful (dm-104).
+ *
+ * "Playable on an untapped agent. Tap the agent who may then make an
+ * influence attempt against an ally or character. +6 to influence attempt
+ * (+10 if the agent is a diplomat). An additional +7 to the attempt if
+ * target character has the same home site as the agent or if target ally is
+ * playable at the agent's home site. Cannot be played if your opponent is a
+ * minion player."
+ *
+ * Sibling of {@link AgentTapFactionInfluenceEffect}: grants a rule-10.14
+ * agent influence attempt against an opponent's in-play **character or
+ * ally** rather than a faction — the acting agent needs no
+ * `agent-tap-influence` effect of its own. Rule-10.14 bonuses stack
+ * underneath as usual (+2 direct influence at a home site; target mind
+ * treated as 0 with +2 to the roll when a character shares a home site with
+ * the agent, or an ally is playable at one of the agent's home sites), on
+ * top of which this card layers {@link attemptBonus} (or
+ * {@link diplomatAttemptBonus}) plus {@link homeSiteBonus} under that same
+ * shared-home-site condition.
+ */
+export interface AgentTapOpponentInfluenceEffect extends EffectBase {
+  readonly type: 'agent-tap-opponent-influence';
+  /** Which kinds of targets this grant covers. */
+  readonly targetKinds: readonly ('character' | 'ally')[];
+  /**
+   * Condition the acting agent's card definition must satisfy, evaluated
+   * against `{ target: { name, race, skills, keywords } }`. Omit to allow
+   * any untapped agent.
+   */
+  readonly agentFilter?: Condition;
+  /** Modifier added to the attacker's side of the influence attempt (+6). */
+  readonly attemptBonus: number;
+  /**
+   * Overrides `attemptBonus` when the acting agent has the diplomat skill
+   * (+10 instead of +6).
+   */
+  readonly diplomatAttemptBonus?: number;
+  /**
+   * Additional flat bonus applied when the target character shares a home
+   * site with the agent, or the target ally is playable at one of the
+   * agent's home sites (+7).
+   */
+  readonly homeSiteBonus?: number;
 }
 
 /**

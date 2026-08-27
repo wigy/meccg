@@ -1586,7 +1586,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/YourWelcomeIsDoubtful.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on an untapped agent. Tap the agent who may then make an influence attempt against an ally or character. +6 to influence attempt (+10 if the agent is a diplomat). An additional +7 to the attempt if target character has the same home site as the agent or if target ally is playable at the agent’s home site. Cannot be played if your opponent is a minion player."
+    "effects": [
+      {
+        "type": "agent-tap-opponent-influence",
+        "targetKinds": ["character", "ally"],
+        "attemptBonus": 6,
+        "diplomatAttemptBonus": 10,
+        "homeSiteBonus": 7
+      }
+    ],
+    "text": "Playable on an untapped agent. Tap the agent who may then make an influence attempt against an ally or character. +6 to influence attempt (+10 if the agent is a diplomat). An additional +7 to the attempt if target character has the same home site as the agent or if target ally is playable at the agent’s home site. Cannot be played if your opponent is a minion player.",
+    "certified": "2026-08-27"
   }
 ]

@@ -16117,6 +16117,62 @@ opponent is a minion player."
 
 ---
 
+### 71a. `agent-tap-opponent-influence` (Your Welcome Is Doubtful)
+
+Sibling of `agent-tap-faction-influence` for non-faction targets: a hazard
+short-event that *grants* one of the hazard player's own untapped agents a
+rule-10.14 influence attempt against an opponent's in-play **character or
+ally** rather than a faction. The acting agent needs no `agent-tap-influence`
+effect of its own.
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `targetKinds` | yes | Which target kinds this grant covers — `character`, `ally`, or both. |
+| `agentFilter` | no | Condition the acting agent's definition must satisfy, evaluated against `{ target: { name, race, skills, keywords } }`. Omit to allow any untapped agent. |
+| `attemptBonus` | yes | Flat modifier added to the attacker's side of the influence attempt. |
+| `diplomatAttemptBonus` | no | Overrides `attemptBonus` when the acting agent has the diplomat skill. |
+| `homeSiteBonus` | no | Additional flat bonus applied when the target character shares a home site with the agent, or the target ally is playable at one of the agent's home sites. |
+
+```json
+{ "type": "agent-tap-opponent-influence",
+  "targetKinds": ["character", "ally"],
+  "attemptBonus": 6, "diplomatAttemptBonus": 10, "homeSiteBonus": 7 }
+```
+
+- **Legal actions** (short-event branch of `movementHazardActions`,
+  `legal-actions/movement-hazard.ts`): one `play-hazard` action per (untapped
+  agent passing `agentFilter`, opponent character not an avatar, or opponent
+  ally attached to any of the opponent's characters), carrying
+  `agentInstanceId` plus `targetCharacterId` or `targetAllyId`. Independent of
+  the active company — like Pilfer Anything Unwatched (`agent-tap-return-
+  character`), an opponent-influence attempt is not restricted to the company
+  currently in its M/H sub-phase. Blocked when the opponent is a
+  minion/Balrog player (`isMinionOrBalrog`).
+- **Reducer** (`handleAgentTapOpponentInfluence`, `mh-agents.ts`, dispatched
+  from `mh-hazard-play.ts`): taps **and reveals** the agent, discards the
+  event, counts it against the hazard limit (`remainingActions` untouched —
+  not an agent action). Rule-10.14 bonuses apply as usual: +2 direct
+  influence at a home site, plus the agent's own conditional `direct-
+  influence` stat-modifiers against the target's race; the target's mind is
+  treated as 0 with a further +2 to the roll when a character shares a home
+  site with the agent (`parseHomesiteNames` overlap) or an ally is playable
+  at one of the agent's home sites (`playableAt` overlap, mirroring the
+  faction-at-home-site check). On top of that, `boostModifier` carries this
+  card's own `attemptBonus` (or `diplomatAttemptBonus` for a diplomat agent)
+  plus `homeSiteBonus` under that same shared-home-site condition.
+- **Resolution**: the standard `opponent-influence-defend` pending
+  resolution — no `autoSuccess` path (unlike the faction variant); the
+  defender always rolls.
+
+Used by Your Welcome Is Doubtful (dm-104): "Playable on an untapped agent. Tap
+the agent who may then make an influence attempt against an ally or character.
++6 to influence attempt (+10 if the agent is a diplomat). An additional +7 to
+the attempt if target character has the same home site as the agent or if
+target ally is playable at the agent's home site. Cannot be played if your
+opponent is a minion player."
+
+---
+
 ### 72. `un-eliminate-creature` + instance-targeted untargeted `play-option` modes
 
 Returned Beyond All Hope (as-35) is a hazard short-event with **three**
