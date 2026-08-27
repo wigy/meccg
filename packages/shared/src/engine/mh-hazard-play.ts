@@ -40,7 +40,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -1511,12 +1511,7 @@ export function findForcingEnvironment(
   // The Way is Shut (dm-98): "moving to or from an Under-deeps site" — true when
   // either the company's origin (currentSite) or its declared destination is an
   // Under-deeps site (`under-deeps` keyword on the site definition).
-  const siteIsUnderDeeps = (ref: { definitionId: import('../index.js').CardDefinitionId } | null | undefined): boolean => {
-    if (!ref) return false;
-    const siteDef = defById(state, ref.definitionId);
-    return isSiteCard(siteDef) && (siteDef.keywords?.includes('under-deeps') ?? false);
-  };
-  const underDeepsMove = siteIsUnderDeeps(company.currentSite) || siteIsUnderDeeps(company.destinationSite);
+  const underDeepsMove = companyMovesUnderDeeps(state, company);
   const context = {
     sitePath: {
       ...regionTypeCounts(path),

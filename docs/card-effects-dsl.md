@@ -8600,6 +8600,35 @@ Implemented in `reducer-movement-hazard.ts` (`handleOrderEffects`,
 `collectMatchingAhuntAttacks`), with group rewards in `mh-steps.ts`
 (`applyAhuntGroupRewards`) and outcome recording in `combat-finalize.ts`.
 
+`underDeepsMove: true` matches any company whose origin (`currentSite`) or
+declared destination (`destinationSite`) is an Under-deeps site, independently
+of `regionNames`/`regionTypes` — Under-deeps movement has no region path
+(`resolvedSitePathNames` is empty), so the ordinary name/type match can never
+fire for it. Gated on the company actually moving (`destinationSite` set).
+Used by Earth-tremors (dm-53): "Any company moving to or from an Under-deeps
+site faces an attack (cannot be canceled): Rock Fall — 1 strike with 7
+prowess against each character (weapons do not modify prowess against these
+strikes)."
+
+```json
+{ "type": "ahunt-attack", "underDeepsMove": true, "regionNames": [],
+  "strikes": 1, "prowess": 7, "race": "special",
+  "combatRules": ["cannot-be-canceled", "weapons-ineffective"] }
+```
+
+`race: "special"` is used here because Rock Fall has no printed creature race
+— `AhuntAttackEffect.race` is required (it becomes `CombatState.creatureRace`,
+which the strike-resolution path needs truthy to route through
+`computeCombatProwess` rather than plain `effectiveStats.prowess`), and
+`Race.Special` is the engine's existing "no race" bucket (Army of the Dead
+tw-193). The `weapons-ineffective` combat rule now genuinely suppresses the
+defender's own weapon prowess bonus for the strike (previously it only
+exposed `attack.weaponsIneffective` to one reactive item's own `modify-attack`
+ability, Dwarven Light-stone dm-168) — see
+`computeCombatProwess`'s `weaponsIneffective` parameter in
+`recompute-derived.ts` and `passiveModifyAttackProwessBonus` in
+`combat-strike.ts`.
+
 ### 25a. `faction-influence-restriction`
 
 Environment carried by an in-play hazard permanent-event. While in play, a

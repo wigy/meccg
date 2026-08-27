@@ -36,7 +36,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -4481,7 +4481,16 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
       const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
       const pendingValue = grantExtraMHPhase.movement === 'under-deeps' ? 'under-deeps' as const : true;
-      logDetail(`${cardName}: chain resolves grant-extra-mh-phase — flagging company ${targetCompanyId as string} for an extra ${pendingValue === 'under-deeps' ? 'Under-deeps ' : ''}movement/hazard phase this turn`);
+      // Earth-tremors (dm-53) / The Way is Shut (dm-98): a `cancel-card-effects`
+      // card naming this short event by name (e.g. Bridge, Into Dark Tunnels)
+      // in play neutralizes its effect — the card is still spent (discarded or
+      // returned per its own text) but grants no extra movement/hazard phase.
+      const canceled = isCardNameEffectCanceled(current, cardName);
+      if (canceled) {
+        logDetail(`${cardName}: grant-extra-mh-phase suppressed by an in-play cancel-card-effects card — no extra phase granted`);
+      } else {
+        logDetail(`${cardName}: chain resolves grant-extra-mh-phase — flagging company ${targetCompanyId as string} for an extra ${pendingValue === 'under-deeps' ? 'Under-deeps ' : ''}movement/hazard phase this turn`);
+      }
       const spentCard = toCardInstance(card);
       // "Return this card to your hand" (World Gnawed by the Nameless as-110):
       // the spent event goes back to its owner's hand instead of the discard
@@ -4490,7 +4499,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         ...p,
         hand: grantExtraMHPhase.returnToHand ? [...p.hand, spentCard] : p.hand,
         discardPile: grantExtraMHPhase.returnToHand ? p.discardPile : [...p.discardPile, spentCard],
-        companies: p.companies.map(c => c.id === targetCompanyId ? { ...c, extraMHPhasePending: pendingValue } : c),
+        companies: p.companies.map(c => c.id === targetCompanyId ? { ...c, extraMHPhasePending: canceled ? c.extraMHPhasePending : pendingValue } : c),
       }));
       if (grantExtraMHPhase.returnToHand) {
         logDetail(`${cardName}: returned to its owner's hand`);
