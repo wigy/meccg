@@ -30,7 +30,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GANDALF,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  companyIdAt, findCharInstanceId, dispatch, viableFor, viableActions,
+  companyIdAt, findCharInstanceId, dispatch, viableActions,
   expectInDiscardPile,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
