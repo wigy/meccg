@@ -202,7 +202,11 @@ function bannedVsBalrogSwapActions(state: GameState, playerId: PlayerId): Evalua
  * `viaEventInstanceId` (e.g. A Chance Meeting tw-188, We Have Come to Kill
  * le-252) so a recruit-enabling event card is not treated as uncovered when
  * its only actions are the `play-character` recruits it offers — those carry
- * the recruit's `characterInstanceId`, not the event's own instance ID.
+ * the recruit's `characterInstanceId`, not the event's own instance ID. Also
+ * includes `itemInstanceId` so hand items whose only action is keyed by that
+ * field (e.g. `store-item-in-cache` for Armory dm-116) are recognized as
+ * covered — otherwise this sweep stacks a spurious "cannot be played during
+ * this step" not-playable entry alongside the genuinely viable action.
  */
 function referencedInstanceIds(evaluated: EvaluatedAction[]): Set<string> {
   const ids = new Set<string>();
@@ -211,6 +215,7 @@ function referencedInstanceIds(evaluated: EvaluatedAction[]): Set<string> {
     if (typeof a['cardInstanceId'] === 'string') ids.add(a['cardInstanceId']);
     if (typeof a['characterInstanceId'] === 'string') ids.add(a['characterInstanceId']);
     if (typeof a['viaEventInstanceId'] === 'string') ids.add(a['viaEventInstanceId']);
+    if (typeof a['itemInstanceId'] === 'string') ids.add(a['itemInstanceId']);
   }
   return ids;
 }
