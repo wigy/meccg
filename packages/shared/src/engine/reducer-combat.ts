@@ -156,8 +156,10 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
 
   let newAssignments: StrikeAssignment[];
 
-  // Force-single-target (multi-attack): auto-assign all strikes to the chosen character
-  if (combat.forceSingleTarget && combat.strikeAssignments.length === 0 && existingIdx < 0) {
+  // Force-single-target (multi-attack), or a `face-all-strikes-option` item
+  // (Horn of Defiance td-183) choosing to face every strike itself: auto-
+  // assign all strikes to the chosen character, each its own strike sequence.
+  if ((combat.forceSingleTarget || action.allStrikes) && combat.strikeAssignments.length === 0 && existingIdx < 0) {
     newAssignments = [];
     // Each attack's assignment gets `excessStrikesPerAttack` preset (CRF 22
     // Assassin: a global strikes boost becomes a -1 prowess excess strike on
@@ -176,7 +178,7 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
     logDetail(`Multi-attack: all ${combat.strikesTotal} strikes auto-assigned to ${action.characterId as string}`);
 
     const tappedState = applyTapOnStrikeAssignment(state, combat, action.characterId);
-    let newCombatState: CombatState = { ...combat, strikeAssignments: newAssignments };
+    let newCombatState: CombatState = { ...combat, strikeAssignments: newAssignments, forceSingleTarget: true };
 
     // If cancel-by-tap is available, transition to cancel-by-tap sub-phase
     if (combat.cancelByTapRemaining && combat.cancelByTapRemaining > 0) {

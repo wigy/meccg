@@ -32,7 +32,7 @@ import type { GameState, PlayerState, Company, CombatState, CardInstanceId } fro
 import type { CardDefinition } from '../types/cards.js';
 import type { PlayTargetEffect, PlayWindowEffect } from '../types/effects.js';
 import { isCharacterCard } from '../types/cards.js';
-import { CardStatus } from '../types/common.js';
+import { CardStatus, Race } from '../types/common.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
 import { buildPlayOptionContext } from './legal-actions/organization.js';
@@ -41,6 +41,35 @@ import {
   findDuplicationLimitEffect, playerById,
 } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
+
+/**
+ * True when at least one strike in `combat` was delivered by a
+ * ringwraith-race attacker and failed to wound the defending character
+ * (result `'success'`, `'survived'`, or `'tie'` — CoE rule 3.iv.7: the
+ * character was not wounded). For a creature-sourced attack the race comes
+ * from {@link CombatState.creatureRace}; for a CvCC strike it comes from the
+ * specific attacking character ({@link StrikeAssignment.attackingCharacterId}),
+ * since a company-vs-company attack can mix races. Backs Mount Slain
+ * (as-50): "Playable … if a strike against one of your companies from a
+ * Ringwraith attack or Nazgûl creature fails."
+ */
+function hasFailedRingwraithStrike(state: GameState, combat: CombatState): boolean {
+  const NOT_WOUNDED = new Set(['success', 'survived', 'tie']);
+  for (const sa of combat.strikeAssignments) {
+    if (!sa.result || !NOT_WOUNDED.has(sa.result)) continue;
+    let race: string | undefined;
+    if (sa.attackingCharacterId) {
+      const attacker = playerById(state, combat.attackingPlayerId);
+      const atkChar = attacker?.characters[sa.attackingCharacterId];
+      const atkDef = atkChar ? defById(state, atkChar.definitionId) : undefined;
+      race = atkDef && isCharacterCard(atkDef) ? atkDef.race : undefined;
+    } else {
+      race = combat.creatureRace;
+    }
+    if (race === Race.Ringwraith) return true;
+  }
+  return false;
+}
 
 /** The `play-window` of a card, when it declares one. */
 function playWindowOf(def: CardDefinition | undefined): PlayWindowEffect | undefined {
@@ -64,10 +93,13 @@ export function hasAfterAttackWindow(def: CardDefinition | undefined): boolean {
  * against: the same attack discriminators a `cancel-attack` `when` sees, so a
  * card gates its play window and its granted ability with the same expression.
  */
-function attackContext(combat: CombatState): Record<string, unknown> {
+function attackContext(state: GameState, combat: CombatState): Record<string, unknown> {
   return {
     enemy: { race: combat.creatureRace ?? null },
-    attack: { source: combat.attackSource.type },
+    attack: {
+      source: combat.attackSource.type,
+      ringwraithStrikeFailed: hasFailedRingwraithStrike(state, combat),
+    },
   };
 }
 
@@ -80,15 +112,19 @@ function attackContext(combat: CombatState): Record<string, unknown> {
  * pending resolution's legal actions (which characters may be named), so the
  * offer can never advertise a target the play would reject.
  */
+export function afterAttackCharacterPlayTarget(def: CardDefinition): PlayTargetEffect | undefined {
+  return getCardEffects(def).find(
+    (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+  );
+}
+
 export function afterAttackPlayTargets(
   state: GameState,
   player: PlayerState,
   company: Company,
   def: CardDefinition,
 ): CardInstanceId[] {
-  const playTarget = getCardEffects(def).find(
-    (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
-  );
+  const playTarget = afterAttackCharacterPlayTarget(def);
   if (!playTarget) return [];
   const requiresUntapped = playTarget.cost?.tap === 'character';
 
@@ -117,7 +153,7 @@ function matchingHandCards(
   company: Company,
   combat: CombatState,
 ): CardInstanceId[] {
-  const ctx = attackContext(combat);
+  const ctx = attackContext(state, combat);
   const out: CardInstanceId[] = [];
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
@@ -139,7 +175,11 @@ function matchingHandCards(
         continue;
       }
     }
-    if (afterAttackPlayTargets(state, player, company, def).length === 0) {
+    // Cards with no character play-target (e.g. Mount Slain as-50) resolve
+    // against a programmatically-found target (the opponent's Ringwraith
+    // avatar) rather than attaching to a bearer in this company — no bearer
+    // eligibility check applies.
+    if (afterAttackCharacterPlayTarget(def) && afterAttackPlayTargets(state, player, company, def).length === 0) {
       logDetail(`After-attack window "${cardLabel}": no eligible character in the company`);
       continue;
     }

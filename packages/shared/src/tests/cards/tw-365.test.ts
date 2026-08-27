@@ -21,7 +21,7 @@
  * | 1 | Spell — counts as a spell card for cards keyed to spells   | IMPLEMENTED | `keywords: ["spell"]`, read as `source.keywords` by the check |
  * | 2 | Wizard only                                                | IMPLEMENTED | play-target character filter `target.race: wizard`            |
  * | 3 | Only if a character in HIS company has a gold ring         | IMPLEMENTED | (wizard × gold ring in his company) crossing in the emitter   |
- * | 4 | Playable during the organization phase                     | IMPLEMENTED | play-window phase:organization                                |
+ * | 4 | Playable during any phase of the Wizard's turn              | IMPLEMENTED | no play-window — CoE rule 2.1.1 default (resource short-events are legal in any phase of their own turn unless restricted) |
  * | 5 | No tap cost — the Wizard is not tapped                     | IMPLEMENTED | play-target has no cost                                       |
  * | 6 | Play to test a gold ring                                   | IMPLEMENTED | on-event self-enters-play → enqueue-gold-ring-test            |
  * | 7 | Make two rolls                                             | IMPLEMENTED | `rollCount: 2` — one gold-ring-test-roll action per roll      |
@@ -56,7 +56,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BREE,
   Phase, CardStatus,
   buildTestState, resetMint,
-  findCharInstanceId, viableActions, getCharacter,
+  findCharInstanceId, viableActions, getCharacter, makeSitePhase,
   attachItemToChar, addCardToHand, reduce, dispatch, dispatchResult,
   enqueueCorruptionCheck,
   expectCharStatus, expectCharItemCount, expectInDiscardPile,
@@ -217,7 +217,27 @@ describe("Wizard's Test (tw-365)", () => {
     expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(0);
   });
 
-  test('NOT playable outside the organization phase', () => {
+  test('also playable during the site phase (CoE 2.1.1: resource short-events are legal in any phase of the resource player\'s turn)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [PALLANDO, { defId: FRODO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [WIZARDS_TEST],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+
+    expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(1);
+  });
+
+  test('also playable during the long-event phase', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.LongEvent,
@@ -233,7 +253,7 @@ describe("Wizard's Test (tw-365)", () => {
       ],
     });
 
-    expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(0);
+    expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(1);
   });
 
   test('one play action per gold ring in the Wizard company', () => {

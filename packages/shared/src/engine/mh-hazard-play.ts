@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
-import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, CreatureAltEventEffect, SwapNewSiteEffect } from '../types/effects.js';
+import type { CardEffect, CallCouncilEffect, TapAgentEffect, HazardLimitSwapEffect, RegionKeyingBoostEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, AgentTapOpponentInfluenceEffect, PlayDiscardCostEffect, Condition, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, CreatureAltEventEffect, SwapNewSiteEffect } from '../types/effects.js';
 import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -51,7 +51,7 @@ import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard } from '.
 import { buildInPlayNames } from './recompute-derived.js';
 import { computeCandidateRegionPaths } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
-import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence } from './mh-agents.js';
+import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapOpponentInfluence } from './mh-agents.js';
 
 /**
  * Handle actions during the play-hazards step (CoE step 7).
@@ -874,6 +874,16 @@ export function handlePlayHazardCard(
     );
     if (agentFactionInfluenceEff && action.type === 'play-hazard' && action.agentInstanceId && action.targetFactionInstanceId) {
       return handleAgentTapFactionInfluence(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, agentFactionInfluenceEff);
+    }
+
+    // Your Welcome Is Doubtful (dm-104): tap an untapped agent to make a
+    // rule-10.14 influence attempt against an opponent character or ally.
+    const agentOpponentInfluenceEff = def.effects?.find(
+      (e): e is AgentTapOpponentInfluenceEffect => e.type === 'agent-tap-opponent-influence',
+    );
+    if (agentOpponentInfluenceEff && action.type === 'play-hazard' && action.agentInstanceId
+      && (action.targetCharacterId || action.targetAllyId)) {
+      return handleAgentTapOpponentInfluence(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, agentOpponentInfluenceEff);
     }
 
     // Winds of Wrath (td-82): swap the moving company's destination site

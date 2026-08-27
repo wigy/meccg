@@ -25,6 +25,7 @@ import { resolveInstanceId } from '../types/state.js';
 import { defById, findById, getCardEffects, getOnEventEffects, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { isWardedAgainst } from './effects/index.js';
 import { addConstraint } from './pending.js';
+import { parseConstraintScope } from './constraint-kind.js';
 
 /**
  * Look up the card definition for the attack source in combat.
@@ -92,8 +93,20 @@ export function handleCombatPlayHazard(
     return handleLeftBehindPlay(state, action, combat, handCard, leftBehindEffect);
   }
 
-  if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') {
-    return { state, error: 'only hazard permanent-events may be played during combat' };
+  if (!def || def.cardType !== 'hazard-event') {
+    return { state, error: 'only hazard permanent-events (or combat-reactive short events) may be played during combat' };
+  }
+
+  // Words of Power and Terror (tw-115) and similar cards are `short` events
+  // played reactively during combat: they resolve immediately (add a
+  // company-wide stat modifier for the rest of the turn) and discard, rather
+  // than attaching to a character like a Dragon's Curse-style permanent event.
+  const isCombatShortCompanyModifier = def.eventType === 'short'
+    && getOnEventEffects(def, 'self-enters-play-combat').some(
+      e => e.apply.type === 'add-constraint' && e.apply.constraint === 'company-stat-modifier',
+    );
+  if (def.eventType !== 'permanent' && !isCombatShortCompanyModifier) {
+    return { state, error: 'only hazard permanent-events (or combat-reactive short events) may be played during combat' };
   }
 
   const defenderIndex = getPlayerIndex(state, combat.defendingPlayerId);
@@ -131,22 +144,31 @@ export function handleCombatPlayHazard(
     return { state: newState };
   }
 
-  // Attach to target's hazards
-  logDetail(`Combat play-hazard: attaching "${def.name}" to ${targetCharId as string}`);
-  newState = updatePlayer(newState, defenderIndex, p => updateCharacter(p, targetCharId as string, c => ({
-    ...c,
-    hazards: [...c.hazards, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
-  })));
+  if (isCombatShortCompanyModifier) {
+    // Short event: resolve immediately and discard — it never attaches.
+    logDetail(`Combat play-hazard: "${def.name}" resolves immediately and discards (combat-reactive short event)`);
+    newState = updatePlayer(newState, hazardIndex, p => ({
+      ...p,
+      discardPile: [...p.discardPile, toCardInstance(handCard)],
+    }));
+  } else {
+    // Attach to target's hazards
+    logDetail(`Combat play-hazard: attaching "${def.name}" to ${targetCharId as string}`);
+    newState = updatePlayer(newState, defenderIndex, p => updateCharacter(p, targetCharId as string, c => ({
+      ...c,
+      hazards: [...c.hazards, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }],
+    })));
+  }
 
   // Apply self-enters-play-combat on-event effects declared by the card.
-  // Currently supports `modify-current-strike-prowess` which adjusts
-  // the current strike's prowess via combat.strikeAssignments[i].strikeProwessBonus.
-  // The bonus is added to the defender's effective prowess (a -1 to
-  // the attacker's strike prowess is equivalent to +1 to the defender),
-  // so the data carries a negative `value` and the reducer flips sign.
   {
     for (const eff of getOnEventEffects(def, 'self-enters-play-combat')) {
       if (eff.apply.type === 'modify-current-strike-prowess') {
+        // Adjusts the current strike's prowess via
+        // combat.strikeAssignments[i].strikeProwessBonus. The bonus is added
+        // to the defender's effective prowess (a -1 to the attacker's strike
+        // prowess is equivalent to +1 to the defender), so the data carries a
+        // negative `value` and the reducer flips sign.
         const strikeDelta = eff.apply.value ?? 0;
         const defenderProwessDelta = -strikeDelta;
         logDetail(`Combat play-hazard: "${def.name}" modifies current strike's prowess by ${strikeDelta} (defender +${defenderProwessDelta})`);
@@ -156,6 +178,26 @@ export function handleCombatPlayHazard(
             : a,
         );
         newState = { ...newState, combat: { ...combat, strikeAssignments: newAssignments } };
+      } else if (eff.apply.type === 'add-constraint' && eff.apply.constraint === 'company-stat-modifier') {
+        // Words of Power and Terror (tw-115): "Modify the prowesses of all
+        // characters in a company attacked by a Nazgûl by -1 until the end
+        // of the turn." Bound to the defending company, not the one struck
+        // character targeted for hazard-limit/window bookkeeping.
+        const stat = eff.apply.stat;
+        const value = eff.apply.value;
+        const scope = parseConstraintScope(eff.apply.scope ?? 'turn', combat.companyId);
+        if (stat && (stat === 'prowess' || stat === 'body') && typeof value === 'number' && scope) {
+          logDetail(`Combat play-hazard: "${def.name}" adds company-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} to company ${combat.companyId as string} (scope ${eff.apply.scope ?? 'turn'})`);
+          newState = addConstraint(newState, {
+            source: handCard.instanceId,
+            sourceDefinitionId: handCard.definitionId,
+            scope,
+            target: { kind: 'company', companyId: combat.companyId },
+            kind: { type: 'company-stat-modifier', stat, value },
+          });
+        } else {
+          logDetail(`Combat play-hazard: "${def.name}" add-constraint(company-stat-modifier) missing/unsupported stat, value, or scope — fizzle`);
+        }
       }
     }
   }

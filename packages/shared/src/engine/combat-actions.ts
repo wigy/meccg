@@ -35,7 +35,8 @@ import { findAllyInCompany, buildPlayedModifyAttackContext } from './legal-actio
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { evaluateExpr } from './effects/expression-eval.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
@@ -1990,7 +1991,9 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       if ('error' in charge) return { state, error: charge.error };
     }
 
-    const prowessModifier = effect.prowessModifier ?? 0;
+    const prowessModifier = effect.prowessModifierExpr !== undefined
+      ? Math.round(evaluateExpr(effect.prowessModifierExpr, { nazgulPermanentEventsInPlay: countNazgulPermanentEventsInPlay(state) }))
+      : effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
     const strikesModifier = effect.strikesModifier ?? 0;
     const newStrikeProwess = combat.strikeProwess + prowessModifier;
