@@ -4261,6 +4261,54 @@ automatic-attack sequence for the company is abandoned via
 `SitePhaseState.autoAttacksSkipped`, which also suppresses race-duplicated
 attacks (*The Moon Is Dead*) and is cleared when the next company is selected.
 
+**Cross-player new-site swap (`swap-new-site`).** A hazard short-event may
+substitute a different site card, drawn from the **hazard player's own**
+location deck, for a moving company's already-declared `destinationSite` —
+overriding CoE 2.II.7's normal rule that a company's new site always comes
+from its own owner's location deck. Used by *Winds of Wrath* (td-82):
+"Playable if Doors of Night is in play and opponent is using the same type of
+location deck (minion/hero) as yourself. Replace the new site card of a
+moving company with a Coastal Sea [{c}] in its site path with a card from
+your location deck that has a Coastal Sea [{c}] in its site path."
+
+```json
+{ "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" },
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.sameLocationDeckTypeAsOpponent": true } },
+{ "type": "swap-new-site", "requiresDestinationSitePathIncludes": ["coastal"] }
+```
+
+`requiresDestinationSitePathIncludes` gates both sides of the swap: the
+company's current `destinationSite` must have a static `sitePath` including
+at least one of the listed {@link RegionType}s, and so must the replacement.
+`player.sameLocationDeckTypeAsOpponent` (new `player-state` context field,
+`buildPlayerStateContext`, `legal-actions/organization.ts`) is `true` when
+`isMinionOrBalrog` agrees for the player and their opponent — CoE
+1.4.W1/R1: two Wizards or two Ringwraiths always match; a Fallen-wizard or
+Balrog opponent only matches the corresponding minion/hero side of the
+`isMinionOrBalrog` split, since their location decks straddle both (1.4.F1/B1)
+in a way a single boolean can't fully capture — the primary two-player
+hero-mirror / minion-mirror case these two cards were designed for reads
+correctly regardless. The `player-state` play-condition is now also wired
+into the M/H phase's play-hazards step for hazard short-events (previously
+only resource short-events read it) — `playerStateGateMet`, imported into
+`legal-actions/movement-hazard.ts` from `organization.ts`.
+
+`swapNewSiteActions` (inlined in the hazard short-event branch of
+`legal-actions/movement-hazard.ts`, guarded by a `swap-new-site` effect on the
+card) offers one `play-hazard` action per eligible site left in the hazard
+player's own `siteDeck`, each carrying its instance in the action's
+`replacementSiteInstanceId`. `handleSwapNewSite` (`mh-hazard-play.ts`) then:
+returns the company's original destination site, untapped, to its own owner's
+location deck (mirroring `clearPlannedMovement` — it was only declared, never
+entered), pulls the chosen replacement out of the hazard player's own
+location deck as the company's new untapped `destinationSite`, and refreshes
+the M/H phase state's cached `destinationSiteName` / `destinationSiteType`
+(both already resolved earlier in the phase, well before play-hazards) to
+describe the replacement. `resolvedSitePath` (the region types the company
+actually traveled through) is a movement-path record, not a site-identity
+one, so the swap leaves it untouched.
+
 Example (Wild Hounds — discard):
 
 ```json
