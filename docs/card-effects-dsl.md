@@ -3477,6 +3477,29 @@ Apply types:
   `recompute-derived.ts`). The `corruption-check` pending kind gains the same
   `awardKillMpTo` field for hero eliminations by the corruption check itself.
 
+- `mount-slain` -- the bespoke `self-enters-play` orchestrator for Mount Slain
+  (as-50), a resource permanent-event with the combat `after-attack`
+  target-less play window described above (`attack.ringwraithStrikeFailed`
+  gate). It takes no target from the player — "the Ringwraith" is the idiom
+  used throughout the AS/LE/WH pool for the opponent's own singular revealed
+  Ringwraith avatar (Morgul-blade le-205: "your Ringwraith"; Helm of Fear
+  as-126: "the Ringwraith's company"), found programmatically via
+  `findPlayerAvatar` (race `ringwraith`), not necessarily the specific
+  creature/character whose strike triggered the window. On resolution
+  (`resolveMountSlain`, `chain-reducer.ts`): the Mount Slain card is discarded
+  immediately (it never remains in play — `resolvePermanentEvent` placed it
+  bare via `in-play-general`, and this apply removes it right back out to its
+  owner's discard pile); if the opponent has no revealed Ringwraith avatar,
+  the card fizzles there. Otherwise it enqueues a standalone body check (2d6
+  vs the avatar's effective body, rolled by its own controller, comparison
+  `gt` per CoE 3.I.2.1): `onPass` (fails) `eliminate-character`; `onFail`
+  (survives) `discard-character` per the card's forced "discard the
+  Ringwraith" regardless of outcome.
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play", "apply": { "type": "mount-slain" } }
+  ```
+
 - `whip-discipline` -- an `on-event: self-enters-play` apply for a resource
   short event with a character `play-target` (Where There's a Whip le-254:
   "Each tapped character in the bearer's company with a mind and prowess less
@@ -9524,6 +9547,32 @@ character's `items`, so the existing in-play-item `cancel-attack` path
 (`legal-actions/combat.ts` → `handleCancelAttackByInPlayItem`) provides the
 "later tap to cancel" with no further engine work: the bearer must be untapped
 and taps, while the card itself stays untapped and in play for later turns.
+
+**Race-aware failed-strike gating (`attack.ringwraithStrikeFailed`).** The
+`when` context for an `after-attack` window also exposes
+`attack.ringwraithStrikeFailed: boolean` — true when at least one strike in
+the just-ended combat was delivered by a ringwraith-race attacker and failed
+to wound the defending character (`StrikeAssignment.result` `'success'`,
+`'survived'`, or `'tie'` — CoE 3.iv.7). For a creature-sourced attack the
+race is `combat.creatureRace`; for a CvCC strike it is read from the specific
+attacking character's definition (`StrikeAssignment.attackingCharacterId`),
+since a company-vs-company attack can mix races. Computed by
+`hasFailedRingwraithStrike` in `engine/post-attack-play.ts`. Used by Mount
+Slain (as-50): "Playable … if a strike against one of your companies from a
+Ringwraith attack or Nazgûl creature fails."
+
+**Target-less after-attack cards.** A resource permanent-event with an
+`after-attack` `play-window` and **no** `play-target: character` effect
+resolves against a target the engine finds programmatically, rather than a
+player-chosen bearer in the company. `afterAttackPlayTargets`/
+`matchingHandCards` (`engine/post-attack-play.ts`) skip the bearer-eligibility
+check for such cards, and `postAttackPlayOfferActions`
+(`legal-actions/pending.ts`) emits a single `play-permanent-event` action with
+no `targetCharacterId`. `applyPostAttackPlayOfferResolution`
+(`pending-reducers.ts`) mirrors the same target-less path on resolution. The
+card resolves via `resolvePermanentEvent`'s `in-play-general` placement (no
+character/site/company binding) and its own `self-enters-play` apply performs
+the actual effect and self-discard — see `mount-slain` below.
 
 ### 33. `combat-protection`
 

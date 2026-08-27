@@ -2188,6 +2188,7 @@ export type TriggeredActionType =
   | 'whip-discipline'
   | 'enqueue-site-wound-rolls'
   | 'malady-without-healing'
+  | 'mount-slain'
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
   | 'enqueue-gold-ring-test'
@@ -2445,6 +2446,24 @@ export interface MaladyWithoutHealingAction extends TriggeredActionBase {
   readonly targetCorruptionModifier: number;
   /** Roll modifier for the non-Ringwraith shadow-magic user's corruption check (le-159: -5). */
   readonly casterCorruptionModifier: number;
+}
+
+/**
+ * `mount-slain` — the bespoke `self-enters-play` orchestrator for Mount Slain
+ * (as-50). Fires from the `after-attack` combat play window once a strike
+ * from a Ringwraith-race attacker has failed against the defending company.
+ * No explicit target is chosen by the player — "the Ringwraith" is the
+ * opponent's own revealed Ringwraith avatar (mind === null, race
+ * `ringwraith`; {@link findPlayerAvatar}), found programmatically. If no such
+ * avatar is in play, the card fizzles. Otherwise it enqueues a standalone
+ * body check (2d6 vs the avatar's effective body, rolled by its own
+ * controller): `onPass` (roll exceeds body, CoE 3.I.2.1) eliminates the
+ * avatar; `onFail` (survives) discards it anyway per the card's forced
+ * "discard the Ringwraith". The Mount Slain card itself is discarded
+ * immediately — it never remains in play.
+ */
+export interface MountSlainAction extends TriggeredActionBase {
+  readonly type: 'mount-slain';
 }
 
 /** `roll-check` — roll 2d6, sum check modifiers, emit a labelled dice GameEffect. */
@@ -3506,6 +3525,7 @@ export type TriggeredAction =
   | EnqueueGoodwillAttemptAction
   | EnqueueSiteWoundRollsAction
   | MaladyWithoutHealingAction
+  | MountSlainAction
   | RollCheckAction
   | RollThenApplyAction
   | UnEliminateCreatureAction
