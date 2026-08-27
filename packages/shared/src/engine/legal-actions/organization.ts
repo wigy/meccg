@@ -1729,6 +1729,31 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           continue;
         }
 
+        // `restore-item` (Reforging family of hoard items — Horn of Defiance
+        // td-183, Ringil td-184, Belegennon td-185): "A stored Reforging may
+        // be placed with this item to 'restore' it." Emit one activation per
+        // stored card in the bearer's own kill pile matching
+        // `cost.discardCardName` ("Reforging"). Once restored, the item's own
+        // `restore-item` ability is withdrawn — restoring is a one-way,
+        // permanent flag, not a repeatable action.
+        if (effect.action === 'restore-item') {
+          if (item.restored) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: already restored`);
+            continue;
+          }
+          const discardCandidates = player.killPile.filter(c =>
+            c.storedAtSite && defById(state, c.definitionId)?.name === effect.cost.discardCardName);
+          if (discardCandidates.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no stored ${effect.cost.discardCardName ?? '?'} to discard`);
+            continue;
+          }
+          for (const candidate of discardCandidates) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard stored ${effect.cost.discardCardName ?? '?'} to restore ${def?.name ?? '?'}`);
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: candidate.instanceId }));
+          }
+          continue;
+        }
+
         // Per-company enumeration for an item-borne grant: one activation per
         // eligible company, carrying it on `targetCompanyId` (Shifter of Hues
         // wh-115, a permanent-event attached to Radagast — such cards live in

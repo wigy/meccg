@@ -50,7 +50,7 @@ import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corrup
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
-import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect } from '../types/effects.js';
+import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect, RestoredItemStatsEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -1049,11 +1049,18 @@ function computeEffectiveStats(
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
       if (!bearerIsBalrogAvatar) {
+        // Reforging family of hoard items (Horn of Defiance td-183 et al.):
+        // once restored, the printed corruption points are replaced by the
+        // `restored-item-stats` value.
+        const restoredStats = item.restored
+          ? itemEffects.find((e): e is RestoredItemStatsEffect => e.type === 'restored-item-stats')
+          : undefined;
+        const printedCp = restoredStats?.corruptionPoints ?? itemDef.corruptionPoints;
         // Flat deltas first (Rumor of the One, Itangast at Home), then any
         // multiplier (Bane of the Ithil-stone: "Corruption points for Palantíri
         // are doubled").
         const deltas = itemModifierDeltas(itemDef, inPlayItemMods, bearerPlayerAlignment);
-        const itemCp = (itemDef.corruptionPoints + deltas.cp) * deltas.cpMultiplier;
+        const itemCp = (printedCp + deltas.cp) * deltas.cpMultiplier;
         corruptionPoints += itemCp;
         if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
@@ -1703,6 +1710,20 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
           if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + peOverride };
         }
         continue;
+      }
+      // Reforging family of hoard items (Horn of Defiance td-183 et al.):
+      // once restored, the printed marshalling points are replaced by the
+      // `restored-item-stats` value.
+      if (item.restored && hasMarshallingPoints(itemDef)) {
+        const restoredStats = ((itemDef as { effects?: readonly CardEffect[] }).effects ?? []).find(
+          (e): e is RestoredItemStatsEffect => e.type === 'restored-item-stats',
+        );
+        if (restoredStats?.marshallingPoints !== undefined) {
+          const cat = itemDef.marshallingCategory;
+          mp = { ...mp, [cat]: mp[cat] + restoredStats.marshallingPoints };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + restoredStats.marshallingPoints };
+          continue;
+        }
       }
       const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(itemDef, fwItemExemptions, bearerInAvatarCompany);
       mp = addItemMP(mp, itemDef, player.alignment, fwExempt);

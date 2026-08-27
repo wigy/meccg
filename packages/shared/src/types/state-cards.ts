@@ -125,6 +125,15 @@ export interface ItemInPlay {
    * bearer's company's `currentSite`.
    */
   readonly playedAtSiteDefId?: CardDefinitionId;
+  /**
+   * Set by a `restore-item` grant-action apply once a stored "Reforging" has
+   * been discarded to "restore" this item — a permanent, one-way flag (the
+   * Reforging family of hoard items: Horn of Defiance td-183, Ringil td-184,
+   * Belegennon td-185). A `restored-item-stats` effect on the item's own
+   * definition then overrides its printed marshalling/corruption points
+   * while this is set (`recompute-derived.ts`).
+   */
+  readonly restored?: true;
 }
 
 /**

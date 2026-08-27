@@ -674,6 +674,23 @@ function assignStrikeActions(
         action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
         viable: true,
       });
+
+      // face-all-strikes-option (Horn of Defiance td-183): "If its bearer is
+      // the first to face a strike, that character may choose to face all
+      // strikes of an attack." Only meaningful as the very first assignment
+      // of the attack (CoE 3.i.5's "must be declared before strikes are
+      // assigned") and only when there is more than one strike to redirect.
+      if (combat.strikeAssignments.length === 0 && combat.strikesTotal > 1) {
+        const bearsOption = charData.items.some(i =>
+          getCardEffects(defById(state, i.definitionId)).some(e => e.type === 'face-all-strikes-option'));
+        if (bearsOption) {
+          logDetail(`Defender can have ${charId as string} face all ${combat.strikesTotal} strikes (face-all-strikes-option)`);
+          actions.push({
+            action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false, allStrikes: true },
+            viable: true,
+          });
+        }
+      }
     }
 
     // Per CoE rule 2.V.2.2: Allies are treated as characters for combat purposes

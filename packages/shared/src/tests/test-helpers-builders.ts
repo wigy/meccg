@@ -2617,6 +2617,70 @@ export function makeSingleCharCombatState(opts: SingleCharCombatOpts): GameState
   return { ...state, phaseState: makeShadowMHState(), combat };
 }
 
+/**
+ * Options for {@link makeCompanyCombatState}. Generalizes
+ * {@link makeSingleCharCombatState} to a multi-character company facing a
+ * multi-strike attack — needed by tests exercising strike-assignment choices
+ * (e.g. a `face-all-strikes-option` item) where a single defender or a single
+ * strike would make the choice meaningless.
+ */
+export interface CompanyCombatOpts {
+  /** The defending company's characters (bare definition IDs or full setups). */
+  characters: readonly CharacterEntry[];
+  creatureRace: Race;
+  creatureProwess: number;
+  creatureBody: number | null;
+  /** Total strikes in the attack. Defaults to 1. */
+  strikesTotal?: number;
+  /** Site the defending company occupies. Defaults to Moria (hero copy). */
+  site?: CardDefinitionId;
+  /** Site deck for the defending player. Defaults to Minas Tirith (hero copy). */
+  siteDeck?: readonly CardDefinitionId[];
+}
+
+/**
+ * Build a state with a multi-character company in combat against a
+ * fabricated creature attack, awaiting strike assignment (defender phase,
+ * nothing assigned yet).
+ */
+export function makeCompanyCombatState(opts: CompanyCombatOpts): GameState {
+  const state = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site: opts.site ?? MORIA, characters: [...opts.characters] }],
+        hand: [],
+        siteDeck: [...(opts.siteDeck ?? [MINAS_TIRITH])],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+
+  const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+  const combat: CombatState = {
+    attackSource: { type: 'creature', instanceId: `fake-${opts.creatureRace}` as never },
+    companyId,
+    defendingPlayerId: PLAYER_1,
+    attackingPlayerId: PLAYER_2,
+    strikesTotal: opts.strikesTotal ?? 1,
+    strikeProwess: opts.creatureProwess,
+    creatureBody: opts.creatureBody,
+    creatureRace: opts.creatureRace,
+    strikeAssignments: [],
+    currentStrikeIndex: 0,
+    phase: 'assign-strikes',
+    assignmentPhase: 'defender',
+    bodyCheckTarget: null,
+    detainment: false,
+  };
+
+  return { ...state, phaseState: makeShadowMHState(), combat };
+}
+
 // ─── Detainment-strike scaffolding ──────────────────────────────────────────
 
 /**

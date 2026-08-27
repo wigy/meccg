@@ -16650,3 +16650,76 @@ company faces an attack at the beginning of its movement/hazard phase: Orcs —
 the regions listed above, the hazard limit is reduced by 2 (to a minimum of
 2). Cannot be duplicated on a given company." (CRF 22: the printed
 "otherwise" should be read as "alternatively".)
+
+### 79. `restore-item` grant-action + `restored-item-stats` + `face-all-strikes-option` (Horn of Defiance)
+
+Three primitives backing the Reforging family of hoard items — Horn of
+Defiance (td-183), and (by the same shape) its siblings Ringil (td-184) and
+Belegennon (td-185): "A stored Reforging may be placed with this item to
+'restore' it. Once restored, [it] gives 3 marshalling points and 2 corruption
+points. If its bearer is the first to face a strike, that character may
+choose to face all strikes of an attack. The character faces a separate
+strike sequence for each strike."
+
+**`restore-item` (grant-action `apply`)** — declared as an ordinary
+(non-`fromStored`) `grant-action` on the item itself:
+
+```json
+{ "type": "grant-action",
+  "action": "restore-item",
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "restore-item" } }
+```
+
+Unlike the `fromStored` shape (Andúril tw-192's `place-source-with-item`,
+where the *stored* card being discarded is also the one relocated), here the
+grant-action's source is the bearer-owned item, and `discard:
+"named-stored-card"` reaches into the acting player's own kill pile for a
+*different* card (matched by `discardCardName`) without touching the item
+itself. `applyCost` (`cost-evaluator.ts`) now pays this cost generically for
+any bearer-owned grant-action, keyed off the activation's `targetCardId`
+(threaded through as `CostContext.discardTargetId`) — no longer exclusive to
+`handleStoredCardGrantAction`. `restore-item` (`apply.type`, resolved in
+`runGrantApply`, `grant-action-apply.ts`) then sets `restored: true` on the
+`ItemInPlay` entry, leaving it right where it is on the bearer. The
+legal-action scanner (`char.items` loop in `legal-actions/organization.ts`)
+offers one activation per stored candidate matching `discardCardName`,
+withdrawn once `item.restored` is already true — restoring is a one-way,
+permanent flag, not a repeatable action.
+
+**`restored-item-stats`** — declared alongside `restore-item` on the same
+item, and read directly (not through the resolver) by
+`recompute-derived.ts`'s per-item corruption and marshalling-point loops:
+
+```json
+{ "type": "restored-item-stats", "marshallingPoints": 3, "corruptionPoints": 2 }
+```
+
+Whenever `item.restored` is true, these values *replace* the item's printed
+`marshallingPoints` / `corruptionPoints` (rather than adding to them) for
+that one item instance; other in-play modifiers (global item-MP bonuses,
+bearer-conditional corruption, cross-alignment factors) still layer on top
+exactly as they do for the printed value. A field left absent here leaves the
+printed value untouched even once restored.
+
+**`face-all-strikes-option`** — declared on the item, gates a new choice
+during the `assign-strikes` defender phase:
+
+```json
+{ "type": "face-all-strikes-option" }
+```
+
+`assignStrikeActions` (`legal-actions/combat.ts`) offers an extra
+`assign-strike` action (carrying `allStrikes: true`) for the bearer whenever
+`combat.strikeAssignments.length === 0` (no strike yet assigned this attack —
+CoE 3.i.5's "must be declared before strikes are assigned") and
+`combat.strikesTotal > 1`. `handleAssignStrike` (`reducer-combat.ts`) treats
+`action.allStrikes` exactly like `combat.forceSingleTarget`: it runs the same
+multi-attack auto-assignment loop, building one `StrikeAssignment` per
+remaining strike — each with `excessStrikes: 0`, a genuinely separate strike
+sequence per CoE 3.i.5, rather than the "excess strikes" -1-prowess pool a
+repeat assignment to an already-assigned character would otherwise produce
+(CoE 3.iv.2). The resulting combat state also gets `forceSingleTarget: true`
+stamped so downstream cancel/resolution logic (`combat-cancel.ts`,
+`combat-strike.ts`) treats every strike identically to a printed multi-attack
+creature's.

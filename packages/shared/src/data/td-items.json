@@ -644,9 +644,34 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2
+      },
+      {
+        "type": "grant-action",
+        "action": "restore-item",
+        "cost": {
+          "discard": "named-stored-card",
+          "discardCardName": "Reforging"
+        },
+        "apply": {
+          "type": "restore-item"
+        }
+      },
+      {
+        "type": "restored-item-stats",
+        "marshallingPoints": 3,
+        "corruptionPoints": 2
+      },
+      {
+        "type": "face-all-strikes-option"
       }
     ],
-    "text": "Unique. Hoard item . +2 direct influence. A stored Reforging may be placed with this item to “restore” it. Once restored, Horn of Defiance gives 3 marshalling points and 2 corruption points. If its bearer is the first to face a strike, that character may choose to face all strikes of an attack. The character faces a separate strike sequence for each strike."
+    "text": "Unique. Hoard item . +2 direct influence. A stored Reforging may be placed with this item to “restore” it. Once restored, Horn of Defiance gives 3 marshalling points and 2 corruption points. If its bearer is the first to face a strike, that character may choose to face all strikes of an attack. The character faces a separate strike sequence for each strike.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",
