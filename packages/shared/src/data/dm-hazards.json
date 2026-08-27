@@ -903,8 +903,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InGreatWrath.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Nazgûl in your discard pile that could immediately attack. The Nazgûl attacks immediately (not counting against the hazard limit) with +2 prowess and -1 body."
+    "effects": [
+      { "type": "play-creature-from-discard", "filter": { "race": "ringwraith" }, "prowessModifier": 2, "bodyModifier": -1 }
+    ],
+    "text": "Playable on a Nazgûl in your discard pile that could immediately attack. The Nazgûl attacks immediately (not counting against the hazard limit) with +2 prowess and -1 body.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",

@@ -12586,12 +12586,13 @@ Used by: *By the Ringwraith's Word* (le-174).
 Marks a hazard short-event that plays a hazard creature from the hazard
 player's **own discard pile** as an immediate attack against the active
 company, **without counting against the hazard limit**. Models the Exhalation
-of Decay (dm-55) mechanic.
+of Decay (dm-55) and In Great Wrath (dm-66) mechanics.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": "undead" }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
-| `prowessModifier` | yes | Signed integer added to the spawned attack's prowess (e.g. `-1`). |
+| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": "undead" }`, `{ "race": "ringwraith" }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
+| `prowessModifier` | yes | Signed integer added to the spawned attack's prowess (e.g. `-1`, or `+2` for In Great Wrath). |
+| `bodyModifier` | no | Signed integer added to the spawned attack's body (e.g. `-1` for In Great Wrath). Omitted when the card only modifies prowess (Exhalation of Decay). Clamped to a minimum of 0 alongside other body-affecting effects. |
 
 ```json
 { "type": "play-creature-from-discard",
@@ -12599,25 +12600,38 @@ of Decay (dm-55) mechanic.
   "prowessModifier": -1 }
 ```
 
+```json
+{ "type": "play-creature-from-discard",
+  "filter": { "race": "ringwraith" },
+  "prowessModifier": 2,
+  "bodyModifier": -1 }
+```
+
 Legal actions: during the hazard player's M/H play-hazards window, the emitter
 (`playCreatureFromDiscardActions` in `engine/legal-actions/movement-hazard.ts`)
 walks the player's discard pile for `hazard-creature` cards matching `filter`,
 runs the standard creature keying check against the active company ("if target
-Undead can attack"), and emits one `play-creature-from-discard` action per
-(creature, keying-match) pair. The chain must be null (creatures initiate a new
-chain). Because the play is hazard-limit-exempt, no limit gating is applied. The
-generic short-event path skips any card carrying this effect (it is offered
-only through the dedicated emitter).
+Undead can attack" / "that could immediately attack"), and emits one
+`play-creature-from-discard` action per (creature, keying-match) pair. The
+chain must be null (creatures initiate a new chain). Because the play is
+hazard-limit-exempt, no limit gating is applied. The generic short-event path
+skips any card carrying this effect (it is offered only through the dedicated
+emitter).
 
-Reducer (`handlePlayCreatureFromDiscard` in `engine/reducer-movement-hazard.ts`):
+Reducer (`handlePlayCreatureFromDiscard` in `engine/mh-hazard-play.ts`):
 discards the driving short-event card from hand, removes the chosen creature
 from the discard pile, leaves `hazardsPlayedThisCompany` unchanged, and
-initiates the creature chain with `prowessBonus: prowessModifier` and no
-`reservingCardInstanceId`. After the attack resolves, the creature is disposed
-by the normal `finalizeCombat` rules (defender's kill pile if fully defeated,
-otherwise back to the hazard player's discard pile).
+initiates the creature chain with `prowessBonus: prowessModifier` and, when
+`bodyModifier` is present and non-zero, `bodyBonus: bodyModifier` — both new
+`ChainEntryPayload` (`type: 'creature'`) fields consumed in
+`chain-reducer.ts`'s combat-initiation block, alongside the existing
+`strikesBonus` (Fell Beast tw-33). No `reservingCardInstanceId`. After the
+attack resolves, the creature is disposed by the normal `finalizeCombat` rules
+(defender's kill pile if fully defeated, otherwise back to the hazard player's
+discard pile).
 
-Used by: *Exhalation of Decay* (dm-55).
+Used by: *Exhalation of Decay* (dm-55, prowess-only); *In Great Wrath* (dm-66,
+prowess + body, filtered to Ringwraith/Nazgûl).
 
 ### 42a. `grant-replay-attacked-creature`
 

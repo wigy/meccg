@@ -11252,6 +11252,12 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
    * Exhalation of Decay). Added directly to the creature's combat prowess.
    */
   readonly prowessModifier: number;
+  /**
+   * Signed modifier applied to the spawned attack's body (e.g. -1 for In
+   * Great Wrath, dm-66). Added directly to the creature's combat body. Absent
+   * when the card does not modify body (Exhalation of Decay).
+   */
+  readonly bodyModifier?: number;
 }
 
 /**

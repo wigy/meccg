@@ -1147,6 +1147,13 @@ export type ChainEntryPayload =
        */
       readonly strikesBonus?: number;
       /**
+       * For In Great Wrath (dm-66): body bonus (-1) applied on top of the
+       * creature's resolved body when played from the hazard player's own
+       * discard pile via a `play-creature-from-discard` effect's
+       * `bodyModifier`.
+       */
+      readonly bodyBonus?: number;
+      /**
        * For Fell Beast (tw-33): when a consumed `nazgul-boost-pending`
        * constraint boosted this creature's play, the resulting attack gets
        * "attacker chooses defending characters".
