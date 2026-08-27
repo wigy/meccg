@@ -3115,7 +3115,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
           `bearer selected post-attack` +
           (remaining.length > 0 ? `; ${remaining.length} more attack(s) queued` : ''),
         );
-        const combat: CombatState = makeCombatState({
+        const combat: CombatState = makeCombatState(newState, {
           attackSource: {
             type: 'card-triggered-attack',
             cardInstanceId: card.instanceId,
@@ -3999,7 +3999,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // `pendingAttackBeginsCorruption` handling in reducer-combat.ts).
   const attackBeginsCorruption = findAttackBeginsCorruptionEffect(creatureDef);
 
-  let combat: CombatState = makeCombatState({
+  let combat: CombatState = makeCombatState(state, {
     attackSource,
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -5429,7 +5429,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
             current, aa0.combatRules?.includes('attacker-chooses-defenders') ?? false, race0,
           );
           logDetail(`Tidings of Bold Spies: initiating attack 1/${autoAttacks.length}: ${aa0.creatureType} (${strikes0} strikes, ${prowess0} prowess) — NOT an auto-attack`);
-          const combat0: import('../types/state-combat.js').CombatState = makeCombatState({
+          const combat0: import('../types/state-combat.js').CombatState = makeCombatState(current, {
             attackSource: { type: 'tidings-attack', eventInstanceId: entry.card.instanceId, attackIndex: 0 },
             companyId: company.id,
             defendingPlayerId: activePlayerId,
@@ -5652,7 +5652,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           `${csEffect.uncancelable ? ', uncancelable' : ''}` +
           `${csEffect.bodyCheckModifier ? `, body check ${formatSignedNumber(csEffect.bodyCheckModifier)}` : ''}`,
         );
-        const combat: import('../types/state-combat.js').CombatState = makeCombatState({
+        const combat: import('../types/state-combat.js').CombatState = makeCombatState(current, {
           attackSource: { type: 'company-strike-event', eventInstanceId: entry.card.instanceId },
           companyId: company.id,
           defendingPlayerId: activePlayerId,

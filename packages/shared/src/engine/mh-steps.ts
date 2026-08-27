@@ -563,7 +563,7 @@ export function handleRevealNewSite(
       nextState = { ...nextState, activeConstraints: nextState.activeConstraints.filter(c => c.id !== shortcut.constraint.id) };
       const attack = shortcut.constraint.kind.attack;
       if (attack) {
-        const combat = makeCombatState({
+        const combat = makeCombatState(nextState, {
           attackSource: { type: 'region-shortcut-attack', eventInstanceId: shortcut.constraint.source, companyId: company.id },
           companyId: company.id,
           defendingPlayerId: player.id,
@@ -1326,7 +1326,7 @@ function buildAhuntCombat(
 
   logDetail(`Ahunt combat initiated: ${defName} (${effect.strikes} strikes${effectiveStrikes !== effect.strikes ? ` → ${effectiveStrikes}` : ''}, ${effect.prowess} prowess${effectiveProwess !== effect.prowess ? ` → ${effectiveProwess}` : ''}) vs company ${company.id as string}`);
 
-  return makeCombatState({
+  return makeCombatState(state, {
     attackSource: { type: 'ahunt', longEventInstanceId: instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
