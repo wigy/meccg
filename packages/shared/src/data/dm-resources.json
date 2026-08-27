@@ -1193,8 +1193,54 @@
     "eventType": "permanent",
     "marshallingPoints": 3,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Playable at Bag End only if Earth of Galadriel’s Orchard is stored there. Bag End becomes a Haven [{H}] for the purposes of healing and bringing characters into play. Bag End can untap during its owner’s untap phase. If Bag End is discarded, return it to its location deck. All Hobbit factions are worth +1 marshalling points."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "name": "Bag End" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-stored-at-site",
+        "cardName": "Earth of Galadriel’s Orchard"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "haven",
+          "purpose": "healing-and-character-play",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-untaps-during-untap-phase",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-always-returns-to-deck",
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "faction-mp-bonus",
+        "bonus": 1,
+        "races": ["hobbit"]
+      }
+    ],
+    "text": "Unique. Playable at Bag End only if Earth of Galadriel’s Orchard is stored there. Bag End becomes a Haven [{H}] for the purposes of healing and bringing characters into play. Bag End can untap during its owner’s untap phase. If Bag End is discarded, return it to its location deck. All Hobbit factions are worth +1 marshalling points.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

@@ -1362,7 +1362,13 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "storable-at",
+        "sites": ["Bag End"],
+        "marshallingPoints": 2
+      }
+    ],
     "text": "Unique. Only playable at Lórien. 2 marshalling points if stored at Bag End."
   },
   {

@@ -40,7 +40,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -1765,8 +1765,14 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
           c => c.attachedToSite === originSite.definitionId
             && cardKeepsBoundSitePermanent(defById(state, c.definitionId)),
         );
-        const alwaysReturnToDeck = cavernsBound || (originDef && isSiteCard(originDef)
-          && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck'));
+        // Mallorn (dm-148): "If Bag End is discarded, return it to its
+        // location deck" — a dynamic counterpart of the printed
+        // `always-return-to-deck` site-rule, installed by a permanent event
+        // in play at the site rather than baked into the site's own card.
+        const alwaysReturnToDeck = cavernsBound
+          || (originDef && isSiteCard(originDef)
+            && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'always-return-to-deck'))
+          || hasSiteFlag(state.activeConstraints, 'site-always-returns-to-deck', originSite.definitionId);
         const stolenKnowledge = originDef && isSiteCard(originDef)
           && (originDef.effects ?? []).some(e => e.type === 'site-rule' && e.rule === 'stolen-knowledge');
         const isTapped = originSite.status === CardStatus.Tapped;

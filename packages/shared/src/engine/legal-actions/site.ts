@@ -1475,6 +1475,23 @@ function playResourcesActions(
           }
         }
 
+        // play-condition: card-stored-at-site — the permanent event is only
+        // playable when the playing player's marshalling-point pile holds a
+        // named card stored at the active company's current site. Mallorn
+        // (dm-148): "Playable at Bag End only if Earth of Galadriel's
+        // Orchard is stored there."
+        const cardStoredAtSiteCond = findPlayConditionEffect(eventDef, 'card-stored-at-site');
+        if (cardStoredAtSiteCond?.cardName) {
+          const requiredName = cardStoredAtSiteCond.cardName;
+          const stored = player.killPile.some(c =>
+            c.storedAtSite === siteDefId && defById(state, c.definitionId)?.name === requiredName);
+          if (!stored) {
+            logDetail(`Permanent event ${eventDef.name}: requires "${requiredName}" stored at ${siteName} — not satisfied`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: requires ${requiredName} stored at ${siteName}`));
+            continue;
+          }
+        }
+
         // play-condition: card-on-adjacent-under-deeps — the permanent event is
         // only playable when a named card is in play attached to an Under-deeps
         // site adjacent to the active company's current site. Invade Their

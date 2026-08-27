@@ -6918,7 +6918,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'card-stored-at-site' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -6953,6 +6953,15 @@ export interface PlayConditionEffect extends EffectBase {
    * site" — Breach the Hold sits on The Drowning-deeps (adjacent to the Blue
    * Mountain Dwarf-hold) or The Rusted-deeps (adjacent to the Iron Hill
    * Dwarf-hold).
+   *
+   * For `requires: 'card-stored-at-site'`: the permanent-event is only
+   * playable at the active company's current site when the playing player's
+   * marshalling-point pile (`killPile`) holds a card named {@link cardName}
+   * stamped `storedAtSite` with that same site's definition id. Unlike
+   * `card-attached-to-site` (an in-play card physically attached to the
+   * site), this checks a *stored* item — placed there by the normal item
+   * storage flow (`storable-at`). Mallorn (dm-148): "Playable at Bag End only
+   * if Earth of Galadriel's Orchard is stored there."
    */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which

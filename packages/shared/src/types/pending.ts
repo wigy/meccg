@@ -1348,7 +1348,11 @@ export type SiteFlag =
   /** Guarded Haven family (wh-74 / wh-68 / wh-69 …): opponents may not play MP cards at the bound site. */
   | 'site-protected'
   /** Saruman's Machinery (wh-120): one Technology item is playable at the bound site. */
-  | 'technology-item-unlocked';
+  | 'technology-item-unlocked'
+  /** Mallorn (dm-148): the bound site untaps during its owner's untap phase, defying the normal "site cards never untap" rule. */
+  | 'site-untaps-during-untap-phase'
+  /** Mallorn (dm-148): the bound site is always returned to the location deck rather than discarded when a company departs, even while tapped — the dynamic counterpart of the printed `always-return-to-deck` site-rule. */
+  | 'site-always-returns-to-deck';
 
 /**
  * A scoped restriction on the legal actions available to some target.
@@ -1729,6 +1733,21 @@ export interface ActiveConstraint {
          * character recruiting.
          */
         readonly excludesCharacterPlay?: boolean;
+        /**
+         * For a `site.type` `override`: when true, this override is scoped to
+         * healing and character recruiting only — the inverse of
+         * {@link excludesCharacterPlay}. {@link getEffectiveSiteType} skips it
+         * for every general consumer (hazard keying, movement, storage,
+         * item/faction/ally playability), exactly like {@link healingOnly},
+         * but callers that pass `excludeCharacterPlayOverrides` (checking
+         * haven-for-recruiting) still honour it. The untap-phase
+         * haven-healing sweep (`reducer-untap.ts`) scans `site.type` override
+         * constraints directly rather than through `getEffectiveSiteType`, so
+         * it honours this override regardless of the flag. Mallorn (dm-148):
+         * "Bag End becomes a Haven [{H}] for the purposes of healing and
+         * bringing characters into play."
+         */
+        readonly characterPlayOnly?: boolean;
         /**
          * For an `auto-attack.prowess` modifier: when true, the modifier is NOT
          * consumed after being applied to the first automatic-attack. Ordinary

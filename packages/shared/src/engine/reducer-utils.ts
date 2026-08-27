@@ -5398,6 +5398,13 @@ export function discardOrphanedControlledFactions(state: GameState): GameState {
  * anchor its region-conversion effect. It contributes stage points for the rest
  * of the game and must persist when the company leaves the haven, so it is
  * exempt from the orphan sweep (the haven itself is never discarded regardless).
+ *
+ * Also true for Mallorn (dm-148, `site-always-returns-to-deck` add-constraint):
+ * "If Bag End is discarded, return it to its location deck" — the bound site
+ * is never truly out of circulation, so the enchantment persists across
+ * visits (haven-for-healing/character-play, untaps-in-untap-phase, and the
+ * Hobbit-faction marshalling bonus) rather than being swept the moment the
+ * company departs.
  */
 export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefined): boolean {
   return getCardEffects(def).some(
@@ -5410,7 +5417,8 @@ export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefin
       // Long Grievous Siege (ba-40): the besieged Border-hold is off to the
       // side and never any company's current site, so the host must not be
       // swept as a site-attached orphan.
-      || e.type === 'faction-siege',
+      || e.type === 'faction-siege'
+      || (e.type === 'on-event' && e.apply.type === 'add-constraint' && e.apply.constraint === 'site-always-returns-to-deck'),
   );
 }
 
