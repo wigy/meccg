@@ -269,7 +269,6 @@ function refreshSiteSnapshot(state: GameState, constraintId: string, site: SiteI
  */
 export function sweepNoBetterUseCaptures(state: GameState): GameState {
   let s = state;
-  let released = false;
   for (const con of state.activeConstraints) {
     if (con.target.kind !== 'character' || con.kind.type !== 'character-captured-by-bearer') continue;
     const { bearerCharacterId, bearerOwnerId, hostInstanceId } = con.kind;
@@ -291,13 +290,14 @@ export function sweepNoBetterUseCaptures(state: GameState): GameState {
     logDetail(`No Better Use: bearer ${bearerCharacterId as string} ${bearer ? 'wounded' : 'left play'} — releasing captured character ${con.target.characterId as string}`);
     s = removeCharacterPressedConstraint(s, hostInstanceId);
     s = releaseCapturedCharacterToNewCompany(s, con.target.characterId, site);
-    released = true;
     if (bearer) {
       s = discardHostFromBearer(s, bearerOwnerId, bearerCharacterId, hostInstanceId);
     }
   }
-  // Only prune companies when a release actually happened: this sweep runs on
-  // every `postReduce` pass, and empty companies are legitimately kept alive
-  // elsewhere (draft-time placement, a company emptied mid-M/H phase).
-  return released ? cleanupEmptyCompanies(s) : s;
+  // No `cleanupEmptyCompanies` here: this sweep only ever *adds* a
+  // one-character company, never empties one, and it runs on every
+  // `postReduce` pass. Dissolving empty companies unconditionally would
+  // return their sites early and break CoE 2.07 (a company that lost all its
+  // characters keeps its site until the end of all M/H phases).
+  return s;
 }
