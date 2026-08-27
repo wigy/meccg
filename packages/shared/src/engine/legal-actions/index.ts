@@ -340,19 +340,42 @@ function applyOpponentBans(
  * card can be played from — phase menus, the chain, and combat responses alike.
  */
 export function computeLegalActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  const evaluated = applyPendingPlayFilter(
+  return applyPendingPlayFilter(
     state, playerId,
     applyLocationMagicRestriction(
       state, playerId,
       applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId)),
     ),
   );
-  // Concede is offered unconditionally, in every phase and sub-state
-  // (chain, combat, pending resolution) except once the game has already
-  // ended — deliberately outside computePhaseLegalActions's chain/combat/
-  // pending early-returns, which restrict every other action to a narrow
-  // resolution-specific set.
-  if (state.phaseState.phase === Phase.GameOver) return evaluated;
+}
+
+/**
+ * The action set presented to a human player: {@link computeLegalActions}
+ * plus the `concede` meta-action.
+ *
+ * Concede is offered unconditionally, in every phase and sub-state (chain,
+ * combat, pending resolution) except once the game has already ended —
+ * deliberately outside computePhaseLegalActions's chain/combat/pending
+ * early-returns, which restrict every other action to a narrow
+ * resolution-specific set. It is layered on here rather than inside
+ * {@link computeLegalActions} because that function is the engine's own
+ * notion of "what can this seat do": auto-resolution and stall detection ask
+ * it whether a seat has *any* viable action, AI/sim agents sample from it,
+ * and the rules tests assert exact "no actions"/"only X" sets — none of which
+ * should see a game-ending option that only a human should ever choose.
+ */
+export function computePlayerFacingActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  return withConcedeAction(state, playerId, computeLegalActions(state, playerId));
+}
+
+/**
+ * Appends the `concede` meta-action to an already-computed legal-action set
+ * (see {@link computePlayerFacingActions}); a no-op once the game is over.
+ * The game server applies this per human connection so projected views used
+ * by AI clients and the sim harness never carry it.
+ */
+export function withConcedeAction(state: GameState, playerId: PlayerId, evaluated: readonly EvaluatedAction[]): EvaluatedAction[] {
+  if (state.phaseState.phase === Phase.GameOver) return [...evaluated];
   return [...evaluated, { action: { type: 'concede', player: playerId }, viable: true }];
 }
 

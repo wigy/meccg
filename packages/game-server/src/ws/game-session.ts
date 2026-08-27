@@ -27,7 +27,7 @@ import type {
   StateMessage,
   ActionMessage,
 } from '@meccg/shared';
-import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, canonicalActionKey, extractActionCardDefs, redactActionForAudience, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
+import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, withConcedeAction, stampActionIds, canonicalActionKey, extractActionCardDefs, redactActionForAudience, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
 import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry } from '@meccg/shared';
 import { TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK, TUTORIAL_BEATS } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
@@ -1844,6 +1844,11 @@ export class GameSession {
     this.lastLegalActionsPerPlayer.clear();
     for (const [, { ws, playerId }] of this.players.entries()) {
       let view = projectPlayerView(this.state, playerId);
+      // Concede is a player-facing meta-action layered on here, per seat,
+      // rather than inside the engine's legal-action set: auto-resolution,
+      // AI clients and the sim harness all read the projected engine set
+      // and must never see a game-ending option only a human should pick.
+      view = { ...view, legalActions: stampActionIds(withConcedeAction(this.state, playerId, view.legalActions)) };
       if (this.tutorial && playerId === this.tutorial.humanId) {
         // Gate the human to the current script beat and attach progress.
         // The membership map below is built from the gated list, so

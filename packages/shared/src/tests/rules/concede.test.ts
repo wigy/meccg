@@ -8,7 +8,10 @@
  * Concede is the one action offered unconditionally in every phase and
  * sub-state — including mid-chain and mid-combat, which normally restrict
  * legal actions to a narrow resolution-specific set (see
- * `computeLegalActions` in `engine/legal-actions/index.ts`). The reducer
+ * `computePlayerFacingActions` in `engine/legal-actions/index.ts` — the
+ * player-facing layer over `computeLegalActions`, which itself never lists
+ * concede so engine auto-resolution, AI agents and "no actions" rule tests
+ * are unaffected). The reducer
  * mirrors this: `reduce()` intercepts `concede` before any chain/combat/
  * pending dispatch (`engine/reducer.ts`), so it always reaches
  * `endGame()` regardless of what else is mid-resolution.
@@ -18,11 +21,17 @@ import {
   PLAYER_1, PLAYER_2,
   MORIA, LORIEN, ARAGORN, LEGOLAS, MINAS_TIRITH, RIVENDELL,
   ELROND, THRANDUILS_HALLS, WOOD_ELVES,
-  resetMint, buildTestState, dispatch, viableActionTypes,
+  resetMint, buildTestState, dispatch,
   makeDetainmentStrikeState, buildInfluenceAttemptChainState,
   Phase,
 } from '../test-helpers.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, GameState, PlayerId } from '../../index.js';
+import { computePlayerFacingActions, computeLegalActions } from '../../index.js';
+
+/** Viable action types as a human player would see them (concede included). */
+function viableActionTypes(state: GameState, playerId: PlayerId): string[] {
+  return computePlayerFacingActions(state, playerId).filter(a => a.viable).map(a => a.action.type);
+}
 
 const TEMPERING_FRIENDSHIP = 'tw-337' as CardDefinitionId;
 
@@ -40,6 +49,10 @@ describe('Concede', () => {
     });
     expect(viableActionTypes(state, PLAYER_1)).toContain('concede');
     expect(viableActionTypes(state, PLAYER_2)).toContain('concede');
+    // The engine's own legal-action set never lists concede — it is a
+    // player-facing meta-action, not something auto-resolution or an AI
+    // agent may pick.
+    expect(computeLegalActions(state, PLAYER_1).some(a => a.action.type === 'concede')).toBe(false);
   });
 
   test('ends the game with the opponent as forced winner and winReason concession', () => {
