@@ -526,8 +526,18 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Environment. Playable only if Gates of Morning is in play. Whenever a company faces a hazard creature attack, the defender may choose which characters in the company will be the targets of the attack’s strikes (regardless of tapped status, wounded status, and the normal abilities of the attack)."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Gates of Morning"
+      },
+      {
+        "type": "free-strike-assignment"
+      }
+    ],
+    "text": "Environment. Playable only if Gates of Morning is in play. Whenever a company faces a hazard creature attack, the defender may choose which characters in the company will be the targets of the attack’s strikes (regardless of tapped status, wounded status, and the normal abilities of the attack).",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

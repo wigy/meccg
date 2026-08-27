@@ -149,6 +149,8 @@ export type {
   PlaceOnGuardAction,
   RevealOnGuardAction,
   CancelAutoAttackAction,
+  DeclareBurglaryAction,
+  BurglaryAttemptRollAction,
   PlaySiteAutoAttackAction,
   RescuePrisonerAction,
   DeclareAgentAttackAction,

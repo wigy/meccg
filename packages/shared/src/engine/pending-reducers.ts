@@ -73,7 +73,7 @@ import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
 import { findHuntCandidates, buildHuntCombat } from './hunt.js';
 import { findLongDarkReachCandidates, buildLongDarkReachCombat } from './long-dark-reach.js';
-import { afterAttackPlayTargets } from './post-attack-play.js';
+import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from './post-attack-play.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 
 /**
@@ -680,9 +680,28 @@ export function applyCorruptionCheckResolution(
       }
     }
   }
-  const failedPossessions = transferredItemPreDiscarded
+  let failedPossessions = transferredItemPreDiscarded
     ? action.possessions.filter(id => id !== transferredItemId)
     : action.possessions;
+
+  // The Precious (tw-98): on failure, also discard a named item borne by a
+  // *different* company member (the checking character is "not the bearer").
+  // Pull it off its real bearer here — `removeFailedCorruptionCharacter`
+  // only ever deletes `characterId`'s own entry — then fold it into the
+  // possessions list so it rides the same discard-pile routing below.
+  const alsoDiscardItemId = top.kind.alsoDiscardItemId;
+  if (alsoDiscardItemId) {
+    for (const [cid, cData] of Object.entries(newCharacters)) {
+      if (cid === characterId as string) continue;
+      const itemIdx = cData.items.findIndex(i => i.instanceId === alsoDiscardItemId);
+      if (itemIdx >= 0) {
+        newCharacters[cid as CardInstanceId] = { ...cData, items: cData.items.filter(i => i.instanceId !== alsoDiscardItemId) };
+        logDetail(`Corruption check failed: also discarding ${alsoDiscardItemId as string} from ${cid} (The Precious)`);
+        failedPossessions = [...failedPossessions, alsoDiscardItemId];
+        break;
+      }
+    }
+  }
 
   if (outcome === 'discard') {
     // Press-gang (ba-22): redirect the would-be discard to the opponent's
@@ -5158,16 +5177,22 @@ export function applyPostAttackPlayOfferResolution(
   }
   const company = player.companies.find(co => co.id === companyId);
   if (!company) return { state, error: `Company ${companyId as string} not found` };
-  if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
-    return { state, error: 'After-attack play requires a target character in the company that faced the attack' };
-  }
 
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'After-attack play card not in hand' };
   const def = defById(state, handCard.definitionId);
   if (!def) return { state, error: 'After-attack play card definition not found' };
-  if (afterAttackPlayTargets(state, player, company, def).every(id => id !== action.targetCharacterId)) {
-    return { state, error: 'Target character is not a legal bearer for this card' };
+
+  // Cards with no character play-target (e.g. Mount Slain as-50) resolve
+  // against a programmatically-found target, not a chosen bearer — no
+  // targetCharacterId is expected.
+  if (afterAttackCharacterPlayTarget(def)) {
+    if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
+      return { state, error: 'After-attack play requires a target character in the company that faced the attack' };
+    }
+    if (afterAttackPlayTargets(state, player, company, def).every(id => id !== action.targetCharacterId)) {
+      return { state, error: 'Target character is not a legal bearer for this card' };
+    }
   }
 
   logDetail(`post-attack-play-offer: playing ${def.name ?? action.cardInstanceId as string} on ${action.targetCharacterId as string}`);
