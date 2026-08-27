@@ -57,6 +57,15 @@ export interface CostContext {
   readonly noTap?: boolean;
   /** Human-readable label for log messages (e.g. card name or action ID). */
   readonly label?: string;
+  /**
+   * For `discard: "named-stored-card"` on an ordinary (non-`fromStored`)
+   * grant-action — the chosen stored card's instance ID, carried by the
+   * activation's `targetCardId`. Required whenever the cost declares this
+   * discard kind; the `fromStored` variant (Andúril tw-192) instead resolves
+   * its discard candidate through `handleStoredCardGrantAction`, bypassing
+   * `applyCost` entirely, so this field is unused there.
+   */
+  readonly discardTargetId?: CardInstanceId;
 }
 
 /** Result of {@link applyCost}: updated state or an error message. */
@@ -139,6 +148,26 @@ export function applyCost(
       discardPile: [...p.discardPile, discarded],
     }));
     logDetail(`Cost (${label}): discarded "${cost.discardCardName}" from hand`);
+  } else if (cost.discard === 'named-stored-card') {
+    if (!cost.discardCardName) {
+      return { error: `applyCost: discard named-stored-card requires discardCardName` };
+    }
+    const targetId = context.discardTargetId;
+    if (!targetId) {
+      return { error: `applyCost: discard named-stored-card requires a chosen stored card` };
+    }
+    const player = currentState.players[context.playerIndex];
+    if (!player) return { error: `applyCost: no player at index ${context.playerIndex}` };
+    const stored = player.killPile.find(c => c.instanceId === targetId && c.storedAtSite);
+    if (!stored) {
+      return { error: `applyCost: no stored "${cost.discardCardName}" (${targetId as string}) found in the marshalling-point pile` };
+    }
+    currentState = updatePlayer(currentState, context.playerIndex, p => ({
+      ...p,
+      killPile: removeById(p.killPile, targetId),
+      discardPile: [...p.discardPile, { instanceId: stored.instanceId, definitionId: stored.definitionId }],
+    }));
+    logDetail(`Cost (${label}): discarded stored "${cost.discardCardName}" from the marshalling-point pile`);
   }
 
   if (cost.check === 'corruption') {

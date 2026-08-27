@@ -2076,14 +2076,21 @@ export interface ActionCost {
    * discards a card matching {@link discardCardName} from the acting
    * player's hand — no character actor is tapped or otherwise required
    * (Fifteen Birds in Five Firtrees dm-129: "or you discard Eagle-mounts
-   * from your hand"). "named-stored-card" is the `fromStored` counterpart:
-   * discards a *different* card matching {@link discardCardName} out of the
-   * acting player's own marshalling-point pile (`killPile`, a `storedAtSite`
-   * entry) — unlike `discard: "self"`'s `killPile` fallback (which discards
-   * the source card itself), this leaves the source in place so it can be
-   * relocated by the effect's `apply` instead. Used by Andúril, the Flame of
-   * the West (tw-192): "you may discard a stored Reforging and place Andúril
-   * with Narsil."
+   * from your hand"). "named-stored-card" discards a *different* card
+   * matching {@link discardCardName} out of the acting player's own
+   * marshalling-point pile (`killPile`, a `storedAtSite` entry) — unlike
+   * `discard: "self"`'s `killPile` fallback (which discards the source card
+   * itself), this leaves the source in place. On a `fromStored` grant-action
+   * (the source itself has no bearer) it is paired with a
+   * `place-source-with-item` apply that relocates the source — Andúril, the
+   * Flame of the West (tw-192): "you may discard a stored Reforging and place
+   * Andúril with Narsil." On an ordinary bearer-owned grant-action (declared
+   * on an in-play item) it instead leaves the source item where it is and
+   * pairs with a `restore-item` apply — the Reforging family of hoard items
+   * (Horn of Defiance td-183 et al.): "A stored Reforging may be placed with
+   * this item to 'restore' it." Both variants resolve through the generic
+   * {@link ActionCost} payment path (`cost-evaluator.ts`), keyed off the
+   * activation's `targetCardId` naming the chosen stored card.
    */
   readonly discard?: 'self' | 'bearer' | 'character' | 'named-card' | 'named-stored-card';
   /**
@@ -3491,6 +3498,21 @@ export interface ReattachToItemAction extends TriggeredActionBase {
 }
 
 /**
+ * Marks the grant-action's source item `restored` (a persistent flag on its
+ * {@link ItemInPlay} entry, cleared only if the item leaves play). Used by the
+ * Reforging family of hoard items — Horn of Defiance (td-183), Ringil
+ * (td-184), Belegennon (td-185) — whose text reads "A stored Reforging may be
+ * placed with this item to 'restore' it." The grant-action's own cost
+ * (`discard: "named-stored-card"`, `discardCardName: "Reforging"`) consumes
+ * the stored Reforging; this apply flips the flag. A `restored-item-stats`
+ * effect on the same item then reads the flag to override its printed
+ * marshalling/corruption points once restored (`recompute-derived.ts`).
+ */
+export interface RestoreItemAction extends TriggeredActionBase {
+  readonly type: 'restore-item';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -3563,7 +3585,8 @@ export type TriggeredAction =
   | CancelCurrentAttackAction
   | TraitorAttackAction
   | TransferItemFreeAction
-  | ReattachToItemAction;
+  | ReattachToItemAction
+  | RestoreItemAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -6299,6 +6322,55 @@ export interface FaceStrikeOnTapEffect extends EffectBase {
 }
 
 /**
+ * Grants the bearer, at the moment he is assigned the *first* strike of an
+ * attack (`CombatState.strikeAssignments.length === 0`), the option to face
+ * every remaining strike of that attack himself instead of the strikes being
+ * distributed across the company — CoE rule 3.i.5: "If a character is
+ * assigned to more than one strike from an attack, a separate strike
+ * sequence is initiated for each strike." The choice must be declared before
+ * any other strike is assigned, matching the rule's "must be declared before
+ * strikes are assigned."
+ *
+ * Implemented by letting the defender's `assign-strike` action on this
+ * character carry `allStrikes: true`; the reducer then runs the same
+ * multi-attack auto-assignment loop used for `CombatState.forceSingleTarget`
+ * (`handleAssignStrike`, `reducer-combat.ts`), building one assignment per
+ * remaining strike — each with `excessStrikes: 0` (a full separate sequence),
+ * not merged into the "excess strikes" -1-prowess pool a repeat assignment
+ * would otherwise produce. `assignStrikeActions` (`legal-actions/combat.ts`)
+ * offers both the plain single-strike assignment and this `allStrikes`
+ * variant so the player may still decline.
+ *
+ * Used by Horn of Defiance (td-183): "If its bearer is the first to face a
+ * strike, that character may choose to face all strikes of an attack. The
+ * character faces a separate strike sequence for each strike."
+ */
+export interface FaceAllStrikesOptionEffect extends EffectBase {
+  readonly type: 'face-all-strikes-option';
+}
+
+/**
+ * Overrides an item's printed marshalling/corruption points once its
+ * `ItemInPlay.restored` flag is set (see {@link RestoreItemAction}). Declared
+ * on the item alongside the `restore-item` grant-action; read directly by
+ * `recompute-derived.ts`'s per-item corruption and marshalling-point loops,
+ * which substitute these values for the printed `corruptionPoints` /
+ * `marshallingPoints` fields whenever `item.restored` is true. Fields absent
+ * here leave the printed value untouched even once restored.
+ *
+ * Used by Horn of Defiance (td-183): "Once restored, Horn of Defiance gives 3
+ * marshalling points and 2 corruption points" — printed 1 MP / 1 CP become
+ * `{ marshallingPoints: 3, corruptionPoints: 2 }`.
+ */
+export interface RestoredItemStatsEffect extends EffectBase {
+  readonly type: 'restored-item-stats';
+  /** Marshalling points the item gives once restored, replacing the printed value. */
+  readonly marshallingPoints?: number;
+  /** Corruption points the item gives once restored, replacing the printed value. */
+  readonly corruptionPoints?: number;
+}
+
+/**
  * `combat-cancel-weapon` — an in-play item ability, usable only during a
  * company-vs-company combat (CvCC) in which the item's bearer's company is a
  * participant. The controller pays the {@link cost} (tapping the item) and
@@ -8808,6 +8880,8 @@ export type CardEffect =
   | StrikeModifierEffect
   | ModifyAttackEffect
   | FaceStrikeOnTapEffect
+  | FaceAllStrikesOptionEffect
+  | RestoredItemStatsEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
   | CombatDiscardOpponentItemEffect
