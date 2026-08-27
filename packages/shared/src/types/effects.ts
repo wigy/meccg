@@ -218,6 +218,14 @@ export interface StatModifierEffect extends EffectBase {
    *   matching characters are unaffected.
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
+   * - `"attacker-chooses-defenders-attacks"` — `stat: "strikes"` only. Applies
+   *   to an attack only once its final `attackerChoosesDefenders` flag
+   *   (printed rule OR'd with any global grant) is known, at combat creation —
+   *   kept separate from `"all-attacks"` so this later pass never double-counts
+   *   an unrelated all-attacks strikes modifier already folded into the base
+   *   total by {@link resolveAttackStrikes}. Used by More Alert than Most
+   *   (dm-150): "-1 strike (-2 if Gates of Morning is in play), minimum 1, to
+   *   any attack that chooses defending characters."
    * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
    * - `"company-others"` — applies to every *other* character in the bearer's
    *   company, excluding the bearer itself (e.g. So You've Come Back le-138:
@@ -225,7 +233,7 @@ export interface StatModifierEffect extends EffectBase {
    *   Collected from a company member's attached hazards/items for every *other*
    *   member; the effect's `when` gates the modified character (via `bearer.*`).
    */
-  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company' | 'company-others';
+  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'attacker-chooses-defenders-attacks' | 'company' | 'company-others';
   /**
    * Only meaningful for `stat: 'general-influence'`. Caps how many of the
    * `value` points added to the general-influence pool may be spent to control

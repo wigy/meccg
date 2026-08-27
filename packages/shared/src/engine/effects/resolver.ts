@@ -1585,6 +1585,42 @@ export function resolveAttackStrikes(
 }
 
 /**
+ * Applies passive strike reductions from `stat-modifier` effects targeting
+ * `"attacker-chooses-defenders-attacks"` — a scope reserved for permanent
+ * events whose reduction only makes sense once an attack's final
+ * `attackerChoosesDefenders` flag (printed creature/site rule OR'd with any
+ * global grant, see {@link resolveAttackerChoosesDefenders}) is known. That
+ * flag is resolved at combat creation, after {@link resolveAttackStrikes} has
+ * already produced the attack's base strikes total, so this runs as a
+ * separate, later pass over that total rather than folding into the
+ * `"all-attacks"` collection — reusing that scope here would double-count
+ * any unrelated all-attacks strikes modifier (e.g. The Moon Is Dead's +1
+ * strike to Undead attacks) which `resolveAttackStrikes` already applied.
+ *
+ * Used by More Alert than Most (dm-150): "-1 strike (-2 if Gates of Morning
+ * is in play), minimum 1, to any attack that chooses defending characters."
+ *
+ * @param state - The full game state.
+ * @param strikesTotal - The attack's already-resolved strikes total.
+ * @param attackerChoosesDefenders - The combat's final, fully-resolved
+ *   attacker-chooses-defenders flag. No-op when false.
+ * @param inPlayNames - Names of all cards currently in play (for `inPlay`
+ *   conditions like Gates of Morning).
+ * @returns The strikes total after applying matching reductions.
+ */
+export function resolveAttackerChosenStrikeReduction(
+  state: GameState,
+  strikesTotal: number,
+  attackerChoosesDefenders: boolean,
+  inPlayNames: readonly string[],
+): number {
+  if (!attackerChoosesDefenders) return strikesTotal;
+  const context: ResolverContext = { reason: 'combat', inPlay: inPlayNames };
+  const globalEffects = collectGlobalEffects(state, 'attacker-chooses-defenders-attacks', context);
+  return resolveStatModifiers(globalEffects, 'strikes', strikesTotal, context);
+}
+
+/**
  * Resolves attack body by applying global `all-attacks` stat-modifier effects
  * with `stat: "body"` from events and cards in play. A lower body value means
  * the creature is eliminated more easily (body check must exceed body).
