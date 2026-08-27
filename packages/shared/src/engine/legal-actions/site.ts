@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -790,6 +790,12 @@ function declareAgentAttackActions(
 
   const hazardPlayer = playerById(state, playerId)!;
 
+  // Ordered to Kill (dm-152): a face-up agent standing at the company's
+  // current site must attack — the hazard player loses the option to pass
+  // while such an agent remains unattacked this site phase.
+  const forceAgentAttack = agentAttackIsMandatory(state);
+  let mandatoryAttackDeclared = false;
+
   const actions: GameAction[] = [];
   for (const agent of hazardPlayer.agents) {
     if (agent.attackedThisSitePhase) {
@@ -813,6 +819,10 @@ function declareAgentAttackActions(
       }
       logDetail(`Agent ${agent.id as string}: face-up at company's site — can declare attack`);
       actions.push({ type: 'declare-agent-attack', player: playerId, agentInstanceId: agent.character.instanceId });
+      if (forceAgentAttack) {
+        logDetail(`Agent ${agent.id as string}: Ordered to Kill forces this face-up agent to attack — pass unavailable`);
+        mandatoryAttackDeclared = true;
+      }
     } else {
       // Face-down agent: check if it is at the company's current site
       // Empty siteStack → agent is at one of its home sites
@@ -875,8 +885,11 @@ function declareAgentAttackActions(
     }
   }
 
-  // Always offer pass to skip the agent attack step
-  actions.push({ type: 'pass', player: playerId });
+  // Offer pass to skip the agent attack step — unless Ordered to Kill forces
+  // at least one face-up agent at this site to attack instead.
+  if (!mandatoryAttackDeclared) {
+    actions.push({ type: 'pass', player: playerId });
+  }
   return actions;
 }
 

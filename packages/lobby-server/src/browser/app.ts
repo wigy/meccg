@@ -56,6 +56,18 @@ setAdminPageCallbacks(showScreen);
 
 // ---- UI Setup ----
 
+/** The category radio currently checked in #bug-report-modal ('bug' by default). */
+function getBugReportCategory(): 'bug' | 'improvement' {
+  const checked: HTMLInputElement | null = document.querySelector('input[name="bug-report-category"]:checked');
+  return checked?.value === 'improvement' ? 'improvement' : 'bug';
+}
+
+/** Reset #bug-report-modal's category radio to its default ('Bug Report') whenever the modal is (re)opened. */
+function resetBugReportCategory(): void {
+  const bugRadio: HTMLInputElement | null = document.querySelector('input[name="bug-report-category"][value="bug"]');
+  if (bugRadio) bugRadio.checked = true;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const nameInput = document.getElementById('name-input') as HTMLInputElement;
   const connectBtn = document.getElementById('connect-btn') as HTMLButtonElement;
@@ -467,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const body = document.getElementById('bug-report-body') as HTMLTextAreaElement;
       subject.value = '';
       body.value = '';
+      resetBugReportCategory();
       modal.classList.remove('hidden');
       subject.focus();
     });
@@ -532,15 +545,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const fullBody = inGame
       ? `Game ID: ${appState.currentGameId ?? 'unknown'}\nSequence number: ${appState.currentStateSeq}${turnPhaseLine}${tutorialLine}\n\n${text}`
       : text;
+    // "Visual & Play Improvement" is filed through the same modal/endpoint as
+    // a bug report (same recipient, same AI queue) but tagged so the subject
+    // line and keywords let it be sorted apart from a true bug — see the
+    // category radio added to #bug-report-modal.
+    const category = getBugReportCategory();
+    const subjectPrefix = category === 'improvement' ? 'Improvement' : 'Bug Report';
     void (async () => {
       const r = await apiSend('/api/mail/bug-report', 'POST', {
-        subject: `Bug Report: ${brief}`,
+        subject: `${subjectPrefix}: ${brief}`,
         body: fullBody,
         otherPlayer: appState.opponentName,
+        category,
       });
       if (r.ok) {
         closeBugModal();
-        showNotification('Bug report sent!');
+        showNotification(category === 'improvement' ? 'Improvement suggestion sent!' : 'Bug report sent!');
       } else {
         await showAlert(r.error ?? 'Failed to send bug report');
       }
@@ -554,6 +574,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     brSubject.value = '';
     brBody.value = '';
+    resetBugReportCategory();
     brModal.classList.remove('hidden');
     brSubject.focus();
   });

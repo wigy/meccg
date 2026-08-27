@@ -14,6 +14,7 @@ export type { AlignmentRules } from './alignment-rules.js';
 export { getPlayerIndex, setupStepContext, computeTournamentScore, computeTournamentBreakdown, stayUntappedPenalty, sumMarshallingPoints, MP_SOURCES } from './state-utils.js';
 export { cardsAttachedToSite, isAttachedToPresentSite } from './site-attachments.js';
 export { cardsAttachedToCompany, isAttachedToPresentCompany } from './company-attachments.js';
+export { cardsAttachedToCharacter, isAttachedToPresentCharacter } from './character-attachments.js';
 export { effectiveItemCorruptionPoints, collectItemModifiersFromDefs, itemModifierDeltas } from './item-corruption.js';
 export type { InPlayItemModifier } from './item-corruption.js';
 export { resolveThrallCharacterPairings, hasCharacterPlayTargetEffect, matchesCharacterPlayTarget } from './stage-resource-characters.js';

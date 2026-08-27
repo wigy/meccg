@@ -131,7 +131,7 @@ export function continueOrDisposeCardTriggeredAttack(
       `(${effectiveStrikes} strikes, ${effectiveProwess} prowess)` +
       (rest.length > 0 ? `; ${rest.length} more after this` : ''),
     );
-    const nextCombat: CombatState = makeCombatState({
+    const nextCombat: CombatState = makeCombatState(state, {
       attackSource: {
         type: 'card-triggered-attack',
         cardInstanceId,
@@ -1069,14 +1069,20 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
 
   // Check for on-event: attack-defeated effects on permanent events in play.
   // When all strikes were defeated, scan every player's cardsInPlay for
-  // permanent events whose on-event condition matches the attack's race
-  // (e.g. The Moon Is Dead: discard when an Undead attack is defeated).
-  if (allDefeated && combat.creatureRace) {
+  // permanent events whose on-event condition matches the attack (e.g. The
+  // Moon Is Dead: discard when an Undead attack is defeated; More Alert than
+  // Most dm-150: discard when an attack that chooses defending characters is
+  // defeated — race-agnostic, so this no longer requires `combat.creatureRace`).
+  if (allDefeated) {
     const isAutomaticAttack = combat.attackSource.type === 'automatic-attack'
       || combat.attackSource.type === 'played-auto-attack';
     const attackCtx = {
       enemy: enemyRaceContext(combat),
-      attack: { isolated: combat.isolated ?? false, isAutomaticAttack },
+      attack: {
+        isolated: combat.isolated ?? false,
+        isAutomaticAttack,
+        attackerChoosesDefenders: combat.attackerChoosesDefenders ?? false,
+      },
       inPlay: buildInPlayNames(stateAfterCombat),
     };
     const allDiscardedIds = new Set<string>();
@@ -1338,7 +1344,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         stateAfterCombat, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, race,
       );
       logDetail(`Tidings of Bold Spies: initiating attack ${attackIndex + 1}/${attacks.length}: ${aa.creatureType} (${strikes2} strikes, ${prowess2} prowess)`);
-      const nextCombat: CombatState = makeCombatState({
+      const nextCombat: CombatState = makeCombatState(stateAfterCombat, {
         attackSource: { type: 'tidings-attack', eventInstanceId: tidingsConstraint.source, attackIndex },
         companyId: combat.companyId,
         defendingPlayerId: combat.defendingPlayerId,
@@ -1520,7 +1526,7 @@ export function initiateQueuedTraitorAttack(state: GameState): GameState {
   }
   const traitorName = cardName(newState, tk.traitorDefinitionId, 'traitor');
   logDetail(`Traitor: initiating queued attack — "${traitorName}" (${tk.strikes} strike(s), ${tk.prowess} prowess) against company ${company.id as string}`);
-  const traitorCombat: CombatState = makeCombatState({
+  const traitorCombat: CombatState = makeCombatState(newState, {
     attackSource: { type: 'traitor-attack', eventInstanceId: queued.source, traitorDefinitionId: tk.traitorDefinitionId },
     companyId: company.id,
     defendingPlayerId: tk.defendingPlayerId,

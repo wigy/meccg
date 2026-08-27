@@ -798,10 +798,30 @@ export function riddlingAttemptRollActions(
 
   const { sages, hobbits, bonus } = riddlingCompanyBonus(state, player, characterInstanceId, sageBonus, hobbitBonus);
 
-  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
-  const need = threshold - bonus + 1;
+  // One-shot `check-modifier` constraints keyed to `riddling` and targeting
+  // this character (Wit td-168: "Modify one riddling roll by +3") add to the
+  // bonus shown here; `applyRiddlingAttemptResolution` reads and consumes the
+  // same constraints when the roll actually resolves.
+  let checkModifierBonus = 0;
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'riddling'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      checkModifierBonus += constraint.kind.value;
+    }
+  }
+  const totalBonus = bonus + checkModifierBonus;
 
-  logDetail(`Pending riddling-attempt by ${charName} vs "${creatureRace}": threshold ${threshold}, ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = +${bonus} → need roll >= ${need}`);
+  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
+  const need = threshold - totalBonus + 1;
+
+  logDetail(`Pending riddling-attempt by ${charName} vs "${creatureRace}": threshold ${threshold}, ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} + check-modifier ${checkModifierBonus} = +${totalBonus} → need roll >= ${need}`);
+
+  // Reactive short-event plays (e.g. Wit) are legal while this roll is
+  // awaiting resolution — shared with the corruption-check window, gated by
+  // each card's own `when` condition (Wit: `pending.riddlingAttemptTargetsMe`).
+  const reactivePlays = reactiveCorruptionCheckPlays(state, playerId, charInPlay);
 
   return [{
     action: {
@@ -809,10 +829,10 @@ export function riddlingAttemptRollActions(
       player: playerId,
       characterInstanceId,
       need,
-      explanation: `${charName} riddling vs ${creatureRace}: threshold ${threshold}, bonus +${bonus} → need roll >= ${need}`,
+      explanation: `${charName} riddling vs ${creatureRace}: threshold ${threshold}, bonus +${totalBonus} → need roll >= ${need}`,
     },
     viable: true,
-  }];
+  }, ...reactivePlays];
 }
 
 /**
@@ -1588,6 +1608,13 @@ function corruptionCheckEntryActions(
  * option's `apply` clause runs through the generic dispatcher. No
  * per-card branches.
  *
+ * Despite the name, the scan itself is check-agnostic — it just matches
+ * `play-target`/`play-option` against the resolving character's context and
+ * lets each option's own `when` decide relevance. That lets it double as the
+ * reactive-play window for `riddling-attempt` resolutions too (Wit td-168,
+ * gated by `pending.riddlingAttemptTargetsMe`) — see
+ * {@link riddlingAttemptRollActions}.
+ *
  * Exported so the Free Council corruption-check window
  * ({@link module:legal-actions/free-council}) can offer the same reactive
  * plays — CoE 10.3.i grants both players resource/character actions that
@@ -2171,7 +2198,12 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
-type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string }; altEventMode?: string };
+type CreaturePlayAction = {
+  targetCompanyId?: CompanyId;
+  cardInstanceId?: CardInstanceId;
+  keyedBy?: { method: string };
+  altEventMode?: 'short-event' | 'permanent-event';
+};
 
 /**
  * Shared post-filter for constraints restricting hazard-creature plays against
@@ -2180,10 +2212,12 @@ type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardIn
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
  *
- * A dual-mode card (`creature-alt-event`, e.g. Akhôrahil tw-4) offered here
- * with `altEventMode` set is being played as a hazard *event*, not as a
- * creature — CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct
- * categories, so a "no creature hazards" restriction must not reach it.
+ * A dual-mode card (`creature-alt-event`, e.g. Ren the Unclean tw-83 or
+ * Akhôrahil tw-4) offered here with `altEventMode` set is being played in its
+ * short-event or permanent-event mode as a hazard *event*, not as a creature —
+ * CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct categories,
+ * so creature-only constraints (e.g. Stealth's `no-creature-hazards-on-company`)
+ * must not reach it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,

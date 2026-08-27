@@ -14,7 +14,7 @@
  * - GET /api/mail/requests — the player's open requests with AI-queue positions
  * - GET /api/mail/inbox/:id — read a message (marks as read)
  * - DELETE /api/mail/inbox/:id — delete a message (moves to deleted folder)
- * - POST /api/mail/bug-report — file a bug report (delivers to AI, copies to both players' sent)
+ * - POST /api/mail/bug-report — file a bug report or visual/play improvement suggestion (delivers to AI, copies to both players' sent)
  * - GET /api/changelog — the repository CHANGELOG.md as markdown (any session)
  * - GET /api/scoreboard — per-player completed-game tallies, most games first
  * - GET /api/scoreboard/players/:name — every completed game for one player, newest first
@@ -1049,11 +1049,18 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         subject?: string;
         body?: string;
         otherPlayer?: string;
+        category?: string;
       };
       if (!body.subject || !body.body) {
         sendJson(res, 400, { error: 'subject and body are required' });
         return;
       }
+      // "Visual & Play Improvement" reports share this endpoint, topic, and
+      // recipient with bug reports (same AI queue, same priority) — only the
+      // category keyword differs, so admin/ai can sort them apart without
+      // touching the AI work-queue's topic-based routing. Validate against an
+      // allowlist since this is client-supplied.
+      const category = body.category === 'improvement' ? 'improvement' : 'bug';
       // No credit gate: filing is always allowed. An out-of-funds requestor's
       // report simply waits in the AI queue (run-ai skips it) until a top-up.
       const id = sendMail(['ai'], {
@@ -1062,7 +1069,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         topic: 'bug-report',
         body: body.body,
         subject: body.subject,
-        keywords: {},
+        keywords: { category },
       });
       // Place a sent copy in both players' sent folders
       const message = readMessage('ai', id);

@@ -2013,7 +2013,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     const removesDetainment = effect.removeDetainment === true && combat.detainment;
     const newDetainment = removesDetainment ? false : combat.detainment;
     const cardLabel = cardDef.name;
-    logDetail(`Modify-attack (${altPermanentEvent ? 'permanent-event tap' : onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}${removesDetainment ? ', detainment → normal' : ''}`);
+    logDetail(`Modify-attack (${altPermanentEvent ? 'permanent-event tap' : onGuard ? 'on-guard reveal' : 'from hand'}): ${cardLabel} played — strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}${removesDetainment ? ', detainment → normal' : ''}${effect.firstExcessStrikePenalty !== undefined ? `, first excess strike penalty → -${effect.firstExcessStrikePenalty}` : ''}`);
 
     // Cancel protection: the first attempt to cancel the attack instead
     // strips these modifiers (Unabated in Malice ba-26). Record the exact
@@ -2112,6 +2112,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         assignmentPhase: newAssignmentPhase,
         ...(grantsAttackerChooses ? { attackerChoosesDefenders: true } : {}),
         ...(newBodyCheckModifier !== undefined ? { bodyCheckModifier: newBodyCheckModifier } : {}),
+        ...(effect.firstExcessStrikePenalty !== undefined ? { firstExcessStrikePenalty: effect.firstExcessStrikePenalty } : {}),
         ...(cancelProtection ? { cancelProtection } : {}),
         ...(effect.postAttackMindRollSplit
           ? { mindRollSplitPending: { threshold: effect.postAttackMindRollSplit.threshold } }

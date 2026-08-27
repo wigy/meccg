@@ -42,9 +42,10 @@ import type {
   DiscardCharacterOrgAction,
   DiscardItemFromCompanyAction,
   PlayHazardAction,
+  CardInPlay,
   DeclareBurglaryAction,
 } from '@meccg/shared';
-import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
+import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, isAttachedToPresentCharacter, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, inPlayCardDefs, actionsOfTypeFor } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedPermanentEventForLongEventTarget, clearPermanentEventLongEventTargetSelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
@@ -1160,15 +1161,26 @@ export function renderCompanyBlock(
   const inPlayDefs = inPlayCardDefs(view, cardPool);
   const bearerAlignment = owner === 'self' ? view.self.alignment : view.opponent.alignment;
 
+  // Character-attached permanent/short events (CardInPlay.attachedTo — e.g. a
+  // corruption card, or Flee from Strike once it stays in play on the fleeing
+  // character) render inline with their bearer, alongside items/allies/
+  // hazards, instead of the flat cards-in-play row (see renderCardsInPlayRow).
+  // Either player's card may be bound here (a hazard corruption card targets
+  // the opponent's character), so both players' cardsInPlay are consulted,
+  // mirroring the company-attachments strip below.
+  const attachedEventCandidates: readonly CardInPlay[] = [...view.self.cardsInPlay, ...view.opponent.cardsInPlay];
+  const renderAttachedEvent = (card: CardInPlay): HTMLElement | null =>
+    renderInPlayCardImage(card, view, cardPool, options?.onAction);
+
   if (titleChar) {
-    row.appendChild(renderCharacterColumn(withPresentFollowers(titleChar), cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
+    row.appendChild(renderCharacterColumn(withPresentFollowers(titleChar), cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent));
   }
   for (const charInstId of company.characters) {
     if (followerIds.has(charInstId as string)) continue;
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(withPresentFollowers(char), cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment));
+    row.appendChild(renderCharacterColumn(withPresentFollowers(char), cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent));
   }
 
   // Company-targeting permanent events bound to this company (e.g. Fellowship,
@@ -1657,10 +1669,21 @@ export function renderCardsInPlayRow(
   const presentCompanyIds = new Set<string>(
     [...view.self.companies, ...view.opponent.companies].map(c => c.id as string),
   );
+  // Cards attached to a character (CardInPlay.attachedTo) render inline with
+  // that character (see renderCompanyBlock) rather than in this flat row —
+  // otherwise a corruption card or a short-event like Flee from Strike that
+  // stays in play would show up as a detached card floating at the top of the
+  // board instead of visibly tied to its bearer.
+  const presentCharacterIds = new Set<string>([
+    ...Object.keys(view.self.characters),
+    ...Object.keys(view.opponent.characters),
+  ]);
   const selfCards = view.self.cardsInPlay.filter(c =>
-    !isAttachedToPresentSite(c, selfPresent) && !isAttachedToPresentCompany(c, presentCompanyIds));
+    !isAttachedToPresentSite(c, selfPresent) && !isAttachedToPresentCompany(c, presentCompanyIds)
+    && !isAttachedToPresentCharacter(c, presentCharacterIds));
   const oppCards = view.opponent.cardsInPlay.filter(c =>
-    !isAttachedToPresentSite(c, oppPresent) && !isAttachedToPresentCompany(c, presentCompanyIds));
+    !isAttachedToPresentSite(c, oppPresent) && !isAttachedToPresentCompany(c, presentCompanyIds)
+    && !isAttachedToPresentCharacter(c, presentCharacterIds));
   if (selfCards.length === 0 && oppCards.length === 0) return;
 
   const row = document.createElement('div');

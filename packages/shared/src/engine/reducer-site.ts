@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -415,7 +415,7 @@ function buildSiegeAttackCombat(
   const strikes = resolveAttackStrikes(state, effect.attack.strikes, inPlayNames, creatureRace, true, boostCtx);
   const body = resolveAttackBody(state, effect.attack.body ?? null, inPlayNames, creatureRace, boostCtx);
   logDetail(`Siege: initiating ${effect.attack.creatureType} attack (${strikes} strikes, ${prowess} prowess) from "${cardName(state, resolveInstanceId(state, cardInstanceId) as import('../index.js').CardDefinitionId, '?')}" against company ${company.id as string}`);
-  return makeCombatState({
+  return makeCombatState(state, {
     attackSource: { type: 'siege-attack', cardInstanceId, siteInstanceId: company.currentSite!.instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -708,7 +708,7 @@ export function buildSiteEntryAttackCombat(
     defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, defender),
   });
   logDetail(`Site entry attack: ${attack.creatureType} — ${attack.strikes} strike(s) at ${attack.prowess} prowess against company ${company.id}${detainment ? ' (detainment)' : ''}`);
-  return makeCombatState({
+  return makeCombatState(state, {
     attackSource: { type: 'site-entry-attack', eventInstanceId },
     companyId: company.id,
     defendingPlayerId: defender.id,
@@ -1244,7 +1244,7 @@ function handleSiteAutomaticAttacks(
         const dupAttackerChoosesR = resolveAttackerChoosesDefenders(
           state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, dupRace,
         );
-        const dupCombatR: CombatState = makeCombatState({
+        const dupCombatR: CombatState = makeCombatState(state, {
           attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
           companyId: company.id,
           defendingPlayerId: state.activePlayer!,
@@ -1381,7 +1381,7 @@ function handleSiteAutomaticAttacks(
       const dupAttackerChoosesM = resolveAttackerChoosesDefenders(
         state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRaceM,
       );
-      const dupCombatM: CombatState = makeCombatState({
+      const dupCombatM: CombatState = makeCombatState(state, {
         attackSource: { type: 'automatic-attack', siteInstanceId: company.currentSite!.instanceId, attackIndex: effectiveResolved },
         companyId: company.id,
         defendingPlayerId: state.activePlayer!,
@@ -2124,7 +2124,7 @@ function handleDeclareAgentAttack(
   // applies to the normal 1-strike agent attack — a 2-strike attack follows
   // the standard assignment rules (each strike to a different character
   // where possible), even when the attacker assigns.
-  const combat: CombatState = makeCombatState({
+  const combat: CombatState = makeCombatState(stateAfterReveal, {
     attackSource: { type: 'agent', instanceId: action.agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -2226,7 +2226,7 @@ function handleSitePlaySiteAutoAttack(
   const dynFreeStrikeAssignment = resolveDefenderFreeStrikeAssignment(state, 'played-auto-attack', creatureRace);
   const dynAttackerChooses = dynAttackerChoosesRaw && !dynFreeStrikeAssignment;
 
-  const combat: CombatState = makeCombatState({
+  const combat: CombatState = makeCombatState(stateAfterMove, {
     attackSource: {
       type: 'played-auto-attack',
       instanceId: creatureCard.instanceId,
@@ -4730,7 +4730,9 @@ function discardInfluencedCard(
 
 /**
  * Return all remaining on-guard cards from the resource player's companies
- * back to the hazard player's hand. Called at the end of all site phases.
+ * back to the hazard player's hand — or, while Ordered to Kill (dm-152) is in
+ * play, discard them instead (`unrevealedOnGuardDiscarded`). Called at the
+ * end of all site phases.
  */
 function returnOnGuardCardsToHand(state: GameState): GameState {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
@@ -4738,11 +4740,12 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
 
   const resourcePlayer = state.players[activeIndex];
   const hazardPlayer = state.players[hazardIndex];
+  const discardInstead = unrevealedOnGuardDiscarded(state);
 
   const returnedCards: CardInstance[] = [];
   const newCompanies = resourcePlayer.companies.map(company => {
     if (company.onGuardCards.length > 0) {
-      logDetail(`Cleanup: returning ${company.onGuardCards.length} on-guard card(s) from company ${company.id} to hazard player's hand`);
+      logDetail(`Cleanup: ${discardInstead ? 'discarding' : 'returning'} ${company.onGuardCards.length} on-guard card(s) from company ${company.id} to hazard player's ${discardInstead ? 'discard pile' : 'hand'}`);
       returnedCards.push(...company.onGuardCards.map(og => (toCardInstance(og))));
       return { ...company, onGuardCards: [] as readonly OnGuardCard[] };
     }
@@ -4753,7 +4756,9 @@ function returnOnGuardCardsToHand(state: GameState): GameState {
 
   const newPlayers = clonePlayers(state);
   newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
-  newPlayers[hazardIndex] = { ...hazardPlayer, hand: [...hazardPlayer.hand, ...returnedCards] };
+  newPlayers[hazardIndex] = discardInstead
+    ? { ...hazardPlayer, discardPile: [...hazardPlayer.discardPile, ...returnedCards] }
+    : { ...hazardPlayer, hand: [...hazardPlayer.hand, ...returnedCards] };
 
   return { ...state, players: newPlayers };
 }
@@ -5186,7 +5191,7 @@ function handleDeclareCompanyAttack(
 
   logDetail(`Site: CvCC attack declared — ${company.id} (${player.alignment}) attacks ${targetCompany.id} (${hazardPlayerState.alignment}), ${attackerCount} strike(s)`);
 
-  const combat: CombatState = makeCombatState({
+  const combat: CombatState = makeCombatState(state, {
     isCvCC: true,
     attackSource: { type: 'company-attack', attackingCompanyId: action.attackingCompanyId },
     companyId: action.targetCompanyId,
