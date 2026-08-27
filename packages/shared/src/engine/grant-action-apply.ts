@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext } from './reducer-utils.js';
+import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -209,16 +209,19 @@ function runGrantApply(
     const targetDef = defById(state, targetChar.definitionId);
     const targetName = targetDef?.name ?? '?';
     logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} → status ${apply.status}`);
-    newPlayers[ctx.playerIndex] = {
+    const wasInverted = targetChar.status === CardStatus.Inverted;
+    let updatedBearerPlayer: PlayerState = {
       ...bearerPlayer,
       characters: {
         ...bearerPlayer.characters,
         [targetCardId as string]: { ...targetChar, status: statusEnum },
       },
     };
-    const updatedChar = targetCardId === ctx.action.characterId
-      ? { ...char, status: statusEnum }
-      : char;
+    // Ioreth (td-93) / a healing-affects-all site: extend the heal to every
+    // other wounded character in the same company.
+    updatedBearerPlayer = extendHealToCompany(state, updatedBearerPlayer, company, targetCardId, statusEnum, wasInverted);
+    newPlayers[ctx.playerIndex] = updatedBearerPlayer;
+    const updatedChar = updatedBearerPlayer.characters[ctx.action.characterId] ?? char;
     return { updatedChar, effects: [], stateOps: [] };
   }
 

@@ -16,7 +16,7 @@
  * |---|-------------------------------------------|-------------|------------------------------------|
  * | 1 | Basic character stats (prowess/body/mind)  | IMPLEMENTED | always handled by engine            |
  * | 2 | Unique flag                                | IMPLEMENTED | unique: true in card data           |
- * | 3 | play-flag: healing-affects-all              | IMPLEMENTED | reducer-events.ts healing spread    |
+ * | 3 | play-flag: healing-affects-all              | IMPLEMENTED | reducer-utils.ts extendHealToCompany, shared by chain-reducer.ts and grant-action-apply.ts |
  *
  * Playable: YES
  * Certified: 2026-04-14

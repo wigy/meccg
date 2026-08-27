@@ -31,7 +31,7 @@ import {
   expectCharStatus, expectCharItemCount, expectInDiscardPile,
   findCharInstanceId,
   RESOURCE_PLAYER,
-  ARAGORN, BILBO, LEGOLAS,
+  ARAGORN, BILBO, LEGOLAS, IORETH,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus, makeMHState, makeSitePhase,
 } from '../test-helpers.js';
@@ -145,6 +145,35 @@ describe('Healing Herbs (tw-255)', () => {
     expectInDiscardPile(next, RESOURCE_PLAYER, HEALING_HERBS);
     // Bilbo (the bearer) paid the tap cost.
     expectCharStatus(next, RESOURCE_PLAYER, BILBO, CardStatus.Tapped);
+  });
+
+  test('activating heal-company-character extends the heal to a wounded Ioreth companion (healing-affects-all)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [
+            { defId: BILBO, items: [HEALING_HERBS] },
+            { defId: ARAGORN, status: CardStatus.Inverted },
+            { defId: IORETH, status: CardStatus.Inverted },
+          ] }],
+          hand: [], siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const action = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .find(ea => (ea.action as ActivateGrantedAction).actionId === 'heal-company-character'
+        && (ea.action as ActivateGrantedAction).targetCardId === findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN))!.action;
+    const next = dispatch(state, action);
+
+    // Aragorn is the directly targeted heal.
+    expectCharStatus(next, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    // Ioreth's healing-affects-all extends the heal to her wounded companion.
+    expectCharStatus(next, RESOURCE_PLAYER, IORETH, CardStatus.Untapped);
   });
 
   // ── untap-company-character (mode B: untap a non-wounded character) ──────
