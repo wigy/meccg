@@ -1212,7 +1212,12 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/PiercedbyManyWounds.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat"
+      }
+    ],
     "text": "Playable on an attack with more strikes than defending characters before strikes are assigned; does not count against the hazard limit. The first excess strike assigned to each character gives a -4 modification to his prowess instead of -1. Cannot be duplicated on a given attack."
   },
   {
