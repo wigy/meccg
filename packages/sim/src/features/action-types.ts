@@ -221,6 +221,7 @@ export const ACTION_TYPES: readonly string[] = [
   'tap-reveal-agent-for-snake',
   'use-discard-substitute',
   'capture-in-lieu-of-body-check',
+  'enable-multi-strike-option',
   'concede',
 ];
 
