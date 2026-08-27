@@ -1352,7 +1352,9 @@ export type SiteFlag =
   /** Mallorn (dm-148): the bound site untaps during its owner's untap phase, defying the normal "site cards never untap" rule. */
   | 'site-untaps-during-untap-phase'
   /** Mallorn (dm-148): the bound site is always returned to the location deck rather than discarded when a company departs, even while tapped — the dynamic counterpart of the printed `always-return-to-deck` site-rule. */
-  | 'site-always-returns-to-deck';
+  | 'site-always-returns-to-deck'
+  /** War-forges (wh-83): one non-hoard, non-unique minor item is playable at the bound site this turn, whether the site is tapped or untapped, sourced from hand, the discard pile, or the sideboard. */
+  | 'war-forges-item-unlocked';
 
 /**
  * A scoped restriction on the legal actions available to some target.

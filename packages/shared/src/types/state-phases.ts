@@ -1033,6 +1033,15 @@ export interface SitePhaseState {
    */
   readonly technologyItemPlayed?: boolean;
   /**
+   * Whether the current company has already played its one allowed bonus item
+   * at the site this site phase via a `war-forges-item-unlocked` constraint
+   * (War-forges, wh-83 — "You may tap War-forges to make an additional
+   * non-hoard, non-unique minor item playable at this site this turn"). Absent
+   * (undefined) until the company plays such an item; reset to absent when a
+   * new company's site phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly warForgesItemPlayed?: boolean;
+  /**
    * Whether the current (active) company has, this site phase, successfully
    * played a **unique hero faction at a Free-hold that is not Bag End**. Set
    * when such a faction resolves (`resolveInfluenceAttemptRoll`); consulted by

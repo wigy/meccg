@@ -6070,6 +6070,26 @@ export function siteHasTechnologyItemUnlock(
 }
 
 /**
+ * War-forges (wh-83): returns true when an active `war-forges-item-unlocked`
+ * constraint binds `siteDefId` and is owned by `playerId`. While such a
+ * constraint is active (added by tapping War-forges), the owning player may
+ * play one non-hoard, non-unique minor item at that site during the site
+ * phase whether the site is tapped or untapped — sourced from hand, the
+ * discard pile, or the sideboard. The per-site-phase limit is tracked
+ * separately by `SitePhaseState.warForgesItemPlayed`. Shared by the
+ * legal-action layer (`legal-actions/site.ts`, which offers the play) and the
+ * reducer (`reducer-site.ts`, which records the play and leaves the site
+ * untapped).
+ */
+export function siteHasWarForgesItemUnlock(
+  state: GameState,
+  siteDefId: CardDefinitionId | undefined,
+  playerId: PlayerId,
+): boolean {
+  return hasSiteFlagForPlayer(state.activeConstraints, 'war-forges-item-unlocked', siteDefId, playerId);
+}
+
+/**
  * Discard "placed with the creature" events whose converted-creature ally has
  * left play. A `convert-creature-to-ally` event (Ready to His Will le-220) is
  * kept in cards-in-play with `attachedTo` set to the ally created from the

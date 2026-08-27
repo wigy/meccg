@@ -599,4 +599,57 @@ Good Sense Revolts (dm-61) prints two mutually exclusive functions on one hazard
 
 Used by *Good Sense Revolts* (dm-61).
 
+### `war-forges-item-unlocked` site-flag + `fromSideboard` — tap-activated bonus item, sourced beyond hand (War-forges wh-83)
+
+War-forges (wh-83) is a stage permanent-event bound to one of the player's
+protected Wizardhavens (`play-target: "site"`, `filter: { effectiveSiteType:
+"haven" }`, gated by `play-condition requires: "site-protected"` and a
+`player.avatar: { "$ne": "Radagast" }` player-state check), like Guarded
+Haven (wh-74) and Saruman's Machinery (wh-120). Unlike wh-120's automatic
+`self-enters-play` unlock, War-forges' bonus is **activated**: `{ "type":
+"grant-action", "action": "war-forges-unlock-item", "cost": { "tap": "self"
+}, "apply": { "type": "add-constraint", "constraint":
+"war-forges-item-unlocked", "scope": "turn" } }`. As a bearer-less,
+site-attached source (no `companyId`) it rides the existing
+`bareCardGrantActions` emitter unchanged (Earth-eater wh-67 precedent); the
+new part is `handleInPlayCardGrantAction`'s (`grant-action-apply.ts`)
+`add-constraint` resolution, which previously only built payload-free
+constraint kinds for bearer-less sources — a new branch resolves the
+`war-forges-item-unlocked` site-flag's `siteDefinitionId` from the **source
+card's own** `CardInPlay.attachedToSite` (its site binding from its own
+`play-target: "site"` play) rather than from a bearer's company (there is no
+bearer). While the resulting `scope: "turn"` constraint is active,
+`playResourcesActions` (`legal-actions/site.ts`) offers one non-hoard
+(`!keywords.includes('hoard')`), non-unique, `minor`-subtype item at the
+bound site whether tapped or untapped — bypassing the tapped-site gate and
+the item's own `item-play-site` restriction exactly like
+`technology-item-unlocked`, gated on subtype/uniqueness/keyword instead of
+the Technology keyword. `SitePhaseState.warForgesItemPlayed` tracks the
+one-per-site-phase consumption (mirrors `technologyItemPlayed`); the played
+item leaves the site untapped and does not count as the company's tapping
+resource (`reducer-site.ts`, `siteHasWarForgesItemUnlock` helper in
+`reducer-utils.ts`). Cleared by `discardOrphanedSiteAttachedEvents` when the
+bound site leaves play (the card carries no `starting-item` keyword text
+implications beyond the standard site-attached lifecycle).
+
+"The item may be taken from your discard pile or sideboard" sources the
+bonus item from three places, offered by a dedicated loop (mirroring Glove of
+Radagast wh-111's discard-sourced ally loop) that iterates
+`player.discardPile` and `player.sideboard` for matching items, in addition
+to the ordinary hand-item loop gaining the same tapped-site/site-restriction
+bypass. The discard-pile source reuses the existing `fromDiscard`
+`play-hero-resource` flag (already generic over items and allies in
+`handleSitePlayHeroResource`); the sideboard source needed a new
+`PlayHeroResourceAction.fromSideboard` flag (`actions-site.ts`) — no prior
+`play-hero-resource` path read from the sideboard. `handleSitePlayHeroResource`
+resolves the source card from `player.sideboard` and removes it from there
+(hand and discard pile untouched) when the flag is set.
+
+Used by *War-forges* (wh-83): "Playable on one of your protected Wizardhavens
+[{H}] (not by Radagast). You may tap War-forges to make an additional
+non-hoard, non-unique minor item playable at this site this turn (if the site
+is tapped or not). The item may be taken from your discard pile or sideboard.
+Discard when this site is discarded or returned to your location deck.
+Cannot be duplicated on a given site." — `duplication-limit` scope `site`.
+
 - `item.restored` resolver context field (Ringil td-184) — `collectCharacterEffects` (`effects/resolver.ts`) exposes `item: { restored: true }` in the resolver context only while collecting that specific item's own effects (never leaking onto the bearer or sibling items), letting a `stat-modifier`'s `when` pair a pre-restore and post-restore variant of the same bonus (`{ "item.restored": { "$ne": true } }` / `{ "item.restored": true }`). Ringil reuses Horn of Defiance's `restore-item` grant-action + `restored-item-stats` (4 MP / 3 CP) primitives above. Card: "Unique. Hoard item. Weapon. +1 body. Warrior only: +1 prowess (to a maximum of 8). A stored Reforging may be placed with this item to 'restore' it. Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5 prowess (to a maximum of 11)." (`prowessModifier` corrected from an unconditional `1` to `0` — the bonus is Warrior-only and now lives entirely in `stat-modifier` effects; `weapon` keyword added, matching the printed "Weapon." text.)

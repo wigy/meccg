@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2884,21 +2884,30 @@ function handleSitePlayHeroResource(
   // (dm-63): an item set aside under a host permanent-event may be sourced
   // from there instead (`fromSetAside`) — its host may belong to either
   // player, so it is found by searching both players' `cardsInPlay` rather
-  // than this player's hand/discard pile. Otherwise the card is in hand.
+  // than this player's hand/discard pile. War-forges (wh-83): a bonus item
+  // unlocked by a `war-forges-item-unlocked` constraint may be sourced from
+  // the sideboard (`fromSideboard`). Otherwise the card is in hand.
   const fromDiscard = action.fromDiscard === true;
   const fromSetAside = action.fromSetAside === true;
+  const fromSideboard = action.fromSideboard === true;
   const setAsideEntry = fromSetAside
     ? state.players.flatMap(p => p.cardsInPlay).find(c => c.instanceId === action.cardInstanceId)
     : undefined;
   const handCard = fromSetAside
     ? (setAsideEntry ? { instanceId: setAsideEntry.instanceId, definitionId: setAsideEntry.definitionId } : undefined)
-    : fromDiscard
-      ? findById(player.discardPile, action.cardInstanceId)
-      : findById(player.hand, action.cardInstanceId);
+    : fromSideboard
+      ? findById(player.sideboard, action.cardInstanceId)
+      : fromDiscard
+        ? findById(player.discardPile, action.cardInstanceId)
+        : findById(player.hand, action.cardInstanceId);
   if (!handCard) {
     return {
       state,
-      error: fromSetAside ? 'Card not found in set-aside slot' : fromDiscard ? 'Card not found in discard pile' : 'Card not found in hand',
+      error: fromSetAside
+        ? 'Card not found in set-aside slot'
+        : fromSideboard
+          ? 'Card not found in sideboard'
+          : fromDiscard ? 'Card not found in discard pile' : 'Card not found in hand',
     };
   }
   const def = defById(state, handCard.definitionId)!;
@@ -2916,16 +2925,20 @@ function handleSitePlayHeroResource(
   // neither the controlling character nor the site ("need not tap himself or
   // the site to do so"). The controller keeps its current status.
   const noTapOnPlay = isAlly && hasPlayFlag(def, 'no-tap-on-play');
-  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''}${fromSetAside ? ' (from set-aside, as though in hand)' : ''}${noTapOnPlay ? ' — no-tap-on-play (leaving character and site untapped)' : ' — tapping character and site'}`);
+  logDetail(`Site: playing ${def.name} on ${charName}${fromDiscard ? ' (from discard pile)' : ''}${fromSetAside ? ' (from set-aside, as though in hand)' : ''}${fromSideboard ? ' (from sideboard)' : ''}${noTapOnPlay ? ' — no-tap-on-play (leaving character and site untapped)' : ' — tapping character and site'}`);
 
   // Remove card from its source zone (hand, or the discard pile for a granted
-  // discard-sourced ally, or the set-aside slot — left in place here and
-  // pulled out via `removeItemFromSetAside` just before the final return,
-  // since the host may live in the *other* player's `cardsInPlay`).
-  const newHand = (fromDiscard || fromSetAside) ? player.hand : removeById(player.hand, handCard.instanceId);
+  // discard-sourced ally, the sideboard for a War-forges bonus item, or the
+  // set-aside slot — left in place here and pulled out via
+  // `removeItemFromSetAside` just before the final return, since the host may
+  // live in the *other* player's `cardsInPlay`).
+  const newHand = (fromDiscard || fromSetAside || fromSideboard) ? player.hand : removeById(player.hand, handCard.instanceId);
   const newDiscardPile = fromDiscard
     ? removeById(player.discardPile, handCard.instanceId)
     : player.discardPile;
+  const newSideboard = fromSideboard
+    ? removeById(player.sideboard, handCard.instanceId)
+    : player.sideboard;
 
   // Tap the character and attach the item or ally (unless no-tap-on-play)
   const updatedChar: CharacterInPlay = {
@@ -2970,6 +2983,22 @@ function handleSitePlayHeroResource(
     && siteHasTechnologyItemUnlock(state, siteInPlay.definitionId, player.id);
   if (usingTechnologyBonus) {
     logDetail(`Site: ${def.name} played via Saruman's Machinery (Technology unlock) — site not tapped, allowance consumed`);
+  }
+
+  // War-forges (wh-83): a non-hoard, non-unique minor item played at a site
+  // bearing this player's `war-forges-item-unlocked` constraint is the one
+  // allowed bonus item "whether the site is tapped or untapped". It is a
+  // bonus allowance that neither taps the site nor counts as the company's
+  // tapping resource; mark it consumed so no further bonus item is offered.
+  const isWarForgesEligibleItem = isItem
+    && (def as { subtype?: string }).subtype === 'minor'
+    && (def as { unique?: boolean }).unique !== true
+    && ((def as { keywords?: readonly string[] }).keywords ?? []).includes('hoard') !== true;
+  const usingWarForgesBonus = isWarForgesEligibleItem
+    && siteState.warForgesItemPlayed !== true
+    && siteHasWarForgesItemUnlock(state, siteInPlay.definitionId, player.id);
+  if (usingWarForgesBonus) {
+    logDetail(`Site: ${def.name} played via War-forges (bonus item unlock) — site not tapped, allowance consumed`);
   }
 
   // Rule 2.V.5: when a resource that taps the site is successfully played,
@@ -3021,7 +3050,7 @@ function handleSitePlayHeroResource(
   // Thorough Search (and the Saruman's Machinery Technology bonus, and a
   // no-tap-on-play ally) prevent site tap and do not count as the "first
   // resource played" (so the opening minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !usingWarForgesBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
@@ -3044,7 +3073,7 @@ function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} played via Dragon-lore's tapped-site allowance — allowance consumed`);
   }
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -3052,16 +3081,17 @@ function handleSitePlayHeroResource(
   };
 
   let afterAttach: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, characters: newCharacters, companies: newCompaniesActual })),
+    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, sideboard: newSideboard, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
       firstItemNoTapAvailable: nextFirstItemNoTapAvailable,
       firstMinorItemNoTapAvailable: nextFirstMinorItemNoTapAvailable,
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
+      ...(usingWarForgesBonus ? { warForgesItemPlayed: true } : {}),
       ...(usingBurglaryUnlock ? { burglaryItemUnlock: undefined } : {}),
       ...(usingTappedSiteFetchUnlock ? { tappedSiteItemUnlock: undefined } : {}),
       // Ent-draughts (tw-227): "in addition to an ally or faction that has
