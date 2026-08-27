@@ -4389,6 +4389,12 @@ function playHazardsActions(
   if (!isResourcePlayer) {
     actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
     actions.push(...attackFromAltPermanentEventActions(state, playerId, mhState));
+    // Sated Beast (td-149): "This card may also be played during opponent's
+    // movement/hazard phase" — a hero-resource-event carrying `play-window`
+    // `crossTurn: true` is offered to the non-active (hazard-side) player
+    // here too. heroResourceShortEventActions filters everything else out
+    // (its isOwnTurn check), so this is a no-op for ordinary resource cards.
+    actions.push(...heroResourceShortEventActions(state, playerId, 'movement-hazard'));
   }
 
   // Player who already passed gets no actions (waiting for opponent)

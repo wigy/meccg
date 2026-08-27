@@ -5256,6 +5256,23 @@ export interface PlayWindowEffect extends EffectBase {
    * the ended attack matches.
    */
   readonly when?: Condition;
+  /**
+   * When `true`, this window is an *addition* to — not a replacement of —
+   * the CoE 2.1.1 default ("any phase of the resource player's own turn").
+   * On the owner's own turn `phase` is ignored entirely (any phase remains
+   * legal, matching a card with no `play-window` at all); the restriction
+   * only bites when the card is offered to its owner during the
+   * **opponent's** turn, where it may be played solely during the named
+   * `phase`. Used by Sated Beast (td-149): "This card may also be played
+   * during opponent's movement/hazard phase" — `{ phase:
+   * "movement-hazard", crossTurn: true }`. Consulted by
+   * `heroResourceShortEventActions` (`legal-actions/long-event.ts`), whose
+   * one cross-turn call site is the hazard-side branch of the M/H
+   * `play-hazards` step (`legal-actions/movement-hazard.ts`); every other
+   * call site only ever runs for the resource player's own turn, so
+   * `crossTurn` is a no-op there.
+   */
+  readonly crossTurn?: boolean;
 }
 
 /**

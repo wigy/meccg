@@ -3552,11 +3552,15 @@ export function playResourceShortEventActions(
       });
       continue;
     }
-    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
+    const playWindow = def.effects?.find(e => e.type === 'play-window') as { phase?: string; step?: string; siteTypes?: readonly string[]; crossTurn?: boolean } | undefined;
     // Cards with a play-window restricting them to a different phase
     // are skipped — they'll be marked not-playable by the caller's
     // catch-all loop (or by fillNotPlayable in legal-actions/index.ts).
-    if (playWindow && playWindow.phase !== currentPhase) continue;
+    // This function only ever runs for the resource player's own turn, so a
+    // `crossTurn` window (Sated Beast td-149) never restricts it here — the
+    // `phase` it carries gates only the opponent's-turn offering, handled
+    // separately by `heroResourceShortEventActions`.
+    if (playWindow && !playWindow.crossTurn && playWindow.phase !== currentPhase) continue;
     // When play-window declares a site-type restriction (e.g. Lucky Search
     // requires shadow-hold or dark-hold), enforce it against the active
     // company's current site. Only applies during the site phase after a
