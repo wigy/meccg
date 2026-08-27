@@ -2570,8 +2570,23 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/TheWilloftheRing.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "The bearer of The One Ring makes a corruption check modified by -4."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.itemKeywords": {
+            "$includes": "the-one-ring"
+          }
+        },
+        "cost": {
+          "check": "corruption",
+          "modifier": -4
+        }
+      }
+    ],
+    "text": "The bearer of The One Ring makes a corruption check modified by -4.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",
