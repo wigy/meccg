@@ -3871,7 +3871,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "certified": "2026-08-27",
+    "effects": [
+      { "type": "company-tap-characters" },
+      { "type": "grant-extra-mh-phase" }
+    ],
     "text": "Playable at the end of the movement/hazard phase on a moving company. Tap all untapped characters in the company. The company may move to an additional site this turn. Another site card may be played and another movement/hazard phase immediately follows for that company."
   },
   {
