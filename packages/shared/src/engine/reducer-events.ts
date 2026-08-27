@@ -2154,13 +2154,18 @@ function applyShortEventOnEntersPlay(
         continue;
       }
       // If the effect has a `when` condition, evaluate it against the target
-      // character's definition. Used e.g. by Deeper Shadow to skip the check
-      // for Ringwraith characters ("Unless he is a Ringwraith, ...").
+      // character's definition and current site. Used e.g. by Deeper Shadow to
+      // skip the check for Ringwraith characters ("Unless he is a Ringwraith,
+      // ..."), and by Nenya (tw-291) to pick -1 vs -3 depending on whether
+      // Galadriel is at a Haven [{H}].
       if (onEvent.when) {
         const charInPlay = state.players[playerIndex].characters[characterId];
         const charDef = charInPlay ? defById(state, charInPlay.definitionId) : undefined;
         const targetRace = charDef && isCharacterCard(charDef) ? charDef.race : undefined;
-        const whenCtx = { target: { race: targetRace } };
+        const company = findCharacterCompany(state.players[playerIndex].companies, characterId);
+        const siteDef = company?.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+        const targetSiteType = (siteDef as { siteType?: string } | undefined)?.siteType;
+        const whenCtx = { target: { race: targetRace, siteType: targetSiteType } };
         if (!matchesCondition(onEvent.when, whenCtx)) {
           logDetail(`"${def.name}" enqueue-corruption-check: when condition not met for ${characterId as string} — skipping`);
           continue;
@@ -2613,8 +2618,19 @@ function applyShortEventOnEntersPlay(
       // influence attempts this turn by any of your characters"). Unlike the
       // one-shot character-targeted check-modifier (Muster), a `target: 'player'`
       // modifier applies to *every* influence check the player's characters make
-      // for the constraint's scope and is never consumed. Read by the faction
-      // influence resolution (reducer-site.ts / legal-actions/site.ts).
+      // for the constraint's scope and is never consumed (unless `lasting` is
+      // omitted and the check is corruption — see below). Read by the faction
+      // influence resolution (reducer-site.ts / legal-actions/site.ts) and, for
+      // corruption, by legal-actions/pending.ts + pending-reducers.ts.
+      //
+      // `autoPass: true` + `check: 'corruption'` (Nenya tw-291: "Any one
+      // corruption check made by a character not in a Shadow-hold [{S}] or
+      // Dark-hold [{D}] is automatically successful") makes the first matching
+      // corruption check by any of the player's characters succeed
+      // unconditionally instead of adding `value` to the roll; `constraintWhen`
+      // narrows which character's check qualifies (evaluated against
+      // `{ target: { siteType } }`). With no `lasting` flag the constraint is
+      // consumed by the first qualifying check, matching "any ONE check".
       if (constraintKind === 'check-modifier' && onEvent.apply.target === 'player') {
         const check = onEvent.apply.check;
         const value = onEvent.apply.value;
@@ -2628,13 +2644,21 @@ function applyShortEventOnEntersPlay(
           continue;
         }
         const playerId = state.players[playerIndex].id;
-        logDetail(`"${def.name}" played — adding player-scoped check-modifier ${check} ${value > 0 ? '+' : ''}${value} for ${playerId as string} (scope ${scopeName})`);
+        const autoPass = onEvent.apply.autoPass === true;
+        const lasting = onEvent.apply.lasting === true;
+        const constraintWhen = onEvent.apply.constraintWhen;
+        logDetail(`"${def.name}" played — adding player-scoped check-modifier ${check} ${value > 0 ? '+' : ''}${value}${autoPass ? ' (auto-pass)' : ''} for ${playerId as string} (scope ${scopeName})`);
         state = addConstraint(state, {
           source: handCard.instanceId,
           sourceDefinitionId: handCard.definitionId,
           scope,
           target: { kind: 'player', playerId },
-          kind: { type: 'check-modifier', check, value },
+          kind: {
+            type: 'check-modifier', check, value,
+            ...(autoPass ? { autoPass: true } : {}),
+            ...(lasting ? { lasting: true } : {}),
+            ...(constraintWhen ? { when: constraintWhen } : {}),
+          },
         });
         continue;
       }

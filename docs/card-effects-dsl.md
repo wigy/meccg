@@ -545,6 +545,26 @@ attempts this turn by any of your characters."
              "check": "influence", "value": 2, "scope": "turn", "target": "player" } }
 ```
 
+The same `target: "player"` `check-modifier` shape also works for
+`check: "corruption"`, and additionally accepts `autoPass` and
+`constraintWhen` (mirroring the character-targeted Ancient Black Axe as-122
+shape — see the `check-modifier` section above). With no `lasting` flag it is
+**consumed by the first matching corruption check**, so it reads as "any ONE
+corruption check by any of your characters (matching `constraintWhen`) is
+automatically successful" — no character needs to be chosen up front.
+`constraintWhen` is evaluated against `{ target: { siteType } }`, built from
+the *checking* character's current site. Used by Nenya (tw-291): "Any one
+corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold
+[{D}] is automatically successful."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier",
+             "check": "corruption", "value": 0, "autoPass": true, "scope": "until-cleared",
+             "target": "player",
+             "constraintWhen": { "$not": { "target.siteType": { "$in": ["shadow-hold", "dark-hold"] } } } } }
+```
+
 A **player-scoped, ongoing** influence `check-modifier` is instead expressed as
 a bare `check-modifier` effect carrying `"target": "player-in-play"`, borne by a
 bare permanent-event in the influencing player's `cardsInPlay` (not attached to
@@ -3391,6 +3411,20 @@ Apply types:
   do not conflict. Used by *Vilya* (`modifier: -3` on Elrond). Implemented in
   `reducer-events.ts` (`applyShortEventOnEntersPlay`) and `reducer-utils.ts`
   (`handleFetchFromPile`, `resolvePendingEffect`).
+
+  For short events, an outer `when` on the `on-event` entry itself (sibling of
+  `apply`, not inside it) gates whether that entry's `enqueue-corruption-check`
+  fires at all — evaluated against `{ target: { race, siteType } }`, built from
+  the target character's definition and current company site. Two
+  mutually-exclusive entries can thus pick a different `modifier` depending on
+  the target's race (*Deeper Shadow*: skip for a Ringwraith) or current site
+  type (*Nenya* tw-291: -1 if Galadriel is at a Haven [{H}], else -3):
+
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "when": { "target.siteType": "haven" },
+    "apply": { "type": "enqueue-corruption-check", "modifier": -1 } }
+  ```
 
   **Permanent events** (character-attached): targets `action.targetCharacterId`
   by default. When `apply.target === "company-member"`, the reducer targets the

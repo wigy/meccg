@@ -464,9 +464,13 @@ export function applyCorruptionCheckResolution(
 
   // Consume one-shot check-modifier constraints for this character. Any
   // constraint kind `check-modifier` with `check === 'corruption'` targeting
-  // this character contributed to the modifier above and is now cleared. A
-  // constraint carrying `autoPass: true` (Ancient Black Axe as-122) instead
-  // forces the check to succeed unconditionally, regardless of the roll.
+  // this character (or, for a player-scoped constraint, this character's
+  // controller — Nenya tw-291) contributed to the modifier above and is now
+  // cleared. A constraint carrying `autoPass: true` (Ancient Black Axe as-122;
+  // Nenya) instead forces the check to succeed unconditionally, regardless of
+  // the roll. A player-scoped constraint's `when` (if present) is re-checked
+  // here against the checking character's current site, since it narrows
+  // which character's check the constraint actually consumes on.
   //
   // A `lasting` constraint (Shifter of Hues wh-115) still applies but is never
   // consumed — it stands until its scope sweeps it. Company-targeted
@@ -475,19 +479,28 @@ export function applyCorruptionCheckResolution(
   const playersAfterRoll = clonePlayers(rolledState);
   let postRollState: GameState = { ...rolledState, players: playersAfterRoll };
   let autoPass = false;
+  // Player-scoped check-modifier constraints (Nenya tw-291) apply to any
+  // character of the player, gated by the checking character's current site
+  // type via `kind.when`. Computed once, lazily, since most checks have none.
+  const checkCompany = findCharacterCompany(player.companies, characterId);
+  const checkSiteDef = checkCompany?.currentSite ? defById(state, checkCompany.currentSite.definitionId) : undefined;
+  const checkSiteCtx = { target: { siteType: (checkSiteDef as { siteType?: string } | undefined)?.siteType } } as Record<string, unknown>;
   for (const constraint of state.activeConstraints) {
-    if (constraint.kind.type === 'check-modifier'
-        && constraint.kind.check === 'corruption'
-        && constraint.target.kind === 'character'
-        && constraint.target.characterId === characterId) {
-      if (constraint.kind.autoPass) autoPass = true;
-      if (constraint.kind.lasting) {
-        logDetail(`Lasting check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)}) applied, not consumed`);
-        continue;
-      }
-      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)}${constraint.kind.autoPass ? ', auto-pass' : ''})`);
-      postRollState = removeConstraint(postRollState, constraint.id);
+    if (constraint.kind.type !== 'check-modifier' || constraint.kind.check !== 'corruption') continue;
+    const isOwnCharacterConstraint = constraint.target.kind === 'character' && constraint.target.characterId === characterId;
+    const isPlayerConstraint = constraint.target.kind === 'player' && constraint.target.playerId === player.id;
+    if (!isOwnCharacterConstraint && !isPlayerConstraint) continue;
+    if (isPlayerConstraint && constraint.kind.when && !matchesCondition(constraint.kind.when, checkSiteCtx)) {
+      logDetail(`Player-scoped check-modifier constraint ${constraint.id} does not apply to ${charName} (site condition not met)`);
+      continue;
     }
+    if (constraint.kind.autoPass) autoPass = true;
+    if (constraint.kind.lasting) {
+      logDetail(`Lasting check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)}) applied, not consumed`);
+      continue;
+    }
+    logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (corruption ${formatSignedNumber(constraint.kind.value)}${constraint.kind.autoPass ? ', auto-pass' : ''})`);
+    postRollState = removeConstraint(postRollState, constraint.id);
   }
 
   // Classify against the controlling player's alignment (CoE 7.1 / 7.1.F1): a
@@ -495,7 +508,7 @@ export function applyCorruptionCheckResolution(
   // of CP or CP-1 rather than being discarded.
   let outcome = classifyCorruptionOutcome(charDef, player.alignment, total, cp);
   if (autoPass && outcome !== 'success') {
-    logDetail(`Corruption check for ${charName} auto-passed (Ancient Black Axe) — overriding outcome '${outcome}' to 'success'`);
+    logDetail(`Corruption check for ${charName} auto-passed (check-modifier autoPass constraint) — overriding outcome '${outcome}' to 'success'`);
     outcome = 'success';
   }
   // The Roving Eye (le-135): an outcome that would normally eliminate the

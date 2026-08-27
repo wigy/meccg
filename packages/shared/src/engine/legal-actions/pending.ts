@@ -1455,6 +1455,30 @@ function corruptionCheckEntryActions(
     }
   }
 
+  // Player-scoped corruption check-modifier constraints (Nenya tw-291: "Any
+  // one corruption check made by a character not in a Shadow-hold [{S}] or
+  // Dark-hold [{D}] is automatically successful"): applies to any corruption
+  // check by a character of the targeted player. The `when` (constraintWhen)
+  // narrows by the checking character's current site type. `autoPass`
+  // constraints contribute 0 here — the unconditional-success override is
+  // applied after the roll, in the corruption-check resolver.
+  {
+    const siteDef = checkCompany?.currentSite ? defById(state, checkCompany.currentSite.definitionId) : undefined;
+    const siteCtx = { target: { siteType: (siteDef as { siteType?: string } | undefined)?.siteType } } as Record<string, unknown>;
+    for (const constraint of state.activeConstraints) {
+      if (constraint.kind.type !== 'check-modifier') continue;
+      if (constraint.kind.check !== 'corruption') continue;
+      if (constraint.target.kind !== 'player') continue;
+      if (constraint.target.playerId !== playerId) continue;
+      if (constraint.kind.when && !matchesCondition(constraint.kind.when, siteCtx)) {
+        logDetail(`Player-wide corruption check-modifier from constraint ${constraint.id} does not apply to ${charName} (site condition not met)`);
+        continue;
+      }
+      totalModifier += constraint.kind.value;
+      logDetail(`Player-wide corruption check-modifier ${formatSignedNumber(constraint.kind.value)}${constraint.kind.autoPass ? ' (auto-pass)' : ''} from constraint ${constraint.id}`);
+    }
+  }
+
   // Build the source-card keyword list so item check-modifiers can gate
   // on what produced the check (e.g. Wizard's Staff keys off source.keywords
   // $includes 'spell'). The source is the PendingResolution's source card.
