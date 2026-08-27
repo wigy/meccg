@@ -313,6 +313,18 @@ export interface AssignStrikeAction {
    * before strikes are assigned." See `handleAssignStrike` (`reducer-combat.ts`).
    */
   readonly allStrikes?: true;
+  /**
+   * True when the defending player is exercising an active
+   * `multi-strike-option` (Many Foes He Fought td-131) to assign an
+   * *additional* strike onto `characterId`, who already faces at least one
+   * strike this attack. Unlike `excess`, this creates a genuinely separate
+   * `StrikeAssignment` entry (CoE 3.i.5) rather than merging into the target
+   * entry's `excessStrikes` pool — the cumulative -1 prowess/-1 body penalty
+   * is instead stamped onto the new entry's `strikeProwessBonus` /
+   * `strikeBodyPenalty` so it does not double-count against
+   * `combat.strikesTotal`. See `handleAssignStrike` (`reducer-combat.ts`).
+   */
+  readonly extraSequence?: true;
 }
 
 /**
@@ -625,6 +637,24 @@ export interface TapAllyBodyCheckBoostAction {
 export interface HalveStrikesAction {
   /** Action discriminant. */
   readonly type: 'halve-strikes';
+  /** The defending player playing the card. */
+  readonly player: PlayerId;
+  /** The short event card being played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
+ * Play a `multi-strike-option` short event (Many Foes He Fought td-131) from
+ * hand during the pre-assignment window (before any strike of this attack
+ * has been assigned). Grants a standing option, for the rest of this
+ * attack's assignment, letting a character with the required skill be
+ * assigned additional strikes beyond their first. No target is chosen at
+ * play time — the character choice happens later via `assign-strike`'s
+ * `extraSequence` flag.
+ */
+export interface EnableMultiStrikeOptionAction {
+  /** Action discriminant. */
+  readonly type: 'enable-multi-strike-option';
   /** The defending player playing the card. */
   readonly player: PlayerId;
   /** The short event card being played from hand. */

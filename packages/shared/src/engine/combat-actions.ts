@@ -25,7 +25,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
@@ -1567,6 +1567,50 @@ export function handleProtectFromStrikeAssignment(state: GameState, action: Game
       });
     }
   }
+
+  return { state: nextState };
+}
+
+/**
+ * Play a `multi-strike-option` short event (Many Foes He Fought td-131)
+ * during the pre-assignment window. No target is chosen here — this simply
+ * flags `combat.multiStrikeSkill` with the effect's required skill for the
+ * rest of the attack, letting `assignStrikeActions` (`legal-actions/combat.ts`)
+ * offer additional-strike assignments (`assign-strike`'s `extraSequence`
+ * flag) to any company character carrying that skill who already faces a
+ * strike this attack.
+ */
+export function handleEnableMultiStrikeOption(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'enable-multi-strike-option') return wrongActionType(state, action, 'enable-multi-strike-option');
+  if (combat.phase !== 'assign-strikes') return { state, error: 'Can only enable multi-strike option before strikes are assigned' };
+  if (combat.strikeAssignments.length > 0) return { state, error: 'Strikes already assigned — too late to enable multi-strike option' };
+  if (action.player !== combat.defendingPlayerId) return { state, error: 'Only defending player can enable multi-strike option' };
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+
+  const playedCard = findById(defPlayer.hand, action.cardInstanceId);
+  if (!playedCard) return { state, error: 'Card not in hand' };
+
+  const cardDef = defById(state, playedCard.definitionId);
+  const effect = getCardEffects(cardDef).find(
+    (e): e is MultiStrikeOptionEffect => e.type === 'multi-strike-option',
+  );
+  if (!effect) return { state, error: 'Card has no multi-strike-option effect' };
+
+  const cardName_ = cardName(state, playedCard.definitionId);
+  logDetail(`${cardName_} played — characters with skill "${effect.requiredSkill}" may face additional strikes this attack`);
+
+  const newHand = removeById(defPlayer.hand, playedCard.instanceId);
+
+  const nextState: GameState = {
+    ...discardOrRecyclePlayedEvent(
+      updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand })),
+      defPlayerIndex,
+      toCardInstance(playedCard),
+    ),
+    combat: { ...combat, multiStrikeSkill: effect.requiredSkill },
+  };
 
   return { state: nextState };
 }

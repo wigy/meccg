@@ -359,6 +359,9 @@ export function describeAction(
       if (action.excess) {
         return `Assign excess strike to ${instName(action.characterId)}${tapTag} (-1 prowess)`;
       }
+      if (action.extraSequence) {
+        return `Assign additional strike to ${instName(action.characterId)}${tapTag} (multi-strike-option)`;
+      }
       if (action.attackingCharacterId) {
         return `Pair ${instName(action.attackingCharacterId)} → ${instName(action.characterId)}`;
       }
@@ -493,6 +496,8 @@ export function describeAction(
       return `Cancel influence: play ${instName(action.cardInstanceId)}, ${instName(action.characterId)} makes corruption check`;
     case 'halve-strikes':
       return `Halve strikes: play ${instName(action.cardInstanceId)}`;
+    case 'enable-multi-strike-option':
+      return `Play ${instName(action.cardInstanceId)}: a warrior may face additional strikes this attack`;
     case 'modify-attack':
       return action.characterInstanceId
         ? `Tap ${instName(action.cardInstanceId)} on ${instName(action.characterInstanceId)} to modify attack`

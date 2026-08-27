@@ -20,7 +20,7 @@ import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from '.
 import { findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
-import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer, handleCancelPrisonerTaking, finalizeCombatFromCancelPrisonerTakingOffer } from './combat-actions.js';
+import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleEnableMultiStrikeOption, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer, handleCancelPrisonerTaking, finalizeCombatFromCancelPrisonerTakingOffer } from './combat-actions.js';
 import { finalizeCombat } from './combat-finalize.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 
@@ -62,6 +62,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'play-sacrifice-of-form': handleSacrificeOfForm,
   'protect-from-assignment': handleProtectFromStrikeAssignment,
   'halve-strikes': handleHalveStrikes,
+  'enable-multi-strike-option': handleEnableMultiStrikeOption,
   'tap-item-for-strike': handleTapItemForStrike,
   'face-strike-on-tap': handleFaceStrikeOnTap,
   'tap-ally-combat-boost': handleTapAllyCombatBoost,
@@ -232,7 +233,24 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
   }
 
   let tappedState = state;
-  if (existingIdx >= 0) {
+  if (action.extraSequence) {
+    // multi-strike-option (Many Foes He Fought td-131): a genuinely separate
+    // strike sequence (CoE 3.i.5), not merged into an existing entry's
+    // `excessStrikes` pool — merging would double-count this strike against
+    // `combat.strikesTotal` in the total-allocated formula below, since that
+    // formula already treats bundled `excessStrikes` as extra strikes drawn
+    // from the same pool. Instead the cumulative -1 prowess/-1 body penalty
+    // is stamped directly onto this new entry.
+    const priorCount = combat.strikeAssignments.filter(a => a.characterId === action.characterId).length;
+    newAssignments = [...combat.strikeAssignments, {
+      characterId: action.characterId,
+      excessStrikes: 0,
+      strikeProwessBonus: -priorCount,
+      strikeBodyPenalty: -priorCount,
+      resolved: false,
+    }];
+    logDetail(`Multi-strike-option: additional strike assigned to ${action.characterId as string} (${priorCount} prior strike(s) — cumulative -${priorCount} prowess/body)`);
+  } else if (existingIdx >= 0) {
     newAssignments = combat.strikeAssignments.map((a, i) =>
       i === existingIdx ? { ...a, excessStrikes: a.excessStrikes + 1 } : a,
     );

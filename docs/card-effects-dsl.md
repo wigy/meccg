@@ -17085,3 +17085,57 @@ repeat assignment to an already-assigned character would otherwise produce
 stamped so downstream cancel/resolution logic (`combat-cancel.ts`,
 `combat-strike.ts`) treats every strike identically to a printed multi-attack
 creature's.
+
+### 80. `multi-strike-option` (Many Foes He Fought)
+
+Many Foes He Fought (td-131): "If defender chooses a warrior to be the
+target of a strike from an attack, that character may choose to face any
+number of the strikes from that attack. The character suffers a cumulative
+-1 prowess/-1 body for each additional strike faced. The character faces a
+separate strike sequence for each strike."
+
+Unlike `face-all-strikes-option` (§79), this is a hand-played short event
+(not an item ability), applies to *any* company character carrying the
+required skill (not just a specific bearer), is not restricted to the very
+first assignment of the attack, lets the player take strikes one at a time
+rather than committing to all of them, and — critically — carries a real
+penalty instead of none.
+
+```json
+{ "type": "multi-strike-option", "requiredSkill": "warrior" }
+```
+
+**Enabling the option** — `multiStrikeOptionActions`
+(`legal-actions/combat.ts`) offers an `enable-multi-strike-option` action for
+each hand card carrying this effect, gated to the defender's pre-assignment
+window (`combat.strikeAssignments.length === 0`, CoE 3.i.5's "must be
+declared before strikes are assigned") and only while no copy is already
+active (`combat.multiStrikeSkill` unset — a second copy would be a no-op).
+`handleEnableMultiStrikeOption` (`combat-actions.ts`) discards the card and
+stamps `combat.multiStrikeSkill` with the effect's `requiredSkill` for the
+rest of the attack.
+
+**Offering the extra assignment** — once `combat.multiStrikeSkill` is set,
+`assignStrikeActions`'s defender branch also offers `assign-strike` (carrying
+`extraSequence: true`) for any company character already holding ≥1
+assignment this attack whose `skills` include the required skill — repeated
+every time a strike remains unallocated, so the player may take "any
+number."
+
+**Applying the penalty** — `handleAssignStrike` (`reducer-combat.ts`) gives
+`action.extraSequence` its own branch, ahead of the generic
+`existingIdx >= 0` merge: it always appends a brand-new `StrikeAssignment`
+(never merges into an existing one), with
+`excessStrikes: 0` and `strikeProwessBonus` / `strikeBodyPenalty` set to
+`-priorCount`, where `priorCount` is how many strikes that character already
+holds this attack (1 for the first extra strike, 2 for the second, …). Using
+`strikeProwessBonus`/`strikeBodyPenalty` rather than `excessStrikes` matters:
+`excessStrikes` is summed into the "total strikes allocated" formula
+(`newAssignments.length + Σ excessStrikes`) that gates `combat.strikesTotal`,
+so stashing the penalty there would silently over-consume the attack's strike
+budget. `strikeProwessBonus`/`strikeBodyPenalty` are plain per-entry
+modifiers, already read independently by `resolveStrikeCore`
+(`combat-strike.ts`, prowess) and the character body-check path
+(`combat-actions.ts`) — the same fields Risky Blow (tw-319) uses for its flat
++3/-1 — so no new resolution code was needed, only new callers of the
+existing fields.

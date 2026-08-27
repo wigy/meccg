@@ -6463,6 +6463,35 @@ export interface FaceAllStrikesOptionEffect extends EffectBase {
 }
 
 /**
+ * A hand-played short event that, once played during the pre-assignment
+ * window of an attack (before any strike of that attack has been assigned —
+ * CoE 3.i.5's "must be declared before strikes are assigned"), grants the
+ * defending player a standing option for the rest of that attack's
+ * assignment: any character in the defending company who carries
+ * `requiredSkill` and has already been assigned a strike may be assigned an
+ * *additional* strike from the same attack. CoE 3.i.5 still applies — each
+ * additional strike is a genuinely separate strike sequence, not merged into
+ * the "excess strikes" -1-prowess pool a repeat assignment would otherwise
+ * produce (CoE 3.iv.2) — but unlike a plain excess strike, every strike
+ * beyond the character's first accumulates a -1 prowess **and** -1 body
+ * penalty (via `StrikeAssignment.strikeProwessBonus` /
+ * `StrikeAssignment.strikeBodyPenalty`, not `excessStrikes`, since the
+ * latter would double-count the strike against `combat.strikesTotal` — see
+ * `handleAssignStrike`, `reducer-combat.ts`).
+ *
+ * Used by Many Foes He Fought (td-131): "If defender chooses a warrior to be
+ * the target of a strike from an attack, that character may choose to face
+ * any number of the strikes from that attack. The character suffers a
+ * cumulative -1 prowess/-1 body for each additional strike faced. The
+ * character faces a separate strike sequence for each strike."
+ */
+export interface MultiStrikeOptionEffect extends EffectBase {
+  readonly type: 'multi-strike-option';
+  /** The skill required on the character choosing to face extra strikes. */
+  readonly requiredSkill: string;
+}
+
+/**
  * Overrides an item's printed marshalling/corruption points once its
  * `ItemInPlay.restored` flag is set (see {@link RestoreItemAction}). Declared
  * on the item alongside the `restore-item` grant-action; read directly by
@@ -9025,6 +9054,7 @@ export type CardEffect =
   | ModifyAttackEffect
   | FaceStrikeOnTapEffect
   | FaceAllStrikesOptionEffect
+  | MultiStrikeOptionEffect
   | RestoredItemStatsEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
