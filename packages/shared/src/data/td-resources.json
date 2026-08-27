@@ -1654,7 +1654,27 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "play-option",
+        "id": "riddling-boost",
+        "when": {
+          "pending.riddlingAttemptTargetsMe": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "riddling",
+          "value": 3,
+          "scope": "until-cleared"
+        }
+      }
+    ],
+    "certified": "2026-08-27",
     "text": "Modify one riddling roll by +3. If applicable, this card may also be played during your opponent’s site phase if a riddling roll is called for."
   },
   {

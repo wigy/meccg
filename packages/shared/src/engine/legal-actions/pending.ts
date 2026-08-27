@@ -798,10 +798,30 @@ export function riddlingAttemptRollActions(
 
   const { sages, hobbits, bonus } = riddlingCompanyBonus(state, player, characterInstanceId, sageBonus, hobbitBonus);
 
-  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
-  const need = threshold - bonus + 1;
+  // One-shot `check-modifier` constraints keyed to `riddling` and targeting
+  // this character (Wit td-168: "Modify one riddling roll by +3") add to the
+  // bonus shown here; `applyRiddlingAttemptResolution` reads and consumes the
+  // same constraints when the roll actually resolves.
+  let checkModifierBonus = 0;
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'riddling'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      checkModifierBonus += constraint.kind.value;
+    }
+  }
+  const totalBonus = bonus + checkModifierBonus;
 
-  logDetail(`Pending riddling-attempt by ${charName} vs "${creatureRace}": threshold ${threshold}, ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = +${bonus} → need roll >= ${need}`);
+  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
+  const need = threshold - totalBonus + 1;
+
+  logDetail(`Pending riddling-attempt by ${charName} vs "${creatureRace}": threshold ${threshold}, ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} + check-modifier ${checkModifierBonus} = +${totalBonus} → need roll >= ${need}`);
+
+  // Reactive short-event plays (e.g. Wit) are legal while this roll is
+  // awaiting resolution — shared with the corruption-check window, gated by
+  // each card's own `when` condition (Wit: `pending.riddlingAttemptTargetsMe`).
+  const reactivePlays = reactiveCorruptionCheckPlays(state, playerId, charInPlay);
 
   return [{
     action: {
@@ -809,10 +829,10 @@ export function riddlingAttemptRollActions(
       player: playerId,
       characterInstanceId,
       need,
-      explanation: `${charName} riddling vs ${creatureRace}: threshold ${threshold}, bonus +${bonus} → need roll >= ${need}`,
+      explanation: `${charName} riddling vs ${creatureRace}: threshold ${threshold}, bonus +${totalBonus} → need roll >= ${need}`,
     },
     viable: true,
-  }];
+  }, ...reactivePlays];
 }
 
 /**
@@ -1587,6 +1607,13 @@ function corruptionCheckEntryActions(
  * handles the play via the normal `play-short-event` path; the chosen
  * option's `apply` clause runs through the generic dispatcher. No
  * per-card branches.
+ *
+ * Despite the name, the scan itself is check-agnostic — it just matches
+ * `play-target`/`play-option` against the resolving character's context and
+ * lets each option's own `when` decide relevance. That lets it double as the
+ * reactive-play window for `riddling-attempt` resolutions too (Wit td-168,
+ * gated by `pending.riddlingAttemptTargetsMe`) — see
+ * {@link riddlingAttemptRollActions}.
  *
  * Exported so the Free Council corruption-check window
  * ({@link module:legal-actions/free-council}) can offer the same reactive
