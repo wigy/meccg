@@ -1104,6 +1104,24 @@ export function isNazgulPermanentEvent(def: CardDefinition | null | undefined): 
 }
 
 /**
+ * Count all Nazgûl permanent-events currently in play across both players,
+ * backing "the number of Nazgûl permanent-events in play" (The Pale Sword
+ * tw-97: playing it against the Witch-king of Angmar boosts his prowess by
+ * +1 plus this count). Nazgûl permanent-events are only ever reachable in a
+ * player's `cardsInPlay` — see {@link isNazgulPermanentEvent} — so no other
+ * zone needs scanning.
+ */
+export function countNazgulPermanentEventsInPlay(state: GameState): number {
+  let count = 0;
+  for (const p of state.players) {
+    for (const cip of p.cardsInPlay) {
+      if (isNazgulPermanentEvent(defById(state, cip.definitionId))) count += 1;
+    }
+  }
+  return count;
+}
+
+/**
  * For a `hazard-creature` definition sitting in a player's `cardsInPlay` (only
  * reachable there by having been played in `creature-alt-event` mode
  * `permanent-event` — see {@link isNazgulPermanentEvent}), returns an

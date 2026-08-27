@@ -5126,6 +5126,39 @@ Implemented in `engine/legal-actions/combat.ts` (`modifyAttackActions`,
 `buildPlayedModifyAttackContext`) and `engine/combat-actions.ts`
 (`handleModifyAttack`).
 
+### 10e-quinquies. `modify-attack` `prowessModifierExpr` (computed prowess bonus)
+
+An alternative to the flat `prowessModifier` field: a [value
+expression](#value-expressions) evaluated at play time instead of a fixed
+number, for a from-hand bonus that scales with in-play state rather than a
+constant. The expression context exposes `nazgulPermanentEventsInPlay` — the
+count of Nazgûl permanent-events currently in play across both players,
+from `countNazgulPermanentEventsInPlay` (`engine/reducer-utils.ts`), which
+scans both players' `cardsInPlay` for cards satisfying
+`isNazgulPermanentEvent`.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "prowessModifierExpr": "1 + nazgulPermanentEventsInPlay",
+  "attachCorruptionOnWound": true,
+  "when": { "enemy.name": "Witch-king of Angmar" } }
+```
+
+Used by The Pale Sword (tw-97): "The Nazgûl's prowess is modified by +1. If
+played on a company facing an attack from the Witch-king of Angmar, his
+prowess is increased by +1 plus the number of Nazgûl permanent-events in
+play." Modeled as two from-hand `modify-attack` modes tried in order
+(§10e-quater): a Witch-king-specific mode first (`when: { "enemy.name":
+"Witch-king of Angmar" }`, `prowessModifierExpr`), falling through to the
+general `when: { "enemy.race": "ringwraith" }` mode with a flat
+`prowessModifier: 1` for every other Nazgûl. A card sets either
+`prowessModifierExpr` or `prowessModifier`, never both.
+
+`handleModifyAttack` (`engine/combat-actions.ts`) evaluates the expression
+via `evaluateExpr` (`engine/effects/expression-eval.ts`) when
+`prowessModifierExpr` is set, rounding the result, in place of reading
+`prowessModifier` directly.
+
 ### 10f-bis. `counter-cancel-attack-roll`
 
 A hazard short-event the **attacking** (hazard) player plays during a combat
