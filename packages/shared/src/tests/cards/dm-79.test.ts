@@ -339,4 +339,15 @@ describe('Pierced by Many Wounds (dm-79)', () => {
     const aragorn = resolved.players[RESOURCE_PLAYER].characters[aragornId];
     expect(aragorn.status).toBe(CardStatus.Inverted);
   });
+
+  test('NOT offered during movement-hazard phase when the company faces no creature attack (#2861 regression, game mtasepv8-2pzfv3 seq 850)', () => {
+    // No combat exists yet — the card requires an actual attack and must not
+    // appear in the plain hazard menu.
+    const base = baseWithHazardHand([PIERCED_BY_MANY_WOUNDS]);
+    const state = { ...base, phaseState: makeMHState() };
+
+    expect(state.combat).toBeNull();
+    expect(viableActions(state, PLAYER_2, 'play-hazard')).toHaveLength(0);
+    expect(viableActions(state, PLAYER_2, 'modify-attack')).toHaveLength(0);
+  });
 });

@@ -754,6 +754,17 @@ export interface CombatState {
    */
   readonly attackerChoosesDefenders?: boolean;
   /**
+   * True when a `free-strike-assignment` environment effect (Cloudless Day
+   * td-104) is granting the defender free choice of strike targets for this
+   * attack: `assignStrikeActions` offers every character/ally in the
+   * defending company regardless of tapped/wounded status. Set only for
+   * hazard-creature-sourced attacks (see {@link FreeStrikeAssignmentEffect}),
+   * and only ever alongside `attackerChoosesDefenders` left unset — the grant
+   * also suppresses the attack's own attacker-chooses-defenders rule at the
+   * combat-initiation site that computed this flag.
+   */
+  readonly defenderFreeStrikeAssignment?: boolean;
+  /**
    * When true, this attack cannot be canceled by any card effect
    * (`cancel-attack` actions are suppressed for the defending player).
    * Set for attacks isolated by *Forewarned Is Forearmed*.

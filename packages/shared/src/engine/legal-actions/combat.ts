@@ -28,8 +28,8 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
-import { countConstraintsFromDefinition } from '../pending.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
+import { countConstraintsFromDefinition, constraintsOnCompany } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { hazardLimitStatus } from '../hazard-limit.js';
@@ -649,7 +649,7 @@ function assignStrikeActions(
       // "regardless of any conflicting effects" — including his own tapped
       // status from making the burglary attempt itself.
       const isSoloDefender = combat.soloDefenderInstanceId === charId;
-      if (charData.status !== CardStatus.Untapped && !isForcedTarget && !isSoloDefender) {
+      if (charData.status !== CardStatus.Untapped && !isForcedTarget && !isSoloDefender && !combat.defenderFreeStrikeAssignment) {
         logDetail(`Character ${charId as string} is ${charData.status} — not available for defender assignment`);
         continue;
       }
@@ -669,11 +669,28 @@ function assignStrikeActions(
           continue;
         }
       }
-      logDetail(`Defender can assign strike to ${charId as string} (untapped)${restrictToForced ? ' [forced target]' : ''}`);
+      logDetail(`Defender can assign strike to ${charId as string} (${charData.status})${restrictToForced ? ' [forced target]' : ''}${combat.defenderFreeStrikeAssignment ? ' [free strike assignment]' : ''}`);
       actions.push({
         action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false },
         viable: true,
       });
+
+      // face-all-strikes-option (Horn of Defiance td-183): "If its bearer is
+      // the first to face a strike, that character may choose to face all
+      // strikes of an attack." Only meaningful as the very first assignment
+      // of the attack (CoE 3.i.5's "must be declared before strikes are
+      // assigned") and only when there is more than one strike to redirect.
+      if (combat.strikeAssignments.length === 0 && combat.strikesTotal > 1) {
+        const bearsOption = charData.items.some(i =>
+          getCardEffects(defById(state, i.definitionId)).some(e => e.type === 'face-all-strikes-option'));
+        if (bearsOption) {
+          logDetail(`Defender can have ${charId as string} face all ${combat.strikesTotal} strikes (face-all-strikes-option)`);
+          actions.push({
+            action: { type: 'assign-strike', player: playerId, characterId: charId, tapped: false, allStrikes: true },
+            viable: true,
+          });
+        }
+      }
     }
 
     // Per CoE rule 2.V.2.2: Allies are treated as characters for combat purposes
@@ -702,7 +719,7 @@ function assignStrikeActions(
           e => (e.type === 'strike-shield' && (e as { alwaysCountsAsUntapped?: boolean }).alwaysCountsAsUntapped)
             || e.type === 'assign-strike-when-tapped',
         );
-        if (!alwaysUntapped && ally.status !== CardStatus.Untapped) {
+        if (!alwaysUntapped && ally.status !== CardStatus.Untapped && !combat.defenderFreeStrikeAssignment) {
           logDetail(`Ally ${ally.instanceId as string} is ${ally.status} — not available for defender assignment`);
           continue;
         }
@@ -3744,7 +3761,7 @@ function modifyAttackActions(
       }
     }
 
-    logDetail(`Modify-attack (from hand) available: ${handCard.definitionId as string} (prowess ${effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
+    logDetail(`Modify-attack (from hand) available: ${handCard.definitionId as string} (prowess ${effect.prowessModifierExpr ?? effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
     actions.push({
       action: { type: 'modify-attack', player: playerId, cardInstanceId: handCard.instanceId },
       viable: true,
@@ -4066,6 +4083,7 @@ function companyCombatBoostActions(
         const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (costEffect.requiredSkill && !charDef.skills.includes(costEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
+        if (costEffect.requiredRace && charDef.race !== costEffect.requiredRace) continue;
         const exempt = costEffect.costExemptRace && charDef.race === costEffect.costExemptRace;
         if (!exempt && !canPayCost(cost, charData)) continue;
         logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);
@@ -4507,6 +4525,21 @@ function discardItemFromCompanyActions(
 }
 
 /**
+ * True for a `short` hazard-event that declares a `self-enters-play-combat`
+ * on-event whose apply is `add-constraint`/`company-stat-modifier` — a
+ * combat-reactive short event that, unlike Dragon's Curse-style permanent
+ * events, resolves and discards immediately instead of staying attached
+ * (see {@link handleCombatPlayHazard}). Used by Words of Power and Terror
+ * (tw-115): "Modify the prowesses of all characters in a company attacked
+ * by a Nazgûl by -1 until the end of the turn."
+ */
+function isCombatCompanyStatModifierShortEvent(def: import('../../types/cards.js').CardDefinition): boolean {
+  return getOnEventEffects(def, 'self-enters-play-combat').some(
+    e => e.apply.type === 'add-constraint' && e.apply.constraint === 'company-stat-modifier',
+  );
+}
+
+/**
  * Emit `play-hazard` actions for hazard permanent-events in the
  * attacker's hand that declare `play-window { phase: 'combat', step:
  * 'resolve-strike' }`. Each candidate is gated on its
@@ -4514,6 +4547,11 @@ function discardItemFromCompanyActions(
  * is understood here — matched against `combat.creatureRace`) and its
  * `play-target` filter (evaluated against the defender currently
  * facing the strike). Used by Dragon's Curse (td-16).
+ *
+ * Also handles the combat-reactive `short` events matched by
+ * {@link isCombatCompanyStatModifierShortEvent} — these resolve and
+ * discard immediately instead of attaching (Words of Power and Terror,
+ * tw-115).
  */
 function combatHazardPermanentPlays(
   state: GameState,
@@ -4550,7 +4588,8 @@ function combatHazardPermanentPlays(
   const results: EvaluatedAction[] = [];
   for (const handCard of attacker.hand) {
     const def = defById(state, handCard.definitionId);
-    if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'permanent') continue;
+    if (!def || def.cardType !== 'hazard-event') continue;
+    if (def.eventType !== 'permanent' && !isCombatCompanyStatModifierShortEvent(def)) continue;
     const playWindow = getCardEffects(def).find(
       (e): e is PlayWindowEffect => e.type === 'play-window',
     );
@@ -4623,6 +4662,22 @@ function combatHazardPermanentPlays(
 
     const companyId = findCharacterCompany(defender.companies, targetCharId)?.id;
     if (!companyId) continue;
+
+    // Company-wide duplication limit (e.g. Words of Power and Terror tw-115:
+    // "Cannot be duplicated on a given company") — checked against active
+    // `company-stat-modifier` constraints on the company sourced from a card
+    // of the same name, since these short events discard immediately rather
+    // than staying attached (see isCombatCompanyStatModifierShortEvent).
+    const companyDupLimit = findDuplicationLimitEffect(def, 'company');
+    if (companyDupLimit) {
+      const copiesOnCompany = constraintsOnCompany(state, companyId).filter(
+        c => c.kind.type === 'company-stat-modifier' && defById(state, c.sourceDefinitionId)?.name === def.name,
+      ).length;
+      if (copiesOnCompany >= companyDupLimit.max) {
+        logDetail(`Combat play-hazard "${def.name}" already active on company ${companyId as string} (${copiesOnCompany}/${companyDupLimit.max})`);
+        continue;
+      }
+    }
 
     logDetail(`Combat play-hazard "${def.name}" playable on ${targetDef.name}`);
     results.push({
