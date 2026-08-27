@@ -4598,11 +4598,12 @@
     "race": "wose",
     "playableAt": [
       {
-        "site": "Wose"
+        "site": "Wose Passage-hold"
       }
     ],
     "effects": [],
-    "text": "Unique. Playable at Wose Passage-hold if the influence check is greater than 8. Standard Modifications: none."
+    "text": "Unique. Playable at Wose Passage-hold if the influence check is greater than 8. Standard Modifications: none.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-faction",
