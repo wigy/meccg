@@ -303,6 +303,16 @@ export interface AssignStrikeAction {
    * Set during the attacker-phase assignment step. Absent for creature combat.
    */
   readonly attackingCharacterId?: CardInstanceId;
+  /**
+   * True when the defending player is exercising a `face-all-strikes-option`
+   * item's choice (Horn of Defiance td-183): `characterId` becomes assigned
+   * *every* remaining strike of the attack, each as its own separate strike
+   * sequence (CoE 3.i.5) — the same auto-assignment loop `forceSingleTarget`
+   * drives. Legal only as the very first assignment of the attack
+   * (`strikeAssignments.length === 0`), matching the rule's "must be declared
+   * before strikes are assigned." See `handleAssignStrike` (`reducer-combat.ts`).
+   */
+  readonly allStrikes?: true;
 }
 
 /**

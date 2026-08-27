@@ -7,6 +7,7 @@
  */
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
+import type { AttackSource } from '../types/state-combat.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
@@ -22,7 +23,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
-import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext } from './effects/index.js';
+import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext, resolveAttackerChosenStrikeReduction } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { enqueueCorruptionCheck } from './pending.js';
 import { revealInstances, forgetDeckReveals } from './visibility.js';
@@ -1101,6 +1102,24 @@ export function isNazgulPermanentEvent(def: CardDefinition | null | undefined): 
   return getCardEffects(def).some(
     e => e.type === 'creature-alt-event' && e.mode === 'permanent-event',
   );
+}
+
+/**
+ * Count all Nazgûl permanent-events currently in play across both players,
+ * backing "the number of Nazgûl permanent-events in play" (The Pale Sword
+ * tw-97: playing it against the Witch-king of Angmar boosts his prowess by
+ * +1 plus this count). Nazgûl permanent-events are only ever reachable in a
+ * player's `cardsInPlay` — see {@link isNazgulPermanentEvent} — so no other
+ * zone needs scanning.
+ */
+export function countNazgulPermanentEventsInPlay(state: GameState): number {
+  let count = 0;
+  for (const p of state.players) {
+    for (const cip of p.cardsInPlay) {
+      if (isNazgulPermanentEvent(defById(state, cip.definitionId))) count += 1;
+    }
+  }
+  return count;
 }
 
 /**
@@ -6075,21 +6094,74 @@ export function resolveAttackerChoosesDefenders(
 }
 
 /**
+ * True when a `free-strike-assignment` environment effect (Cloudless Day
+ * td-104) is in play, granting the defender free choice of strike targets
+ * for the attack about to begin. Scoped to hazard-creature-sourced attacks
+ * only — `attackSourceType` of `"creature"`, `"on-guard-creature"`, or
+ * `"played-auto-attack"` — the same set `applyTapOnStrikeAssignment`
+ * (`reducer-combat.ts`) uses to mean "hazard creature attack"; a site's own
+ * automatic-attack, an agent, or a CvCC attack never qualifies.
+ *
+ * Called at every hazard-creature-sourced combat-initiation site alongside
+ * {@link resolveAttackerChoosesDefenders}, mirroring how
+ * {@link globalAttackerChoosesDefenders} scans `cardsInPlay` for a global
+ * grant. When true, callers must both skip the attack's own
+ * attacker-chooses-defenders rule and set
+ * `CombatState.defenderFreeStrikeAssignment` so `assignStrikeActions`
+ * (`legal-actions/combat.ts`) drops its untapped-only gate.
+ */
+export function resolveDefenderFreeStrikeAssignment(
+  state: GameState,
+  attackSourceType: AttackSource['type'],
+  creatureRace: Race | undefined,
+): boolean {
+  if (attackSourceType !== 'creature'
+    && attackSourceType !== 'on-guard-creature'
+    && attackSourceType !== 'played-auto-attack') {
+    return false;
+  }
+  const ctx = { attack: { creatureRace } };
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'free-strike-assignment') continue;
+        if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+        logDetail(`Free strike assignment granted by "${(def as { name?: string }).name ?? (card.definitionId as string)}" — defender may assign to any character regardless of status`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Build a fresh {@link CombatState} for a newly-initiated attack, filling the
  * four fields every fresh combat starts with: empty strike assignments, strike
  * index 0, the `assign-strikes` phase, and no body-check target. Callers pass
  * the attack-specific fields (source, players, prowess, body, assignmentPhase,
  * detainment, and any optional flags).
+ *
+ * Also applies any passive `attacker-chooses-defenders-attacks` strike
+ * reduction (More Alert than Most dm-150) now that `fields.strikesTotal` and
+ * `fields.attackerChoosesDefenders` are both final — see
+ * {@link resolveAttackerChosenStrikeReduction}.
  */
 export function makeCombatState(
+  state: GameState,
   fields: Omit<CombatState, 'strikeAssignments' | 'currentStrikeIndex' | 'phase' | 'bodyCheckTarget'>,
 ): CombatState {
+  const strikesTotal = resolveAttackerChosenStrikeReduction(
+    state, fields.strikesTotal, fields.attackerChoosesDefenders ?? false, buildInPlayNames(state),
+  );
   return {
     strikeAssignments: [],
     currentStrikeIndex: 0,
     phase: 'assign-strikes',
     bodyCheckTarget: null,
     ...fields,
+    strikesTotal,
   };
 }
 

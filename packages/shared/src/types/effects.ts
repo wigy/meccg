@@ -218,6 +218,14 @@ export interface StatModifierEffect extends EffectBase {
    *   matching characters are unaffected.
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
+   * - `"attacker-chooses-defenders-attacks"` — `stat: "strikes"` only. Applies
+   *   to an attack only once its final `attackerChoosesDefenders` flag
+   *   (printed rule OR'd with any global grant) is known, at combat creation —
+   *   kept separate from `"all-attacks"` so this later pass never double-counts
+   *   an unrelated all-attacks strikes modifier already folded into the base
+   *   total by {@link resolveAttackStrikes}. Used by More Alert than Most
+   *   (dm-150): "-1 strike (-2 if Gates of Morning is in play), minimum 1, to
+   *   any attack that chooses defending characters."
    * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
    * - `"company-others"` — applies to every *other* character in the bearer's
    *   company, excluding the bearer itself (e.g. So You've Come Back le-138:
@@ -225,7 +233,7 @@ export interface StatModifierEffect extends EffectBase {
    *   Collected from a company member's attached hazards/items for every *other*
    *   member; the effect's `when` gates the modified character (via `bearer.*`).
    */
-  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company' | 'company-others';
+  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'attacker-chooses-defenders-attacks' | 'company' | 'company-others';
   /**
    * Only meaningful for `stat: 'general-influence'`. Caps how many of the
    * `value` points added to the general-influence pool may be spent to control
@@ -2076,14 +2084,21 @@ export interface ActionCost {
    * discards a card matching {@link discardCardName} from the acting
    * player's hand — no character actor is tapped or otherwise required
    * (Fifteen Birds in Five Firtrees dm-129: "or you discard Eagle-mounts
-   * from your hand"). "named-stored-card" is the `fromStored` counterpart:
-   * discards a *different* card matching {@link discardCardName} out of the
-   * acting player's own marshalling-point pile (`killPile`, a `storedAtSite`
-   * entry) — unlike `discard: "self"`'s `killPile` fallback (which discards
-   * the source card itself), this leaves the source in place so it can be
-   * relocated by the effect's `apply` instead. Used by Andúril, the Flame of
-   * the West (tw-192): "you may discard a stored Reforging and place Andúril
-   * with Narsil."
+   * from your hand"). "named-stored-card" discards a *different* card
+   * matching {@link discardCardName} out of the acting player's own
+   * marshalling-point pile (`killPile`, a `storedAtSite` entry) — unlike
+   * `discard: "self"`'s `killPile` fallback (which discards the source card
+   * itself), this leaves the source in place. On a `fromStored` grant-action
+   * (the source itself has no bearer) it is paired with a
+   * `place-source-with-item` apply that relocates the source — Andúril, the
+   * Flame of the West (tw-192): "you may discard a stored Reforging and place
+   * Andúril with Narsil." On an ordinary bearer-owned grant-action (declared
+   * on an in-play item) it instead leaves the source item where it is and
+   * pairs with a `restore-item` apply — the Reforging family of hoard items
+   * (Horn of Defiance td-183 et al.): "A stored Reforging may be placed with
+   * this item to 'restore' it." Both variants resolve through the generic
+   * {@link ActionCost} payment path (`cost-evaluator.ts`), keyed off the
+   * activation's `targetCardId` naming the chosen stored card.
    */
   readonly discard?: 'self' | 'bearer' | 'character' | 'named-card' | 'named-stored-card';
   /**
@@ -2112,6 +2127,19 @@ export interface ActionCost {
    * possessions (e.g. The Roving Eye le-135).
    */
   readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
+  /**
+   * For `check: "corruption"` costs on a character-targeting hazard
+   * short-event: on a **failed** check, also discard the named item
+   * wherever it is borne within the target character's own company (not
+   * necessarily on the target himself) — The Precious (tw-98): "discard The
+   * One Ring along with the target character." Resolved to a concrete
+   * instance at chain-resolution time (`resolveAlsoDiscardItemId`,
+   * `chain-reducer.ts`) and carried on the pending `corruption-check` as
+   * `alsoDiscardItemId`; on failure the item is pulled off its real bearer
+   * and folded into the same discard-pile routing as the target's own
+   * possessions (`pending-reducers.ts`).
+   */
+  readonly alsoDiscardItemName?: string;
 }
 
 /**
@@ -2189,6 +2217,7 @@ export type TriggeredActionType =
   | 'whip-discipline'
   | 'enqueue-site-wound-rolls'
   | 'malady-without-healing'
+  | 'mount-slain'
   | 'enqueue-pending-fetch'
   | 'enqueue-ring-play-offer'
   | 'enqueue-gold-ring-test'
@@ -2446,6 +2475,24 @@ export interface MaladyWithoutHealingAction extends TriggeredActionBase {
   readonly targetCorruptionModifier: number;
   /** Roll modifier for the non-Ringwraith shadow-magic user's corruption check (le-159: -5). */
   readonly casterCorruptionModifier: number;
+}
+
+/**
+ * `mount-slain` — the bespoke `self-enters-play` orchestrator for Mount Slain
+ * (as-50). Fires from the `after-attack` combat play window once a strike
+ * from a Ringwraith-race attacker has failed against the defending company.
+ * No explicit target is chosen by the player — "the Ringwraith" is the
+ * opponent's own revealed Ringwraith avatar (mind === null, race
+ * `ringwraith`; {@link findPlayerAvatar}), found programmatically. If no such
+ * avatar is in play, the card fizzles. Otherwise it enqueues a standalone
+ * body check (2d6 vs the avatar's effective body, rolled by its own
+ * controller): `onPass` (roll exceeds body, CoE 3.I.2.1) eliminates the
+ * avatar; `onFail` (survives) discards it anyway per the card's forced
+ * "discard the Ringwraith". The Mount Slain card itself is discarded
+ * immediately — it never remains in play.
+ */
+export interface MountSlainAction extends TriggeredActionBase {
+  readonly type: 'mount-slain';
 }
 
 /** `roll-check` — roll 2d6, sum check modifiers, emit a labelled dice GameEffect. */
@@ -3505,6 +3552,21 @@ export interface ReattachToItemAction extends TriggeredActionBase {
 }
 
 /**
+ * Marks the grant-action's source item `restored` (a persistent flag on its
+ * {@link ItemInPlay} entry, cleared only if the item leaves play). Used by the
+ * Reforging family of hoard items — Horn of Defiance (td-183), Ringil
+ * (td-184), Belegennon (td-185) — whose text reads "A stored Reforging may be
+ * placed with this item to 'restore' it." The grant-action's own cost
+ * (`discard: "named-stored-card"`, `discardCardName: "Reforging"`) consumes
+ * the stored Reforging; this apply flips the flag. A `restored-item-stats`
+ * effect on the same item then reads the flag to override its printed
+ * marshalling/corruption points once restored (`recompute-derived.ts`).
+ */
+export interface RestoreItemAction extends TriggeredActionBase {
+  readonly type: 'restore-item';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -3520,6 +3582,7 @@ export type TriggeredAction =
   | EnqueueGoodwillAttemptAction
   | EnqueueSiteWoundRollsAction
   | MaladyWithoutHealingAction
+  | MountSlainAction
   | RollCheckAction
   | RollThenApplyAction
   | UnEliminateCreatureAction
@@ -3578,7 +3641,8 @@ export type TriggeredAction =
   | CancelCurrentAttackAction
   | TraitorAttackAction
   | TransferItemFreeAction
-  | ReattachToItemAction;
+  | ReattachToItemAction
+  | RestoreItemAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -4667,9 +4731,17 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    */
   readonly requiredSkill?: string;
   /**
+   * The race required on the character who both pays `cost` and receives
+   * the boost — alternative to {@link requiredSkill} for race-gated spells.
+   * Only meaningful alongside `cost` (see `requiredSkill`). Used by
+   * Wizard's Fire (tw-360): "Wizard only. +5 prowess for the Wizard against
+   * one attack." — `requiredRace: "wizard"`.
+   */
+  readonly requiredRace?: Race;
+  /**
    * The cost the chosen character pays to receive the boost (e.g. a
    * corruption check). Presence of `cost` switches the effect to
-   * single-target mode — see {@link requiredSkill}.
+   * single-target mode — see {@link requiredSkill} / {@link requiredRace}.
    */
   readonly cost?: ActionCost;
   /**
@@ -6123,6 +6195,21 @@ export interface ModifyAttackEffect extends EffectBase {
    */
   readonly cost?: ActionCost;
   /**
+   * `"current-strike"` scope only. When true, the modifier applies
+   * automatically to every strike whose target is the item's own bearer —
+   * no action, no cost, no consumption. Mutually exclusive with `cost` /
+   * `fromHand`. Only `prowessModifier` is honoured in this mode (added
+   * directly to the defender's effective prowess for the strike, exactly
+   * like the activated `current-strike` path's `StrikeAssignment.strikeProwessBonus`);
+   * `bodyModifier` is not read here — a passive body reduction against the
+   * *attacker* should instead use `body-check-modifier`'s `scope:
+   * "bearer-combat"` with `when: { "bodyCheck.fromFailedStrike": true }`,
+   * which (unlike this scope's `bodyModifier`) also covers CvCC. Used by
+   * Morgul-blade (le-205): "Each strike against the Ringwraith receives...
+   * -1 prowess" (expressed as `prowessModifier: 1`, favouring the bearer).
+   */
+  readonly passive?: true;
+  /**
    * When true, the card is played from hand and discarded — not an in-play item.
    * Either the `attacker` (hazard player) or the `defender` (resource player)
    * may play, controlled by the `player` field.
@@ -6155,6 +6242,20 @@ export interface ModifyAttackEffect extends EffectBase {
   readonly enqueueCorruptionCheck?: true;
   /** Amount added to the attack's strike prowess or current-strike prowess bonus. */
   readonly prowessModifier?: number;
+  /**
+   * Alternative to {@link prowessModifier}: a MathJS value expression
+   * evaluated at play time instead of a flat number, for a bonus that scales
+   * with in-play state. The expression context exposes
+   * `nazgulPermanentEventsInPlay` — the count of Nazgûl permanent-events
+   * currently in play across both players (see
+   * {@link countNazgulPermanentEventsInPlay}). Used by The Pale Sword
+   * (tw-97): "If played on a company facing an attack from the Witch-king of
+   * Angmar, his prowess is increased by +1 plus the number of Nazgûl
+   * permanent-events in play" — `"1 + nazgulPermanentEventsInPlay"`. The
+   * result is rounded to the nearest integer. A card sets either this or
+   * {@link prowessModifier}, never both.
+   */
+  readonly prowessModifierExpr?: string;
   /**
    * Amount added to the creature's body value for the creature body check.
    * Whole-attack scope: added persistently to `CombatState.creatureBody`.
@@ -6311,6 +6412,55 @@ export interface FaceStrikeOnTapEffect extends EffectBase {
    * parries the strike he faced via this ability. Omit for no body reduction.
    */
   readonly bodyReductionOnParry?: number;
+}
+
+/**
+ * Grants the bearer, at the moment he is assigned the *first* strike of an
+ * attack (`CombatState.strikeAssignments.length === 0`), the option to face
+ * every remaining strike of that attack himself instead of the strikes being
+ * distributed across the company — CoE rule 3.i.5: "If a character is
+ * assigned to more than one strike from an attack, a separate strike
+ * sequence is initiated for each strike." The choice must be declared before
+ * any other strike is assigned, matching the rule's "must be declared before
+ * strikes are assigned."
+ *
+ * Implemented by letting the defender's `assign-strike` action on this
+ * character carry `allStrikes: true`; the reducer then runs the same
+ * multi-attack auto-assignment loop used for `CombatState.forceSingleTarget`
+ * (`handleAssignStrike`, `reducer-combat.ts`), building one assignment per
+ * remaining strike — each with `excessStrikes: 0` (a full separate sequence),
+ * not merged into the "excess strikes" -1-prowess pool a repeat assignment
+ * would otherwise produce. `assignStrikeActions` (`legal-actions/combat.ts`)
+ * offers both the plain single-strike assignment and this `allStrikes`
+ * variant so the player may still decline.
+ *
+ * Used by Horn of Defiance (td-183): "If its bearer is the first to face a
+ * strike, that character may choose to face all strikes of an attack. The
+ * character faces a separate strike sequence for each strike."
+ */
+export interface FaceAllStrikesOptionEffect extends EffectBase {
+  readonly type: 'face-all-strikes-option';
+}
+
+/**
+ * Overrides an item's printed marshalling/corruption points once its
+ * `ItemInPlay.restored` flag is set (see {@link RestoreItemAction}). Declared
+ * on the item alongside the `restore-item` grant-action; read directly by
+ * `recompute-derived.ts`'s per-item corruption and marshalling-point loops,
+ * which substitute these values for the printed `corruptionPoints` /
+ * `marshallingPoints` fields whenever `item.restored` is true. Fields absent
+ * here leave the printed value untouched even once restored.
+ *
+ * Used by Horn of Defiance (td-183): "Once restored, Horn of Defiance gives 3
+ * marshalling points and 2 corruption points" — printed 1 MP / 1 CP become
+ * `{ marshallingPoints: 3, corruptionPoints: 2 }`.
+ */
+export interface RestoredItemStatsEffect extends EffectBase {
+  readonly type: 'restored-item-stats';
+  /** Marshalling points the item gives once restored, replacing the printed value. */
+  readonly marshallingPoints?: number;
+  /** Corruption points the item gives once restored, replacing the printed value. */
+  readonly corruptionPoints?: number;
 }
 
 /**
@@ -8848,6 +8998,8 @@ export type CardEffect =
   | StrikeModifierEffect
   | ModifyAttackEffect
   | FaceStrikeOnTapEffect
+  | FaceAllStrikesOptionEffect
+  | RestoredItemStatsEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
   | CombatDiscardOpponentItemEffect
@@ -8986,6 +9138,7 @@ export type CardEffect =
   | ItemSlotModifierEffect
   | CompanyOvertEffect
   | AssignStrikeWhenTappedEffect
+  | FreeStrikeAssignmentEffect
   | AvatarHomeSiteRestrictionEffect
   | CombatTapCompanyBoostEffect
   | RingwraithModeEffect
@@ -9035,6 +9188,7 @@ export type CardEffect =
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
   | AgentTapFactionInfluenceEffect
+  | AgentTapOpponentInfluenceEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
   | ReturnSelfToHandWhenEffect
@@ -10479,6 +10633,33 @@ export interface AssignStrikeWhenTappedEffect extends EffectBase {
 }
 
 /**
+ * While the carrying card sits in a player's `cardsInPlay`, the defender of
+ * any hazard-creature-sourced attack (`attack.source` of `"creature"`,
+ * `"on-guard-creature"`, or `"played-auto-attack"` — the same set
+ * `tap-on-strike-assignment` uses to mean "hazard creature attack", never a
+ * site's own automatic-attack or a CvCC/agent attack) may assign that
+ * attack's strikes to any character or ally in the defending company
+ * regardless of tapped/wounded status, and the attack's own
+ * `combat-attacker-chooses-defenders` rule (if any) is suppressed for that
+ * attack — assignment always opens in the defender's own phase.
+ *
+ * Resolved by `resolveDefenderFreeStrikeAssignment` (`reducer-utils.ts`) at
+ * every hazard-creature-sourced combat-initiation site, mirroring
+ * `resolveAttackerChoosesDefenders`'s global-grant scan. Consumed by
+ * `assignStrikeActions` (`legal-actions/combat.ts`), which drops the
+ * untapped-only gate for characters and allies when
+ * `CombatState.defenderFreeStrikeAssignment` is set.
+ *
+ * Used by Cloudless Day (td-104): "Whenever a company faces a hazard
+ * creature attack, the defender may choose which characters in the company
+ * will be the targets of the attack's strikes (regardless of tapped status,
+ * wounded status, and the normal abilities of the attack)."
+ */
+export interface FreeStrikeAssignmentEffect extends EffectBase {
+  readonly type: 'free-strike-assignment';
+}
+
+/**
  * Marker effect on an in-play permanent-event: while the carrying card is in its
  * controller's `cardsInPlay`, that player's own avatar may only be *brought into
  * play* at its home site — the extra-haven reveal option (a Wizard avatar's
@@ -10981,6 +11162,52 @@ export interface AgentTapFactionInfluenceEffect extends EffectBase {
    * target faction is playable at one of the agent's home sites.
    */
   readonly autoSuccessAtHomeSite?: boolean;
+}
+
+/**
+ * Hazard short-event effect for Your Welcome Is Doubtful (dm-104).
+ *
+ * "Playable on an untapped agent. Tap the agent who may then make an
+ * influence attempt against an ally or character. +6 to influence attempt
+ * (+10 if the agent is a diplomat). An additional +7 to the attempt if
+ * target character has the same home site as the agent or if target ally is
+ * playable at the agent's home site. Cannot be played if your opponent is a
+ * minion player."
+ *
+ * Sibling of {@link AgentTapFactionInfluenceEffect}: grants a rule-10.14
+ * agent influence attempt against an opponent's in-play **character or
+ * ally** rather than a faction — the acting agent needs no
+ * `agent-tap-influence` effect of its own. Rule-10.14 bonuses stack
+ * underneath as usual (+2 direct influence at a home site; target mind
+ * treated as 0 with +2 to the roll when a character shares a home site with
+ * the agent, or an ally is playable at one of the agent's home sites), on
+ * top of which this card layers {@link attemptBonus} (or
+ * {@link diplomatAttemptBonus}) plus {@link homeSiteBonus} under that same
+ * shared-home-site condition.
+ */
+export interface AgentTapOpponentInfluenceEffect extends EffectBase {
+  readonly type: 'agent-tap-opponent-influence';
+  /** Which kinds of targets this grant covers. */
+  readonly targetKinds: readonly ('character' | 'ally')[];
+  /**
+   * Condition the acting agent's card definition must satisfy, evaluated
+   * against `{ target: { name, race, skills, keywords } }`. Omit to allow
+   * any untapped agent.
+   */
+  readonly agentFilter?: Condition;
+  /** Modifier added to the attacker's side of the influence attempt (+6). */
+  readonly attemptBonus: number;
+  /**
+   * Overrides `attemptBonus` when the acting agent has the diplomat skill
+   * (+10 instead of +6).
+   */
+  readonly diplomatAttemptBonus?: number;
+  /**
+   * Additional flat bonus applied when the target character shares a home
+   * site with the agent, or the target ally is playable at one of the
+   * agent's home sites (+7).
+   */
+  readonly homeSiteBonus?: number;
 }
 
 /**

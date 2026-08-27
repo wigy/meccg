@@ -2148,8 +2148,28 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Dunnish Clan-hold",
-    "effects": [],
-    "text": "Unique. +1 direct influence against Man factions. Additionally, +2 direct influence against the Dunlendings faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "man"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.name": "Dunlendings"
+        }
+      }
+    ],
+    "text": "Unique. +1 direct influence against Man factions. Additionally, +2 direct influence against the Dunlendings faction.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "minion-character",

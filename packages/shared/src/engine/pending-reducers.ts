@@ -73,7 +73,7 @@ import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { startGreatHuntReveal, buildGreatHuntCombat } from './great-hunt.js';
 import { findHuntCandidates, buildHuntCombat } from './hunt.js';
 import { findLongDarkReachCandidates, buildLongDarkReachCombat } from './long-dark-reach.js';
-import { afterAttackPlayTargets } from './post-attack-play.js';
+import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from './post-attack-play.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
 
 /**
@@ -326,7 +326,7 @@ function applyTraitorTrigger(
   }
 
   logDetail(`traitor-attack: "${traitorDef.name}" turns traitor — ${strikes}-strike ${prowess}-prowess attack against company ${company.id as string}; ${attackingPlayerId as string} chooses the character to be attacked`);
-  const combat = makeCombatState({
+  const combat = makeCombatState(newState, {
     attackSource: { type: 'traitor-attack', eventInstanceId: card.instanceId, traitorDefinitionId: traitorDef.id },
     companyId: company.id,
     defendingPlayerId,
@@ -680,9 +680,28 @@ export function applyCorruptionCheckResolution(
       }
     }
   }
-  const failedPossessions = transferredItemPreDiscarded
+  let failedPossessions = transferredItemPreDiscarded
     ? action.possessions.filter(id => id !== transferredItemId)
     : action.possessions;
+
+  // The Precious (tw-98): on failure, also discard a named item borne by a
+  // *different* company member (the checking character is "not the bearer").
+  // Pull it off its real bearer here — `removeFailedCorruptionCharacter`
+  // only ever deletes `characterId`'s own entry — then fold it into the
+  // possessions list so it rides the same discard-pile routing below.
+  const alsoDiscardItemId = top.kind.alsoDiscardItemId;
+  if (alsoDiscardItemId) {
+    for (const [cid, cData] of Object.entries(newCharacters)) {
+      if (cid === characterId as string) continue;
+      const itemIdx = cData.items.findIndex(i => i.instanceId === alsoDiscardItemId);
+      if (itemIdx >= 0) {
+        newCharacters[cid as CardInstanceId] = { ...cData, items: cData.items.filter(i => i.instanceId !== alsoDiscardItemId) };
+        logDetail(`Corruption check failed: also discarding ${alsoDiscardItemId as string} from ${cid} (The Precious)`);
+        failedPossessions = [...failedPossessions, alsoDiscardItemId];
+        break;
+      }
+    }
+  }
 
   if (outcome === 'discard') {
     // Press-gang (ba-22): redirect the would-be discard to the opponent's
@@ -1899,6 +1918,14 @@ export function applyRiddlingAttemptResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // Reactive short-event plays (Wit td-168: "Modify one riddling roll by
+  // +3") are legal while this roll is awaiting resolution — return null so
+  // the dispatcher falls through to the per-phase reducer, which runs the
+  // normal `play-short-event` handler. The pending resolution stays queued;
+  // the next legal-action cycle re-emits the roll action with any
+  // freshly-added check-modifier constraint factored in. Mirrors
+  // `applyCorruptionCheckResolution`'s identical carve-out.
+  if (action.type === 'play-short-event') return null;
   const g = guardResolution(state, action, top, 'riddling-attempt', 'riddling-attempt');
   if (!g.ok) return g.result;
   const { actorIndex, player, kind } = g;
@@ -1917,13 +1944,37 @@ export function applyRiddlingAttemptResolution(
 
   const { sages, hobbits, bonus } = riddlingCompanyBonus(state, player, characterInstanceId, sageBonus, hobbitBonus);
 
+  // One-shot `check-modifier` constraints keyed to `riddling` and targeting
+  // this character (Wit td-168: "Modify one riddling roll by +3") — summed
+  // into the roll and consumed below, mirroring the corruption-check path.
+  let checkModifierBonus = 0;
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'riddling'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      checkModifierBonus += constraint.kind.value;
+    }
+  }
+
   const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, actorIndex, `Riddling attempt: ${charName} vs ${creatureRace}`);
-  const total = roll.die1 + roll.die2 + bonus;
+  const total = roll.die1 + roll.die2 + bonus + checkModifierBonus;
   const success = total > threshold;
 
-  logDetail(`Riddling attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+  logDetail(`Riddling attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} + check-modifier ${checkModifierBonus} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
   let postRoll = dequeueResolution(rolledState, top.id);
+
+  // Consume the one-shot check-modifier constraints that contributed above.
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'riddling'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (riddling ${formatSignedNumber(constraint.kind.value)})`);
+      postRoll = removeConstraint(postRoll, constraint.id);
+    }
+  }
 
   if (success) {
     logDetail(`Riddling attempt succeeded: player may now name a card to guess`);
@@ -4880,7 +4931,7 @@ export function applyStayHerAppetiteRollResolution(
   // Dequeue resolution then set up combat
   const stateDequeued = dequeueResolution(stateAfterRoll2, top.id);
 
-  const combat: import('../types/state-combat.js').CombatState = makeCombatState({
+  const combat: import('../types/state-combat.js').CombatState = makeCombatState(stateDequeued, {
     attackSource: {
       type: 'stay-her-appetite-attack',
       eventDefinitionId: sourceDefinitionId,
@@ -5126,16 +5177,22 @@ export function applyPostAttackPlayOfferResolution(
   }
   const company = player.companies.find(co => co.id === companyId);
   if (!company) return { state, error: `Company ${companyId as string} not found` };
-  if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
-    return { state, error: 'After-attack play requires a target character in the company that faced the attack' };
-  }
 
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'After-attack play card not in hand' };
   const def = defById(state, handCard.definitionId);
   if (!def) return { state, error: 'After-attack play card definition not found' };
-  if (afterAttackPlayTargets(state, player, company, def).every(id => id !== action.targetCharacterId)) {
-    return { state, error: 'Target character is not a legal bearer for this card' };
+
+  // Cards with no character play-target (e.g. Mount Slain as-50) resolve
+  // against a programmatically-found target, not a chosen bearer — no
+  // targetCharacterId is expected.
+  if (afterAttackCharacterPlayTarget(def)) {
+    if (!action.targetCharacterId || !company.characters.some(id => id === action.targetCharacterId)) {
+      return { state, error: 'After-attack play requires a target character in the company that faced the attack' };
+    }
+    if (afterAttackPlayTargets(state, player, company, def).every(id => id !== action.targetCharacterId)) {
+      return { state, error: 'Target character is not a legal bearer for this card' };
+    }
   }
 
   logDetail(`post-attack-play-offer: playing ${def.name ?? action.cardInstanceId as string} on ${action.targetCharacterId as string}`);

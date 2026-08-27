@@ -2950,6 +2950,75 @@ function playHazardsActions(
           continue;
         }
 
+        // Your Welcome Is Doubtful (dm-104): played on one of the hazard
+        // player's untapped agents (matching the card's `agentFilter`, if
+        // any), targeting any of the opponent's in-play characters or their
+        // allies. Independent of the active company, like Pilfer Anything
+        // Unwatched above — an opponent-influence attempt is not restricted
+        // to the company currently in its M/H sub-phase.
+        const agentOpponentInfluenceEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').AgentTapOpponentInfluenceEffect => e.type === 'agent-tap-opponent-influence',
+        );
+        if (agentOpponentInfluenceEffect) {
+          if (isMinionOrBalrog(resourcePlayer)) {
+            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+            continue;
+          }
+          let offeredAny = false;
+          for (const agent of player.agents) {
+            if (agent.character.status !== CardStatus.Untapped) continue;
+            const agentDef = defById(state, agent.character.definitionId);
+            if (!agentDef || !isCharacterCard(agentDef)) continue;
+            if (!agentMatchesFilter(agentDef, agentOpponentInfluenceEffect.agentFilter)) {
+              logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" does not match the card's agent restriction`);
+              continue;
+            }
+
+            if (agentOpponentInfluenceEffect.targetKinds.includes('character')) {
+              for (const [charId, charData] of Object.entries(resourcePlayer.characters)) {
+                const charDef = defById(state, charData.definitionId);
+                if (!charDef || !isCharacterCard(charDef)) continue;
+                if (isAvatarCharacter(charDef)) continue;
+                logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" may influence character "${charDef.name}"`);
+                actions.push({
+                  action: {
+                    ...action,
+                    agentInstanceId: agent.character.instanceId,
+                    targetCharacterId: charId as CardInstanceId,
+                  },
+                  viable: true,
+                });
+                offeredAny = true;
+              }
+            }
+
+            if (agentOpponentInfluenceEffect.targetKinds.includes('ally')) {
+              for (const [, charData] of Object.entries(resourcePlayer.characters)) {
+                for (const allyInst of charData.allies) {
+                  const allyDef = defById(state, allyInst.definitionId);
+                  if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) continue;
+                  logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" may influence ally "${allyDef?.name ?? allyInst.instanceId as string}"`);
+                  actions.push({
+                    action: {
+                      ...action,
+                      agentInstanceId: agent.character.instanceId,
+                      targetAllyId: allyInst.instanceId,
+                    },
+                    viable: true,
+                  });
+                  offeredAny = true;
+                }
+              }
+            }
+          }
+          if (!offeredAny) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no eligible untapped agent with an opponent character or ally to influence`);
+            actions.push({ action, viable: false, reason: 'No eligible untapped agent with an opponent character or ally to influence' });
+          }
+          continue;
+        }
+
         // Faction-targeting short events (e.g. Muster Disperses): a hazard
         // event can only target the resource player's own factions (CoE
         // 2.IV.vii.3 — hazard events target the opponent's entities), never
@@ -3138,6 +3207,13 @@ function playHazardsActions(
           const targetedCandidates = allShortPlayOptions.length > 0 && shortPlayOptions.length === 0
             ? []
             : targetCompany.characters;
+          // Aggregated once per company for `company.itemNames` (The
+          // Precious tw-98: "a character in the same company … as The One
+          // Ring"), mirroring the resource-side `active-company` context.
+          const targetCompanyItemNames = targetCompany.characters.flatMap(cid => {
+            const cd = resourcePlayer.characters[cid];
+            return cd ? defNamesOf(state, cd.items) : [];
+          });
           for (const charId of targetedCandidates) {
             const charData = resourcePlayer.characters[charId];
             const charDef = charData ? defById(state, charData.definitionId) : undefined;
@@ -3164,6 +3240,7 @@ function playHazardsActions(
                 // (Heedless Revelry le-114).
                 company: {
                   moving: !!targetCompany.destinationSite,
+                  itemNames: targetCompanyItemNames,
                 },
               };
               if (!matchesCondition(shortPlayTarget.filter, ctx)) {

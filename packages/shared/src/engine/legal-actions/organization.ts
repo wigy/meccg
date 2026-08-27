@@ -895,6 +895,17 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (a.cardInstanceId) recruitViaEventInstances.add(a.cardInstanceId as string);
   }
 
+  // Item-cache hand-store actions (Armory dm-116): place minor items from hand
+  // under a cache host directly, without playing them. Computed here (ahead of
+  // the not-playable sweep below) so eligible hand items are excluded from it.
+  const itemCacheHandStoreEvaluated = itemCacheHandStoreActions(state, playerId);
+  actions.push(...itemCacheHandStoreEvaluated);
+  const itemCacheHandStoreInstances = new Set(
+    itemCacheHandStoreEvaluated.map(ea =>
+      (ea.action as { itemInstanceId: CardInstanceId }).itemInstanceId as string,
+    ),
+  );
+
   // Mark remaining hand cards as not playable during organization
   for (const handCard of player.hand) {
     if (evaluatedInstances.has(handCard.instanceId as string)) continue;
@@ -903,6 +914,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
     if (resourceShortEventInstances.has(handCard.instanceId as string)) continue;
     if (recruitViaEventInstances.has(handCard.instanceId as string)) continue;
     if (cofPairInstances.has(handCard.instanceId as string)) continue;
+    if (itemCacheHandStoreInstances.has(handCard.instanceId as string)) continue;
     actions.push(notPlayable(playerId, handCard.instanceId, 'Not playable during the organization'));
   }
 
@@ -925,10 +937,6 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Store-item actions (store items at matching sites)
   actions.push(...storeItemActions(state, playerId));
-
-  // Item-cache hand-store actions (Armory dm-116): place minor items from hand
-  // under a cache host directly, without playing them.
-  actions.push(...itemCacheHandStoreActions(state, playerId));
 
   // Split-company actions (move GI character + followers to a new company)
   actions.push(...splitCompanyActions(state, playerId));
@@ -1725,6 +1733,31 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           for (const { instanceId: targetId, name: targetName } of boostTargets) {
             logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard ${def?.name ?? '?'} to give ${targetName} +3 to an influence attempt`);
             actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: targetId }));
+          }
+          continue;
+        }
+
+        // `restore-item` (Reforging family of hoard items — Horn of Defiance
+        // td-183, Ringil td-184, Belegennon td-185): "A stored Reforging may
+        // be placed with this item to 'restore' it." Emit one activation per
+        // stored card in the bearer's own kill pile matching
+        // `cost.discardCardName` ("Reforging"). Once restored, the item's own
+        // `restore-item` ability is withdrawn — restoring is a one-way,
+        // permanent flag, not a repeatable action.
+        if (effect.action === 'restore-item') {
+          if (item.restored) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: already restored`);
+            continue;
+          }
+          const discardCandidates = player.killPile.filter(c =>
+            c.storedAtSite && defById(state, c.definitionId)?.name === effect.cost.discardCardName);
+          if (discardCandidates.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no stored ${effect.cost.discardCardName ?? '?'} to discard`);
+            continue;
+          }
+          for (const candidate of discardCandidates) {
+            logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can discard stored ${effect.cost.discardCardName ?? '?'} to restore ${def?.name ?? '?'}`);
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: candidate.instanceId }));
           }
           continue;
         }
@@ -2817,6 +2850,14 @@ export function buildPlayOptionContext(
   if (!def || !isCharacterCard(def)) {
     return { target: {}, pending: { corruptionCheckTargetsMe: false } };
   }
+  // Mirrors `corruptionCheckTargetsMe` for the riddling-attempt window: true
+  // only while a `riddling-attempt` pending resolution is awaiting its roll
+  // for this exact character. Gates reactive roll-boosting short events (Wit
+  // td-168: "Modify one riddling roll by +3") so they are offered only in
+  // response to an actual pending riddling roll, never speculatively.
+  const riddlingAttemptTargetsMe = state.pendingResolutions.some(
+    r => r.kind.type === 'riddling-attempt' && r.kind.characterInstanceId === char.instanceId,
+  );
   const corruptionCheckTargetsMe = state.pendingResolutions.some(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   ) || (
@@ -2968,6 +3009,7 @@ export function buildPlayOptionContext(
     },
     pending: {
       corruptionCheckTargetsMe,
+      riddlingAttemptTargetsMe,
     },
     player: {
       hasFactionInHand,

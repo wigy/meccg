@@ -48,7 +48,7 @@ import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
-import { afterAttackPlayTargets } from '../post-attack-play.js';
+import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
@@ -798,10 +798,30 @@ export function riddlingAttemptRollActions(
 
   const { sages, hobbits, bonus } = riddlingCompanyBonus(state, player, characterInstanceId, sageBonus, hobbitBonus);
 
-  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
-  const need = threshold - bonus + 1;
+  // One-shot `check-modifier` constraints keyed to `riddling` and targeting
+  // this character (Wit td-168: "Modify one riddling roll by +3") add to the
+  // bonus shown here; `applyRiddlingAttemptResolution` reads and consumes the
+  // same constraints when the roll actually resolves.
+  let checkModifierBonus = 0;
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'riddling'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      checkModifierBonus += constraint.kind.value;
+    }
+  }
+  const totalBonus = bonus + checkModifierBonus;
 
-  logDetail(`Pending riddling-attempt by ${charName} vs "${creatureRace}": threshold ${threshold}, ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = +${bonus} → need roll >= ${need}`);
+  // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
+  const need = threshold - totalBonus + 1;
+
+  logDetail(`Pending riddling-attempt by ${charName} vs "${creatureRace}": threshold ${threshold}, ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} + check-modifier ${checkModifierBonus} = +${totalBonus} → need roll >= ${need}`);
+
+  // Reactive short-event plays (e.g. Wit) are legal while this roll is
+  // awaiting resolution — shared with the corruption-check window, gated by
+  // each card's own `when` condition (Wit: `pending.riddlingAttemptTargetsMe`).
+  const reactivePlays = reactiveCorruptionCheckPlays(state, playerId, charInPlay);
 
   return [{
     action: {
@@ -809,10 +829,10 @@ export function riddlingAttemptRollActions(
       player: playerId,
       characterInstanceId,
       need,
-      explanation: `${charName} riddling vs ${creatureRace}: threshold ${threshold}, bonus +${bonus} → need roll >= ${need}`,
+      explanation: `${charName} riddling vs ${creatureRace}: threshold ${threshold}, bonus +${totalBonus} → need roll >= ${need}`,
     },
     viable: true,
-  }];
+  }, ...reactivePlays];
 }
 
 /**
@@ -1588,6 +1608,13 @@ function corruptionCheckEntryActions(
  * option's `apply` clause runs through the generic dispatcher. No
  * per-card branches.
  *
+ * Despite the name, the scan itself is check-agnostic — it just matches
+ * `play-target`/`play-option` against the resolving character's context and
+ * lets each option's own `when` decide relevance. That lets it double as the
+ * reactive-play window for `riddling-attempt` resolutions too (Wit td-168,
+ * gated by `pending.riddlingAttemptTargetsMe`) — see
+ * {@link riddlingAttemptRollActions}.
+ *
  * Exported so the Free Council corruption-check window
  * ({@link module:legal-actions/free-council}) can offer the same reactive
  * plays — CoE 10.3.i grants both players resource/character actions that
@@ -2176,7 +2203,7 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
-type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string } };
+type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string }; altEventMode?: string };
 
 /**
  * Shared post-filter for constraints restricting hazard-creature plays against
@@ -2184,6 +2211,11 @@ type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardIn
  * creature against `protectedCompany` passes through untouched; for the rest,
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
+ *
+ * A dual-mode card (`creature-alt-event`, e.g. Akhôrahil tw-4) offered here
+ * with `altEventMode` set is being played as a hazard *event*, not as a
+ * creature — CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct
+ * categories, so a "no creature hazards" restriction must not reach it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,
@@ -2196,6 +2228,7 @@ function filterCreaturePlaysAgainstCompany(
   return base.filter(ea => {
     if (ea.action.type !== 'play-hazard') return true;
     const action = ea.action as CreaturePlayAction;
+    if (action.altEventMode) return true;
     if (action.targetCompanyId !== protectedCompany) return true;
     const cardInstId = action.cardInstanceId;
     if (!cardInstId) return true;
@@ -3799,14 +3832,28 @@ export function postAttackPlayOfferActions(
       if (!handCard) continue;
       const def = defById(state, handCard.definitionId);
       if (!def) continue;
-      for (const charId of afterAttackPlayTargets(state, player, company, def)) {
-        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+      if (afterAttackCharacterPlayTarget(def)) {
+        for (const charId of afterAttackPlayTargets(state, player, company, def)) {
+          logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event' as const,
+              player: actor,
+              cardInstanceId,
+              targetCharacterId: charId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        // No character play-target (e.g. Mount Slain as-50): the card resolves
+        // against a programmatically-found target, not a chosen bearer.
+        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable (no bearer required)`);
         actions.push({
           action: {
             type: 'play-permanent-event' as const,
             player: actor,
             cardInstanceId,
-            targetCharacterId: charId,
           },
           viable: true,
         });

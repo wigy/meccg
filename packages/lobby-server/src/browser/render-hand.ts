@@ -349,6 +349,23 @@ export function findRingAfterTestAction(
 }
 
 /**
+ * Find the play-revealed-card actions for a given hand card instance (CoE
+ * rule 10.13: an identical card revealed during a successful opponent-
+ * influence attempt may immediately be played with the influencing
+ * character). An item, ally, or faction reveal offers exactly one action; a
+ * character reveal offers one per way it can be controlled (general
+ * influence, or the direct influence of each company member who can afford
+ * it), so the caller must disambiguate when more than one comes back.
+ */
+export function findRevealedCardPlayActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'play-revealed-card', instanceId);
+}
+
+/**
  * When a `discard-in-play` target is a hazard attached to a character
  * (stored in `character.hazards`), return the bearer character's display
  * name. Used to disambiguate action labels when two identical-named
@@ -1111,13 +1128,15 @@ export function renderHand(
     const isStrikeEvent = strikeEventActions.length > 0;
     const ringAfterTestAction = findRingAfterTestAction(cardInstanceId, viable);
     const isRingAfterTest = ringAfterTestAction !== null;
+    const revealedCardPlayActions = findRevealedCardPlayActions(cardInstanceId, viable);
+    const isRevealedCardPlay = revealedCardPlayActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !discardAction && !onGuardAction && !isStartingCompanyEvent
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !discardAction && !onGuardAction && !isStartingCompanyEvent
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1403,6 +1422,31 @@ export function renderHand(
       if (onAction) {
         const ringAction = ringAfterTestAction;
         img.addEventListener('click', () => onAction(ringAction));
+      }
+    } else if (isRevealedCardPlay) {
+      // Influence-reveal-play offer (Rule 10.13): an item, ally, or faction
+      // reveal has exactly one action and plays directly; a character reveal
+      // may offer several controlledBy choices (general influence, or a
+      // company member's direct influence), so show a menu to disambiguate.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (revealedCardPlayActions.length === 1) {
+          const revealAction = revealedCardPlayActions[0];
+          img.addEventListener('click', () => onAction(revealAction));
+        } else {
+          img.addEventListener('click', (e) => {
+            const items: TooltipMenuItem[] = revealedCardPlayActions.map(a => {
+              const controlledBy = a.type === 'play-revealed-card' ? a.controlledBy : undefined;
+              let label = 'General influence';
+              if (controlledBy && controlledBy !== 'general') {
+                const controllerDefId = cachedInstanceLookup(controlledBy);
+                label = (controllerDefId ? cardPool[controllerDefId as string]?.name : undefined) ?? 'Direct influence';
+              }
+              return { label, onClick: () => onAction(a) };
+            });
+            showCursorTooltipMenu(e, items);
+          });
+        }
       }
     } else if (isInfluence) {
       // Faction influence two-step flow: click to select, then click a character in company

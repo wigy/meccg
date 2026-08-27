@@ -15,12 +15,12 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, GameAction, CombatState, CharacterCard, AgentInPlay, SiteInPlay, CardDefinition, PlayHazardAction, GameEffect } from '../index.js';
-import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect } from '../types/effects.js';
+import type { TapAgentEffect, AgentTapInfluenceEffect, AgentTapAttackEffect, AgentTapReturnCharacterEffect, AgentTapFactionInfluenceEffect, AgentTapOpponentInfluenceEffect } from '../types/effects.js';
 import type { CardInstanceId, CompanyId, Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isAllyCard, isFactionCard, isSiteCard } from '../types/cards.js';
-import { Alignment, CardStatus } from '../types/common.js';
+import { Alignment, CardStatus, Skill } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -734,7 +734,7 @@ export function handleAgentTapAttack(
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
 
   // Build CombatState
-  const combat: CombatState = makeCombatState({
+  const combat: CombatState = makeCombatState(newState, {
     attackSource: { type: 'agent', instanceId: agent.character.instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -1019,6 +1019,185 @@ export function handleAgentTapFactionInfluence(
   return { state: newState, effects };
 }
 
+/**
+ * Handle Your Welcome Is Doubtful (dm-104): a hazard short-event that taps
+ * one of the hazard player's own untapped agents (matching the card's
+ * `agentFilter`, if any) and has it make a rule-10.14 influence attempt
+ * against an opponent's in-play **character or ally** — the sibling of
+ * {@link handleAgentTapFactionInfluence} for non-faction targets.
+ *
+ * Resolution (card text + rule 10.14):
+ *  - Tap **and reveal** the agent, discard the short event, count it against
+ *    the hazard limit. Not an agent action — `remainingActions` untouched.
+ *  - Rule-10.14 bonuses apply: +2 direct influence while the agent stands at
+ *    one of its home sites, plus the agent's own conditional DI modifiers
+ *    against the target's race; the target's mind counts as 0 with a further
+ *    +2 to the roll when a character shares a home site with the agent, or
+ *    an ally is playable at one of the agent's home sites.
+ *  - The card's own `attemptBonus` (+6, or `diplomatAttemptBonus` +10 if the
+ *    agent has the diplomat skill) plus `homeSiteBonus` (+7) under that same
+ *    shared-home-site condition ride along as the attempt's `boostModifier`.
+ *
+ * Bypasses the chain (mirrors `handleAgentTapFactionInfluence`); the outcome
+ * runs through the standard `opponent-influence-defend` pending resolution.
+ */
+export function handleAgentTapOpponentInfluence(
+  state: GameState,
+  action: PlayHazardAction,
+  mhState: MovementHazardPhaseState,
+  hazardPlayer: GameState['players'][number],
+  hazardIndex: number,
+  handCard: GameState['players'][number]['hand'][number],
+  def: CardDefinition,
+  effect: AgentTapOpponentInfluenceEffect,
+): ReducerResult {
+  const agentInstanceId = action.agentInstanceId!;
+
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.character.instanceId === agentInstanceId);
+  if (agentIdx === -1) return { state, error: `Agent ${agentInstanceId as string} not found` };
+  const agent = hazardPlayer.agents[agentIdx];
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
+  const agentDef = defById(state, agent.character.definitionId);
+  if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
+  if (!agentMatchesFilter(agentDef, effect.agentFilter)) {
+    return { state, error: `${agentDef.name} does not match ${def.name}'s agent restriction` };
+  }
+
+  const resourceIndex = 1 - hazardIndex;
+  const resourcePlayer = state.players[resourceIndex];
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+  const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+  const isAtHome = agentSiteName !== null && homesiteNames.includes(agentSiteName);
+
+  let influencerDI = agentDef.directInfluence ?? 0;
+  if (isAtHome) {
+    influencerDI += 2;
+    logDetail(`${def.name}: agent ${agentDef.name} is at home site ${agentSiteName} → +2 DI (total: ${influencerDI})`);
+  }
+
+  const nullifyMods = influenceModificationsNullified(state);
+  const controllerUnusedDI = (id: CardInstanceId): number => nullifyMods
+    ? normalUnusedDI(state, id, resourcePlayer, [], { reason: 'influence-check' })
+    : availableDI(state, id, resourcePlayer);
+
+  let targetKind: 'character' | 'ally';
+  let targetInstanceId: CardInstanceId;
+  let targetMind = 0;
+  let controllerDI = 0;
+  let sharesHome = false;
+
+  if (action.targetCharacterId) {
+    targetKind = 'character';
+    targetInstanceId = action.targetCharacterId;
+    const targetChar = resourcePlayer.characters[action.targetCharacterId];
+    if (!targetChar) return { state, error: 'Target character not found' };
+    const targetDef = defById(state, targetChar.definitionId);
+    if (!targetDef || !isCharacterCard(targetDef)) return { state, error: 'Target is not a character' };
+
+    const diBonus = agentConditionalDirectInfluence(agentDef, { reason: 'influence-check', target: { race: targetDef.race } });
+    if (diBonus) {
+      influencerDI += diBonus;
+      logDetail(`${def.name}: agent ${agentDef.name} +${diBonus} DI vs ${targetDef.race} ${targetDef.name} (total: ${influencerDI})`);
+    }
+
+    targetMind = controlCostOf(state, targetChar, targetDef.mind ?? null) ?? 0;
+    const targetHomesites = parseHomesiteNames((targetDef as { homesite?: string }).homesite ?? '');
+    sharesHome = targetHomesites.some(h => homesiteNames.includes(h));
+    if (sharesHome) {
+      targetMind = 0;
+      logDetail(`${def.name}: ${targetDef.name} shares a home site with ${agentDef.name} → mind = 0, +2 roll`);
+    }
+    if (targetChar.controlledBy !== 'general') {
+      controllerDI = controllerUnusedDI(targetChar.controlledBy);
+    }
+  } else if (action.targetAllyId) {
+    targetKind = 'ally';
+    targetInstanceId = action.targetAllyId;
+    let allyFound = false;
+    for (const [oppCharId, oppChar] of characterEntries(resourcePlayer)) {
+      const allyInst = oppChar.allies.find(a => a.instanceId === action.targetAllyId);
+      if (allyInst) {
+        const allyDef = defById(state, allyInst.definitionId);
+        if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
+        targetMind = allyEffectiveMind(state, allyInst);
+        controllerDI = controllerUnusedDI(oppCharId);
+
+        const playableAt = allyDef && isAllyCard(allyDef) ? allyDef.playableAt ?? [] : [];
+        sharesHome = playableAt.some(e => 'site' in e && homesiteNames.includes(e.site));
+        if (sharesHome) {
+          targetMind = 0;
+          logDetail(`${def.name}: ally is playable at ${agentDef.name}'s home site → mind = 0, +2 roll`);
+        }
+        allyFound = true;
+        break;
+      }
+    }
+    if (!allyFound) return { state, error: 'Target ally not found' };
+  } else {
+    return { state, error: 'No influence target specified' };
+  }
+
+  const rollBonus = sharesHome ? 2 : 0;
+  const isDiplomat = (agentDef.skills ?? []).includes(Skill.Diplomat);
+  let boostModifier = isDiplomat && effect.diplomatAttemptBonus !== undefined ? effect.diplomatAttemptBonus : effect.attemptBonus;
+  if (sharesHome && effect.homeSiteBonus) boostModifier += effect.homeSiteBonus;
+
+  // Tap and reveal the agent, discard the short event, count the hazard.
+  const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: newHand,
+    discardPile: [...p.discardPile, handCard],
+    agents: p.agents.map((a, i) => i === agentIdx
+      ? { ...a, revealed: true, character: { ...a.character, status: CardStatus.Tapped } }
+      : a),
+  }));
+  newState = {
+    ...newState,
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
+
+  const { roll, rng, cheatRollTotal } = roll2d6(newState);
+  const attackerRoll = roll.die1 + roll.die2 + rollBonus;
+  const effects: GameEffect[] = [
+    diceRollEffect(hazardPlayer.name, roll, `${def.name}: ${agentDef.name} influences ${targetKind}${rollBonus > 0 ? ` (+${rollBonus} bonus)` : ''}`),
+  ];
+  newState = { ...newState, rng, cheatRollTotal };
+
+  const opponentGI = effectiveGeneralInfluence(newState, resourcePlayer.id) - resourcePlayer.generalInfluenceUsed;
+  const crossAlignmentPenalty = crossAlignmentInfluencePenalty(hazardPlayer.alignment, resourcePlayer.alignment);
+
+  logDetail(`${def.name}: ${agentDef.name} influences ${targetKind} ${targetInstanceId as string} — roll ${attackerRoll}, DI ${influencerDI}, GI ${opponentGI}, value ${targetMind}, boost +${boostModifier}`);
+
+  newState = enqueueResolution(newState, {
+    source: handCard.instanceId,
+    actor: resourcePlayer.id,
+    scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+    kind: {
+      type: 'opponent-influence-defend',
+      attempt: {
+        influencerId: agent.character.instanceId,
+        targetInstanceId,
+        targetKind,
+        targetPlayer: resourcePlayer.id,
+        attackerRoll,
+        influencerDI,
+        opponentGI,
+        targetMind,
+        controllerDI,
+        crossAlignmentPenalty,
+        boostModifier,
+        revealedCard: null,
+      },
+    },
+  });
+
+  return { state: newState, effects };
+}
+
 export function handleTapAgentAtSite(
   state: GameState,
   action: PlayHazardAction,
@@ -1073,7 +1252,7 @@ export function handleTapAgentAtSite(
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
 
   // --- Build CombatState ---
-  const combat: CombatState = makeCombatState({
+  const combat: CombatState = makeCombatState(stateAfterReveal, {
     attackSource: { type: 'agent', instanceId: agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
