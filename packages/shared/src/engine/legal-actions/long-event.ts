@@ -17,15 +17,15 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState, Company } from '../../index.js';
-import type { PlayOptionEffect } from '../../types/effects.js';
+import type { PlayOptionEffect, RegionTransformEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { isResourceEventCard, isSiteCard, isAllyCard } from '../../types/cards.js';
-import { CardStatus, cardStatusToName } from '../../types/common.js';
+import { CardStatus, cardStatusToName, type RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, withdrawAgentTargetActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -426,6 +426,22 @@ export function heroResourceShortEventActions(
       }
     }
 
+    // Collect eligible region-transform targets (Master of Wood, Water, or
+    // Hill td-136). See the identical block in organization.ts's
+    // `playResourceShortEventActions`.
+    const regionTransformEffect = def.effects?.find(
+      (e): e is RegionTransformEffect => e.type === 'region-transform',
+    );
+    let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
+    if (regionTransformEffect) {
+      regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
+      if (regionTransformTargets.length === 0) {
+        logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no eligible region to transform`));
+        continue;
+      }
+    }
+
     // "Discard every matching card in play" (Wizard's River-horses tw-364:
     // "All Nazgûl events are discarded"). Unlike the single-target shape above
     // there is nothing to choose — the mode is simply not playable while
@@ -509,6 +525,21 @@ export function heroResourceShortEventActions(
               cardInstanceId,
               ...(sageId ? { targetScoutInstanceId: sageId } : {}),
               discardTargetInstanceId: discardId,
+            },
+            viable: true,
+          });
+        }
+      } else if (regionTransformTargets) {
+        for (const { regionName, newRegionType } of regionTransformTargets) {
+          logDetail(`Resource short-event playable (sage ${String(sageId)}, region ${regionName} → ${newRegionType}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId,
+              ...(sageId ? { targetScoutInstanceId: sageId } : {}),
+              targetRegionName: regionName,
+              newRegionType,
             },
             viable: true,
           });

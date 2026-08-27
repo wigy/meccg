@@ -5178,6 +5178,48 @@ export interface RegionTypeConversionEffect extends EffectBase {
 }
 
 /**
+ * One from→to choice offered by a {@link RegionTransformEffect} (Master of
+ * Wood, Water, or Hill, td-136: "change one Wilderness to a Border-land or
+ * Shadow-land or one Shadow-land to a Wilderness or one Border-land to a
+ * Wilderness"). Unlike {@link RegionTypeConversionEffect} (bound to a site
+ * card while it stays in play, creature-keying only) this is a one-shot,
+ * player-chosen retype of a single **named** region, permanent — visible to
+ * every consumer of {@link import('../engine/effective.js').getEffectiveRegionType}
+ * (movement, creature keying, detainment), not just keying.
+ */
+export interface RegionTransformOption {
+  /** The region's current effective type required to offer this choice. */
+  readonly from: RegionType;
+  /** The type the region becomes if this choice is picked. */
+  readonly to: RegionType;
+}
+
+/**
+ * A resource short-event (Master of Wood, Water, or Hill, td-136) that lets
+ * the player retype one named region on the map, chosen at play time from
+ * every region whose current effective type matches an {@link options} entry's
+ * `from`. Combined with a `play-target` tap-cost effect naming the sage who
+ * pays the ritual's cost.
+ *
+ * Resolved as a top-level effect when the carrying short-event resolves on
+ * the chain of effects (CoE 9.4/9.5): `handlePlayResourceShortEvent`
+ * (`reducer-events.ts`) pushes the chosen region name/type onto the chain
+ * entry payload (`regionTransformName` / `regionTransformType`); on
+ * un-negated resolution `applyShortEventRegionTransform`
+ * (`short-event-discard.ts`) installs a permanent (`until-cleared`)
+ * `region.type` `override` `attribute-modifier` constraint filtered on the
+ * region's name, and enqueues the sage's follow-up corruption check (rule
+ * 7.4: skipped when the tapped cost-payer is an ally).
+ */
+export interface RegionTransformEffect extends EffectBase {
+  readonly type: 'region-transform';
+  /** The from→to choices offered; a region qualifies if its effective type matches any `from`. */
+  readonly options: readonly RegionTransformOption[];
+  /** Modifier applied to the sage's follow-up corruption check (default 0). */
+  readonly corruptionCheck?: { readonly modifier: number };
+}
+
+/**
  * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
  * end of the turn, every character at the bound site (except the one playing
  * the item) must make a corruption check each time an item is played at the
@@ -9150,6 +9192,7 @@ export type CardEffect =
   | RegionTypeRemapEffect
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
+  | RegionTransformEffect
   | ItemPlayCorruptionCheckEffect
   | TapAtSiteEffect
   | PlayTargetEffect

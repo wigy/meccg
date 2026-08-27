@@ -29,15 +29,15 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
 import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
-import { CardStatus, cardStatusToName, Race, Skill } from '../../types/common.js';
+import { CardStatus, cardStatusToName, Race, Skill, type RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, checkConditionalEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
-import { buildSiteFilterContext } from '../effective.js';
+import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
@@ -2821,6 +2821,34 @@ export function collectDiscardInPlayTargets(
 }
 
 /**
+ * Enumerates every (region name, destination type) pair a
+ * {@link RegionTransformEffect} (Master of Wood, Water, or Hill, td-136) can
+ * offer right now: every named region card in the pool whose *effective*
+ * type (via {@link getEffectiveRegionType}, so an already-transformed region
+ * is read correctly) matches an `options` entry's `from`, paired with that
+ * entry's `to`. A single region may appear more than once when several
+ * options share the same `from` with different `to` values (e.g. Wilderness
+ * → Border-land or Shadow-land).
+ */
+export function collectRegionTransformTargets(
+  state: GameState,
+  effect: RegionTransformEffect,
+): { regionName: string; newRegionType: RegionType }[] {
+  const out: { regionName: string; newRegionType: RegionType }[] = [];
+  for (const cardDef of Object.values(state.cardPool)) {
+    const rc = cardDef as { cardType?: string; name?: string; regionType?: RegionType };
+    if (rc.cardType !== 'region' || !rc.name || !rc.regionType) continue;
+    const effectiveType = getEffectiveRegionType(state, rc.name, rc.regionType);
+    for (const option of effect.options) {
+      if (option.from === effectiveType) {
+        out.push({ regionName: rc.name, newRegionType: option.to });
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Returns all {@link PlayOptionEffect}s declared on the given card.
  */
 export function getPlayOptionEffects(def: ResourceEventCard): readonly PlayOptionEffect[] {
@@ -4067,6 +4095,24 @@ export function playResourceShortEventActions(
       }
     }
 
+    // Collect eligible region-transform targets (Master of Wood, Water, or
+    // Hill td-136: "change one Wilderness to a Border-land or Shadow-land or
+    // one Shadow-land to a Wilderness or one Border-land to a Wilderness").
+    // One (region name, destination type) pair per matching region on the
+    // map; not playable when nothing currently qualifies.
+    const regionTransformEffect = def.effects?.find(
+      (e): e is RegionTransformEffect => e.type === 'region-transform',
+    );
+    let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
+    if (regionTransformEffect) {
+      regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
+      if (regionTransformTargets.length === 0) {
+        logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no eligible region to transform`));
+        continue;
+      }
+    }
+
     // duplication-limit: scope "turn" — cannot play if a copy was already
     // played this turn (tracked via active constraints sourced from this def).
     const turnDupLimit = findDuplicationLimitEffect(def, 'turn');
@@ -4115,6 +4161,21 @@ export function playResourceShortEventActions(
               cardInstanceId: handCard.instanceId,
               ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
               discardTargetInstanceId: discardId,
+            },
+            viable: true,
+          });
+        }
+      } else if (regionTransformTargets) {
+        for (const { regionName, newRegionType } of regionTransformTargets) {
+          logDetail(`Resource short-event playable (target ${String(tapTargetId)}, region ${regionName} → ${newRegionType}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+              targetRegionName: regionName,
+              newRegionType,
             },
             viable: true,
           });
