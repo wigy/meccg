@@ -17061,6 +17061,100 @@ done if his company is at a tapped site." — `playableAt: [{ "region":
 "Northern Rhovanion" }]` (the Noble Steed wh-33 region-`playableAt`
 precedent).
 
+### 80. `cvcc-capture-in-lieu-of-body-check` + `eliminate-captured-character` (No Better Use)
+
+Carried by a permanent-event attached to the controller's own character (a
+`play-target: "character"` resource-event played during the organization
+phase, e.g. No Better Use ba-41). Grants a one-time activated ability offered
+*alongside* the mandatory `body-check-roll` action whenever a **company-vs-
+company** character body check is pending against the opposing company: the
+bearer's controller may tap the bearer instead of rolling, placing the
+opposing character "off to the side" with this card. The card's own site-
+phase `grant-action` (documented below) later either releases the capture
+automatically (bearer wounded/leaves play) or lets the bearer eliminate it
+outright at a named site.
+
+```json
+{ "type": "cvcc-capture-in-lieu-of-body-check" }
+```
+
+Engine mechanics (`engine/no-better-use.ts`, `legal-actions/combat.ts`
+`captureInLieuOfBodyCheckActions`, `combat-actions.ts`
+`handleCaptureInLieuOfBodyCheck`):
+
+- **Offering the choice.** While `combat.isCvCC` and `combat.bodyCheckTarget`
+  is `'character'` or `'attacker-character'`, the same roller who would
+  otherwise face `body-check-roll` (CoE 3.I.1: whichever side's strike put the
+  opposing side's character in jeopardy) may instead activate this ability
+  from any untapped character of theirs bearing an unused instance of the
+  effect. Ally targets are exempt — the card text says "opponent's
+  character" — so the action is withheld when the pending check targets an
+  ally rather than a character.
+- **Bypassing the roll.** Activating the ability skips `body-check-roll`
+  entirely: the current strike is marked `resolved: true, result: 'captured'`
+  (the same disposition `take-prisoner` uses) so `combat-finalize.ts`'s
+  wound-triggered passives never fire on it, and combat advances via the
+  normal `advanceStrikeOrFinalize` machinery.
+- **The capture itself** (`captureCharacterInLieuOfBodyCheck`) reuses the
+  Press-gang (ba-22) "off to the side" shape: every item/ally/hazard on the
+  captured character is discarded ("discard all cards on opponent's
+  character"), its followers revert to general influence (CoE 2.II.2.2.3,
+  same CRF treatment as Press-gang), it is dropped from every company, and
+  the bare card is marked with a `character-captured-by-bearer` active
+  constraint (negative MP, 0 GI, never untaps/heals — treated identically to
+  Press-gang's `character-pressed` kind by `recompute-derived.ts` /
+  `reducer-untap.ts` / `influence-overflow.ts`, which score and lock it with no new
+  code). Unlike Press-gang's constraint, this one additionally records
+  `bearerCharacterId` / `bearerOwnerId` / `bearerLastKnownSite` — the
+  capturing character and its company's site at capture time — read only by
+  this mechanism (Press-gang's own constraints leave these fields unset).
+- **One-time use.** A persistent `granted-action-used` constraint
+  (`actionId: "no-better-use-capture"`, scope `until-cleared` — never
+  cleared) is recorded on the host the moment it captures, so the ability can
+  never fire again from that card instance, even after the capture is later
+  released.
+- **Automatic release** (`sweepNoBetterUseCaptures`, a `postReduce` sweep
+  alongside `sweepSetAside`/`sweepPressGang`): every pass, each capture's
+  recorded bearer is checked. Untapped and un-wounded — the bearer's company's
+  current site is refreshed into `bearerLastKnownSite` (so a later release
+  uses the bearer's *current* site, tracking its movement) and the capture
+  continues. Wounded (`CardStatus.Inverted`) — the host card is discarded from
+  the bearer's items and the captured character is released. Not found at all
+  (discarded/eliminated by *any* removal path, covered uniformly with no
+  per-seam interception) — released using the last refreshed site snapshot.
+  Release forms a fresh one-character company for the captured character at
+  that site, with no planned movement — "opponent's character then forms a
+  company at your character's current or new site."
+
+```json
+{
+  "type": "grant-action",
+  "action": "no-better-use-eliminate",
+  "anyPhase": true,
+  "cost": { "tap": "bearer", "discard": "self" },
+  "when": { "$and": [{ "phase": "site" }, { "site.name": "Shelob’s Lair" }] },
+  "apply": { "type": "eliminate-captured-character" }
+}
+```
+
+**`eliminate-captured-character` grant-action apply.** Eliminates the
+character currently held by the activating source card (found via its
+`character-captured-by-bearer` constraint — already stripped of every possession at
+capture time, so only the bare card is relocated) and credits its kill
+marshalling points to the activating player, then removes the constraint.
+Implemented in `grant-action-apply.ts`, using the same `no-better-use.ts`
+lookup/removal helpers the automatic-release sweep uses. Combined with
+`anyPhase: true` + `when: { "phase": "site", "site.name": "..." }` (the
+documented pattern for restricting a grant-action to a single phase — see
+§7's "Gating a grant-action to one phase via `when`") and a composable
+`cost: { "tap": "bearer", "discard": "self" }`, this realizes "during the
+site phase at Shelob's Lair, your character may tap and discard this card to
+eliminate opponent's character — whom you then receive as kill marshalling
+points." The `siteCtx` object exposed to every `grant-action` `when` clause
+(`buildGrantActionContext`, `legal-actions/organization.ts`) now also carries
+`name` (the current site's printed name), previously absent — the first
+grant-action to gate on a specific site by name rather than type/keyword.
+
 ### 79. `restore-item` grant-action + `restored-item-stats` + `face-all-strikes-option` (Horn of Defiance)
 
 Three primitives backing the Reforging family of hoard items — Horn of

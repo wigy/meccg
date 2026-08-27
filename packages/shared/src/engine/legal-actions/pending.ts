@@ -1963,6 +1963,11 @@ function applyOneConstraint(
       // so it never surfaces in company-driven action menus. Its negative MP / 0
       // GI / no-untap are enforced in `recompute-derived.ts` / `reducer-untap.ts`.
       return base;
+    case 'character-captured-by-bearer':
+      // No Better Use (ba-41): same off-to-the-side shape as `character-pressed`
+      // (see that case) — the held character is in no company, so it never
+      // surfaces in company-driven action menus.
+      return base;
     case 'tidings-attacks-queue':
       // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to
       // chain successive Tidings of Bold Spies attacks — no broad legal-action

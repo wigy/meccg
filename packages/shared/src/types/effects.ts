@@ -2211,6 +2211,7 @@ export type TriggeredActionType =
   | 'counter-cancel-attack'
   | 'discard-character'
   | 'eliminate-character'
+  | 'eliminate-captured-character'
   | 'enqueue-opponent-elimination-roll'
   | 'discard-target-character'
   | 'force-discard-one-company-item'
@@ -2921,6 +2922,19 @@ export interface EliminateCharacterAction extends TriggeredActionBase {
 }
 
 /**
+ * `eliminate-captured-character` — a `grant-action` apply for No Better Use
+ * (ba-41): eliminate the character currently held "off to the side" by the
+ * activating source card (found via its `character-pressed` constraint) and
+ * award its kill marshalling points to the activating player. Used for
+ * ba-41's Shelob's Lair finisher: "tap and discard this card to eliminate
+ * opponent's character — whom you then receive as kill marshalling points."
+ * Implemented in `grant-action-apply.ts`, using `no-better-use.ts` helpers.
+ */
+export interface EliminateCapturedCharacterAction extends TriggeredActionBase {
+  readonly type: 'eliminate-captured-character';
+}
+
+/**
  * `wound-or-eliminate` — the dice-check onPass verb for "he is wounded or, if
  * already wounded, eliminated" (Crowned with Storm ba-54). Acts on the
  * resolution-context target, which may be **either** a character
@@ -3615,6 +3629,7 @@ export type TriggeredAction =
   | MoveEffect
   | DiscardCharacterAction
   | EliminateCharacterAction
+  | EliminateCapturedCharacterAction
   | WoundOrEliminateAction
   | EnqueueOpponentEliminationRollAction
   | DiscardTargetCharacterAction
@@ -7841,6 +7856,31 @@ export interface CvccAttackPermissionEffect extends EffectBase {
 }
 
 /**
+ * No Better Use (ba-41): while the bearer is untapped and this ability has
+ * never been used, the bearer's controller may — instead of a pending
+ * company-vs-company body check against a **character** (not an ally) in the
+ * opposing company — tap the bearer to place that character "off to the side"
+ * with this card. Offered alongside `body-check-roll` for either CvCC
+ * body-check target (`'character'` — the bearer's own company struck the
+ * opponent; `'attacker-character'` — the opponent's company struck the
+ * bearer's own company and lost the exchange), whichever side the bearer's
+ * company is on.
+ *
+ * The capture (strip all items/allies/hazards to discard, followers revert to
+ * general influence, `character-pressed` constraint recording the bearer so
+ * it can be watched) is implemented in `engine/no-better-use.ts`, reusing the
+ * same off-to-the-side shape as Press-gang (ba-22). Unlike Press-gang the
+ * capture is released — forming a fresh one-character company at the
+ * bearer's current site — the moment the bearer is wounded or leaves active
+ * play (`sweepNoBetterUseCaptures`, a `postReduce` sweep), and the ability
+ * itself is one-time-per-card, enforced by a persistent `granted-action-used`
+ * lock keyed `no-better-use-capture`.
+ */
+export interface CvccCaptureInLieuOfBodyCheckEffect extends EffectBase {
+  readonly type: 'cvcc-capture-in-lieu-of-body-check';
+}
+
+/**
  * Caverns Unchoked (ba-51): a Balrog permanent-event played on an Under-deeps
  * site during the organization phase (via a companion `play-target: site`
  * filtered to the `under-deeps` keyword). While in play the card is bound to
@@ -9246,6 +9286,7 @@ export type CardEffect =
   | CompanyMovementTaxEffect
   | VoluntaryDiscardEffect
   | CvccAttackPermissionEffect
+  | CvccCaptureInLieuOfBodyCheckEffect
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
   | AttachedFactionMpBonusEffect
