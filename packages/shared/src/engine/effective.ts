@@ -224,6 +224,11 @@ export function getEffectiveSiteType(
     // The general effective type is unchanged, so hazard keying, movement,
     // bring-into-play, and item/faction/ally playability all see the printed type.
     if (c.kind.healingOnly) continue;
+    // Mallorn (dm-148): a `characterPlayOnly` override is scoped to healing +
+    // character recruiting — hidden from every general consumer just like
+    // `healingOnly`, but honoured by the character-recruiting-specific
+    // callers (`excludeCharacterPlayOverrides: true`).
+    if (c.kind.characterPlayOnly && !excludeCharacterPlayOverrides) continue;
     if (excludeCharacterPlayOverrides && c.kind.excludesCharacterPlay) continue;
     if (!siteConstraintFilterMatches(c.kind.filter, siteDefinitionId, siteNameOf(state, siteDefinitionId), printedType)) continue;
     value = c.kind.value as SiteType;
