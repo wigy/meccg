@@ -2221,7 +2221,8 @@ export type TriggeredActionType =
   | 'win-condition-roll'
   | 'win-game'
   | 'transfer-item-free'
-  | 'reattach-to-item';
+  | 'reattach-to-item'
+  | 'restore-item';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -2987,6 +2988,33 @@ export interface PlaceSourceWithItemAction extends TriggeredActionBase {
 }
 
 /**
+ * `restore-item` — a grant-action apply declared directly on an already-borne
+ * hoard item's own effects (not `fromStored`, unlike `place-source-with-item`:
+ * here the item itself is the source, already attached to a bearer). Paid with
+ * `cost: { discard: "named-stored-card", discardCardName: "Reforging" }`, it
+ * marks the item's own {@link ItemInPlay.restored} flag rather than relocating
+ * any card. `recompute-derived.ts` then reads {@link marshallingPoints} /
+ * {@link corruptionPoints} off this same apply clause in place of the item's
+ * printed values, and the item's own `stat-modifier` effects gate their
+ * pre-/post-restore variants on the `item.restored` resolver context field
+ * (set only while collecting this item's own effects, see
+ * `collectCharacterEffects`). Scanned by the item grant-action loop in
+ * `legal-actions/organization.ts` (one activation per eligible stored
+ * `discardCardName` candidate) and applied by `runGrantApply`
+ * (`grant-action-apply.ts`). Used by Ringil (td-184): "A stored Reforging may
+ * be placed with this item to 'restore' it. Once restored, Ringil gives 4
+ * marshalling points, 3 corruption points and +5 prowess (to a maximum of
+ * 11)."
+ */
+export interface RestoreItemAction extends TriggeredActionBase {
+  readonly type: 'restore-item';
+  /** Marshalling points the item gives once restored, replacing its printed value. */
+  readonly marshallingPoints?: number;
+  /** Corruption points the item gives once restored, replacing its printed value. */
+  readonly corruptionPoints?: number;
+}
+
+/**
  * `discard-named-in-play` — on `self-enters-play`, find every in-play card with
  * the given name (scanning both players' `cardsInPlay` plus every character's
  * attached `items`/`hazards`) and move each instance to its owner's discard
@@ -3563,7 +3591,8 @@ export type TriggeredAction =
   | CancelCurrentAttackAction
   | TraitorAttackAction
   | TransferItemFreeAction
-  | ReattachToItemAction;
+  | ReattachToItemAction
+  | RestoreItemAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`

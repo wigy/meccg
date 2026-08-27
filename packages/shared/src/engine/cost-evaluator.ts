@@ -57,6 +57,12 @@ export interface CostContext {
   readonly noTap?: boolean;
   /** Human-readable label for log messages (e.g. card name or action ID). */
   readonly label?: string;
+  /**
+   * The specific stored-card instance to discard for `discard: "named-stored-card"`
+   * — the player's chosen candidate from `killPile` (carried on the action as
+   * `targetCardId`). Required only for that cost shape; ignored otherwise.
+   */
+  readonly discardTargetCardId?: CardInstanceId;
 }
 
 /** Result of {@link applyCost}: updated state or an error message. */
@@ -139,6 +145,33 @@ export function applyCost(
       discardPile: [...p.discardPile, discarded],
     }));
     logDetail(`Cost (${label}): discarded "${cost.discardCardName}" from hand`);
+  } else if (cost.discard === 'named-stored-card') {
+    // The bearer-attached counterpart of the `fromStored` `place-source-with-item`
+    // shape (Andúril tw-192): here the source is an already-borne item (Ringil
+    // td-184 and siblings) discarding a *different* stored card, chosen by the
+    // player and carried as `context.discardTargetCardId`.
+    if (!cost.discardCardName) {
+      return { error: `applyCost: discard named-stored-card requires discardCardName` };
+    }
+    const { discardTargetCardId } = context;
+    if (!discardTargetCardId) {
+      return { error: `applyCost: discard named-stored-card requires a chosen target` };
+    }
+    const player = currentState.players[context.playerIndex];
+    if (!player) return { error: `applyCost: no player at index ${context.playerIndex}` };
+    const stored = player.killPile.find(c => c.instanceId === discardTargetCardId && c.storedAtSite);
+    if (!stored) {
+      return { error: `applyCost: chosen card ${discardTargetCardId as string} is not stored` };
+    }
+    if (cardName(currentState, stored.definitionId, '') !== cost.discardCardName) {
+      return { error: `applyCost: chosen card is not a stored "${cost.discardCardName}"` };
+    }
+    currentState = updatePlayer(currentState, context.playerIndex, p => ({
+      ...p,
+      killPile: removeById(p.killPile, stored.instanceId),
+      discardPile: [...p.discardPile, { instanceId: stored.instanceId, definitionId: stored.definitionId }],
+    }));
+    logDetail(`Cost (${label}): discarded stored "${cost.discardCardName}" (${discardTargetCardId as string})`);
   }
 
   if (cost.check === 'corruption') {

@@ -16650,3 +16650,64 @@ company faces an attack at the beginning of its movement/hazard phase: Orcs —
 the regions listed above, the hazard limit is reduced by 2 (to a minimum of
 2). Cannot be duplicated on a given company." (CRF 22: the printed
 "otherwise" should be read as "alternatively".)
+
+### 79. `grant-action` `restore-item` + `item.restored` context (Ringil)
+
+The "restore" family of Third Age hoard items (Ringil td-184, Horn of
+Defiance td-183, Belegennon td-185): "A stored *Reforging* may be placed with
+this item to 'restore' it. Once restored, [Ringil] gives 4 marshalling
+points, 3 corruption points and +5 prowess (to a maximum of 11)." Unlike the
+`fromStored` `place-source-with-item` shape (Andúril tw-192 §"named-stored-card
++ place-source-with-item" above), the restorable item here is **already
+borne** — nothing is relocated. Discarding the stored Reforging just flips a
+permanent flag on the item's own `ItemInPlay` entry, and the item's own
+effects read that flag to swap in their post-restore values.
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 1, "max": 8,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": { "$ne": true } } ] } },
+{ "type": "stat-modifier", "stat": "prowess", "value": 5, "max": 11,
+  "when": { "$and": [ { "bearer.skills": { "$includes": "warrior" } },
+                       { "item.restored": true } ] } },
+{ "type": "grant-action", "action": "restore-ringil",
+  "cost": { "discard": "named-stored-card", "discardCardName": "Reforging" },
+  "apply": { "type": "restore-item", "marshallingPoints": 4, "corruptionPoints": 3 } }
+```
+
+- **`discard: "named-stored-card"` on a bearer-attached grant-action** — until
+  now this cost shape was hard-wired to the bearer-less `fromStored` path
+  (`handleStoredCardGrantAction`). `cost-evaluator.ts`'s generic `applyCost`
+  now also handles it directly: it requires a `context.discardTargetCardId`
+  (threaded from the activated action's `targetCardId` by
+  `handleGrantActionApply`), looks that instance up in the acting player's
+  `killPile` (must carry `storedAtSite`), confirms its name matches
+  `discardCardName`, and moves it to the discard pile — independent of
+  whichever `apply` the grant-action pairs it with.
+- **`restore-item` apply** (`RestoreItemAction`) — declared directly on the
+  restorable item's own effects (no `fromStored`, since the item itself is
+  the grant-action's source and already has a bearer). Resolved by
+  `runGrantApply` (`grant-action-apply.ts`): finds the source in the bearer's
+  `items`, rejects if already restored, and sets `ItemInPlay.restored = true`
+  in place — no card changes zone. Its own `marshallingPoints` /
+  `corruptionPoints` fields are not consumed by the apply itself; they are
+  read back out of this same effect by `recompute-derived.ts`'s
+  `findRestoreItemApply` helper whenever `item.restored` is set, overriding
+  the item's printed `marshallingPoints`/`corruptionPoints` (mirroring the
+  existing wh-99 / permanent-event MP-override precedent, just keyed off an
+  instance flag instead of an in-play card scan).
+- **`item.restored` resolver context** — `collectCharacterEffects`
+  (`effects/resolver.ts`) sets `item: { restored: true }` on the context
+  only while collecting that specific item's own effects (an item's
+  `restored` flag never leaks onto the bearer's own effects or sibling
+  items), so a `stat-modifier`'s `when` can pair a pre-restore and a
+  post-restore variant of the same bonus, exactly like `overrides`/`when`
+  already pair combat-specific and default stat-modifiers elsewhere.
+- **Legal-action offer** — the item grant-action scan
+  (`legal-actions/organization.ts`) offers one `restore-ringil` activation per
+  stored `killPile` entry named `discardCardName`, suppressed once
+  `item.restored` is already set (so the ability disappears for good once
+  used — restoring is one-way, matching "once restored" in the card text).
+  No site/bearer-location gate: the card text names no location requirement
+  for placing the stored Reforging, unlike Reforging's own sage-at-Haven
+  fetch ability.

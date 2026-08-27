@@ -50,7 +50,7 @@ import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corrup
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
-import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect } from '../types/effects.js';
+import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect, GrantActionEffect, RestoreItemAction } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -359,6 +359,22 @@ function addItemMP(
   }
   if (mp === 0) return totals;
   return { ...totals, [cat]: totals[cat] + mp };
+}
+
+/**
+ * Finds a restored hoard item's own `restore-item` grant-action apply clause
+ * (Ringil td-184 and siblings), which carries the marshalling-point /
+ * corruption-point values the item gives once restored — read here instead of
+ * the item's printed {@link CardDefinition.marshallingPoints} /
+ * `corruptionPoints`. Returns `undefined` for an item with no such effect (or
+ * one not yet restored — callers only look this up when {@link ItemInPlay.restored}
+ * is set).
+ */
+function findRestoreItemApply(def: CardDefinition): RestoreItemAction | undefined {
+  const effect = getCardEffects(def).find(
+    (e): e is GrantActionEffect => e.type === 'grant-action' && e.apply?.type === 'restore-item',
+  );
+  return effect?.apply?.type === 'restore-item' ? effect.apply : undefined;
 }
 
 /** One faction-MP-override rule: a condition and the MP it grants when matched. */
@@ -1053,7 +1069,12 @@ function computeEffectiveStats(
         // multiplier (Bane of the Ithil-stone: "Corruption points for Palantíri
         // are doubled").
         const deltas = itemModifierDeltas(itemDef, inPlayItemMods, bearerPlayerAlignment);
-        const itemCp = (itemDef.corruptionPoints + deltas.cp) * deltas.cpMultiplier;
+        // Ringil (td-184) and siblings: once "restored", the item's corruption
+        // points come from its restore-item apply clause instead of its
+        // printed value.
+        const restoreApply = item.restored ? findRestoreItemApply(itemDef) : undefined;
+        const baseCp = restoreApply?.corruptionPoints ?? itemDef.corruptionPoints;
+        const itemCp = (baseCp + deltas.cp) * deltas.cpMultiplier;
         corruptionPoints += itemCp;
         if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
@@ -1679,6 +1700,18 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         mp = addPinnedCardMp(mp, itemDef, pinValue);
         if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, itemDef, pinValue);
         continue;
+      }
+      // Ringil (td-184) and siblings: once "restored" by placing a stored
+      // Reforging with the item, it scores the restore-item apply's
+      // marshalling-point value instead of its printed / §4-clamped MP.
+      if (item.restored) {
+        const restoreApply = findRestoreItemApply(itemDef);
+        if (restoreApply?.marshallingPoints !== undefined && hasMarshallingPoints(itemDef)) {
+          const cat = itemDef.marshallingCategory;
+          mp = { ...mp, [cat]: mp[cat] + restoreApply.marshallingPoints };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + restoreApply.marshallingPoints };
+          continue;
+        }
       }
       // Give Welcome to the Unexpected (wh-99): a matching unique non-character
       // item scores the override value instead of its printed / §4-clamped MP.

@@ -160,6 +160,27 @@ function runGrantApply(
     return { updatedChar: { ...char, items: updatedItems }, effects: [], stateOps: [] };
   }
 
+  // Ringil (td-184) and siblings: mark the already-borne source item
+  // "restored" in place. No card is relocated — the discard of the stored
+  // Reforging companion was already paid as the grant-action's cost;
+  // `recompute-derived.ts` reads this same apply clause's marshalling-point /
+  // corruption-point values for a restored item, and the item's own
+  // `stat-modifier` effects gate their restored variant on the `item.restored`
+  // resolver context field (`collectCharacterEffects`).
+  if (apply.type === 'restore-item') {
+    const sourceItem = char.items.find(i => i.instanceId === ctx.action.sourceCardId);
+    if (!sourceItem) {
+      return { error: `restore-item: source ${ctx.sourceName} not found in ${ctx.charName}'s items` };
+    }
+    if (sourceItem.restored) {
+      return { error: `restore-item: ${ctx.sourceName} is already restored` };
+    }
+    logDetail(`Grant-action ${ctx.action.actionId}: "${ctx.sourceName}" restored on ${ctx.charName}`);
+    const updatedItems = char.items.map(i =>
+      i.instanceId === sourceItem.instanceId ? { ...i, restored: true as const } : i);
+    return { updatedChar: { ...char, items: updatedItems }, effects: [], stateOps: [] };
+  }
+
   if (apply.type === 'set-character-status' && apply.target === 'bearer') {
     if (apply.status === undefined) {
       return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
@@ -1684,6 +1705,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     sourceCardDefId: action.sourceCardDefinitionId,
     noTap,
     label: `${action.actionId}/${sourceName}`,
+    discardTargetCardId: action.targetCardId,
   });
   if ('error' in costResult) return { state, error: `${sourceName}: ${costResult.error}` };
 

@@ -1484,6 +1484,30 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const def = defById(state, item.definitionId);
         const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
 
+        // `restore-item` (Ringil td-184 and siblings): the item itself is the
+        // source (already borne, unlike `place-source-with-item`'s `fromStored`
+        // shape) — no bearer-site check, just "a stored Reforging may be placed
+        // with this item". One activation per eligible stored `discardCardName`
+        // candidate still sitting in the player's marshalling-point pile;
+        // suppressed once the item is already restored.
+        if (effect.apply?.type === 'restore-item') {
+          if (item.restored) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: already restored`);
+            continue;
+          }
+          const discardCandidates = player.killPile.filter(c =>
+            c.storedAtSite && defById(state, c.definitionId)?.name === effect.cost.discardCardName);
+          if (discardCandidates.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no stored ${effect.cost.discardCardName ?? '?'} to discard`);
+            continue;
+          }
+          for (const discardCandidate of discardCandidates) {
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: discardCandidate.instanceId }));
+          }
+          logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: offered ${discardCandidates.length} stored ${effect.cost.discardCardName ?? '?'} candidate(s) to restore`);
+          continue;
+        }
+
         // `place-item-on-character` (The Forge-master wh-117): tap the bearer to
         // place a qualifying minor item — fetched from the player's discard pile,
         // sideboard, or hand — onto any of the player's characters at the bearer's

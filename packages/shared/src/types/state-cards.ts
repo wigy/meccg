@@ -125,6 +125,17 @@ export interface ItemInPlay {
    * bearer's company's `currentSite`.
    */
   readonly playedAtSiteDefId?: CardDefinitionId;
+  /**
+   * True once a stored companion card has been "placed with" this item to
+   * restore it — e.g. a stored Reforging placed with Ringil (td-184). Set by
+   * the `restore-item` grant-action apply (`grant-action-apply.ts`) and never
+   * cleared. `collectCharacterEffects` (`effects/resolver.ts`) exposes it as
+   * `item.restored` in the resolver context while collecting this item's own
+   * effects, so a `stat-modifier`'s `when` can gate a pre-/post-restore bonus
+   * pair; `recompute-derived.ts` reads the item's `restore-item` apply clause
+   * for the marshalling-point / corruption-point values it gives once restored.
+   */
+  readonly restored?: true;
 }
 
 /**
