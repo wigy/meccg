@@ -218,6 +218,14 @@ export interface StatModifierEffect extends EffectBase {
    *   matching characters are unaffected.
    * - `"all-attacks"` — applies to every automatic-attack and hazard creature.
    * - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures).
+   * - `"attacker-chooses-defenders-attacks"` — `stat: "strikes"` only. Applies
+   *   to an attack only once its final `attackerChoosesDefenders` flag
+   *   (printed rule OR'd with any global grant) is known, at combat creation —
+   *   kept separate from `"all-attacks"` so this later pass never double-counts
+   *   an unrelated all-attacks strikes modifier already folded into the base
+   *   total by {@link resolveAttackStrikes}. Used by More Alert than Most
+   *   (dm-150): "-1 strike (-2 if Gates of Morning is in play), minimum 1, to
+   *   any attack that chooses defending characters."
    * - `"company"` — applies to every character in the bearer's company (e.g. The One Ring).
    * - `"company-others"` — applies to every *other* character in the bearer's
    *   company, excluding the bearer itself (e.g. So You've Come Back le-138:
@@ -225,7 +233,7 @@ export interface StatModifierEffect extends EffectBase {
    *   Collected from a company member's attached hazards/items for every *other*
    *   member; the effect's `when` gates the modified character (via `bearer.*`).
    */
-  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'company' | 'company-others';
+  readonly target?: 'all-characters' | 'own-characters' | 'all-attacks' | 'all-automatic-attacks' | 'attacker-chooses-defenders-attacks' | 'company' | 'company-others';
   /**
    * Only meaningful for `stat: 'general-influence'`. Caps how many of the
    * `value` points added to the general-influence pool may be spent to control
@@ -8346,6 +8354,37 @@ export interface FactionMpBonusEffect extends EffectBase {
 }
 
 /**
+ * A resource permanent event played on (`play-target: "faction"`) a single
+ * in-play faction instance grants that specific faction's owner a flat MP
+ * bonus, credited in `category` (independent of the faction's own printed
+ * `marshallingCategory`).
+ *
+ * Distinct from {@link FactionMpBonusEffect} (as-45's race-diversity gate over
+ * a *class* of factions): this effect is anchored to one attached instance
+ * (`CardInPlay.attachedTo`) via the generic faction play-target binding
+ * (chain-reducer.ts, the same mechanism Long Grievous Siege ba-40 uses), so
+ * the bonus follows that one faction rather than every faction of a race.
+ * Collected in `recompute-derived.ts` from the controller's own `cardsInPlay`
+ * entries carrying an `attachedTo` pointer, and applied only while the target
+ * faction remains in play — `discardOrphanedFactionAttachedEvents`
+ * (reducer-utils.ts) discards the carrier once its target faction leaves.
+ *
+ * Used by Tribute Garnered (as-104): "Playable on a faction in play. That
+ * faction gives an additional miscellaneous marshalling point."
+ *
+ * ```json
+ * { "type": "attached-faction-mp-bonus", "value": 1, "category": "misc" }
+ * ```
+ */
+export interface AttachedFactionMpBonusEffect extends EffectBase {
+  readonly type: 'attached-faction-mp-bonus';
+  /** Marshalling points added to the target faction's owner. */
+  readonly value: number;
+  /** Category the bonus is credited to (defaults to `misc`). */
+  readonly category?: MarshallingCategory;
+}
+
+/**
  * A card that discards **itself** the moment another card matching `filter`
  * leaves its controller's play area (present in the controller's `cardsInPlay`
  * before an action, absent after). Evaluated as a `postReduce` prev/next diff
@@ -9194,6 +9233,7 @@ export type CardEffect =
   | CvccAttackPermissionEffect
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
+  | AttachedFactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
   | RetainHazardLongEventsEffect
   | OpposedRollEffect

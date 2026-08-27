@@ -155,7 +155,7 @@ export function buildHuntCombat(
     + `found in ${opponentId as string}'s ${candidate.source} — forced to attack ${bearerInstanceId as string} alone`,
   );
 
-  const combat = makeCombatState({
+  const combat = makeCombatState(working, {
     attackSource: {
       type: 'hunt-attack',
       huntInstanceId,
