@@ -35,10 +35,10 @@ import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
   viableActions,
-  attachItemToChar, addCardInPlay, recomputeDerived,
+  attachItemToChar, addCardInPlay, addStoredCard, recomputeDerived,
   makePlayDeck,
   RESOURCE_PLAYER,
-  ARAGORN,
+  ARAGORN, BALIN,
   ISENGARD, RIVENDELL, LORIEN, MORIA,
 } from '../test-helpers.js';
 import { Alignment } from '../../index.js';
@@ -49,6 +49,7 @@ const LEGACY_OF_SMITHS = 'wh-76'  as CardDefinitionId; // the card under test
 const PALLANDO_FW      = 'wh-7'   as CardDefinitionId; // a Fallen-wizard avatar (no MP-exemption effects of its own)
 const WEAPON_ITEM      = 'tw-244' as CardDefinitionId; // Glamdring: non-ring weapon, printed MP 2
 const RING_ITEM        = 'tw-271' as CardDefinitionId; // Magic Ring of Courage: ring, printed MP 3
+const DURINS_AXE       = 'tw-212' as CardDefinitionId; // Durin's Axe: non-ring weapon, printed MP 2, +2 MP if held by a Dwarf
 
 /** A Fallen-wizard (player 0) at Isengard with Pallando + Aragorn, idle opponent. */
 function fwState() {
@@ -121,6 +122,63 @@ describe('Legacy of Smiths (wh-76)', () => {
     state = recomputeDerived(state);
 
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(3);
+  });
+
+  // ─── Rule: the exemption also lifts the clamp on items stored in the ──────
+  // ─── marshalling-point pile (CoE 10.F1: "unless ... modified by a stage ───
+  // ─── resource"), not just items attached to a character in company ────────
+
+  test('a non-ring item stored in the marshalling-point pile also scores full printed MP with Legacy of Smiths in play', () => {
+    let state = fwState();
+    const stored = addStoredCard(state, RESOURCE_PLAYER, WEAPON_ITEM, ISENGARD);
+    state = stored.state;
+    state = addCardInPlay(state, RESOURCE_PLAYER, LEGACY_OF_SMITHS);
+    state = recomputeDerived(state);
+
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(2);
+  });
+
+  test('control: without Legacy of Smiths the same stored item stays clamped to 1', () => {
+    let state = fwState();
+    const stored = addStoredCard(state, RESOURCE_PLAYER, WEAPON_ITEM, ISENGARD);
+    state = stored.state;
+    state = recomputeDerived(state);
+
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(1);
+  });
+
+  // ─── Rule: an exempted item's own bearer-conditional MP bonus applies too ──
+  // ─── (10.F1's "modified" value is the item's ordinary computed value, ─────
+  // ─── not just its printed MP) ───────────────────────────────────────────
+
+  test("Durin's Axe held by a Dwarf scores its +2 dwarf bonus once exempted by Legacy of Smiths (2 printed + 2 dwarf bonus = 4)", () => {
+    let state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: ISENGARD, characters: [PALLANDO_FW, BALIN] }],
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [] }],
+          hand: [],
+          siteDeck: [LORIEN],
+          playDeck: makePlayDeck(),
+        },
+      ],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, BALIN, DURINS_AXE);
+    state = addCardInPlay(state, RESOURCE_PLAYER, LEGACY_OF_SMITHS);
+    state = recomputeDerived(state);
+
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.item).toBe(4);
   });
 
   // ─── Rule: only a Fallen-wizard is affected ────────────────────────────────
