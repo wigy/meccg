@@ -9244,6 +9244,8 @@ export type CardEffect =
   | NullifyInfluenceModificationsEffect
   | TapDiscardInPlayEffect
   | RemovalProtectionEffect
+  | ForceAgentAttackEffect
+  | DiscardUnrevealedOnGuardEffect
   | SwapNewSiteEffect;
 
 /**
@@ -9662,6 +9664,41 @@ export interface AgentAttackOutcomeEffect extends EffectBase {
   readonly onFailSurvive?: 'defender-plays-manifestation';
   /** The card name of the manifestation the defender may play from hand (Gollum). */
   readonly manifestationCardName?: string;
+}
+
+/**
+ * Global rule (in-play, either player's `cardsInPlay`): every revealed
+ * (face-up) agent standing at a site a company enters must declare an attack
+ * against that company — the hazard player's usual option to pass on an
+ * agent attack is removed for any such agent. Face-down agents are
+ * unaffected: revealing one to attack remains optional.
+ *
+ * Computed by `agentAttackIsMandatory` (`reducer-utils.ts`) and consulted by
+ * `declareAgentAttackActions` (`legal-actions/site.ts`), which omits the
+ * `pass` action from the declare-agent-attack step whenever a face-up agent
+ * at the company's current site has not yet attacked this site phase.
+ *
+ * Used by Ordered to Kill (dm-152): "Each face up agent must attack if a
+ * company enters a site where he is located."
+ */
+export interface ForceAgentAttackEffect extends EffectBase {
+  readonly type: 'force-agent-attack';
+}
+
+/**
+ * Global rule (in-play, either player's `cardsInPlay`): at site-phase
+ * cleanup, on-guard cards still sitting unrevealed on a company are
+ * discarded to their owner's discard pile instead of being returned to the
+ * owner's hand (the CoE default, `returnOnGuardCardsToHand`).
+ *
+ * Computed by `unrevealedOnGuardDiscarded` (`reducer-utils.ts`) and consulted
+ * by `returnOnGuardCardsToHand` (`reducer-site.ts`).
+ *
+ * Used by Ordered to Kill (dm-152): "Additionally, any unrevealed on-guard
+ * cards are discarded instead of being returned to their owner's hand."
+ */
+export interface DiscardUnrevealedOnGuardEffect extends EffectBase {
+  readonly type: 'discard-unrevealed-on-guard';
 }
 
 /**
