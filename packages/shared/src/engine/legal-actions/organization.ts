@@ -2816,6 +2816,14 @@ export function buildPlayOptionContext(
   if (!def || !isCharacterCard(def)) {
     return { target: {}, pending: { corruptionCheckTargetsMe: false } };
   }
+  // Mirrors `corruptionCheckTargetsMe` for the riddling-attempt window: true
+  // only while a `riddling-attempt` pending resolution is awaiting its roll
+  // for this exact character. Gates reactive roll-boosting short events (Wit
+  // td-168: "Modify one riddling roll by +3") so they are offered only in
+  // response to an actual pending riddling roll, never speculatively.
+  const riddlingAttemptTargetsMe = state.pendingResolutions.some(
+    r => r.kind.type === 'riddling-attempt' && r.kind.characterInstanceId === char.instanceId,
+  );
   const corruptionCheckTargetsMe = state.pendingResolutions.some(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   ) || (
@@ -2967,6 +2975,7 @@ export function buildPlayOptionContext(
     },
     pending: {
       corruptionCheckTargetsMe,
+      riddlingAttemptTargetsMe,
     },
     player: {
       hasFactionInHand,
