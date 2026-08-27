@@ -158,11 +158,12 @@
     "race": "wose",
     "playableAt": [
       {
-        "site": "The"
+        "site": "The Worthy Hills"
       }
     ],
     "effects": [],
-    "text": "Unique. Manifestation of minion Woses of the Eryn Vorn. Playable at The Worthy Hills if the influence check is greater than 10. Standard Modifications: none."
+    "text": "Unique. Manifestation of minion Woses of the Eryn Vorn. Playable at The Worthy Hills if the influence check is greater than 10. Standard Modifications: none.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "minion-resource-ally",
