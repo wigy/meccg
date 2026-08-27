@@ -1637,6 +1637,47 @@ export function siteTypeForcesAutoAttacksNormal(
 }
 
 /**
+ * True when some in-play permanent-event (either player's `cardsInPlay`)
+ * carries a `force-agent-attack` effect — Ordered to Kill (dm-152): "Each
+ * face up agent must attack if a company enters a site where he is
+ * located." While true, `declareAgentAttackActions` omits the `pass` action
+ * whenever a revealed agent stands at the company's current site and has not
+ * yet attacked this site phase, forcing the hazard player to declare its
+ * attack instead of skipping it.
+ */
+export function agentAttackIsMandatory(state: GameState): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type === 'force-agent-attack') return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * True when some in-play permanent-event (either player's `cardsInPlay`)
+ * carries a `discard-unrevealed-on-guard` effect — Ordered to Kill (dm-152):
+ * "any unrevealed on-guard cards are discarded instead of being returned to
+ * their owner's hand." While true, `returnOnGuardCardsToHand` routes
+ * leftover on-guard cards to the hazard player's discard pile instead of
+ * their hand at site-phase cleanup.
+ */
+export function unrevealedOnGuardDiscarded(state: GameState): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type === 'discard-unrevealed-on-guard') return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * The `<wizard>-specific` avatar name a site definition binds to (e.g.
  * "Radagast" for Rhosgobel's `radagast-specific` keyword), or `null` when the
  * site carries no such keyword. Kept local to avoid a module cycle with

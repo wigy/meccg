@@ -16650,3 +16650,52 @@ company faces an attack at the beginning of its movement/hazard phase: Orcs —
 the regions listed above, the hazard limit is reduced by 2 (to a minimum of
 2). Cannot be duplicated on a given company." (CRF 22: the printed
 "otherwise" should be read as "alternatively".)
+
+### 79. `force-agent-attack` + `discard-unrevealed-on-guard` (Ordered to Kill)
+
+Two global, unconditional rules-changing effects for an in-play permanent
+event (either player's `cardsInPlay`), used together by Ordered to Kill
+(dm-152): "Each face up agent must attack if a company enters a site where
+he is located. Additionally, any unrevealed on-guard cards are discarded
+instead of being returned to their owner's hand. Discard when any play deck
+is exhausted. Cannot be duplicated."
+
+```json
+{ "type": "force-agent-attack" },
+{ "type": "discard-unrevealed-on-guard" },
+{ "type": "duplication-limit", "scope": "game", "max": 1 },
+{ "type": "on-event", "event": "play-deck-exhausted",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+- **`force-agent-attack`** — while any in-play copy is present, the hazard
+  player's usual option to pass on an agent attack (CoE 2.V.iii, "the hazard
+  player *may* declare that an agent … will attack") is removed whenever a
+  **revealed** agent stands at the company's current site and has not yet
+  attacked this site phase. Detected by `agentAttackIsMandatory`
+  (`reducer-utils.ts`, scans both players' `cardsInPlay`) and consulted by
+  `declareAgentAttackActions` (`legal-actions/site.ts`): the loop that builds
+  `declare-agent-attack` actions now also sets a `mandatoryAttackDeclared`
+  flag whenever it offers an action for a *face-up* agent while the effect is
+  active, and the trailing `pass` action is only pushed when that flag is
+  clear. Face-down agents are unaffected — revealing one to attack remains
+  optional, and pass stays available when only face-down options exist.
+  (The engine currently supports declaring at most one agent attack per site
+  visit regardless of this effect — a pre-existing limitation of the
+  declare-agent-attack → resolve-attacks → play-resources step chain, which
+  does not loop back for a second agent. `force-agent-attack` only removes
+  the choice to skip the single attack opportunity the engine already offers;
+  it does not attempt to force a second, simultaneous face-up agent at the
+  same site to also attack in the same visit.)
+- **`discard-unrevealed-on-guard`** — while any in-play copy is present,
+  `returnOnGuardCardsToHand` (`reducer-site.ts`, site-phase cleanup) routes
+  every company's leftover `onGuardCards` to the hazard player's **discard
+  pile** instead of their hand. Detected by `unrevealedOnGuardDiscarded`
+  (`reducer-utils.ts`), mirroring `agentAttackIsMandatory`'s scan shape. Every
+  card still sitting in `onGuardCards` at cleanup time is by definition
+  unrevealed (a reveal always removes the card from `onGuardCards`), so no
+  extra revealed/unrevealed filtering is needed at the call site.
+- The remaining two clauses reuse shipped primitives, following the Prone to
+  Violence (ba-42) precedent: `duplication-limit` (scope `game`, max 1) for
+  "Cannot be duplicated", and `on-event: play-deck-exhausted` → `move` self to
+  `discard` for "Discard when any play deck is exhausted".
