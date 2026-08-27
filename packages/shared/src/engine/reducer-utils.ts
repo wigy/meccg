@@ -6189,6 +6189,23 @@ export function resolveDefenderFreeStrikeAssignment(
  * `fields.attackerChoosesDefenders` are both final — see
  * {@link resolveAttackerChosenStrikeReduction}.
  */
+/**
+ * Prowess penalty for a strike's excess strikes (CoE 3.iv.2/3.V.ii: -1 per
+ * excess strike allocated to a character facing more than one strike this
+ * attack). Normally this is a flat `excessStrikes`, but
+ * `CombatState.firstExcessStrikePenalty` (from a `modify-attack`
+ * `firstExcessStrikePenalty`, e.g. Pierced by Many Wounds dm-79) overrides
+ * the first excess strike's cost while leaving every further excess strike
+ * on the same character at -1. Shared by the reducer (`combat-strike.ts`,
+ * the actual resolution) and the legal-action "need" preview
+ * (`legal-actions/combat.ts`) so both agree on the same number.
+ */
+export function excessStrikePenalty(combat: CombatState, excessStrikes: number): number {
+  if (excessStrikes <= 0) return 0;
+  if (combat.firstExcessStrikePenalty === undefined) return excessStrikes;
+  return combat.firstExcessStrikePenalty + (excessStrikes - 1);
+}
+
 export function makeCombatState(
   state: GameState,
   fields: Omit<CombatState, 'strikeAssignments' | 'currentStrikeIndex' | 'phase' | 'bodyCheckTarget'>,

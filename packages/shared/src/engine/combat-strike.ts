@@ -30,7 +30,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
-import { clonePlayers, companyById, defById, diceRollEffect, getCardEffects, getOnEventEffects, isSelfDiscardMove, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { clonePlayers, companyById, defById, diceRollEffect, excessStrikePenalty, getCardEffects, getOnEventEffects, isSelfDiscardMove, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from './recompute-derived.js';
 import { enemyRaceContext } from './effects/index.js';
@@ -334,7 +334,7 @@ export function resolveStrikeCore(
   if (mode === 'untap' || (mode === 'reroll' && rerollStayUntapped)) prowess -= computeStayUntappedPenalty(state, charData, charDef);
   if (targetStatus === CardStatus.Tapped) prowess -= 1;
   if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
-  if (strike.excessStrikes > 0) prowess -= strike.excessStrikes;
+  prowess -= excessStrikePenalty(combat, strike.excessStrikes);
   const supportBonus = strike.supportCount ?? 0;
   prowess += supportBonus; // CoE rule 3.iv.4: +1 per supporting character/ally
   const modifyStrikeBonus = strike.strikeProwessBonus ?? 0;
@@ -1019,7 +1019,7 @@ export function resolveStrikeCvCC(
   if (!defenderTapToFight) defProwess -= computeStayUntappedPenalty(state, defCharData, defCharDef);
   if (defCharData.status === CardStatus.Tapped) defProwess -= 1;
   if (defCharData.status === CardStatus.Inverted) defProwess -= 2;
-  if (strike.excessStrikes > 0) defProwess -= strike.excessStrikes;
+  defProwess -= excessStrikePenalty(combat, strike.excessStrikes);
   defProwess += (strike.supportCount ?? 0);
   defProwess += (strike.strikeProwessBonus ?? 0);
   defProwess += passiveModifyAttackProwessBonus(state, defCharData);
