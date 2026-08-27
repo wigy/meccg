@@ -3001,6 +3001,106 @@ function playHazardsActions(
           continue;
         }
 
+        // Good Sense Revolts (dm-61): two mutually exclusive modes on one
+        // card. Mode A grants any of the hazard player's own untapped agents
+        // a rule-10.14 influence attempt against an opponent's ally, faction,
+        // or character (no `agentFilter` restriction, unlike dm-96). Mode B
+        // banks a one-shot +N influence check-modifier on one of the hazard
+        // player's own agents (any tap status), for later consumption by that
+        // agent's own influence attempt (native ability or a granted one).
+        const multiInfluenceGrantEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').AgentTapMultiInfluenceEffect => e.type === 'agent-tap-multi-influence',
+        );
+        const influenceBoostEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').AgentInfluenceBoostEffect => e.type === 'agent-influence-boost',
+        );
+        if (multiInfluenceGrantEffect || influenceBoostEffect) {
+          if (isMinionOrBalrog(resourcePlayer)) {
+            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
+            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+            continue;
+          }
+          let offeredAny = false;
+
+          if (multiInfluenceGrantEffect) {
+            for (const agent of player.agents) {
+              if (agent.character.status !== CardStatus.Untapped) continue;
+              const agentDef = defById(state, agent.character.definitionId);
+              if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+              const agentSiteName = agentCurrentSiteName(state, agent, agentDef);
+              const companySiteName = companyTargetSiteName(state, targetCompany, mhState.destinationSiteName);
+              const isAgentAtCompanySite = agentSiteName !== null && companySiteName !== null && agentSiteName === companySiteName;
+
+              if (isAgentAtCompanySite) {
+                for (const oppCharId of targetCompany.characters) {
+                  const oppChar = resourcePlayer.characters[oppCharId];
+                  if (!oppChar) continue;
+                  const oppCharDef = defById(state, oppChar.definitionId);
+                  if (!oppCharDef || !isCharacterCard(oppCharDef)) continue;
+                  if (isAvatarCharacter(oppCharDef)) continue;
+
+                  if (multiInfluenceGrantEffect.targetKinds.includes('character')) {
+                    logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" may influence character "${oppCharDef.name}"`);
+                    actions.push({
+                      action: { ...action, agentInstanceId: agent.character.instanceId, targetCharacterId: oppCharId },
+                      viable: true,
+                    });
+                    offeredAny = true;
+                  }
+
+                  if (multiInfluenceGrantEffect.targetKinds.includes('ally')) {
+                    for (const allyInst of oppChar.allies) {
+                      const allyDef = defById(state, allyInst.definitionId);
+                      if (!allyDef || !isAllyCard(allyDef)) continue;
+                      logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" may influence ally "${allyDef.name}"`);
+                      actions.push({
+                        action: { ...action, agentInstanceId: agent.character.instanceId, targetAllyId: allyInst.instanceId },
+                        viable: true,
+                      });
+                      offeredAny = true;
+                    }
+                  }
+                }
+              }
+
+              if (multiInfluenceGrantEffect.targetKinds.includes('faction') && agentSiteName !== null) {
+                for (const cip of resourcePlayer.cardsInPlay) {
+                  const factionDef = defById(state, cip.definitionId);
+                  if (!factionDef || !isFactionCard(factionDef)) continue;
+                  if (!(factionDef.playableAt ?? []).some(e => 'site' in e && e.site === agentSiteName)) continue;
+                  if (factionDef.noOpponentInfluence) continue;
+                  logDetail(`Hazard short-event "${def.name}": agent "${agentDef.name}" (at ${agentSiteName}) may influence faction "${factionDef.name}"`);
+                  actions.push({
+                    action: { ...action, agentInstanceId: agent.character.instanceId, targetFactionInstanceId: cip.instanceId },
+                    viable: true,
+                  });
+                  offeredAny = true;
+                }
+              }
+            }
+          }
+
+          if (influenceBoostEffect) {
+            for (const agent of player.agents) {
+              const agentDef = defById(state, agent.character.definitionId);
+              if (!agentDef || !isCharacterCard(agentDef)) continue;
+              logDetail(`Hazard short-event "${def.name}": may bank an influence boost on agent "${agentDef.name}"`);
+              actions.push({
+                action: { ...action, agentInstanceId: agent.character.instanceId },
+                viable: true,
+              });
+              offeredAny = true;
+            }
+          }
+
+          if (!offeredAny) {
+            logDetail(`Hazard short-event "${def.name}" not playable — no eligible agent`);
+            actions.push({ action, viable: false, reason: 'No eligible agent' });
+          }
+          continue;
+        }
+
         // Your Welcome Is Doubtful (dm-104): played on one of the hazard
         // player's untapped agents (matching the card's `agentFilter`, if
         // any), targeting any of the opponent's in-play characters or their
