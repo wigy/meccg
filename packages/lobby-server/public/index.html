@@ -298,6 +298,10 @@
     <div id="bug-report-dialog">
       <h3>Report Bug</h3>
       <p class="report-modal-hint" id="bug-report-hint">Describe the bug you encountered. The full game state at this moment is captured automatically, so there is no need to list steps to reproduce — just describe what went wrong.</p>
+      <div class="report-modal-category">
+        <label><input type="radio" name="bug-report-category" value="bug" checked> Bug Report</label>
+        <label><input type="radio" name="bug-report-category" value="improvement"> Visual &amp; Play Improvement</label>
+      </div>
       <input type="text" id="bug-report-subject" placeholder="Card(s) in question">
       <textarea id="bug-report-body" rows="8" placeholder="Expected vs actual behavior..."></textarea>
       <div class="report-modal-actions">

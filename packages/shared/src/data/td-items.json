@@ -682,12 +682,13 @@
     "unique": true,
     "subtype": "greater",
     "keywords": [
-      "hoard"
+      "hoard",
+      "weapon"
     ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
-    "prowessModifier": 1,
+    "prowessModifier": 0,
     "bodyModifier": 1,
     "playableAt": [],
     "effects": [
@@ -698,9 +699,50 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "max": 8,
+        "when": {
+          "$and": [
+            { "bearer.skills": { "$includes": "warrior" } },
+            { "item.restored": { "$ne": true } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 5,
+        "max": 11,
+        "when": {
+          "$and": [
+            { "bearer.skills": { "$includes": "warrior" } },
+            { "item.restored": true }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "restore-item",
+        "cost": {
+          "discard": "named-stored-card",
+          "discardCardName": "Reforging"
+        },
+        "apply": {
+          "type": "restore-item"
+        }
+      },
+      {
+        "type": "restored-item-stats",
+        "marshallingPoints": 4,
+        "corruptionPoints": 3
       }
     ],
-    "text": "Unique. Hoard item. Weapon. +1 body. Warrior only: +1 prowess (to a maximum of 8). A stored Reforging may be placed with this item to “restore” it. Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5 prowess (to a maximum of 11)."
+    "text": "Unique. Hoard item. Weapon. +1 body. Warrior only: +1 prowess (to a maximum of 8). A stored Reforging may be placed with this item to “restore” it. Once restored, Ringil gives 4 marshalling points, 3 corruption points and +5 prowess (to a maximum of 11).",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",

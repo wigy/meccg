@@ -28,7 +28,7 @@ import type {
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
-import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow } from '../../state-utils.js';
+import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { CardStatus, cardStatusToName, Race, Skill } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect } from '../../types/effects.js';
@@ -3151,6 +3151,13 @@ export function buildActiveCompanyContext(
  *   so every printing of a character counts (Gandalf is tw-156 and wh-4). Used
  *   by Gandalf the White Rider (as-11): "Discard this card if Gandalf comes
  *   into play" → `{ "charactersInPlayAnywhere": "Gandalf" }`.
+ * - `player.sameLocationDeckTypeAsOpponent` — `true` when the player and their
+ *   opponent draw from the same *type* of location deck: `isMinionOrBalrog`
+ *   agrees for both sides (CoE 1.4.W1/R1: a Wizard's location deck is
+ *   hero-only, a Ringwraith's minion-only, so two Wizards or two Ringwraiths
+ *   always match). Used by Winds of Wrath (td-82) and Chance of Being Lost
+ *   (dm-49): "Playable ... if opponent is using the same type of location
+ *   deck (minion/hero) as yourself."
  */
 export function buildPlayerStateContext(
   state: GameState,
@@ -3216,6 +3223,7 @@ export function buildPlayerStateContext(
       // player counts as Sauron via a `play-as-sauron` marker in play (The
       // Lidless Eye le-203 / Sauron ba-43).
       playsAsSauron: playerPlaysAsSauron(state, player),
+      sameLocationDeckTypeAsOpponent: opponent !== undefined && isMinionOrBalrog(player) === isMinionOrBalrog(opponent),
     },
     opponent: { alignment: opponent?.alignment },
     inPlay: buildControllerInPlayNames(state, playerId),
