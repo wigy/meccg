@@ -160,24 +160,18 @@ function runGrantApply(
     return { updatedChar: { ...char, items: updatedItems }, effects: [], stateOps: [] };
   }
 
-  // Ringil (td-184) and siblings: mark the already-borne source item
-  // "restored" in place. No card is relocated — the discard of the stored
-  // Reforging companion was already paid as the grant-action's cost;
-  // `recompute-derived.ts` reads this same apply clause's marshalling-point /
-  // corruption-point values for a restored item, and the item's own
-  // `stat-modifier` effects gate their restored variant on the `item.restored`
-  // resolver context field (`collectCharacterEffects`).
+  // Reforging family of hoard items (Horn of Defiance td-183, Ringil td-184,
+  // Belegennon td-185): "A stored Reforging may be placed with this item to
+  // 'restore' it." The cost already discarded the stored Reforging
+  // (`applyCost`'s `discard: "named-stored-card"` branch); this just flags
+  // the source item itself — it stays right where it is, on its bearer.
   if (apply.type === 'restore-item') {
-    const sourceItem = char.items.find(i => i.instanceId === ctx.action.sourceCardId);
-    if (!sourceItem) {
+    const itemIdx = char.items.findIndex(i => i.instanceId === ctx.action.sourceCardId);
+    if (itemIdx < 0) {
       return { error: `restore-item: source ${ctx.sourceName} not found in ${ctx.charName}'s items` };
     }
-    if (sourceItem.restored) {
-      return { error: `restore-item: ${ctx.sourceName} is already restored` };
-    }
-    logDetail(`Grant-action ${ctx.action.actionId}: "${ctx.sourceName}" restored on ${ctx.charName}`);
-    const updatedItems = char.items.map(i =>
-      i.instanceId === sourceItem.instanceId ? { ...i, restored: true as const } : i);
+    logDetail(`Grant-action ${ctx.action.actionId}: restored "${ctx.sourceName}" on ${ctx.charName}`);
+    const updatedItems = char.items.map((it, i) => i === itemIdx ? { ...it, restored: true as const } : it);
     return { updatedChar: { ...char, items: updatedItems }, effects: [], stateOps: [] };
   }
 
@@ -1705,7 +1699,7 @@ export function handleGrantActionApply(state: GameState, action: GameAction): Re
     sourceCardDefId: action.sourceCardDefinitionId,
     noTap,
     label: `${action.actionId}/${sourceName}`,
-    discardTargetCardId: action.targetCardId,
+    discardTargetId: action.targetCardId,
   });
   if ('error' in costResult) return { state, error: `${sourceName}: ${costResult.error}` };
 

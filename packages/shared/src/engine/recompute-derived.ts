@@ -50,7 +50,7 @@ import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corrup
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
-import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect, GrantActionEffect, RestoreItemAction } from '../types/effects.js';
+import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect, RestoredItemStatsEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -359,22 +359,6 @@ function addItemMP(
   }
   if (mp === 0) return totals;
   return { ...totals, [cat]: totals[cat] + mp };
-}
-
-/**
- * Finds a restored hoard item's own `restore-item` grant-action apply clause
- * (Ringil td-184 and siblings), which carries the marshalling-point /
- * corruption-point values the item gives once restored — read here instead of
- * the item's printed {@link CardDefinition.marshallingPoints} /
- * `corruptionPoints`. Returns `undefined` for an item with no such effect (or
- * one not yet restored — callers only look this up when {@link ItemInPlay.restored}
- * is set).
- */
-function findRestoreItemApply(def: CardDefinition): RestoreItemAction | undefined {
-  const effect = getCardEffects(def).find(
-    (e): e is GrantActionEffect => e.type === 'grant-action' && e.apply?.type === 'restore-item',
-  );
-  return effect?.apply?.type === 'restore-item' ? effect.apply : undefined;
 }
 
 /** One faction-MP-override rule: a condition and the MP it grants when matched. */
@@ -1065,16 +1049,18 @@ function computeEffectiveStats(
       // MEBA: an item borne by the Balrog avatar has no effect on his
       // attributes — its corruption points do not apply either.
       if (!bearerIsBalrogAvatar) {
+        // Reforging family of hoard items (Horn of Defiance td-183 et al.):
+        // once restored, the printed corruption points are replaced by the
+        // `restored-item-stats` value.
+        const restoredStats = item.restored
+          ? itemEffects.find((e): e is RestoredItemStatsEffect => e.type === 'restored-item-stats')
+          : undefined;
+        const printedCp = restoredStats?.corruptionPoints ?? itemDef.corruptionPoints;
         // Flat deltas first (Rumor of the One, Itangast at Home), then any
         // multiplier (Bane of the Ithil-stone: "Corruption points for Palantíri
         // are doubled").
         const deltas = itemModifierDeltas(itemDef, inPlayItemMods, bearerPlayerAlignment);
-        // Ringil (td-184) and siblings: once "restored", the item's corruption
-        // points come from its restore-item apply clause instead of its
-        // printed value.
-        const restoreApply = item.restored ? findRestoreItemApply(itemDef) : undefined;
-        const baseCp = restoreApply?.corruptionPoints ?? itemDef.corruptionPoints;
-        const itemCp = (baseCp + deltas.cp) * deltas.cpMultiplier;
+        const itemCp = (printedCp + deltas.cp) * deltas.cpMultiplier;
         corruptionPoints += itemCp;
         if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
@@ -1701,18 +1687,6 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         if (atUnderDeeps) underDeepsMp = addPinnedCardMp(underDeepsMp, itemDef, pinValue);
         continue;
       }
-      // Ringil (td-184) and siblings: once "restored" by placing a stored
-      // Reforging with the item, it scores the restore-item apply's
-      // marshalling-point value instead of its printed / §4-clamped MP.
-      if (item.restored) {
-        const restoreApply = findRestoreItemApply(itemDef);
-        if (restoreApply?.marshallingPoints !== undefined && hasMarshallingPoints(itemDef)) {
-          const cat = itemDef.marshallingCategory;
-          mp = { ...mp, [cat]: mp[cat] + restoreApply.marshallingPoints };
-          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + restoreApply.marshallingPoints };
-          continue;
-        }
-      }
       // Give Welcome to the Unexpected (wh-99): a matching unique non-character
       // item scores the override value instead of its printed / §4-clamped MP.
       const ncOverride = mpOverrideValue(itemDef, ncMpOverrides);
@@ -1737,6 +1711,20 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
         }
         continue;
       }
+      // Reforging family of hoard items (Horn of Defiance td-183 et al.):
+      // once restored, the printed marshalling points are replaced by the
+      // `restored-item-stats` value.
+      if (item.restored && hasMarshallingPoints(itemDef)) {
+        const restoredStats = ((itemDef as { effects?: readonly CardEffect[] }).effects ?? []).find(
+          (e): e is RestoredItemStatsEffect => e.type === 'restored-item-stats',
+        );
+        if (restoredStats?.marshallingPoints !== undefined) {
+          const cat = itemDef.marshallingCategory;
+          mp = { ...mp, [cat]: mp[cat] + restoredStats.marshallingPoints };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + restoredStats.marshallingPoints };
+          continue;
+        }
+      }
       const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(itemDef, fwItemExemptions, bearerInAvatarCompany);
       mp = addItemMP(mp, itemDef, player.alignment, fwExempt);
       if (atUnderDeeps) underDeepsMp = addItemMP(underDeepsMp, itemDef, player.alignment, fwExempt);
@@ -1751,9 +1739,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       }
       // Apply bearer-conditional mp-modifier effects on items
       // (e.g. Durin's Axe: +2 MP if held by a Dwarf). Skipped for a Fallen-wizard
-      // (MEWH §4): his items are worth a flat 1 MP and cannot be boosted by such
-      // hero/minion resource modifiers.
-      const itemEffects = player.alignment === 'fallen-wizard'
+      // whose item is still under the flat-1 §4 clamp — but CoE 10.F1 lifts the
+      // clamp "unless that value is modified by a stage resource" (fwExempt,
+      // e.g. Legacy of Smiths wh-76), in which case the item scores its
+      // ordinary computed value, bonuses included.
+      const itemEffects = (player.alignment === 'fallen-wizard' && !fwExempt)
         ? undefined
         : (itemDef as { effects?: readonly CardEffect[] }).effects;
       if (itemEffects) {
@@ -2066,7 +2056,8 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
           : 'item' as MarshallingCategory;
         mp = { ...mp, [cat]: mp[cat] + finalMp };
       } else {
-        mp = addItemMP(mp, def, player.alignment);
+        const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(def, fwItemExemptions, false);
+        mp = addItemMP(mp, def, player.alignment, fwExempt);
       }
       continue;
     }
@@ -2074,9 +2065,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     // Regular items (CoE rule 2.II.4): storable at any Haven without a
     // `storable-at` effect on the card — see storeItemActions in
     // organization-companies.ts. These still earn their printed MP once
-    // stored, same as items with an explicit storable-at effect above.
+    // stored, same as items with an explicit storable-at effect above — and,
+    // per CoE 10.F1, remain subject to a Fallen-wizard's stage-resource full-MP
+    // exemptions (e.g. Legacy of Smiths wh-76) exactly like an item on a
+    // character (fwItemExemptions was collected once for the player above).
     if (isItemCard(def)) {
-      mp = addItemMP(mp, def, player.alignment);
+      const fwExempt = fwItemExemptions.length > 0 && cardExemptFromFwClamp(def, fwItemExemptions, false);
+      mp = addItemMP(mp, def, player.alignment, fwExempt);
       continue;
     }
 

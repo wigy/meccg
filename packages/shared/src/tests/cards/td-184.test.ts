@@ -128,7 +128,7 @@ describe('Ringil (td-184)', () => {
   function restoreAction(state: ReturnType<typeof restoreState>) {
     return viableActions(state, PLAYER_1, 'activate-granted-action')
       .map(a => a.action as GameAction & { actionId?: string })
-      .find(a => a.actionId === 'restore-ringil');
+      .find(a => a.actionId === 'restore-item');
   }
 
   test('NOT offered without a stored Reforging', () => {

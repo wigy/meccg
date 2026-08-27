@@ -75,12 +75,14 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType, CardStatus, computeLegalActions } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, GameState, SiteCard, MovementHazardPhaseState } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, SiteCard, MovementHazardPhaseState, PlayHazardAction } from '../../index.js';
 import { getActiveAutoAttacks } from '../../engine/manifestations.js';
+import { addConstraint } from '../../engine/pending.js';
 
 const AKHORAHIL = 'tw-4' as CardDefinitionId;
 const THE_SULFUR_DEEPS = 'dm-35' as CardDefinitionId;
 const THE_UNDER_COURTS = 'dm-36' as CardDefinitionId;
+const STEALTH = 'tw-332' as CardDefinitionId;
 
 /**
  * Two-company M/H setup with Akhôrahil in the hazard player's hand. The
@@ -214,6 +216,50 @@ describe('Akhôrahil (tw-4)', () => {
     expect(afterPlay.activeConstraints.filter(c => c.kind.type === 'character-stat-modifier')).toHaveLength(0);
     const aragornId = findCharInstanceId(afterPlay, RESOURCE_PLAYER, ARAGORN);
     expect(afterPlay.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.body).toBe(9);
+  });
+
+  test('Stealth\'s "no creature hazards" constraint blocks the creature mode but not the permanent-event mode', () => {
+    // Regression (bug report: game mtasepv8-2pzfv3, turn 11, M/H phase):
+    // Stealth's no-creature-hazards-on-company constraint (CRF 22 "no
+    // creature hazards may be played on his company this turn") was
+    // wrongly filtering out Akhôrahil's permanent-event mode too, because
+    // the filter only checked the card's cardType (hazard-creature) and
+    // not whether this particular play offers the creature-alt-event mode
+    // instead. Per CoE 2.IV.vii.3 / the "keyed" glossary entry (1722),
+    // creature and event hazards are distinct categories — an event mode
+    // is not a "creature hazard" and must remain playable.
+    const ready = { ...setup(), phaseState: makeMHState({
+      resolvedSitePath: [RegionType.Dark],
+      resolvedSitePathNames: ['Nurn'],
+      destinationSiteType: SiteType.DarkHold,
+      destinationSiteName: 'Barad-dûr',
+    }) };
+    const targetCompanyId = companyIdAt(ready, RESOURCE_PLAYER);
+
+    // Control: without the constraint, both the creature mode (keyed to a
+    // Dark-hold) and the permanent-event mode are offered.
+    const beforeActions = viableActions(ready, PLAYER_2, 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction)
+      .filter(a => a.targetCompanyId === targetCompanyId);
+    expect(beforeActions.some(a => !!a.keyedBy)).toBe(true);
+    expect(beforeActions.some(a => a.altEventMode === 'permanent-event')).toBe(true);
+
+    const constrained = addConstraint(ready, {
+      source: 'stealth-1' as CardInstanceId,
+      sourceDefinitionId: STEALTH,
+      scope: { kind: 'turn' },
+      target: { kind: 'company', companyId: targetCompanyId },
+      kind: { type: 'no-creature-hazards-on-company' },
+    });
+
+    const akhorahilActions = viableActions(constrained, PLAYER_2, 'play-hazard')
+      .map(ea => ea.action as PlayHazardAction)
+      .filter(a => a.targetCompanyId === targetCompanyId);
+
+    // The creature-mode (keyed) play is blocked...
+    expect(akhorahilActions.some(a => !!a.keyedBy)).toBe(false);
+    // ...but the permanent-event mode remains offered.
+    expect(akhorahilActions.some(a => a.altEventMode === 'permanent-event')).toBe(true);
   });
 
   // ─── On tap: who may be named ───────────────────────────────────────────────

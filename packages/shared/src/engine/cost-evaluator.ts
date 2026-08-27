@@ -58,11 +58,14 @@ export interface CostContext {
   /** Human-readable label for log messages (e.g. card name or action ID). */
   readonly label?: string;
   /**
-   * The specific stored-card instance to discard for `discard: "named-stored-card"`
-   * — the player's chosen candidate from `killPile` (carried on the action as
-   * `targetCardId`). Required only for that cost shape; ignored otherwise.
+   * For `discard: "named-stored-card"` on an ordinary (non-`fromStored`)
+   * grant-action — the chosen stored card's instance ID, carried by the
+   * activation's `targetCardId`. Required whenever the cost declares this
+   * discard kind; the `fromStored` variant (Andúril tw-192) instead resolves
+   * its discard candidate through `handleStoredCardGrantAction`, bypassing
+   * `applyCost` entirely, so this field is unused there.
    */
-  readonly discardTargetCardId?: CardInstanceId;
+  readonly discardTargetId?: CardInstanceId;
 }
 
 /** Result of {@link applyCost}: updated state or an error message. */
@@ -146,32 +149,25 @@ export function applyCost(
     }));
     logDetail(`Cost (${label}): discarded "${cost.discardCardName}" from hand`);
   } else if (cost.discard === 'named-stored-card') {
-    // The bearer-attached counterpart of the `fromStored` `place-source-with-item`
-    // shape (Andúril tw-192): here the source is an already-borne item (Ringil
-    // td-184 and siblings) discarding a *different* stored card, chosen by the
-    // player and carried as `context.discardTargetCardId`.
     if (!cost.discardCardName) {
       return { error: `applyCost: discard named-stored-card requires discardCardName` };
     }
-    const { discardTargetCardId } = context;
-    if (!discardTargetCardId) {
-      return { error: `applyCost: discard named-stored-card requires a chosen target` };
+    const targetId = context.discardTargetId;
+    if (!targetId) {
+      return { error: `applyCost: discard named-stored-card requires a chosen stored card` };
     }
     const player = currentState.players[context.playerIndex];
     if (!player) return { error: `applyCost: no player at index ${context.playerIndex}` };
-    const stored = player.killPile.find(c => c.instanceId === discardTargetCardId && c.storedAtSite);
+    const stored = player.killPile.find(c => c.instanceId === targetId && c.storedAtSite);
     if (!stored) {
-      return { error: `applyCost: chosen card ${discardTargetCardId as string} is not stored` };
-    }
-    if (cardName(currentState, stored.definitionId, '') !== cost.discardCardName) {
-      return { error: `applyCost: chosen card is not a stored "${cost.discardCardName}"` };
+      return { error: `applyCost: no stored "${cost.discardCardName}" (${targetId as string}) found in the marshalling-point pile` };
     }
     currentState = updatePlayer(currentState, context.playerIndex, p => ({
       ...p,
-      killPile: removeById(p.killPile, stored.instanceId),
+      killPile: removeById(p.killPile, targetId),
       discardPile: [...p.discardPile, { instanceId: stored.instanceId, definitionId: stored.definitionId }],
     }));
-    logDetail(`Cost (${label}): discarded stored "${cost.discardCardName}" (${discardTargetCardId as string})`);
+    logDetail(`Cost (${label}): discarded stored "${cost.discardCardName}" from the marshalling-point pile`);
   }
 
   if (cost.check === 'corruption') {
