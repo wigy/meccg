@@ -6491,6 +6491,35 @@ export interface FaceAllStrikesOptionEffect extends EffectBase {
 }
 
 /**
+ * A hand-played short event that, once played during the pre-assignment
+ * window of an attack (before any strike of that attack has been assigned —
+ * CoE 3.i.5's "must be declared before strikes are assigned"), grants the
+ * defending player a standing option for the rest of that attack's
+ * assignment: any character in the defending company who carries
+ * `requiredSkill` and has already been assigned a strike may be assigned an
+ * *additional* strike from the same attack. CoE 3.i.5 still applies — each
+ * additional strike is a genuinely separate strike sequence, not merged into
+ * the "excess strikes" -1-prowess pool a repeat assignment would otherwise
+ * produce (CoE 3.iv.2) — but unlike a plain excess strike, every strike
+ * beyond the character's first accumulates a -1 prowess **and** -1 body
+ * penalty (via `StrikeAssignment.strikeProwessBonus` /
+ * `StrikeAssignment.strikeBodyPenalty`, not `excessStrikes`, since the
+ * latter would double-count the strike against `combat.strikesTotal` — see
+ * `handleAssignStrike`, `reducer-combat.ts`).
+ *
+ * Used by Many Foes He Fought (td-131): "If defender chooses a warrior to be
+ * the target of a strike from an attack, that character may choose to face
+ * any number of the strikes from that attack. The character suffers a
+ * cumulative -1 prowess/-1 body for each additional strike faced. The
+ * character faces a separate strike sequence for each strike."
+ */
+export interface MultiStrikeOptionEffect extends EffectBase {
+  readonly type: 'multi-strike-option';
+  /** The skill required on the character choosing to face extra strikes. */
+  readonly requiredSkill: string;
+}
+
+/**
  * Overrides an item's printed marshalling/corruption points once its
  * `ItemInPlay.restored` flag is set (see {@link RestoreItemAction}). Declared
  * on the item alongside the `restore-item` grant-action; read directly by
@@ -6918,7 +6947,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'card-stored-at-site' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -6953,6 +6982,15 @@ export interface PlayConditionEffect extends EffectBase {
    * site" — Breach the Hold sits on The Drowning-deeps (adjacent to the Blue
    * Mountain Dwarf-hold) or The Rusted-deeps (adjacent to the Iron Hill
    * Dwarf-hold).
+   *
+   * For `requires: 'card-stored-at-site'`: the permanent-event is only
+   * playable at the active company's current site when the playing player's
+   * marshalling-point pile (`killPile`) holds a card named {@link cardName}
+   * stamped `storedAtSite` with that same site's definition id. Unlike
+   * `card-attached-to-site` (an in-play card physically attached to the
+   * site), this checks a *stored* item — placed there by the normal item
+   * storage flow (`storable-at`). Mallorn (dm-148): "Playable at Bag End only
+   * if Earth of Galadriel's Orchard is stored there."
    */
   /**
    * For `requires: 'region-through-or-leave'`: the named regions one of which
@@ -9078,6 +9116,7 @@ export type CardEffect =
   | ModifyAttackEffect
   | FaceStrikeOnTapEffect
   | FaceAllStrikesOptionEffect
+  | MultiStrikeOptionEffect
   | RestoredItemStatsEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect

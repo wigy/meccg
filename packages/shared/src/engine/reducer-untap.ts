@@ -17,7 +17,7 @@ import { ownerOf } from '../types/state.js';
 import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { defById, findEventMaintenanceEffect, getCardEffects, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
@@ -234,6 +234,19 @@ function performUntap(state: GameState): GameState {
     }
   }
 
+  // Mallorn (dm-148): a site carrying the `site-untaps-during-untap-phase`
+  // flag (installed by a permanent event in play there) untaps during its
+  // owner's untap phase, defying the normal rule that site cards never
+  // untap once tapped. "Bag End can untap during its owner's untap phase."
+  const newCompanies = player.companies.map(company => {
+    if (!company.currentSite || company.currentSite.status !== CardStatus.Tapped) return company;
+    if (!hasSiteFlag(state.activeConstraints, 'site-untaps-during-untap-phase', company.currentSite.definitionId)) {
+      return company;
+    }
+    logDetail(`Untap: ${state.cardPool[company.currentSite.definitionId]?.name ?? '?'} untaps during untap phase (site-untaps-during-untap-phase)`);
+    return { ...company, currentSite: { ...company.currentSite, status: CardStatus.Untapped as const } };
+  });
+
   // Worn and Famished (td-89): while an `untap-mind-roll` effect is in play
   // and this untapping player isn't exempted by `noEffectOnMinion`, build a
   // per-character effective site-type map so the untap sweep below can tell
@@ -418,6 +431,7 @@ function performUntap(state: GameState): GameState {
     characters: newCharacters,
     cardsInPlay: newCardsInPlay,
     agents: newAgents,
+    companies: newCompanies,
   }));
 
   // Worn and Famished (td-89): enqueue the "may instead make a roll adding

@@ -61,6 +61,8 @@ const SITE_BOUND_FLAGS: Record<string, SiteFlag> = {
   'cross-alignment-resources-unlocked': 'cross-alignment-resources-unlocked',
   'site-protected': 'site-protected',
   'technology-item-unlocked': 'technology-item-unlocked',
+  'site-untaps-during-untap-phase': 'site-untaps-during-untap-phase',
+  'site-always-returns-to-deck': 'site-always-returns-to-deck',
 };
 
 /**
@@ -158,6 +160,10 @@ export function buildConstraintKind(
       // (hazard keying, movement, item/faction/ally playability, healing),
       // but flags it `excludesCharacterPlay` so character recruiting does not
       // treat the site as a haven.
+      // Mallorn (dm-148): `purpose: 'healing-and-character-play'` is the
+      // inverse — hidden from every general consumer (movement, hazard
+      // keying, storage, item/faction/ally playability) but honoured by
+      // healing and character recruiting.
       const purpose = (onEvent.apply as { purpose?: string }).purpose;
       // Nature's Revenge (wh-27): "All versions of the site become Ruins &
       // Lairs" — scope the override by printed *name* so the hero, minion,
@@ -177,6 +183,7 @@ export function buildConstraintKind(
           : { 'site.definitionId': siteDefinitionId as string },
         ...(purpose === 'healing' ? { healingOnly: true } : {}),
         ...(purpose === 'healing-and-hazards' ? { excludesCharacterPlay: true } : {}),
+        ...(purpose === 'healing-and-character-play' ? { characterPlayOnly: true } : {}),
       };
     }
     case 'region-type-override': {

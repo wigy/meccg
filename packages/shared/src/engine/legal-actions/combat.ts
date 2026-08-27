@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -169,6 +169,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const convertActions = convertCreatureToAllyActions(state, playerId, combat);
   const halveActions = halveStrikesActions(state, playerId, combat);
   const protectActions = protectFromStrikeAssignmentActions(state, playerId, combat);
+  const multiStrikeOptionActs = multiStrikeOptionActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
   const joinForceStrikes = joinCombatForceStrikeActions(state, playerId, combat);
@@ -221,6 +222,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...convertActions,
           ...halveActions,
           ...protectActions,
+          ...multiStrikeOptionActs,
           ...modifyActions,
           ...companyCombatBoosts,
           ...joinForceStrikes,
@@ -242,7 +244,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       if (combat.assignmentPhase === 'defender' && !combat.isCvCC && !combat.attackerPreAssignDone) {
         const attackerModifyOptions = modifyAttackActions(state, combat.attackingPlayerId, combat);
         if (attackerModifyOptions.length > 0) {
-          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts];
+          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts];
           if (playerId === combat.attackingPlayerId) {
             logDetail(`Pre-assignment window: attacker has ${attackerModifyOptions.length} modify-attack option(s) — defender waits`);
             return [...preAssignActions, { action: { type: 'pass' as const, player: playerId }, viable: true }];
@@ -251,7 +253,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           return preAssignActions;
         }
       }
-      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...preAssignmentGrantedActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...preAssignmentGrantedActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
@@ -727,6 +729,28 @@ function assignStrikeActions(
         logDetail(`Defender can assign strike to ally ${ally.instanceId as string}${alwaysUntapped ? ' (alwaysCountsAsUntapped)' : ''}`);
         actions.push({
           action: { type: 'assign-strike', player: playerId, characterId: ally.instanceId, tapped: false },
+          viable: true,
+        });
+      }
+    }
+
+    // multi-strike-option (Many Foes He Fought td-131): once enabled for this
+    // attack, any company character with the required skill who already
+    // faces a strike may be assigned an additional one — a genuinely
+    // separate strike sequence (CoE 3.i.5) carrying a cumulative -1
+    // prowess/-1 body penalty rather than the plain excess-strike pool.
+    if (combat.multiStrikeSkill && strikesRemaining > 0) {
+      for (const charId of company.characters) {
+        const priorCount = combat.strikeAssignments.filter(a => a.characterId === charId).length;
+        if (priorCount === 0) continue;
+        const charData = player.characters[charId];
+        if (!charData) continue;
+        const charDef = defById(state, charData.definitionId);
+        if (!charDef || !isCharacterCard(charDef)
+          || !charDef.skills.includes(combat.multiStrikeSkill as import('../../types/common.js').Skill)) continue;
+        logDetail(`Multi-strike-option: ${charId as string} (${priorCount} strike(s) already faced) can face an additional strike (-${priorCount} prowess/body)`);
+        actions.push({
+          action: { type: 'assign-strike', player: playerId, characterId: charId, extraSequence: true, tapped: false },
           viable: true,
         });
       }
@@ -3331,6 +3355,51 @@ function halveStrikesActions(
     actions.push({
       action: {
         type: 'halve-strikes',
+        player: playerId,
+        cardInstanceId: handCard.instanceId,
+      },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Generate `enable-multi-strike-option` actions for the defending player
+ * during the pre-assignment window. For each hand card carrying a
+ * `multi-strike-option` effect, offers playing it — unless the option is
+ * already active for this attack (`combat.multiStrikeSkill` set), in which
+ * case a second copy would have no effect and is not offered.
+ *
+ * Used by Many Foes He Fought (td-131).
+ */
+function multiStrikeOptionActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.phase !== 'assign-strikes') return [];
+  if (combat.strikeAssignments.length > 0) return [];
+  if (combat.multiStrikeSkill) return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const effect = getCardEffects(cardDef).find(
+      (e): e is MultiStrikeOptionEffect => e.type === 'multi-strike-option',
+    );
+    if (!effect) continue;
+
+    logDetail(`Multi-strike-option available: ${handCard.definitionId as string}`);
+    actions.push({
+      action: {
+        type: 'enable-multi-strike-option',
         player: playerId,
         cardInstanceId: handCard.instanceId,
       },
