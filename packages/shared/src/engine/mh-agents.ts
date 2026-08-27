@@ -774,7 +774,7 @@ export function handleAgentTapAttack(
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
 
   // Build CombatState
-  const combat: CombatState = makeCombatState({
+  const combat: CombatState = makeCombatState(newState, {
     attackSource: { type: 'agent', instanceId: agent.character.instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
@@ -1569,7 +1569,7 @@ export function handleTapAgentAtSite(
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
 
   // --- Build CombatState ---
-  const combat: CombatState = makeCombatState({
+  const combat: CombatState = makeCombatState(stateAfterReveal, {
     attackSource: { type: 'agent', instanceId: agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,

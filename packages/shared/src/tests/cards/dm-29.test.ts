@@ -159,7 +159,7 @@ describe('My Precious (dm-29)', () => {
       phaseState: makeMHState({}),
       players: [state.players[0], { ...state.players[1], agents: [myPreciousAgent(true)] }] as typeof state.players,
       combat: {
-        ...makeCombatState({
+        ...makeCombatState(state, {
           attackSource: { type: 'agent', instanceId: 'p2-precious-char' as CardInstanceId },
           companyId, defendingPlayerId: PLAYER_1, attackingPlayerId: PLAYER_2,
           strikesTotal: 1, strikeProwess: 2, creatureBody: 9,
@@ -191,7 +191,7 @@ describe('My Precious (dm-29)', () => {
       phaseState: makeMHState({}),
       players: [state.players[0], { ...state.players[1], agents: [myPreciousAgent(true)] }] as typeof state.players,
       combat: {
-        ...makeCombatState({
+        ...makeCombatState(state, {
           attackSource: { type: 'agent', instanceId: 'p2-precious-char' as CardInstanceId },
           companyId, defendingPlayerId: PLAYER_1, attackingPlayerId: PLAYER_2,
           strikesTotal: 1, strikeProwess: 2, creatureBody: 9,

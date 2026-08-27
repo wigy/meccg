@@ -210,7 +210,7 @@ export function buildGreatHuntCombat(
     + `attacks ${controllerId as string}'s Alatar company ${companyId as string}`,
   );
 
-  return makeCombatState({
+  return makeCombatState(state, {
     attackSource: {
       type: 'great-hunt-attack',
       greatHuntInstanceId,
