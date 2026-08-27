@@ -294,5 +294,10 @@ export function sweepNoBetterUseCaptures(state: GameState): GameState {
       s = discardHostFromBearer(s, bearerOwnerId, bearerCharacterId, hostInstanceId);
     }
   }
-  return cleanupEmptyCompanies(s);
+  // No `cleanupEmptyCompanies` here: this sweep only ever *adds* a
+  // one-character company, never empties one, and it runs on every
+  // `postReduce` pass. Dissolving empty companies unconditionally would
+  // return their sites early and break CoE 2.07 (a company that lost all its
+  // characters keeps its site until the end of all M/H phases).
+  return s;
 }
