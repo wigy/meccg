@@ -1557,7 +1557,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     const company = findCharacterCompany(defPlayer.companies, scoutId);
     if (!company) return { state: stateWithDiscard, error: `${def.name}: scout not in any company` };
 
-    const combat: import('../types/state-combat.js').CombatState = makeCombatState({
+    const combat: import('../types/state-combat.js').CombatState = makeCombatState(stateWithDiscard, {
       attackSource: {
         type: 'lucky-search-attack',
         scoutInstanceId: scoutId,
