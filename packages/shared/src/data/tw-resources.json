@@ -3134,9 +3134,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/KindlingoftheSpirit.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spell"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 2,
+        "requiredRace": "wizard",
+        "boostScope": "company",
+        "cost": {
+          "check": "corruption",
+          "modifier": -2
+        }
+      }
+    ],
+    "certified": "2026-08-28",
     "text": "Spell. Wizard only. +2 prowess against one attack for all characters in the same company as the Wizard. Wizard makes a corruption check modified by -2."
   },
   {

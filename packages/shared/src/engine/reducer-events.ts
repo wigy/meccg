@@ -1036,20 +1036,28 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               }
               newState = costResult.state;
             }
-            logDetail(`${def.name}: adding attack-scoped +${boostEffect.value ?? 0} ${boostEffect.stat} to ${targetId as string}`);
-            newState = addConstraint(newState, {
-              source: handCard.instanceId,
-              sourceDefinitionId: handCard.definitionId,
-              scope: { kind: 'attack' },
-              target: { kind: 'character', characterId: targetId },
-              kind: {
-                type: 'character-stat-modifier',
-                stat: boostEffect.stat as 'prowess' | 'body',
-                value: boostEffect.value ?? 0,
-                characterId: targetId,
-              },
-            });
-            continue;
+            // `boostScope: "company"` (Kindling of the Spirit tw-262) decouples
+            // the payer from the recipients: the chosen character alone paid
+            // above, but every company member is boosted — fall through into
+            // the shared per-member loop below instead of stopping here.
+            if (boostEffect.boostScope === 'company') {
+              logDetail(`${def.name}: ${targetId as string} paid the cost — boost applies to the whole company`);
+            } else {
+              logDetail(`${def.name}: adding attack-scoped +${boostEffect.value ?? 0} ${boostEffect.stat} to ${targetId as string}`);
+              newState = addConstraint(newState, {
+                source: handCard.instanceId,
+                sourceDefinitionId: handCard.definitionId,
+                scope: { kind: 'attack' },
+                target: { kind: 'character', characterId: targetId },
+                kind: {
+                  type: 'character-stat-modifier',
+                  stat: boostEffect.stat as 'prowess' | 'body',
+                  value: boostEffect.value ?? 0,
+                  characterId: targetId,
+                },
+              });
+              continue;
+            }
           }
 
           // A `companyFilter` gates the whole company: only apply the boost (to

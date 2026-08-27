@@ -4785,6 +4785,19 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    * corruption check modified by -4" (Some Secret Art of Flame, le-232).
    */
   readonly costExemptRace?: Race;
+  /**
+   * Only meaningful alongside `cost`. `"payer"` (the default) keeps the
+   * single-target behavior — the chosen character who pays `cost` is the
+   * only one boosted. `"company"` decouples payer from recipients: the
+   * chosen character (matching `requiredSkill`/`requiredRace`) still pays
+   * `cost` alone, but every character in the defending company (subject to
+   * `filter`/`companyFilter`/`itemFilter`, same as the no-`cost` path)
+   * receives the boost. Used by Kindling of the Spirit (tw-262): "+2
+   * prowess against one attack for all characters in the same company as
+   * the Wizard. Wizard makes a corruption check modified by -2." — the
+   * Wizard alone pays, but the whole company is boosted.
+   */
+  readonly boostScope?: 'payer' | 'company';
 }
 
 /** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */
