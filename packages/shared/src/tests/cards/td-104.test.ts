@@ -49,7 +49,7 @@ import {
   addCardInPlay, setCharStatus,
   playLongEventAndResolve,
   resolveChain,
-  handCardId, companyIdAt, dispatch,
+  findHandCardId, companyIdAt, dispatch,
   viableActions, viableFor,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   actionAs,
@@ -95,7 +95,7 @@ function baseCombatState(hazardHand: CardDefinitionId[]): GameState {
 function faceCreature(state: GameState, creatureDefId: CardDefinitionId): GameState {
   const mhState = makeWildernessMHState();
   const gameState = { ...state, phaseState: mhState };
-  const creatureId = handCardId(gameState, HAZARD_PLAYER);
+  const creatureId = findHandCardId(gameState, HAZARD_PLAYER, creatureDefId);
   const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
   const afterPlay = dispatch(gameState, {
     type: 'play-hazard',
