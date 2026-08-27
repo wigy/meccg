@@ -3977,9 +3977,37 @@
           "deck.alignment": "balrog"
         },
         "reason": "rule 1.23"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": "ringwraith" },
+            { "$not": { "target.itemNames": { "$includes": "Morgul-blade" } } }
+          ]
+        }
+      },
+      {
+        "type": "body-check-modifier",
+        "scope": "bearer-combat",
+        "value": 1,
+        "when": { "bodyCheck.fromFailedStrike": true }
+      },
+      {
+        "type": "modify-attack",
+        "scope": "current-strike",
+        "passive": true,
+        "prowessModifier": 1
+      },
+      {
+        "type": "on-event",
+        "event": "bearer-strike-defeated",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
       }
     ],
-    "text": "Playable on your Ringwraith or a Ringwraith follower. Each strike against the Ringwraith receives -1 body and -1 prowess. Discard Morgul-blade after a strike against the Ringwraith fails.Cannot be duplicated on a given Ringwraith.Cannot be included in a Balrog's deck."
+    "text": "Playable on your Ringwraith or a Ringwraith follower. Each strike against the Ringwraith receives -1 body and -1 prowess. Discard Morgul-blade after a strike against the Ringwraith fails.Cannot be duplicated on a given Ringwraith.Cannot be included in a Balrog's deck.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "minion-resource-event",
