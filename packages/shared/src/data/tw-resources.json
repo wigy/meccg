@@ -3406,8 +3406,31 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Environment. If Gates of Morning is in play, treat all Wildernesses [{w}] as Border-lands [{b}] and all Border-lands [{b}] as Free-domains [{f}] for the purposes of playing hazards.If Doors of Night is in play, treat all Dark-domains [{d}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Wildernesses [{w}] for the purposes of playing hazards.Cannot be duplicated."
+    "effects": [
+      {
+        "type": "region-type-remap",
+        "when": { "inPlay": "Gates of Morning" },
+        "remap": [
+          { "from": "wilderness", "to": "border" },
+          { "from": "border", "to": "free" }
+        ]
+      },
+      {
+        "type": "region-type-remap",
+        "when": { "inPlay": "Doors of Night" },
+        "remap": [
+          { "from": "dark", "to": "shadow" },
+          { "from": "shadow", "to": "wilderness" }
+        ]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Environment. If Gates of Morning is in play, treat all Wildernesses [{w}] as Border-lands [{b}] and all Border-lands [{b}] as Free-domains [{f}] for the purposes of playing hazards.If Doors of Night is in play, treat all Dark-domains [{d}] as Shadow-lands [{s}] and all Shadow-lands [{s}] as Wildernesses [{w}] for the purposes of playing hazards.Cannot be duplicated.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",
