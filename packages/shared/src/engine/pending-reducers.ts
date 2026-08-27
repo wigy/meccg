@@ -1918,6 +1918,14 @@ export function applyRiddlingAttemptResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // Reactive short-event plays (Wit td-168: "Modify one riddling roll by
+  // +3") are legal while this roll is awaiting resolution — return null so
+  // the dispatcher falls through to the per-phase reducer, which runs the
+  // normal `play-short-event` handler. The pending resolution stays queued;
+  // the next legal-action cycle re-emits the roll action with any
+  // freshly-added check-modifier constraint factored in. Mirrors
+  // `applyCorruptionCheckResolution`'s identical carve-out.
+  if (action.type === 'play-short-event') return null;
   const g = guardResolution(state, action, top, 'riddling-attempt', 'riddling-attempt');
   if (!g.ok) return g.result;
   const { actorIndex, player, kind } = g;
@@ -1936,13 +1944,37 @@ export function applyRiddlingAttemptResolution(
 
   const { sages, hobbits, bonus } = riddlingCompanyBonus(state, player, characterInstanceId, sageBonus, hobbitBonus);
 
+  // One-shot `check-modifier` constraints keyed to `riddling` and targeting
+  // this character (Wit td-168: "Modify one riddling roll by +3") — summed
+  // into the roll and consumed below, mirroring the corruption-check path.
+  let checkModifierBonus = 0;
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'riddling'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      checkModifierBonus += constraint.kind.value;
+    }
+  }
+
   const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, actorIndex, `Riddling attempt: ${charName} vs ${creatureRace}`);
-  const total = roll.die1 + roll.die2 + bonus;
+  const total = roll.die1 + roll.die2 + bonus + checkModifierBonus;
   const success = total > threshold;
 
-  logDetail(`Riddling attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+  logDetail(`Riddling attempt by ${charName} vs "${creatureRace}": rolled ${roll.die1}+${roll.die2} + ${sages} sage(s) x${sageBonus} + ${hobbits} hobbit(s) x${hobbitBonus} + check-modifier ${checkModifierBonus} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
   let postRoll = dequeueResolution(rolledState, top.id);
+
+  // Consume the one-shot check-modifier constraints that contributed above.
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'riddling'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (riddling ${formatSignedNumber(constraint.kind.value)})`);
+      postRoll = removeConstraint(postRoll, constraint.id);
+    }
+  }
 
   if (success) {
     logDetail(`Riddling attempt succeeded: player may now name a card to guess`);
