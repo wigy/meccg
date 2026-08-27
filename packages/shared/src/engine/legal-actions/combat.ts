@@ -4083,6 +4083,7 @@ function companyCombatBoostActions(
         const charDef = defById(state, charData.definitionId);
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (costEffect.requiredSkill && !charDef.skills.includes(costEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
+        if (costEffect.requiredRace && charDef.race !== costEffect.requiredRace) continue;
         const exempt = costEffect.costExemptRace && charDef.race === costEffect.costExemptRace;
         if (!exempt && !canPayCost(cost, charData)) continue;
         logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);
