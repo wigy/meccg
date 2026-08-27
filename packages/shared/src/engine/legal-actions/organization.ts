@@ -68,6 +68,7 @@ import {
 import { fetchFromSideboardActions, cardSideboardToDeckActions } from './organization-sideboard.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { grantedAction, grantedActionFor } from './granted-action-emit.js';
+import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 
 /**
  * Filter mode for {@link grantedActionActivations}. Selects which subset
@@ -956,6 +957,14 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
 
   // Grant-action activations from attached hazards (e.g. Foolish Words removal)
   actions.push(...grantedActionActivations(state, playerId));
+
+  // Grant-actions granted by an active `granted-action` constraint bound to
+  // a company (e.g. Great Ship's chain-cancel, Warm Now Be Heart and Limb
+  // td-163's per-sage heal-and-corruption-check loop) — the organization-phase
+  // sibling of the movement-hazard call sites in chain.ts / movement-hazard.ts.
+  for (const company of player.companies) {
+    actions.push(...emitGrantedActionConstraintActions(state, playerId, company, 'organization', undefined, {}));
+  }
 
   // Grant-actions on the player's bare in-play cards — factions (e.g. A
   // Panoply of Wings wh-37) and unattached permanent-event resources (e.g.
@@ -2411,7 +2420,7 @@ function isSiteResourceUnlocked(
  *
  * Returns `{ instanceId, definitionId }` pairs — one per match.
  */
-function enumerateGrantActionTargets(
+export function enumerateGrantActionTargets(
   state: GameState,
   player: { readonly companies: readonly import('../../index.js').Company[]; readonly characters: { readonly [key: string]: import('../../index.js').CharacterInPlay } },
   charId: CardInstanceId,
@@ -2478,6 +2487,26 @@ function enumerateGrantActionTargets(
       const member = player.characters[memberId];
       if (!member) continue;
       if (member.status === CardStatus.Untapped) continue;
+      if (targets.filter) {
+        const memberDef = defById(state, member.definitionId);
+        if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
+      }
+      matches.push({ instanceId: member.instanceId, definitionId: member.definitionId });
+    }
+  }
+
+  if (targets.scope === 'company-wounded-characters') {
+    // Warm Now Be Heart and Limb (td-163): "heal one character (from wounded
+    // to tapped)" — unlike `company-characters` (which admits both Tapped and
+    // Inverted candidates, correct for an *untap* ability), only a genuinely
+    // wounded (Inverted) company-mate is a legal heal target. The bearer
+    // (the tapping sage) is included — a wounded sage may heal themselves.
+    const company = findCharacterCompany(player.companies, charId);
+    if (!company) return [];
+    for (const memberId of company.characters) {
+      const member = player.characters[memberId];
+      if (!member) continue;
+      if (member.status !== CardStatus.Inverted) continue;
       if (targets.filter) {
         const memberDef = defById(state, member.definitionId);
         if (!memberDef || !matchesDefinition(memberDef, targets.filter)) continue;
@@ -2663,6 +2692,11 @@ export function endOfOrgEligibility(
           const cDef = defById(state, ch.definitionId);
           return cDef && isCharacterCard(cDef) ? getEffectiveSkills(state, ch, cDef) : [];
         });
+        // Warm Now Be Heart and Limb (td-163): "each sage in company that
+        // taps may heal one character (from wounded to tapped)" has no
+        // possible effect on a company with no wounded (Inverted) member —
+        // CoE rule 9.1 bars playing a card whose only effect would fizzle.
+        const hasWoundedCharacter = company.characters.some(cId => player.characters[cId]?.status === CardStatus.Inverted);
         const companyFilterCtx = {
           company: {
             atHaven: siteType === 'haven',
@@ -2675,6 +2709,7 @@ export function endOfOrgEligibility(
             atUnderDeepsSurfaceSite: isUnderDeepsSurfaceSite(state, siteDef),
             siteUntapped: company.currentSite?.status === CardStatus.Untapped,
             skills: companySkills,
+            hasWoundedCharacter,
           },
         };
         if (!matchesCondition(playTarget.filter, companyFilterCtx)) continue;

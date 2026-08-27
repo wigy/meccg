@@ -2002,12 +2002,21 @@ export interface GrantActionEffect extends EffectBase {
  *   `minion-resource-faction`, matching the activating player's own
  *   alignment) sitting in the activating player's hand. Backs Roäc the Raven
  *   (tw-320): "tap and discard … to attempt to bring any faction into play."
+ * - `"company-wounded-characters"` — every **wounded (Inverted)** character
+ *   in the bearer's own company, including the bearer. Unlike
+ *   `"company-characters"` (which skips only `Untapped` members, admitting
+ *   both `Tapped` and `Inverted` candidates — correct for an *untap*
+ *   ability), this scope admits `Inverted` candidates only, since a merely
+ *   `Tapped` (unwounded) character is never a legal heal target. Backs
+ *   Warm Now Be Heart and Limb (td-163): "each sage in company that taps
+ *   may heal one character (from wounded to tapped)" — the healing sage
+ *   themselves may be a valid target if they are wounded.
  *
  * `filter` is a DSL condition matched against each candidate card's
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards' | 'own-hand-factions';
+  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'company-wounded-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards' | 'own-hand-factions';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
@@ -3701,6 +3710,17 @@ export interface GrantedActionConstraintPayload {
   readonly when?: Condition;
   /** Effect executed on dispatch. */
   readonly apply: TriggeredAction;
+  /**
+   * Optional target-enumeration descriptor, mirroring {@link
+   * GrantActionEffect.targets}. When present, the constraint emitter
+   * (`emitGrantedActionConstraintActions`) enumerates candidates in the
+   * given scope and emits one activation per (eligible actor, candidate)
+   * pair, each carrying the candidate's `instanceId` as `targetCardId`.
+   * When absent, one untargeted activation is emitted per eligible actor
+   * (the original Great Ship / River shape). Used by Warm Now Be Heart
+   * and Limb (td-163) with `scope: "company-wounded-characters"`.
+   */
+  readonly targets?: GrantActionTargets;
 }
 
 /**
