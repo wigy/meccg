@@ -48,7 +48,7 @@ import { canPayCost } from '../cost-evaluator.js';
 import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
-import { afterAttackPlayTargets } from '../post-attack-play.js';
+import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
 import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.js';
 import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
@@ -2185,10 +2185,12 @@ type CreaturePlayAction = {
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
  *
- * A dual-mode creature (`creature-alt-event`, e.g. Ren the Unclean tw-83) being
- * played in its short-event or permanent-event mode carries `altEventMode` on
- * the action and is not a creature play, so these creature-only constraints
- * (e.g. Stealth's `no-creature-hazards-on-company`) do not apply to it.
+ * A dual-mode card (`creature-alt-event`, e.g. Ren the Unclean tw-83 or
+ * Akhôrahil tw-4) offered here with `altEventMode` set is being played in its
+ * short-event or permanent-event mode as a hazard *event*, not as a creature —
+ * CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct categories,
+ * so creature-only constraints (e.g. Stealth's `no-creature-hazards-on-company`)
+ * must not reach it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,
@@ -3805,14 +3807,28 @@ export function postAttackPlayOfferActions(
       if (!handCard) continue;
       const def = defById(state, handCard.definitionId);
       if (!def) continue;
-      for (const charId of afterAttackPlayTargets(state, player, company, def)) {
-        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+      if (afterAttackCharacterPlayTarget(def)) {
+        for (const charId of afterAttackPlayTargets(state, player, company, def)) {
+          logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable on ${cardName(state, player.characters[charId].definitionId, '?')}`);
+          actions.push({
+            action: {
+              type: 'play-permanent-event' as const,
+              player: actor,
+              cardInstanceId,
+              targetCharacterId: charId,
+            },
+            viable: true,
+          });
+        }
+      } else {
+        // No character play-target (e.g. Mount Slain as-50): the card resolves
+        // against a programmatically-found target, not a chosen bearer.
+        logDetail(`post-attack-play-offer: ${def.name ?? handCard.definitionId as string} playable (no bearer required)`);
         actions.push({
           action: {
             type: 'play-permanent-event' as const,
             player: actor,
             cardInstanceId,
-            targetCharacterId: charId,
           },
           viable: true,
         });

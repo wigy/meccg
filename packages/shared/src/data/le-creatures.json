@@ -879,8 +879,50 @@
     "body": 6,
     "killMarshallingPoints": 2,
     "race": "man",
-    "keyedTo": [],
-    "effects": [],
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Anduin Vales",
+          "Wold & Foothills",
+          "High Pass",
+          "Redhorn Gate"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-one-strike-per-character"
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "$not": {
+            "company.homeSites": "Beorn’s House"
+          }
+        }
+      }
+    ],
     "text": "Men. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Anduin Vales, Wold & Foothills, High Pass, and Redhorn Gate; and may also be played at non-Haven sites in these regions. May not be played against a company containing a character with Beorn’s House as a home site."
   },
   {

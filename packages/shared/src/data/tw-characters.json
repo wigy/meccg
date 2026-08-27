@@ -2415,8 +2415,19 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Drúadan Forest",
-    "effects": [],
-    "text": "Unique. +2 direct influence against Wose factions."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "wose"
+        }
+      }
+    ],
+    "text": "Unique. +2 direct influence against Wose factions.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-character",

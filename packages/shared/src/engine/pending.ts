@@ -124,6 +124,7 @@ export function enqueueCorruptionCheck(
     readonly allowSupport?: boolean;
     readonly noResourceAid?: boolean;
     readonly blockedBy?: readonly ResolutionId[];
+    readonly alsoDiscardItemId?: CardInstanceId | null;
   },
 ): GameState {
   return enqueueResolution(state, {
@@ -144,6 +145,7 @@ export function enqueueCorruptionCheck(
       selectableOrder: opts.selectableOrder,
       allowSupport: opts.allowSupport,
       noResourceAid: opts.noResourceAid,
+      alsoDiscardItemId: opts.alsoDiscardItemId ?? null,
     },
   });
 }
