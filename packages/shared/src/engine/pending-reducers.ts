@@ -326,7 +326,7 @@ function applyTraitorTrigger(
   }
 
   logDetail(`traitor-attack: "${traitorDef.name}" turns traitor — ${strikes}-strike ${prowess}-prowess attack against company ${company.id as string}; ${attackingPlayerId as string} chooses the character to be attacked`);
-  const combat = makeCombatState({
+  const combat = makeCombatState(newState, {
     attackSource: { type: 'traitor-attack', eventInstanceId: card.instanceId, traitorDefinitionId: traitorDef.id },
     companyId: company.id,
     defendingPlayerId,
@@ -4880,7 +4880,7 @@ export function applyStayHerAppetiteRollResolution(
   // Dequeue resolution then set up combat
   const stateDequeued = dequeueResolution(stateAfterRoll2, top.id);
 
-  const combat: import('../types/state-combat.js').CombatState = makeCombatState({
+  const combat: import('../types/state-combat.js').CombatState = makeCombatState(stateDequeued, {
     attackSource: {
       type: 'stay-her-appetite-attack',
       eventDefinitionId: sourceDefinitionId,

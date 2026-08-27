@@ -291,6 +291,28 @@ Optional `target` scopes:
   ```
 
 - `"all-automatic-attacks"` — applies only to site automatic-attacks (not hazard creatures)
+- `"attacker-chooses-defenders-attacks"` — `stat: "strikes"` only. Unlike
+  `"all-attacks"`, this scope is resolved separately at combat creation, once
+  the attack's final `attackerChoosesDefenders` flag (printed creature/site
+  rule OR'd with any global grant) is known — `resolveAttackStrikes` has
+  already produced the base strikes total from `"all-attacks"`/
+  `"all-automatic-attacks"` by then, so reusing that scope here would
+  double-count unrelated modifiers (e.g. The Moon Is Dead's +1 strike to
+  Undead attacks). `makeCombatState` (`reducer-utils.ts`) applies it via
+  `resolveAttackerChosenStrikeReduction` (`effects/resolver.ts`) once
+  `strikesTotal` and `attackerChoosesDefenders` are both final; it is a no-op
+  when the attack does not choose defending characters. Used by *More Alert
+  than Most* (dm-150): "The number of strikes of any attack that chooses
+  defending characters is reduced by one (by 2 if Gates of Morning is in
+  play) to a minimum of one" — two effects, each floored independently so the
+  pair nets -1 or -2 down to a floor of 1:
+
+  ```json
+  { "type": "stat-modifier", "stat": "strikes", "value": -1, "min": 1, "target": "attacker-chooses-defenders-attacks" }
+  { "type": "stat-modifier", "stat": "strikes", "value": -1, "min": 1, "target": "attacker-chooses-defenders-attacks",
+    "when": { "inPlay": "Gates of Morning" } }
+  ```
+
 - `"company-others"` — applies to every **other** character in the bearer's
   company, excluding the bearer itself. Collected in `collectCharacterEffects`
   by scanning the attached hazards/items of every *other* company member; the
