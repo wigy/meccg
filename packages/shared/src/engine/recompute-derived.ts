@@ -1960,6 +1960,25 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     }
   }
 
+  // Tribute Garnered (as-104): a permanent event bound to a single faction
+  // instance (`CardInPlay.attachedTo`, the generic faction play-target binding
+  // Long Grievous Siege ba-40 also uses) grants that specific faction's owner
+  // a flat MP bonus in the declared category — independent of the target's own
+  // `marshallingCategory`. The target always remains in the same player's
+  // `cardsInPlay` (play-target: "faction" only ever binds to the controller's
+  // own factions), so no cross-player lookup is needed.
+  for (const card of player.cardsInPlay) {
+    if (card.attachedTo === undefined) continue;
+    const def = resolveDef(state, card.instanceId);
+    if (!def) continue;
+    const bonus = getCardEffects(def).find(e => e.type === 'attached-faction-mp-bonus');
+    if (!bonus || bonus.type !== 'attached-faction-mp-bonus') continue;
+    const targetStillInPlay = player.cardsInPlay.some(c => c.instanceId === card.attachedTo);
+    if (!targetStillInPlay) continue;
+    const cat = bonus.category ?? MarshallingCategory.Misc;
+    mp = { ...mp, [cat]: mp[cat] + bonus.value };
+  }
+
   // Kill/MP pile: defeated creatures and items stored at Havens (CoE rule
   // 2.II.4.1 places stored items in the marshalling point pile). Defeated
   // creatures earn kill MP — except, per METD §4.1, a player who defeats a

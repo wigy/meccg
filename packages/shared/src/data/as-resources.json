@@ -1853,8 +1853,34 @@
     "eventType": "permanent",
     "marshallingPoints": 1,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a faction in play. That faction gives an additional miscellaneous marshalling point. Cannot be duplicated on a given faction. Discard when any play deck is exhausted."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "faction"
+      },
+      {
+        "type": "attached-faction-mp-bonus",
+        "value": 1,
+        "category": "misc"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "faction",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "text": "Playable on a faction in play. That faction gives an additional miscellaneous marshalling point. Cannot be duplicated on a given faction. Discard when any play deck is exhausted.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "minion-resource-event",
