@@ -3063,6 +3063,57 @@ export function findCharacterCompany(
 }
 
 /**
+ * Ioreth (td-93) / site-rule "healing-affects-all" (Rhosgobel tw-420, Old
+ * Forest tw-417): a healing effect (wounded → well) that targeted a single
+ * character extends to every other wounded character in the same company.
+ * Shared by every apply path that can heal a targeted character — the
+ * chain-entry play-option apply (And Forth He Hastened, Halfling Strength)
+ * and the grant-action apply (Healing Herbs tw-255, Athelas tw-195, le-310)
+ * both call this after writing the primary heal, so the extension can never
+ * drift between the two mechanisms.
+ *
+ * `wasWounded`/`nowStatus` describe the primary target's transition — call
+ * only when that transition was actually a heal (wounded → well).
+ */
+export function extendHealingToCompany(
+  state: GameState,
+  playerIndex: number,
+  targetCharId: CardInstanceId,
+  nowStatus: CardStatus,
+): GameState {
+  const player = state.players[playerIndex];
+  const company = findCharacterCompany(player.companies, targetCharId);
+  if (!company) return state;
+  const hasCompanyFlag = company.characters.some(charId => {
+    const ch = player.characters[charId];
+    if (!ch) return false;
+    const charDef = defById(state, ch.definitionId);
+    return hasPlayFlag(charDef as { effects?: readonly CardEffect[] }, 'healing-affects-all');
+  });
+  let hasSiteRule = false;
+  if (company.currentSite) {
+    const siteDef = defById(state, company.currentSite.definitionId);
+    hasSiteRule = !!(siteDef && 'effects' in siteDef &&
+      (siteDef as { effects?: readonly CardEffect[] }).effects?.some(
+        e => e.type === 'site-rule' && e.rule === 'healing-affects-all',
+      ));
+  }
+  if (!hasCompanyFlag && !hasSiteRule) return state;
+  const source = hasCompanyFlag ? 'play-flag' : 'site-rule';
+  let current = state;
+  for (const charId of company.characters) {
+    if (charId === targetCharId) continue;
+    const ch = current.players[playerIndex].characters[charId];
+    if (ch && ch.status === CardStatus.Inverted) {
+      logDetail(`${source} healing-affects-all: extending heal to ${charId as string}`);
+      current = updatePlayer(current, playerIndex, p =>
+        updateCharacter(p, charId as string, c => ({ ...c, status: nowStatus })));
+    }
+  }
+  return current;
+}
+
+/**
  * The company bonus of a riddling attempt (Riddling Talk-style contests):
  * every sage and every Hobbit in the riddling character's company adds their
  * per-head bonus. Shared by the legal-action preview

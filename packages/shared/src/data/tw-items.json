@@ -1364,12 +1364,17 @@
     "playableAt": [],
     "effects": [
       {
+        "type": "item-play-site",
+        "sites": ["Lórien"]
+      },
+      {
         "type": "storable-at",
         "sites": ["Bag End"],
         "marshallingPoints": 2
       }
     ],
-    "text": "Unique. Only playable at Lórien. 2 marshalling points if stored at Bag End."
+    "text": "Unique. Only playable at Lórien. 2 marshalling points if stored at Bag End.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",
@@ -1657,7 +1662,8 @@
     "unique": false,
     "subtype": "special",
     "keywords": [
-      "ring"
+      "ring",
+      "magic-ring"
     ],
     "marshallingPoints": 3,
     "marshallingCategory": "item",
@@ -1665,8 +1671,29 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Magic Ring. Playable only with a gold ring and after a test indicates a Magic Ring. Gives the bearer diplomat skill. If the bearer is already a diplomat, he gets +3 to direct influence. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "grant-skill",
+        "skill": "diplomat"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "bearer.naturalSkills": {
+            "$includes": "diplomat"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Magic Ring. Playable only with a gold ring and after a test indicates a Magic Ring. Gives the bearer diplomat skill. If the bearer is already a diplomat, he gets +3 to direct influence. Cannot be duplicated on a given character.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",

@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext } from './reducer-utils.js';
+import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -210,6 +210,7 @@ function runGrantApply(
     const targetDef = defById(state, targetChar.definitionId);
     const targetName = targetDef?.name ?? '?';
     logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} → status ${apply.status}`);
+    const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
     newPlayers[ctx.playerIndex] = {
       ...bearerPlayer,
       characters: {
@@ -220,7 +221,12 @@ function runGrantApply(
     const updatedChar = targetCardId === ctx.action.characterId
       ? { ...char, status: statusEnum }
       : char;
-    return { updatedChar, effects: [], stateOps: [] };
+    // healing-affects-all (Ioreth td-93 / site-rule): a heal (wounded → well)
+    // targeting one company member extends to every other wounded member.
+    const stateOps: Array<(s: GameState) => GameState> = isHeal
+      ? [s => extendHealingToCompany(s, ctx.playerIndex, targetCardId, statusEnum)]
+      : [];
+    return { updatedChar, effects: [], stateOps };
   }
 
   // target-instance: apply a status change to any character in any company/player

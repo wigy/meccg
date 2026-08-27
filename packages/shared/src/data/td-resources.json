@@ -939,8 +939,14 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "If defender chooses a warrior to be the target of a strike from an attack, that character may choose to face any number of the strikes from that attack. The character suffers a cumulative -1 prowess/-1 body for each additional strike faced. The character faces a separate strike sequence for each strike."
+    "effects": [
+      {
+        "type": "multi-strike-option",
+        "requiredSkill": "warrior"
+      }
+    ],
+    "text": "If defender chooses a warrior to be the target of a strike from an attack, that character may choose to face any number of the strikes from that attack. The character suffers a cumulative -1 prowess/-1 body for each additional strike faced. The character faces a separate strike sequence for each strike.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

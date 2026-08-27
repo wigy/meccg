@@ -980,6 +980,14 @@ export interface CombatState {
     /** Creature-body modifier applied (reversed on redirect). */
     readonly bodyModifier: number;
   };
+  /**
+   * Set for the rest of this attack when a `multi-strike-option` short event
+   * (Many Foes He Fought td-131) was played during the pre-assignment
+   * window. Holds the required skill (e.g. "warrior") a character must carry
+   * to be assigned additional strikes beyond their first via
+   * `assign-strike`'s `extraSequence` flag. Cleared naturally when combat ends.
+   */
+  readonly multiStrikeSkill?: string;
 }
 
 /**
