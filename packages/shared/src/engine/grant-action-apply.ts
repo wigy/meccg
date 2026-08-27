@@ -33,6 +33,7 @@ import { recomputeDerived } from './recompute-derived.js';
 import { collectCharacterEffects, resolveCheckModifier, resolveDef } from './effects/index.js';
 import { applyMove as applyMoveLocal } from './reducer-move.js';
 import { applyCost } from './cost-evaluator.js';
+import { noBetterUseHeldCharacter, removeCharacterPressedConstraint } from './no-better-use.js';
 
 /**
  * Context for executing a grant-action apply: everything the inner
@@ -1044,6 +1045,39 @@ function runGrantApply(
     // opponent-owned hazard directly to newPlayers[hazOwnerIdx]. A snapshot
     // write-back clobbered those, dropping the hazards from the game.
     return { updatedChar: char, effects: [], stateOps: [] };
+  }
+
+  // `eliminate-captured-character` — No Better Use (ba-41): eliminate the
+  // character currently held "off to the side" by this source card (found via
+  // its `character-pressed` constraint) and credit its kill marshalling
+  // points to the activating player. The captured character was already
+  // stripped of every possession at capture time, so this only relocates the
+  // bare card. The `character-pressed` constraint is removed via `stateOps`
+  // (it lives on `activeConstraints`, outside the `newPlayers` array this
+  // branch otherwise mutates directly).
+  if (apply.type === 'eliminate-captured-character') {
+    const hostInstanceId = ctx.action.sourceCardId;
+    const characterId = noBetterUseHeldCharacter(state, hostInstanceId);
+    if (!characterId) {
+      return { error: `${ctx.sourceName}: holds no captured character to eliminate` };
+    }
+    let ownerIdx = -1;
+    for (let i = 0; i < newPlayers.length; i++) {
+      if (newPlayers[i].characters[characterId]) { ownerIdx = i; break; }
+    }
+    if (ownerIdx === -1) {
+      return { error: `${ctx.sourceName}: captured character ${characterId as string} not found` };
+    }
+    const capturedChar = newPlayers[ownerIdx].characters[characterId];
+    const { [characterId]: _removedCaptured, ...remainingChars } = newPlayers[ownerIdx].characters;
+    void _removedCaptured;
+    newPlayers[ownerIdx] = { ...newPlayers[ownerIdx], characters: remainingChars };
+    newPlayers[ctx.playerIndex] = {
+      ...newPlayers[ctx.playerIndex],
+      killPile: [...newPlayers[ctx.playerIndex].killPile, toCardInstance(capturedChar)],
+    };
+    logDetail(`${ctx.sourceName}: eliminates captured character ${characterId as string} — kill MP to ${ctx.action.player as string}`);
+    return { updatedChar: char, effects: [], stateOps: [s => removeCharacterPressedConstraint(s, hostInstanceId)] };
   }
 
   // `reveal-opponent-hand` — reveal every card in the opponent's hand to the

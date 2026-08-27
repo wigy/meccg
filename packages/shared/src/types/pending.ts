@@ -2508,6 +2508,46 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * No Better Use (ba-41): marks a character held "off to the side" by a
+         * host card that lives in a *bearer* character's `items` (not bare in
+         * `cardsInPlay` like Press-gang's host) — captured in lieu of a CvCC
+         * body check rather than by intercepting a discard. Scored exactly
+         * like a prisoner (CoE 8.35) / `character-pressed` capture: 0 general
+         * influence, negative character marshalling points, never untaps or
+         * heals (`recompute-derived.ts` / `reducer-untap.ts` /
+         * `influence-overflow.ts` treat this kind identically to
+         * `character-is-prisoner` / `character-pressed`). Kept as a distinct
+         * kind — rather than reusing `character-pressed` — because
+         * `sweepPressGang`'s host-liveness check only looks at `cardsInPlay`
+         * and would otherwise treat an item-attached host as "gone" on the
+         * very next `postReduce` pass, immediately releasing the capture.
+         * Scoped `until-cleared`; removed explicitly by
+         * `engine/no-better-use.ts`'s `sweepNoBetterUseCaptures`.
+         */
+        readonly type: 'character-captured-by-bearer';
+        /** Instance ID of the host card (in the bearer's `items`) holding this character. */
+        readonly hostInstanceId: CardInstanceId;
+        /**
+         * The capturing character's instance id. `sweepNoBetterUseCaptures`
+         * watches this character each `postReduce` pass and releases the held
+         * character (forming a fresh company at its last known site) the
+         * moment it is wounded or can no longer be found in
+         * `bearerOwnerId`'s `characters`.
+         */
+        readonly bearerCharacterId: CardInstanceId;
+        /** Owner of {@link bearerCharacterId} (and of `hostInstanceId`). */
+        readonly bearerOwnerId: PlayerId;
+        /**
+         * The bearer's company's `currentSite` as of the most recent sweep
+         * pass while the bearer was still resolvable — refreshed continuously
+         * so it tracks the bearer's movement, and used as the release site if
+         * the bearer has already vanished from play by the time a sweep pass
+         * detects the release condition.
+         */
+        readonly bearerLastKnownSite: import('./state-cards.js').SiteInPlay | null;
+      }
+    | {
+        /**
          * Tidings of Bold Spies (le-143): queued M/H-phase combat attacks that
          * duplicate the destination site's automatic-attacks. One attack per entry
          * in `attacks`; `attackIndex` is the index of the NEXT attack to initiate.

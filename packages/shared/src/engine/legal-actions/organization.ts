@@ -2241,6 +2241,7 @@ export function buildGrantActionContext(
         .some(a => normalizeCreatureRace(a.creatureType) === Race.Dragon)
     : false;
   const siteCtx = siteName ? {
+    name: siteName,
     type: siteType,
     region: (siteDef as { region?: string } | undefined)?.region ?? '',
     hasOneRing: siteHasItemWithKeyword(state, siteName, 'the-one-ring'),
