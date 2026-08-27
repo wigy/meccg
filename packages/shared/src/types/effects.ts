@@ -8319,6 +8319,37 @@ export interface FactionMpBonusEffect extends EffectBase {
 }
 
 /**
+ * A resource permanent event played on (`play-target: "faction"`) a single
+ * in-play faction instance grants that specific faction's owner a flat MP
+ * bonus, credited in `category` (independent of the faction's own printed
+ * `marshallingCategory`).
+ *
+ * Distinct from {@link FactionMpBonusEffect} (as-45's race-diversity gate over
+ * a *class* of factions): this effect is anchored to one attached instance
+ * (`CardInPlay.attachedTo`) via the generic faction play-target binding
+ * (chain-reducer.ts, the same mechanism Long Grievous Siege ba-40 uses), so
+ * the bonus follows that one faction rather than every faction of a race.
+ * Collected in `recompute-derived.ts` from the controller's own `cardsInPlay`
+ * entries carrying an `attachedTo` pointer, and applied only while the target
+ * faction remains in play — `discardOrphanedFactionAttachedEvents`
+ * (reducer-utils.ts) discards the carrier once its target faction leaves.
+ *
+ * Used by Tribute Garnered (as-104): "Playable on a faction in play. That
+ * faction gives an additional miscellaneous marshalling point."
+ *
+ * ```json
+ * { "type": "attached-faction-mp-bonus", "value": 1, "category": "misc" }
+ * ```
+ */
+export interface AttachedFactionMpBonusEffect extends EffectBase {
+  readonly type: 'attached-faction-mp-bonus';
+  /** Marshalling points added to the target faction's owner. */
+  readonly value: number;
+  /** Category the bonus is credited to (defaults to `misc`). */
+  readonly category?: MarshallingCategory;
+}
+
+/**
  * A card that discards **itself** the moment another card matching `filter`
  * leaves its controller's play area (present in the controller's `cardsInPlay`
  * before an action, absent after). Evaluated as a `postReduce` prev/next diff
@@ -9167,6 +9198,7 @@ export type CardEffect =
   | CvccAttackPermissionEffect
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
+  | AttachedFactionMpBonusEffect
   | DiscardOnCardLeavesPlayEffect
   | RetainHazardLongEventsEffect
   | OpposedRollEffect
