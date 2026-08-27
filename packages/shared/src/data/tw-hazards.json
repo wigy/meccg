@@ -2686,7 +2686,39 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/WordsofPowerandTerror.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-08-27",
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "resolve-strike"
+      },
+      {
+        "type": "play-condition",
+        "requires": "combat-creature-race",
+        "race": "ringwraith"
+      },
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play-combat",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "company-stat-modifier",
+          "stat": "prowess",
+          "value": -1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
+      }
+    ],
     "text": "Modify the prowesses of all characters in a company attacked by a Nazgûl by -1 until the end of the turn.Cannot be duplicated on a given company."
   },
   {
