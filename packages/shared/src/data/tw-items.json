@@ -1362,8 +1362,19 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Only playable at Lórien. 2 marshalling points if stored at Bag End."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "sites": ["Lórien"]
+      },
+      {
+        "type": "storable-at",
+        "sites": ["Bag End"],
+        "marshallingPoints": 2
+      }
+    ],
+    "text": "Unique. Only playable at Lórien. 2 marshalling points if stored at Bag End.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",
