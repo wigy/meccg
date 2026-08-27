@@ -188,7 +188,7 @@ export function buildLongDarkReachCombat(
     + `${normallyPlayable ? 'normally playable on the company, no penalty' : `not normally playable, ${penalty} prowess`}`,
   );
 
-  const combat = makeCombatState({
+  const combat = makeCombatState(working, {
     attackSource: { type: 'long-dark-reach-attack', sourceInstanceId, creatureInstanceId: candidate.instanceId },
     companyId,
     defendingPlayerId,
