@@ -573,10 +573,12 @@ function addCardsToSection(cardIds: readonly string[], section: DeckSection, dec
 
 /**
  * Open a modal card browser listing all pool cards accepted by cardFilter.
- * Hovering a card shows its preview; clicking adds one copy to the
- * section and closes the browser.
+ * Hovering a card shows its preview; clicking adds one copy to the section
+ * and the browser stays open so the player can add more cards without
+ * re-opening and re-searching. "Add All" is the exception — it still closes
+ * the browser, since it already exhausts every visible card in one action.
  */
-function openCardBrowser(
+export function openCardBrowser(
   section: DeckSection, deckId: string, browserTitle: string,
   cardFilter: (def: CardDefinition) => boolean,
   toggles: BrowserToggle[] = [],
@@ -729,7 +731,11 @@ function openCardBrowser(
       item.addEventListener('mouseover', () => showCardPreview(cardId));
       item.addEventListener('click', () => {
         addCardsToSection([cardId], section, deckId);
-        close();
+        // The browser no longer closes to confirm the add, so flash the
+        // clicked item instead; restart the animation on repeat clicks.
+        item.classList.remove('card-browser-item--added');
+        void item.offsetWidth;
+        item.classList.add('card-browser-item--added');
       });
       list.appendChild(item);
     }
