@@ -4742,12 +4742,25 @@ function findCreatureKeyingMatches(
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-  const destSiteCard = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef : undefined;
+  // Falls back to a by-name (alignment-scoped) lookup so `when` conditions on
+  // `destinationSite.region`/`.siteType` still resolve when the company's
+  // `destinationSite` instance hasn't been attached yet (e.g. mid-declare-path
+  // offering) — same fallback the siteInRegionNames/siteKeywords checks below
+  // already use independently (Beorning Toll le-62's non-Haven site-in-region
+  // qualifier needs `destinationSite.siteType` populated this way).
+  const destSiteCard = (destSiteDef && isSiteCard(destSiteDef))
+    ? destSiteDef
+    : (mhState.destinationSiteName
+      ? Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        ) as SiteCard | undefined
+      : undefined);
   const destSitePath = destSiteCard?.sitePath ?? [];
   const destSitePathCounts = regionTypeCounts(destSitePath);
   const whenContext: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destSitePathCounts, region: destSiteCard?.region },
+    destinationSite: { sitePath: destSitePathCounts, region: destSiteCard?.region, siteType: destSiteCard?.siteType },
     hazardsEncountered: mhState.hazardsEncountered,
   };
   // Derive the keyable region paths — name-scoped overrides (Choking

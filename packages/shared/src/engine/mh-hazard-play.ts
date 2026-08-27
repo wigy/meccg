@@ -3323,7 +3323,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   const inPlayNames = buildInPlayNames(state);
   const whenCtxBase: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destPathCounts, region: destSiteCard?.region },
+    destinationSite: { sitePath: destPathCounts, region: destSiteCard?.region, siteType: destSiteCard?.siteType },
     hazardsEncountered: mhState.hazardsEncountered,
   };
 
