@@ -1540,7 +1540,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     const isPrisoner = state.activeConstraints.some(
       c => c.target.kind === 'character'
         && c.target.characterId === char.instanceId
-        && (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed'),
+        && (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed' || c.kind.type === 'character-captured-by-bearer'),
     );
 
     // Compute effective stats with both companion name and ID context so that

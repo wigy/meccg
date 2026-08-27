@@ -1457,8 +1457,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/WindsofWrath.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable if Doors of Night is in play and opponent is using the same type of location deck (minion/hero) as yourself. Replace the new site card of a moving company with a Coastal Sea [{c}] in its site path with a card from your location deck that has a Coastal Sea [{c}] in its site path."
+    "effects": [
+      {
+        "type": "play-condition",
+        "requires": "card-in-play",
+        "cardName": "Doors of Night"
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.sameLocationDeckTypeAsOpponent": true }
+      },
+      {
+        "type": "swap-new-site",
+        "requiresDestinationSitePathIncludes": ["coastal"]
+      }
+    ],
+    "text": "Playable if Doors of Night is in play and opponent is using the same type of location deck (minion/hero) as yourself. Replace the new site card of a moving company with a Coastal Sea [{c}] in its site path with a card from your location deck that has a Coastal Sea [{c}] in its site path.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",

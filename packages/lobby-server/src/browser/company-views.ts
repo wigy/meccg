@@ -77,7 +77,7 @@ export function removeMapRadar(): void {
  * otherwise wrap onto extra rows or run off the bottom of the screen at a
  * fixed scale — this keeps them fully visible instead.
  */
-function shrinkToFitViewport(el: HTMLElement, initialScale: number, minScale = 0.25): void {
+function shrinkToFitViewport(el: HTMLElement, initialScale: number, minScale = 0.23): void {
   requestAnimationFrame(() => {
     let scale = initialScale;
     while (scale > minScale && document.documentElement.scrollHeight > window.innerHeight + 2) {
@@ -241,7 +241,12 @@ export function renderAllCompaniesView(
 
   const overview = document.createElement('div');
   overview.className = 'company-overview-all';
-  const initialScale = 0.6;
+  // `--card-table-height` was bumped up (22vh -> 24vh) so the single-company
+  // view reads more easily on a normal laptop; this initial scale is lowered
+  // by the same ratio (0.6 * 22/24) so the all-companies overview — already
+  // the tighter, more crowded layout — keeps its previous effective card size
+  // instead of getting proportionally larger too.
+  const initialScale = 0.55;
   overview.style.setProperty('--company-scale', String(initialScale));
 
   // Check if we're in character-play targeting mode

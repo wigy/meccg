@@ -1987,6 +1987,11 @@ function applyOneConstraint(
       // so it never surfaces in company-driven action menus. Its negative MP / 0
       // GI / no-untap are enforced in `recompute-derived.ts` / `reducer-untap.ts`.
       return base;
+    case 'character-captured-by-bearer':
+      // No Better Use (ba-41): same off-to-the-side shape as `character-pressed`
+      // (see that case) — the held character is in no company, so it never
+      // surfaces in company-driven action menus.
+      return base;
     case 'tidings-attacks-queue':
       // Consumed directly by `finalizeCombat` in `reducer-combat.ts` to
       // chain successive Tidings of Bold Spies attacks — no broad legal-action
@@ -2222,7 +2227,12 @@ function applyNoCreatureHazardsOnCompany(
 }
 
 /** The `play-hazard` action fields consulted by the creature-constraint post-filters. */
-type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardInstanceId; keyedBy?: { method: string }; altEventMode?: string };
+type CreaturePlayAction = {
+  targetCompanyId?: CompanyId;
+  cardInstanceId?: CardInstanceId;
+  keyedBy?: { method: string };
+  altEventMode?: 'short-event' | 'permanent-event';
+};
 
 /**
  * Shared post-filter for constraints restricting hazard-creature plays against
@@ -2231,10 +2241,12 @@ type CreaturePlayAction = { targetCompanyId?: CompanyId; cardInstanceId?: CardIn
  * `verdict` decides whether the play survives and may attach a `note`, which is
  * logged as `Constraint <id> (<label>): <note>`.
  *
- * A dual-mode card (`creature-alt-event`, e.g. Akhôrahil tw-4) offered here
- * with `altEventMode` set is being played as a hazard *event*, not as a
- * creature — CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct
- * categories, so a "no creature hazards" restriction must not reach it.
+ * A dual-mode card (`creature-alt-event`, e.g. Ren the Unclean tw-83 or
+ * Akhôrahil tw-4) offered here with `altEventMode` set is being played in its
+ * short-event or permanent-event mode as a hazard *event*, not as a creature —
+ * CoE 2.IV.vii.3/1722 treat creature and event hazards as distinct categories,
+ * so creature-only constraints (e.g. Stealth's `no-creature-hazards-on-company`)
+ * must not reach it.
  */
 function filterCreaturePlaysAgainstCompany(
   state: GameState,

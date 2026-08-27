@@ -28,13 +28,14 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition, constraintsOnCompany } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { hazardLimitStatus } from '../hazard-limit.js';
 import { cvccSides } from '../cvcc-sides.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
+import { noBetterUseAlreadyUsed } from '../no-better-use.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -323,7 +324,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     case 'trophy-offer':
       return trophyOfferActions(state, playerId, combat);
     case 'body-check':
-      return [...bodyCheckActions(state, playerId, combat), ...tapAllyBodyCheckBoostActions(state, playerId, combat)];
+      return [...bodyCheckActions(state, playerId, combat), ...tapAllyBodyCheckBoostActions(state, playerId, combat), ...captureInLieuOfBodyCheckActions(state, playerId, combat)];
     case 'shield-discard-roll':
       return shieldDiscardRollActions(state, playerId, combat);
     case 'item-salvage':
@@ -1485,7 +1486,7 @@ function resolveStrikeActions(
   let statusPenalty = 0;
   if (targetStatus === CardStatus.Tapped) statusPenalty = 1;
   if (targetStatus === CardStatus.Inverted) statusPenalty = 2; // Wounded
-  const excessPenalty = currentStrike.excessStrikes > 0 ? currentStrike.excessStrikes : 0;
+  const excessPenalty = excessStrikePenalty(combat, currentStrike.excessStrikes);
 
   // Tap: full prowess; Untap: -3 prowess penalty.
   // Add +1 per character/ally that has tapped to support this strike
@@ -2207,6 +2208,69 @@ function tapAllyBodyCheckBoostActions(
       action: { type: 'tap-ally-body-check-boost', player: playerId, cardInstanceId: ally.instanceId },
       viable: true,
     });
+  }
+  return actions;
+}
+
+/**
+ * Generate `capture-in-lieu-of-body-check` actions: while a CvCC character
+ * body check is pending, the roller (whichever side's strike put the
+ * opposing character in jeopardy) may tap an untapped character bearing an
+ * unused `cvcc-capture-in-lieu-of-body-check` card to place that opposing
+ * character "off to the side" with it, instead of rolling. Ally targets are
+ * exempt — the card text says "opponent's character". One-shot per host card
+ * (`no-better-use.ts`'s persistent lock).
+ *
+ * Used by No Better Use (ba-41).
+ */
+function captureInLieuOfBodyCheckActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (!combat.isCvCC) return [];
+  if (combat.bodyCheckTarget !== 'character' && combat.bodyCheckTarget !== 'attacker-character') return [];
+
+  const roller = combat.bodyCheckTarget === 'attacker-character'
+    ? combat.defendingPlayerId
+    : combat.attackingPlayerId;
+  if (playerId !== roller) return [];
+
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike) return [];
+
+  let targetCharacterId: CardInstanceId;
+  if (combat.bodyCheckTarget === 'attacker-character') {
+    if (!strike.attackingCharacterId) return [];
+    targetCharacterId = strike.attackingCharacterId;
+  } else {
+    const defPlayer = playerById(state, combat.defendingPlayerId);
+    if (!defPlayer) return [];
+    if (!defPlayer.characters[strike.characterId]) return []; // an ally, not a character — exempt
+    targetCharacterId = strike.characterId;
+  }
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const [charId, charData] of Object.entries(player.characters)) {
+    if (charData.status !== CardStatus.Untapped) continue;
+    for (const item of charData.items) {
+      const itemDef = defById(state, item.definitionId);
+      if (!getCardEffects(itemDef).some(e => e.type === 'cvcc-capture-in-lieu-of-body-check')) continue;
+      if (noBetterUseAlreadyUsed(state, item.instanceId)) continue;
+      logDetail(`No Better Use available: ${charId} may tap to capture ${targetCharacterId as string} in lieu of body check`);
+      actions.push({
+        action: {
+          type: 'capture-in-lieu-of-body-check',
+          player: playerId,
+          characterId: charId as CardInstanceId,
+          cardInstanceId: item.instanceId,
+        },
+        viable: true,
+      });
+    }
   }
   return actions;
 }
@@ -3811,7 +3875,7 @@ export function buildPlayedModifyAttackContext(
   const enemyCtx: Record<string, unknown> = { prowess: baseProwess };
   if (combat.creatureRace) enemyCtx['race'] = combat.creatureRace;
   if (creatureName) enemyCtx['name'] = creatureName;
-  const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic, detainment: combat.detainment };
+  const attackCtx: Record<string, unknown> = { source: combat.attackSource.type, automatic: isAutomatic, detainment: combat.detainment, strikesTotal: combat.strikesTotal };
   if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
   const defendingPlayer = playerById(state, combat.defendingPlayerId);
   const defendingCompany = defendingPlayer ? companyById(defendingPlayer.companies, combat.companyId) : undefined;

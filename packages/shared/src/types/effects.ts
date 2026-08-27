@@ -2211,6 +2211,7 @@ export type TriggeredActionType =
   | 'counter-cancel-attack'
   | 'discard-character'
   | 'eliminate-character'
+  | 'eliminate-captured-character'
   | 'enqueue-opponent-elimination-roll'
   | 'discard-target-character'
   | 'force-discard-one-company-item'
@@ -2921,6 +2922,19 @@ export interface EliminateCharacterAction extends TriggeredActionBase {
 }
 
 /**
+ * `eliminate-captured-character` — a `grant-action` apply for No Better Use
+ * (ba-41): eliminate the character currently held "off to the side" by the
+ * activating source card (found via its `character-pressed` constraint) and
+ * award its kill marshalling points to the activating player. Used for
+ * ba-41's Shelob's Lair finisher: "tap and discard this card to eliminate
+ * opponent's character — whom you then receive as kill marshalling points."
+ * Implemented in `grant-action-apply.ts`, using `no-better-use.ts` helpers.
+ */
+export interface EliminateCapturedCharacterAction extends TriggeredActionBase {
+  readonly type: 'eliminate-captured-character';
+}
+
+/**
  * `wound-or-eliminate` — the dice-check onPass verb for "he is wounded or, if
  * already wounded, eliminated" (Crowned with Storm ba-54). Acts on the
  * resolution-context target, which may be **either** a character
@@ -3615,6 +3629,7 @@ export type TriggeredAction =
   | MoveEffect
   | DiscardCharacterAction
   | EliminateCharacterAction
+  | EliminateCapturedCharacterAction
   | WoundOrEliminateAction
   | EnqueueOpponentEliminationRollAction
   | DiscardTargetCharacterAction
@@ -6402,6 +6417,19 @@ export interface ModifyAttackEffect extends EffectBase {
    * "Any resulting body checks for defending characters are modified by +2."
    */
   readonly bodyCheckModifier?: number;
+  /**
+   * When set (`fromHand` path, whole-attack scope), overrides the prowess
+   * penalty for the *first* excess strike assigned to each defending
+   * character this attack — {@link CombatState.firstExcessStrikePenalty}.
+   * Normally each excess strike costs a flat -1 prowess
+   * (`StrikeAssignment.excessStrikes`); with this set, a character's first
+   * excess strike costs this amount instead, and any further excess strikes
+   * on the same character still cost -1 each (so total penalty for N excess
+   * strikes on one character is `firstExcessStrikePenalty + (N - 1)`). Used
+   * by Pierced by Many Wounds (dm-79): "The first excess strike assigned to
+   * each character gives a -4 modification to his prowess instead of -1."
+   */
+  readonly firstExcessStrikePenalty?: number;
 }
 
 /**
@@ -7828,6 +7856,31 @@ export interface CvccAttackPermissionEffect extends EffectBase {
 }
 
 /**
+ * No Better Use (ba-41): while the bearer is untapped and this ability has
+ * never been used, the bearer's controller may — instead of a pending
+ * company-vs-company body check against a **character** (not an ally) in the
+ * opposing company — tap the bearer to place that character "off to the side"
+ * with this card. Offered alongside `body-check-roll` for either CvCC
+ * body-check target (`'character'` — the bearer's own company struck the
+ * opponent; `'attacker-character'` — the opponent's company struck the
+ * bearer's own company and lost the exchange), whichever side the bearer's
+ * company is on.
+ *
+ * The capture (strip all items/allies/hazards to discard, followers revert to
+ * general influence, `character-pressed` constraint recording the bearer so
+ * it can be watched) is implemented in `engine/no-better-use.ts`, reusing the
+ * same off-to-the-side shape as Press-gang (ba-22). Unlike Press-gang the
+ * capture is released — forming a fresh one-character company at the
+ * bearer's current site — the moment the bearer is wounded or leaves active
+ * play (`sweepNoBetterUseCaptures`, a `postReduce` sweep), and the ability
+ * itself is one-time-per-card, enforced by a persistent `granted-action-used`
+ * lock keyed `no-better-use-capture`.
+ */
+export interface CvccCaptureInLieuOfBodyCheckEffect extends EffectBase {
+  readonly type: 'cvcc-capture-in-lieu-of-body-check';
+}
+
+/**
  * Caverns Unchoked (ba-51): a Balrog permanent-event played on an Under-deeps
  * site during the organization phase (via a companion `play-target: site`
  * filtered to the `under-deeps` keyword). While in play the card is bound to
@@ -9214,6 +9267,8 @@ export type CardEffect =
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
   | AgentTapFactionInfluenceEffect
+  | AgentTapMultiInfluenceEffect
+  | AgentInfluenceBoostEffect
   | AgentTapOpponentInfluenceEffect
   | OpponentInfluenceOverrideEffect
   | DiscardSelfWhenEffect
@@ -9231,6 +9286,7 @@ export type CardEffect =
   | CompanyMovementTaxEffect
   | VoluntaryDiscardEffect
   | CvccAttackPermissionEffect
+  | CvccCaptureInLieuOfBodyCheckEffect
   | GrantAllyPlayEffect
   | FactionMpBonusEffect
   | AttachedFactionMpBonusEffect
@@ -9241,7 +9297,10 @@ export type CardEffect =
   | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
   | TapDiscardInPlayEffect
-  | RemovalProtectionEffect;
+  | RemovalProtectionEffect
+  | ForceAgentAttackEffect
+  | DiscardUnrevealedOnGuardEffect
+  | SwapNewSiteEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
@@ -9662,6 +9721,41 @@ export interface AgentAttackOutcomeEffect extends EffectBase {
 }
 
 /**
+ * Global rule (in-play, either player's `cardsInPlay`): every revealed
+ * (face-up) agent standing at a site a company enters must declare an attack
+ * against that company — the hazard player's usual option to pass on an
+ * agent attack is removed for any such agent. Face-down agents are
+ * unaffected: revealing one to attack remains optional.
+ *
+ * Computed by `agentAttackIsMandatory` (`reducer-utils.ts`) and consulted by
+ * `declareAgentAttackActions` (`legal-actions/site.ts`), which omits the
+ * `pass` action from the declare-agent-attack step whenever a face-up agent
+ * at the company's current site has not yet attacked this site phase.
+ *
+ * Used by Ordered to Kill (dm-152): "Each face up agent must attack if a
+ * company enters a site where he is located."
+ */
+export interface ForceAgentAttackEffect extends EffectBase {
+  readonly type: 'force-agent-attack';
+}
+
+/**
+ * Global rule (in-play, either player's `cardsInPlay`): at site-phase
+ * cleanup, on-guard cards still sitting unrevealed on a company are
+ * discarded to their owner's discard pile instead of being returned to the
+ * owner's hand (the CoE default, `returnOnGuardCardsToHand`).
+ *
+ * Computed by `unrevealedOnGuardDiscarded` (`reducer-utils.ts`) and consulted
+ * by `returnOnGuardCardsToHand` (`reducer-site.ts`).
+ *
+ * Used by Ordered to Kill (dm-152): "Additionally, any unrevealed on-guard
+ * cards are discarded instead of being returned to their owner's hand."
+ */
+export interface DiscardUnrevealedOnGuardEffect extends EffectBase {
+  readonly type: 'discard-unrevealed-on-guard';
+}
+
+/**
  * Passive movement bonus carried by an ally: when every character in the
  * bearer's company controls an ally whose name is in {@link allyNames}, the
  * company may move up to {@link value} additional regions this turn.
@@ -9897,6 +9991,49 @@ export interface CharacterTapExtraMHPhaseEffect extends EffectBase {
   readonly type: 'character-tap-extra-mh-phase';
   /** Destination site's `sitePath` must include at least one of these region types. */
   readonly requiresDestinationSitePathIncludes?: readonly RegionType[];
+}
+
+/**
+ * Hazard short-event that substitutes a *different* site card, drawn from the
+ * hazard player's own location deck, for a moving company's already-declared
+ * destination site — CoE 2.II.7's normal rule that a company's new site
+ * always comes from its own owner's location deck is overridden for this one
+ * substitution. Playable only while the destination site's static `sitePath`
+ * includes at least one of {@link requiresDestinationSitePathIncludes}; the
+ * replacement drawn from the hazard player's location deck must satisfy the
+ * same site-path requirement.
+ *
+ * `swapNewSiteActions` (`legal-actions/movement-hazard.ts`) offers one
+ * `play-hazard` action per eligible site left in the hazard player's own
+ * `siteDeck`, each carrying its instance in `replacementSiteInstanceId`.
+ * `handleSwapNewSite` (`mh-hazard-play.ts`) then: returns the company's
+ * original destination site card, untapped, to its own owner's location deck
+ * (mirroring `clearPlannedMovement` — it was never entered, only declared),
+ * pulls the chosen replacement out of the hazard player's location deck as
+ * the company's new untapped `destinationSite`, and refreshes the cached
+ * `destinationSiteName` / `destinationSiteType` on the movement/hazard phase
+ * state (both already resolved by the time the play-hazards step runs) to
+ * match the replacement. `resolvedSitePath` (the region types the company
+ * actually traveled through) is a movement-path record, not a site-identity
+ * one, so it is untouched by the swap.
+ *
+ * Used by *Winds of Wrath* (td-82): "Playable if Doors of Night is in play
+ * and opponent is using the same type of location deck (minion/hero) as
+ * yourself. Replace the new site card of a moving company with a Coastal Sea
+ * [{c}] in its site path with a card from your location deck that has a
+ * Coastal Sea [{c}] in its site path." — `requiresDestinationSitePathIncludes:
+ * ["coastal"]`, paired with a `play-condition` `requires: "card-in-play"`
+ * (Doors of Night) and a `play-condition` `requires: "player-state"` gate on
+ * `player.sameLocationDeckTypeAsOpponent`.
+ */
+export interface SwapNewSiteEffect extends EffectBase {
+  readonly type: 'swap-new-site';
+  /**
+   * Both the company's current destination site and the replacement site
+   * must have a static `sitePath` including at least one of these region
+   * types.
+   */
+  readonly requiresDestinationSitePathIncludes: readonly RegionType[];
 }
 
 /**
@@ -11188,6 +11325,57 @@ export interface AgentTapFactionInfluenceEffect extends EffectBase {
    * target faction is playable at one of the agent's home sites.
    */
   readonly autoSuccessAtHomeSite?: boolean;
+}
+
+/**
+ * Hazard short-event mode A for Good Sense Revolts (dm-61).
+ *
+ * "Playable on an untapped agent. Tap the agent who may then make an
+ * influence attempt against an ally, faction, or character. +4 to influence
+ * attempt. +8 if ally, faction, or character is playable at agent's home
+ * site."
+ *
+ * The multi-target counterpart of {@link AgentTapFactionInfluenceEffect}: the
+ * card *grants* any of the hazard player's own untapped agents a rule-10.14
+ * influence attempt against an opponent's ally, faction, or character — the
+ * same target kinds the native {@link AgentTapInfluenceEffect} ability covers
+ * — without requiring the agent to carry that ability itself. Instead of an
+ * auto-success tier (dm-96), this card's own bonus is tiered: {@link
+ * attemptBonus} normally, {@link attemptBonusAtHomeSite} when the target
+ * shares (character/ally) or is playable at (faction) one of the agent's home
+ * sites — the same condition rule 10.14 already zeroes the target's value
+ * for.
+ */
+export interface AgentTapMultiInfluenceEffect extends EffectBase {
+  readonly type: 'agent-tap-multi-influence';
+  /** Which kinds of opponent target the granted attempt may be made against. */
+  readonly targetKinds: readonly ('character' | 'ally' | 'faction')[];
+  /** Modifier added to the attacker's side of the influence attempt (+4). */
+  readonly attemptBonus: number;
+  /**
+   * Replaces {@link attemptBonus} when the target is playable at (or shares)
+   * one of the agent's home sites (+8).
+   */
+  readonly attemptBonusAtHomeSite?: number;
+}
+
+/**
+ * Hazard short-event mode B for Good Sense Revolts (dm-61): "Alternatively,
+ * modify an influence attempt by an agent by +4. This card cannot serve both
+ * functions."
+ *
+ * Banks a one-shot `check-modifier` {@link ActiveConstraint} (`check:
+ * "influence"`, gated by `when: { reason: "opponent-influence-check" }`) on
+ * one of the hazard player's own agents (any tap status) — the same
+ * constraint kind Mine or No One's (ba-68) uses — consumed by that agent's
+ * next qualifying rule-10.14 attempt, whether via a native {@link
+ * AgentTapInfluenceEffect} ability or a granted attempt such as this same
+ * card's own mode A. Does not tap or reveal the target agent by itself.
+ */
+export interface AgentInfluenceBoostEffect extends EffectBase {
+  readonly type: 'agent-influence-boost';
+  /** Modifier banked onto the target agent's next qualifying attempt (+4). */
+  readonly attemptBonus: number;
 }
 
 /**
