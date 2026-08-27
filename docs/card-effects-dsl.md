@@ -6834,6 +6834,7 @@ Optional fields:
       "cost": { "check": "corruption", "modifier": -2,
                  "alsoDiscardItemName": "The One Ring" } }
     ```
+
   - `{ "wound": "bearer" | "character" | "self" }` — wounds the specified
     entity (sets status to Inverted) as the cost.
 - `itemFilter` — restricts a `target: "character"` play-target to a
@@ -17001,6 +17002,7 @@ repeat assignment to an already-assigned character would otherwise produce
 stamped so downstream cancel/resolution logic (`combat-cancel.ts`,
 `combat-strike.ts`) treats every strike identically to a printed multi-attack
 creature's.
+
 ### 80. `force-agent-attack` + `discard-unrevealed-on-guard` (Ordered to Kill)
 
 Two global, unconditional rules-changing effects for an in-play permanent
