@@ -793,8 +793,11 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "When any player discards a card from his hand, he may discard it to the top of his play deck (and always face down) instead of to his discard pile."
+    "effects": [
+      { "type": "hand-discard-recycle-option" }
+    ],
+    "text": "When any player discards a card from his hand, he may discard it to the top of his play deck (and always face down) instead of to his discard pile.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

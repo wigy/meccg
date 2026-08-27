@@ -12280,6 +12280,48 @@ card used by him has to be discarded, return it to the play deck and reshuffle."
 
 ---
 
+### 55d. `hand-discard-recycle-option`
+
+Game-wide passive marker carried by a bare in-play permanent-/long-event in
+**either** player's `cardsInPlay`: whenever *any* player discards a card from
+their hand — through any of the engine's many independent hand-to-discard-pile
+paths (voluntary end-of-turn discard, forced hand-size reduction, a forced
+discard, a cost payment, etc.) — that player may choose to place the discarded
+card on top of their own play deck (face down) instead of leaving it in their
+discard pile.
+
+There is no single call site for "a card left the hand and reached the discard
+pile," so the engine detects it reactively as a prev/next diff after every
+reducer step (`hand-discard-recycle-trigger.ts`), the same pattern
+`hand-discard-trigger.ts` uses for Pale Dream-maker's (dm-78) corruption check:
+a card counts as "discarded from hand" when its instance left `hand` and landed
+in `discardPile` within the same step, which distinguishes a genuine discard
+from a card merely being played (which leaves the hand for `cardsInPlay`/a
+character/etc., not the discard pile). Unlike Pale Dream-maker's trigger, both
+players' hands are scanned every step — the card text says "any player", not
+"his own controller" — and the marker need not belong to the discarding player.
+
+The trigger enqueues a `hand-discard-recycle-offer` pending resolution (the
+card has *already* landed in the discard pile by the time the offer is made).
+The discarding player may accept (`recycle-hand-discard`, moving that exact
+instance from the discard pile to the top of the play deck — no `faceDown`
+flag needed, since play-deck membership already hides a card's identity; see
+`forgetDeckReveals`) or `pass` (leaving it discarded). Resolved by
+`applyHandDiscardRecycleOfferResolution` (`pending-reducers.ts`); legal actions
+by `handDiscardRecycleOfferActions` (`legal-actions/pending.ts`).
+
+This effect has no fields.
+
+```json
+{ "type": "hand-discard-recycle-option" }
+```
+
+Used by: Enduring Tales (dm-125) — "When any player discards a card from his
+hand, he may discard it to the top of his play deck (and always face down)
+instead of to his discard pile."
+
+---
+
 ### 56. `absorb-wound`
 
 When a strike against the bearer succeeds (would wound), the wound is prevented.

@@ -1400,6 +1400,32 @@ export function influenceModificationsNullified(state: GameState): boolean {
 }
 
 /**
+ * True while a bare in-play event in **either** player's `cardsInPlay` carries
+ * a `hand-discard-recycle-option` effect — Enduring Tales (dm-125): "When any
+ * player discards a card from his hand, he may discard it to the top of his
+ * play deck (and always face down) instead of to his discard pile." Mirrors
+ * {@link influenceModificationsNullified}'s "either player, bare card" scan.
+ * Consulted by `hand-discard-recycle-trigger.ts` to decide whether to offer
+ * the redirect at all.
+ */
+export function handDiscardRecycleOptionInPlay(state: GameState): { readonly sourceName: string } | null {
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      if (getCardEffects(def).some(e => e.type === 'hand-discard-recycle-option')) {
+        return { sourceName: def.name };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Total stage points a single card definition contributes (MEWH §1): the sum of
  * its `stage-points` effect values (usually one, may be zero). Used both by the
  * derived per-player total and by the discard-stage-resource legality check.
