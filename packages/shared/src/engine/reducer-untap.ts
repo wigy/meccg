@@ -284,7 +284,7 @@ function performUntap(state: GameState): GameState {
     if (c.kind.type === 'bearer-cannot-untap') {
       cannotUntapIds.add(c.target.characterId as string);
     }
-    if (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed') {
+    if (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed' || c.kind.type === 'character-captured-by-bearer') {
       // Prisoners (8.35) and Press-ganged characters (ba-22) are locked "off to
       // the side": they never untap or heal.
       prisonerIds.add(c.target.characterId as string);

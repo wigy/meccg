@@ -484,11 +484,12 @@ function collectUniqueNamesInPlay(state: GameState, player: GameState['players']
   };
   for (const card of player.cardsInPlay) addIfUnique(card.definitionId);
   for (const [charId, character] of Object.entries(player.characters)) {
-    // A pressed character (Press-gang ba-22) gives its player NEGATIVE
-    // character MP (CoE 8.35 scoring) — it is not "giving at least one
-    // marshalling point", so it cannot be matched either.
+    // A pressed character (Press-gang ba-22) or a No Better Use (ba-41)
+    // capture gives its player NEGATIVE character MP (CoE 8.35 scoring) — it
+    // is not "giving at least one marshalling point", so it cannot be
+    // matched either.
     const pressed = state.activeConstraints.some(
-      c => c.kind.type === 'character-pressed'
+      c => (c.kind.type === 'character-pressed' || c.kind.type === 'character-captured-by-bearer')
         && c.target.kind === 'character' && (c.target.characterId as string) === charId,
     );
     if (!pressed) addIfUnique(character.definitionId);

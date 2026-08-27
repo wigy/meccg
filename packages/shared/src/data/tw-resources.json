@@ -3540,8 +3540,94 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Galadriel. +2 prowess, +2 body, +2 direct influence for the rest of the turn. Galadriel makes a corruption check modified by -3, by -1 if in a Haven [{H}]. Any one corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold [{D}] is automatically successful."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Galadriel"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "prowess",
+          "value": 2,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "body",
+          "value": 2,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "stat": "direct-influence",
+          "value": 2,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": {
+          "target.siteType": "haven"
+        },
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -1
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": {
+          "$not": {
+            "target.siteType": "haven"
+          }
+        },
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "target": "player",
+          "check": "corruption",
+          "value": 0,
+          "autoPass": true,
+          "scope": "until-cleared",
+          "constraintWhen": {
+            "$not": {
+              "target.siteType": {
+                "$in": ["shadow-hold", "dark-hold"]
+              }
+            }
+          }
+        }
+      }
+    ],
+    "text": "Playable on Galadriel. +2 prowess, +2 body, +2 direct influence for the rest of the turn. Galadriel makes a corruption check modified by -3, by -1 if in a Haven [{H}]. Any one corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold [{D}] is automatically successful.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

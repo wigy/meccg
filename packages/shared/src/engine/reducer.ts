@@ -31,6 +31,7 @@ import { handleChainAction } from './chain-reducer.js';
 import { accrueRevealedInstances } from './visibility.js';
 import { sweepSetAside } from './set-aside.js';
 import { sweepPressGang } from './press-gang.js';
+import { sweepNoBetterUseCaptures } from './no-better-use.js';
 import { sweepFallenWizardSpecific } from './fallen-wizard-specific.js';
 import { sweepGreatHuntDiscards } from './great-hunt.js';
 import { sweepDiscardSelfWhen } from './discard-self-when.js';
@@ -55,7 +56,7 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // just left its controller's play area. Prev/next diff, so it runs on the raw
   // post-action state before the single-state sweeps and recompute below.
   const afterLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
-  const swept = sweepTapAtSiteItems(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepReturnSelfToHandWhen(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves)))))))))))))))))));
+  const swept = sweepTapAtSiteItems(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepReturnSelfToHandWhen(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepNoBetterUseCaptures(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves))))))))))))))))))));
   // The Will of Sauron (tw-100): when the card retaining hazard long-events left
   // play this step, every hazard long-event goes with it. Runs *after* the
   // single-state sweeps so a retainer discarded by its own `discard-self-when`

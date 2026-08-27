@@ -662,6 +662,8 @@ export function describeAction(
       return `${playerName(action.player)} taps ally ${instName(action.cardInstanceId)} to boost its company in combat`;
     case 'tap-ally-body-check-boost':
       return `${playerName(action.player)} taps ally ${instName(action.cardInstanceId)} to boost its controlling character's body check`;
+    case 'capture-in-lieu-of-body-check':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to capture the opposing character in lieu of the body check`;
     case 'tap-ally-discard-hazard':
       return `${playerName(action.player)} taps ally ${instName(action.allyInstanceId)} to discard hazard ${instName(action.targetInstanceId)}`;
     case 'convert-creature-to-ally':

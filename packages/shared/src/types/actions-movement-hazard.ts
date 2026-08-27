@@ -624,6 +624,23 @@ export interface TapAllyBodyCheckBoostAction {
 }
 
 /**
+ * No Better Use (ba-41): offered alongside `body-check-roll` while a CvCC
+ * character body check is pending. Instead of rolling, the roller taps an
+ * untapped character bearing an unused `cvcc-capture-in-lieu-of-body-check`
+ * card to place the opposing character "off to the side" with it.
+ */
+export interface CaptureInLieuOfBodyCheckAction {
+  /** Action discriminant. */
+  readonly type: 'capture-in-lieu-of-body-check';
+  /** The player activating the ability (the body-check roller). */
+  readonly player: PlayerId;
+  /** The bearer character being tapped to activate the ability. */
+  readonly characterId: CardInstanceId;
+  /** The in-play card (attached to the bearer) carrying the effect. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Halve the number of strikes in the current attack (rounded up) by
  * discarding a short event card from hand. Only legal during the
  * assign-strikes phase before any strikes have been assigned.

@@ -45,6 +45,7 @@ import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTa
 import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, completeCombat } from './combat-finalize.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
+import { captureCharacterInLieuOfBodyCheck, noBetterUseAlreadyUsed } from './no-better-use.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { pruneLeaderFollowers, nextStrikePhase, advanceStrikeOrFinalize, eliminateCombatantFromStrike } from './combat-strike.js';
 import { resolveChainStrikeModifier } from './combat-cancel.js';
@@ -1864,6 +1865,84 @@ export function handleTapAllyBodyCheckBoost(state: GameState, action: GameAction
       combat: { ...combat, strikeAssignments: newAssignments },
     },
   };
+}
+
+/**
+ * Handle `capture-in-lieu-of-body-check` (No Better Use, ba-41): instead of
+ * rolling the pending CvCC character body check, tap the bearer to place the
+ * opposing character "off to the side" with the card. Bypasses the roll
+ * entirely — the outcome does not depend on the body value at all — and
+ * marks the current strike `result: 'captured'` (the same disposition
+ * `take-prisoner` uses) so `combat-finalize.ts`'s wound-triggered passives do
+ * not fire on it.
+ */
+export function handleCaptureInLieuOfBodyCheck(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'capture-in-lieu-of-body-check') return wrongActionType(state, action, 'capture-in-lieu-of-body-check');
+  if (!combat.isCvCC) return { state, error: 'No Better Use: not a company-vs-company combat' };
+  if (combat.bodyCheckTarget !== 'character' && combat.bodyCheckTarget !== 'attacker-character') {
+    return { state, error: 'No Better Use: no character body check pending' };
+  }
+
+  const playerIndex = getPlayerIndex(state, action.player);
+  if (playerIndex < 0) return { state, error: 'Player not found' };
+  const player = state.players[playerIndex];
+  const bearer = player.characters[action.characterId];
+  if (!bearer) return { state, error: 'No Better Use: bearer not in play' };
+  if (bearer.status !== CardStatus.Untapped) return { state, error: 'No Better Use: bearer must be untapped' };
+
+  const item = bearer.items.find(i => i.instanceId === action.cardInstanceId);
+  if (!item) return { state, error: 'No Better Use: card not on bearer' };
+  const itemDef = defById(state, item.definitionId);
+  if (!getCardEffects(itemDef).some(e => e.type === 'cvcc-capture-in-lieu-of-body-check')) {
+    return { state, error: 'No Better Use: card has no capture-in-lieu-of-body-check effect' };
+  }
+  if (noBetterUseAlreadyUsed(state, item.instanceId)) {
+    return { state, error: 'No Better Use: already used' };
+  }
+
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike) return { state, error: 'No Better Use: no pending strike' };
+
+  let targetOwnerIndex: number;
+  let targetCharacterId: CardInstanceId;
+  if (combat.bodyCheckTarget === 'attacker-character') {
+    if (!strike.attackingCharacterId) return { state, error: 'No Better Use: no attacking character' };
+    targetOwnerIndex = getPlayerIndex(state, combat.attackingPlayerId);
+    targetCharacterId = strike.attackingCharacterId;
+  } else {
+    targetOwnerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+    targetCharacterId = strike.characterId;
+    if (!state.players[targetOwnerIndex].characters[targetCharacterId]) {
+      return { state, error: 'No Better Use: target is not a character (allies are exempt)' };
+    }
+  }
+
+  const targetDefId = state.players[targetOwnerIndex].characters[targetCharacterId]?.definitionId;
+  const targetName = targetDefId ? cardName(state, targetDefId, 'character') : 'character';
+  logDetail(`No Better Use: ${action.characterId as string} taps to capture ${targetName} in lieu of body check`);
+
+  const tappedState = updatePlayer(state, playerIndex, p => updateCharacter(p, action.characterId, c => ({ ...c, status: CardStatus.Tapped })));
+
+  // Snapshot the bearer's own company site for the eventual release.
+  const bearerCompany = findCharacterCompany(player.companies, action.characterId);
+  const site = bearerCompany?.currentSite ?? null;
+
+  const captured = captureCharacterInLieuOfBodyCheck(
+    tappedState,
+    targetOwnerIndex,
+    targetCharacterId,
+    item.instanceId,
+    action.characterId,
+    action.player,
+    site,
+  );
+  const newAssignments = combat.strikeAssignments.map((a, i) =>
+    i === combat.currentStrikeIndex ? { ...a, resolved: true, result: 'captured' as const } : a);
+  const newCombat = { ...combat, strikeAssignments: newAssignments };
+
+  return advanceStrikeOrFinalize(captured, newCombat, [
+    { effect: 'text-notification', message: `${targetName} is placed off to the side by No Better Use, in lieu of the body check` },
+  ]);
 }
 
 /**
