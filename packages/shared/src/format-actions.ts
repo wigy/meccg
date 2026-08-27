@@ -403,6 +403,8 @@ export function describeAction(
       return `Discard ${instName(action.cardInstanceId)}`;
     case 'pass':
       return 'Pass (end your actions this phase)';
+    case 'concede':
+      return `${playerName(action.player)} concedes the game`;
     case 'call-free-council':
       return 'Call the Free Council (trigger endgame)';
     case 'reshuffle-card-from-hand':

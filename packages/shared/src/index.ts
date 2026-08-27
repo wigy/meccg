@@ -30,7 +30,7 @@ export { resolveDrawModifier } from './engine/effects/index.js';
 export type { CollectedEffect } from './engine/effects/index.js';
 export { reduce } from './engine/reducer.js';
 export type { ReducerResult } from './engine/reducer.js';
-export { computeLegalActions } from './engine/legal-actions/index.js';
+export { computeLegalActions, computePlayerFacingActions, withConcedeAction } from './engine/legal-actions/index.js';
 export { currentHazardLimit, effectiveHazardLimit } from './engine/hazard-limit.js';
 export { isDetainmentAttack } from './engine/detainment.js';
 export type { DetainmentContext } from './engine/detainment.js';

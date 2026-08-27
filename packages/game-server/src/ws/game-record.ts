@@ -69,7 +69,7 @@ export interface CompletedGameRecord {
   readonly winner: string | null;
   readonly winnerPlayerId: PlayerId | null;
   /** How the game was decided (CoE 10.39). */
-  readonly winReason: 'marshalling-points' | 'one-ring';
+  readonly winReason: 'marshalling-points' | 'one-ring' | 'concession';
   /** The winning ring card on a one-ring win, null otherwise. */
   readonly winCard: CardDefinitionId | null;
   readonly winAlignment: Alignment | null;

@@ -169,8 +169,9 @@ function connect(): void {
 
     const evaluated: readonly EvaluatedAction[] = msg.view.legalActions;
     if (!evaluated || evaluated.length === 0) return;
-    // Extract only viable actions
-    const actions = evaluated.filter(e => e.viable).map(e => e.action);
+    // Extract only viable actions. Concede is a human-only meta-action the
+    // server offers every seat; an AI never resigns.
+    const actions = evaluated.filter(e => e.viable && e.action.type !== 'concede').map(e => e.action);
     if (actions.length === 0) return;
 
     // Pick now so we can compute the right delay (body-check rolls

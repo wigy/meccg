@@ -586,7 +586,12 @@ export function endGame(
   if (forcedWinner !== undefined) {
     winner = forcedWinner;
     const winnerName = playerById(state, winner)?.name ?? '?';
-    logHeading(`The One Ring decides the game — ${winnerName} wins (${reason.kind === 'one-ring' ? reason.alignment : reason.kind})`);
+    if (reason.kind === 'concession') {
+      const concederName = playerById(state, reason.concededBy)?.name ?? '?';
+      logHeading(`${concederName} concedes — ${winnerName} wins`);
+    } else {
+      logHeading(`The One Ring decides the game — ${winnerName} wins (${reason.kind === 'one-ring' ? reason.alignment : reason.kind})`);
+    }
   } else {
     winner = null;
     if (score0 > score1) winner = p0.id;

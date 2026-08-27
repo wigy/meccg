@@ -125,6 +125,7 @@ function formatWinReason(game: PlayerGame): string {
     return game.winCard ? `The One Ring (${game.winCard})` : 'The One Ring';
   }
   if (game.winReason === 'marshalling-points') return 'Marshalling points';
+  if (game.winReason === 'concession') return 'Conceded';
   return orDash(game.winReason);
 }
 

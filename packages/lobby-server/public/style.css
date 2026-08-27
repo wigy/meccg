@@ -5288,6 +5288,12 @@ body.spectating.combat-active #hand-arc.kbd-peek {
   bottom: -18vh;
 }
 
+/* Spectators have no player slot to concede — only the players themselves
+   can end the match early. */
+body.spectating #concede-btn {
+  display: none;
+}
+
 #opponent-arc {
   top: -19vh;
 }

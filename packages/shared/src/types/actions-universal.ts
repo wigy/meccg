@@ -309,6 +309,22 @@ export interface NotPlayableAction {
   readonly cardInstanceId: CardInstanceId;
 }
 
+/**
+ * Concede the game, immediately handing the win to the opponent.
+ *
+ * Legal for either player in any phase or sub-state (setup, mid-chain,
+ * mid-combat, mid-pending-resolution) — the one action that always stays
+ * available regardless of what else is mid-resolution, so a player is never
+ * stuck unable to end a match they no longer want to play. Ends the game via
+ * the same `endGame()` path every other ending uses, with `WinReason.kind`
+ * set to `'concession'`.
+ */
+export interface ConcedeAction {
+  readonly type: 'concede';
+  /** The player conceding. */
+  readonly player: PlayerId;
+}
+
 // ---- Chain of Effects actions ----
 
 /**

@@ -33,6 +33,7 @@ import { shownChallengeResolved } from './challenge-queue.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
   connectLobbyWs, initLobby, showAuthTab, selectRandomAuthHero,
+  findOwnGameOpponent,
 } from './lobby-screens.js';
 import { renderLog, showNotification } from './render-log.js';
 import { setupCardPreview } from './render-card-preview.js';
@@ -389,6 +390,25 @@ document.addEventListener('DOMContentLoaded', () => {
         stopGameBtn.disabled = true;
       }
     })(); });
+
+    // ---- Resume a game left behind by a closed tab ----
+    // The lobby still marks us in-game (a live game server holds our seat)
+    // but this tab never had a local session for it (see the closed-tab-loses-
+    // session bug this button fixes). Reuses the same `rejoin-game` protocol
+    // an in-game socket drop already uses (game-connection.ts) — the server
+    // answers with the ordinary 'game-starting' message, handled by the
+    // 'online-players' WS's own onmessage switch (lobby-screens.ts), which
+    // switches to the game screen and connects.
+    const resumeGameBtn = document.getElementById('resume-game-btn') as HTMLButtonElement | null;
+    resumeGameBtn?.addEventListener('click', () => {
+      const opponent = findOwnGameOpponent();
+      if (!opponent) return;
+      if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN) {
+        appState.lobbyWs.send(JSON.stringify({ type: 'rejoin-game', opponent }));
+        resumeGameBtn.textContent = 'Resuming...';
+        resumeGameBtn.disabled = true;
+      }
+    });
 
     acceptChallengeBtn.addEventListener('click', () => {
       if (appState.lobbyWs && appState.lobbyWs.readyState === WebSocket.OPEN && appState.challengeFrom) {

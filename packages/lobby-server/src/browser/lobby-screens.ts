@@ -114,6 +114,7 @@ const LOBBY_BUTTON_LABELS: Readonly<Record<string, string>> = {
   'play-mc-ai-btn': 'Play vs MC-AI (experimental)',
   'play-modular-ai-btn': 'Play vs Modular AI',
   'play-pseudo-ai-btn': 'Play vs Pseudo-AI',
+  'resume-game-btn': 'Resume Game',
   'stop-game-btn': 'Stop Existing Game',
 };
 
@@ -170,6 +171,23 @@ type OnlineGameRow = {
 
 /** Last online-players snapshot, so local state changes can re-render the list. */
 let lastOnline: { players: OnlinePlayerRow[]; games: OnlineGameRow[] } | null = null;
+
+/**
+ * Find the opponent name for our own in-progress game from the last
+ * `games` broadcast (the same rows rendered as "p1 vs. p2" watchable
+ * entries). Used by the "Resume Game" button: the lobby marks us
+ * `inGame` from the server-side session the moment we closed the tab, but
+ * this tab's own `appState.opponentName` was never set (see session.ts) —
+ * the broadcast is the only place the opponent's name can be recovered from.
+ */
+export function findOwnGameOpponent(): string | null {
+  if (!lastOnline) return null;
+  const game = lastOnline.games.find(
+    g => g.player1 === appState.lobbyPlayerName || g.player2 === appState.lobbyPlayerName,
+  );
+  if (!game) return null;
+  return game.player1 === appState.lobbyPlayerName ? game.player2 : game.player1;
+}
 
 /**
  * Render the online-players list from the last snapshot: games in progress as
@@ -295,7 +313,23 @@ export function connectLobbyWs(): void {
             stopGameBtn.disabled = false;
           }
         }
+        // "Resume Game" covers the closed-tab case: the lobby still has us
+        // marked in-game (a live game server holds our seat) but this fresh
+        // tab has no local session to auto-restore (see session.ts and
+        // initLobby's restoreGameSession check) — otherwise we would not be
+        // looking at the lobby screen at all. Reuses the same `rejoin-game`
+        // protocol as an in-game socket drop (game-connection.ts), just
+        // dispatched from here instead of from within a live game screen.
         lastOnline = { players, games };
+        const resumeGameBtn = document.getElementById('resume-game-btn') as HTMLButtonElement | null;
+        if (resumeGameBtn) {
+          const canResume = !!self?.inGame && appState.gamePort === null && findOwnGameOpponent() !== null;
+          resumeGameBtn.classList.toggle('hidden', !canResume);
+          if (!canResume) {
+            resumeGameBtn.textContent = 'Resume Game';
+            resumeGameBtn.disabled = false;
+          }
+        }
         renderOnlineList();
         break;
       }
