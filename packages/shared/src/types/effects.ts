@@ -9892,6 +9892,21 @@ export interface TapCharacterEffect extends EffectBase {
    * character definition). Absent = any character in play.
    */
   readonly filter?: Condition;
+  /**
+   * Optional dynamic gate: the target is only eligible if some *other*
+   * character carrying this skill is in the target's own company, at the
+   * target company's current site, or at its destination site (if moving) —
+   * "another sage is in his company or at his current site or at his new
+   * site". Site presence is checked by site *name* across both players'
+   * companies (same convention as `enqueue-site-wound-rolls`); company
+   * membership is checked among the target's own company-mates only.
+   * Evaluated by `hasNearbySkillmate` (`legal-actions/movement-hazard.ts`).
+   * A card may carry more than one `tap-character` effect for "Alternatively"
+   * modes with different `filter`/`requiresCompanionSkill` pairs (e.g. Gnaw
+   * with Words dm-60: sage-or-diplomat) — a candidate is eligible if it
+   * satisfies any one mode.
+   */
+  readonly requiresCompanionSkill?: Skill;
 }
 
 /**

@@ -14995,6 +14995,22 @@ scope turn), and the two `on-event company-arrives-at-site` → `region-type-
 override` (border→wilderness) / `site-type-override` (border-hold→ruins-and-
 lairs) modes.
 
+`tap-character` also supports an optional `requiresCompanionSkill: Skill` field
+and a card may carry **more than one** `tap-character` effect for "Alternatively"
+modes keyed to different skills. `requiresCompanionSkill` requires some *other*
+character carrying that skill in the candidate's own company, at its company's
+current site, or at its destination site (if moving this turn) — checked by
+`hasNearbySkillmate` (`legal-actions/movement-hazard.ts`): company membership
+only looks at the candidate's own company-mates, while site presence is checked
+by site *name* across **both** players' companies (the `enqueue-site-wound-
+rolls`/Plague le-129 convention). The eligibility loop offers a candidate once
+it satisfies *any one* mode's `filter` + `requiresCompanionSkill` pair. Used by
+*Gnaw with Words* (dm-60): "Tap a sage if another sage is in his company or at
+his current site or at his new site. Alternatively, tap a diplomat if another
+diplomat is in his company or at his current site or at his new site." — two
+`tap-character` effects, `filter: { "skills": { "$includes": "sage" } }` +
+`requiresCompanionSkill: "sage"`, and the diplomat equivalent.
+
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 
 The permanent-event mode (§56c) additionally supports `persistent: true` for
