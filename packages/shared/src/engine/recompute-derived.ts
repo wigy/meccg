@@ -2251,6 +2251,15 @@ export function recomputeDerived(state: GameState): GameState {
  *   `when: { "combat.strikeMode": "tap" }`. When omitted, `combat.strikeMode` is
  *   absent and such a modifier does not apply (so it never leaks into
  *   non-facing prowess like effective-stats).
+ * @param weaponsIneffective - True for a strike carrying the printed "weapons
+ *   do not modify prowess against these strikes" clause (Earth-tremors dm-53's
+ *   Rock Fall; also Lava Flows dm-47, Trap) — `CombatState.weaponsIneffective`,
+ *   set by the `weapons-ineffective` `ahunt-attack`/site-auto-attack combat
+ *   rule. Any `stat-modifier` prowess bonus sourced from a card carrying the
+ *   `weapon` keyword (an item's own printed bonus, or an attached permanent
+ *   event riding along on that item) is excluded from the character's prowess
+ *   for this strike only — his base prowess and every non-weapon bonus
+ *   (skills, other items, company effects) still apply normally.
  * @returns The character's prowess value including combat-conditional effects.
  */
 export function computeCombatProwess(
@@ -2259,6 +2268,7 @@ export function computeCombatProwess(
   charDef: CharacterCard,
   creatureRace: Race | undefined,
   strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
+  weaponsIneffective?: boolean,
 ): number {
   const inPlayNames = buildInPlayNames(state);
   const charInfo = buildBearerContext(charDef);
@@ -2288,7 +2298,17 @@ export function computeCombatProwess(
   const ownEffects = ownerPlayer
     ? collectGlobalEffects(state, 'own-characters', context, undefined, ownerPlayer.id)
     : [];
-  const collected = [...charEffects, ...globalEffects, ...ownEffects];
+  const collectedAll = [...charEffects, ...globalEffects, ...ownEffects];
+
+  // "Weapons do not modify prowess against these strikes" — drop every
+  // prowess stat-modifier sourced from a `weapon`-keyworded card (the weapon
+  // item itself, or a permanent event attached to it) before resolving.
+  const collected = weaponsIneffective
+    ? collectedAll.filter(e => !(
+      e.effect.type === 'stat-modifier' && e.effect.stat === 'prowess'
+      && (e.sourceDef as { keywords?: readonly string[] }).keywords?.includes('weapon')
+    ))
+    : collectedAll;
 
   if (collected.length > 0) {
     return resolveStatModifiers(collected, 'prowess', charDef.prowess, context);

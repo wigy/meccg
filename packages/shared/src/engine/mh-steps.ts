@@ -31,7 +31,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
+import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, companyMovesUnderDeeps, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCardNameEffectCanceled, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll, collectPassiveMovementBonus } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
@@ -1173,7 +1173,6 @@ export function collectMatchingAhuntAttacks(
 ): { instanceId: CardInstanceId; effect: AhuntAttackEffect }[] {
   const pathNames = mhState.resolvedSitePathNames;
   const pathTypes = mhState.resolvedSitePath as readonly string[];
-  if (pathNames.length === 0) return [];
 
   // The moving (defending) player. A card that "has no effect on a minion
   // player" (noEffectOnMinion, e.g. Mordor in Arms dm-72) is skipped when
@@ -1181,6 +1180,20 @@ export function collectMatchingAhuntAttacks(
   // reading the card's own faction-influence clause already uses.
   const movingPlayer = state.players[getPlayerIndex(state, state.activePlayer!)];
   const movingPlayerIsMinion = isMinionOrBalrog(movingPlayer);
+
+  // Earth-tremors (dm-53): "Any company moving to or from an Under-deeps
+  // site faces an attack…" — Under-deeps movement has no region path
+  // (`pathNames`/`pathTypes` are empty), so an `ahunt-attack` flagged
+  // `underDeepsMove` is matched independently below, gated on the company
+  // actually being underway (`destinationSite` set — mirrors the
+  // `company.destinationSite && !mhState.returnedToOrigin` guard
+  // `findForcingEnvironment`'s caller uses for the sibling "moving to or
+  // from" clause on The Way is Shut, dm-98).
+  const movingCompany = movingPlayer.companies[mhState.activeCompanyIndex];
+  const isCompanyMoving = movingCompany?.destinationSite != null;
+  const underDeepsMove = isCompanyMoving && companyMovesUnderDeeps(state, movingCompany);
+
+  if (pathNames.length === 0 && !underDeepsMove) return [];
 
   const inPlayNames = buildInPlayNames(state);
   const results: { instanceId: CardInstanceId; effect: AhuntAttackEffect }[] = [];
@@ -1216,8 +1229,9 @@ export function collectMatchingAhuntAttacks(
 
         const nameMatch = regionNames.some(rn => pathNames.includes(rn));
         const typeMatch = regionTypes.some(rt => pathTypes.includes(rt));
+        const underDeepsMatch = effect.underDeepsMove === true && underDeepsMove;
 
-        if (nameMatch || typeMatch) {
+        if (nameMatch || typeMatch || underDeepsMatch) {
           results.push({ instanceId: card.instanceId, effect });
         }
       }
@@ -1337,6 +1351,15 @@ function buildAhuntCombat(
     creatureRace: effect.race,
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     ...(attackerChooses ? { attackerChoosesDefenders: true } : {}),
+    // Earth-tremors (dm-53): "faces an attack (cannot be canceled) … (weapons
+    // do not modify prowess against these strikes)" — the same two
+    // combat-rule tokens site automatic-attacks already read off
+    // `combatRules` (`reducer-site.ts`, `site-repeated-attack.ts`), threaded
+    // onto the ahunt combat here so `cancel-attack` legal actions are
+    // suppressed (`uncancelable`) and weapon prowess bonuses are ignored
+    // during strike resolution (`weaponsIneffective`).
+    ...(effect.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
+    ...(effect.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     detainment: isDetainmentAttack({
       attackRace: effect.race,
       defendingAlignment: state.players[activePlayerIndex].alignment,
@@ -1592,10 +1615,18 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
     logDetail(`draw-modifier: resource draws ${before} → ${resourceDrawMax} (adjustment ${resourceMod.adjustment}, min ${resourceMod.min})`);
   }
 
-  // Apply hazard-draw-multiplier constraints (e.g. Great-road doubles opponent draws).
+  // Apply hazard-draw-multiplier constraints (e.g. Great-road doubles opponent
+  // draws) — skipped when an in-play `cancel-card-effects` card names the
+  // constraint's source card (Earth-tremors dm-53: "cancels the effects of
+  // ... Great Road ...").
   for (const c of state.activeConstraints) {
     if (c.kind.type !== 'hazard-draw-multiplier') continue;
     if (c.target.kind !== 'company' || c.target.companyId !== company.id) continue;
+    const sourceName = defById(state, c.sourceDefinitionId)?.name;
+    if (isCardNameEffectCanceled(state, sourceName)) {
+      logDetail(`hazard-draw-multiplier from "${sourceName}" suppressed by an in-play cancel-card-effects card`);
+      continue;
+    }
     const before = hazardDrawMax;
     hazardDrawMax = Math.round(hazardDrawMax * c.kind.multiplier);
     logDetail(`hazard-draw-multiplier: hazard draws ${before} → ${hazardDrawMax} (×${c.kind.multiplier} from ${c.sourceDefinitionId as string})`);

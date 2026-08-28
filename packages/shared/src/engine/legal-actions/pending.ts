@@ -45,7 +45,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, isCardNameEffectCanceled, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -2541,18 +2541,9 @@ function constraintSuppressedByCancelEffect(
 ): boolean {
   const sourceName = defById(state, constraint.sourceDefinitionId)?.name;
   if (!sourceName) return false;
-  for (const player of state.players) {
-    for (const card of player.cardsInPlay) {
-      const def = defById(state, card.definitionId);
-      for (const eff of getCardEffects(def)) {
-        if (eff.type === 'cancel-card-effects' && eff.cardNames.includes(sourceName)) {
-          logDetail(`Constraint ${constraint.id as string} suppressed: "${defById(state, card.definitionId)?.name}" cancels the effects of "${sourceName}"`);
-          return true;
-        }
-      }
-    }
-  }
-  return false;
+  const canceled = isCardNameEffectCanceled(state, sourceName);
+  if (canceled) logDetail(`Constraint ${constraint.id as string} suppressed by cancel-card-effects (source "${sourceName}")`);
+  return canceled;
 }
 
 /**

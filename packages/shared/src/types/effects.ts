@@ -7771,6 +7771,18 @@ export interface AhuntAttackEffect extends EffectBase {
     readonly regionNames?: readonly string[];
     readonly regionTypes?: readonly string[];
   };
+  /**
+   * When `true`, this ahunt attack also matches any company whose origin
+   * (`currentSite`) or declared destination (`destinationSite`) is an
+   * Under-deeps site — regardless of `regionNames`/`regionTypes` — matching
+   * the printed clause "moving to or from an Under-deeps site". Under-deeps
+   * movement has no region path (`resolvedSitePathNames` is empty), so this
+   * flag is checked independently of the name/type path match. Used by
+   * Earth-tremors (dm-53): "Any company moving to or from an Under-deeps
+   * site faces an attack…". See {@link isUnderDeepsSiteRef} in
+   * `reducer-utils.ts`.
+   */
+  readonly underDeepsMove?: boolean;
 }
 
 /**
