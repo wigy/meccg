@@ -28,7 +28,7 @@
 import type { CardInstanceId, CompanyId, PlayerId, CardDefinitionId, Race } from './common.js';
 import type { GameAction } from './actions.js';
 import type { Phase } from './state-phases.js';
-import type { ActionCost, Condition, TriggeredAction } from './effects.js';
+import type { ActionCost, Condition, TriggeredAction, GrantActionTargets } from './effects.js';
 
 // ---- Branded IDs ----
 
@@ -1872,6 +1872,14 @@ export interface ActiveConstraint {
         readonly when?: Condition;
         /** The effect executed when the action is dispatched. */
         readonly apply: TriggeredAction;
+        /**
+         * Optional target-enumeration descriptor (mirrors {@link
+         * GrantActionEffect.targets}). When present, one activation is
+         * emitted per (eligible actor, candidate) pair, the candidate's
+         * `instanceId` riding on `targetCardId`. Used by Warm Now Be Heart
+         * and Limb (td-163): `scope: "company-wounded-characters"`.
+         */
+        readonly targets?: GrantActionTargets;
       }
     | {
         /**

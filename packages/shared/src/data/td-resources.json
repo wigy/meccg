@@ -1689,8 +1689,44 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Ritual. Playable on a company during organization phase. Each sage in company that taps may heal one character (from wounded to tapped). Each sage so tapping makes a corruption check."
+    "effects": [
+      { "type": "play-window", "phase": "organization", "step": "end-of-org" },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            { "company.skills": { "$includes": "sage" } },
+            { "company.hasWoundedCharacter": true }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "granted-action",
+          "scope": "turn",
+          "grantedAction": {
+            "action": "heal-company-character",
+            "phase": "organization",
+            "cost": { "tap": "character" },
+            "when": { "actor.skills": { "$includes": "sage" } },
+            "targets": { "scope": "company-wounded-characters" },
+            "apply": {
+              "type": "sequence",
+              "apps": [
+                { "type": "set-character-status", "target": "target-character", "status": "tapped" },
+                { "type": "enqueue-corruption-check" }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "text": "Sage only. Ritual. Playable on a company during organization phase. Each sage in company that taps may heal one character (from wounded to tapped). Each sage so tapping makes a corruption check.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hero-resource-event",

@@ -26,6 +26,7 @@ import { isCharacterCard } from '../../types/cards.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { cardName, playerById, defById } from '../reducer-utils.js';
 import { grantedAction } from './granted-action-emit.js';
+import { enumerateGrantActionTargets } from './organization.js';
 
 /**
  * Iterate every active `granted-action` constraint whose `phase` /
@@ -99,6 +100,35 @@ export function emitGrantedActionConstraintActions(
 
       if (kind.when && !matchesCondition(kind.when, ctx)) {
         logDetail(`granted-action "${kind.action}" on ${sourceName}: when condition failed for ${charDef?.name ?? '?'}`);
+        continue;
+      }
+
+      // Target-enumeration descriptor (Warm Now Be Heart and Limb td-163:
+      // "each sage in company that taps may heal one character"): emit one
+      // activation per (actor, candidate) pair instead of a single untargeted
+      // activation. Candidates are recomputed live off the current state on
+      // every call, so a character healed by an earlier-resolving sibling
+      // activation (within the same legal-action computation cycle, i.e. after
+      // its own dispatch) naturally drops out of later candidates' lists —
+      // there is no separate snapshot to go stale.
+      if (kind.targets) {
+        const candidates = enumerateGrantActionTargets(state, player, charId, kind.targets);
+        if (candidates.length === 0) {
+          logDetail(`granted-action "${kind.action}" on ${sourceName}: no eligible target for ${charDef?.name ?? '?'}`);
+          continue;
+        }
+        for (const candidate of candidates) {
+          const candidateDef = defById(state, candidate.definitionId);
+          logDetail(`granted-action "${kind.action}" available: ${charDef?.name ?? '?'} → ${candidateDef?.name ?? '?'} (source: ${sourceName})`);
+          actions.push(grantedAction(
+            playerId,
+            charId,
+            { instanceId: constraint.source, definitionId: constraint.sourceDefinitionId },
+            kind.action,
+            0,
+            { targetCardId: candidate.instanceId },
+          ));
+        }
         continue;
       }
 

@@ -368,6 +368,7 @@ export function buildConstraintKind(
         cost: payload.cost,
         when: payload.when,
         apply: payload.apply,
+        ...(payload.targets ? { targets: payload.targets } : {}),
       };
     }
     default:
