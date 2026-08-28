@@ -3291,6 +3291,16 @@ export interface EnqueuePendingFetchAction extends TriggeredActionBase {
    * lair, the found item "may be immediately played with bearer's company".
    */
   readonly unlockTappedSitePlay?: boolean;
+  /**
+   * When true and `fetchTo` is `'hand'`, the fetched card cannot simply sit
+   * in hand: a `play-or-discard-fetched-item` pending resolution blocks
+   * every other action for the actor until they either play that specific
+   * card (at the bearer's site, via the normal item-play flow) or discard
+   * it. Any `postCorruptionCheck` is deferred to fire after that choice
+   * resolves, instead of immediately after the fetch. Used by Dwarven Ring
+   * of Bávor's Tribe (tw-214): "Play this item immediately or discard."
+   */
+  readonly mustPlayOrDiscard?: boolean;
 }
 
 /** `enqueue-ring-play-offer` — bypass the gold-ring roll and offer ring categories from the test table. */
@@ -5711,6 +5721,15 @@ export interface FetchToDeckEffect extends EffectBase {
    * Dragon-lore (td-108).
    */
   readonly unlockTappedSitePlay?: boolean;
+  /**
+   * When true and `to` is `'hand'`, the fetched card must be played or
+   * discarded before any other action — set from `enqueue-pending-fetch`'s
+   * `mustPlayOrDiscard` flag. Consulted by `handleFetchFromPile`, which
+   * enqueues a `play-or-discard-fetched-item` pending resolution instead of
+   * firing `postCorruptionCheck` immediately. Used by Dwarven Ring of
+   * Bávor's Tribe (tw-214).
+   */
+  readonly mustPlayOrDiscard?: boolean;
 }
 
 /**

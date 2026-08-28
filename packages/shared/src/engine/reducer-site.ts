@@ -2867,8 +2867,14 @@ function siteFirstMinorItemNoTap(
  * Validates the card is in hand, is an item playable at this site type,
  * the target character is untapped and in the company, then attaches the
  * item and taps the character.
+ *
+ * Exported so the unified pending-resolution dispatcher in
+ * `pending-reducers.ts` can drive this from a queued
+ * `play-or-discard-fetched-item` resolution (Dwarven Ring of Bávor's Tribe
+ * tw-214) — the "play" branch is the ordinary item-play flow, just reached
+ * while that resolution blocks every other action.
  */
-function handleSitePlayHeroResource(
+export function handleSitePlayHeroResource(
   state: GameState,
   action: GameAction,
   siteState: SitePhaseState,

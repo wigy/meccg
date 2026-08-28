@@ -27,7 +27,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { splitCharacterOffCompany } from './company-split.js';
-import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint } from './pending.js';
+import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint, enqueueCorruptionCheck } from './pending.js';
 import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
@@ -59,6 +59,7 @@ import {
   applyOnGuardRevealAtResource,
   buildSiteEntryAttackCombat,
   executeDeferredSiteAction,
+  handleSitePlayHeroResource,
 } from './reducer-site.js';
 import { autoResolve } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -4736,6 +4737,71 @@ export function applyRevealHazardsChoiceResolution(
   }
 
   return { state, error: `Pending reveal-hazards-choice requires reveal-hazard-for-snake, tap-reveal-agent-for-snake, or pass, got '${action.type}'` };
+}
+
+/**
+ * Resolve a `play-or-discard-fetched-item` pending resolution (Dwarven Ring
+ * of Bávor's Tribe tw-214): the item found by the ring's search must be
+ * played immediately at the bearer's site or discarded — no other action is
+ * legal in the meantime.
+ *
+ * The "play" branch is an ordinary `play-hero-resource` action for the
+ * fetched instance: delegates to {@link handleSitePlayHeroResource} (the
+ * normal site-phase item-play reducer) unchanged, so every existing
+ * item-play precedent applies, then dequeues this resolution. The "discard"
+ * branch moves the card from hand straight to the discard pile. Either way,
+ * a deferred corruption check on the bearer (if the search effect carried
+ * one) is enqueued once the choice resolves — CoE precedent has the check
+ * follow the found item's resolution, not the search itself.
+ */
+export function applyPlayOrDiscardFetchedItemResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'play-or-discard-fetched-item') return null;
+  const { cardInstanceId, postCorruptionCheck } = top.kind;
+
+  const enqueuePostCheck = (s: GameState): GameState => {
+    if (!postCorruptionCheck) return s;
+    return enqueueCorruptionCheck(s, {
+      source: top.source,
+      actor: top.actor,
+      scope: { kind: 'phase', phase: s.phaseState.phase },
+      characterId: postCorruptionCheck.characterId,
+      modifier: postCorruptionCheck.modifier,
+      reason: 'card effect',
+    });
+  };
+
+  if (action.type === 'play-hero-resource' && action.cardInstanceId === cardInstanceId) {
+    if (action.player !== top.actor) return { state, error: 'Wrong player for play-or-discard-fetched-item' };
+    if (state.phaseState.phase !== Phase.Site) {
+      return { state, error: 'play-or-discard-fetched-item: not in site phase' };
+    }
+    const playResult = handleSitePlayHeroResource(state, action, state.phaseState);
+    if (playResult.error) return playResult;
+    logDetail('play-or-discard-fetched-item: item played — resolution consumed');
+    return { state: enqueuePostCheck(dequeueResolution(playResult.state, top.id)), effects: playResult.effects };
+  }
+
+  if (action.type === 'discard-card' && action.cardInstanceId === cardInstanceId) {
+    if (action.player !== top.actor) return { state, error: 'Wrong player for play-or-discard-fetched-item' };
+    const playerIndex = getPlayerIndex(state, action.player);
+    const player = state.players[playerIndex];
+    const handCard = findById(player.hand, cardInstanceId);
+    if (!handCard) return { state, error: `Card ${cardInstanceId as string} not in hand` };
+    const def = defById(state, handCard.definitionId);
+    logDetail(`play-or-discard-fetched-item: ${player.name} discards "${def?.name ?? cardInstanceId as string}" instead of playing it`);
+    const newState = updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, cardInstanceId),
+      discardPile: [...p.discardPile, handCard],
+    }));
+    return { state: enqueuePostCheck(dequeueResolution(newState, top.id)) };
+  }
+
+  return { state, error: `Pending play-or-discard-fetched-item requires 'play-hero-resource' or 'discard-card' for ${cardInstanceId as string}, got '${action.type}'` };
 }
 
 /**
