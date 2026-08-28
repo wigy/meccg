@@ -471,7 +471,15 @@ function revealOnGuardAttacksActions(
           // site are eligible for reveal here too, not just after the
           // printed attacks have already resolved.
           || (e.type === 'permanent-event-auto-attack' && siteDef && isSiteCard(siteDef)
-            && (e.siteIds.includes(siteDef.id) || (e.siteType !== undefined && siteDef.siteType === e.siteType))),
+            && (e.siteIds.includes(siteDef.id) || (e.siteType !== undefined && siteDef.siteType === e.siteType)))
+          // Rule 2.V.i: a raw `auto-attack-boost` effect (Arouse Denizens
+          // tw-6, Arouse Minions tw-7, Arouse Defenders le-101) boosts the
+          // prowess of one automatic-attack at a matching site type — the
+          // same "affects the automatic-attack(s)" criterion that direct
+          // M/H play satisfies, so an on-guard copy is eligible for reveal
+          // here too.
+          || (e.type === 'auto-attack-boost'
+            && (!siteDef || !isSiteCard(siteDef) || e.siteTypes.includes(siteDef.siteType))),
       );
       // A site-targeting event is played on the company's site as it is
       // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,

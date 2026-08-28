@@ -25,12 +25,14 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN,
   ASSASSIN, BARROW_WIGHT, HOBGOBLINS,
-  RIVENDELL, MORIA, RESOURCE_PLAYER,
+  RIVENDELL, MORIA, RESOURCE_PLAYER, HAZARD_PLAYER,
+  BANDIT_LAIR,
 } from '../../test-helpers.js';
-import type { SitePhaseState, RevealOnGuardAction } from '../../../index.js';
+import type { SitePhaseState, RevealOnGuardAction, CardDefinitionId } from '../../../index.js';
 
 const FIRST_COMPANY = 0;
 const REVEAL_ON_GUARD_STEP = makeSitePhase({ step: 'reveal-on-guard-attacks', siteEntered: false });
+const AROUSE_DENIZENS = 'tw-6' as CardDefinitionId;
 
 describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
   beforeEach(() => resetMint());
@@ -116,5 +118,39 @@ describe('Rule 6.02 — Step 1: Revealing On-Guard Attacks', () => {
     const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
     expect(revealActions).toHaveLength(0);
     expect(viableActions(testState, PLAYER_2, 'pass')).toHaveLength(1);
+  });
+
+  test('hazard event with an auto-attack-boost effect (Arouse Denizens) is offered for reveal at a matching site', () => {
+    // Bandit Lair is a ruins-and-lairs site with a Men automatic-attack.
+    // Arouse Denizens (tw-6) boosts the prowess of one automatic-attack at a
+    // Ruins & Lairs — a raw `auto-attack-boost` effect, not the `on-event`
+    // shape used by Choking Shadows (tw-21) — so it must also be eligible
+    // for on-guard reveal per rule 2.V.i's second bullet.
+    const base = buildSitePhaseTwoPlayer({ site: BANDIT_LAIR, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, FIRST_COMPANY, AROUSE_DENIZENS);
+    const testState = { ...withOG, phaseState: REVEAL_ON_GUARD_STEP };
+
+    const revealActions = viableActions(testState, PLAYER_2, 'reveal-on-guard');
+    expect(revealActions).toHaveLength(1);
+    expect((revealActions[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
+  });
+
+  test('revealing an auto-attack-boost hazard event installs the boost constraint and discards the card', () => {
+    const base = buildSitePhaseTwoPlayer({ site: BANDIT_LAIR, heroChars: [ARAGORN] });
+    const { state: withOG, ogCard } = placeOnGuard(base, RESOURCE_PLAYER, FIRST_COMPANY, AROUSE_DENIZENS);
+    const testState = { ...withOG, phaseState: REVEAL_ON_GUARD_STEP };
+
+    const nextState = dispatch(testState, { type: 'reveal-on-guard', player: PLAYER_2, cardInstanceId: ogCard.instanceId });
+
+    const company = nextState.players[RESOURCE_PLAYER].companies[FIRST_COMPANY];
+    expect(company.onGuardCards).toHaveLength(0);
+    expect(nextState.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === ogCard.instanceId)).toBe(true);
+
+    const boost = nextState.activeConstraints.find(c => c.kind.type === 'auto-attack-boost');
+    expect(boost).toBeDefined();
+    if (boost?.kind.type !== 'auto-attack-boost') throw new Error('unreachable');
+    expect(boost.kind.prowessBonus).toBe(3);
+    expect(boost.kind.siteDefinitionId).toBe(BANDIT_LAIR);
+    expect(boost.scope.kind).toBe('company-site-phase');
   });
 });
