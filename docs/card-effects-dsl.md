@@ -6244,6 +6244,56 @@ companion `play-target` restricts the site to Isengard / The White Towers and a
 `play-condition` `requires: 'site-protected'` requires that site to already be
 protected for the player (see §below).
 
+### 13e. `war-forges-item-unlocked` active constraint — a tap-activated sibling
+
+Unlike `technology-item-unlocked` (added automatically on `self-enters-play`),
+War-forges (wh-83) grants its bonus item allowance through an **activated**
+`grant-action`: "You may tap War-forges to make an additional non-hoard,
+non-unique minor item playable at this site this turn (if the site is tapped
+or not)." The card is still a `play-target: "site"` stage permanent-event
+(bound to one of the player's protected Wizardhavens, gated the same way as
+Saruman's Machinery — a `play-condition` `requires: 'site-protected'` plus a
+`player.avatar` `$ne: "Radagast"` player-state gate), but the unlock itself is
+a `grant-action` with `cost: { "tap": "self" }`:
+
+```json
+{ "type": "grant-action", "action": "war-forges-unlock-item",
+  "cost": { "tap": "self" },
+  "apply": { "type": "add-constraint",
+    "constraint": "war-forges-item-unlocked", "scope": "turn", "target": "player" } }
+```
+
+Because the source card has no bearer (it is bound to a site, not a
+character), this rides `bareCardGrantActions` exactly like Earth-eater
+(wh-67) — no new emitter was needed. What *is* new: `handleInPlayCardGrantAction`
+(`grant-action-apply.ts`) previously only knew how to build bearer-less,
+payload-free constraint kinds (`constraintKindWithoutPayload`); site-flag
+kinds always resolved their `siteDefinitionId` from a bearer's company's
+current site. War-forges has no bearer, so a dedicated branch resolves the
+site instead from the **source card's own** `CardInPlay.attachedToSite` (set
+when the card itself entered play via its `play-target: "site"`), producing
+`{ type: 'site-flag', flag: 'war-forges-item-unlocked', siteDefinitionId }`.
+
+While the resulting `scope: "turn"` constraint is active, `legal-actions/site.ts`
+offers one non-hoard, non-unique minor item at the bound site whether tapped
+or untapped — mirroring `technology-item-unlocked`'s tapped-site and
+site-restriction bypass, gated by subtype/uniqueness/hoard-keyword instead of
+the Technology keyword. `SitePhaseState.warForgesItemPlayed` tracks the
+one-per-site-phase consumption, exactly like `technologyItemPlayed`.
+
+**Sourcing beyond hand: `fromSideboard`.** "The item may be taken from your
+discard pile or sideboard" needed one further extension. The discard-pile
+source reuses the existing `fromDiscard` `play-hero-resource` flag (already
+generic over items and allies in `handleSitePlayHeroResource`) via a dedicated
+offer loop mirroring Glove of Radagast's (wh-111) discard-sourced ally loop,
+but iterating `player.discardPile` **and** `player.sideboard` for matching
+items instead of `player.hand`. The sideboard source needed a new
+`PlayHeroResourceAction.fromSideboard` flag (`actions-site.ts`) — no prior
+`play-hero-resource` path read from the sideboard. `handleSitePlayHeroResource`
+(`reducer-site.ts`) resolves the source card from `player.sideboard` and
+removes it from there instead of `hand`/`discardPile` when the flag is set;
+the hand is left untouched (mirrors `fromDiscard`'s hand pass-through).
+
 ### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.
@@ -15006,6 +15056,22 @@ true }`), `on-event self-enters-play` → `character-stat-modifier` (prowess -1,
 scope turn), and the two `on-event company-arrives-at-site` → `region-type-
 override` (border→wilderness) / `site-type-override` (border-hold→ruins-and-
 lairs) modes.
+
+`tap-character` also supports an optional `requiresCompanionSkill: Skill` field
+and a card may carry **more than one** `tap-character` effect for "Alternatively"
+modes keyed to different skills. `requiresCompanionSkill` requires some *other*
+character carrying that skill in the candidate's own company, at its company's
+current site, or at its destination site (if moving this turn) — checked by
+`hasNearbySkillmate` (`legal-actions/movement-hazard.ts`): company membership
+only looks at the candidate's own company-mates, while site presence is checked
+by site *name* across **both** players' companies (the `enqueue-site-wound-
+rolls`/Plague le-129 convention). The eligibility loop offers a candidate once
+it satisfies *any one* mode's `filter` + `requiresCompanionSkill` pair. Used by
+*Gnaw with Words* (dm-60): "Tap a sage if another sage is in his company or at
+his current site or at his new site. Alternatively, tap a diplomat if another
+diplomat is in his company or at his current site or at his new site." — two
+`tap-character` effects, `filter: { "skills": { "$includes": "sage" } }` +
+`requiresCompanionSkill: "sage"`, and the diplomat equivalent.
 
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 
