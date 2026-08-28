@@ -17510,3 +17510,96 @@ prowess (to a maximum of 11)") declares:
   "apply": { "type": "restore-item" } },
 { "type": "restored-item-stats", "marshallingPoints": 4, "corruptionPoints": 3 }
 ```
+
+### 81. `acts-as-site` + `declare-virtual-site-movement` (Wondrous Maps)
+
+A resource-event card that, once played, functions as its bearer company's
+*site* for as long as it remains attached — Wondrous Maps (td-171): "Playable
+at the end of the organization phase on a company using region cards with the
+last one being a Shadow-land [{s}]. … This card is used as a site card, Ruins
+& Lairs [{R}] (automatic-attack: Orcs—4 strikes at 7 prowess, items: (minor,
+major), cards opponent draws: 3, you draw: 1). The company may only leave the
+site using region movement. Discard Wondrous Maps when the company moves to a
+new site." Refuge (td-145) is the sibling card (Free-hold, Wilderness-keyed,
+haven-style healing — not yet certified).
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "company", "filter": { "target.moving": false } },
+{ "type": "acts-as-site",
+  "siteType": "ruins-and-lairs",
+  "automaticAttacks": [ { "creatureType": "Orcs", "strikes": 4, "prowess": 7 } ],
+  "playableResources": ["minor", "major"],
+  "resourceDraws": 1,
+  "hazardDraws": 3,
+  "requiredMovementType": "region",
+  "requiredLastRegionType": "shadow",
+  "leaveRequiresRegionMovement": true,
+  "discardOnLeaveSite": true },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "declare-virtual-site-movement" }, "target": "target-company" }
+```
+
+- **`acts-as-site`** (`types/effects.ts`) declares the printed site-box data
+  (siteType, automatic attacks, playable resources, resource/hazard draws)
+  directly on the resource-event card's own `effects` array, plus the
+  movement-legality requirements (`requiredMovementType`,
+  `requiredLastRegionType`) and the ongoing site rules
+  (`leaveRequiresRegionMovement`, `discardOnLeaveSite`). At card-pool load
+  time (`data/index.ts`, `synthesizeActsAsSiteDefinition`), every card
+  carrying this effect gets a companion `SiteCard`-shaped definition
+  synthesized into `state.cardPool` under id `` `${cardId}-site` `` (e.g.
+  `td-171-site`), carrying the *same* effect object in its own `effects`
+  array so movement-legality checks can read it from either side of a move.
+  Its `region`/`nearestHaven` are deliberately left empty, which keeps
+  `buildMovementMap` from ever indexing it into the shared region graph — it
+  can never appear as a generic movement destination, only via this card's
+  own `declare-virtual-site-movement` apply.
+- **`declare-virtual-site-movement`** (a `TriggeredAction`, resolved in
+  `chain-reducer.ts`'s `resolvePermanentEvent`) sets the target company's
+  `destinationSite` to the resolving card's own instance — sharing one
+  instance ID between the card's `cardsInPlay` entry (definitionId: the
+  resource-event card) and the company's `destinationSite`/`currentSite`
+  (definitionId: the synthesized site companion). No site-deck card is drawn.
+  `resolveInstanceId` (`types/state.ts`) checks company sites *before*
+  `cardsInPlay`, so both structural interpretations of the shared instance
+  resolve correctly depending on which field is read; this ordering is a
+  no-op for every other card, since no other card has one instance ID live in
+  two zones at once. Fizzles (no-op) if the target company already has a
+  destination or no current site.
+- The declared path's legality is validated where any region-movement path
+  normally resolves, `handleRevealNewSite` (`mh-steps.ts`): when the
+  destination carries `acts-as-site`, the movement type must equal
+  `requiredMovementType` and the resolved path's last region type must equal
+  `requiredLastRegionType`, or the `declare-path` action is rejected (CoE
+  2.IV.i.2 — an illegal path is simply not accepted; if none exists, the
+  legal-actions layer offers no `declare-path` action and `pass` negates the
+  movement instead, mirroring the Master of Esgaroth td-135 precedent). The
+  symmetric check runs on the *origin* side for `leaveRequiresRegionMovement`.
+- Because the synthesized companion's `region` is empty, `revealNewSiteActions`
+  (`legal-actions/movement-hazard.ts`) cannot resolve a fixed destination
+  region for the "region movement" candidate-path search the normal branch
+  uses. A parallel branch handles either endpoint being an `acts-as-site`
+  card: the origin side substitutes the company's `virtualSiteRegionName`
+  (see below); the destination side enumerates every region of the required
+  type reachable within range as a candidate ending region (there is no
+  single fixed one). The org-phase `planMovementActions`
+  (`legal-actions/organization-companies.ts`) needs the same substitution to
+  offer *any* onward destination at all — it patches a local copy of the
+  movement map's `siteRegion` before calling `getReachableSites`, and filters
+  the result to `movementType === 'region'` for `leaveRequiresRegionMovement`.
+- `Company.virtualSiteRegionName` (`types/state-cards.ts`) is the per-company
+  record of which named region the company is actually "in" while at a
+  virtual site (the last entry of the resolved region path) — captured on
+  arrival in `endCompanyMH`'s (`mh-hazard-play.ts`) Step 8 handling, since the
+  synthesized site definition itself carries no region. The same function
+  intercepts Step 8's site-of-origin teardown: a departing `acts-as-site`
+  origin with `discardOnLeaveSite` never touches the site deck / site discard
+  pile (it was never really "a site card" there) — instead the card's own
+  instance is discarded from `cardsInPlay` to `discardPile`.
+- All other site-derived behavior (automatic attacks, item playability,
+  resource/hazard draws, hazard-limit computation) needs no special-casing at
+  all: every one of those code paths already resolves site data via
+  `defById(state, company.currentSite.definitionId)` /
+  `isSiteCard(...)`, which — once the synthesized companion definition is a
+  real `cardPool` entry — treats the virtual site exactly like a printed one.

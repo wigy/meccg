@@ -1687,6 +1687,18 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     const arrivalStatus = sharedDestinationOwner
       ? sharedDestinationOwner.currentSite!.status
       : (arrivesTapped ? CardStatus.Tapped : company.destinationSite.status);
+    // Wondrous Maps (td-171) / Refuge (td-145): arriving at an `acts-as-site`
+    // virtual site — record the named region the company is now "in" (the
+    // last entry of the just-resolved region-movement path), since the
+    // synthesized site definition itself carries no `region`. Cleared
+    // (implicitly, by omission) on any other arrival.
+    const destActsAsSiteDef = defById(state, company.destinationSite.definitionId);
+    const destActsAsSite = destActsAsSiteDef && getCardEffects(destActsAsSiteDef).find(
+      (e): e is import('../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
+    );
+    const arrivalVirtualSiteRegionName = destActsAsSite
+      ? mhStateLocal.resolvedSitePathNames[mhStateLocal.resolvedSitePathNames.length - 1]
+      : undefined;
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
@@ -1695,6 +1707,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       moved: true,
       siteOfOrigin: null,
       siteCardOwned: sharedDestinationOwner ? false : true,
+      virtualSiteRegionName: arrivalVirtualSiteRegionName,
     };
 
     if (sharedDestinationOwner) {
@@ -1707,7 +1720,27 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     let newSiteDeck = [...resourcePlayer.siteDeck];
     const newSiteDiscardPile = [...resourcePlayer.siteDiscardPile];
     let newOutOfPlayPile = [...resourcePlayer.outOfPlayPile];
-    if (originSite) {
+    let newCardsInPlay = resourcePlayer.cardsInPlay;
+    let newDiscardPile = resourcePlayer.discardPile;
+    // Wondrous Maps (td-171) / Refuge (td-145): the site of origin was an
+    // `acts-as-site` virtual site — it was never drawn from the site deck
+    // and has no site-discard-pile/out-of-play-pile existence, so none of
+    // the real-site teardown below applies. Instead, "discard [this card]
+    // when the company moves to a new site": discard the card's own
+    // instance (shared with `originSite.instanceId` — see
+    // `ActsAsSiteEffect`) from `cardsInPlay`.
+    const originDefForTeardown = originSite ? defById(state, originSite.definitionId) : undefined;
+    const originActsAsSiteForTeardown = originDefForTeardown && getCardEffects(originDefForTeardown).find(
+      (e): e is import('../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
+    );
+    if (originSite && originActsAsSiteForTeardown?.discardOnLeaveSite) {
+      const leftBehindCard = resourcePlayer.cardsInPlay.find(c => c.instanceId === originSite.instanceId);
+      if (leftBehindCard) {
+        logDetail(`Step 8: site of origin ${originDefForTeardown?.name ?? '?'} is an acts-as-site card — discarding it (company left)`);
+        newCardsInPlay = resourcePlayer.cardsInPlay.filter(c => c.instanceId !== originSite.instanceId);
+        newDiscardPile = [...resourcePlayer.discardPile, toCardInstance(leftBehindCard)];
+      }
+    } else if (originSite) {
       const siblingAtOriginIdx = resourcePlayer.companies.findIndex(
         (c, idx) => idx !== mhState.activeCompanyIndex
           && c.currentSite?.instanceId === originSite.instanceId,
@@ -1802,6 +1835,8 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       siteDeck: newSiteDeck,
       siteDiscardPile: newSiteDiscardPile,
       outOfPlayPile: newOutOfPlayPile,
+      cardsInPlay: newCardsInPlay,
+      discardPile: newDiscardPile,
     };
 
     // Defer firing the company-arrives-at-site event until we've

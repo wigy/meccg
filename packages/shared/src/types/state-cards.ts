@@ -578,6 +578,18 @@ export interface Company {
    */
   readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer' | undefined;
   /**
+   * The named region a company is standing in while `currentSite` resolves
+   * to an `acts-as-site` card (Wondrous Maps td-171, Refuge td-145) —
+   * captured from the last entry of the resolved region-movement path at
+   * arrival (`endCompanyMH`). Such a virtual site's synthesized definition
+   * has an empty `region` field (so it is never indexed into the shared
+   * movement graph, keeping it unreachable as a generic destination), so
+   * this per-company field is the only record of "where" it actually is —
+   * consulted by `planMovementActions` to compute the company's onward
+   * region-movement reachability, and cleared when the company next moves.
+   */
+  readonly virtualSiteRegionName?: string | undefined;
+  /**
    * Extra region distance granted by a card effect (e.g. Cram).
    * Added to {@link BASE_MAX_REGION_DISTANCE} when computing maximum region
    * movement distance for this company. Defaults to 0 when undefined.

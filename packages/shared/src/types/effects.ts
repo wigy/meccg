@@ -21,6 +21,7 @@
 
 import type { CardDefinitionId, CompanyId, Keyword, MarshallingCategory, PlayerId, Race, RegionType, SiteType, Skill } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
+import type { AutomaticAttack, PlayableResourceType } from './cards-sites.js';
 
 // ---- Value Expressions ----
 
@@ -2256,7 +2257,8 @@ export type TriggeredActionType =
   | 'win-condition-roll'
   | 'win-game'
   | 'transfer-item-free'
-  | 'reattach-to-item';
+  | 'reattach-to-item'
+  | 'declare-virtual-site-movement';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -3453,6 +3455,23 @@ export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer';
 }
 
+/**
+ * `declare-virtual-site-movement` — resolves an `acts-as-site` card's
+ * `on-event: self-enters-play` trigger (Wondrous Maps td-171, Refuge td-145).
+ * Sets the target company's `destinationSite` to the resolving card's own
+ * instance (sharing its instance ID between the `cardsInPlay` entry and the
+ * `SiteInPlay` entry — see {@link ActsAsSiteEffect}) instead of drawing a
+ * card from the site deck. Fizzles (no-op, card stays in play inert) if the
+ * target company already has a destination or has no current site to measure
+ * region movement from. The declared path's legality (region movement only,
+ * last region matching `requiredLastRegionType`) is validated later, when
+ * the company's own M/H phase resolves `declare-path` — mirrors Master of
+ * Esgaroth's (td-135) deferred `requiresDestinationSiteType` check.
+ */
+export interface DeclareVirtualSiteMovementAction extends TriggeredActionBase {
+  readonly type: 'declare-virtual-site-movement';
+}
+
 /** `shuffle-deck-top` — shuffle the top `count` cards of a player's play deck in place. */
 export interface ShuffleDeckTopAction extends TriggeredActionBase {
   readonly type: 'shuffle-deck-top';
@@ -3689,7 +3708,8 @@ export type TriggeredAction =
   | TraitorAttackAction
   | TransferItemFreeAction
   | ReattachToItemAction
-  | RestoreItemAction;
+  | RestoreItemAction
+  | DeclareVirtualSiteMovementAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -9408,7 +9428,8 @@ export type CardEffect =
   | RemovalProtectionEffect
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
-  | SwapNewSiteEffect;
+  | SwapNewSiteEffect
+  | ActsAsSiteEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
@@ -10142,6 +10163,75 @@ export interface SwapNewSiteEffect extends EffectBase {
    * types.
    */
   readonly requiresDestinationSitePathIncludes: readonly RegionType[];
+}
+
+/**
+ * A resource-event card that, once played, functions as its bearer company's
+ * site for as long as it remains attached — Wondrous Maps (td-171): "This
+ * card is used as a site card, Ruins & Lairs [{R}] …"; Refuge (td-145) is the
+ * sibling card. Paired with an `on-event: self-enters-play` effect whose
+ * `apply.type` is `declare-virtual-site-movement` (sets the target company's
+ * `destinationSite` to the card's own instance instead of drawing from the
+ * site deck — CoE 1.4's "no region cards" tournament note means this route
+ * never touches the location deck at all).
+ *
+ * A companion {@link import('./cards-sites.js').SiteCard}-shaped definition
+ * is synthesized from these fields at card-pool load time (`data/index.ts`,
+ * id `` `${this card's id}-site` ``) so every existing site-lookup path
+ * (`isSiteCard`, automatic attacks, playable resources, hazard/resource
+ * draws) treats it exactly like a real site once a company is there. The
+ * synthesized definition's `region`/`nearestHaven` are left empty so it can
+ * never be indexed into the shared movement graph (`buildMovementMap`) —
+ * it is reachable only via this card's own `declare-virtual-site-movement`
+ * apply, never as a generic movement destination.
+ */
+/**
+ * Suffix appended to an `acts-as-site` card's own definition id to form the
+ * id of its synthesized `SiteCard`-shaped companion definition (e.g.
+ * `td-171` → `td-171-site`). Shared between the card-pool loader (which
+ * synthesizes the companion) and the engine (which points a company's
+ * `destinationSite`/`currentSite` at it).
+ */
+export const ACTS_AS_SITE_ID_SUFFIX = '-site';
+
+export interface ActsAsSiteEffect extends EffectBase {
+  readonly type: 'acts-as-site';
+  /** The site type this card counts as while a company is there. */
+  readonly siteType: SiteType;
+  /** Automatic attacks faced on arrival, identical in shape to a real site's. */
+  readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Resource subtypes playable while at this virtual site. */
+  readonly playableResources: readonly PlayableResourceType[];
+  /** Resource cards drawn per the normal site-phase draw box. */
+  readonly resourceDraws: number;
+  /** Hazard cards drawn per the normal site-phase draw box. */
+  readonly hazardDraws: number;
+  /**
+   * The only movement type that may be used to arrive at this virtual site —
+   * always `'region'` today (no printed site path exists for Starter
+   * Movement to key off). Enforced in `handleRevealNewSite`.
+   */
+  readonly requiredMovementType: 'region';
+  /**
+   * The declared region-movement path's last (site-adjacent) region must be
+   * of this type for the movement to resolve — e.g. `shadow-land` for
+   * Wondrous Maps. Enforced in `handleRevealNewSite` alongside
+   * {@link requiredMovementType}.
+   */
+  readonly requiredLastRegionType: RegionType;
+  /**
+   * "The company may only leave the site using region movement" — enforced
+   * in `planMovementActions` by excluding Starter Movement destinations
+   * while a company's `currentSite` resolves to this definition.
+   */
+  readonly leaveRequiresRegionMovement: boolean;
+  /**
+   * "Discard [this card] when the company moves to a new site" — enforced in
+   * `endCompanyMH`'s site-of-origin teardown, discarding this card's own
+   * instance from `cardsInPlay` instead of the normal site-deck/discard-pile
+   * handling (which does not apply — this was never a real site card).
+   */
+  readonly discardOnLeaveSite: boolean;
 }
 
 /**

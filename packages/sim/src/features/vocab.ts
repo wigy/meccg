@@ -10,7 +10,7 @@
  * side can verify it is embedding against the same vocabulary.
  */
 
-import type { CardDefinition } from '@meccg/shared';
+import { ACTS_AS_SITE_ID_SUFFIX, isSiteCard, type CardDefinition } from '@meccg/shared';
 
 /** A frozen card vocabulary. */
 export interface CardVocab {
@@ -32,14 +32,52 @@ function fnv1a(text: string): string {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-/** Builds the vocabulary from a card pool (sorted keys, indices from 1). */
+/**
+ * The source card id of a synthesized `acts-as-site` companion definition
+ * (Wondrous Maps td-171 → `td-171-site`), or `null` for a real card.
+ *
+ * The card-pool loader synthesizes one `SiteCard`-shaped entry per card that
+ * carries an `acts-as-site` effect, so every site-lookup path treats the
+ * resource card as a site while a company stands on it. Those entries are not
+ * cards: they are never drawn, never in a deck, never in a hand.
+ */
+function actsAsSiteSourceId(
+  id: string,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): string | null {
+  if (!id.endsWith(ACTS_AS_SITE_ID_SUFFIX)) return null;
+  const def = cardPool[id];
+  // Only a synthesized companion is both a site and a carrier of the effect —
+  // `acts-as-site` itself is printed on resource-event cards.
+  if (!isSiteCard(def) || !def.effects?.some(effect => effect.type === 'acts-as-site')) return null;
+  const sourceId = id.slice(0, -ACTS_AS_SITE_ID_SUFFIX.length);
+  return cardPool[sourceId] ? sourceId : null;
+}
+
+/**
+ * Builds the vocabulary from a card pool (sorted keys, indices from 1).
+ *
+ * Synthesized `acts-as-site` companions get no index of their own: they are
+ * aliased to their source card, so a company standing on one embeds as the
+ * card it actually is, and the hash stays a function of the real card
+ * universe — certifying such a card must not invalidate every trained model.
+ */
 export function buildCardVocab(cardPool: Readonly<Record<string, CardDefinition>>): CardVocab {
-  const ids = Object.keys(cardPool).sort();
+  const aliases = new Map<string, string>();
+  for (const id of Object.keys(cardPool)) {
+    const sourceId = actsAsSiteSourceId(id, cardPool);
+    if (sourceId !== null) aliases.set(id, sourceId);
+  }
+  const ids = Object.keys(cardPool)
+    .filter(id => !aliases.has(id))
+    .sort();
   const index = new Map<string, number>(ids.map((id, i) => [id, i + 1]));
   return {
     size: ids.length,
     hash: fnv1a(ids.join('\n')),
     indexOf: definitionId =>
-      definitionId === null || definitionId === undefined ? 0 : index.get(definitionId) ?? 0,
+      definitionId === null || definitionId === undefined
+        ? 0
+        : index.get(aliases.get(definitionId) ?? definitionId) ?? 0,
   };
 }
