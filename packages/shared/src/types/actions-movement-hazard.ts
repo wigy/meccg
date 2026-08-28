@@ -790,6 +790,22 @@ export interface DiscardItemFromCompanyAction {
 }
 
 /**
+ * Play a specific named card from hand onto a character, resolving a
+ * `named-card-play-offer` pending resolution (Fury of the Iron Crown tw-492).
+ * To decline, the player sends a generic `pass` action instead.
+ */
+export interface PlayNamedCardOfferAction {
+  /** Action discriminant. */
+  readonly type: 'play-named-card-offer';
+  /** The card's owner (who plays). */
+  readonly player: PlayerId;
+  /** The card instance to play (must match the offer's `cardName`). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The character in the offer's company who receives the card. */
+  readonly targetCharacterId: CardInstanceId;
+}
+
+/**
  * Resolve a `force-discard-card` pending resolution: the actor picks one
  * candidate card (a ring) to discard. Used by *Rolled down to the Sea*
  * (wh-29), where the card-player's opponent must discard one ring from their

@@ -28,7 +28,7 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition, constraintsOnCompany } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -4688,20 +4688,6 @@ function discardItemFromCompanyActions(
   });
 }
 
-/**
- * True for a `short` hazard-event that declares a `self-enters-play-combat`
- * on-event whose apply is `add-constraint`/`company-stat-modifier` — a
- * combat-reactive short event that, unlike Dragon's Curse-style permanent
- * events, resolves and discards immediately instead of staying attached
- * (see {@link handleCombatPlayHazard}). Used by Words of Power and Terror
- * (tw-115): "Modify the prowesses of all characters in a company attacked
- * by a Nazgûl by -1 until the end of the turn."
- */
-function isCombatCompanyStatModifierShortEvent(def: import('../../types/cards.js').CardDefinition): boolean {
-  return getOnEventEffects(def, 'self-enters-play-combat').some(
-    e => e.apply.type === 'add-constraint' && e.apply.constraint === 'company-stat-modifier',
-  );
-}
 
 /**
  * Emit `play-hazard` actions for hazard permanent-events in the
@@ -4713,9 +4699,9 @@ function isCombatCompanyStatModifierShortEvent(def: import('../../types/cards.js
  * facing the strike). Used by Dragon's Curse (td-16).
  *
  * Also handles the combat-reactive `short` events matched by
- * {@link isCombatCompanyStatModifierShortEvent} — these resolve and
- * discard immediately instead of attaching (Words of Power and Terror,
- * tw-115).
+ * {@link isCombatReactiveShortEvent} — these resolve and discard
+ * immediately instead of attaching (Words of Power and Terror, tw-115;
+ * Fury of the Iron Crown, tw-492).
  */
 function combatHazardPermanentPlays(
   state: GameState,
@@ -4753,7 +4739,7 @@ function combatHazardPermanentPlays(
   for (const handCard of attacker.hand) {
     const def = defById(state, handCard.definitionId);
     if (!def || def.cardType !== 'hazard-event') continue;
-    if (def.eventType !== 'permanent' && !isCombatCompanyStatModifierShortEvent(def)) continue;
+    if (def.eventType !== 'permanent' && !isCombatReactiveShortEvent(def)) continue;
     const playWindow = getCardEffects(def).find(
       (e): e is PlayWindowEffect => e.type === 'play-window',
     );
@@ -4765,6 +4751,14 @@ function combatHazardPermanentPlays(
         logDetail(`Combat play-hazard "${def.name}": creature race "${combat.creatureRace ?? 'none'}" does not match required "${playCondition.race ?? '?'}"`);
         continue;
       }
+    }
+
+    // play-condition: card-not-in-play — e.g. Fury of the Iron Crown (tw-492)
+    // "May not be played if The Iron Crown is in play."
+    const notInPlayCondition = findPlayConditionEffect(def, 'card-not-in-play');
+    if (notInPlayCondition?.cardName && isCardNameInPlayOrCharacters(state, notInPlayCondition.cardName)) {
+      logDetail(`Combat play-hazard "${def.name}": "${notInPlayCondition.cardName}" is in play — not playable`);
+      continue;
     }
 
     const playTarget = getCardEffects(def).find(
@@ -4831,7 +4825,7 @@ function combatHazardPermanentPlays(
     // "Cannot be duplicated on a given company") — checked against active
     // `company-stat-modifier` constraints on the company sourced from a card
     // of the same name, since these short events discard immediately rather
-    // than staying attached (see isCombatCompanyStatModifierShortEvent).
+    // than staying attached (see isCombatReactiveShortEvent).
     const companyDupLimit = findDuplicationLimitEffect(def, 'company');
     if (companyDupLimit) {
       const copiesOnCompany = constraintsOnCompany(state, companyId).filter(

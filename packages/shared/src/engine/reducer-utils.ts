@@ -1065,6 +1065,26 @@ export function getOnEventEffects(
 }
 
 /**
+ * True for a `short` hazard-event whose `self-enters-play-combat` on-event
+ * declares one of the combat-reactive applies that resolve and discard
+ * immediately during a combat play window instead of attaching to a
+ * character like a Dragon's Curse-style permanent event (see
+ * `handleCombatPlayHazard`):
+ *
+ *  - `add-constraint`/`company-stat-modifier` — Words of Power and Terror (tw-115)
+ *  - `modify-current-strike-prowess` — a one-strike prowess bonus (Fury of the Iron Crown, tw-492)
+ *  - `force-attacker-kill-on-resolution` — schedules a post-combat forced kill (tw-492)
+ */
+export function isCombatReactiveShortEvent(def: CardDefinition | null | undefined): boolean {
+  if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') return false;
+  return getOnEventEffects(def, 'self-enters-play-combat').some(
+    e => (e.apply.type === 'add-constraint' && e.apply.constraint === 'company-stat-modifier')
+      || e.apply.type === 'modify-current-strike-prowess'
+      || e.apply.type === 'force-attacker-kill-on-resolution',
+  );
+}
+
+/**
  * True when a triggered-action `apply` is a "discard this card" move — the
  * `move` shape `{ select: 'self', to: 'discard' }` that replaced the legacy
  * `discard-self` verb. Event sweepers and on-event handlers use this to detect
@@ -4012,8 +4032,11 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
   const override = overriddenInPlay(state, name);
   if (override !== undefined) return override;
   return state.players.some(p =>
-    Object.values(p.characters).some(ch => defById(state, ch.definitionId)?.name === name) ||
-    p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
+    Object.values(p.characters).some(ch =>
+      defById(state, ch.definitionId)?.name === name
+      || ch.items.some(item => defById(state, item.definitionId)?.name === name),
+    )
+    || p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
   );
 }
 

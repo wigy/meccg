@@ -9908,7 +9908,10 @@ to `combat.companyId`, so every character in the **defending company**
 gets the stat change for the rest of the turn, not just the character
 currently facing the strike. `combatHazardPermanentPlays`'s
 `eventType !== 'permanent'` gate admits this shape via
-`isCombatCompanyStatModifierShortEvent`. Because the card discards
+`isCombatReactiveShortEvent` (`reducer-utils.ts`), which also admits a
+short event using `modify-current-strike-prowess` directly (rather
+than `add-constraint`/`company-stat-modifier`) or a
+`force-attacker-kill-on-resolution` apply — see below. Because the card discards
 rather than staying attached, a `duplication-limit` of `scope:
 "company"` is enforced by counting active `company-stat-modifier`
 constraints on the target company sourced from a same-named
@@ -10021,6 +10024,56 @@ no `targetCharacterId`. `applyPostAttackPlayOfferResolution`
 card resolves via `resolvePermanentEvent`'s `in-play-general` placement (no
 character/site/company binding) and its own `self-enters-play` apply performs
 the actual effect and self-discard — see `mount-slain` below.
+
+**Short-event single-strike prowess bonus + forced post-combat kill.** A
+`short` hazard-event may pair `modify-current-strike-prowess` directly (no
+`add-constraint` wrapper) with `force-attacker-kill-on-resolution`, both as
+`self-enters-play-combat` on-events on the same card:
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-condition", "requires": "card-not-in-play", "cardName": "The Iron Crown" }
+{ "type": "play-target", "target": "character",
+  "filter": { "attack.race": { "$in": ["orc", "troll", "man", "ringwraith"] } } }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "modify-current-strike-prowess", "value": 4 } }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "force-attacker-kill-on-resolution",
+             "excludeRace": "ringwraith", "offerCardName": "The Iron Crown" } }
+```
+
+Used by Fury of the Iron Crown (tw-492): "May not be played if The Iron
+Crown is in play. The prowess of one strike of an attack by an Orc, Troll,
+Man, or Nazgûl creature is increased by +4. After the attack is resolved,
+if the creature is not a Nazgûl: the creature is removed from play
+(defender receives the marshalling points); and, in addition, if the
+defender has The Iron Crown in his hand, he may immediately play it with a
+character in the defending company." The multi-race requirement is a
+`play-target.filter` on `attack.race` (`$in`) rather than extending the
+single-race `combat-creature-race` condition, per the DSL-over-magic-keyword
+policy. `card-not-in-play` is checked directly in
+`combatHazardPermanentPlays` (`legal-actions/combat.ts`) via
+`isCardNameInPlayOrCharacters`, which scans characters, `cardsInPlay`, *and*
+each character's `items` (a named item card, like The Iron Crown, borne by
+a character counts as "in play").
+
+`force-attacker-kill-on-resolution`'s `excludeRace` and `offerCardName` are
+both optional. When the apply fires, `handleCombatPlayHazard` records
+`{ excludeRace, offerCardName }` on a new `CombatState.forcedCreatureKillOnResolution`
+field. At `finalizeCombat` (`combat-finalize.ts`), if the attacking
+creature's `combat.creatureRace` does not equal `excludeRace`, the creature
+is routed into the defender's kill pile (marshalling points) unconditionally
+— *before* the detainment §3.II.3 discard-instead-of-kill-pile check and
+independent of the strike's real `allDefeated` outcome, so the card can
+override a strike the creature actually won. The MELE §8.37 trophy offer is
+still available in this case (the card's own text permits taking the
+creature as a trophy instead of scoring it). If the forced kill fires and
+the defender then holds a card named `offerCardName` in hand, a
+`named-card-play-offer` pending resolution (`types/pending.ts`) lets them
+play it from hand onto any character in the defending company via a new
+`play-named-card-offer` action (`namedCardPlayOfferActions`/
+`applyNamedCardPlayOfferResolution`, mirroring `ring-play-offer`'s
+item-attach shape), or pass to decline.
 
 ### 33. `combat-protection`
 
