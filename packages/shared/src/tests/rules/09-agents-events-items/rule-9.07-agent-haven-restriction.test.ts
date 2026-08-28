@@ -24,15 +24,22 @@ import type { CardDefinitionId, CardInstanceId, CompanyId } from '../../../index
 import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
 import type { AgentInPlay, CharacterInPlay, SiteInPlay } from '../../../index.js';
 
-const ANARIN = 'dm-1' as CardDefinitionId;   // homesite: "Moria"
+// A plain agent with no Haven exemption. Its two home sites sit next to two
+// different Havens on the hero side of the map (Goblin-gate → Rivendell,
+// Mount Gundabad → Lórien), so both Havens are reachable and the rule is what
+// removes them. Do NOT use Anarin (dm-1) or Elwen (dm-8) here: those cards
+// carry the `agent-may-move-to-haven` play flag and are exempt from this rule.
+const BADUILA = 'dm-2' as CardDefinitionId;         // homesites: "Goblin-gate", "Mount Gundabad"
+const GOBLIN_GATE = 'tw-398' as CardDefinitionId;   // hero-side home site (nearest Haven: Rivendell)
 
 const AGENT_CHAR_ID = 'test-h07-agent-char' as CardInstanceId;
-const MORIA_SITE_ID = 'test-h07-moria-site' as CardInstanceId;
+const HOME_SITE_ID = 'test-h07-home-site' as CardInstanceId;
+const FILLER_SITE_ID = 'test-h07-filler-site' as CardInstanceId;
 const RIVENDELL_SITE_ID = 'test-h07-rivendell-site' as CardInstanceId;
 
 const AGENT_CHAR: CharacterInPlay = {
   instanceId: AGENT_CHAR_ID,
-  definitionId: ANARIN,
+  definitionId: BADUILA,
   status: CardStatus.Untapped,
   items: [], allies: [], hazards: [], followers: [],
   controlledBy: 'general',
@@ -49,8 +56,9 @@ describe('Rule 9.07 — Agent Haven Movement Restriction', () => {
   beforeEach(() => resetMint());
 
   test('agent cannot move to Rivendell (a Haven site) during agent-move', () => {
-    // Agent at Moria; Rivendell is adjacent to some sites but is a Haven.
-    // Rivendell should NOT appear as a destination in agent-move actions.
+    // The agent sits face-down at home. Rivendell is the nearest Haven of its
+    // home site Goblin-gate, so it is reachable by the movement map — only
+    // rule 9.07 keeps it out of the agent-move destinations.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -75,7 +83,14 @@ describe('Rule 9.07 — Agent Haven Movement Restriction', () => {
       ...state,
       players: [
         state.players[0],
-        { ...state.players[1], agents: [agent] },
+        {
+          ...state.players[1],
+          agents: [agent],
+          siteDeck: [
+            { instanceId: RIVENDELL_SITE_ID, definitionId: RIVENDELL },
+            { instanceId: FILLER_SITE_ID, definitionId: MORIA },
+          ],
+        },
       ] as unknown as typeof state.players,
       phaseState: makeMHState({ hazardLimitAtReveal: 4, hazardsPlayedThisCompany: 0 }),
     };
@@ -119,7 +134,7 @@ describe('Rule 9.07 — Agent Haven Movement Restriction', () => {
           agents: [agent],
           siteDeck: [
             { instanceId: lorienSiteId, definitionId: LORIEN },
-            { instanceId: MORIA_SITE_ID, definitionId: MORIA },
+            { instanceId: FILLER_SITE_ID, definitionId: MORIA },
           ],
         },
       ] as unknown as typeof state.players,
@@ -157,12 +172,16 @@ describe('Rule 9.07 — Agent Haven Movement Restriction', () => {
       discardAtEndOfTurn: false,
     };
 
-    const moriaSiteCard = { instanceId: MORIA_SITE_ID, definitionId: MORIA };
+    // The agent must have one of its printed home sites in the location deck,
+    // otherwise reveal happens without a site and never reaches the movement
+    // history check. Rivendell → Goblin-gate is itself a legal hop, so the
+    // discard below can only come from the rule 9.07 Haven check.
+    const homeSiteCard = { instanceId: HOME_SITE_ID, definitionId: GOBLIN_GATE };
     const withAgent = {
       ...state,
       players: [
         state.players[0],
-        { ...state.players[1], agents: [agent], siteDeck: [moriaSiteCard] },
+        { ...state.players[1], agents: [agent], siteDeck: [homeSiteCard] },
       ] as unknown as typeof state.players,
       phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
     };
@@ -180,7 +199,7 @@ describe('Rule 9.07 — Agent Haven Movement Restriction', () => {
     // deck, so the discard must leave it there, and the stack site returns to
     // the deck — the home-site instance used to be deleted from the deck
     // entirely, vanishing from the game state.
-    expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === MORIA_SITE_ID)).toBe(true);
+    expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === HOME_SITE_ID)).toBe(true);
     expect(after.players[HAZARD_PLAYER].siteDeck.some(s => s.instanceId === RIVENDELL_SITE_ID)).toBe(true);
   });
 });

@@ -21,8 +21,18 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. Agent only: may move to a Haven [{H}] and may tap at a company’s new site to attack that company during opponent’s movement/hazard phase."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "agent-may-move-to-haven"
+      },
+      {
+        "type": "agent-tap-attack",
+        "prowessBonus": 0
+      }
+    ],
+    "text": "Unique. Agent. Agent only: may move to a Haven [{H}] and may tap at a company’s new site to attack that company during opponent’s movement/hazard phase.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "minion-character",
