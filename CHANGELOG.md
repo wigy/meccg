@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.134.0 — 2026-08-28
+
+21 cards certified, concede state cleanup, and virtual-site movement
+
+### Game Engine
+
+- Wondrous Maps `acts-as-site` + `declare-virtual-site-movement`: a resource event that functions as a company's site (#2915)
+- Chance of Being Lost `roll-then-swap-new-site` + `swap-new-site-choice` (#2905); Gnaw with Words `tap-character` `requiresCompanionSkill` multi-mode (#2906)
+- Dwarven Ring of Bávor's Tribe `mustPlayOrDiscard` fetch + `play-or-discard-fetched-item` resolution (#2916); Kindling of the Spirit (#2914); Warm Now Be Heart and Limb (#2917)
+- Spider of the Môrlat (#2913), War-forges (#2909), Earth-tremors (#2908), In Great Wrath (#2907), Enduring Tales (#2904), Sated Beast (#2903)
+- The Under-gates Balrog attack no longer reactivates after Balrog of Moria dies (#2899); Wizard's Ring accepts a Fallen-wizard's avatar (#2898)
+- Conceding now clears chain/combat/pending state (#2912)
+- Certified: Men of Northern Rhovanion, More Sense than You, Nimloth, King under the Mountain, Beorning Toll, Master of Wood, Water, or Hill, Anarin, Gisulf, Leamon (#2897–#2921)
+
+### Infrastructure
+
+- AI clients strip the concede action from the view, not just the action list (#2910)
+
 ## 0.133.0 — 2026-08-27
 
 Concede and Resume Game, 42 cards certified, and a sweep of card-play fixes
