@@ -1315,6 +1315,9 @@ export interface PendingResolution {
         readonly type: 'swap-new-site-choice';
         /** The moving company whose destination site is being replaced. */
         readonly companyId: CompanyId;
+      }
+    | {
+        /**
          * A card fetched to hand by an `enqueue-pending-fetch` with
          * `mustPlayOrDiscard: true` must be resolved before anything else:
          * play it immediately at the bearer's site, or discard it. Blocks
