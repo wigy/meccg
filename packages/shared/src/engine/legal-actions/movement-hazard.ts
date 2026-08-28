@@ -436,6 +436,53 @@ function companyRegionShortcutPairs(
 }
 
 /**
+ * Whether some character *other than* `charId` carrying `skill` is in
+ * `charId`'s own company, at that company's current site, or at its
+ * destination site (if it is moving this turn) — backs `tap-character`'s
+ * `requiresCompanionSkill` gate (Gnaw with Words dm-60: "another sage is in
+ * his company or at his current site or at his new site"). Company
+ * membership only looks at `charId`'s own company-mates (same player); site
+ * presence is checked by site *name* across **both** players' companies,
+ * mirroring the "at the same site" convention used by
+ * `enqueue-site-wound-rolls` (Plague le-129).
+ */
+function hasNearbySkillmate(
+  state: GameState,
+  resourcePlayer: PlayerState,
+  charId: CardInstanceId,
+  skill: Skill,
+): boolean {
+  const hasSkill = (owner: PlayerState, id: CardInstanceId): boolean => {
+    if (id === charId) return false;
+    const data = owner.characters[id];
+    if (!data) return false;
+    const def = defById(state, data.definitionId);
+    return !!def && isCharacterCard(def) && def.skills.includes(skill);
+  };
+
+  const company = resourcePlayer.companies.find(co => co.characters.includes(charId));
+  if (!company) return false;
+
+  if (company.characters.some(id => hasSkill(resourcePlayer, id))) return true;
+
+  const siteNames = new Set<string>();
+  const currentDef = company.currentSite ? resolveDef(state, company.currentSite.instanceId) : undefined;
+  if (currentDef && isSiteCard(currentDef)) siteNames.add(currentDef.name);
+  const destDef = company.destinationSite ? resolveDef(state, company.destinationSite.instanceId) : undefined;
+  if (destDef && isSiteCard(destDef)) siteNames.add(destDef.name);
+  if (siteNames.size === 0) return false;
+
+  for (const owner of state.players) {
+    for (const co of owner.companies) {
+      const coSiteDef = co.currentSite ? resolveDef(state, co.currentSite.instanceId) : undefined;
+      if (!coSiteDef || !isSiteCard(coSiteDef) || !siteNames.has(coSiteDef.name)) continue;
+      if (co.characters.some(id => hasSkill(owner, id))) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Generate actions for the reveal-new-site step (CoE step 1).
  *
  * If the company is moving, computes all possible ways to reach the
@@ -2927,11 +2974,17 @@ function playHazardsActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
         );
 
-        // New Moon (tw-68): a plain short hazard-event carrying a `tap-character`
-        // effect. Two mutually-exclusive ("Alternatively") modes:
-        //   Mode A — tap one filter-matching (Elf) character. One action per
-        //     eligible untapped opponent character; the tap rides on
-        //     `targetCharacterId` and resolves via `applyTapCharacter`.
+        // New Moon (tw-68): a plain short hazard-event carrying one or more
+        // `tap-character` effects. Two mutually-exclusive ("Alternatively")
+        // mode shapes coexist here:
+        //   Mode A — tap one filter-matching character satisfying every mode's
+        //     eligibility (optionally gated by `requiresCompanionSkill` — Gnaw
+        //     with Words dm-60: "Tap a sage if another sage is in his company
+        //     or at his current site or at his new site. Alternatively, tap a
+        //     diplomat …" — two `tap-character` effects, one per skill; a
+        //     candidate is offered once it satisfies any one of them). One
+        //     action per eligible untapped opponent character; the tap rides
+        //     on `targetCharacterId` and resolves via `applyTapCharacter`.
         //   Mode B — with Doors of Night in play, reinterpret one Free-domain /
         //     Free-hold as a Border-land / Border-hold for the turn, via the
         //     card's `on-event company-arrives-at-site` override handlers. A
@@ -2940,10 +2993,10 @@ function playHazardsActions(
         // The modes are distinguished by presence/absence of targetCharacterId;
         // the arrival-override resolution is skipped when a character was tapped
         // (see `applyShortEventArrivalTrigger`).
-        const tapCharacterEffect = getCardEffects(def).find(
+        const tapCharacterEffects = getCardEffects(def).filter(
           (e): e is import('../../types/effects.js').TapCharacterEffect => e.type === 'tap-character',
         );
-        if (tapCharacterEffect) {
+        if (tapCharacterEffects.length > 0) {
           let offeredAny = false;
           // Mode A — tap one eligible character. A hazard "Tap one Elf character"
           // targets the opponent (resource) player's characters (any company),
@@ -2955,7 +3008,13 @@ function playHazardsActions(
             if (charData.status !== CardStatus.Untapped) continue;
             const charDef = defById(state, charData.definitionId);
             if (!charDef || !isCharacterCard(charDef)) continue;
-            if (tapCharacterEffect.filter && !matchesDefinition(charDef, tapCharacterEffect.filter)) continue;
+            const matchingMode = tapCharacterEffects.find(mode => {
+              if (mode.filter && !matchesDefinition(charDef, mode.filter)) return false;
+              if (mode.requiresCompanionSkill
+                && !hasNearbySkillmate(state, resourcePlayer, charId as import('../../index.js').CardInstanceId, mode.requiresCompanionSkill)) return false;
+              return true;
+            });
+            if (!matchingMode) continue;
             logDetail(`Hazard short-event "${def.name}": Mode A — may tap "${charDef.name}" (${charId})`);
             actions.push({
               action: { ...action, targetCharacterId: charId as import('../../index.js').CardInstanceId },
