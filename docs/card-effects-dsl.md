@@ -12171,6 +12171,28 @@ Unless he is a Ringwraith, character makes a corruption check modified by
 (see The Tormented Earth as-102), but boosting the chosen character's own
 prowess instead of canceling or weakening the attack.
 
+**Cost-bearing whole-company mode (`boostScope: "company"`).** By default
+(`boostScope` absent, or `"payer"`), the character chosen to pay `cost` is
+also the only one boosted, as above. Setting `boostScope: "company"` keeps the
+payer selection identical (`requiredSkill`/`requiredRace` still gate which
+company character may pay, `costExemptRace` still waives the cost) but
+decouples it from the recipients: after the chosen character pays, **every**
+character in the defending company receives the boost (subject to `filter`/
+`companyFilter`/`itemFilter`, same as the no-`cost` path), not just the payer.
+
+```json
+{ "type": "company-combat-boost", "stat": "prowess", "value": 2,
+  "requiredRace": "wizard", "boostScope": "company",
+  "cost": { "check": "corruption", "modifier": -2 } }
+```
+
+Used by Kindling of the Spirit (tw-262): "Spell. Wizard only. +2 prowess
+against one attack for all characters in the same company as the Wizard.
+Wizard makes a corruption check modified by -2." — the Wizard alone pays the
+corruption check, but the whole company (Wizard included) gets +2 prowess.
+Contrast with Wizard's Fire (tw-360), the same shape minus `boostScope`
+(defaults to `"payer"`): only the Wizard himself is boosted.
+
 ---
 
 ### 53b. `combat-tap-company-boost`
