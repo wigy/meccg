@@ -1004,6 +1004,24 @@ export interface RiddlingGuessAction {
 }
 
 /**
+ * Pick the replacement site for a `swap-new-site-choice` resolution (Chance
+ * of Being Lost, dm-49), following a passed roll-then-swap dice-check. One
+ * action is offered per eligible site left in the hazard player's own
+ * `siteDeck`; mandatory (no pass — the resolution is only enqueued when at
+ * least one candidate exists).
+ */
+export interface SwapNewSiteChoiceAction {
+  /** Action discriminant. */
+  readonly type: 'swap-new-site-choice';
+  /** The hazard player (who chooses from their own location deck). */
+  readonly player: PlayerId;
+  /** The chosen replacement site's instance in the hazard player's siteDeck. */
+  readonly replacementSiteInstanceId: CardInstanceId;
+  /** Human-readable label for the choice. */
+  readonly explanation: string;
+}
+
+/**
  * Discard a company item and execute the dice roll for a goodwill attempt
  * (dm-160 Token of Goodwill).
  *

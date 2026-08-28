@@ -34,7 +34,7 @@ import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { shuffle } from '../rng.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard, isFactionCard, isItemCard, isAllyCard, printedMind } from '../types/cards.js';
+import { isCharacterCard, isFactionCard, isItemCard, isAllyCard, isSiteCard, printedMind } from '../types/cards.js';
 import { CardStatus, Race, Skill } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, removeById, removePrisonerFromHost, roll2d6, rollDiceForPlayer, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, roll2d6, rollDiceForPlayer, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -1580,6 +1580,45 @@ function applyDiceCheckBranch(
     }
     return { state: { ...state, combat } };
   }
+  if (branch.type === 'offer-swap-new-site') {
+    // Chance of Being Lost (dm-49): the roll-then-swap check passed. Compute
+    // the eligible replacement sites — the hazard player's own siteDeck
+    // entries in the destination site's region or an adjacent region,
+    // excluding the destination's own name — and, if any exist, enqueue a
+    // `swap-new-site-choice` resolution so the hazard player picks one.
+    if (!ctx.targetCompanyId) {
+      logDetail('offer-swap-new-site: no target company in context — no-op');
+      return { state };
+    }
+    const companyId = ctx.targetCompanyId;
+    const owner = state.players.find(p => companyById(p.companies, companyId));
+    const company = owner ? companyById(owner.companies, companyId) : undefined;
+    const destination = company?.destinationSite;
+    if (!destination) {
+      logDetail(`offer-swap-new-site: company ${companyId as string} is no longer moving — no-op`);
+      return { state };
+    }
+    const destDef = defById(state, destination.definitionId);
+    if (!destDef || !isSiteCard(destDef)) {
+      logDetail('offer-swap-new-site: destination site definition not found — no-op');
+      return { state };
+    }
+    const hazardPlayer = state.players[ctx.rollerIndex];
+    const eligible = regionAdjacentSwapEligibleSites(state, hazardPlayer.siteDeck, destDef);
+    if (eligible.length === 0) {
+      logDetail(`offer-swap-new-site: no eligible replacement for "${destDef.name}" in ${hazardPlayer.name}'s location deck — the "must replace" clause has no effect`);
+      return { state };
+    }
+    logDetail(`offer-swap-new-site: ${eligible.length} eligible replacement site(s) for "${destDef.name}" — enqueuing swap-new-site-choice for ${hazardPlayer.name}`);
+    return {
+      state: enqueueResolution(state, {
+        source: ctx.source,
+        actor: hazardPlayer.id,
+        scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+        kind: { type: 'swap-new-site-choice', companyId },
+      }),
+    };
+  }
   logDetail(`dice-check: branch verb "${branch.type}" not handled in resolution context — no-op`);
   return { state };
 }
@@ -1664,6 +1703,91 @@ export function applyDiceCheckResolution(
     return resolveChainEntryAndContinue(post, diceCheckChainMatcher(kind.continuation.match, top, kind), [rolled.rollEffect]);
   }
   return { state: post, effects: [rolled.rollEffect] };
+}
+
+/**
+ * Resolve a queued `swap-new-site-choice` resolution (Chance of Being Lost,
+ * dm-49), following a passed roll-then-swap dice-check. Mirrors
+ * `handleSwapNewSite`'s (`mh-hazard-play.ts`) core swap — the company's
+ * original destination site returns, untapped, to its own owner's location
+ * deck (only declared, never entered); the chosen replacement is pulled from
+ * the hazard player's own `siteDeck` and becomes the company's new untapped
+ * `destinationSite`; the M/H phase state's cached `destinationSiteName` /
+ * `destinationSiteType` are refreshed to describe the replacement — except
+ * gated by same-or-adjacent **region** (via `regionAdjacentSwapEligibleSites`)
+ * rather than a static site-path region-type requirement, and reached via a
+ * pending resolution rather than chosen up front at play time.
+ */
+export function applySwapNewSiteChoiceResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolution(state, action, top, 'swap-new-site-choice', 'swap-new-site-choice');
+  if (!g.ok) return g.result;
+  const { actorIndex, player, action: choiceAction, kind } = g;
+  const { companyId } = kind;
+
+  const ownerIndex = state.players.findIndex(p => companyById(p.companies, companyId));
+  if (ownerIndex === -1) {
+    logDetail(`swap-new-site-choice: company ${companyId as string} no longer exists — no-op`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+  const owner = state.players[ownerIndex];
+  const company = companyById(owner.companies, companyId);
+  const destination = company?.destinationSite;
+  if (!company || !destination) {
+    logDetail(`swap-new-site-choice: company ${companyId as string} is no longer moving — no-op`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+  const destDef = defById(state, destination.definitionId);
+  if (!destDef || !isSiteCard(destDef)) {
+    return { state, error: 'Destination site definition not found' };
+  }
+
+  const replacement = findById(player.siteDeck, choiceAction.replacementSiteInstanceId);
+  if (!replacement) return { state, error: 'Replacement site not found in your location deck' };
+  const replacementDef = defById(state, replacement.definitionId);
+  if (!replacementDef || !isSiteCard(replacementDef)) return { state, error: 'Replacement site definition not found' };
+  const eligible = regionAdjacentSwapEligibleSites(state, player.siteDeck, destDef);
+  if (!eligible.some(inst => inst.instanceId === replacement.instanceId)) {
+    return { state, error: `Chance of Being Lost: "${replacementDef.name}" is not a different site in the same or an adjacent region as "${destDef.name}"` };
+  }
+
+  logDetail(`Chance of Being Lost: replacing "${destDef.name}" (company ${companyId as string}'s new site) with "${replacementDef.name}" from ${player.name}'s location deck`);
+
+  let newState = dequeueResolution(state, top.id);
+  newState = updatePlayer(newState, actorIndex, p => ({
+    ...p,
+    siteDeck: removeById(p.siteDeck, replacement.instanceId),
+  }));
+  newState = updatePlayer(newState, ownerIndex, p => ({
+    ...p,
+    siteDeck: [...p.siteDeck, toCardInstance(destination)],
+    companies: p.companies.map(c => c.id === companyId
+      ? {
+          ...c,
+          destinationSite: {
+            instanceId: replacement.instanceId,
+            definitionId: replacement.definitionId,
+            status: CardStatus.Untapped,
+          },
+        }
+      : c),
+  }));
+
+  if (newState.phaseState.phase === Phase.MovementHazard) {
+    newState = {
+      ...newState,
+      phaseState: {
+        ...newState.phaseState,
+        destinationSiteName: replacementDef.name,
+        destinationSiteType: replacementDef.siteType,
+      },
+    };
+  }
+
+  return { state: newState };
 }
 
 /**

@@ -544,6 +544,8 @@ export function describeAction(
       return `Riddling attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'riddling-guess':
       return `Name "${action.guessedCardName}"`;
+    case 'swap-new-site-choice':
+      return action.explanation;
     case 'seized-by-terror-roll':
       return `Roll for Seized by Terror on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':

@@ -224,6 +224,8 @@ export const ACTION_TYPES: readonly string[] = [
   'enable-multi-strike-option',
   'concede',
   'recycle-hand-discard',
+  // Added by certifying dm-49 (Chance of Being Lost).
+  'swap-new-site-choice',
   // Added by certifying dm-110 (Spider of the Môrlat).
   'return-alt-permanent-event',
 ];
