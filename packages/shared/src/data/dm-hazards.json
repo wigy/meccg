@@ -673,8 +673,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Earthtremors.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "Any company moving to or from an Under-deeps site faces an attack (cannot be canceled): Rock Fall — 1 strike with 7 prowess against each character (weapons do not modify prowess against these strikes). In addition, cancels the effects of Into Dark Tunnels, Old Road, Great Road, and Bridge. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "ahunt-attack",
+        "underDeepsMove": true,
+        "regionNames": [],
+        "strikes": 1,
+        "prowess": 7,
+        "race": "special",
+        "combatRules": ["cannot-be-canceled", "weapons-ineffective"]
+      },
+      {
+        "type": "cancel-card-effects",
+        "cardNames": ["Into Dark Tunnels", "Old Road", "Great-road", "Bridge"]
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "Any company moving to or from an Under-deeps site faces an attack (cannot be canceled): Rock Fall — 1 strike with 7 prowess against each character (weapons do not modify prowess against these strikes). In addition, cancels the effects of Into Dark Tunnels, Old Road, Great Road, and Bridge. Cannot be duplicated.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",
@@ -903,8 +923,11 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InGreatWrath.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Nazgûl in your discard pile that could immediately attack. The Nazgûl attacks immediately (not counting against the hazard limit) with +2 prowess and -1 body."
+    "effects": [
+      { "type": "play-creature-from-discard", "filter": { "race": "ringwraith" }, "prowessModifier": 2, "bodyModifier": -1 }
+    ],
+    "text": "Playable on a Nazgûl in your discard pile that could immediately attack. The Nazgûl attacks immediately (not counting against the hazard limit) with +2 prowess and -1 body.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",

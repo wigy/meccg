@@ -40,7 +40,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -1514,12 +1514,7 @@ export function findForcingEnvironment(
   // The Way is Shut (dm-98): "moving to or from an Under-deeps site" — true when
   // either the company's origin (currentSite) or its declared destination is an
   // Under-deeps site (`under-deeps` keyword on the site definition).
-  const siteIsUnderDeeps = (ref: { definitionId: import('../index.js').CardDefinitionId } | null | undefined): boolean => {
-    if (!ref) return false;
-    const siteDef = defById(state, ref.definitionId);
-    return isSiteCard(siteDef) && (siteDef.keywords?.includes('under-deeps') ?? false);
-  };
-  const underDeepsMove = siteIsUnderDeeps(company.currentSite) || siteIsUnderDeeps(company.destinationSite);
+  const underDeepsMove = companyMovesUnderDeeps(state, company);
   const context = {
     sitePath: {
       ...regionTypeCounts(path),
@@ -1695,6 +1690,18 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     const arrivalStatus = sharedDestinationOwner
       ? sharedDestinationOwner.currentSite!.status
       : (arrivesTapped ? CardStatus.Tapped : company.destinationSite.status);
+    // Wondrous Maps (td-171) / Refuge (td-145): arriving at an `acts-as-site`
+    // virtual site — record the named region the company is now "in" (the
+    // last entry of the just-resolved region-movement path), since the
+    // synthesized site definition itself carries no `region`. Cleared
+    // (implicitly, by omission) on any other arrival.
+    const destActsAsSiteDef = defById(state, company.destinationSite.definitionId);
+    const destActsAsSite = destActsAsSiteDef && getCardEffects(destActsAsSiteDef).find(
+      (e): e is import('../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
+    );
+    const arrivalVirtualSiteRegionName = destActsAsSite
+      ? mhStateLocal.resolvedSitePathNames[mhStateLocal.resolvedSitePathNames.length - 1]
+      : undefined;
     const updatedCompanies = [...resourcePlayer.companies];
     updatedCompanies[mhState.activeCompanyIndex] = {
       ...company,
@@ -1703,6 +1710,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       moved: true,
       siteOfOrigin: null,
       siteCardOwned: sharedDestinationOwner ? false : true,
+      virtualSiteRegionName: arrivalVirtualSiteRegionName,
     };
 
     if (sharedDestinationOwner) {
@@ -1715,7 +1723,27 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     let newSiteDeck = [...resourcePlayer.siteDeck];
     const newSiteDiscardPile = [...resourcePlayer.siteDiscardPile];
     let newOutOfPlayPile = [...resourcePlayer.outOfPlayPile];
-    if (originSite) {
+    let newCardsInPlay = resourcePlayer.cardsInPlay;
+    let newDiscardPile = resourcePlayer.discardPile;
+    // Wondrous Maps (td-171) / Refuge (td-145): the site of origin was an
+    // `acts-as-site` virtual site — it was never drawn from the site deck
+    // and has no site-discard-pile/out-of-play-pile existence, so none of
+    // the real-site teardown below applies. Instead, "discard [this card]
+    // when the company moves to a new site": discard the card's own
+    // instance (shared with `originSite.instanceId` — see
+    // `ActsAsSiteEffect`) from `cardsInPlay`.
+    const originDefForTeardown = originSite ? defById(state, originSite.definitionId) : undefined;
+    const originActsAsSiteForTeardown = originDefForTeardown && getCardEffects(originDefForTeardown).find(
+      (e): e is import('../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
+    );
+    if (originSite && originActsAsSiteForTeardown?.discardOnLeaveSite) {
+      const leftBehindCard = resourcePlayer.cardsInPlay.find(c => c.instanceId === originSite.instanceId);
+      if (leftBehindCard) {
+        logDetail(`Step 8: site of origin ${originDefForTeardown?.name ?? '?'} is an acts-as-site card — discarding it (company left)`);
+        newCardsInPlay = resourcePlayer.cardsInPlay.filter(c => c.instanceId !== originSite.instanceId);
+        newDiscardPile = [...resourcePlayer.discardPile, toCardInstance(leftBehindCard)];
+      }
+    } else if (originSite) {
       const siblingAtOriginIdx = resourcePlayer.companies.findIndex(
         (c, idx) => idx !== mhState.activeCompanyIndex
           && c.currentSite?.instanceId === originSite.instanceId,
@@ -1810,6 +1838,8 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
       siteDeck: newSiteDeck,
       siteDiscardPile: newSiteDiscardPile,
       outOfPlayPile: newOutOfPlayPile,
+      cardsInPlay: newCardsInPlay,
+      discardPile: newDiscardPile,
     };
 
     // Defer firing the company-arrives-at-site event until we've
@@ -3326,7 +3356,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   const inPlayNames = buildInPlayNames(state);
   const whenCtxBase: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destPathCounts, region: destSiteCard?.region },
+    destinationSite: { sitePath: destPathCounts, region: destSiteCard?.region, siteType: destSiteCard?.siteType },
     hazardsEncountered: mhState.hazardsEncountered,
   };
 
@@ -4009,13 +4039,14 @@ export function handlePlayReservedCreature(
 /**
  * Handle play-creature-from-discard: hazard player plays a hazard creature from
  * their own discard pile as an immediate attack, driven by a short-event
- * carrying a `play-creature-from-discard` effect (Exhalation of Decay, dm-55).
+ * carrying a `play-creature-from-discard` effect (Exhalation of Decay dm-55;
+ * In Great Wrath dm-66 adds a body modifier alongside the prowess one).
  *
  * Does NOT count against the hazard limit. The driving short-event card is
  * discarded on play. The creature enters the chain with the effect's prowess
- * modifier applied and, after combat, is disposed by the normal
- * combat-finalization rules (defender's kill pile if defeated, otherwise back
- * to the discard pile).
+ * (and, if present, body) modifier applied and, after combat, is disposed by
+ * the normal combat-finalization rules (defender's kill pile if defeated,
+ * otherwise back to the discard pile).
  */
 export function handlePlayCreatureFromDiscard(
   state: GameState,
@@ -4060,8 +4091,11 @@ export function handlePlayCreatureFromDiscard(
   }
 
   const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
+  const eventName = (eventDef as { name?: string } | undefined)?.name ?? (eventCard.definitionId as string);
+  const bodyModifier = effect.bodyModifier ?? 0;
   logDetail(
-    `Exhalation of Decay: playing "${creatureName}" from discard pile (prowess ${effect.prowessModifier >= 0 ? '+' : ''}${effect.prowessModifier}) against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
+    `${eventName}: playing "${creatureName}" from discard pile (prowess ${effect.prowessModifier >= 0 ? '+' : ''}${effect.prowessModifier}`
+    + `${bodyModifier !== 0 ? `, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier}` : ''}) against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
   );
 
   // Remove the event card from hand → discard, and the creature from discard.
@@ -4085,6 +4119,7 @@ export function handlePlayCreatureFromDiscard(
   const payload: import('../index.js').ChainEntryPayload = {
     type: 'creature',
     prowessBonus: effect.prowessModifier,
+    ...(bodyModifier !== 0 ? { bodyBonus: bodyModifier } : {}),
   };
   newState = initiateChain(newState, action.player, creatureCard, payload);
 
