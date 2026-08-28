@@ -4315,6 +4315,47 @@ export function applyLeftBehindRejoinResolution(
 }
 
 /**
+ * Resolve a `hand-discard-recycle-offer` pending resolution (Enduring Tales,
+ * dm-125).
+ *
+ * The card has already landed in the discarding player's discard pile by the
+ * time this resolution is enqueued (`hand-discard-recycle-trigger.ts` detects
+ * the hand→discardPile transition after the fact). Accepting
+ * (`recycle-hand-discard`) moves that exact instance to the top of the
+ * player's play deck instead; `pass` leaves it discarded.
+ */
+export function applyHandDiscardRecycleOfferResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolutionOrPass(state, rawAction, top, 'recycle-hand-discard', 'hand-discard-recycle-offer',
+    kind => `${kind.sourceName}: declines to recycle the discarded card to the top of the play deck`);
+  if (!g.ok) return g.result;
+  const { action, kind, actorIndex: playerIdx, player } = g;
+
+  if (action.cardInstanceId !== kind.instanceId) {
+    return { state, error: `hand-discard-recycle-offer: card mismatch (expected ${kind.instanceId as string})` };
+  }
+  const idx = player.discardPile.findIndex(c => c.instanceId === kind.instanceId);
+  if (idx < 0) {
+    return { state, error: `hand-discard-recycle-offer: card ${kind.instanceId as string} no longer in discard pile` };
+  }
+  const card = player.discardPile[idx];
+  logDetail(`${kind.sourceName}: ${cardName(state, card.definitionId)} moved from ${player.name}'s discard pile to the top of their play deck (face down)`);
+
+  const newState = forgetDeckReveals(
+    updatePlayer(state, playerIdx, p => ({
+      ...p,
+      discardPile: p.discardPile.filter((_, i) => i !== idx),
+      playDeck: [card, ...p.playDeck],
+    })),
+    playerIdx,
+  );
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
  * Resolve an `arrange-deck-top` pending resolution (Revealed to all Watchers,
  * dm-85).
  *

@@ -21,8 +21,18 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
-    "text": "Unique. Agent. Agent only: may move to a Haven [{H}] and may tap at a company’s new site to attack that company during opponent’s movement/hazard phase."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "agent-may-move-to-haven"
+      },
+      {
+        "type": "agent-tap-attack",
+        "prowessBonus": 0
+      }
+    ],
+    "text": "Unique. Agent. Agent only: may move to a Haven [{H}] and may tap at a company’s new site to attack that company during opponent’s movement/hazard phase.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "minion-character",
@@ -433,6 +443,7 @@
       "agent"
     ],
     "effects": [],
+    "certified": "2026-08-28",
     "text": "Unique. Agent."
   },
   {
@@ -604,7 +615,8 @@
       "agent"
     ],
     "effects": [],
-    "text": "Unique. Agent."
+    "text": "Unique. Agent.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "minion-character",
@@ -628,7 +640,31 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": {
+          "reason": "opponent-influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "agent-may-move-to-haven"
+      }
+    ],
+    "certified": "2026-08-27",
     "text": "Unique. Agent. +2 direct influence against Elves and Elf Factions. Agent only: may move to a Haven [{H}]."
   },
   {

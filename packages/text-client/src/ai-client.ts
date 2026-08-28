@@ -21,12 +21,12 @@
  */
 
 import { WebSocket } from 'ws';
-import type { ClientMessage, GameAction, EvaluatedAction, PlayerView } from '@meccg/shared';
+import type { ClientMessage, GameAction, PlayerView } from '@meccg/shared';
 import type { WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
 import { createAgentFromWeights, resolveAgent, makeActionDescriber, renderCandidateRanking } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
-import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage } from './client-common.js';
+import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage, buildAgentDecisionInput } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
 
@@ -167,20 +167,17 @@ function connect(): void {
       return;
     }
 
-    const evaluated: readonly EvaluatedAction[] = msg.view.legalActions;
-    if (!evaluated || evaluated.length === 0) return;
-    // Extract only viable actions. Concede is a human-only meta-action the
-    // server offers every seat; an AI never resigns.
-    const actions = evaluated.filter(e => e.viable && e.action.type !== 'concede').map(e => e.action);
-    if (actions.length === 0) return;
+    const decisionInput = buildAgentDecisionInput(msg.view);
+    if (!decisionInput) return;
+    const { view, actions } = decisionInput;
 
     // Pick now so we can compute the right delay (body-check rolls
     // against the human player get a longer pause for tension).
-    const action = pickAction(msg.view, actions);
-    const delayMs = decisionDelayMs(action, msg.view);
-    const lookup = buildInstanceLookup(msg.view);
-    const companies = buildCompanyNames(msg.view.self.companies, msg.view.self.characters, cardPool);
-    const players = { [msg.view.self.id as string]: msg.view.self.name, [msg.view.opponent.id as string]: msg.view.opponent.name };
+    const action = pickAction(view, actions);
+    const delayMs = decisionDelayMs(action, view);
+    const lookup = buildInstanceLookup(view);
+    const companies = buildCompanyNames(view.self.companies, view.self.characters, cardPool);
+    const players = { [view.self.id as string]: view.self.name, [view.opponent.id as string]: view.opponent.name };
     const summary = stripCardMarkers(describeAction(action, cardPool, lookup, companies, players));
     setTimeout(() => {
       console.log(`AI action: ${summary} (delay ${delayMs}ms)`);

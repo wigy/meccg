@@ -626,6 +626,33 @@ export function companySiteDef(state: GameState, company: Company | undefined): 
 }
 
 /**
+ * True when a site reference (a `currentSite`/`destinationSite`-shaped card
+ * pointer) resolves to a site card carrying the `under-deeps` keyword.
+ * Shared by rule 5.31's force-return-to-origin ("moving to or from an
+ * Under-deeps site", The Way is Shut dm-98, `findForcingEnvironment` in
+ * `mh-hazard-play.ts`) and the ahunt-attack `underDeepsMove` match branch
+ * (Earth-tremors dm-53, `collectMatchingAhuntAttacks` in `mh-steps.ts`) so
+ * both "moving to or from an Under-deeps site" clauses share one reading of
+ * what counts as an Under-deeps site.
+ */
+export function isUnderDeepsSiteRef(
+  state: GameState,
+  ref: { definitionId: CardDefinitionId } | null | undefined,
+): boolean {
+  if (!ref) return false;
+  const siteDef = defById(state, ref.definitionId);
+  return isSiteCard(siteDef) && (siteDef.keywords?.includes('under-deeps') ?? false);
+}
+
+/**
+ * True when a company's origin (`currentSite`) or declared destination
+ * (`destinationSite`) is an Under-deeps site. See {@link isUnderDeepsSiteRef}.
+ */
+export function companyMovesUnderDeeps(state: GameState, company: Company | undefined): boolean {
+  return isUnderDeepsSiteRef(state, company?.currentSite) || isUnderDeepsSiteRef(state, company?.destinationSite);
+}
+
+/**
  * `tap-site-on-play`: taps the active company's current site when a resource
  * event carrying the flag enters play, unless the site carries the
  * `never-taps` site-rule (e.g. The Worthy Hills). Shared by permanent-event
@@ -1083,6 +1110,38 @@ export function getCardEffects(
 }
 
 /**
+ * True when either player controls an in-play card carrying a
+ * `cancel-card-effects` effect naming `cardName`. This is the generic
+ * "cancels the effects of X" primitive (The Way is Shut dm-98; Earth-tremors
+ * dm-53): while such a card is in play, the named card's own effect is
+ * treated as absent, wherever that effect is actually consumed —
+ * {@link import('./legal-actions/pending.js').applyOneConstraint}'s
+ * `constraintSuppressedByCancelEffect` wraps this for `ActiveConstraint`-based
+ * effects (site-phase restrictions, etc.); callers whose target effect is
+ * *not* modeled as an `ActiveConstraint` (a `grant-extra-mh-phase` short
+ * event's `Company.extraMHPhasePending` flag in `chain-reducer.ts`, or a
+ * `hazard-draw-multiplier` constraint consumed directly by
+ * `transitionToDrawCards` in `mh-steps.ts` rather than through the
+ * constraint-filtering switch) call this directly with the source card's own
+ * name instead of going through a constraint.
+ */
+export function isCardNameEffectCanceled(state: GameState, cardName: string | undefined): boolean {
+  if (!cardName) return false;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      for (const eff of getCardEffects(def)) {
+        if (eff.type === 'cancel-card-effects' && eff.cardNames.includes(cardName)) {
+          logDetail(`"${(def as { name?: string })?.name ?? card.definitionId as string}" cancels the effects of "${cardName}"`);
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * True when the given definition, sitting in a player's `cardsInPlay`, is a
  * **Nazgûl permanent-event** for rule 5.24 (Sideboarding with a Nazgûl).
  *
@@ -1397,6 +1456,32 @@ export function influenceModificationsNullified(state: GameState): boolean {
     }
   }
   return false;
+}
+
+/**
+ * True while a bare in-play event in **either** player's `cardsInPlay` carries
+ * a `hand-discard-recycle-option` effect — Enduring Tales (dm-125): "When any
+ * player discards a card from his hand, he may discard it to the top of his
+ * play deck (and always face down) instead of to his discard pile." Mirrors
+ * {@link influenceModificationsNullified}'s "either player, bare card" scan.
+ * Consulted by `hand-discard-recycle-trigger.ts` to decide whether to offer
+ * the redirect at all.
+ */
+export function handDiscardRecycleOptionInPlay(state: GameState): { readonly sourceName: string } | null {
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      if (getCardEffects(def).some(e => e.type === 'hand-discard-recycle-option')) {
+        return { sourceName: def.name };
+      }
+    }
+  }
+  return null;
 }
 
 /**

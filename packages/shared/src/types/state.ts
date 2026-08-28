@@ -291,12 +291,14 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       }
     }
 
-    // General cards in play
-    for (const card of player.cardsInPlay) {
-      if (card.instanceId === instanceId) return card.definitionId;
-    }
-
-    // Company sites and on-guard cards
+    // Company sites and on-guard cards. Checked before `cardsInPlay` (below) so
+    // that a resource card acting as a virtual site (`acts-as-site`, e.g.
+    // Wondrous Maps td-171) resolves to its site-shaped definition when
+    // referenced via `currentSite`/`destinationSite` — such a card shares one
+    // instance ID between its `cardsInPlay` entry (the resource-event
+    // definition) and its company-site entry (the synthesized site
+    // definition). No other card has one instance ID present in two zones at
+    // once, so this ordering is a no-op for everything else.
     for (const company of player.companies) {
       if (company.currentSite?.instanceId === instanceId) return company.currentSite.definitionId;
       if (company.destinationSite?.instanceId === instanceId) return company.destinationSite.definitionId;
@@ -306,6 +308,11 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       for (const hazard of company.hazards) {
         if (hazard.instanceId === instanceId) return hazard.definitionId;
       }
+    }
+
+    // General cards in play
+    for (const card of player.cardsInPlay) {
+      if (card.instanceId === instanceId) return card.definitionId;
     }
 
     // Agent characters and their site stacks

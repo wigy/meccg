@@ -46,7 +46,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, isCardNameEffectCanceled, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -2015,6 +2015,11 @@ function applyOneConstraint(
       // enqueues the corruption checks when an item is played at the bound
       // site — no broad legal-action filtering needed here.
       return base;
+    case 'item-play-race-restriction':
+      // King under the Mountain (td-126): consumed directly by the item-play
+      // candidate-character filter in `legal-actions/site.ts` — no broad
+      // legal-action filtering needed here.
+      return base;
     case 'free-attack-cancel':
       // Darkness Wielded (ba-55): the deferred free-cancel grant is offered
       // directly by `cancelAttackActions` (combat.ts) and consumed by
@@ -2537,18 +2542,9 @@ function constraintSuppressedByCancelEffect(
 ): boolean {
   const sourceName = defById(state, constraint.sourceDefinitionId)?.name;
   if (!sourceName) return false;
-  for (const player of state.players) {
-    for (const card of player.cardsInPlay) {
-      const def = defById(state, card.definitionId);
-      for (const eff of getCardEffects(def)) {
-        if (eff.type === 'cancel-card-effects' && eff.cardNames.includes(sourceName)) {
-          logDetail(`Constraint ${constraint.id as string} suppressed: "${defById(state, card.definitionId)?.name}" cancels the effects of "${sourceName}"`);
-          return true;
-        }
-      }
-    }
-  }
-  return false;
+  const canceled = isCardNameEffectCanceled(state, sourceName);
+  if (canceled) logDetail(`Constraint ${constraint.id as string} suppressed by cancel-card-effects (source "${sourceName}")`);
+  return canceled;
 }
 
 /**
@@ -3339,6 +3335,33 @@ export function leftBehindRejoinActions(
   }
 
   // "may rejoin" — pass is always available (keeps the company separate).
+  actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
+
+  return actions;
+}
+
+/**
+ * Legal actions while a `hand-discard-recycle-offer` resolution is pending
+ * (Enduring Tales, dm-125): the discarding player may move the card — already
+ * sitting in their discard pile — to the top of their play deck instead
+ * (`recycle-hand-discard`), or pass to leave it discarded.
+ */
+export function handDiscardRecycleOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'hand-discard-recycle-offer') return [];
+  const { instanceId } = top.kind;
+
+  const ownerPlayer = state.players.find(p => p.id === actor);
+  const actions: EvaluatedAction[] = [];
+  if (ownerPlayer && ownerPlayer.discardPile.some(c => c.instanceId === instanceId)) {
+    actions.push({
+      action: { type: 'recycle-hand-discard' as const, player: actor, cardInstanceId: instanceId },
+      viable: true,
+    });
+  }
   actions.push({ action: { type: 'pass' as const, player: actor }, viable: true });
 
   return actions;

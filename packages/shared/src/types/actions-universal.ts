@@ -443,6 +443,20 @@ export interface LeftBehindRejoinAction {
 }
 
 /**
+ * Enduring Tales (dm-125): move a card just discarded from hand to the top
+ * of the discarding player's play deck (face down) instead of leaving it in
+ * their discard pile. Resolves a `hand-discard-recycle-offer` pending
+ * resolution (the player may instead `pass` to leave it discarded).
+ */
+export interface RecycleHandDiscardAction {
+  readonly type: 'recycle-hand-discard';
+  /** The player who discarded the card and is choosing its destination. */
+  readonly player: PlayerId;
+  /** The discarded card instance, currently in the player's discard pile. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Choose the next card (top-first) when ordering the set-aside cards a
  * `cycle-hand` effect placed on top of the play deck (Revealed to all Watchers,
  * dm-85). Resolves one step of an `arrange-deck-top` pending resolution: the
