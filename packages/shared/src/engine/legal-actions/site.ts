@@ -1700,6 +1700,11 @@ function playResourcesActions(
                 // windows.
                 keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 isAvatar: isAvatarCharacter(charDef),
+                // King under the Mountain (td-126): mirrors the same field in
+                // the organization-phase emitter (organization-events.ts) so
+                // `target.dragonAtHomeVictorySiteId` behaves the same in both
+                // play windows.
+                dragonAtHomeVictorySiteId: ch.dragonAtHomeVictorySiteId,
               },
               company: { covert: isCovertCompany(company, player, state), siteCharacterNames },
             };
@@ -1997,13 +2002,34 @@ function playResourcesActions(
           .map(cId => player.characters[cId])
           .find(ch => ch?.instanceId === siteState.burglaryItemUnlock)
         : undefined;
-      const itemEligibleCharacters = burglarChar
+      const itemEligibleCharactersUnraced = burglarChar
         ? [...untappedCharacters, burglarChar]
         : untappedCharacters;
 
+      // King under the Mountain (td-126): "Only Dwarves may play items at
+      // this site." Narrow the eligible bearers to the restricted race when
+      // an `item-play-race-restriction` constraint binds this site.
+      const itemRaceRestriction = siteDefId
+        ? state.activeConstraints.find(
+          (c): c is import('../../types/pending.js').ActiveConstraint & { kind: { type: 'item-play-race-restriction'; siteDefinitionId: import('../../types/common.js').CardDefinitionId; race: Race } } =>
+            c.kind.type === 'item-play-race-restriction' && c.kind.siteDefinitionId === siteDefId,
+        )
+        : undefined;
+      const itemEligibleCharacters = itemRaceRestriction
+        ? itemEligibleCharactersUnraced.filter(ch => {
+          const chDef = defById(state, ch.definitionId);
+          return chDef && 'race' in chDef && (chDef as { race?: Race }).race === itemRaceRestriction.kind.race;
+        })
+        : itemEligibleCharactersUnraced;
+
       if (itemEligibleCharacters.length === 0) {
-        logDetail(`Item ${itemDef.name}: no untapped character to carry it`);
-        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: no untapped character in company`));
+        if (itemRaceRestriction && itemEligibleCharactersUnraced.length > 0) {
+          logDetail(`Item ${itemDef.name}: only ${itemRaceRestriction.kind.race} characters may play items at ${siteName}`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: only ${itemRaceRestriction.kind.race} characters may play items at ${siteName}`));
+        } else {
+          logDetail(`Item ${itemDef.name}: no untapped character to carry it`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: no untapped character in company`));
+        }
         continue;
       }
 

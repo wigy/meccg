@@ -15,7 +15,8 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect, ActsAsSiteEffect } from '../types/effects.js';
+import { ACTS_AS_SITE_ID_SUFFIX } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsBalrogAvatar } from '../state-utils.js';
@@ -36,7 +37,7 @@ import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -48,7 +49,7 @@ import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
 import { findLongDarkReachCandidates, fizzleLongDarkReach } from './long-dark-reach.js';
-import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay } from './short-event-discard.js';
+import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay, applyShortEventRegionTransform } from './short-event-discard.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { shuffle } from '../rng.js';
 
@@ -2902,6 +2903,37 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         }
       } else if (effect.apply.type === 'add-constraint') {
         newState = applyAddConstraintFromOnEvent(newState, entry, effect, def?.name ?? '?');
+      } else if (effect.apply.type === 'declare-virtual-site-movement') {
+        // Wondrous Maps (td-171) / Refuge (td-145): declares this card's
+        // bound company as moving to the card itself instead of a real site
+        // — no site-deck draw. The instance ID is shared between this card's
+        // `cardsInPlay` entry (definitionId: the resource-event card) and the
+        // company's `destinationSite` (definitionId: the synthesized
+        // `acts-as-site` companion, id `<this card's id>-site`) — see
+        // `ActsAsSiteEffect`. `resolveInstanceId` checks company sites before
+        // `cardsInPlay` so both resolve correctly. The declared path's
+        // legality (region movement only, last region matching
+        // `requiredLastRegionType`) is validated later at the company's own
+        // M/H phase `declare-path` step (`handleRevealNewSite`) — mirrors
+        // Master of Esgaroth's (td-135) deferred site-type check.
+        const actsAsSite = getCardEffects(def).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+        const targetCompany = boundCompanyId
+          ? newState.players[playerIndex].companies.find(c => c.id === boundCompanyId)
+          : undefined;
+        if (!actsAsSite || !targetCompany) {
+          logDetail(`"${def?.name ?? '?'}" declare-virtual-site-movement: no acts-as-site effect or no target company — fizzle`);
+        } else if (targetCompany.destinationSite || !targetCompany.currentSite) {
+          logDetail(`"${def?.name ?? '?'}" declare-virtual-site-movement: company ${boundCompanyId as string} already has a destination or no current site — fizzle`);
+        } else {
+          const siteDefId = `${card.definitionId as string}${ACTS_AS_SITE_ID_SUFFIX}` as import('../types/common.js').CardDefinitionId;
+          logDetail(`"${def?.name ?? '?'}" declare-virtual-site-movement: company ${boundCompanyId as string} declares movement to itself (${siteDefId as string})`);
+          newState = updatePlayer(newState, playerIndex, p => ({
+            ...p,
+            companies: p.companies.map(c => c.id === boundCompanyId
+              ? { ...c, destinationSite: { instanceId: card.instanceId, definitionId: siteDefId, status: CardStatus.Untapped } }
+              : c),
+          }));
+        }
       } else if (effect.apply.type === 'offer-resource-play') {
         // Crown of Flowers (dm-121) enters play unlinked and simply remains in
         // play as an environment with "no effect until you play a resource with
@@ -3237,9 +3269,22 @@ function applyAddConstraintFromOnEvent(
   // through so site-bound constraints resolve correctly even outside the site
   // phase — e.g. Stage resources played during the organization phase (rule
   // 5.F1: The Fortress of Isen wh-68, Guarded Haven wh-74, …).
-  const boundSiteDefId = entry.payload?.type === 'permanent-event'
-    ? entry.payload.targetSiteDefinitionId
+  //
+  // King under the Mountain (td-126): a character-targeted permanent event
+  // whose site-bound constraints (`siteFrom: 'dragon-at-home-victory'`) bind
+  // not to where the card was played, but to the site recorded on the
+  // play-target character (`dragonAtHomeVictorySiteId`) — the Dragon's lair
+  // his company defeated an at-home manifestation attack at.
+  const targetCharId = entry.payload?.type === 'permanent-event' ? entry.payload.targetCharacterId : undefined;
+  const dragonAtHomeSiteId = effect.apply.type === 'add-constraint' && effect.apply.siteFrom === 'dragon-at-home-victory' && targetCharId
+    ? (() => {
+      const bearerPlayer = state.players.find(p => p.characters[targetCharId]);
+      return bearerPlayer?.characters[targetCharId]?.dragonAtHomeVictorySiteId;
+    })()
     : undefined;
+  const boundSiteDefId = dragonAtHomeSiteId ?? (entry.payload?.type === 'permanent-event'
+    ? entry.payload.targetSiteDefinitionId
+    : undefined);
 
   // For `until-cleared` scope, target the active player (the effect applies
   // globally, not to a specific company that may later disband); other scopes
@@ -3878,9 +3923,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
   const strikesBonus = entry.payload.type === 'creature' ? (entry.payload.strikesBonus ?? 0) : 0;
+  const bodyBonus = entry.payload.type === 'creature' ? (entry.payload.bodyBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx) + strikesBonus;
   let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
+  if (bodyBonus !== 0 && effectiveBody !== null) {
+    effectiveBody = Math.max(0, effectiveBody + bodyBonus);
+  }
 
   // combat-body-per-defender-skill (Little Snuffler dm-108): "Each ranger in
   // attacked company lowers Little Snuffler's body by 2." Self-bound to the
@@ -4481,7 +4530,16 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
       const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
       const pendingValue = grantExtraMHPhase.movement === 'under-deeps' ? 'under-deeps' as const : true;
-      logDetail(`${cardName}: chain resolves grant-extra-mh-phase — flagging company ${targetCompanyId as string} for an extra ${pendingValue === 'under-deeps' ? 'Under-deeps ' : ''}movement/hazard phase this turn`);
+      // Earth-tremors (dm-53) / The Way is Shut (dm-98): a `cancel-card-effects`
+      // card naming this short event by name (e.g. Bridge, Into Dark Tunnels)
+      // in play neutralizes its effect — the card is still spent (discarded or
+      // returned per its own text) but grants no extra movement/hazard phase.
+      const canceled = isCardNameEffectCanceled(current, cardName);
+      if (canceled) {
+        logDetail(`${cardName}: grant-extra-mh-phase suppressed by an in-play cancel-card-effects card — no extra phase granted`);
+      } else {
+        logDetail(`${cardName}: chain resolves grant-extra-mh-phase — flagging company ${targetCompanyId as string} for an extra ${pendingValue === 'under-deeps' ? 'Under-deeps ' : ''}movement/hazard phase this turn`);
+      }
       const spentCard = toCardInstance(card);
       // "Return this card to your hand" (World Gnawed by the Nameless as-110):
       // the spent event goes back to its owner's hand instead of the discard
@@ -4490,7 +4548,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         ...p,
         hand: grantExtraMHPhase.returnToHand ? [...p.hand, spentCard] : p.hand,
         discardPile: grantExtraMHPhase.returnToHand ? p.discardPile : [...p.discardPile, spentCard],
-        companies: p.companies.map(c => c.id === targetCompanyId ? { ...c, extraMHPhasePending: pendingValue } : c),
+        companies: p.companies.map(c => c.id === targetCompanyId ? { ...c, extraMHPhasePending: canceled ? c.extraMHPhasePending : pendingValue } : c),
       }));
       if (grantExtraMHPhase.returnToHand) {
         logDetail(`${cardName}: returned to its owner's hand`);
@@ -4559,6 +4617,43 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       );
       if (result.error) {
         logDetail(`${def.name}: discard-in-play did not resolve — ${result.error}`);
+      } else {
+        current = result.state;
+      }
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      logDetail(`${def.name}: spent event card → discard`);
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+      }));
+    }
+  }
+
+  // A resource short-event that retypes a named region (Master of Wood,
+  // Water, or Hill td-136) rides the chain from the player's hand for the
+  // same reason the discard-in-play mode above does: CoE 9.4/9.5 owes the
+  // opponent a response window before the region's type actually changes.
+  // Now that the entry resolved un-negated, install the permanent region
+  // override plus its follow-up corruption check, and dispose of the spent
+  // event card.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.regionTransformName
+    && entry.payload.regionTransformType) {
+    const def = defById(current, entry.card.definitionId);
+    if (def) {
+      const result = applyShortEventRegionTransform(
+        current,
+        def,
+        entry.card.instanceId,
+        entry.declaredBy,
+        entry.payload.regionTransformName,
+        entry.payload.regionTransformType,
+        entry.payload.costTapCharacterId,
+      );
+      if (result.error) {
+        logDetail(`${def.name}: region-transform did not resolve — ${result.error}`);
       } else {
         current = result.state;
       }
@@ -6249,8 +6344,21 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     return { state: current, needsInput: true };
   }
 
+  // An entry can end the game as it resolves (Challenge the Power / Gollum's
+  // Fate win with The One Ring, CoE 10.39). `endGame` tears the chain down as
+  // part of building the terminal Game Over state, so there is nothing left to
+  // mark resolved — the game is over and no follow-up passives may trigger.
+  if (current.chain == null) {
+    logDetail('Game ended while resolving this entry — chain torn down, stopping resolution');
+    return {
+      state: current,
+      needsInput: false,
+      ...(resolveEffects.length > 0 ? { effects: resolveEffects } : {}),
+    };
+  }
+
   // Mark entry as resolved
-  const resolvedChain = current.chain!;
+  const resolvedChain = current.chain;
   const newEntries = resolvedChain.entries.map((e, i) =>
     i === entryIndex ? { ...e, resolved: true } : e,
   );

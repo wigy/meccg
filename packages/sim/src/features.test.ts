@@ -61,6 +61,24 @@ describe('card vocabulary', () => {
     expect(VOCAB.indexOf(null)).toBe(0);
     expect(VOCAB.indexOf(undefined)).toBe(0);
   });
+
+  test('aliases synthesized acts-as-site companions to their source card', () => {
+    // The card-pool loader synthesizes a `SiteCard`-shaped companion (Wondrous
+    // Maps td-171 → `td-171-site`) for every card that acts as its company's
+    // site. Those are not cards — never drawn, never in a deck — so they get no
+    // index of their own: giving one a slot would shift the whole vocabulary
+    // and invalidate the hash every set of trained weights is pinned to.
+    const companions = Object.keys(CARD_POOL).filter(
+      id => id.endsWith('-site') && CARD_POOL[id.slice(0, -'-site'.length)] !== undefined,
+    );
+    expect(companions.length).toBeGreaterThan(0);
+    expect(VOCAB.size).toBe(Object.keys(CARD_POOL).length - companions.length);
+    for (const id of companions) {
+      const sourceId = id.slice(0, -'-site'.length);
+      expect(VOCAB.indexOf(sourceId)).toBeGreaterThan(0);
+      expect(VOCAB.indexOf(id)).toBe(VOCAB.indexOf(sourceId));
+    }
+  });
 });
 
 describe('action-type vocabulary', () => {

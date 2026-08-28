@@ -744,6 +744,8 @@ export function describeAction(
       return `${playerName(action.player)} discards ${instName(action.cardInstanceId)} to grant ${compName(action.companyId)} the region-movement bonus (A More Evil Hour)`;
     case 'left-behind-rejoin':
       return `${playerName(action.player)} rejoins the left-behind ${compName(action.companyId)} with its original company (Left Behind)`;
+    case 'recycle-hand-discard':
+      return `${playerName(action.player)} moves discarded ${instName(action.cardInstanceId)} to the top of their play deck instead of the discard pile (Enduring Tales)`;
     case 'cancel-weapon-effects':
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} to cancel all effects of weapon ${instName(action.weaponInstanceId)} until end of combat (Whip of Many Thongs)`;
     case 'pay-site-tax':

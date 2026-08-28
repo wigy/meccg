@@ -296,9 +296,18 @@
         "rule": "cancel-auto-attacks",
         "scope": "first",
         "when": {
-          "inPlayAnywhere": {
-            "$includes": "Balrog of Moria"
-          }
+          "$or": [
+            {
+              "inPlayAnywhere": {
+                "$includes": "Balrog of Moria"
+              }
+            },
+            {
+              "defeatedAnywhere": {
+                "$includes": "Balrog of Moria"
+              }
+            }
+          ]
         }
       },
       {
