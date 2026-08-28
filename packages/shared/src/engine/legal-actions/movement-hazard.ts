@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -647,6 +647,72 @@ function revealNewSiteActions(
         movementType: MovementType.Region,
         regionPath: regionIds,
       });
+    }
+  } else if (!isUnderDeepsMovement && (!balrogMovementLocked || balrogRegionAllowed) && !ringwraithRegionLocked) {
+    // Wondrous Maps (td-171) / Refuge (td-145): one side of this move is an
+    // `acts-as-site` virtual site. Its synthesized definition has an empty
+    // `region` (deliberately — see `synthesizeActsAsSiteDefinition`), so it
+    // never matches the generic branch above. The origin side substitutes
+    // the company's dynamically-recorded `virtualSiteRegionName` (set when
+    // it arrived); the destination side has no single fixed region at all —
+    // every region of the required type reachable within range is offered
+    // as a candidate ending region.
+    const destActsAsSite = getCardEffects(destDef).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+    const originActsAsSite = getCardEffects(originDef).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+    const virtualOriginRegion = originActsAsSite ? company.virtualSiteRegionName : originRegion;
+    if ((destActsAsSite || originActsAsSite) && virtualOriginRegion) {
+      const regionNameToId = buildRegionNameMap(state);
+      let regionCap = outHeSprangAllowance ?? mhState.maxRegionDistance;
+      if (outHeSprangAllowance === null) {
+        regionCap += evilHourRegionBonus(state, player, company, originDef, destDef);
+      }
+      const adjacencyShortcutPairs = state.activeConstraints
+        .filter(c => c.kind.type === 'region-adjacency-shortcut'
+          && c.target.kind === 'company' && c.target.companyId === company.id)
+        .flatMap(c => (c.kind as { pairs: readonly (readonly [string, string])[] }).pairs);
+      let pathMovementMap = adjacencyShortcutPairs.length > 0
+        ? withExtraRegionAdjacency(movementMap, adjacencyShortcutPairs)
+        : movementMap;
+      const regionShortcutPairs = companyRegionShortcutPairs(state, player, company);
+      if (regionShortcutPairs) pathMovementMap = withVirtualAdjacency(pathMovementMap, regionShortcutPairs);
+
+      const destRegionCandidates = destActsAsSite
+        ? Array.from(pathMovementMap.regionGraph.keys()).filter(name => {
+            const id = regionNameToId.get(name);
+            const regionDef = id ? defById(state, id) : undefined;
+            return regionDef?.cardType === 'region' && regionDef.regionType === destActsAsSite.requiredLastRegionType;
+          })
+        : (destRegion ? [destRegion] : []);
+
+      const seenPaths = new Set<string>();
+      const allPaths: string[][] = [];
+      for (const candidateDestRegion of destRegionCandidates) {
+        for (const path of findRegionPaths(pathMovementMap, virtualOriginRegion, candidateDestRegion, regionCap)) {
+          const key = path.join('>');
+          if (seenPaths.has(key)) continue;
+          seenPaths.add(key);
+          allPaths.push(path);
+        }
+      }
+      allPaths.sort((a, b) => {
+        const lenDiff = a.length - b.length;
+        if (lenDiff !== 0) return lenDiff;
+        return new Set(a).size - new Set(b).size;
+      });
+      for (const path of allPaths) {
+        const regionIds = path.map(name => regionNameToId.get(name)).filter((id): id is CardDefinitionId => id !== undefined);
+        if (regionIds.length !== path.length) {
+          logDetail(`Region path ${path.join(' → ')} has unresolvable region names — skipping`);
+          continue;
+        }
+        logDetail(`Region path (virtual site): ${path.join(' → ')} (${path.length} regions)`);
+        actions.push({
+          type: 'declare-path',
+          player: playerId,
+          movementType: MovementType.Region,
+          regionPath: regionIds,
+        });
+      }
     }
   }
 
@@ -1787,15 +1853,17 @@ function summonsFromLongSleepActions(
 
 /**
  * Generate play-creature-from-discard actions for hazard short-events carrying
- * a `play-creature-from-discard` effect (Exhalation of Decay, dm-55).
+ * a `play-creature-from-discard` effect (Exhalation of Decay dm-55, filtered
+ * to Undead; In Great Wrath dm-66, filtered to Nazgûl/Ringwraith).
  *
  * For each such event card in the hazard player's hand, enumerate the hazard
  * player's discard pile for hazard-creatures matching the effect's `filter`
  * (e.g. Undead). A creature is offered only if it can be keyed against the
- * target company ("if target Undead can attack") and the chain is null
- * (creatures must initiate a new chain). The play does NOT count against the
- * hazard limit, so no limit gating is applied. One action is emitted per
- * (creature, keying-match) pair, mirroring the play-hazard creature path.
+ * target company ("if target Undead can attack" / "that could immediately
+ * attack") and the chain is null (creatures must initiate a new chain). The
+ * play does NOT count against the hazard limit, so no limit gating is
+ * applied. One action is emitted per (creature, keying-match) pair, mirroring
+ * the play-hazard creature path.
  */
 function playCreatureFromDiscardActions(
   state: GameState,
@@ -4389,6 +4457,12 @@ function playHazardsActions(
   if (!isResourcePlayer) {
     actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
     actions.push(...attackFromAltPermanentEventActions(state, playerId, mhState));
+    // Sated Beast (td-149): "This card may also be played during opponent's
+    // movement/hazard phase" — a hero-resource-event carrying `play-window`
+    // `crossTurn: true` is offered to the non-active (hazard-side) player
+    // here too. heroResourceShortEventActions filters everything else out
+    // (its isOwnTurn check), so this is a no-op for ordinary resource cards.
+    actions.push(...heroResourceShortEventActions(state, playerId, 'movement-hazard'));
   }
 
   // Player who already passed gets no actions (waiting for opponent)
@@ -4742,12 +4816,25 @@ function findCreatureKeyingMatches(
     ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
     : null;
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-  const destSiteCard = (destSiteDef && isSiteCard(destSiteDef)) ? destSiteDef : undefined;
+  // Falls back to a by-name (alignment-scoped) lookup so `when` conditions on
+  // `destinationSite.region`/`.siteType` still resolve when the company's
+  // `destinationSite` instance hasn't been attached yet (e.g. mid-declare-path
+  // offering) — same fallback the siteInRegionNames/siteKeywords checks below
+  // already use independently (Beorning Toll le-62's non-Haven site-in-region
+  // qualifier needs `destinationSite.siteType` populated this way).
+  const destSiteCard = (destSiteDef && isSiteCard(destSiteDef))
+    ? destSiteDef
+    : (mhState.destinationSiteName
+      ? Object.values(state.cardPool).find(
+          c => isSiteCard(c) && c.name === mhState.destinationSiteName
+            && (moverAlignment === undefined || c.alignment === moverAlignment),
+        ) as SiteCard | undefined
+      : undefined);
   const destSitePath = destSiteCard?.sitePath ?? [];
   const destSitePathCounts = regionTypeCounts(destSitePath);
   const whenContext: Record<string, unknown> = {
     inPlay: inPlayNames,
-    destinationSite: { sitePath: destSitePathCounts, region: destSiteCard?.region },
+    destinationSite: { sitePath: destSitePathCounts, region: destSiteCard?.region, siteType: destSiteCard?.siteType },
     hazardsEncountered: mhState.hazardsEncountered,
   };
   // Derive the keyable region paths — name-scoped overrides (Choking

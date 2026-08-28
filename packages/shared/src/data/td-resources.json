@@ -884,8 +884,74 @@
     "eventType": "permanent",
     "marshallingPoints": 5,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Playable on Balin, Dáin II, Thorin II, or Thráin II if his company has defeated an at home Dragon manifestation attack other than Eärcaraxë at Home. The target Dwarf receives +5 direct influence against Dwarves and Dwarf factions.The site where the Dragon was defeated becomes a Border-hold [{B}] and Dwarf-hold for all purposes and has no Dragon automatic-attacks. Only Dwarves may play items at this site."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.name": { "$in": ["Balin", "Dáin II", "Thorin II", "Thráin II"] } },
+            { "target.dragonAtHomeVictorySiteId": { "$exists": true } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "reason": "influence-check", "target.race": "dwarf" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 5,
+        "when": { "reason": "faction-influence-check", "faction.race": "dwarf" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-type-override",
+          "overrideType": "border-hold",
+          "scope": "until-cleared",
+          "siteFrom": "dragon-at-home-victory"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "dwarf-hold-override",
+          "scope": "until-cleared",
+          "siteFrom": "dragon-at-home-victory"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "skip-automatic-attacks",
+          "scope": "until-cleared",
+          "siteFrom": "dragon-at-home-victory"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "item-play-race-restriction",
+          "race": "dwarf",
+          "scope": "until-cleared",
+          "siteFrom": "dragon-at-home-victory"
+        }
+      }
+    ],
+    "text": "Unique. Playable on Balin, Dáin II, Thorin II, or Thráin II if his company has defeated an at home Dragon manifestation attack other than Eärcaraxë at Home. The target Dwarf receives +5 direct influence against Dwarves and Dwarf factions.The site where the Dragon was defeated becomes a Border-hold [{B}] and Dwarf-hold for all purposes and has no Dragon automatic-attacks. Only Dwarves may play items at this site.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",
@@ -1087,12 +1153,36 @@
     "unique": false,
     "eventType": "short",
     "keywords": [
+      "ritual",
       "sage-only"
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Ritual. Tap a sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land [{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}] to a Wilderness [{w}]. Sage makes a corruption check."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "region-transform",
+        "options": [
+          { "from": "wilderness", "to": "border" },
+          { "from": "wilderness", "to": "shadow" },
+          { "from": "shadow", "to": "wilderness" },
+          { "from": "border", "to": "wilderness" }
+        ]
+      }
+    ],
+    "text": "Sage only. Ritual. Tap a sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land [{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}] to a Wilderness [{w}]. Sage makes a corruption check.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hero-resource-event",
@@ -1136,8 +1226,16 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable before strikes are assigned on an untapped character or ally whose company is facing an attack. Tap target character or ally. He may not be assigned a strike from this attack."
+    "effects": [
+      {
+        "type": "protect-from-strike-assignment",
+        "includeAllies": true,
+        "requireUntapped": true,
+        "tapTarget": true
+      }
+    ],
+    "text": "Playable before strikes are assigned on an untapped character or ally whose company is facing an attack. Tap target character or ally. He may not be assigned a strike from this attack.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-ally",
@@ -1352,8 +1450,38 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Target ahunt Dragon manifestation is discarded.Alternatively, if Doors of Night is in play, decreases the number of strikes from one Dragon or Drake attack by one (to a minimum of one).This card may also be played during opponent’s movement/hazard phase."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "movement-hazard",
+        "crossTurn": true
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
+        "filter": {
+          "cardType": "hazard-event",
+          "eventType": "long",
+          "manifestId": { "$exists": true }
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "strikesModifier": -1,
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["dragon", "drake"] } },
+            { "inPlay": { "$includes": "Doors of Night" } }
+          ]
+        }
+      }
+    ],
+    "text": "Target ahunt Dragon manifestation is discarded.Alternatively, if Doors of Night is in play, decreases the number of strikes from one Dragon or Drake attack by one (to a minimum of one).This card may also be played during opponent’s movement/hazard phase.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",
@@ -1729,7 +1857,43 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the organization phase on a company using region cards with the last one being a Shadow-land [{s}]. (Play regions face-up.)This card is used as a site card, Ruins & Lairs [{R}] (automatic-attack: Orcs—4 strikes at 7 prowess, items: (minor, major), cards opponent draws: 3, you draw: 1). The company may only leave the site using region movement. Discard Wonderous Maps when the company moves to a new site."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.moving": false
+        }
+      },
+      {
+        "type": "acts-as-site",
+        "siteType": "ruins-and-lairs",
+        "automaticAttacks": [
+          { "creatureType": "Orcs", "strikes": 4, "prowess": 7 }
+        ],
+        "playableResources": ["minor", "major"],
+        "resourceDraws": 1,
+        "hazardDraws": 3,
+        "requiredMovementType": "region",
+        "requiredLastRegionType": "shadow",
+        "leaveRequiresRegionMovement": true,
+        "discardOnLeaveSite": true
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "declare-virtual-site-movement"
+        },
+        "target": "target-company"
+      }
+    ],
+    "text": "Playable at the end of the organization phase on a company using region cards with the last one being a Shadow-land [{s}]. (Play regions face-up.)This card is used as a site card, Ruins & Lairs [{R}] (automatic-attack: Orcs—4 strikes at 7 prowess, items: (minor, major), cards opponent draws: 3, you draw: 1). The company may only leave the site using region movement. Discard Wonderous Maps when the company moves to a new site.",
+    "certified": "2026-08-28"
   }
 ]

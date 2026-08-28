@@ -51,7 +51,10 @@ export interface CreatureKeyRestriction {
    * company that reached the site without moving through the region this
    * turn. Evaluated in `findCreatureKeyingMatches` (offer side) and
    * `checkCreatureKeying` (validation side); the recorded `keyedBy.method`
-   * is `"site-in-region"`.
+   * is `"site-in-region"`. Pair with `when: { "destinationSite.siteType":
+   * { "$ne": "haven" } }` for the "non-Haven sites" flavor of this clause
+   * (Beorning Toll le-62, Horse-lords le-78) — the `when` context's
+   * `destinationSite.siteType` is the destination site's own printed type.
    */
   readonly siteInRegionNames?: readonly string[];
   /**

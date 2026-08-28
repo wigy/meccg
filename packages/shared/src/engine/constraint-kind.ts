@@ -63,6 +63,7 @@ const SITE_BOUND_FLAGS: Record<string, SiteFlag> = {
   'technology-item-unlocked': 'technology-item-unlocked',
   'site-untaps-during-untap-phase': 'site-untaps-during-untap-phase',
   'site-always-returns-to-deck': 'site-always-returns-to-deck',
+  'dwarf-hold-override': 'dwarf-hold-override',
 };
 
 /**
@@ -229,6 +230,26 @@ export function buildConstraintKind(
         value: 1,
         filter: { 'site.definitionId': siteDefId as string },
       };
+    }
+    case 'item-play-race-restriction': {
+      // "Only Dwarves may play items at this site" (King under the Mountain
+      // td-126). Resolves the bound site the same way as site-type-override:
+      // an explicit site (the played-on site, or — for td-126 — the site
+      // resolved from `siteFrom: 'dragon-at-home-victory'` in `chain-reducer`)
+      // takes priority, falling back to the active company's current site.
+      const race = (onEvent.apply as { race?: Race }).race;
+      if (!race) return null;
+      const ps = state.phaseState;
+      let siteDefId: import('../types/common.js').CardDefinitionId | null = explicitSiteDefId ?? null;
+      if (!siteDefId && ps.phase === Phase.Site) {
+        const activePlayer = activePlayerState(state);
+        const company = activePlayer?.companies[ps.activeCompanyIndex];
+        if (company?.currentSite) {
+          siteDefId = company.currentSite.definitionId;
+        }
+      }
+      if (!siteDefId) return null;
+      return { type: 'item-play-race-restriction', siteDefinitionId: siteDefId, race };
     }
     case 'mirror-automatic-attacks': {
       // Whole Villages Roused (wh-31): only ever installed via the

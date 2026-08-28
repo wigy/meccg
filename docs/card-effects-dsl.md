@@ -1940,6 +1940,26 @@ in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar
 from the game." — with `play-window` phase `organization` and `play-flag:
 "remove-from-game"`.
 
+### 6d-ter. `play-window` `crossTurn`
+
+An optional boolean on `play-window` that *adds* an opponent's-turn playability
+window rather than restricting the card's own-turn one. CoE 2.1.1's default is
+"any phase of the resource player's own turn"; `crossTurn: true` additionally
+offers the card to its owner during the **opponent's** turn, but only while
+the current phase matches the window's `phase` — own-turn play remains
+unrestricted by `phase` regardless (a `crossTurn` window never narrows the
+default any-phase allowance, it only widens it).
+
+```json
+{ "type": "play-window", "phase": "movement-hazard", "crossTurn": true }
+```
+
+Used by Sated Beast (td-149): "This card may also be played during
+opponent's movement/hazard phase." See the engine-support catalog's
+`play-window` `crossTurn: true` entry for the full implementation writeup
+(the `isOwnTurn` gate in `heroResourceShortEventActions` and the one new
+off-turn call site in `legal-actions/movement-hazard.ts`).
+
 ### 6e. `force-opponent-discard`
 
 Hazard short-event effect that forces the card-player's **opponent** (the
@@ -5780,6 +5800,19 @@ modified by -4." — `filter: { "company.hasShadowMagicUser": true }` (any
 company member is a valid target, not just the shadow-magic user) +
 `corruptionCheck: { modifier: -4, on: "shadow-magic-user" }`.
 
+Three further flags widen the eligible pool and add a play-time side effect:
+`includeAllies` (also offer allies hosted by the company, not just
+characters — `requiredSkill`/`filter` are not evaluated against ally
+candidates), `requireUntapped` (skip any candidate, character or ally, that
+isn't untapped), and `tapTarget` (tap the chosen target as part of resolving
+the card, in addition to protecting it).
+
+Used by More Sense than You (td-140): "Playable before strikes are assigned
+on an untapped character or ally whose company is facing an attack. Tap
+target character or ally. He may not be assigned a strike from this attack."
+— `{ "includeAllies": true, "requireUntapped": true, "tapTarget": true }`,
+no `requiredSkill`/`filter`/`corruptionCheck`.
+
 ### 12. Combat-rule effects
 
 Each combat-mechanics override is a distinct effect type. The chain
@@ -7415,15 +7448,17 @@ Rules:
 
 - `cancel-auto-attacks` — cancels this site's automatic-attacks while the
   rule's `when` condition holds. The condition is evaluated against the
-  card-name context `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same
-  name lists the player-state context exposes (`inPlayAnywhere`: names of
-  every card in either player's `cardsInPlay`, with name-aliases and
-  environment overrides applied; `charactersInPlayAnywhere`: names of every
-  character in play for either player). Name matching means every printing of
-  a card counts (Radagast is tw-178 as a hero Wizard and wh-8 as a
-  Fallen-wizard). `scope` selects what is canceled, and thereby where in the
-  attack pipeline the rule applies. Consumed by `getActiveAutoAttacks()` in
-  `engine/manifestations.ts`.
+  card-name context `{ inPlayAnywhere, charactersInPlayAnywhere,
+  defeatedAnywhere }` — the same name lists the player-state context exposes
+  (`inPlayAnywhere`: names of every card in either player's `cardsInPlay`,
+  with name-aliases and environment overrides applied; `charactersInPlayAnywhere`:
+  names of every character in play for either player; `defeatedAnywhere`:
+  names of every card in either player's `killPile` or `outOfPlayPile`, so a
+  rule can key off a card having *ever* been defeated, not just its current
+  presence in play). Name matching means every printing of a card counts
+  (Radagast is tw-178 as a hero Wizard and wh-8 as a Fallen-wizard). `scope`
+  selects what is canceled, and thereby where in the attack pipeline the rule
+  applies. Consumed by `getActiveAutoAttacks()` in `engine/manifestations.ts`.
 
   - `"scope": "printed"` — removes ALL of the site's own printed
     automatic-attacks, before hazard augments, so attacks added to the site
@@ -7432,13 +7467,18 @@ Rules:
     Wizard card Radagast is in play, the automatic-attacks are removed."
   - `"scope": "first"` — removes the first attack of the final combined
     list. Used by *The Under-gates* (dm-38 / as-165) — "If Balrog of Moria
-    is in play ... the first automatic attack is canceled."
+    is in play or if it ... has been defeated, the first automatic attack is
+    canceled." The cancellation is permanent once Balrog of Moria has been
+    defeated, so the `when` ORs `inPlayAnywhere` with `defeatedAnywhere`.
 
   ```json
   { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "printed",
     "when": { "charactersInPlayAnywhere": { "$includes": "Radagast" } } }
   { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "first",
-    "when": { "inPlayAnywhere": { "$includes": "Balrog of Moria" } } }
+    "when": { "$or": [
+      { "inPlayAnywhere": { "$includes": "Balrog of Moria" } },
+      { "defeatedAnywhere": { "$includes": "Balrog of Moria" } }
+    ] } }
   ```
 
 - `deep-mines-movement` — marks a Fallen-wizard site as an Under-deeps-style
@@ -8599,6 +8639,35 @@ defeat:
 Implemented in `reducer-movement-hazard.ts` (`handleOrderEffects`,
 `collectMatchingAhuntAttacks`), with group rewards in `mh-steps.ts`
 (`applyAhuntGroupRewards`) and outcome recording in `combat-finalize.ts`.
+
+`underDeepsMove: true` matches any company whose origin (`currentSite`) or
+declared destination (`destinationSite`) is an Under-deeps site, independently
+of `regionNames`/`regionTypes` — Under-deeps movement has no region path
+(`resolvedSitePathNames` is empty), so the ordinary name/type match can never
+fire for it. Gated on the company actually moving (`destinationSite` set).
+Used by Earth-tremors (dm-53): "Any company moving to or from an Under-deeps
+site faces an attack (cannot be canceled): Rock Fall — 1 strike with 7
+prowess against each character (weapons do not modify prowess against these
+strikes)."
+
+```json
+{ "type": "ahunt-attack", "underDeepsMove": true, "regionNames": [],
+  "strikes": 1, "prowess": 7, "race": "special",
+  "combatRules": ["cannot-be-canceled", "weapons-ineffective"] }
+```
+
+`race: "special"` is used here because Rock Fall has no printed creature race
+— `AhuntAttackEffect.race` is required (it becomes `CombatState.creatureRace`,
+which the strike-resolution path needs truthy to route through
+`computeCombatProwess` rather than plain `effectiveStats.prowess`), and
+`Race.Special` is the engine's existing "no race" bucket (Army of the Dead
+tw-193). The `weapons-ineffective` combat rule now genuinely suppresses the
+defender's own weapon prowess bonus for the strike (previously it only
+exposed `attack.weaponsIneffective` to one reactive item's own `modify-attack`
+ability, Dwarven Light-stone dm-168) — see
+`computeCombatProwess`'s `weaponsIneffective` parameter in
+`recompute-derived.ts` and `passiveModifyAttackProwessBonus` in
+`combat-strike.ts`.
 
 ### 25a. `faction-influence-restriction`
 
@@ -12280,6 +12349,48 @@ card used by him has to be discarded, return it to the play deck and reshuffle."
 
 ---
 
+### 55d. `hand-discard-recycle-option`
+
+Game-wide passive marker carried by a bare in-play permanent-/long-event in
+**either** player's `cardsInPlay`: whenever *any* player discards a card from
+their hand — through any of the engine's many independent hand-to-discard-pile
+paths (voluntary end-of-turn discard, forced hand-size reduction, a forced
+discard, a cost payment, etc.) — that player may choose to place the discarded
+card on top of their own play deck (face down) instead of leaving it in their
+discard pile.
+
+There is no single call site for "a card left the hand and reached the discard
+pile," so the engine detects it reactively as a prev/next diff after every
+reducer step (`hand-discard-recycle-trigger.ts`), the same pattern
+`hand-discard-trigger.ts` uses for Pale Dream-maker's (dm-78) corruption check:
+a card counts as "discarded from hand" when its instance left `hand` and landed
+in `discardPile` within the same step, which distinguishes a genuine discard
+from a card merely being played (which leaves the hand for `cardsInPlay`/a
+character/etc., not the discard pile). Unlike Pale Dream-maker's trigger, both
+players' hands are scanned every step — the card text says "any player", not
+"his own controller" — and the marker need not belong to the discarding player.
+
+The trigger enqueues a `hand-discard-recycle-offer` pending resolution (the
+card has *already* landed in the discard pile by the time the offer is made).
+The discarding player may accept (`recycle-hand-discard`, moving that exact
+instance from the discard pile to the top of the play deck — no `faceDown`
+flag needed, since play-deck membership already hides a card's identity; see
+`forgetDeckReveals`) or `pass` (leaving it discarded). Resolved by
+`applyHandDiscardRecycleOfferResolution` (`pending-reducers.ts`); legal actions
+by `handDiscardRecycleOfferActions` (`legal-actions/pending.ts`).
+
+This effect has no fields.
+
+```json
+{ "type": "hand-discard-recycle-option" }
+```
+
+Used by: Enduring Tales (dm-125) — "When any player discards a card from his
+hand, he may discard it to the top of his play deck (and always face down)
+instead of to his discard pile."
+
+---
+
 ### 56. `absorb-wound`
 
 When a strike against the bearer succeeds (would wound), the wound is prevented.
@@ -12586,12 +12697,13 @@ Used by: *By the Ringwraith's Word* (le-174).
 Marks a hazard short-event that plays a hazard creature from the hazard
 player's **own discard pile** as an immediate attack against the active
 company, **without counting against the hazard limit**. Models the Exhalation
-of Decay (dm-55) mechanic.
+of Decay (dm-55) and In Great Wrath (dm-66) mechanics.
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": "undead" }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
-| `prowessModifier` | yes | Signed integer added to the spawned attack's prowess (e.g. `-1`). |
+| `filter` | yes | A {@link Condition} matched against each candidate creature's card definition (e.g. `{ "race": "undead" }`, `{ "race": "ringwraith" }`). Reuses the shared condition-matcher rather than a card-specific keyword. |
+| `prowessModifier` | yes | Signed integer added to the spawned attack's prowess (e.g. `-1`, or `+2` for In Great Wrath). |
+| `bodyModifier` | no | Signed integer added to the spawned attack's body (e.g. `-1` for In Great Wrath). Omitted when the card only modifies prowess (Exhalation of Decay). Clamped to a minimum of 0 alongside other body-affecting effects. |
 
 ```json
 { "type": "play-creature-from-discard",
@@ -12599,25 +12711,38 @@ of Decay (dm-55) mechanic.
   "prowessModifier": -1 }
 ```
 
+```json
+{ "type": "play-creature-from-discard",
+  "filter": { "race": "ringwraith" },
+  "prowessModifier": 2,
+  "bodyModifier": -1 }
+```
+
 Legal actions: during the hazard player's M/H play-hazards window, the emitter
 (`playCreatureFromDiscardActions` in `engine/legal-actions/movement-hazard.ts`)
 walks the player's discard pile for `hazard-creature` cards matching `filter`,
 runs the standard creature keying check against the active company ("if target
-Undead can attack"), and emits one `play-creature-from-discard` action per
-(creature, keying-match) pair. The chain must be null (creatures initiate a new
-chain). Because the play is hazard-limit-exempt, no limit gating is applied. The
-generic short-event path skips any card carrying this effect (it is offered
-only through the dedicated emitter).
+Undead can attack" / "that could immediately attack"), and emits one
+`play-creature-from-discard` action per (creature, keying-match) pair. The
+chain must be null (creatures initiate a new chain). Because the play is
+hazard-limit-exempt, no limit gating is applied. The generic short-event path
+skips any card carrying this effect (it is offered only through the dedicated
+emitter).
 
-Reducer (`handlePlayCreatureFromDiscard` in `engine/reducer-movement-hazard.ts`):
+Reducer (`handlePlayCreatureFromDiscard` in `engine/mh-hazard-play.ts`):
 discards the driving short-event card from hand, removes the chosen creature
 from the discard pile, leaves `hazardsPlayedThisCompany` unchanged, and
-initiates the creature chain with `prowessBonus: prowessModifier` and no
-`reservingCardInstanceId`. After the attack resolves, the creature is disposed
-by the normal `finalizeCombat` rules (defender's kill pile if fully defeated,
-otherwise back to the hazard player's discard pile).
+initiates the creature chain with `prowessBonus: prowessModifier` and, when
+`bodyModifier` is present and non-zero, `bodyBonus: bodyModifier` — both new
+`ChainEntryPayload` (`type: 'creature'`) fields consumed in
+`chain-reducer.ts`'s combat-initiation block, alongside the existing
+`strikesBonus` (Fell Beast tw-33). No `reservingCardInstanceId`. After the
+attack resolves, the creature is disposed by the normal `finalizeCombat` rules
+(defender's kill pile if fully defeated, otherwise back to the hazard player's
+discard pile).
 
-Used by: *Exhalation of Decay* (dm-55).
+Used by: *Exhalation of Decay* (dm-55, prowess-only); *In Great Wrath* (dm-66,
+prowess + body, filtered to Ringwraith/Nazgûl).
 
 ### 42a. `grant-replay-attacked-creature`
 
@@ -12774,6 +12899,63 @@ persists when its company leaves the anchored (Wizard)haven.
 
 Used by: *Girdle of Radagast* (wh-110) — "The Wizardhaven's region and all
 adjacent regions become Wilderness [{w}]."
+
+### 43c. `region-transform`
+
+A resource short-event that lets the player **permanently** retype one
+**named** region on the map, chosen at play time — the sibling of
+`region-type-conversion` for a one-shot, player-chosen change rather than a
+persistent, site-anchored one. Paired with a `play-target` `character` effect
+naming the sage who pays the ritual's tap cost.
+
+```json
+{
+  "type": "play-target",
+  "target": "character",
+  "filter": { "target.skills": { "$includes": "sage" } },
+  "cost": { "tap": "character" }
+},
+{
+  "type": "region-transform",
+  "options": [
+    { "from": "wilderness", "to": "border" },
+    { "from": "wilderness", "to": "shadow" },
+    { "from": "shadow", "to": "wilderness" },
+    { "from": "border", "to": "wilderness" }
+  ],
+  "corruptionCheck": { "modifier": 0 }
+}
+```
+
+`options` lists every offered `from`→`to` choice; a region qualifies if its
+**effective** current type (via `getEffectiveRegionType`, so an
+already-transformed region reads correctly) matches any option's `from`.
+`collectRegionTransformTargets` (`legal-actions/organization.ts`, shared by
+both generic short-event dispatchers) scans every named `region` card in the
+pool and offers one `play-short-event` action per (sage × matching region ×
+option) combination, carrying `targetRegionName` / `newRegionType`.
+
+Unlike the turn-scoped `region-type-override` add-constraint (Deeper Shadow,
+le-179 — bound to a moving company's destination), this installs a
+**permanent** (`scope: "until-cleared"`) `region.type` `override`
+`attribute-modifier` constraint filtered on the chosen region's name — nothing
+ever removes it, and `getEffectiveRegionType` (`engine/effective.ts`) folds it
+into every consumer (movement, creature keying, detainment), not just keying.
+
+Per CoE 9.4/9.5 the play rides the chain of effects, exactly like a
+discard-in-play short event (Marvels Told, td-134): `handlePlayResourceShortEvent`
+(`reducer-events.ts`) pays the sage's tap cost immediately, then pushes the
+card onto the chain carrying `regionTransformName`/`regionTransformType` (plus
+`costTapCharacterId`). On un-negated resolution `applyShortEventRegionTransform`
+(`short-event-discard.ts`, invoked from `chain-reducer.ts`) installs the
+constraint and enqueues the sage's follow-up corruption check (rule 7.4:
+skipped when the tap-cost payer is an ally, e.g. a sage ally).
+`corruptionCheck.modifier` defaults to `0` when omitted.
+
+Used by: *Master of Wood, Water, or Hill* (td-136) — "Sage only. Ritual. Tap a
+sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land
+[{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}]
+to a Wilderness [{w}]. Sage makes a corruption check."
 
 ### 44. `company-strike`
 
@@ -17385,3 +17567,96 @@ prowess (to a maximum of 11)") declares:
   "apply": { "type": "restore-item" } },
 { "type": "restored-item-stats", "marshallingPoints": 4, "corruptionPoints": 3 }
 ```
+
+### 81. `acts-as-site` + `declare-virtual-site-movement` (Wondrous Maps)
+
+A resource-event card that, once played, functions as its bearer company's
+*site* for as long as it remains attached — Wondrous Maps (td-171): "Playable
+at the end of the organization phase on a company using region cards with the
+last one being a Shadow-land [{s}]. … This card is used as a site card, Ruins
+& Lairs [{R}] (automatic-attack: Orcs—4 strikes at 7 prowess, items: (minor,
+major), cards opponent draws: 3, you draw: 1). The company may only leave the
+site using region movement. Discard Wondrous Maps when the company moves to a
+new site." Refuge (td-145) is the sibling card (Free-hold, Wilderness-keyed,
+haven-style healing — not yet certified).
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "company", "filter": { "target.moving": false } },
+{ "type": "acts-as-site",
+  "siteType": "ruins-and-lairs",
+  "automaticAttacks": [ { "creatureType": "Orcs", "strikes": 4, "prowess": 7 } ],
+  "playableResources": ["minor", "major"],
+  "resourceDraws": 1,
+  "hazardDraws": 3,
+  "requiredMovementType": "region",
+  "requiredLastRegionType": "shadow",
+  "leaveRequiresRegionMovement": true,
+  "discardOnLeaveSite": true },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "declare-virtual-site-movement" }, "target": "target-company" }
+```
+
+- **`acts-as-site`** (`types/effects.ts`) declares the printed site-box data
+  (siteType, automatic attacks, playable resources, resource/hazard draws)
+  directly on the resource-event card's own `effects` array, plus the
+  movement-legality requirements (`requiredMovementType`,
+  `requiredLastRegionType`) and the ongoing site rules
+  (`leaveRequiresRegionMovement`, `discardOnLeaveSite`). At card-pool load
+  time (`data/index.ts`, `synthesizeActsAsSiteDefinition`), every card
+  carrying this effect gets a companion `SiteCard`-shaped definition
+  synthesized into `state.cardPool` under id `` `${cardId}-site` `` (e.g.
+  `td-171-site`), carrying the *same* effect object in its own `effects`
+  array so movement-legality checks can read it from either side of a move.
+  Its `region`/`nearestHaven` are deliberately left empty, which keeps
+  `buildMovementMap` from ever indexing it into the shared region graph — it
+  can never appear as a generic movement destination, only via this card's
+  own `declare-virtual-site-movement` apply.
+- **`declare-virtual-site-movement`** (a `TriggeredAction`, resolved in
+  `chain-reducer.ts`'s `resolvePermanentEvent`) sets the target company's
+  `destinationSite` to the resolving card's own instance — sharing one
+  instance ID between the card's `cardsInPlay` entry (definitionId: the
+  resource-event card) and the company's `destinationSite`/`currentSite`
+  (definitionId: the synthesized site companion). No site-deck card is drawn.
+  `resolveInstanceId` (`types/state.ts`) checks company sites *before*
+  `cardsInPlay`, so both structural interpretations of the shared instance
+  resolve correctly depending on which field is read; this ordering is a
+  no-op for every other card, since no other card has one instance ID live in
+  two zones at once. Fizzles (no-op) if the target company already has a
+  destination or no current site.
+- The declared path's legality is validated where any region-movement path
+  normally resolves, `handleRevealNewSite` (`mh-steps.ts`): when the
+  destination carries `acts-as-site`, the movement type must equal
+  `requiredMovementType` and the resolved path's last region type must equal
+  `requiredLastRegionType`, or the `declare-path` action is rejected (CoE
+  2.IV.i.2 — an illegal path is simply not accepted; if none exists, the
+  legal-actions layer offers no `declare-path` action and `pass` negates the
+  movement instead, mirroring the Master of Esgaroth td-135 precedent). The
+  symmetric check runs on the *origin* side for `leaveRequiresRegionMovement`.
+- Because the synthesized companion's `region` is empty, `revealNewSiteActions`
+  (`legal-actions/movement-hazard.ts`) cannot resolve a fixed destination
+  region for the "region movement" candidate-path search the normal branch
+  uses. A parallel branch handles either endpoint being an `acts-as-site`
+  card: the origin side substitutes the company's `virtualSiteRegionName`
+  (see below); the destination side enumerates every region of the required
+  type reachable within range as a candidate ending region (there is no
+  single fixed one). The org-phase `planMovementActions`
+  (`legal-actions/organization-companies.ts`) needs the same substitution to
+  offer *any* onward destination at all — it patches a local copy of the
+  movement map's `siteRegion` before calling `getReachableSites`, and filters
+  the result to `movementType === 'region'` for `leaveRequiresRegionMovement`.
+- `Company.virtualSiteRegionName` (`types/state-cards.ts`) is the per-company
+  record of which named region the company is actually "in" while at a
+  virtual site (the last entry of the resolved region path) — captured on
+  arrival in `endCompanyMH`'s (`mh-hazard-play.ts`) Step 8 handling, since the
+  synthesized site definition itself carries no region. The same function
+  intercepts Step 8's site-of-origin teardown: a departing `acts-as-site`
+  origin with `discardOnLeaveSite` never touches the site deck / site discard
+  pile (it was never really "a site card" there) — instead the card's own
+  instance is discarded from `cardsInPlay` to `discardPile`.
+- All other site-derived behavior (automatic attacks, item playability,
+  resource/hazard draws, hazard-limit computation) needs no special-casing at
+  all: every one of those code paths already resolves site data via
+  `defById(state, company.currentSite.definitionId)` /
+  `isSiteCard(...)`, which — once the synthesized companion definition is a
+  real `cardPool` entry — treats the virtual site exactly like a printed one.

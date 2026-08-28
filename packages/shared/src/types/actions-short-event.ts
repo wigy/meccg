@@ -111,6 +111,19 @@ export interface PlayShortEventAction {
    * company-mate of `targetCharacterId` who receives the transferred item.
    */
   readonly transferToCharacterId?: CardInstanceId;
+  /**
+   * For a {@link RegionTransformEffect} card (Master of Wood, Water, or
+   * Hill, td-136), the name of the named region whose type the card
+   * changes. One legal action is emitted per (sage × eligible region ×
+   * transform option), since a single Wilderness may offer two distinct
+   * destination types.
+   */
+  readonly targetRegionName?: string;
+  /**
+   * For a {@link RegionTransformEffect} card, the {@link RegionType} the
+   * targeted region becomes. Paired with {@link targetRegionName}.
+   */
+  readonly newRegionType?: import('./common.js').RegionType;
 }
 
 /**

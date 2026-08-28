@@ -548,12 +548,15 @@ export interface AllowItemsWhenTappedSiteRule extends EffectBase {
 /**
  * Cancels this site's automatic-attacks while the rule's `when` condition
  * holds. The condition is evaluated against the card-name context
- * `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same name lists the
- * player-state context exposes: `inPlayAnywhere` holds the names of every
- * card in either player's `cardsInPlay` (with name-aliases and environment
- * overrides applied), and `charactersInPlayAnywhere` holds the names of every
- * character in play for either player. Name matching means every printing of
- * a card counts (Radagast is hero Wizard tw-178 and Fallen-wizard wh-8).
+ * `{ inPlayAnywhere, charactersInPlayAnywhere, defeatedAnywhere }` — the same
+ * name lists the player-state context exposes: `inPlayAnywhere` holds the
+ * names of every card in either player's `cardsInPlay` (with name-aliases and
+ * environment overrides applied), `charactersInPlayAnywhere` holds the names
+ * of every character in play for either player, and `defeatedAnywhere` holds
+ * the names of every card in either player's `killPile` or `outOfPlayPile`
+ * (so a rule can key off a card having *ever* been defeated, not just its
+ * current presence in play). Name matching means every printing of a card
+ * counts (Radagast is hero Wizard tw-178 and Fallen-wizard wh-8).
  *
  * `scope` selects what is canceled, and thereby where in the attack pipeline
  * the rule applies:
@@ -563,14 +566,19 @@ export interface AllowItemsWhenTappedSiteRule extends EffectBase {
  *   are unaffected. Rhosgobel (as-159): "If the Wizard card Radagast is in
  *   play, the automatic-attacks are removed."
  * - `'first'` — the first attack of the final combined list is removed.
- *   The Under-gates (dm-38 / as-165): "If Balrog of Moria is in play ...
- *   the first automatic attack is canceled."
+ *   The Under-gates (dm-38 / as-165): "If Balrog of Moria is in play or if
+ *   it ... has been defeated, the first automatic attack is canceled" — once
+ *   defeated, the cancellation is permanent, so the `when` condition ORs
+ *   `inPlayAnywhere` with `defeatedAnywhere`.
  *
  * ```json
  * { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "printed",
  *   "when": { "charactersInPlayAnywhere": { "$includes": "Radagast" } } }
  * { "type": "site-rule", "rule": "cancel-auto-attacks", "scope": "first",
- *   "when": { "inPlayAnywhere": { "$includes": "Balrog of Moria" } } }
+ *   "when": { "$or": [
+ *     { "inPlayAnywhere": { "$includes": "Balrog of Moria" } },
+ *     { "defeatedAnywhere": { "$includes": "Balrog of Moria" } }
+ *   ] } }
  * ```
  */
 export interface CancelAutoAttacksSiteRule extends EffectBase {

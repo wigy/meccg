@@ -38,8 +38,9 @@ describe('Bard Bowman (tw-124)', () => {
   beforeEach(() => resetMint());
 
   test('direct-influence +2 during faction influence check, for Men of Northern Rhovanion', () => {
-    // Bard (DI 0) attempts to influence Men of Northern Rhovanion (influence # 7)
-    // at Lake-town. The +2 DI bonus lowers the need from 7 to 5.
+    // Bard (DI 0, race man) attempts to influence Men of Northern Rhovanion
+    // (influence # 7) at Lake-town. His +2 DI bonus lowers the need from 7 to 5,
+    // and the faction's own "Standard Modifications: Men (+1)" takes it to 4.
     const state = buildSitePhaseState({
       characters: [BARD_BOWMAN],
       site: LAKE_TOWN,
@@ -53,8 +54,9 @@ describe('Bard Bowman (tw-124)', () => {
       .filter(a => a.influencingCharacterId === bardId);
 
     expect(attempts.length).toBeGreaterThanOrEqual(1);
-    // influenceNumber(7) - baseDI(0) - factionDIBonus(2) = 5
-    expect(attempts[0].need).toBe(5);
+    // influenceNumber(7) - baseDI(0) - bardDIBonus(2) - factionManMod(1) = 4.
+    // Without Bard's +2 the need would be 6, so this still pins the DI bonus.
+    expect(attempts[0].need).toBe(4);
   });
 
   // ── Sanity: the conditional bonus does not inflate base stats ──
