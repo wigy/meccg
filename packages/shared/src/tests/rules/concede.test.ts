@@ -95,6 +95,16 @@ describe('Concede', () => {
     if (after.phaseState.phase !== Phase.GameOver) throw new Error('unreachable');
     expect(after.phaseState.winner).toBe(PLAYER_2);
     expect(after.phaseState.winReason.kind).toBe('concession');
+
+    // The strike resolution in flight must not survive the concession —
+    // otherwise the conceding player could still submit `resolve-strike`
+    // after the game already ended (game mtc01umf-67scm2, seq 221-222:
+    // legal-actions delegates to combat sub-state ahead of checking
+    // `phase`, so a stale `state.combat` kept resolve-strike/support-strike
+    // legal after the game-over transition).
+    expect(after.combat).toBeNull();
+    expect(viableActionTypes(after, PLAYER_1)).toEqual(['finished']);
+    expect(viableActionTypes(after, PLAYER_2)).toEqual(['finished']);
   });
 
   test('remains legal mid-chain and bypasses the active chain response window', () => {
@@ -113,5 +123,6 @@ describe('Concede', () => {
     if (after.phaseState.phase !== Phase.GameOver) throw new Error('unreachable');
     expect(after.phaseState.winner).toBe(PLAYER_2);
     expect(after.phaseState.winReason.kind).toBe('concession');
+    expect(after.chain).toBeNull();
   });
 });

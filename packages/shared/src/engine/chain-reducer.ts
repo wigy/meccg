@@ -6275,8 +6275,21 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     return { state: current, needsInput: true };
   }
 
+  // An entry can end the game as it resolves (Challenge the Power / Gollum's
+  // Fate win with The One Ring, CoE 10.39). `endGame` tears the chain down as
+  // part of building the terminal Game Over state, so there is nothing left to
+  // mark resolved — the game is over and no follow-up passives may trigger.
+  if (current.chain == null) {
+    logDetail('Game ended while resolving this entry — chain torn down, stopping resolution');
+    return {
+      state: current,
+      needsInput: false,
+      ...(resolveEffects.length > 0 ? { effects: resolveEffects } : {}),
+    };
+  }
+
   // Mark entry as resolved
-  const resolvedChain = current.chain!;
+  const resolvedChain = current.chain;
   const newEntries = resolvedChain.entries.map((e, i) =>
     i === entryIndex ? { ...e, resolved: true } : e,
   );
