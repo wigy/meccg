@@ -572,6 +572,12 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
  *
  * This is the single, well-logged code path through which every game ends —
  * all four One Ring alignment paths funnel through here with a forced winner.
+ *
+ * A concession can land mid-chain, mid-combat, or mid-pending-resolution;
+ * without clearing that sub-state, legal-action computation (which checks
+ * chain/combat/pending state ahead of `phase`) would keep exposing those
+ * actions after the game has already ended. Clearing them here makes
+ * Game Over unconditionally terminal for every end-game path.
  */
 export function endGame(
   state: GameState,
@@ -605,8 +611,16 @@ export function endGame(
     }
   }
 
+  if (state.chain != null || state.combat != null || state.pendingEffects.length > 0 || state.pendingResolutions.length > 0) {
+    logDetail('Clearing in-flight chain/combat/pending state — game has ended');
+  }
+
   return {
     ...state,
+    chain: null,
+    combat: null,
+    pendingEffects: [],
+    pendingResolutions: [],
     phaseState: {
       phase: Phase.GameOver,
       winner,

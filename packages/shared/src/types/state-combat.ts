@@ -1130,6 +1130,17 @@ export type ChainEntryPayload =
        * card" (The Great Eye as-85) skip entries carrying this flag.
        */
       readonly fromOnGuard?: boolean;
+      /**
+       * For a {@link RegionTransformEffect} card (Master of Wood, Water, or
+       * Hill, td-136), the named region chosen at declaration time whose
+       * type the card changes on resolution. Paired with
+       * {@link regionTransformType}. Resolved by the chain resolver — not
+       * at play time — so the opponent gets the response window every
+       * action is owed (CoE 9.4/9.5).
+       */
+      readonly regionTransformName?: string;
+      /** The {@link RegionType} the named region becomes on resolution. */
+      readonly regionTransformType?: import('./common.js').RegionType;
     }
   | {
       readonly type: 'creature';
@@ -1146,6 +1157,13 @@ export type ChainEntryPayload =
        * constraint boosted this creature's play.
        */
       readonly strikesBonus?: number;
+      /**
+       * For In Great Wrath (dm-66): body bonus (-1) applied on top of the
+       * creature's resolved body when played from the hazard player's own
+       * discard pile via a `play-creature-from-discard` effect's
+       * `bodyModifier`.
+       */
+      readonly bodyBonus?: number;
       /**
        * For Fell Beast (tw-33): when a consumed `nazgul-boost-pending`
        * constraint boosted this creature's play, the resulting attack gets

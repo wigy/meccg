@@ -49,9 +49,9 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, DAGGER_OF_WESTERNESSE, GLAMDRING, THE_MITHRIL_COAT, PRECIOUS_GOLD_RING,
   CAVE_DRAKE, ORC_WARBAND,
-  resetMint,
+  resetMint, mint,
   buildSitePhaseState, buildDualHandSitePhaseState,
-  setupAutoAttackStep, addCardInPlay,
+  setupAutoAttackStep, addCardInPlay, addToPile,
   viableActions, dispatch,
 } from '../test-helpers.js';
 import type { CardDefinitionId, PlaySiteAutoAttackAction } from '../../index.js';
@@ -130,6 +130,20 @@ describe('The Under-gates (dm-38)', () => {
     const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
     expect(next.combat).not.toBeNull();
     expect(next.combat!.creatureRace).toBe('balrog');
+  });
+
+  test('first Balrog attack stays canceled once Balrog of Moria has been defeated (killPile), even though it is no longer in play', () => {
+    const base = setupAutoAttackStep(buildSitePhaseState({ site: THE_UNDER_GATES }));
+    // Balrog of Moria was played, fought, and defeated earlier this game — it now
+    // sits in PLAYER_2's killPile and is no longer anywhere in cardsInPlay.
+    const state = addToPile(base, 1, 'killPile', {
+      instanceId: mint(),
+      definitionId: BALROG_OF_MORIA,
+    });
+    const next = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    // Combat should be null — the first automatic-attack stays canceled per the
+    // card's "... or if it or Durin's Bane has been defeated" clause.
+    expect(next.combat).toBeNull();
   });
 
   // ─── 2nd auto-attack: dynamic (ruins-and-lairs keyed) ───────────────────────

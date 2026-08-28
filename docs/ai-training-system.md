@@ -106,7 +106,11 @@ rather than an architecture constant.
 The card vocabulary (1683 definitions, index 0 reserved for
 hidden/unknown) is hashed with FNV-1a; the hash travels with every
 exported dataset and every weights file, and inference refuses to run on
-a mismatch.
+a mismatch. It covers the real card universe only: the `SiteCard`-shaped
+companions the card-pool loader synthesizes for `acts-as-site` cards
+(Wondrous Maps td-171 → `td-171-site`) are aliased to their source card
+rather than given an index of their own, so certifying such a card does
+not shift every index and invalidate existing weights.
 
 ## 6. Network and imitation learning
 

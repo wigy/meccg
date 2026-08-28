@@ -935,6 +935,13 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
                 // can gate on "who has a Border-hold or Free-hold as a home
                 // site" (Faithless Steward as-83).
                 homeSiteTypes: characterHomeSiteTypes(state, charDef),
+                // King under the Mountain (td-126): the Dragon lair site
+                // (definition id) where this character's company defeated an
+                // at-home Dragon manifestation attack, if any — recorded in
+                // `combat-finalize.ts`. Lets a `play-target` filter express
+                // "if his company has defeated an at home Dragon manifestation
+                // attack" as `{ "$exists": true }`.
+                dragonAtHomeVictorySiteId: charData.dragonAtHomeVictorySiteId,
               },
               company: { skills: companySkills, hasShadowMagicUser },
             };
@@ -1062,9 +1069,14 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             const cDef = defById(state, ch.definitionId);
             return cDef && 'race' in cDef && (cDef as { race: Race }).race === Race.Ringwraith;
           });
-          const ctx = { target: { siteType, memberCount, overt, orcCount, hasRingwraith } };
+          // Wondrous Maps (td-171) / Refuge (td-145): "on a company [not
+          // already moving]" — a company that has already declared movement
+          // (or special movement) this organization phase cannot also
+          // declare movement to the resolving card itself.
+          const moving = company.destinationSite !== null || !!company.specialMovement;
+          const ctx = { target: { siteType, memberCount, overt, orcCount, hasRingwraith, moving } };
           if (!matchesCondition(playTarget.filter, ctx)) {
-            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount}, overt=${String(overt)}, orcCount=${orcCount}, hasRingwraith=${String(hasRingwraith)})`);
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount}, overt=${String(overt)}, orcCount=${orcCount}, hasRingwraith=${String(hasRingwraith)}, moving=${String(moving)})`);
             continue;
           }
         }

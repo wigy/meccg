@@ -458,7 +458,7 @@ function havenJoinAttackActions(
  * When they pass, the attacking player assigns remaining strikes to
  * any unassigned characters.
  */
-function assignStrikeActions(
+export function assignStrikeActions(
   state: GameState,
   playerId: PlayerId,
   combat: CombatState,
@@ -3234,11 +3234,13 @@ function cancelAttackActions(
  * Generate protect-from-assignment actions for the defending player during
  * the assign-strikes phase. For each card in hand with a
  * `protect-from-strike-assignment` effect, one action is generated per
- * qualifying character in the defending company (those with the required
- * skill). Playing the card protects the chosen character from receiving any
+ * qualifying character (and, with `includeAllies`, ally) in the defending
+ * company. Playing the card protects the chosen target from receiving any
  * strike in the current attack.
  *
  * Used by Ruse (le-225) mode B: play on a scout; no strikes may be assigned.
+ * Used by More Sense than You (td-140): play on an untapped character or
+ * ally; `requireUntapped` gates eligibility on both candidate pools.
  */
 function protectFromStrikeAssignmentActions(
   state: GameState,
@@ -3275,6 +3277,10 @@ function protectFromStrikeAssignmentActions(
       if (!charData) continue;
       const charDef = defById(state, charData.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
+      if (protEff.requireUntapped && charData.status !== CardStatus.Untapped) {
+        logDetail(`protect-from-assignment ${handCard.definitionId as string}: ${charDef.name ?? charId as string} is ${charData.status} — skipping (requires untapped)`);
+        continue;
+      }
       if (protEff.requiredSkill && !charDef.skills.includes(protEff.requiredSkill as import('../../types/common.js').Skill)) {
         logDetail(`protect-from-assignment ${handCard.definitionId as string}: ${charDef.name ?? charId as string} lacks skill "${protEff.requiredSkill}" — skipping`);
         continue;
@@ -3304,6 +3310,28 @@ function protectFromStrikeAssignmentActions(
         },
         viable: true,
       });
+    }
+
+    // More Sense than You (td-140): "on an untapped character or ally" —
+    // `includeAllies` widens the candidate pool to allies hosted by the
+    // defending company. requiredSkill/filter are not evaluated for allies.
+    if (protEff.includeAllies) {
+      for (const { ally } of findCompanyAllies(player, company.characters)) {
+        if (protEff.requireUntapped && ally.status !== CardStatus.Untapped) {
+          logDetail(`protect-from-assignment ${handCard.definitionId as string}: ally ${ally.instanceId as string} is ${ally.status} — skipping (requires untapped)`);
+          continue;
+        }
+        logDetail(`protect-from-assignment available: ${handCard.definitionId as string} can protect ally ${ally.instanceId as string}`);
+        actions.push({
+          action: {
+            type: 'protect-from-assignment',
+            player: playerId,
+            cardInstanceId: handCard.instanceId,
+            targetCharacterId: ally.instanceId,
+          },
+          viable: true,
+        });
+      }
     }
   }
 

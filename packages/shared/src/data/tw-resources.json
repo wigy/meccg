@@ -3363,8 +3363,18 @@
         "site": "Lake-town"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Lake-town if the influence check is greater than 6. Standard Modifications: Men (+1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Lake-town if the influence check is greater than 6. Standard Modifications: Men (+1).",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

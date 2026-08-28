@@ -1167,6 +1167,36 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           break;
         }
       }
+
+      // King under the Mountain (td-126): "if his company has defeated an at
+      // home Dragon manifestation attack other than Eärcaraxë at Home" — the
+      // defeated attack must be the augmented attack an in-play "<Dragon> at
+      // Home" permanent-event contributes to its lair (a `dragon-at-home`
+      // effect), not the lair's baseline printed Dragon attack. Stamp every
+      // member of the defending company with the site's definition id so a
+      // later play-target filter can query `target.dragonAtHomeVictorySiteId`.
+      if (sourceInstId) {
+        const atHomeDef = resolveDef(state, sourceInstId);
+        const isDragonAtHome = ((atHomeDef as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [])
+          .some(e => e.type === 'dragon-at-home');
+        const EARCARAXE_AT_HOME_ID = 'td-22' as CardDefinitionId;
+        if (isDragonAtHome && atHomeDef?.id !== EARCARAXE_AT_HOME_ID) {
+          const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+          const defCompany = companyById(stateAfterCombat.players[defIdx].companies, combat.companyId);
+          if (defCompany && defCompany.characters.length > 0) {
+            const atHomeName = (atHomeDef as { name?: string } | undefined)?.name ?? '?';
+            logDetail(`King under the Mountain tracking: company ${combat.companyId as string} defeated at-home Dragon manifestation "${atHomeName}" at ${siteDef.name} — recording dragonAtHomeVictorySiteId=${siteDef.id as string} on ${defCompany.characters.length} character(s)`);
+            stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => {
+              let characters = p.characters;
+              for (const charId of defCompany.characters) {
+                if (!characters[charId]) continue;
+                characters = { ...characters, [charId]: { ...characters[charId], dragonAtHomeVictorySiteId: siteDef.id } };
+              }
+              return { ...p, characters };
+            });
+          }
+        }
+      }
     }
   }
 

@@ -189,15 +189,23 @@ export function creatureDefenderProwessDelta(
  * since the strike is decided by comparing the two. Used by Morgul-blade
  * (le-205): "Each strike against the Ringwraith receives ... -1 prowess."
  * Returns 0 when the character bears no such item.
+ *
+ * `weaponsIneffective` (Rock Fall, Earth-tremors dm-53; also Lava Flows,
+ * Trap) skips any contributing item carrying the `weapon` keyword — "weapons
+ * do not modify prowess against these strikes" excludes a weapon's own
+ * passive prowess effect on itself just as it excludes an ordinary printed
+ * weapon prowess bonus (see {@link computeCombatProwess}).
  */
 function passiveModifyAttackProwessBonus(
   state: GameState,
   charData: CharacterInPlay,
+  weaponsIneffective?: boolean,
 ): number {
   let total = 0;
   for (const item of charData.items) {
     const itemDef = defById(state, item.definitionId);
     if (!itemDef) continue;
+    if (weaponsIneffective && (itemDef as { keywords?: readonly string[] }).keywords?.includes('weapon')) continue;
     for (const effect of getCardEffects(itemDef)) {
       if (effect.type !== 'modify-attack' || effect.scope !== 'current-strike' || !effect.passive) continue;
       if (typeof effect.prowessModifier !== 'number') continue;
@@ -325,8 +333,11 @@ export function resolveStrikeCore(
   } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
     // Thread the resolution mode so "when tapping to face a strike" prowess
     // modifiers (Stabbing Tongue of Fire ba-81, Whip of Many Thongs ba-82)
-    // apply only in `tap` mode and not when the character stays untapped.
-    prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace, mode);
+    // apply only in `tap` mode and not when the character stays untapped, and
+    // thread `weaponsIneffective` so "weapons do not modify prowess against
+    // these strikes" (Rock Fall, Earth-tremors dm-53) drops weapon-sourced
+    // prowess bonuses for this strike.
+    prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace, mode, combat.weaponsIneffective);
   } else {
     prowess = charData.effectiveStats.prowess;
   }
@@ -343,7 +354,7 @@ export function resolveStrikeCore(
     prowess += modifyStrikeBonus;
   }
   if (charData && !allyMatch) {
-    const passiveBonus = passiveModifyAttackProwessBonus(state, charData);
+    const passiveBonus = passiveModifyAttackProwessBonus(state, charData, combat.weaponsIneffective);
     if (passiveBonus !== 0) prowess += passiveBonus;
   }
 

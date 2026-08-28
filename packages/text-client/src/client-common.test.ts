@@ -13,7 +13,7 @@ import type { WebSocket } from 'ws';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardDefinition, PlayerView } from '@meccg/shared';
 import { stripCardMarkers } from '@meccg/shared';
-import { formatDraftLines, installReconnect, resetReconnectAttempts } from './client-common.js';
+import { buildAgentDecisionInput, formatDraftLines, installReconnect, resetReconnectAttempts } from './client-common.js';
 
 /** Stand-in for a `ws` socket: only the event surface matters here. */
 function fakeSocket(): EventEmitter & WebSocket {
@@ -243,5 +243,57 @@ describe('formatDraftLines', () => {
     } as unknown as PlayerView;
 
     expect(formatDraftLines(view, false, draftCardPool)).toEqual([]);
+  });
+});
+
+// ---- buildAgentDecisionInput ----
+
+// The server offers `concede` in every connected seat's legal-action set
+// (game-session.ts's withConcedeAction) so a human can resign from any
+// phase. An AI agent must never pick it — but the bc policy net scores
+// `context.view.legalActions` directly (not just the plain-action list
+// filtered for it), so a filter that only trims that derived list still
+// leaves concede reachable from the view. `mtby3fqk-aa44yq` (turn 2, seq
+// 126): a Real-AI seat with a full five-character board and 8 cards in hand
+// conceded immediately after passing in the site phase — the trained policy
+// scored `concede` highest among the (unfiltered) view's legal actions.
+describe('buildAgentDecisionInput', () => {
+  function viewWithActions(actions: readonly { type: string; viable: boolean }[]): PlayerView {
+    return {
+      selfIndex: 0,
+      self: { name: 'AI-Real' },
+      opponent: { name: 'Galdor' },
+      chain: null,
+      phaseState: { phase: 'site' },
+      legalActions: actions.map(({ type, viable }) => ({
+        action: { type, player: 'p2' },
+        viable,
+      })),
+    } as unknown as PlayerView;
+  }
+
+  it('excludes concede from both the action list and the view handed to the agent', () => {
+    const view = viewWithActions([
+      { type: 'pass', viable: true },
+      { type: 'concede', viable: true },
+    ]);
+
+    const result = buildAgentDecisionInput(view);
+
+    expect(result).not.toBeNull();
+    expect(result?.actions.map(a => a.type)).toEqual(['pass']);
+    expect(result?.view.legalActions.map(e => e.action.type)).toEqual(['pass']);
+  });
+
+  it('returns null when concede is the only viable action', () => {
+    const view = viewWithActions([{ type: 'concede', viable: true }]);
+
+    expect(buildAgentDecisionInput(view)).toBeNull();
+  });
+
+  it('returns null when there are no legal actions at all', () => {
+    const view = { ...viewWithActions([]), legalActions: [] } as PlayerView;
+
+    expect(buildAgentDecisionInput(view)).toBeNull();
   });
 });
