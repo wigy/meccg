@@ -24,6 +24,7 @@ import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapA
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import type { CompanyId, CardDefinitionId, CardInstanceId, PlayerId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
+import { formatSignedNumber } from '../format-helpers.js';
 import { buildMovementMap, getReachableSites } from '../movement-map.js';
 import { resetCompanyMHFields } from './mh-phase-state.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsRingwraithAvatar } from '../state-utils.js';
@@ -148,6 +149,9 @@ export function handlePlayHazards(
 
   // --- Convert an in-play dual-mode creature-permanent-event into a full creature attack (Shelob tw-86) ---
   if (action.type === 'attack-alt-permanent-event') return handleAttackFromAltPermanentEvent(state, action, mhState);
+
+  // --- Return an in-play dual-mode creature-permanent-event to hand (Spider of the Môrlat dm-110) ---
+  if (action.type === 'return-alt-permanent-event') return handleReturnAltPermanentEvent(state, action, mhState);
 
   // --- Tap cardsInPlay hazard permanent event for +1 hazard limit (Power Built by Waiting) ---
   if (action.type === 'tap-hazard-card-for-limit') return handleTapHazardCardForLimit(state, action, mhState);
@@ -916,6 +920,15 @@ export function handlePlayHazardCard(
       return handleSwapNewSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, swapNewSiteEff);
     }
 
+    // Chance of Being Lost (dm-49): roll (modified by rangers in the moving
+    // company) then, on success, offer a region-adjacent site swap.
+    const rollThenSwapEff = def.effects?.find(
+      (e): e is import('../types/effects.js').RollThenSwapNewSiteEffect => e.type === 'roll-then-swap-new-site',
+    );
+    if (rollThenSwapEff && action.type === 'play-hazard') {
+      return handleRollThenSwapNewSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, rollThenSwapEff);
+    }
+
     const bypassesLimit = hasPlayFlag(def, 'no-hazard-limit');
     const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays short-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''}`);
@@ -1276,6 +1289,77 @@ export function handleSwapNewSite(
       destinationSiteType: replacementDef.siteType,
     },
   };
+
+  return { state: newState };
+}
+
+/**
+ * Handle a `roll-then-swap-new-site` hazard short-event (Chance of Being
+ * Lost, dm-49): discard the card, then enqueue a generic `dice-check`
+ * pending resolution — 2d6 modified by `rangerModifier` for every
+ * ranger-skilled character in the moving company, compared against
+ * `threshold`. A passed check's `onPass` (`offer-swap-new-site`, resolved in
+ * `applyDiceCheckBranch`, `pending-reducers.ts`) computes the eligible
+ * replacement sites and, if any exist, lets the hazard player choose one via
+ * a follow-up `swap-new-site-choice` resolution. See
+ * {@link RollThenSwapNewSiteEffect}.
+ */
+export function handleRollThenSwapNewSite(
+  state: GameState,
+  action: PlayHazardAction,
+  mhState: MovementHazardPhaseState,
+  hazardPlayer: PlayerState,
+  hazardIndex: number,
+  handCard: CardInstance,
+  def: CardDefinition,
+  effect: import('../types/effects.js').RollThenSwapNewSiteEffect,
+): ReducerResult {
+  const resourceIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[resourceIndex];
+  const company = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!company) return { state, error: 'No active company' };
+  if (!company.destinationSite) return { state, error: 'Company is not moving to a new site' };
+
+  let rangerCount = 0;
+  for (const charId of company.characters) {
+    const charInPlay = resourcePlayer.characters[charId];
+    if (!charInPlay) continue;
+    const charDef = defById(state, charInPlay.definitionId);
+    if (charDef && isCharacterCard(charDef) && charDef.skills.includes(Skill.Ranger)) rangerCount++;
+  }
+  const rangerTotalModifier = rangerCount * effect.rangerModifier;
+
+  logDetail(`${def.name}: company ${company.id as string} has ${rangerCount} ranger(s) (${formatSignedNumber(rangerTotalModifier)}); roll must exceed ${effect.threshold}`);
+
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+
+  let newState: GameState = updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, handCard.instanceId),
+    discardPile: [...p.discardPile, handCard],
+  }));
+  newState = {
+    ...newState,
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
+
+  newState = enqueueResolution(newState, {
+    source: handCard.instanceId,
+    actor: hazardPlayer.id,
+    scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+    kind: {
+      type: 'dice-check',
+      label: `${def.name}: company ${company.id as string}`,
+      roller: hazardPlayer.id,
+      modifiers: rangerTotalModifier ? [{ kind: 'constant', value: rangerTotalModifier }] : [],
+      threshold: effect.threshold,
+      comparison: 'gt',
+      onPass: { type: 'offer-swap-new-site' },
+      continuation: { kind: 'dequeue-only' },
+      targetCompanyId: action.targetCompanyId,
+    },
+  });
 
   return { state: newState };
 }
@@ -3671,6 +3755,50 @@ function handleTapAltPermanentEvent(
     ...(forcedDiscardCount !== undefined ? { forcedDiscardCount } : {}),
   };
   newState = initiateOrPushChain(newState, action.player, cardInstance, payload, !bypassesLimit);
+  return { state: newState };
+}
+
+/**
+ * Handle return-alt-permanent-event: the hazard player voluntarily returns an
+ * in-play dual-mode creature-permanent-event (`creature-alt-event` mode
+ * `permanent-event`, `returnToHandOption: true` — Spider of the Môrlat
+ * dm-110) to his own hand during the opponent's movement/hazard phase. Unlike
+ * {@link handleTapAltPermanentEvent}, the card is persistent — it goes to
+ * hand, not the discard pile, and no on-tap short-event chain resolves; the
+ * return itself is the entire ability. Still counts one against the hazard
+ * limit.
+ */
+function handleReturnAltPermanentEvent(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'return-alt-permanent-event') return wrongActionType(state, action, 'return-alt-permanent-event');
+  const resolved = resolveAltPermanentEventPlay(state, mhState, action.player, action.cardInstanceId, 'return-alt-permanent-event');
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { hazardIndex, card, def, altEvent, activeCompany, bypassesLimit } = resolved;
+  if (!altEvent || altEvent.mode !== 'permanent-event' || !altEvent.returnToHandOption) {
+    return { state, error: 'return-alt-permanent-event: this permanent-event has no return-to-hand option' };
+  }
+
+  let newHazardCount = mhState.hazardsPlayedThisCompany;
+  if (activeCompany && !bypassesLimit) {
+    const charge = chargeHazardLimit(state, mhState, activeCompany.id, 'return-alt-permanent-event');
+    if ('error' in charge) return { state, error: charge.error };
+    newHazardCount = charge.newHazardCount;
+  }
+
+  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" returned to hand during opponent M/H (${newHazardCount})`);
+
+  const cardInstance = toCardInstance(card);
+  const newState: GameState = {
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+      hand: [...p.hand, cardInstance],
+    })),
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
   return { state: newState };
 }
 

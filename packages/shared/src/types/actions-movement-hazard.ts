@@ -244,6 +244,22 @@ export interface AttackFromAltPermanentEventAction {
 }
 
 /**
+ * Return an in-play dual-mode creature-permanent-event to its owner's hand
+ * (`creature-alt-event` mode `permanent-event`, `returnToHandOption: true` —
+ * Spider of the Môrlat dm-110), during the opponent's movement/hazard phase.
+ * Unlike {@link TapAltPermanentEventAction}, the card goes to **hand**, not
+ * the discard pile, and no on-tap short-event effects resolve — the return
+ * itself is the entire ability. Still counts one against the hazard limit.
+ */
+export interface ReturnAltPermanentEventAction {
+  readonly type: 'return-alt-permanent-event';
+  /** The hazard player returning their in-play creature-permanent-event. */
+  readonly player: PlayerId;
+  /** The creature-permanent-event instance in `cardsInPlay`. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * My Precious (dm-29): resolving an `agent-play-manifestation-offer` — the
  * defender taps one character in the target company and plays the agent's other
  * manifestation (Gollum) from hand; the attacking agent is then discarded. (The
@@ -984,6 +1000,24 @@ export interface RiddlingGuessAction {
   /** The definition name being guessed. */
   readonly guessedCardName: string;
   /** Human-readable label for the guess. */
+  readonly explanation: string;
+}
+
+/**
+ * Pick the replacement site for a `swap-new-site-choice` resolution (Chance
+ * of Being Lost, dm-49), following a passed roll-then-swap dice-check. One
+ * action is offered per eligible site left in the hazard player's own
+ * `siteDeck`; mandatory (no pass — the resolution is only enqueued when at
+ * least one candidate exists).
+ */
+export interface SwapNewSiteChoiceAction {
+  /** Action discriminant. */
+  readonly type: 'swap-new-site-choice';
+  /** The hazard player (who chooses from their own location deck). */
+  readonly player: PlayerId;
+  /** The chosen replacement site's instance in the hazard player's siteDeck. */
+  readonly replacementSiteInstanceId: CardInstanceId;
+  /** Human-readable label for the choice. */
   readonly explanation: string;
 }
 

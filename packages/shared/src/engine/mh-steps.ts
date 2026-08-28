@@ -1385,11 +1385,13 @@ function buildAhuntCombat(
     // during strike resolution (`weaponsIneffective`).
     ...(effect.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
     ...(effect.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
-    detainment: isDetainmentAttack({
-      attackRace: effect.race,
-      defendingAlignment: state.players[activePlayerIndex].alignment,
-      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
-    }),
+    detainment: effect.detainmentAgainstMinion
+      ? isMinionOrBalrog(state.players[activePlayerIndex]) && !playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+      : isDetainmentAttack({
+        attackRace: effect.race,
+        defendingAlignment: state.players[activePlayerIndex].alignment,
+        defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
+      }),
   });
 }
 

@@ -436,6 +436,53 @@ function companyRegionShortcutPairs(
 }
 
 /**
+ * Whether some character *other than* `charId` carrying `skill` is in
+ * `charId`'s own company, at that company's current site, or at its
+ * destination site (if it is moving this turn) — backs `tap-character`'s
+ * `requiresCompanionSkill` gate (Gnaw with Words dm-60: "another sage is in
+ * his company or at his current site or at his new site"). Company
+ * membership only looks at `charId`'s own company-mates (same player); site
+ * presence is checked by site *name* across **both** players' companies,
+ * mirroring the "at the same site" convention used by
+ * `enqueue-site-wound-rolls` (Plague le-129).
+ */
+function hasNearbySkillmate(
+  state: GameState,
+  resourcePlayer: PlayerState,
+  charId: CardInstanceId,
+  skill: Skill,
+): boolean {
+  const hasSkill = (owner: PlayerState, id: CardInstanceId): boolean => {
+    if (id === charId) return false;
+    const data = owner.characters[id];
+    if (!data) return false;
+    const def = defById(state, data.definitionId);
+    return !!def && isCharacterCard(def) && def.skills.includes(skill);
+  };
+
+  const company = resourcePlayer.companies.find(co => co.characters.includes(charId));
+  if (!company) return false;
+
+  if (company.characters.some(id => hasSkill(resourcePlayer, id))) return true;
+
+  const siteNames = new Set<string>();
+  const currentDef = company.currentSite ? resolveDef(state, company.currentSite.instanceId) : undefined;
+  if (currentDef && isSiteCard(currentDef)) siteNames.add(currentDef.name);
+  const destDef = company.destinationSite ? resolveDef(state, company.destinationSite.instanceId) : undefined;
+  if (destDef && isSiteCard(destDef)) siteNames.add(destDef.name);
+  if (siteNames.size === 0) return false;
+
+  for (const owner of state.players) {
+    for (const co of owner.companies) {
+      const coSiteDef = co.currentSite ? resolveDef(state, co.currentSite.instanceId) : undefined;
+      if (!coSiteDef || !isSiteCard(coSiteDef) || !siteNames.has(coSiteDef.name)) continue;
+      if (co.characters.some(id => hasSkill(owner, id))) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Generate actions for the reveal-new-site step (CoE step 1).
  *
  * If the company is moving, computes all possible ways to reach the
@@ -2821,6 +2868,7 @@ function playHazardsActions(
         {
           const sitePathCondition = findPlayConditionEffect(def, 'site-path');
           const regionThroughCondition = findPlayConditionEffect(def, 'region-through-or-leave');
+          const regionMovementCondition = findPlayConditionEffect(def, 'region-movement');
           const companySiteCondition = findPlayConditionEffect(def, 'company-site');
           if (sitePathCondition) {
             if (!checkSitePathCondition(mhState, sitePathCondition, state, targetCompany)) {
@@ -2834,6 +2882,14 @@ function playHazardsActions(
             if (!checkRegionThroughOrLeave(mhState, regionThroughCondition.regionNames ?? [])) {
               logDetail(`Hazard short-event "${def.name}": company is not moving through or leaving a required region`);
               actions.push({ action, viable: false, reason: `${def.name} requires region movement through or leaving a named region` });
+              continue;
+            }
+          } else if (regionMovementCondition) {
+            // Chance of Being Lost (dm-49): playable only on a company using
+            // region movement (no named-region restriction).
+            if (!checkRegionMovement(mhState)) {
+              logDetail(`Hazard short-event "${def.name}": company is not using region movement`);
+              actions.push({ action, viable: false, reason: `${def.name} requires region movement` });
               continue;
             }
           } else if (companySiteCondition?.condition) {
@@ -2896,15 +2952,39 @@ function playHazardsActions(
           }
         }
 
+        // Chance of Being Lost (dm-49): region-movement + player-state
+        // (checked above) are satisfied; offer a single action — the roll
+        // and the resulting site-choice are resolved after the card is
+        // played, via a `dice-check` pending resolution.
+        const rollThenSwapEff = getCardEffects(def).find(
+          (e): e is import('../../types/effects.js').RollThenSwapNewSiteEffect => e.type === 'roll-then-swap-new-site',
+        );
+        if (rollThenSwapEff) {
+          if (!targetCompany.destinationSite) {
+            logDetail(`Hazard short-event "${def.name}": company is not moving — not playable`);
+            actions.push({ action, viable: false, reason: `${def.name}: company must be moving to a new site` });
+            continue;
+          }
+          logDetail(`Hazard short-event "${def.name}": playable — will roll for a forced site swap`);
+          actions.push({ action, viable: true });
+          continue;
+        }
+
         const shortPlayTarget = def.effects?.find(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target',
         );
 
-        // New Moon (tw-68): a plain short hazard-event carrying a `tap-character`
-        // effect. Two mutually-exclusive ("Alternatively") modes:
-        //   Mode A — tap one filter-matching (Elf) character. One action per
-        //     eligible untapped opponent character; the tap rides on
-        //     `targetCharacterId` and resolves via `applyTapCharacter`.
+        // New Moon (tw-68): a plain short hazard-event carrying one or more
+        // `tap-character` effects. Two mutually-exclusive ("Alternatively")
+        // mode shapes coexist here:
+        //   Mode A — tap one filter-matching character satisfying every mode's
+        //     eligibility (optionally gated by `requiresCompanionSkill` — Gnaw
+        //     with Words dm-60: "Tap a sage if another sage is in his company
+        //     or at his current site or at his new site. Alternatively, tap a
+        //     diplomat …" — two `tap-character` effects, one per skill; a
+        //     candidate is offered once it satisfies any one of them). One
+        //     action per eligible untapped opponent character; the tap rides
+        //     on `targetCharacterId` and resolves via `applyTapCharacter`.
         //   Mode B — with Doors of Night in play, reinterpret one Free-domain /
         //     Free-hold as a Border-land / Border-hold for the turn, via the
         //     card's `on-event company-arrives-at-site` override handlers. A
@@ -2913,10 +2993,10 @@ function playHazardsActions(
         // The modes are distinguished by presence/absence of targetCharacterId;
         // the arrival-override resolution is skipped when a character was tapped
         // (see `applyShortEventArrivalTrigger`).
-        const tapCharacterEffect = getCardEffects(def).find(
+        const tapCharacterEffects = getCardEffects(def).filter(
           (e): e is import('../../types/effects.js').TapCharacterEffect => e.type === 'tap-character',
         );
-        if (tapCharacterEffect) {
+        if (tapCharacterEffects.length > 0) {
           let offeredAny = false;
           // Mode A — tap one eligible character. A hazard "Tap one Elf character"
           // targets the opponent (resource) player's characters (any company),
@@ -2928,7 +3008,13 @@ function playHazardsActions(
             if (charData.status !== CardStatus.Untapped) continue;
             const charDef = defById(state, charData.definitionId);
             if (!charDef || !isCharacterCard(charDef)) continue;
-            if (tapCharacterEffect.filter && !matchesDefinition(charDef, tapCharacterEffect.filter)) continue;
+            const matchingMode = tapCharacterEffects.find(mode => {
+              if (mode.filter && !matchesDefinition(charDef, mode.filter)) return false;
+              if (mode.requiresCompanionSkill
+                && !hasNearbySkillmate(state, resourcePlayer, charId as import('../../index.js').CardInstanceId, mode.requiresCompanionSkill)) return false;
+              return true;
+            });
+            if (!matchingMode) continue;
             logDetail(`Hazard short-event "${def.name}": Mode A — may tap "${charDef.name}" (${charId})`);
             actions.push({
               action: { ...action, targetCharacterId: charId as import('../../index.js').CardInstanceId },
@@ -4457,6 +4543,7 @@ function playHazardsActions(
   if (!isResourcePlayer) {
     actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
     actions.push(...attackFromAltPermanentEventActions(state, playerId, mhState));
+    actions.push(...returnAltPermanentEventActions(state, playerId, mhState));
     // Sated Beast (td-149): "This card may also be played during opponent's
     // movement/hazard phase" — a hero-resource-event carrying `play-window`
     // `crossTurn: true` is offered to the non-active (hazard-side) player
@@ -4633,6 +4720,46 @@ function tapAltPermanentEventActions(
     }
 
     actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+  }
+  return actions;
+}
+
+/**
+ * Offer returning an in-play dual-mode creature-permanent-event
+ * (`creature-alt-event` mode `permanent-event`, `returnToHandOption: true` —
+ * Spider of the Môrlat dm-110) to the hazard player's own hand, during the
+ * opponent's movement/hazard phase. Unlike {@link tapAltPermanentEventActions},
+ * the card is persistent (no tap-to-short-event conversion) — this is its own
+ * distinct voluntary action, still charging the hazard limit.
+ */
+function returnAltPermanentEventActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
+  const limitReached = activeCompany
+    ? mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id)
+    : false;
+
+  for (const card of player.cardsInPlay) {
+    if (card.status === CardStatus.Tapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
+    if (altEvent?.mode !== 'permanent-event' || !altEvent.returnToHandOption) continue;
+
+    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+    if (limitReached && !bypassesLimit) {
+      actions.push({ action: { type: 'return-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'Hazard limit reached' });
+      continue;
+    }
+    actions.push({ action: { type: 'return-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
   }
   return actions;
 }
@@ -5493,6 +5620,17 @@ function checkRegionThroughOrLeave(
   }
   logDetail(`region-through-or-leave: none of [${regionNames.join(', ')}] is left or passed through (through/leave regions: ${throughOrLeaveRegions.join(', ') || 'none'})`);
   return false;
+}
+
+/**
+ * Evaluate a `play-condition` with `requires: 'region-movement'` (Chance of
+ * Being Lost dm-49): the card is only playable on a company using **region**
+ * movement, with no named-region restriction (unlike
+ * `region-through-or-leave`, which additionally requires the path to leave
+ * or pass through one of a named set of regions).
+ */
+function checkRegionMovement(mhState: MovementHazardPhaseState): boolean {
+  return mhState.movementType === 'region';
 }
 
 // mhWoundCorruptionCheckActions removed: wound corruption checks are

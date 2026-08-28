@@ -544,6 +544,8 @@ export function describeAction(
       return `Riddling attempt by ${instName(action.characterInstanceId)}: need ${action.need}`;
     case 'riddling-guess':
       return `Name "${action.guessedCardName}"`;
+    case 'swap-new-site-choice':
+      return action.explanation;
     case 'seized-by-terror-roll':
       return `Roll for Seized by Terror on ${instName(action.targetCharacterId)} (need ${action.need})`;
     case 'gold-ring-test-roll':
@@ -691,6 +693,8 @@ export function describeAction(
       return `${playerName(action.player)} taps ${instName(action.cardInstanceId)} (permanent-event → short-event)${action.targetCharacterId ? `, tapping ${instName(action.targetCharacterId)}` : ''}`;
     case 'attack-alt-permanent-event':
       return `${playerName(action.player)} attacks with ${instName(action.cardInstanceId)} from its permanent-event state (against ${compName(action.targetCompanyId)})`;
+    case 'return-alt-permanent-event':
+      return `${playerName(action.player)} returns ${instName(action.cardInstanceId)} to hand from its permanent-event state`;
     case 'play-agent-manifestation':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
     case 'arrange-deck-top-card':
