@@ -3962,13 +3962,14 @@ export function handlePlayReservedCreature(
 /**
  * Handle play-creature-from-discard: hazard player plays a hazard creature from
  * their own discard pile as an immediate attack, driven by a short-event
- * carrying a `play-creature-from-discard` effect (Exhalation of Decay, dm-55).
+ * carrying a `play-creature-from-discard` effect (Exhalation of Decay dm-55;
+ * In Great Wrath dm-66 adds a body modifier alongside the prowess one).
  *
  * Does NOT count against the hazard limit. The driving short-event card is
  * discarded on play. The creature enters the chain with the effect's prowess
- * modifier applied and, after combat, is disposed by the normal
- * combat-finalization rules (defender's kill pile if defeated, otherwise back
- * to the discard pile).
+ * (and, if present, body) modifier applied and, after combat, is disposed by
+ * the normal combat-finalization rules (defender's kill pile if defeated,
+ * otherwise back to the discard pile).
  */
 export function handlePlayCreatureFromDiscard(
   state: GameState,
@@ -4013,8 +4014,11 @@ export function handlePlayCreatureFromDiscard(
   }
 
   const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
+  const eventName = (eventDef as { name?: string } | undefined)?.name ?? (eventCard.definitionId as string);
+  const bodyModifier = effect.bodyModifier ?? 0;
   logDetail(
-    `Exhalation of Decay: playing "${creatureName}" from discard pile (prowess ${effect.prowessModifier >= 0 ? '+' : ''}${effect.prowessModifier}) against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
+    `${eventName}: playing "${creatureName}" from discard pile (prowess ${effect.prowessModifier >= 0 ? '+' : ''}${effect.prowessModifier}`
+    + `${bodyModifier !== 0 ? `, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier}` : ''}) against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
   );
 
   // Remove the event card from hand → discard, and the creature from discard.
@@ -4038,6 +4042,7 @@ export function handlePlayCreatureFromDiscard(
   const payload: import('../index.js').ChainEntryPayload = {
     type: 'creature',
     prowessBonus: effect.prowessModifier,
+    ...(bodyModifier !== 0 ? { bodyBonus: bodyModifier } : {}),
   };
   newState = initiateChain(newState, action.player, creatureCard, payload);
 

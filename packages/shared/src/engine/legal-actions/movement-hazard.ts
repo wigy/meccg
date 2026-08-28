@@ -1787,15 +1787,17 @@ function summonsFromLongSleepActions(
 
 /**
  * Generate play-creature-from-discard actions for hazard short-events carrying
- * a `play-creature-from-discard` effect (Exhalation of Decay, dm-55).
+ * a `play-creature-from-discard` effect (Exhalation of Decay dm-55, filtered
+ * to Undead; In Great Wrath dm-66, filtered to Nazgûl/Ringwraith).
  *
  * For each such event card in the hazard player's hand, enumerate the hazard
  * player's discard pile for hazard-creatures matching the effect's `filter`
  * (e.g. Undead). A creature is offered only if it can be keyed against the
- * target company ("if target Undead can attack") and the chain is null
- * (creatures must initiate a new chain). The play does NOT count against the
- * hazard limit, so no limit gating is applied. One action is emitted per
- * (creature, keying-match) pair, mirroring the play-hazard creature path.
+ * target company ("if target Undead can attack" / "that could immediately
+ * attack") and the chain is null (creatures must initiate a new chain). The
+ * play does NOT count against the hazard limit, so no limit gating is
+ * applied. One action is emitted per (creature, keying-match) pair, mirroring
+ * the play-hazard creature path.
  */
 function playCreatureFromDiscardActions(
   state: GameState,

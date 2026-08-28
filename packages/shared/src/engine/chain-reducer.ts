@@ -3891,9 +3891,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const attackBoostCtx = { companyId: company.id, creatureInstanceId: entry.card!.instanceId };
   const prowessBonus = entry.payload.type === 'creature' ? (entry.payload.prowessBonus ?? 0) : 0;
   const strikesBonus = entry.payload.type === 'creature' ? (entry.payload.strikesBonus ?? 0) : 0;
+  const bodyBonus = entry.payload.type === 'creature' ? (entry.payload.bodyBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
   const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx) + strikesBonus;
   let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
+  if (bodyBonus !== 0 && effectiveBody !== null) {
+    effectiveBody = Math.max(0, effectiveBody + bodyBonus);
+  }
 
   // combat-body-per-defender-skill (Little Snuffler dm-108): "Each ranger in
   // attacked company lowers Little Snuffler's body by 2." Self-bound to the
