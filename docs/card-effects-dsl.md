@@ -6244,6 +6244,56 @@ companion `play-target` restricts the site to Isengard / The White Towers and a
 `play-condition` `requires: 'site-protected'` requires that site to already be
 protected for the player (see §below).
 
+### 13e. `war-forges-item-unlocked` active constraint — a tap-activated sibling
+
+Unlike `technology-item-unlocked` (added automatically on `self-enters-play`),
+War-forges (wh-83) grants its bonus item allowance through an **activated**
+`grant-action`: "You may tap War-forges to make an additional non-hoard,
+non-unique minor item playable at this site this turn (if the site is tapped
+or not)." The card is still a `play-target: "site"` stage permanent-event
+(bound to one of the player's protected Wizardhavens, gated the same way as
+Saruman's Machinery — a `play-condition` `requires: 'site-protected'` plus a
+`player.avatar` `$ne: "Radagast"` player-state gate), but the unlock itself is
+a `grant-action` with `cost: { "tap": "self" }`:
+
+```json
+{ "type": "grant-action", "action": "war-forges-unlock-item",
+  "cost": { "tap": "self" },
+  "apply": { "type": "add-constraint",
+    "constraint": "war-forges-item-unlocked", "scope": "turn", "target": "player" } }
+```
+
+Because the source card has no bearer (it is bound to a site, not a
+character), this rides `bareCardGrantActions` exactly like Earth-eater
+(wh-67) — no new emitter was needed. What *is* new: `handleInPlayCardGrantAction`
+(`grant-action-apply.ts`) previously only knew how to build bearer-less,
+payload-free constraint kinds (`constraintKindWithoutPayload`); site-flag
+kinds always resolved their `siteDefinitionId` from a bearer's company's
+current site. War-forges has no bearer, so a dedicated branch resolves the
+site instead from the **source card's own** `CardInPlay.attachedToSite` (set
+when the card itself entered play via its `play-target: "site"`), producing
+`{ type: 'site-flag', flag: 'war-forges-item-unlocked', siteDefinitionId }`.
+
+While the resulting `scope: "turn"` constraint is active, `legal-actions/site.ts`
+offers one non-hoard, non-unique minor item at the bound site whether tapped
+or untapped — mirroring `technology-item-unlocked`'s tapped-site and
+site-restriction bypass, gated by subtype/uniqueness/hoard-keyword instead of
+the Technology keyword. `SitePhaseState.warForgesItemPlayed` tracks the
+one-per-site-phase consumption, exactly like `technologyItemPlayed`.
+
+**Sourcing beyond hand: `fromSideboard`.** "The item may be taken from your
+discard pile or sideboard" needed one further extension. The discard-pile
+source reuses the existing `fromDiscard` `play-hero-resource` flag (already
+generic over items and allies in `handleSitePlayHeroResource`) via a dedicated
+offer loop mirroring Glove of Radagast's (wh-111) discard-sourced ally loop,
+but iterating `player.discardPile` **and** `player.sideboard` for matching
+items instead of `player.hand`. The sideboard source needed a new
+`PlayHeroResourceAction.fromSideboard` flag (`actions-site.ts`) — no prior
+`play-hero-resource` path read from the sideboard. `handleSitePlayHeroResource`
+(`reducer-site.ts`) resolves the source card from `player.sideboard` and
+removes it from there instead of `hand`/`discardPile` when the flag is set;
+the hand is left untouched (mirrors `fromDiscard`'s hand pass-through).
+
 ### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.
@@ -8658,6 +8708,18 @@ support grouped multi-attack cards:
   card in his MP pile." Per-attack outcomes are recorded by `finalizeCombat`
   into `MovementHazardPhaseState.ahuntGroupOutcomes` and evaluated by
   `handleOrderEffects` (`applyAhuntGroupRewards`) once all attacks resolve.
+- `detainmentAgainstMinion: true` — this ahunt-attack (and only this one, not
+  the card's other top-level effects) is detainment whenever the moving
+  (defending) player is Ringwraith/Balrog-aligned (`isMinionOrBalrog`), and a
+  normal attack against a hero/Fallen-wizard defender. `buildAhuntCombat`
+  (`mh-steps.ts`) short-circuits its `isDetainmentAttack` call to this check
+  when the field is set, bypassing the standard race/alignment §3.II
+  derivation entirely. Scoping the rule to the `ahunt-attack` entry itself
+  (rather than a card-level `combat-detainment` effect) matters for dual
+  creature/permanent-event cards whose *other* mode (a direct hazard-creature
+  attack) is not detainment. Used by Spider of the Môrlat (dm-110): "faces a
+  Spider attack of 2 strikes with 10 prowess (detainment against minion
+  companies)" — her own direct creature-mode attack carries no such rule.
 
 ```json
 { "type": "ahunt-attack",
@@ -15017,6 +15079,22 @@ scope turn), and the two `on-event company-arrives-at-site` → `region-type-
 override` (border→wilderness) / `site-type-override` (border-hold→ruins-and-
 lairs) modes.
 
+`tap-character` also supports an optional `requiresCompanionSkill: Skill` field
+and a card may carry **more than one** `tap-character` effect for "Alternatively"
+modes keyed to different skills. `requiresCompanionSkill` requires some *other*
+character carrying that skill in the candidate's own company, at its company's
+current site, or at its destination site (if moving this turn) — checked by
+`hasNearbySkillmate` (`legal-actions/movement-hazard.ts`): company membership
+only looks at the candidate's own company-mates, while site presence is checked
+by site *name* across **both** players' companies (the `enqueue-site-wound-
+rolls`/Plague le-129 convention). The eligibility loop offers a candidate once
+it satisfies *any one* mode's `filter` + `requiresCompanionSkill` pair. Used by
+*Gnaw with Words* (dm-60): "Tap a sage if another sage is in his company or at
+his current site or at his new site. Alternatively, tap a diplomat if another
+diplomat is in his company or at his current site or at his new site." — two
+`tap-character` effects, `filter: { "skills": { "$includes": "sage" } }` +
+`requiresCompanionSkill: "sage"`, and the diplomat equivalent.
+
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 
 The permanent-event mode (§56c) additionally supports `persistent: true` for
@@ -15112,6 +15190,33 @@ the Lady sits in `cardsInPlay` (`blockingManifestationForCharacterPlay`,
 which honours g.man.1's "would leave play" clause for chains like The Balrog
 ba-3 / Balrog of Moria tw-12). A unique creature already in `cardsInPlay` as a
 permanent-event likewise blocks a second copy's play in either mode.
+
+### 56d-i. `creature-alt-event` `returnToHandOption` (Spider of the Môrlat dm-110)
+
+A third alternative for the permanent-event mode, alongside the tap-to-short-event
+conversion (§56c) and the no-conversion `persistent` mode (§56d): a card whose
+*only* in-play action is "you may return this to your hand," with no other
+on-tap effect to resolve.
+
+```json
+{ "type": "creature-alt-event", "mode": "permanent-event", "persistent": true, "returnToHandOption": true }
+```
+
+- `returnToHandOption: true` *(permanent-event mode only, combines with
+  `persistent`)* offers a new `return-alt-permanent-event` action
+  (`returnAltPermanentEventActions`, `legal-actions/movement-hazard.ts`) during
+  the opponent's movement/hazard phase, for any untapped matching card in
+  `cardsInPlay`. Unlike `tap-alt-permanent-event` (§56c), which discards the
+  card and resolves its on-tap effects through the short-event chain,
+  `handleReturnAltPermanentEvent` (`mh-hazard-play.ts`) simply moves the card
+  to its owner's **hand** and charges the hazard limit the same way
+  (`chargeHazardLimit`) — no chain entry, since there is no on-tap effect to
+  run; the return itself is the entire ability. `persistent: true` still means
+  `tap-alt-permanent-event` is neither offered nor accepted for the card; the
+  two options are independent and a card may carry either, both, or neither.
+
+Used by Spider of the Môrlat (dm-110): "You can return Spider of the Môrlat as
+a permanent-event to your hand—which counts as one against the hazard limit."
 
 ### 56e. `force-check-all-in-play`
 

@@ -1675,9 +1675,40 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "effectiveSiteType": "haven" }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-protected"
+      },
+      {
+        "type": "play-condition",
+        "requires": "player-state",
+        "condition": { "player.avatar": { "$ne": "Radagast" } }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "site",
+        "max": 1
+      },
+      {
+        "type": "grant-action",
+        "action": "war-forges-unlock-item",
+        "cost": { "tap": "self" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "war-forges-item-unlocked",
+          "scope": "turn",
+          "target": "player"
+        }
       }
     ],
-    "text": "Playable on one of your protected Wizardhavens [{H}] (not by Radagast). You may tap War-forges to make an additional non-hoard, non-unique minor item playable at this site this turn (if the site is tapped or not). The item may be taken from your discard pile or sideboard. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site."
+    "text": "Playable on one of your protected Wizardhavens [{H}] (not by Radagast). You may tap War-forges to make an additional non-hoard, non-unique minor item playable at this site this turn (if the site is tapped or not). The item may be taken from your discard pile or sideboard. Discard when this site is discarded or returned to your location deck. Cannot be duplicated on a given site.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "minion-resource-event",

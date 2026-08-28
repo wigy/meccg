@@ -1633,7 +1633,18 @@ function handleInPlayCardGrantAction(
   }
 
   const constraintKind = apply.constraint ?? '';
-  const kind = buildPayloadConstraintKind(constraintKind, apply) ?? constraintKindWithoutPayload(constraintKind);
+  let kind = buildPayloadConstraintKind(constraintKind, apply) ?? constraintKindWithoutPayload(constraintKind);
+  // War-forges (wh-83): the source card is itself bound to a site
+  // (`attachedToSite`, from its own `play-target: "site"` play) rather than to
+  // a bearer character, so its `war-forges-item-unlocked` site-flag resolves
+  // the bound site from there instead of from a bearer's company.
+  if (!kind && constraintKind === 'war-forges-item-unlocked') {
+    const siteDefId = source.attachedToSite;
+    if (!siteDefId) {
+      return { state, error: `in-play grant-action: ${constraintKind} requires ${sourceName} to be attached to a site` };
+    }
+    kind = { type: 'site-flag', flag: 'war-forges-item-unlocked', siteDefinitionId: siteDefId };
+  }
   if (!kind) return { state, error: `in-play grant-action: unsupported constraint kind "${constraintKind}" on ${sourceName}` };
   const scope = parseConstraintScope(apply.scope, newPlayers[playerIndex], action.characterId, action.player, state.turnNumber);
   if (!scope) return { state, error: `in-play grant-action: unknown scope "${apply.scope ?? ''}" on ${sourceName}` };
