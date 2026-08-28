@@ -2177,7 +2177,7 @@
       {
         "type": "play-target",
         "target": "character",
-        "filter": { "target.race": "wizard" }
+        "filter": { "target.race": { "$in": ["wizard", "fallen-wizard"] } }
       },
       {
         "type": "duplication-limit",
@@ -2204,7 +2204,7 @@
       }
     ],
     "text": "Wizard only. Playable only at a Haven [{H}]. Cannot be stored, stolen, or transferred. Cannot be duplicated on a given Wizard. Bearer makes a corruption check when this item is played.",
-    "certified": "2026-08-21"
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-item",

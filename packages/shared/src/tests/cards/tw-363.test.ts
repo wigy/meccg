@@ -48,12 +48,16 @@ import {
 import type {
   CardDefinitionId, TransferItemAction, StoreItemAction,
 } from '../../index.js';
-import { Phase } from '../../index.js';
+import { Phase, Alignment } from '../../index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 
 const WIZARDS_RING = 'tw-363' as CardDefinitionId;
 /** Ordinary transferable/storable major item, for contrast. */
 const GLAMDRING = 'tw-244' as CardDefinitionId;
+/** Alatar — a Fallen-wizard avatar (race "fallen-wizard", not "wizard"). */
+const ALATAR_FW = 'wh-1' as CardDefinitionId;
+/** Isengard — a Fallen-wizard Wizardhaven (siteType haven). */
+const ISENGARD_FW = 'wh-56' as CardDefinitionId;
 
 describe('Wizard’s Ring (tw-363)', () => {
   beforeEach(() => resetMint());
@@ -98,6 +102,26 @@ describe('Wizard’s Ring (tw-363)', () => {
 
     const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
     expect(plays).toHaveLength(0);
+  });
+
+  test('playable on a Fallen-wizard player\'s Fallen-wizard avatar at a Wizardhaven (CoE g.wiz.F1: "Wizard" text refers to a Fallen-wizard player\'s Fallen-wizard avatar)', () => {
+    // Bug report: Wizard's Ring was rejected everywhere for a Fallen-wizard
+    // avatar (Alatar) at a Fallen-wizard Wizardhaven (Isengard), because the
+    // bearer filter matched only race "wizard", not "fallen-wizard".
+    const state = buildSitePhaseState({
+      site: ISENGARD_FW,
+      characters: [ALATAR_FW],
+      hand: [WIZARDS_RING],
+      alignment: Alignment.FallenWizard,
+    });
+
+    const alatarId = charIdAt(state, RESOURCE_PLAYER, 0, 0);
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    const onAlatar = plays.find(
+      ea => ea.action.type === 'play-hero-resource'
+        && ea.action.attachToCharacterId === alatarId,
+    );
+    expect(onAlatar).toBeDefined();
   });
 
   test('mixed company: only offered on the Wizard, not the non-Wizard', () => {

@@ -9,7 +9,7 @@
  */
 
 import type { WebSocket } from 'ws';
-import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
+import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, GameAction, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
 import { Alignment, buildInstanceLookup, formatCardList } from '@meccg/shared';
 import { loadDeck, listDecks } from '@meccg/sim';
 
@@ -265,4 +265,27 @@ export function installReconnect(
     // two from becoming two sockets.
     scheduleReconnect();
   });
+}
+
+// ---- Headless AI decision input ----
+
+/**
+ * Strips `concede` — a human-only meta-action the server offers every seat —
+ * from the view handed to an autonomous agent, not just from a derived
+ * plain-action list. An agent that scores `EvaluatedAction` candidates
+ * directly (e.g. the trained bc policy reads `context.view.legalActions` to
+ * featurize and index candidates, not just `context.legalActions`) would
+ * otherwise still see and can still pick it; filtering only a derived action
+ * array does not reach that path. Returns `null` when there is nothing left
+ * for the agent to decide.
+ */
+export function buildAgentDecisionInput(
+  view: PlayerView,
+): { view: PlayerView; actions: GameAction[] } | null {
+  const evaluated = view.legalActions;
+  if (!evaluated || evaluated.length === 0) return null;
+  const nonConcede = evaluated.filter(e => e.action.type !== 'concede');
+  const actions = nonConcede.filter(e => e.viable).map(e => e.action);
+  if (actions.length === 0) return null;
+  return { view: { ...view, legalActions: nonConcede }, actions };
 }

@@ -223,6 +223,7 @@ export const ACTION_TYPES: readonly string[] = [
   'capture-in-lieu-of-body-check',
   'enable-multi-strike-option',
   'concede',
+  'recycle-hand-discard',
   // Added by certifying dm-49 (Chance of Being Lost).
   'swap-new-site-choice',
 ];

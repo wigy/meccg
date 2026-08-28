@@ -17,16 +17,18 @@
 
 import type { CardDefinition } from '../types/cards.js';
 import type { CardInstanceId, GameState, GameAction, PlayerId } from '../index.js';
+import type { RegionType } from '../types/common.js';
 import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
-import { enqueueCorruptionCheck } from './pending.js';
+import { addConstraint, enqueueCorruptionCheck } from './pending.js';
 import { applyMove, dropConstraintsSourcedBy, findMoveEffectByShape } from './reducer-move.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
+import type { RegionTransformEffect } from '../types/effects.js';
 
 /**
  * Re-resolves a live attack's `all-attacks` strikes/prowess bonuses after a
@@ -260,6 +262,90 @@ export function applyShortEventDiscardAllInPlay(
       // just item-transfer/store checks — see rule-3.35's transfer fix.
       allowSupport: true,
     });
+  }
+
+  return { state: newState };
+}
+
+/**
+ * Resolve the "retype a named region" mode of a resource short event (Master
+ * of Wood, Water, or Hill, td-136): install a permanent (`until-cleared`)
+ * `region.type` `override` `attribute-modifier` constraint for the chosen
+ * region and enqueue the sage's follow-up corruption check.
+ *
+ * Unlike Deeper Shadow's (le-179) `region-type-override` add-constraint —
+ * `turn`-scoped and bound to a moving company's destination — this is
+ * player-chosen at declaration time and lasts for the rest of the game:
+ * `getEffectiveRegionType` (`engine/effective.ts`) folds it in wherever a
+ * region's type is asked for (movement, creature keying, detainment), and
+ * nothing here or elsewhere ever removes it. The `target` field is a
+ * bookkeeping label only (`region.type` lookups key on the constraint's
+ * `filter`, not its `target`); the acting player is the natural label since
+ * the tap-cost payer may be an ally, which is not itself a valid character
+ * target.
+ *
+ * @param state - Game state at the moment the short event's chain entry resolves.
+ * @param def - Definition of the short event being resolved.
+ * @param sourceInstanceId - Instance of the short event (the corruption check's source).
+ * @param actor - Player who declared the short event.
+ * @param regionName - The named region chosen at declaration time.
+ * @param newRegionType - The type the region becomes.
+ * @param costTapCharacterId - The character (or ally) tapped as the play cost, if any.
+ *   Per rule 7.4 an ally that satisfied the skill requirement makes no
+ *   corruption check, so the check is skipped in that case.
+ */
+export function applyShortEventRegionTransform(
+  state: GameState,
+  def: CardDefinition,
+  sourceInstanceId: CardInstanceId,
+  actor: PlayerId,
+  regionName: string,
+  newRegionType: RegionType,
+  costTapCharacterId: CardInstanceId | undefined,
+): ReducerResult {
+  const regionTransform = getCardEffects(def).find(
+    (e): e is RegionTransformEffect => e.type === 'region-transform',
+  );
+  if (!regionTransform) return { state, error: `${def.name}: no region-transform effect` };
+
+  const playerIndex = getPlayerIndex(state, actor);
+  logDetail(`${def.name}: region ${regionName} becomes ${newRegionType} (permanent)`);
+  let newState = addConstraint(state, {
+    source: sourceInstanceId,
+    sourceDefinitionId: def.id,
+    scope: { kind: 'until-cleared' },
+    target: { kind: 'player', playerId: actor },
+    kind: {
+      type: 'attribute-modifier',
+      attribute: 'region.type',
+      op: 'override',
+      value: newRegionType,
+      filter: { 'region.name': regionName },
+    },
+  });
+
+  if (costTapCharacterId) {
+    // Rule 7.4: allies never make corruption checks, but may still fulfill
+    // the skill-only active condition that let them tap (e.g. a sage ally
+    // tapping for Marvels Told). When the sage is an ally the transform is
+    // still implemented but the corruption check is skipped entirely.
+    const sageIsAlly = !newState.players[playerIndex].characters[costTapCharacterId]
+      && findAttachment(newState.players[playerIndex], 'allies', costTapCharacterId) != null;
+    if (sageIsAlly) {
+      logDetail(`${def.name}: sage ${costTapCharacterId as string} is an ally — corruption check skipped (rule 7.4)`);
+    } else {
+      newState = enqueueCorruptionCheck(newState, {
+        source: sourceInstanceId,
+        actor,
+        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
+        characterId: costTapCharacterId,
+        modifier: regionTransform.corruptionCheck?.modifier ?? 0,
+        reason: def.name,
+        // CoE 7.1.1: any corruption check declared but not yet resolved may
+        // be supported by tapping untapped company mates for +1 each.
+        allowSupport: true,
+      });
+    }
   }
 
   return { state: newState };
