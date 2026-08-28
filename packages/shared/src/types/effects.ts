@@ -2215,6 +2215,7 @@ export type TriggeredActionType =
   | 'add-constraint'
   | 'remove-constraint'
   | 'cancel-chain-entry'
+  | 'return-chain-entry-card-to-hand'
   | 'company-tap-characters'
   | 'reveal-hand-cards-per-character'
   | 'company-return-to-origin'
@@ -3399,6 +3400,36 @@ export interface CancelChainEntryAction extends TriggeredActionBase {
 }
 
 /**
+ * `return-chain-entry-card-to-hand` — redirect an unresolved chain entry's
+ * card from wherever it was placed at declaration time (its owner's discard
+ * pile) back to that owner's hand, without negating the entry itself.
+ *
+ * Unlike `cancel-chain-entry`, the targeted entry still resolves its own
+ * effect normally — only the physical resting place of its card changes.
+ * Used by Morgul-horse (tw-63): "This card allows you to place a tapped
+ * Nazgûl permanent-event back into your hand instead of discarding it."
+ * Per CRF ruling, Morgul-horse "must be declared after tapping the Nazgûl is
+ * declared and before it resolves" — i.e. played as a chain response while
+ * the Nazgûl's tap-to-short-event conversion (`creature-alt-event` §56c,
+ * `handleTapAltPermanentEvent`) sits unresolved on the chain, its card
+ * already moved to discard. Only entries declared by the same player as the
+ * one playing this card are offered (`playReturnChainEntryCardActions`,
+ * `legal-actions/chain.ts`), and only when the card is still actually
+ * sitting in that player's discard pile — so a fresh creature attack or
+ * permanent-event-entering-play (never discarded) is never a valid target.
+ */
+export interface ReturnChainEntryCardToHandAction extends TriggeredActionBase {
+  readonly type: 'return-chain-entry-card-to-hand';
+  /** Currently only `'target'` — the player picks the pending entry when playing. */
+  readonly select: 'target';
+  /**
+   * Generic filter over the target chain entry, evaluated against
+   * `{ target: { cardType, eventType, name, keywords } }`.
+   */
+  readonly filter?: Condition;
+}
+
+/**
  * `company-tap-characters` — on-guard-reveal apply verb (Heedless Revelry
  * le-114). When the revealed card's chain entry resolves during the site
  * phase, taps every untapped character in the active company matching
@@ -3726,6 +3757,7 @@ export type TriggeredAction =
   | EnqueueRevealHazardsChoiceAction
   | SequenceAction
   | CancelChainEntryAction
+  | ReturnChainEntryCardToHandAction
   | CompanyTapCharactersTriggeredAction
   | RevealHandCardsPerCharacterAction
   | CompanyReturnToOriginTriggeredAction

@@ -859,6 +859,42 @@ function cascadeLinkedDiscards(stateBefore: GameState, stateAfter: GameState): G
 }
 
 /**
+ * Resolve a `return-chain-entry-card-to-hand` apply (Morgul-horse tw-63):
+ * move the targeted card from its owner's discard pile — where it was
+ * placed the moment its own chain entry was declared (e.g. a Nazgûl
+ * permanent-event's tap-to-short-event conversion, `handleTapAltPermanentEvent`)
+ * — back to that owner's hand. Unlike {@link resolveEnvironmentCancel}, the
+ * targeted entry itself is left alone: its own effect (e.g. Akhôrahil's -1
+ * body on-tap modifier) still resolves normally when its turn on the chain
+ * comes up; only the card's own resting place changes.
+ *
+ * `forPlayer` is the declaring player of the *targeted* entry (its owner),
+ * not necessarily the player who played this card — though the legal-action
+ * emitter only ever offers a player's own entries (see
+ * `playReturnChainEntryCardActions`).
+ */
+function resolveReturnChainEntryCardToHand(state: GameState, targetInstanceId: CardInstanceId, forPlayer: PlayerId): GameState {
+  const targetDef = resolveDef(state, targetInstanceId);
+  const targetName = targetDef?.name ?? (targetInstanceId as string);
+  const playerIndex = getPlayerIndex(state, forPlayer);
+  const player = state.players[playerIndex];
+  const discardIdx = player.discardPile.findIndex(c => c.instanceId === targetInstanceId);
+  if (discardIdx === -1) {
+    logDetail(`Return chain-entry card to hand: ${targetName} not found in ${forPlayer as string}'s discard pile — fizzle`);
+    return state;
+  }
+  const card = player.discardPile[discardIdx];
+  logDetail(`Return chain-entry card to hand: moving ${targetName} from discard to ${forPlayer as string}'s hand`);
+  const newDiscard = [...player.discardPile];
+  newDiscard.splice(discardIdx, 1);
+  return updatePlayer(state, playerIndex, p => ({
+    ...p,
+    discardPile: newDiscard,
+    hand: [...p.hand, card],
+  }));
+}
+
+/**
  * Cancel and discard an environment card targeted by a short-event (e.g. Twilight).
  *
  * The target may be in a player's cardsInPlay (hazard permanent events like Doors of Night),
@@ -4279,32 +4315,46 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
 
   // Apply card effects based on payload type
   if (entry.payload.type === 'short-event' && entry.payload.targetInstanceId) {
-    // Wrath of the West (le-151): a `cancel-chain-entry` apply carrying a
-    // `threshold` gates the cancel on a 2d6 roll — "Make a roll—if the
-    // result is greater than 6, the event is canceled and discarded" — rather
-    // than negating the target unconditionally (Ire of the East wh-24, Twilight).
-    const rollThreshold = entry.card
-      ? getCardEffects(defById(current, entry.card.definitionId)).find(
-          (e): e is OnEventEffect & { apply: import('../types/effects.js').CancelChainEntryAction } =>
-            e.type === 'on-event' && e.event === 'self-enters-play'
-            && e.apply?.type === 'cancel-chain-entry' && e.apply.select === 'target'
-            && typeof e.apply.threshold === 'number',
-        )?.apply.threshold
-      : undefined;
-    if (rollThreshold != null) {
-      const cardName = defById(current, entry.card!.definitionId)?.name ?? (entry.card!.definitionId as string);
-      const declarerIdx = getPlayerIndex(current, entry.declaredBy);
-      const { roll, rng, cheatRollTotal } = roll2d6(current);
-      const total = roll.die1 + roll.die2;
-      const success = total >= rollThreshold;
-      current = { ...current, rng, cheatRollTotal };
-      resolveEffects.push(diceRollEffect(current.players[declarerIdx].name, roll, `${cardName}: cancel roll`));
-      logDetail(`${cardName}: ${current.players[declarerIdx].name} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${rollThreshold} — ${success ? 'success, canceling target' : 'failure, target unaffected'}`);
-      if (success) {
+    // Morgul-horse (tw-63): a `return-chain-entry-card-to-hand` apply moves
+    // the targeted entry's card back to its owner's hand instead of the
+    // ordinary cancel/discard resolution — the targeted entry's own effect
+    // still resolves normally, only its card's resting place changes.
+    const returnsToHand = entry.card
+      ? getCardEffects(defById(current, entry.card.definitionId)).some(
+          e => e.type === 'on-event' && e.event === 'self-enters-play'
+            && e.apply?.type === 'return-chain-entry-card-to-hand',
+        )
+      : false;
+    if (returnsToHand) {
+      current = resolveReturnChainEntryCardToHand(current, entry.payload.targetInstanceId, entry.declaredBy);
+    } else {
+      // Wrath of the West (le-151): a `cancel-chain-entry` apply carrying a
+      // `threshold` gates the cancel on a 2d6 roll — "Make a roll—if the
+      // result is greater than 6, the event is canceled and discarded" — rather
+      // than negating the target unconditionally (Ire of the East wh-24, Twilight).
+      const rollThreshold = entry.card
+        ? getCardEffects(defById(current, entry.card.definitionId)).find(
+            (e): e is OnEventEffect & { apply: import('../types/effects.js').CancelChainEntryAction } =>
+              e.type === 'on-event' && e.event === 'self-enters-play'
+              && e.apply?.type === 'cancel-chain-entry' && e.apply.select === 'target'
+              && typeof e.apply.threshold === 'number',
+          )?.apply.threshold
+        : undefined;
+      if (rollThreshold != null) {
+        const cardName = defById(current, entry.card!.definitionId)?.name ?? (entry.card!.definitionId as string);
+        const declarerIdx = getPlayerIndex(current, entry.declaredBy);
+        const { roll, rng, cheatRollTotal } = roll2d6(current);
+        const total = roll.die1 + roll.die2;
+        const success = total >= rollThreshold;
+        current = { ...current, rng, cheatRollTotal };
+        resolveEffects.push(diceRollEffect(current.players[declarerIdx].name, roll, `${cardName}: cancel roll`));
+        logDetail(`${cardName}: ${current.players[declarerIdx].name} rolls ${roll.die1} + ${roll.die2} = ${total} vs threshold ${rollThreshold} — ${success ? 'success, canceling target' : 'failure, target unaffected'}`);
+        if (success) {
+          current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
+        }
+      } else {
         current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
       }
-    } else {
-      current = resolveEnvironmentCancel(current, entry.payload.targetInstanceId, chain);
     }
   }
 

@@ -830,7 +830,10 @@ export function handlePlayHazardCard(
       )
       : undefined;
     if (nazgulBoost) {
-      logDetail(`Creature "${def.name}": consuming Fell Beast boost (${nazgulBoost.kind.strikesModifier >= 0 ? '+' : ''}${nazgulBoost.kind.strikesModifier} strikes, ${nazgulBoost.kind.prowessModifier} prowess, attacker chooses defenders)`);
+      const strikesDesc = nazgulBoost.kind.strikesModifier !== undefined
+        ? `${nazgulBoost.kind.strikesModifier >= 0 ? '+' : ''}${nazgulBoost.kind.strikesModifier} strikes, ` : '';
+      const prowessDesc = nazgulBoost.kind.prowessModifier !== undefined ? `${nazgulBoost.kind.prowessModifier} prowess, ` : '';
+      logDetail(`Creature "${def.name}": consuming Nazgûl-boost grant (${strikesDesc}${prowessDesc}${nazgulBoost.kind.grantAttackerChoosesDefenders ? 'attacker chooses defenders' : 'keying only'})`);
       newState = removeConstraint(newState, nazgulBoost.id);
       newState = markNazgulBoostUsed(newState, nazgulBoost.source, nazgulBoost.sourceDefinitionId, action.player, def.id);
     }
@@ -840,9 +843,9 @@ export function handlePlayHazardCard(
       type: 'creature',
       ...(action.keyedBy ? { keyedBy: action.keyedBy } : {}),
       ...(nazgulBoost ? {
-        prowessBonus: nazgulBoost.kind.prowessModifier,
-        strikesBonus: nazgulBoost.kind.strikesModifier,
-        grantAttackerChoosesDefenders: true as const,
+        ...(nazgulBoost.kind.prowessModifier !== undefined ? { prowessBonus: nazgulBoost.kind.prowessModifier } : {}),
+        ...(nazgulBoost.kind.strikesModifier !== undefined ? { strikesBonus: nazgulBoost.kind.strikesModifier } : {}),
+        ...(nazgulBoost.kind.grantAttackerChoosesDefenders ? { grantAttackerChoosesDefenders: true as const } : {}),
       } : {}),
     };
     newState = initiateChain(newState, action.player, handCard, creaturePayload, 'normal', !raceExempt);

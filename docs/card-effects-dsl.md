@@ -17862,3 +17862,89 @@ haven-style healing — not yet certified).
   `defById(state, company.currentSite.definitionId)` /
   `isSiteCard(...)`, which — once the synthesized companion definition is a
   real `cardPool` entry — treats the virtual site exactly like a printed one.
+
+### 82. `return-chain-entry-card-to-hand` (Morgul-horse)
+
+A chain-response sibling of `cancel-chain-entry` (§ `cancel-chain-entry`
+above): instead of negating the targeted entry, it moves the entry's card
+from wherever it was placed at declaration time — its owner's discard pile —
+back to that owner's hand, leaving the entry itself to resolve normally.
+
+Morgul-horse (tw-63): "This card allows you to place a tapped Nazgûl
+permanent-event back into your hand instead of discarding it. Alternatively,
+allows a Nazgûl to be played keyed to a Shadow-land [{s}]." Per CRF ruling:
+"To bring a Nazgûl permanent-event back into your hand, Morgul-horse must be
+declared after tapping the Nazgûl is declared and before it resolves." — "The
+alternative effect of this card can be played and resolved before any Nazgûl
+is played with it. A Nazgûl must be played as the first declared action in
+the chain of effects following the resolution of the alternative effect of
+Morgul-horse. If a Nazgûl is not played immediately following the resolution
+of this card, this card is returned to its player's hand."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "return-chain-entry-card-to-hand",
+             "select": "target",
+             "filter": { "$and": [ { "target.cardType": "hazard-creature" },
+                                    { "target.keywords": { "$includes": "Nazgûl" } } ] } } }
+```
+
+- `select: "target"` — currently the only supported mode: the player picks
+  which pending chain entry to redirect when playing the card, matching
+  `cancel-chain-entry`'s `select: "target"` shape.
+- `filter` — generic condition evaluated against `{ target: { cardType,
+  eventType, name, keywords } }` (the `keywords` field is new here —
+  `cancel-chain-entry`'s filter context didn't need it before).
+
+Legal-action emission (`playReturnChainEntryCardActions`,
+`legal-actions/chain.ts`) mirrors `playSkillCancelChainActions`: for each
+matching hazard short-event in the acting player's hand, it scans
+`pendingChainCards(state)` (every unresolved, un-negated chain entry that
+still holds a card) and offers one `play-short-event` action per eligible
+target. Two restrictions beyond the `filter` match keep the offer precise:
+
+- **`entry.declaredBy === playerId`** — only entries the *same* player
+  declared are offered ("your hand" — you may only rescue your own tapped
+  Nazgûl, matching the CRF ruling that Morgul-horse follows the tap by its
+  own controller).
+- **the card must still be sitting in that player's discard pile** — a live
+  creature attack or a permanent-event still entering play also appears in
+  `pendingChainCards`, but neither has been discarded yet (only a
+  `creature-alt-event` tap-to-short-event conversion discards its card at
+  declaration — see §56c, `handleTapAltPermanentEvent`), so this excludes
+  them from being (uselessly) offered as targets.
+
+Declared via the ordinary `play-short-event` action carrying
+`targetInstanceId` = the pending entry's card instance, routed through the
+existing `handlePlayShortEvent` (`reducer-events.ts`) exactly like an
+environment-cancel play (discards the hand card, pushes/initiates a chain
+entry carrying `targetInstanceId` on its payload — no apply-type-specific
+branching needed at declaration time).
+
+Resolution (`resolveEntry`, `chain-reducer.ts`) is where the two applies
+diverge: before falling into the existing `cancel-chain-entry` /
+`resolveEnvironmentCancel` path, it checks whether the resolving entry's own
+card carries a `return-chain-entry-card-to-hand` apply, and if so calls the
+new `resolveReturnChainEntryCardToHand` instead. That function finds the
+target instance in its owner's `discardPile` (by declaring player, resolved
+via `entry.declaredBy` of the *targeted* entry) and moves it to that owner's
+`hand` — **without** touching the targeted chain entry's `negated` flag, so
+its own effect (e.g. Akhôrahil's on-tap `target-character-stat-modifier`
+body -1) still resolves normally once its turn on the LIFO chain comes up;
+only the card's own final resting place changes. A target no longer in the
+discard pile (already redirected by a first response, or otherwise gone) is
+a no-op fizzle, matching `resolveEnvironmentCancel`'s existing fizzle
+behavior for an already-gone target.
+
+Morgul-horse's alternate-keying mode reuses the `nazgul-boost-pending`
+`add-constraint` primitive built for Fell Beast (tw-33, §24a) verbatim — a
+standalone (`state.chain === null`) `on-event: self-enters-play` →
+`add-constraint` with `keyingRegionTypes: ["shadow"]` and no
+`keyingSiteTypes`/`strikesModifier`/`prowessModifier`/
+`grantAttackerChoosesDefenders` (Morgul-horse's text grants only alternate
+region keying, no combat boost, unlike Fell Beast's strikes/prowess/attacker
+package). The "must be played as the first declared action or else this card
+is returned to its player's hand" clause needs no new code either — it's the
+same `nazgul-boost-pending`-unconsumed-at-company-M/H-phase-end handling
+Fell Beast already relies on (`finalizeCompanyMH`, `mh-hazard-play.ts`),
+confirmed by an identically-worded CRF ruling for both cards.
