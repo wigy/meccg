@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1913,6 +1913,23 @@ export function playResourcesActions(
         logDetail(`Item ${itemDef.name}: Technology item unlocked at ${siteName} (Saruman's Machinery) — tap state and site restriction bypassed`);
       }
 
+      // War-forges (wh-83): while a `war-forges-item-unlocked` constraint binds
+      // the active site for this player, one non-hoard, non-unique minor item
+      // may be played at the site this site phase "whether the site is tapped
+      // or untapped". Unlike Saruman's Machinery this hand-item path is just
+      // one of three sources for the bonus play — the discard-pile/sideboard
+      // sources are offered separately below. The one-per-site-phase limit is
+      // tracked by `SitePhaseState.warForgesItemPlayed`.
+      const isWarForgesEligibleItem = itemDef.subtype === 'minor'
+        && itemDef.unique !== true
+        && (itemDef.keywords as readonly string[] | undefined)?.includes('hoard') !== true;
+      const warForgesUnlockActive = isWarForgesEligibleItem
+        && siteState.warForgesItemPlayed !== true
+        && siteHasWarForgesItemUnlock(state, siteDefId, playerId);
+      if (warForgesUnlockActive) {
+        logDetail(`Item ${itemDef.name}: bonus item unlocked at ${siteName} (War-forges) — tap state bypassed`);
+      }
+
       // Hermit's Hill (le-382): while a `gold-ring-item-unlocked` constraint
       // binds this company, a gold ring item is playable at the (untapped)
       // site "regardless of its text restrictions" — both the site's
@@ -1941,13 +1958,13 @@ export function playResourcesActions(
         logDetail(`Item ${itemDef.name}: Dragon-lore fetch unlocked ${siteName} — site-tapped gate bypassed`);
       }
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !burglaryUnlockActive && !tappedSiteFetchUnlockActive) {
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !warForgesUnlockActive && !burglaryUnlockActive && !tappedSiteFetchUnlockActive) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
         continue;
       }
 
-      const siteRestriction = technologyUnlockActive || goldRingUnlockActive ? undefined : itemSiteRestriction;
+      const siteRestriction = technologyUnlockActive || goldRingUnlockActive || warForgesUnlockActive ? undefined : itemSiteRestriction;
       if (siteRestriction) {
         // Either the site-list or filter form satisfying is captured by
         // `itemOwnSiteRestrictionMatches`, computed once above; if both are
@@ -1975,7 +1992,7 @@ export function playResourcesActions(
           actions.push(notPlayable(playerId, cardInstanceId, siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason));
           continue;
         }
-      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus && !technologyUnlockActive && !goldRingUnlockActive) {
+      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus && !technologyUnlockActive && !goldRingUnlockActive && !warForgesUnlockActive) {
         // major-item-unlocked allows major items (subtype "major") at the site
         if (majorItemUnlocked && itemDef.subtype === 'major') {
           logDetail(`Item ${itemDef.name} (major): allowed via major-item-unlocked constraint`);
@@ -2886,6 +2903,48 @@ export function playResourcesActions(
           },
           viable: true,
         });
+      }
+    }
+  }
+
+  // War-forges (wh-83): while a `war-forges-item-unlocked` constraint binds
+  // this site for this player, one non-hoard, non-unique minor item may be
+  // played here this site phase from the discard pile or the sideboard (in
+  // addition to the hand-item path handled in the loop above), "whether the
+  // site is tapped or untapped". Only one such bonus item total — the
+  // discard-pile and sideboard sources share the same `warForgesItemPlayed`
+  // lock as the hand-item bypass.
+  if (siteState.warForgesItemPlayed !== true
+      && siteHasWarForgesItemUnlock(state, siteDefId, playerId)
+      && !eddyTaxUnpaid
+      && untappedCharacters.length > 0) {
+    const warForgesSources = [
+      { pile: player.discardPile, sideboard: false },
+      { pile: player.sideboard, sideboard: true },
+    ];
+    for (const { pile, sideboard } of warForgesSources) {
+      for (const pileCard of pile) {
+        const pileItemDef = defById(state, pileCard.definitionId);
+        if (!pileItemDef || !isItemCard(pileItemDef)) continue;
+        if (pileItemDef.subtype !== 'minor') continue;
+        if (pileItemDef.unique === true) continue;
+        if ((pileItemDef.keywords as readonly string[] | undefined)?.includes('hoard') === true) continue;
+
+        for (const ch of untappedCharacters) {
+          const charName = defById(state, ch.definitionId)?.name ?? ch.instanceId;
+          logDetail(`${sideboard ? 'Sideboard' : 'Discard'} item ${pileItemDef.name}: playable at ${siteName} under ${charName} (War-forges)`);
+          actions.push({
+            action: {
+              type: 'play-hero-resource',
+              player: playerId,
+              cardInstanceId: pileCard.instanceId,
+              companyId: company.id,
+              attachToCharacterId: ch.instanceId,
+              ...(sideboard ? { fromSideboard: true } : { fromDiscard: true }),
+            },
+            viable: true,
+          });
+        }
       }
     }
   }

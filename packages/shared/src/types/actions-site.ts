@@ -258,6 +258,12 @@ export interface PlayHeroResourceAction {
    * `cardsInPlay` (its host may belong to either player) rather than `hand`.
    */
   readonly fromSetAside?: boolean;
+  /**
+   * When `true`, the item is sourced from the player's sideboard instead of
+   * the hand. Enabled by a `war-forges-item-unlocked` constraint (War-forges
+   * wh-83): "The item may be taken from your discard pile or sideboard."
+   */
+  readonly fromSideboard?: boolean;
 }
 
 /**

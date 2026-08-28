@@ -270,7 +270,11 @@
     "body": 9,
     "killMarshallingPoints": 4,
     "race": "spider",
-    "keyedTo": [],
+    "keyedTo": [
+      { "siteNames": ["Dol Guldur", "The Sulfur-deeps"] },
+      { "regionNames": ["Southern Mirkwood", "Heart of Mirkwood", "Woodland Realm"], "when": { "inPlay": "Doors of Night" } },
+      { "adjacentToSiteNames": ["The Sulfur-deeps"], "when": { "inPlay": "Doors of Night" } }
+    ],
     "effects": [
       {
         "type": "play-flag",
@@ -279,14 +283,16 @@
       {
         "type": "creature-alt-event",
         "mode": "permanent-event",
-        "persistent": true
+        "persistent": true,
+        "returnToHandOption": true
       },
       {
         "type": "ahunt-attack",
         "regionNames": ["Southern Mirkwood", "Heart of Mirkwood", "Woodland Realm", "Dagorlad", "Brown Lands"],
         "strikes": 2,
         "prowess": 10,
-        "race": "spider"
+        "race": "spider",
+        "detainmentAgainstMinion": true
       },
       {
         "type": "stat-modifier",
@@ -296,7 +302,8 @@
         "when": { "enemy.race": "spider" }
       }
     ],
-    "text": "Unique. Spider. Spawn. May be played as a hazard creature (with two strikes) or as a permanent-event. As a creature, she may be played at Dol Guldur and The Sulfur-deeps. If Doors of Night is in play, she may also be keyed to Southern Mirkwood, Heart of Mirkwood, or Woodland Realm; or at any adjacent site of The Sulfur-deeps.If played as a permanent-event, all Spider attacks receive +1 strike. Additionally, any company moving in Southern Mirkwood, Heart of Mirkwood, Woodland Realm, Dagorlad, or Brown Lands faces a Spider attack of 2 strikes with 10 prowess (detainment against minion companies). You can return Spider of the Môrlat as a permanent-event to your hand—which counts as one against the hazard limit."
+    "text": "Unique. Spider. Spawn. May be played as a hazard creature (with two strikes) or as a permanent-event. As a creature, she may be played at Dol Guldur and The Sulfur-deeps. If Doors of Night is in play, she may also be keyed to Southern Mirkwood, Heart of Mirkwood, or Woodland Realm; or at any adjacent site of The Sulfur-deeps.If played as a permanent-event, all Spider attacks receive +1 strike. Additionally, any company moving in Southern Mirkwood, Heart of Mirkwood, Woodland Realm, Dagorlad, or Brown Lands faces a Spider attack of 2 strikes with 10 prowess (detainment against minion companies). You can return Spider of the Môrlat as a permanent-event to your hand—which counts as one against the hazard limit.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hazard-creature",

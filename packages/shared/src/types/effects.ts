@@ -4844,6 +4844,19 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    * corruption check modified by -4" (Some Secret Art of Flame, le-232).
    */
   readonly costExemptRace?: Race;
+  /**
+   * Only meaningful alongside `cost`. `"payer"` (the default) keeps the
+   * single-target behavior — the chosen character who pays `cost` is the
+   * only one boosted. `"company"` decouples payer from recipients: the
+   * chosen character (matching `requiredSkill`/`requiredRace`) still pays
+   * `cost` alone, but every character in the defending company (subject to
+   * `filter`/`companyFilter`/`itemFilter`, same as the no-`cost` path)
+   * receives the boost. Used by Kindling of the Spirit (tw-262): "+2
+   * prowess against one attack for all characters in the same company as
+   * the Wizard. Wizard makes a corruption check modified by -2." — the
+   * Wizard alone pays, but the whole company is boosted.
+   */
+  readonly boostScope?: 'payer' | 'company';
 }
 
 /** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */
@@ -7858,6 +7871,15 @@ export interface AhuntAttackEffect extends EffectBase {
    */
   readonly noEffectOnMinion?: boolean;
   /**
+   * When set, this attack is detainment against a moving (defending) player
+   * who is Ringwraith or Balrog aligned ({@link isMinionOrBalrog}), and a
+   * normal attack against a hero/Fallen-wizard defender. Used by Spider of
+   * the Môrlat (dm-110): "faces a Spider attack of 2 strikes with 10 prowess
+   * (detainment against minion companies)" — scoped to this ahunt-attack
+   * alone, not the card's own direct hazard-creature attack mode.
+   */
+  readonly detainmentAgainstMinion?: boolean;
+  /**
    * Group-reward mechanic. When present, if **every** ahunt attack sourced from
    * this same card instance during a single company's order-effects step is
    * defeated, the card is moved from play into the defending (moving) player's
@@ -9774,6 +9796,19 @@ export interface CreatureAltEventEffect extends EffectBase {
    * bonuses, but her attack counts as one against the hazard limit."
    */
   readonly attacksAsCreature?: true;
+  /**
+   * When true (permanent-event mode only, combines with `persistent`), the
+   * hazard player may voluntarily return the in-play permanent-event to his
+   * own **hand** instead of the discard pile — a `return-alt-permanent-event`
+   * action, offered in the same opponent's-M/H-phase window as
+   * `tap-alt-permanent-event` and charging the hazard limit the same way, but
+   * with no on-tap short-event conversion (the card carries no other top-level
+   * effects to resolve; the return is the entire ability). Used by Spider of
+   * the Môrlat (dm-110): "You can return Spider of the Môrlat as a
+   * permanent-event to your hand — which counts as one against the hazard
+   * limit."
+   */
+  readonly returnToHandOption?: true;
 }
 
 /**
