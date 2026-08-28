@@ -2689,6 +2689,13 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly prowessSubstitution?: { readonly max: number };
   /** Which stat a company/character-stat-modifier applies to. */
   readonly stat?: 'prowess' | 'body' | 'direct-influence';
+  /**
+   * Optional ceiling applied to the running stat total for a
+   * `company-stat-modifier` payload (mirrors a JSON `stat-modifier`'s `max`
+   * field). Used by Miruvor (tw-283): "+2 body (to a maximum of 10) for all
+   * characters in bearer's company until the end of the turn."
+   */
+  readonly max?: number;
   /** Creature race filter for creature-attack-boost. */
   readonly race?: Race;
   /** Excluded creature races for `defeat-attack-strikes` (Liquid Fire wh-52). */

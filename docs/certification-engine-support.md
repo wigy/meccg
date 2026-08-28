@@ -687,3 +687,37 @@ King under the Mountain (td-126) is "Playable on Balin, Dáin II, Thorin II, or 
 Together with `site-type-override` (`overrideType: "border-hold"`, no `purpose` — a full override, the as-88 Hold Rebuilt and Repaired shape), td-126 declares five `on-event: self-enters-play` effects (the +5 direct-influence bonus itself is an ordinary bearer-scoped `stat-modifier` pair, the Arkenstone tw-341 shape, since the card enters play as an item on its target character). Card: `play-target` character (`target.name` in the four named Dwarfs, AND `target.dragonAtHomeVictorySiteId` exists) + two `stat-modifier` (`reason: "influence-check"` / `"faction-influence-check"`, `target.race`/`faction.race: "dwarf"`, value 5) + four `add-constraint` `on-event`s (`site-type-override`, `dwarf-hold-override`, `skip-automatic-attacks`, `item-play-race-restriction`), each carrying `siteFrom: "dragon-at-home-victory"`.
 
 Used by *King under the Mountain* (td-126).
+
+### `company-stat-modifier` gains an optional `max` cap (Miruvor tw-283)
+
+Miruvor (tw-283): "Discard to give +2 body (to a maximum of 10) for all
+characters in bearer's company until the end of the turn." — the existing
+Orc-draughts-style `grant-action` → `add-constraint constraint:
+"company-stat-modifier"` shape (`cost: { discard: "self" }`, `target:
+"bearer-company"`, `scope: "turn"`) had no way to express a ceiling on the
+resulting stat, unlike the sibling `character-stat-modifier` kind (Biter and
+Beater! as-46) which already carried one. Three call sites now thread an
+optional `max` end to end:
+
+- `AddConstraintAction.max` (`types/effects.ts`) — the JSON `apply` clause may
+  carry `"max": 10` alongside `stat`/`value`.
+- `ActiveConstraint.kind` for `company-stat-modifier` (`types/pending.ts`)
+  gained an optional `max` field; `buildPayloadConstraintKind`
+  (`grant-action-apply.ts`) copies `apply.max` onto it when present.
+- `collectCompanyStatModifierEffects` (`effects/resolver.ts`) forwards
+  `constraint.kind.max` onto the synthesized `stat-modifier` effect, so the
+  existing `resolveStatModifiers` cap logic (`if (effect.max !== undefined)
+  result = Math.min(result, maxVal)`) applies exactly as it does for a
+  JSON-declared item bonus. Each stacked copy of the source item is capped
+  independently (its own `+2` clamped to 10), matching the printed "to a
+  maximum of 10" reading rather than a single company-wide ceiling.
+
+```json
+{ "type": "grant-action", "action": "company-body-boost", "anyPhase": true,
+  "cost": { "discard": "self" },
+  "apply": { "type": "add-constraint", "constraint": "company-stat-modifier",
+             "stat": "body", "value": 2, "max": 10,
+             "target": "bearer-company", "scope": "turn" } }
+```
+
+Used by *Miruvor* (tw-283).
