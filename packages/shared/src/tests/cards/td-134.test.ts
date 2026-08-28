@@ -29,14 +29,15 @@ import {
   buildTestState, resetMint, mint,
   viableActions, viableFor, makeSitePhase,
   handCardId, dispatch, setCharStatus, expectCharStatus,
-  makeMHState, resolveChain,
+  makeMHState, resolveChain, makeCancelWindowCombat,
   actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
-import { computeLegalActions, Phase, CardStatus } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus, Race } from '../../index.js';
 import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 const ADUNAPHEL = 'tw-2' as CardDefinitionId;
+const WAKE_OF_WAR = 'tw-108' as CardDefinitionId; // hazard long-event: +1 strike/+1 prowess vs Wolf/Spider/Animal
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -810,5 +811,53 @@ describe('Marvels Told (td-134)', () => {
 
     const playActions = viableActions(tappedTreebeard, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(0);
+  });
+
+  test('discarding Wake of War does not shrink an "each character faces one strike" attack\'s strike count (bug d19872a81621a6bc)', () => {
+    // Reported in bug d19872a81621a6bc (game mtdb8snq-1y1zq5, seq 258):
+    // Watcher in the Water (le-99, "each character in the company faces one
+    // strike") attacked a 3-character company while Wake of War (+1
+    // strike/+1 prowess vs Animal) was in play, so the live attack was 3
+    // strikes @ 9 prowess — strikesTotal comes from the company's character
+    // count, not the card's printed/modified strikes stat, so Wake of War's
+    // strikes bonus was never actually folded into strikesTotal. Glorfindel
+    // played Marvels Told to discard Wake of War before strikes were
+    // assigned. Expected: prowess reverts to 8 (Wake of War's prowess bonus
+    // is gone) but strikesTotal stays at 3 (still one strike per character).
+    // The engine instead dropped strikesTotal to 2, treating the "each
+    // character faces one strike" total as if it already contained Wake of
+    // War's +1 strikes bonus.
+    const wakeOfWarInPlay: CardInPlay = { instanceId: mint(), definitionId: WAKE_OF_WAR, status: CardStatus.Untapped };
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ELROND, ARAGORN, LEGOLAS] }], hand: [MARVELS_TOLD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [BALIN] }], hand: [], siteDeck: [MINAS_TIRITH], cardsInPlay: [wakeOfWarInPlay] },
+      ],
+    });
+    const withCombat = makeCancelWindowCombat(base, {
+      creatureDefId: 'le-99' as CardDefinitionId,
+      creatureRace: Race.Animal,
+      strikesTotal: 3,
+      strikeProwess: 9,
+    });
+    const state = { ...withCombat, combat: { ...withCombat.combat!, eachCharacterFacesOneStrike: true } };
+
+    const elrondId = (Object.keys(state.players[0].characters) as CardInstanceId[])
+      .find(k => state.players[0].characters[k].definitionId === ELROND)!;
+    const marvelsId = handCardId(state, RESOURCE_PLAYER);
+
+    const next = resolveChain(dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: marvelsId,
+      targetScoutInstanceId: elrondId,
+      discardTargetInstanceId: wakeOfWarInPlay.instanceId,
+    }));
+
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(wakeOfWarInPlay.instanceId);
+    expect(next.combat!.strikesTotal).toBe(3);
+    expect(next.combat!.strikeProwess).toBe(8);
   });
 });
