@@ -9319,6 +9319,7 @@ export type CardEffect =
   | RingwraithFollowerSlotsEffect
   | RingwraithSelfFollowerEffect
   | MagicDiscardToDeckEffect
+  | HandDiscardRecycleOptionEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
@@ -11078,6 +11079,34 @@ export interface RingwraithSelfFollowerEffect extends EffectBase {
  */
 export interface MagicDiscardToDeckEffect extends EffectBase {
   readonly type: 'magic-discard-to-deck';
+}
+
+/**
+ * Game-wide passive marker carried by a bare in-play permanent-/long-event in
+ * **either** player's `cardsInPlay`: whenever *any* player discards a card
+ * from their hand — through any of the engine's many independent
+ * hand-to-discard-pile paths (voluntary end-of-turn discard, hand-size
+ * reduction, a forced discard, a cost payment, etc.) — that player may choose
+ * to place the discarded card on top of their own play deck (face down)
+ * instead of leaving it in their discard pile.
+ *
+ * Because there is no single call site for "a card left the hand and reached
+ * the discard pile," the engine detects it reactively as a prev/next diff
+ * after every reducer step (`hand-discard-recycle-trigger.ts`, the same
+ * pattern `hand-discard-trigger.ts` uses for Pale Dream-maker's corruption
+ * check) and offers the choice via a `hand-discard-recycle-offer` pending
+ * resolution — the card has already landed in the discard pile by the time
+ * the offer is made, and accepting moves that exact instance to the top of
+ * the play deck. Unlike `magic-discard-to-deck` this is optional, unscoped by
+ * card type, and applies to *either* player's discards, not just the
+ * marker's owner.
+ *
+ * Used by *Enduring Tales* (dm-125): "When any player discards a card from
+ * his hand, he may discard it to the top of his play deck (and always face
+ * down) instead of to his discard pile."
+ */
+export interface HandDiscardRecycleOptionEffect extends EffectBase {
+  readonly type: 'hand-discard-recycle-option';
 }
 
 /**

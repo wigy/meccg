@@ -80,10 +80,17 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   const afterHandDiscardChecks = prevState
     ? applyHandDiscardCorruptionChecks(prevState, afterAttackWindow)
     : afterAttackWindow;
+  // Enduring Tales (dm-125): offer to recycle a card either player just
+  // discarded from hand to the top of their play deck instead of their
+  // discard pile. Same prev/next hand→discardPile diff shape as the check
+  // above, but scanning both players (the card text says "any player").
+  const afterHandDiscardRecycleOffers = prevState
+    ? applyHandDiscardRecycleOffers(prevState, afterHandDiscardChecks)
+    : afterHandDiscardChecks;
   // Sacrifice of Form (tw-321): once the attack it was played into has fully
   // ended (same prev/next `combat` diff as the after-attack window above),
   // discard the sacrificed Wizard and set his items aside.
-  const afterSacrifice = prevState ? sweepSacrificeOfForm(prevState, afterHandDiscardChecks) : afterHandDiscardChecks;
+  const afterSacrifice = prevState ? sweepSacrificeOfForm(prevState, afterHandDiscardRecycleOffers) : afterHandDiscardRecycleOffers;
   // Reverse direction: if a Wizard previously sacrificed this way is put back
   // into play by any means, reattach the host card and return his items.
   const afterSacrificeReturn = prevState ? sweepSacrificeOfFormReturn(prevState, afterSacrifice) : afterSacrifice;
@@ -101,6 +108,7 @@ import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
 import { discardOrphanedLongEventAttachedEvents, sweepProtectedLongEventCascade } from './protected-long-event.js';
 import { enqueuePostAttackPlayOffers } from './post-attack-play.js';
 import { applyHandDiscardCorruptionChecks } from './hand-discard-trigger.js';
+import { applyHandDiscardRecycleOffers } from './hand-discard-recycle-trigger.js';
 import { applyResolution } from './pending-handlers.js';
 import { applyPairResourceWithCof } from './pending-reducers.js';
 import { handleSetup } from './reducer-setup.js';

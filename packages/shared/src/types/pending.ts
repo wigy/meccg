@@ -847,6 +847,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Enduring Tales (dm-125): "When any player discards a card from his
+         * hand, he may discard it to the top of his play deck (and always
+         * face down) instead of to his discard pile." A game-wide
+         * `hand-discard-recycle-option` marker in either player's bare
+         * `cardsInPlay` makes every hand-to-discard-pile transition —
+         * regardless of which of the engine's many independent code paths
+         * caused it — optionally redirectable. Enqueued reactively as a
+         * prev/next diff (`hand-discard-recycle-trigger.ts`) once the
+         * discard has already landed in the owner's discard pile; the owner
+         * may move that exact instance to the top of their play deck
+         * (`recycle-hand-discard`) or leave it discarded (`pass`).
+         */
+        readonly type: 'hand-discard-recycle-offer';
+        /** The card instance now sitting in the owner's discard pile. */
+        readonly instanceId: CardInstanceId;
+        /** Name of the long-event granting the option, for logging. */
+        readonly sourceName: string;
+      }
+    | {
+        /**
          * My Precious (dm-29): after My Precious attacks and fails but survives,
          * the defender may tap one character in the target company to play the
          * agent's other manifestation (Gollum) from hand, after which My Precious
