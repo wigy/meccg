@@ -8708,6 +8708,18 @@ support grouped multi-attack cards:
   card in his MP pile." Per-attack outcomes are recorded by `finalizeCombat`
   into `MovementHazardPhaseState.ahuntGroupOutcomes` and evaluated by
   `handleOrderEffects` (`applyAhuntGroupRewards`) once all attacks resolve.
+- `detainmentAgainstMinion: true` — this ahunt-attack (and only this one, not
+  the card's other top-level effects) is detainment whenever the moving
+  (defending) player is Ringwraith/Balrog-aligned (`isMinionOrBalrog`), and a
+  normal attack against a hero/Fallen-wizard defender. `buildAhuntCombat`
+  (`mh-steps.ts`) short-circuits its `isDetainmentAttack` call to this check
+  when the field is set, bypassing the standard race/alignment §3.II
+  derivation entirely. Scoping the rule to the `ahunt-attack` entry itself
+  (rather than a card-level `combat-detainment` effect) matters for dual
+  creature/permanent-event cards whose *other* mode (a direct hazard-creature
+  attack) is not detainment. Used by Spider of the Môrlat (dm-110): "faces a
+  Spider attack of 2 strikes with 10 prowess (detainment against minion
+  companies)" — her own direct creature-mode attack carries no such rule.
 
 ```json
 { "type": "ahunt-attack",
@@ -15156,6 +15168,33 @@ the Lady sits in `cardsInPlay` (`blockingManifestationForCharacterPlay`,
 which honours g.man.1's "would leave play" clause for chains like The Balrog
 ba-3 / Balrog of Moria tw-12). A unique creature already in `cardsInPlay` as a
 permanent-event likewise blocks a second copy's play in either mode.
+
+### 56d-i. `creature-alt-event` `returnToHandOption` (Spider of the Môrlat dm-110)
+
+A third alternative for the permanent-event mode, alongside the tap-to-short-event
+conversion (§56c) and the no-conversion `persistent` mode (§56d): a card whose
+*only* in-play action is "you may return this to your hand," with no other
+on-tap effect to resolve.
+
+```json
+{ "type": "creature-alt-event", "mode": "permanent-event", "persistent": true, "returnToHandOption": true }
+```
+
+- `returnToHandOption: true` *(permanent-event mode only, combines with
+  `persistent`)* offers a new `return-alt-permanent-event` action
+  (`returnAltPermanentEventActions`, `legal-actions/movement-hazard.ts`) during
+  the opponent's movement/hazard phase, for any untapped matching card in
+  `cardsInPlay`. Unlike `tap-alt-permanent-event` (§56c), which discards the
+  card and resolves its on-tap effects through the short-event chain,
+  `handleReturnAltPermanentEvent` (`mh-hazard-play.ts`) simply moves the card
+  to its owner's **hand** and charges the hazard limit the same way
+  (`chargeHazardLimit`) — no chain entry, since there is no on-tap effect to
+  run; the return itself is the entire ability. `persistent: true` still means
+  `tap-alt-permanent-event` is neither offered nor accepted for the card; the
+  two options are independent and a card may carry either, both, or neither.
+
+Used by Spider of the Môrlat (dm-110): "You can return Spider of the Môrlat as
+a permanent-event to your hand—which counts as one against the hazard limit."
 
 ### 56e. `force-check-all-in-play`
 

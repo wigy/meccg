@@ -150,6 +150,9 @@ export function handlePlayHazards(
   // --- Convert an in-play dual-mode creature-permanent-event into a full creature attack (Shelob tw-86) ---
   if (action.type === 'attack-alt-permanent-event') return handleAttackFromAltPermanentEvent(state, action, mhState);
 
+  // --- Return an in-play dual-mode creature-permanent-event to hand (Spider of the Môrlat dm-110) ---
+  if (action.type === 'return-alt-permanent-event') return handleReturnAltPermanentEvent(state, action, mhState);
+
   // --- Tap cardsInPlay hazard permanent event for +1 hazard limit (Power Built by Waiting) ---
   if (action.type === 'tap-hazard-card-for-limit') return handleTapHazardCardForLimit(state, action, mhState);
 
@@ -3752,6 +3755,50 @@ function handleTapAltPermanentEvent(
     ...(forcedDiscardCount !== undefined ? { forcedDiscardCount } : {}),
   };
   newState = initiateOrPushChain(newState, action.player, cardInstance, payload, !bypassesLimit);
+  return { state: newState };
+}
+
+/**
+ * Handle return-alt-permanent-event: the hazard player voluntarily returns an
+ * in-play dual-mode creature-permanent-event (`creature-alt-event` mode
+ * `permanent-event`, `returnToHandOption: true` — Spider of the Môrlat
+ * dm-110) to his own hand during the opponent's movement/hazard phase. Unlike
+ * {@link handleTapAltPermanentEvent}, the card is persistent — it goes to
+ * hand, not the discard pile, and no on-tap short-event chain resolves; the
+ * return itself is the entire ability. Still counts one against the hazard
+ * limit.
+ */
+function handleReturnAltPermanentEvent(
+  state: GameState,
+  action: GameAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  if (action.type !== 'return-alt-permanent-event') return wrongActionType(state, action, 'return-alt-permanent-event');
+  const resolved = resolveAltPermanentEventPlay(state, mhState, action.player, action.cardInstanceId, 'return-alt-permanent-event');
+  if ('error' in resolved) return { state, error: resolved.error };
+  const { hazardIndex, card, def, altEvent, activeCompany, bypassesLimit } = resolved;
+  if (!altEvent || altEvent.mode !== 'permanent-event' || !altEvent.returnToHandOption) {
+    return { state, error: 'return-alt-permanent-event: this permanent-event has no return-to-hand option' };
+  }
+
+  let newHazardCount = mhState.hazardsPlayedThisCompany;
+  if (activeCompany && !bypassesLimit) {
+    const charge = chargeHazardLimit(state, mhState, activeCompany.id, 'return-alt-permanent-event');
+    if ('error' in charge) return { state, error: charge.error };
+    newHazardCount = charge.newHazardCount;
+  }
+
+  logDetail(`Creature-permanent-event "${def?.name ?? card.definitionId}" returned to hand during opponent M/H (${newHazardCount})`);
+
+  const cardInstance = toCardInstance(card);
+  const newState: GameState = {
+    ...updatePlayer(state, hazardIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
+      hand: [...p.hand, cardInstance],
+    })),
+    phaseState: { ...mhState, hazardsPlayedThisCompany: newHazardCount, resourcePlayerPassed: false },
+  };
   return { state: newState };
 }
 
