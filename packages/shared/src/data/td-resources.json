@@ -1426,8 +1426,38 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Target ahunt Dragon manifestation is discarded.Alternatively, if Doors of Night is in play, decreases the number of strikes from one Dragon or Drake attack by one (to a minimum of one).This card may also be played during opponent’s movement/hazard phase."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "movement-hazard",
+        "crossTurn": true
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
+        "filter": {
+          "cardType": "hazard-event",
+          "eventType": "long",
+          "manifestId": { "$exists": true }
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "strikesModifier": -1,
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["dragon", "drake"] } },
+            { "inPlay": { "$includes": "Doors of Night" } }
+          ]
+        }
+      }
+    ],
+    "text": "Target ahunt Dragon manifestation is discarded.Alternatively, if Doors of Night is in play, decreases the number of strikes from one Dragon or Drake attack by one (to a minimum of one).This card may also be played during opponent’s movement/hazard phase.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hero-resource-event",

@@ -1940,6 +1940,26 @@ in the discard pile). Draw a new hand of 8 cards. Remove Favor of the Valar
 from the game." — with `play-window` phase `organization` and `play-flag:
 "remove-from-game"`.
 
+### 6d-ter. `play-window` `crossTurn`
+
+An optional boolean on `play-window` that *adds* an opponent's-turn playability
+window rather than restricting the card's own-turn one. CoE 2.1.1's default is
+"any phase of the resource player's own turn"; `crossTurn: true` additionally
+offers the card to its owner during the **opponent's** turn, but only while
+the current phase matches the window's `phase` — own-turn play remains
+unrestricted by `phase` regardless (a `crossTurn` window never narrows the
+default any-phase allowance, it only widens it).
+
+```json
+{ "type": "play-window", "phase": "movement-hazard", "crossTurn": true }
+```
+
+Used by Sated Beast (td-149): "This card may also be played during
+opponent's movement/hazard phase." See the engine-support catalog's
+`play-window` `crossTurn: true` entry for the full implementation writeup
+(the `isOwnTurn` gate in `heroResourceShortEventActions` and the one new
+off-turn call site in `legal-actions/movement-hazard.ts`).
+
 ### 6e. `force-opponent-discard`
 
 Hazard short-event effect that forces the card-player's **opponent** (the

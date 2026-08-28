@@ -206,6 +206,14 @@ export function heroResourceShortEventActions(
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
+  // CoE 2.1.1 default is "any phase of the resource player's own turn" — every
+  // existing call site of this function already only runs for the resource
+  // player's own turn (playerId === state.activePlayer). The sole exception is
+  // the hazard-side branch of the M/H `play-hazards` step
+  // (`movement-hazard.ts`), added for Sated Beast (td-149)-style cards that
+  // carry `play-window: { crossTurn: true }` — playable during the opponent's
+  // matching phase too. isOwnTurn distinguishes the two below.
+  const isOwnTurn = state.activePlayer === playerId;
   const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack', 'goodwill-cancel-attack', 'riddling-attempt', 'join-combat-force-strike']);
   const inPlayNames = buildInPlayNames(state);
 
@@ -262,13 +270,23 @@ export function heroResourceShortEventActions(
     // Skip cards that declare a play-window restricting them to a
     // different phase/step (e.g. Stealth plays only at end-of-org).
     const playWindow = def.effects?.find(e => e.type === 'play-window') as
-      { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
-    if (playWindow && playWindow.phase !== currentPhase) {
+      { phase?: string; step?: string; siteTypes?: readonly string[]; crossTurn?: boolean } | undefined;
+    if (!isOwnTurn) {
+      // Called from the M/H hazard-side branch for the non-active player:
+      // CoE 2.1.1's default window ("any phase of the resource player's own
+      // turn") does not apply — only a card with an explicit `crossTurn`
+      // allowance for this exact phase may be offered here. Skip everything
+      // else silently (no notPlayable spam for the rest of the hand).
+      if (!playWindow?.crossTurn || playWindow.phase !== currentPhase) continue;
+    } else if (playWindow && !playWindow.crossTurn && playWindow.phase !== currentPhase) {
       const where = `${playWindow.phase ?? '?'}${playWindow.step ? '/' + playWindow.step : ''}`;
       logDetail(`${def.name}: play-window restricts it to ${where}, not playable in ${currentPhase} phase`);
       actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`));
       continue;
     }
+    // A `crossTurn` window never restricts the owner's own-turn play (the
+    // default any-phase allowance still applies there) — only the opponent's-
+    // turn offering above is phase-gated.
 
     // When play-window declares a site-type restriction, enforce it against
     // the active company's current site. Only applies during the site phase
