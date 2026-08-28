@@ -2708,6 +2708,18 @@ export interface AddConstraintAction extends TriggeredActionBase {
   /** Override target type for site-type-override / region-type-override. */
   readonly overrideType?: string;
   /**
+   * Overrides how a site-bound add-constraint resolves its site, for a
+   * character-targeted permanent event whose site is not the active
+   * company's current site. `'dragon-at-home-victory'` resolves the bound
+   * site from the play-target character's own `dragonAtHomeVictorySiteId`
+   * (King under the Mountain td-126: "The site where the Dragon was
+   * defeated becomes a Border-hold …" — the site is determined by the
+   * targeted Dwarf's recorded history, not by where the card is played).
+   * Omit for the default resolution (active company's current site, or the
+   * card's own `targetSiteDefinitionId` play target).
+   */
+  readonly siteFrom?: 'dragon-at-home-victory';
+  /**
    * For a `site-type-override` add-constraint: restricts the override to a
    * subset of game purposes.
    * - `'healing'` — the site counts as the overridden type (a Haven) **only**

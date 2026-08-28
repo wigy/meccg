@@ -935,6 +935,13 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
                 // can gate on "who has a Border-hold or Free-hold as a home
                 // site" (Faithless Steward as-83).
                 homeSiteTypes: characterHomeSiteTypes(state, charDef),
+                // King under the Mountain (td-126): the Dragon lair site
+                // (definition id) where this character's company defeated an
+                // at-home Dragon manifestation attack, if any — recorded in
+                // `combat-finalize.ts`. Lets a `play-target` filter express
+                // "if his company has defeated an at home Dragon manifestation
+                // attack" as `{ "$exists": true }`.
+                dragonAtHomeVictorySiteId: charData.dragonAtHomeVictorySiteId,
               },
               company: { skills: companySkills, hasShadowMagicUser },
             };

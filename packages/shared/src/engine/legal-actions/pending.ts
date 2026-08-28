@@ -2014,6 +2014,11 @@ function applyOneConstraint(
       // enqueues the corruption checks when an item is played at the bound
       // site — no broad legal-action filtering needed here.
       return base;
+    case 'item-play-race-restriction':
+      // King under the Mountain (td-126): consumed directly by the item-play
+      // candidate-character filter in `legal-actions/site.ts` — no broad
+      // legal-action filtering needed here.
+      return base;
     case 'free-attack-cancel':
       // Darkness Wielded (ba-55): the deferred free-cancel grant is offered
       // directly by `cancelAttackActions` (combat.ts) and consumed by
