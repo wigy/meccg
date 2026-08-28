@@ -4388,6 +4388,56 @@ describe the replacement. `resolvedSitePath` (the region types the company
 actually traveled through) is a movement-path record, not a site-identity
 one, so the swap leaves it untouched.
 
+**Roll-gated new-site swap (`roll-then-swap-new-site`).** A variant of
+`swap-new-site` where the replacement is conditional on a 2d6 roll, and the
+eligible replacement pool is gated by **region adjacency** instead of a
+static site-path region-type match. Used by *Chance of Being Lost* (dm-49):
+"Playable on a moving company using region movement if opponent is using the
+same type of location deck (minion/hero) as yourself. Make a roll modified
+by -2 for each ranger in the company. If the result is greater than 6, you
+must replace company's new site card with a different site from your
+location deck that is located in the same region or an adjacent region as
+the company's new site."
+
+```json
+{ "type": "play-condition", "requires": "region-movement" },
+{ "type": "play-condition", "requires": "player-state",
+  "condition": { "player.sameLocationDeckTypeAsOpponent": true } },
+{ "type": "roll-then-swap-new-site", "threshold": 6, "rangerModifier": -2 }
+```
+
+`region-movement` (`checkRegionMovement`, `legal-actions/movement-hazard.ts`)
+is a bare `movementType === 'region'` gate — like `region-through-or-leave`
+(Cruel Caradhras td-9) but with no named-region restriction.
+
+Because whether the swap happens at all isn't known until after the card is
+played, this doesn't fit `swap-new-site`'s "offer one action per candidate
+site up front" shape. `handleRollThenSwapNewSite` (`mh-hazard-play.ts`)
+discards the card immediately (bypassing the chain, like every other
+non-chain hazard short-event — Pilfer Anything Unwatched as-33) and enqueues
+a generic `dice-check` pending resolution: `modifiers: [{ kind: "constant",
+value: rangerCount * rangerModifier }]`, `comparison: "gt"`, `continuation: {
+kind: "dequeue-only" }`, `onPass: { type: "offer-swap-new-site" }`.
+
+`offer-swap-new-site` (a new `TriggeredAction` verb, handled in
+`applyDiceCheckBranch`, `pending-reducers.ts`) computes the eligible
+replacement sites for the dice-check's `targetCompanyId` — the hazard
+player's own `siteDeck` entries whose region is the destination site's
+region or one of its `adjacentRegions` (`regionAndAdjacentRegions`,
+`reducer-utils.ts`), excluding the destination's own name (a *different*
+site) — via `regionAdjacentSwapEligibleSites`. If any exist, it enqueues a
+second pending-resolution kind, `swap-new-site-choice` (`companyId`), so the
+hazard player picks one (`swapNewSiteChoiceActions` /
+`applySwapNewSiteChoiceResolution`), mirroring the two-stage roll-then-choice
+shape of `riddling-attempt` → `riddling-guess`. A failed roll, or a passed
+roll with zero eligible sites, ends the effect with no further consequence —
+the "must replace" clause simply has nothing to bite on.
+`applySwapNewSiteChoiceResolution` performs the same site-identity mechanics
+as `handleSwapNewSite` (original destination returns untapped to its own
+owner's deck, replacement installed as the company's new untapped
+`destinationSite`, cached `destinationSiteName`/`destinationSiteType`
+refreshed) but from within a pending-resolution apply.
+
 Example (Wild Hounds — discard):
 
 ```json
@@ -14969,6 +15019,22 @@ true }`), `on-event self-enters-play` → `character-stat-modifier` (prowess -1,
 scope turn), and the two `on-event company-arrives-at-site` → `region-type-
 override` (border→wilderness) / `site-type-override` (border-hold→ruins-and-
 lairs) modes.
+
+`tap-character` also supports an optional `requiresCompanionSkill: Skill` field
+and a card may carry **more than one** `tap-character` effect for "Alternatively"
+modes keyed to different skills. `requiresCompanionSkill` requires some *other*
+character carrying that skill in the candidate's own company, at its company's
+current site, or at its destination site (if moving this turn) — checked by
+`hasNearbySkillmate` (`legal-actions/movement-hazard.ts`): company membership
+only looks at the candidate's own company-mates, while site presence is checked
+by site *name* across **both** players' companies (the `enqueue-site-wound-
+rolls`/Plague le-129 convention). The eligibility loop offers a candidate once
+it satisfies *any one* mode's `filter` + `requiresCompanionSkill` pair. Used by
+*Gnaw with Words* (dm-60): "Tap a sage if another sage is in his company or at
+his current site or at his new site. Alternatively, tap a diplomat if another
+diplomat is in his company or at his current site or at his new site." — two
+`tap-character` effects, `filter: { "skills": { "$includes": "sage" } }` +
+`requiresCompanionSkill: "sage"`, and the diplomat equivalent.
 
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 

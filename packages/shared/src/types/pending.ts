@@ -1303,6 +1303,18 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Chance of Being Lost (dm-49): the roll-then-swap dice-check passed
+         * and at least one eligible replacement site exists — the hazard
+         * player's own `siteDeck` entries whose region matches the moving
+         * company's destination site's region (or one of its
+         * `adjacentRegions`), excluding the destination site's own name. The
+         * hazard player picks one via `swap-new-site-choice`; mandatory (no
+         * pass — only enqueued when eligible candidates exist), mirroring
+         * `reveal-deck-choose-attacker`'s eligibility-gated enqueue.
+         */
+        readonly type: 'swap-new-site-choice';
+        /** The moving company whose destination site is being replaced. */
+        readonly companyId: CompanyId;
          * A card fetched to hand by an `enqueue-pending-fetch` with
          * `mustPlayOrDiscard: true` must be resolved before anything else:
          * play it immediately at the bearer's site, or discard it. Blocks

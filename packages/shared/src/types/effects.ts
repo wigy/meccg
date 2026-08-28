@@ -2258,7 +2258,8 @@ export type TriggeredActionType =
   | 'win-game'
   | 'transfer-item-free'
   | 'reattach-to-item'
-  | 'declare-virtual-site-movement';
+  | 'declare-virtual-site-movement'
+  | 'offer-swap-new-site';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -3642,6 +3643,21 @@ export interface RestoreItemAction extends TriggeredActionBase {
 }
 
 /**
+ * `offer-swap-new-site` — a `dice-check`'s `onPass` branch (Chance of Being
+ * Lost, dm-49): the roll succeeded, so compute the eligible replacement
+ * sites for the moving company named by the dice-check's `targetCompanyId`
+ * — the hazard player's own `siteDeck` entries whose region matches the
+ * company's destination site's region or one of its `adjacentRegions`,
+ * excluding the destination site's own name. If any exist, enqueue a
+ * `swap-new-site-choice` pending resolution so the hazard player picks one;
+ * otherwise the "must replace" clause has nothing to bite on and the branch
+ * is a no-op. See {@link RollThenSwapNewSiteEffect}.
+ */
+export interface OfferSwapNewSiteAction extends TriggeredActionBase {
+  readonly type: 'offer-swap-new-site';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -3719,7 +3735,8 @@ export type TriggeredAction =
   | TransferItemFreeAction
   | ReattachToItemAction
   | RestoreItemAction
-  | DeclareVirtualSiteMovementAction;
+  | DeclareVirtualSiteMovementAction
+  | OfferSwapNewSiteAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -7084,7 +7101,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'card-stored-at-site' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'region-movement' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'card-stored-at-site' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -7138,6 +7155,12 @@ export interface PlayConditionEffect extends EffectBase {
    * regions appears in its resolved site path excluding the destination
    * region (the region where the company stops at a site). Used by Cruel
    * Caradhras (td-9).
+   *
+   * For `requires: 'region-movement'`: no extra payload — the card is only
+   * playable on a company using **region** movement (`movementType ===
+   * 'region'`), with no named-region restriction (unlike
+   * `region-through-or-leave`). Used by Chance of Being Lost (dm-49):
+   * "Playable on a moving company using region movement …".
    */
   readonly regionNames?: readonly string[];
   /**
@@ -9491,7 +9514,8 @@ export type CardEffect =
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
   | SwapNewSiteEffect
-  | ActsAsSiteEffect;
+  | ActsAsSiteEffect
+  | RollThenSwapNewSiteEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
@@ -9887,6 +9911,21 @@ export interface TapCharacterEffect extends EffectBase {
    * character definition). Absent = any character in play.
    */
   readonly filter?: Condition;
+  /**
+   * Optional dynamic gate: the target is only eligible if some *other*
+   * character carrying this skill is in the target's own company, at the
+   * target company's current site, or at its destination site (if moving) —
+   * "another sage is in his company or at his current site or at his new
+   * site". Site presence is checked by site *name* across both players'
+   * companies (same convention as `enqueue-site-wound-rolls`); company
+   * membership is checked among the target's own company-mates only.
+   * Evaluated by `hasNearbySkillmate` (`legal-actions/movement-hazard.ts`).
+   * A card may carry more than one `tap-character` effect for "Alternatively"
+   * modes with different `filter`/`requiresCompanionSkill` pairs (e.g. Gnaw
+   * with Words dm-60: sage-or-diplomat) — a candidate is eligible if it
+   * satisfies any one mode.
+   */
+  readonly requiresCompanionSkill?: Skill;
 }
 
 /**
@@ -10294,6 +10333,48 @@ export interface ActsAsSiteEffect extends EffectBase {
    * handling (which does not apply — this was never a real site card).
    */
   readonly discardOnLeaveSite: boolean;
+}
+
+/**
+ * Roll-gated variant of the cross-player new-site swap: unlike
+ * {@link SwapNewSiteEffect} (an unconditional swap), the replacement only
+ * happens if a 2d6 roll — modified by {@link rangerModifier} for every
+ * ranger-skilled character in the moving company — exceeds
+ * {@link threshold}. Used by Chance of Being Lost (dm-49): "Playable on a
+ * moving company using region movement if opponent is using the same type of
+ * location deck (minion/hero) as yourself. Make a roll modified by -2 for
+ * each ranger in the company. If the result is greater than 6, you must
+ * replace company's new site card with a different site from your location
+ * deck that is located in the same region or an adjacent region as the
+ * company's new site."
+ *
+ * ```json
+ * { "type": "play-condition", "requires": "region-movement" },
+ * { "type": "play-condition", "requires": "player-state",
+ *   "condition": { "player.sameLocationDeckTypeAsOpponent": true } },
+ * { "type": "roll-then-swap-new-site", "threshold": 6, "rangerModifier": -2 }
+ * ```
+ *
+ * Played via `handleRollThenSwapNewSite` (`mh-hazard-play.ts`), which discards
+ * the short-event and enqueues a generic `dice-check` pending resolution
+ * (`modifiers: [{ kind: 'constant', value: rangerCount * rangerModifier }]`,
+ * `comparison: 'gt'`) whose `onPass` is `{ type: 'offer-swap-new-site' }`. That
+ * branch (`applyDiceCheckBranch`, `pending-reducers.ts`) computes the eligible
+ * replacement sites — the hazard player's own `siteDeck` entries whose region
+ * is the destination site's region or one of its `adjacentRegions`, excluding
+ * the destination site's own name (CoE "a *different* site") — and, if any
+ * exist, enqueues a `swap-new-site-choice` resolution so the hazard player
+ * picks one (`swapNewSiteChoiceActions` / `applySwapNewSiteChoiceResolution`).
+ * A failed roll, or a passed roll with no eligible replacement, ends the
+ * effect with no further consequence — the "must replace" clause has nothing
+ * to bite on.
+ */
+export interface RollThenSwapNewSiteEffect extends EffectBase {
+  readonly type: 'roll-then-swap-new-site';
+  /** The 2d6 total (after `rangerModifier`) must exceed this ("greater than 6" → 6). */
+  readonly threshold: number;
+  /** Per-ranger roll modifier summed for every ranger-skilled character in the moving company (-2). */
+  readonly rangerModifier: number;
 }
 
 /**

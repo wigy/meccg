@@ -46,7 +46,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, isCardNameEffectCanceled, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -925,6 +925,48 @@ export function riddlingGuessActions(
     },
     viable: true,
   }));
+}
+
+/**
+ * Compute the `swap-new-site-choice` actions for a queued
+ * `swap-new-site-choice` resolution (Chance of Being Lost, dm-49), following
+ * a passed roll-then-swap dice-check. One action per eligible site left in
+ * the hazard player's own `siteDeck` — a different site (by name) than the
+ * moving company's current destination, in the destination's region or a
+ * region adjacent to it. The resolution is only enqueued when this list is
+ * non-empty (mandatory — no pass), so an empty result here would signal a
+ * state/resolution mismatch rather than a legitimate "nothing to choose".
+ */
+export function swapNewSiteChoiceActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'swap-new-site-choice') return [];
+  const { companyId } = top.kind;
+
+  const hazardPlayer = playerById(state, playerId);
+  if (!hazardPlayer) return [];
+  const owner = state.players.find(p => companyById(p.companies, companyId));
+  const company = owner ? companyById(owner.companies, companyId) : undefined;
+  const destination = company?.destinationSite;
+  if (!destination) return [];
+  const destDef = defById(state, destination.definitionId);
+  if (!destDef || !isSiteCard(destDef)) return [];
+
+  const eligible = regionAdjacentSwapEligibleSites(state, hazardPlayer.siteDeck, destDef);
+  return eligible.map(inst => {
+    const siteDef = defById(state, inst.definitionId);
+    return {
+      action: {
+        type: 'swap-new-site-choice' as const,
+        player: playerId,
+        replacementSiteInstanceId: inst.instanceId,
+        explanation: `Replace "${destDef.name}" with "${siteDef?.name ?? '?'}"`,
+      },
+      viable: true,
+    };
+  });
 }
 
 /**
