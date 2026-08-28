@@ -78,6 +78,7 @@ export function siteMatchesEntry(
   effectiveSiteType: SiteType = siteDef.siteType,
   regionType?: RegionType,
   isUnderDeepsSurface = false,
+  dragonAtHomeVictory = false,
 ): boolean {
   if ('region' in entry) {
     // Region entries match any non-haven site in the named region.
@@ -120,9 +121,25 @@ export function siteMatchesEntry(
       // site. Together with the `under-deeps` keyword this lets a faction/ally
       // gate on "not an Under-deeps site or surface site thereof" (ba-80).
       isUnderDeepsSurface,
+      // True when an at-home Dragon manifestation was ever defeated at this
+      // site (`GameState.dragonAtHomeVictorySiteIds`), regardless of which
+      // company won or whether it remains in play. Lets a faction/ally gate on
+      // "a site where an at home Dragon manifestation was defeated" (Returned
+      // Exiles td-146).
+      dragonAtHomeVictory,
     },
   };
   return matchesCondition(entry.when, ctx);
+}
+
+/**
+ * True if an at-home Dragon manifestation was ever fully defeated at
+ * `siteDefId` — recorded permanently in {@link GameState.dragonAtHomeVictorySiteIds}
+ * by `combat-finalize.ts`. See {@link siteMatchesEntry}'s `dragonAtHomeVictory`
+ * parameter, which this feeds.
+ */
+export function siteHasDragonAtHomeVictory(state: GameState, siteDefId: CardDefinitionId): boolean {
+  return (state.dragonAtHomeVictorySiteIds ?? []).includes(siteDefId);
 }
 
 /**

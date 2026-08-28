@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -2204,7 +2204,7 @@ export function playResourcesActions(
       // `nothingPlayableAsWritten` (Hidden Haven) does NOT gate allies: an ally's
       // playability is written on the ally card naming the site, not on the site
       // card's printed resource list — so it survives the conversion.
-      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType, siteRegionTypeOf(state, siteDefForAlly), isUnderDeepsSurfaceSite(state, siteDefForAlly)));
+      const matchesPlayableAt = siteDefForAlly !== undefined && allyDef.playableAt.some(entry => siteMatchesEntry(siteDefForAlly, entry, allyEffSiteType, siteRegionTypeOf(state, siteDefForAlly), isUnderDeepsSurfaceSite(state, siteDefForAlly), siteHasDragonAtHomeVictory(state, siteDefForAlly.id)));
       const matchesPlayTarget = siteDefForAlly !== undefined && sitePlayTarget !== undefined
         && (!sitePlayTarget.filter || matchesDefinition({ ...siteDefForAlly, siteType: allyEffSiteType ?? siteDefForAlly.siteType }, sitePlayTarget.filter));
       // Glove of Radagast (wh-111): a `grant-ally-play` permission on a company
@@ -2410,7 +2410,7 @@ export function playResourcesActions(
         : siteDefForFaction?.siteType;
       const factionRegionType = siteRegionTypeOf(state, siteDefForFaction);
       const factionSiteIsUnderDeepsSurface = isUnderDeepsSurfaceSite(state, siteDefForFaction);
-      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType, factionRegionType, factionSiteIsUnderDeepsSurface))) {
+      if (!siteDefForFaction || !factionDef.playableAt.some(entry => siteMatchesEntry(siteDefForFaction, entry, factionEffSiteType, factionRegionType, factionSiteIsUnderDeepsSurface, siteHasDragonAtHomeVictory(state, siteDefForFaction.id)))) {
         const allowedSites = factionDef.playableAt.map(e => 'region' in e ? `region:${e.region}` : 'any' in e ? 'any-qualifying-site' : 'site' in e ? e.site : e.siteType).join(', ');
         logDetail(`Faction ${factionDef.name}: not playable at ${siteName} (requires ${allowedSites})`);
         actions.push(notPlayable(playerId, cardInstanceId, `${factionDef.name}: not playable at ${siteName}`));
@@ -2567,6 +2567,15 @@ export function playResourcesActions(
               // Named regions of the influencer's home site(s), for faction
               // standard modifications keyed to home region (Wild Horses wh-39).
               homesiteRegions: characterHomeSiteRegions(state, charDef),
+              // Names of items borne by the influencer — including character-
+              // attached permanent events, which are stored in `items` (there
+              // is no separate attached-event zone; see `keyword-replaced.ts`).
+              // Lets a faction's printed modification target a named card
+              // holder, e.g. Returned Exiles (td-146): "King under the
+              // Mountain Dwarf (+5)" via `bearer.itemNames`.
+              itemNames: fullCharacter.items
+                .map(it => defById(state, it.definitionId)?.name)
+                .filter((n): n is string => n !== undefined),
             },
             controller: buildFactionControllerContext(state, playerId),
           };
@@ -3501,7 +3510,7 @@ function opponentInfluenceActions(
     // Normally re-influence requires the active company to be at a site where
     // the faction is playable. Prophet of Doom's override influencer may reach
     // any of the opponent's in-play factions regardless of the current site.
-    const playableHere = factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, siteRegionTypeOf(state, siteDef), isUnderDeepsSurfaceSite(state, siteDef)));
+    const playableHere = factionDef.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, siteRegionTypeOf(state, siteDef), isUnderDeepsSurfaceSite(state, siteDef), siteHasDragonAtHomeVictory(state, siteDef.id)));
     const factionInfluencers = playableHere
       ? untappedCharacters
       : overrideInfluencer ? [overrideInfluencer] : [];

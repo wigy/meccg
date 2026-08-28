@@ -143,6 +143,17 @@ export interface ResolverContext {
      */
     readonly homesiteRegions?: readonly string[];
     /**
+     * Names of items borne by the character — including character-attached
+     * permanent events, which are stored in `CharacterInPlay.items` alongside
+     * true items (there is no separate attached-event zone; see
+     * `keyword-replaced.ts`). Populated only in the `faction-influence-check`
+     * context. Lets a faction's printed modification target a named card
+     * holder, e.g. Returned Exiles (td-146): "King under the Mountain Dwarf
+     * (+5)" via `{ "bearer.itemNames": { "$includes": "King under the
+     * Mountain" } }`.
+     */
+    readonly itemNames?: readonly string[];
+    /**
      * The character's *printed* skills only — never merged with skills granted
      * by borne items/effects. Populated only in the effective-stats context
      * (alongside the item-merged `skills`), so a `stat-modifier`'s `when` can

@@ -1179,6 +1179,22 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         const atHomeDef = resolveDef(state, sourceInstId);
         const isDragonAtHome = ((atHomeDef as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [])
           .some(e => e.type === 'dragon-at-home');
+
+        // Returned Exiles (td-146): "Playable at a tapped or untapped site
+        // where an at home Dragon manifestation was defeated" — unlike King
+        // under the Mountain below, this is not restricted to Balin/Dáin
+        // II/Thorin II/Thráin II's own company (or excluded for Eärcaraxë at
+        // Home) and must survive the winning company disbanding, so it is
+        // recorded permanently on the site itself rather than on the
+        // defending characters. See `GameState.dragonAtHomeVictorySiteIds`.
+        if (isDragonAtHome && !(stateAfterCombat.dragonAtHomeVictorySiteIds ?? []).includes(siteDef.id)) {
+          logDetail(`Dragon-at-home victory tracking: recording ${siteDef.name} (${siteDef.id as string}) as a site where an at-home Dragon manifestation was defeated`);
+          stateAfterCombat = {
+            ...stateAfterCombat,
+            dragonAtHomeVictorySiteIds: [...(stateAfterCombat.dragonAtHomeVictorySiteIds ?? []), siteDef.id],
+          };
+        }
+
         const EARCARAXE_AT_HOME_ID = 'td-22' as CardDefinitionId;
         if (isDragonAtHome && atHomeDef?.id !== EARCARAXE_AT_HOME_ID) {
           const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
