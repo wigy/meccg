@@ -478,16 +478,40 @@ function findCancelAutoAttacksRule(
 
 /**
  * Evaluates a `cancel-auto-attacks` rule's `when` condition against the
- * card-name context `{ inPlayAnywhere, charactersInPlayAnywhere }` — the same
- * name lists the player-state context exposes, so a site condition reads
- * identically to a card condition ("while Radagast is in play", "while
- * Balrog of Moria is in play").
+ * card-name context `{ inPlayAnywhere, charactersInPlayAnywhere,
+ * defeatedAnywhere }` — the same name lists the player-state context
+ * exposes, so a site condition reads identically to a card condition
+ * ("while Radagast is in play", "while Balrog of Moria is in play", "once
+ * Balrog of Moria has been defeated").
  */
 function cancelAutoAttacksConditionMet(state: GameState, rule: CancelAutoAttacksSiteRule): boolean {
   return matchesContext(rule.when, {
     inPlayAnywhere: buildInPlayNames(state),
     charactersInPlayAnywhere: charactersInPlayNames(state),
+    defeatedAnywhere: defeatedNames(state),
   });
+}
+
+/**
+ * The card names of every card in either player's `killPile` or
+ * `outOfPlayPile` — the terminal piles a card lands in once defeated or
+ * removed from play (see {@link isManifestationDefeated}). Exposed to the
+ * DSL as `defeatedAnywhere` so a site condition can say "once has been
+ * defeated" without the effect staying tied to the card's continued
+ * presence in play. The Under-gates (dm-38 / as-165): "If Balrog of Moria
+ * is in play or if it ... has been defeated, the first automatic attack is
+ * canceled" — the "is in play" half reads `inPlayAnywhere`, the "has been
+ * defeated" half reads this.
+ */
+function defeatedNames(state: GameState): readonly string[] {
+  const names: string[] = [];
+  for (const player of state.players) {
+    for (const card of [...player.killPile, ...player.outOfPlayPile]) {
+      const def = defById(state, card.definitionId);
+      if (def && 'name' in def) names.push(def.name);
+    }
+  }
+  return names;
 }
 
 /**
@@ -657,6 +681,12 @@ function collectAtHomeAttacks(state: GameState, m: ManifestId): AutomaticAttack[
             strikes: attack.strikes,
             prowess: attack.prowess,
             ...(attack.body !== undefined ? { body: attack.body } : {}),
+            // King under the Mountain (td-126): lets `finalizeCombat`
+            // identify this attack as the augmented "at home" attack (as
+            // opposed to the lair's baseline printed attack) by resolving
+            // this instance's definition and checking for a `dragon-at-home`
+            // effect — mirrors `collectPermanentEventAttacks`'s `sourceInstanceId`.
+            sourceInstanceId: card.instanceId,
           });
         }
       }

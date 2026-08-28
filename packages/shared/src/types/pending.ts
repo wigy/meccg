@@ -847,6 +847,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Enduring Tales (dm-125): "When any player discards a card from his
+         * hand, he may discard it to the top of his play deck (and always
+         * face down) instead of to his discard pile." A game-wide
+         * `hand-discard-recycle-option` marker in either player's bare
+         * `cardsInPlay` makes every hand-to-discard-pile transition —
+         * regardless of which of the engine's many independent code paths
+         * caused it — optionally redirectable. Enqueued reactively as a
+         * prev/next diff (`hand-discard-recycle-trigger.ts`) once the
+         * discard has already landed in the owner's discard pile; the owner
+         * may move that exact instance to the top of their play deck
+         * (`recycle-hand-discard`) or leave it discarded (`pass`).
+         */
+        readonly type: 'hand-discard-recycle-offer';
+        /** The card instance now sitting in the owner's discard pile. */
+        readonly instanceId: CardInstanceId;
+        /** Name of the long-event granting the option, for logging. */
+        readonly sourceName: string;
+      }
+    | {
+        /**
          * My Precious (dm-29): after My Precious attacks and fails but survives,
          * the defender may tap one character in the target company to play the
          * agent's other manifestation (Gollum) from hand, after which My Precious
@@ -1354,7 +1374,9 @@ export type SiteFlag =
   /** Mallorn (dm-148): the bound site is always returned to the location deck rather than discarded when a company departs, even while tapped — the dynamic counterpart of the printed `always-return-to-deck` site-rule. */
   | 'site-always-returns-to-deck'
   /** War-forges (wh-83): one non-hoard, non-unique minor item is playable at the bound site this turn, whether the site is tapped or untapped, sourced from hand, the discard pile, or the sideboard. */
-  | 'war-forges-item-unlocked';
+  | 'war-forges-item-unlocked'
+  /** King under the Mountain (td-126): the bound site counts as a Dwarf-hold (the `dwarf-hold` site keyword) for every purpose that consults it. */
+  | 'dwarf-hold-override';
 
 /**
  * A scoped restriction on the legal actions available to some target.
@@ -2203,6 +2225,21 @@ export interface ActiveConstraint {
          * every character at the site (other than the item-player) checks.
          */
         readonly exemptFilter?: import('./effects.js').Condition;
+      }
+    | {
+        /**
+         * King under the Mountain (td-126): "Only Dwarves may play items at
+         * this site." Bound (scope `'until-cleared'`) to the site definition
+         * id where the target Dwarf's company defeated an at-home Dragon
+         * manifestation attack. Consumed by the item-play candidate-character
+         * filter in `legal-actions/site.ts` — only characters of {@link race}
+         * may bear a newly played item at the site.
+         */
+        readonly type: 'item-play-race-restriction';
+        /** The definition ID of the bound site (matches all versions). */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+        /** Only characters of this race may play items at the site. */
+        readonly race: Race;
       }
     | {
         /**

@@ -1496,16 +1496,19 @@ export function handleHalveStrikes(state: GameState, action: GameAction, combat:
 
 /**
  * Play a `protect-from-strike-assignment` short event from hand during the
- * assign-strikes phase. The targeted character is added to
- * `CombatState.protectedFromStrikeAssignment`, preventing any strike in the
- * current attack from being assigned to them. The card is discarded.
+ * assign-strikes phase. The targeted character (or, with `includeAllies`, an
+ * ally) is added to `CombatState.protectedFromStrikeAssignment`, preventing
+ * any strike in the current attack from being assigned to them. The card is
+ * discarded.
  *
  * Used by Ruse (le-225) mode B: play on a scout; no strikes may be assigned
  * to that scout for the rest of the current attack. Also used by Sojourn in
  * Shadows (wh-49): play on any character in a shadow-magic-using character's
  * company; the effect's optional `corruptionCheck` then forces that
  * shadow-magic user to make a corruption check (skipped if he's a
- * Ringwraith).
+ * Ringwraith). Also used by More Sense than You (td-140): play on an
+ * untapped character or ally (`requireUntapped`); the effect's `tapTarget`
+ * flag also taps the chosen target as a side effect of playing the card.
  */
 export function handleProtectFromStrikeAssignment(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'protect-from-assignment') return wrongActionType(state, action, 'protect-from-assignment');
@@ -1519,11 +1522,23 @@ export function handleProtectFromStrikeAssignment(state: GameState, action: Game
   const playedCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!playedCard) return { state, error: 'Card not in hand' };
 
-  const targetChar = defPlayer.characters[action.targetCharacterId];
-  if (!targetChar) return { state, error: 'Target character not in defending company' };
+  const protEff = getCardEffects(defById(state, playedCard.definitionId))
+    .find((e): e is ProtectFromStrikeAssignmentEffect => e.type === 'protect-from-strike-assignment');
+  if (!protEff) return { state, error: 'Card has no protect-from-strike-assignment effect' };
 
+  const targetChar = defPlayer.characters[action.targetCharacterId];
+  const targetAlly = targetChar ? null : findAttachment(defPlayer, 'allies', action.targetCharacterId);
+  if (!targetChar && !targetAlly) return { state, error: 'Target character or ally not in defending company' };
+  if (targetAlly && !protEff.includeAllies) return { state, error: 'This card cannot target an ally' };
+
+  const targetStatus = targetChar ? targetChar.status : targetAlly!.attachment.status;
+  if (protEff.requireUntapped && targetStatus !== CardStatus.Untapped) {
+    return { state, error: 'Target must be untapped' };
+  }
+
+  const targetDefinitionId = targetChar ? targetChar.definitionId : targetAlly!.attachment.definitionId;
   const cardName_ = cardName(state, playedCard.definitionId);
-  const targetName_ = cardName(state, targetChar.definitionId, action.targetCharacterId as string);
+  const targetName_ = cardName(state, targetDefinitionId, action.targetCharacterId as string);
   logDetail(`${cardName_} played — ${targetName_} is now protected from strike assignment this attack`);
 
   const newHand = removeById(defPlayer.hand, playedCard.instanceId);
@@ -1533,22 +1548,33 @@ export function handleProtectFromStrikeAssignment(state: GameState, action: Game
     ? alreadyProtected
     : [...alreadyProtected, action.targetCharacterId];
 
+  const tap = <A extends { status: CardStatus }>(a: A): A => ({ ...a, status: CardStatus.Tapped });
+
   let nextState: GameState = {
     ...discardOrRecyclePlayedEvent(
-      updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand })),
+      updatePlayer(state, defPlayerIndex, p => {
+        let updated = { ...p, hand: newHand };
+        if (protEff.tapTarget) {
+          updated = targetChar
+            ? updateCharacter(updated, action.targetCharacterId, tap)
+            : (updateAttachment(updated, 'allies', action.targetCharacterId, tap)?.player ?? updated);
+        }
+        return updated;
+      }),
       defPlayerIndex,
       toCardInstance(playedCard),
     ),
     combat: { ...combat, protectedFromStrikeAssignment: newProtected },
   };
+  if (protEff.tapTarget) {
+    logDetail(`${targetName_} is tapped (${cardName_})`);
+  }
 
   // Sojourn in Shadows (wh-49): "Unless he is a Ringwraith, the shadow-magic
   // using character makes a corruption check modified by -4." If any
   // qualifying shadow-magic user in the target's company is a Ringwraith, no
   // check is made at all (matches A Malady Without Healing le-159's caster
   // rule, reducer-events.ts).
-  const protEff = getCardEffects(defById(state, playedCard.definitionId))
-    .find((e): e is ProtectFromStrikeAssignmentEffect => e.type === 'protect-from-strike-assignment');
   if (protEff?.corruptionCheck) {
     const targetCompany = findCharacterCompany(defPlayer.companies, action.targetCharacterId);
     const users = targetCompany ? companyShadowMagicUsers(state, defPlayer, targetCompany) : [];

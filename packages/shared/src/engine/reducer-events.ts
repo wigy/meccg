@@ -627,6 +627,27 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
   }
 
+  // A short event that retypes a named region (Master of Wood, Water, or
+  // Hill td-136: "change one Wilderness to a Border-land or Shadow-land...")
+  // is an action like any other, so per CoE 9.4/9.5 it must be declared on
+  // the chain of effects. Tapping the sage above was an active condition of
+  // the declaration (rule 9.5.2) and is therefore already paid; the card
+  // leaves the hand and rides the chain entry, carrying the chosen region
+  // and its new type. `resolveEntry` installs the permanent region-type
+  // override and the follow-up corruption check once both players pass
+  // priority.
+  if (action.targetRegionName && action.newRegionType && def.effects?.some(e => e.type === 'region-transform')) {
+    logDetail(`${def.name} → chain of effects (region ${action.targetRegionName} → ${action.newRegionType} resolves on chain resolution)`);
+    const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      regionTransformName: action.targetRegionName,
+      regionTransformType: action.newRegionType,
+      ...(action.targetScoutInstanceId ? { costTapCharacterId: action.targetScoutInstanceId } : {}),
+    };
+    return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
+  }
+
   // The sweep sibling of the branch above: a short event that discards *every*
   // matching card in play (Wizard's River-horses tw-364, "All Nazgûl events are
   // discarded"). Same chain treatment — the opponent is owed a response window

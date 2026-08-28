@@ -21,6 +21,7 @@
 
 import type { CardDefinitionId, CompanyId, Keyword, MarshallingCategory, PlayerId, Race, RegionType, SiteType, Skill } from './common.js';
 import type { SiteRuleEffect } from './effects/site-rules.js';
+import type { AutomaticAttack, PlayableResourceType } from './cards-sites.js';
 
 // ---- Value Expressions ----
 
@@ -2256,7 +2257,8 @@ export type TriggeredActionType =
   | 'win-condition-roll'
   | 'win-game'
   | 'transfer-item-free'
-  | 'reattach-to-item';
+  | 'reattach-to-item'
+  | 'declare-virtual-site-movement';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -2707,6 +2709,18 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly subtype?: string;
   /** Override target type for site-type-override / region-type-override. */
   readonly overrideType?: string;
+  /**
+   * Overrides how a site-bound add-constraint resolves its site, for a
+   * character-targeted permanent event whose site is not the active
+   * company's current site. `'dragon-at-home-victory'` resolves the bound
+   * site from the play-target character's own `dragonAtHomeVictorySiteId`
+   * (King under the Mountain td-126: "The site where the Dragon was
+   * defeated becomes a Border-hold …" — the site is determined by the
+   * targeted Dwarf's recorded history, not by where the card is played).
+   * Omit for the default resolution (active company's current site, or the
+   * card's own `targetSiteDefinitionId` play target).
+   */
+  readonly siteFrom?: 'dragon-at-home-victory';
   /**
    * For a `site-type-override` add-constraint: restricts the override to a
    * subset of game purposes.
@@ -3441,6 +3455,23 @@ export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer';
 }
 
+/**
+ * `declare-virtual-site-movement` — resolves an `acts-as-site` card's
+ * `on-event: self-enters-play` trigger (Wondrous Maps td-171, Refuge td-145).
+ * Sets the target company's `destinationSite` to the resolving card's own
+ * instance (sharing its instance ID between the `cardsInPlay` entry and the
+ * `SiteInPlay` entry — see {@link ActsAsSiteEffect}) instead of drawing a
+ * card from the site deck. Fizzles (no-op, card stays in play inert) if the
+ * target company already has a destination or has no current site to measure
+ * region movement from. The declared path's legality (region movement only,
+ * last region matching `requiredLastRegionType`) is validated later, when
+ * the company's own M/H phase resolves `declare-path` — mirrors Master of
+ * Esgaroth's (td-135) deferred `requiresDestinationSiteType` check.
+ */
+export interface DeclareVirtualSiteMovementAction extends TriggeredActionBase {
+  readonly type: 'declare-virtual-site-movement';
+}
+
 /** `shuffle-deck-top` — shuffle the top `count` cards of a player's play deck in place. */
 export interface ShuffleDeckTopAction extends TriggeredActionBase {
   readonly type: 'shuffle-deck-top';
@@ -3677,7 +3708,8 @@ export type TriggeredAction =
   | TraitorAttackAction
   | TransferItemFreeAction
   | ReattachToItemAction
-  | RestoreItemAction;
+  | RestoreItemAction
+  | DeclareVirtualSiteMovementAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -5178,6 +5210,48 @@ export interface RegionTypeConversionEffect extends EffectBase {
 }
 
 /**
+ * One from→to choice offered by a {@link RegionTransformEffect} (Master of
+ * Wood, Water, or Hill, td-136: "change one Wilderness to a Border-land or
+ * Shadow-land or one Shadow-land to a Wilderness or one Border-land to a
+ * Wilderness"). Unlike {@link RegionTypeConversionEffect} (bound to a site
+ * card while it stays in play, creature-keying only) this is a one-shot,
+ * player-chosen retype of a single **named** region, permanent — visible to
+ * every consumer of {@link import('../engine/effective.js').getEffectiveRegionType}
+ * (movement, creature keying, detainment), not just keying.
+ */
+export interface RegionTransformOption {
+  /** The region's current effective type required to offer this choice. */
+  readonly from: RegionType;
+  /** The type the region becomes if this choice is picked. */
+  readonly to: RegionType;
+}
+
+/**
+ * A resource short-event (Master of Wood, Water, or Hill, td-136) that lets
+ * the player retype one named region on the map, chosen at play time from
+ * every region whose current effective type matches an {@link options} entry's
+ * `from`. Combined with a `play-target` tap-cost effect naming the sage who
+ * pays the ritual's cost.
+ *
+ * Resolved as a top-level effect when the carrying short-event resolves on
+ * the chain of effects (CoE 9.4/9.5): `handlePlayResourceShortEvent`
+ * (`reducer-events.ts`) pushes the chosen region name/type onto the chain
+ * entry payload (`regionTransformName` / `regionTransformType`); on
+ * un-negated resolution `applyShortEventRegionTransform`
+ * (`short-event-discard.ts`) installs a permanent (`until-cleared`)
+ * `region.type` `override` `attribute-modifier` constraint filtered on the
+ * region's name, and enqueues the sage's follow-up corruption check (rule
+ * 7.4: skipped when the tapped cost-payer is an ally).
+ */
+export interface RegionTransformEffect extends EffectBase {
+  readonly type: 'region-transform';
+  /** The from→to choices offered; a region qualifies if its effective type matches any `from`. */
+  readonly options: readonly RegionTransformOption[];
+  /** Modifier applied to the sage's follow-up corruption check (default 0). */
+  readonly corruptionCheck?: { readonly modifier: number };
+}
+
+/**
  * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
  * end of the turn, every character at the bound site (except the one playing
  * the item) must make a corruption check each time an item is played at the
@@ -5256,6 +5330,23 @@ export interface PlayWindowEffect extends EffectBase {
    * the ended attack matches.
    */
   readonly when?: Condition;
+  /**
+   * When `true`, this window is an *addition* to — not a replacement of —
+   * the CoE 2.1.1 default ("any phase of the resource player's own turn").
+   * On the owner's own turn `phase` is ignored entirely (any phase remains
+   * legal, matching a card with no `play-window` at all); the restriction
+   * only bites when the card is offered to its owner during the
+   * **opponent's** turn, where it may be played solely during the named
+   * `phase`. Used by Sated Beast (td-149): "This card may also be played
+   * during opponent's movement/hazard phase" — `{ phase:
+   * "movement-hazard", crossTurn: true }`. Consulted by
+   * `heroResourceShortEventActions` (`legal-actions/long-event.ts`), whose
+   * one cross-turn call site is the hazard-side branch of the M/H
+   * `play-hazards` step (`legal-actions/movement-hazard.ts`); every other
+   * call site only ever runs for the resource player's own turn, so
+   * `crossTurn` is a no-op there.
+   */
+  readonly crossTurn?: boolean;
 }
 
 /**
@@ -6070,14 +6161,14 @@ export interface HalveStrikesEffect extends EffectBase {
 
 /**
  * Played from hand as a short event during the assign-strikes phase, targeting
- * a character in the defending company meeting the eligibility gate (a
- * required skill and/or a generic `filter`). No strike from the current
- * attack may be assigned to that character for the rest of the attack's
- * assign-strikes phase.
+ * a character (or, with `includeAllies`, an ally) in the defending company
+ * meeting the eligibility gate (a required skill and/or a generic `filter`).
+ * No strike from the current attack may be assigned to that target for the
+ * rest of the attack's assign-strikes phase.
  *
  * Unlike `cancel-attack` (which cancels the entire attack), this only prevents
- * assignment to the targeted character — other characters may still be assigned
- * strikes normally.
+ * assignment to the targeted character/ally — other company members may still
+ * be assigned strikes normally.
  *
  * Used by Ruse (le-225) mode B: play on a scout facing an attack; no strikes
  * of the attack may be assigned to the scout — `requiredSkill: "scout"`.
@@ -6088,6 +6179,13 @@ export interface HalveStrikesEffect extends EffectBase {
  * `target.*` character fields plus `company.hasShadowMagicUser`) — and
  * `corruptionCheck` forces the company's shadow-magic user (skipped entirely
  * if a Ringwraith qualifies) to check at the given modifier.
+ *
+ * More Sense than You (td-140): "Playable before strikes are assigned on an
+ * untapped character or ally … Tap target character or ally. He may not be
+ * assigned a strike from this attack." — `includeAllies: true` widens the
+ * candidate pool to allies (in addition to characters), `requireUntapped:
+ * true` restricts eligibility to untapped targets, and `tapTarget: true` taps
+ * the chosen target as a side effect of playing the card.
  */
 export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
   readonly type: 'protect-from-strike-assignment';
@@ -6097,9 +6195,29 @@ export interface ProtectFromStrikeAssignmentEffect extends EffectBase {
    * Generic eligibility filter, evaluated per candidate character against
    * `{ target: { race, status, skills, name, mind, keywords, itemKeywords,
    * itemNames, isAvatar, homeSiteTypes }, company: { skills, hasShadowMagicUser } }`.
-   * Combined with `requiredSkill` via AND when both are present.
+   * Combined with `requiredSkill` via AND when both are present. Not
+   * evaluated against ally candidates (`includeAllies`) — only `requireUntapped`
+   * applies to those.
    */
   readonly filter?: Condition;
+  /**
+   * When true, allies hosted by the defending company are also eligible
+   * targets, not just characters (More Sense than You td-140: "character or
+   * ally"). `requiredSkill`/`filter` are not evaluated against ally candidates.
+   */
+  readonly includeAllies?: true;
+  /**
+   * When true, only an untapped candidate (character or ally) is a legal
+   * target — a tapped candidate is skipped entirely (More Sense than You
+   * td-140: "on an untapped character or ally").
+   */
+  readonly requireUntapped?: true;
+  /**
+   * When true, playing this card taps the chosen target as a side effect,
+   * in addition to protecting it from strike assignment (More Sense than You
+   * td-140: "Tap target character or ally.").
+   */
+  readonly tapTarget?: true;
   /**
    * When present, playing this protection also forces a corruption check
    * (CoE "unless he is a Ringwraith" wording): the company's shadow-magic
@@ -7715,6 +7833,18 @@ export interface AhuntAttackEffect extends EffectBase {
     readonly regionNames?: readonly string[];
     readonly regionTypes?: readonly string[];
   };
+  /**
+   * When `true`, this ahunt attack also matches any company whose origin
+   * (`currentSite`) or declared destination (`destinationSite`) is an
+   * Under-deeps site — regardless of `regionNames`/`regionTypes` — matching
+   * the printed clause "moving to or from an Under-deeps site". Under-deeps
+   * movement has no region path (`resolvedSitePathNames` is empty), so this
+   * flag is checked independently of the name/type path match. Used by
+   * Earth-tremors (dm-53): "Any company moving to or from an Under-deeps
+   * site faces an attack…". See {@link isUnderDeepsSiteRef} in
+   * `reducer-utils.ts`.
+   */
+  readonly underDeepsMove?: boolean;
 }
 
 /**
@@ -9150,6 +9280,7 @@ export type CardEffect =
   | RegionTypeRemapEffect
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
+  | RegionTransformEffect
   | ItemPlayCorruptionCheckEffect
   | TapAtSiteEffect
   | PlayTargetEffect
@@ -9263,6 +9394,7 @@ export type CardEffect =
   | RingwraithFollowerSlotsEffect
   | RingwraithSelfFollowerEffect
   | MagicDiscardToDeckEffect
+  | HandDiscardRecycleOptionEffect
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
@@ -9339,7 +9471,8 @@ export type CardEffect =
   | RemovalProtectionEffect
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
-  | SwapNewSiteEffect;
+  | SwapNewSiteEffect
+  | ActsAsSiteEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
@@ -10073,6 +10206,75 @@ export interface SwapNewSiteEffect extends EffectBase {
    * types.
    */
   readonly requiresDestinationSitePathIncludes: readonly RegionType[];
+}
+
+/**
+ * A resource-event card that, once played, functions as its bearer company's
+ * site for as long as it remains attached — Wondrous Maps (td-171): "This
+ * card is used as a site card, Ruins & Lairs [{R}] …"; Refuge (td-145) is the
+ * sibling card. Paired with an `on-event: self-enters-play` effect whose
+ * `apply.type` is `declare-virtual-site-movement` (sets the target company's
+ * `destinationSite` to the card's own instance instead of drawing from the
+ * site deck — CoE 1.4's "no region cards" tournament note means this route
+ * never touches the location deck at all).
+ *
+ * A companion {@link import('./cards-sites.js').SiteCard}-shaped definition
+ * is synthesized from these fields at card-pool load time (`data/index.ts`,
+ * id `` `${this card's id}-site` ``) so every existing site-lookup path
+ * (`isSiteCard`, automatic attacks, playable resources, hazard/resource
+ * draws) treats it exactly like a real site once a company is there. The
+ * synthesized definition's `region`/`nearestHaven` are left empty so it can
+ * never be indexed into the shared movement graph (`buildMovementMap`) —
+ * it is reachable only via this card's own `declare-virtual-site-movement`
+ * apply, never as a generic movement destination.
+ */
+/**
+ * Suffix appended to an `acts-as-site` card's own definition id to form the
+ * id of its synthesized `SiteCard`-shaped companion definition (e.g.
+ * `td-171` → `td-171-site`). Shared between the card-pool loader (which
+ * synthesizes the companion) and the engine (which points a company's
+ * `destinationSite`/`currentSite` at it).
+ */
+export const ACTS_AS_SITE_ID_SUFFIX = '-site';
+
+export interface ActsAsSiteEffect extends EffectBase {
+  readonly type: 'acts-as-site';
+  /** The site type this card counts as while a company is there. */
+  readonly siteType: SiteType;
+  /** Automatic attacks faced on arrival, identical in shape to a real site's. */
+  readonly automaticAttacks: readonly AutomaticAttack[];
+  /** Resource subtypes playable while at this virtual site. */
+  readonly playableResources: readonly PlayableResourceType[];
+  /** Resource cards drawn per the normal site-phase draw box. */
+  readonly resourceDraws: number;
+  /** Hazard cards drawn per the normal site-phase draw box. */
+  readonly hazardDraws: number;
+  /**
+   * The only movement type that may be used to arrive at this virtual site —
+   * always `'region'` today (no printed site path exists for Starter
+   * Movement to key off). Enforced in `handleRevealNewSite`.
+   */
+  readonly requiredMovementType: 'region';
+  /**
+   * The declared region-movement path's last (site-adjacent) region must be
+   * of this type for the movement to resolve — e.g. `shadow-land` for
+   * Wondrous Maps. Enforced in `handleRevealNewSite` alongside
+   * {@link requiredMovementType}.
+   */
+  readonly requiredLastRegionType: RegionType;
+  /**
+   * "The company may only leave the site using region movement" — enforced
+   * in `planMovementActions` by excluding Starter Movement destinations
+   * while a company's `currentSite` resolves to this definition.
+   */
+  readonly leaveRequiresRegionMovement: boolean;
+  /**
+   * "Discard [this card] when the company moves to a new site" — enforced in
+   * `endCompanyMH`'s site-of-origin teardown, discarding this card's own
+   * instance from `cardsInPlay` instead of the normal site-deck/discard-pile
+   * handling (which does not apply — this was never a real site card).
+   */
+  readonly discardOnLeaveSite: boolean;
 }
 
 /**
@@ -11025,6 +11227,34 @@ export interface MagicDiscardToDeckEffect extends EffectBase {
 }
 
 /**
+ * Game-wide passive marker carried by a bare in-play permanent-/long-event in
+ * **either** player's `cardsInPlay`: whenever *any* player discards a card
+ * from their hand — through any of the engine's many independent
+ * hand-to-discard-pile paths (voluntary end-of-turn discard, hand-size
+ * reduction, a forced discard, a cost payment, etc.) — that player may choose
+ * to place the discarded card on top of their own play deck (face down)
+ * instead of leaving it in their discard pile.
+ *
+ * Because there is no single call site for "a card left the hand and reached
+ * the discard pile," the engine detects it reactively as a prev/next diff
+ * after every reducer step (`hand-discard-recycle-trigger.ts`, the same
+ * pattern `hand-discard-trigger.ts` uses for Pale Dream-maker's corruption
+ * check) and offers the choice via a `hand-discard-recycle-offer` pending
+ * resolution — the card has already landed in the discard pile by the time
+ * the offer is made, and accepting moves that exact instance to the top of
+ * the play deck. Unlike `magic-discard-to-deck` this is optional, unscoped by
+ * card type, and applies to *either* player's discards, not just the
+ * marker's owner.
+ *
+ * Used by *Enduring Tales* (dm-125): "When any player discards a card from
+ * his hand, he may discard it to the top of his play deck (and always face
+ * down) instead of to his discard pile."
+ */
+export interface HandDiscardRecycleOptionEffect extends EffectBase {
+  readonly type: 'hand-discard-recycle-option';
+}
+
+/**
  * When a strike against the bearer succeeds (would wound), the wound is
  * prevented. Instead, the attacker rolls 2d6; if the result strictly exceeds
  * {@link rollThreshold}, this item is discarded from the bearer.
@@ -11252,6 +11482,12 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
    * Exhalation of Decay). Added directly to the creature's combat prowess.
    */
   readonly prowessModifier: number;
+  /**
+   * Signed modifier applied to the spawned attack's body (e.g. -1 for In
+   * Great Wrath, dm-66). Added directly to the creature's combat body. Absent
+   * when the card does not modify body (Exhalation of Decay).
+   */
+  readonly bodyModifier?: number;
 }
 
 /**

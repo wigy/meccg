@@ -887,6 +887,19 @@
           "High Pass",
           "Redhorn Gate"
         ]
+      },
+      {
+        "siteInRegionNames": [
+          "Anduin Vales",
+          "Wold & Foothills",
+          "High Pass",
+          "Redhorn Gate"
+        ],
+        "when": {
+          "destinationSite.siteType": {
+            "$ne": "haven"
+          }
+        }
       }
     ],
     "effects": [
@@ -923,7 +936,8 @@
         }
       }
     ],
-    "text": "Men. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Anduin Vales, Wold & Foothills, High Pass, and Redhorn Gate; and may also be played at non-Haven sites in these regions. May not be played against a company containing a character with Beorn’s House as a home site."
+    "text": "Men. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Anduin Vales, Wold & Foothills, High Pass, and Redhorn Gate; and may also be played at non-Haven sites in these regions. May not be played against a company containing a character with Beorn’s House as a home site.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-creature",

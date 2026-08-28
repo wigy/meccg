@@ -17,7 +17,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
 import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from './combat-strike.js';
-import { findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
+import { assignStrikeActions, findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
 import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleEnableMultiStrikeOption, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer, handleCancelPrisonerTaking, finalizeCombatFromCancelPrisonerTakingOffer, handleCaptureInLieuOfBodyCheck } from './combat-actions.js';
@@ -494,6 +494,20 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
     if (combat.strikesTotal <= 0) {
       logDetail('Combat pass: attack has zero strikes — attack fizzles, finalizing combat');
       return finalizeCombat(state);
+    }
+    // No character or ally in the company can ever be assigned a strike (all
+    // excluded by protect-from-strike-assignment/strike-shield/no-attack/
+    // site-keyed immunity) — e.g. More Sense than You (td-140) protecting the
+    // sole character of a solo company. The attacker's assignment pool is the
+    // more permissive of the two phases (it ignores tapped status), so if even
+    // it has no non-pass option, the attack can never land: fizzle immediately
+    // rather than bouncing forever between phases that only ever offer pass.
+    if (!combat.isCvCC && (combat.assignmentPhase === 'defender' || combat.assignmentPhase === 'attacker')) {
+      const attackerOptions = assignStrikeActions(state, combat.attackingPlayerId, { ...combat, assignmentPhase: 'attacker' });
+      if (attackerOptions.every(a => a.action.type === 'pass')) {
+        logDetail('Combat pass: no character or ally can ever be assigned a strike — attack fizzles, finalizing combat');
+        return finalizeCombat(state);
+      }
     }
   }
 

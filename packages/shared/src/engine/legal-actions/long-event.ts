@@ -17,15 +17,15 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState, Company } from '../../index.js';
-import type { PlayOptionEffect } from '../../types/effects.js';
+import type { PlayOptionEffect, RegionTransformEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { isResourceEventCard, isSiteCard, isAllyCard } from '../../types/cards.js';
-import { CardStatus, cardStatusToName } from '../../types/common.js';
+import { CardStatus, cardStatusToName, type RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, withdrawAgentTargetActions } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, withdrawAgentTargetActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -206,6 +206,14 @@ export function heroResourceShortEventActions(
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
+  // CoE 2.1.1 default is "any phase of the resource player's own turn" — every
+  // existing call site of this function already only runs for the resource
+  // player's own turn (playerId === state.activePlayer). The sole exception is
+  // the hazard-side branch of the M/H `play-hazards` step
+  // (`movement-hazard.ts`), added for Sated Beast (td-149)-style cards that
+  // carry `play-window: { crossTurn: true }` — playable during the opponent's
+  // matching phase too. isOwnTurn distinguishes the two below.
+  const isOwnTurn = state.activePlayer === playerId;
   const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack', 'goodwill-cancel-attack', 'riddling-attempt', 'join-combat-force-strike']);
   const inPlayNames = buildInPlayNames(state);
 
@@ -262,13 +270,23 @@ export function heroResourceShortEventActions(
     // Skip cards that declare a play-window restricting them to a
     // different phase/step (e.g. Stealth plays only at end-of-org).
     const playWindow = def.effects?.find(e => e.type === 'play-window') as
-      { phase?: string; step?: string; siteTypes?: readonly string[] } | undefined;
-    if (playWindow && playWindow.phase !== currentPhase) {
+      { phase?: string; step?: string; siteTypes?: readonly string[]; crossTurn?: boolean } | undefined;
+    if (!isOwnTurn) {
+      // Called from the M/H hazard-side branch for the non-active player:
+      // CoE 2.1.1's default window ("any phase of the resource player's own
+      // turn") does not apply — only a card with an explicit `crossTurn`
+      // allowance for this exact phase may be offered here. Skip everything
+      // else silently (no notPlayable spam for the rest of the hand).
+      if (!playWindow?.crossTurn || playWindow.phase !== currentPhase) continue;
+    } else if (playWindow && !playWindow.crossTurn && playWindow.phase !== currentPhase) {
       const where = `${playWindow.phase ?? '?'}${playWindow.step ? '/' + playWindow.step : ''}`;
       logDetail(`${def.name}: play-window restricts it to ${where}, not playable in ${currentPhase} phase`);
       actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played during ${playWindow.phase ?? 'a different phase'}${playWindow.step ? ' (' + playWindow.step + ')' : ''}`));
       continue;
     }
+    // A `crossTurn` window never restricts the owner's own-turn play (the
+    // default any-phase allowance still applies there) — only the opponent's-
+    // turn offering above is phase-gated.
 
     // When play-window declares a site-type restriction, enforce it against
     // the active company's current site. Only applies during the site phase
@@ -426,6 +444,22 @@ export function heroResourceShortEventActions(
       }
     }
 
+    // Collect eligible region-transform targets (Master of Wood, Water, or
+    // Hill td-136). See the identical block in organization.ts's
+    // `playResourceShortEventActions`.
+    const regionTransformEffect = def.effects?.find(
+      (e): e is RegionTransformEffect => e.type === 'region-transform',
+    );
+    let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
+    if (regionTransformEffect) {
+      regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
+      if (regionTransformTargets.length === 0) {
+        logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no eligible region to transform`));
+        continue;
+      }
+    }
+
     // "Discard every matching card in play" (Wizard's River-horses tw-364:
     // "All Nazgûl events are discarded"). Unlike the single-target shape above
     // there is nothing to choose — the mode is simply not playable while
@@ -509,6 +543,21 @@ export function heroResourceShortEventActions(
               cardInstanceId,
               ...(sageId ? { targetScoutInstanceId: sageId } : {}),
               discardTargetInstanceId: discardId,
+            },
+            viable: true,
+          });
+        }
+      } else if (regionTransformTargets) {
+        for (const { regionName, newRegionType } of regionTransformTargets) {
+          logDetail(`Resource short-event playable (sage ${String(sageId)}, region ${regionName} → ${newRegionType}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId,
+              ...(sageId ? { targetScoutInstanceId: sageId } : {}),
+              targetRegionName: regionName,
+              newRegionType,
             },
             viable: true,
           });
