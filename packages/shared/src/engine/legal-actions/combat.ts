@@ -28,7 +28,7 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition, constraintsOnCompany } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
