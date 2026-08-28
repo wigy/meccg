@@ -619,8 +619,14 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ChanceofBeingLost.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a moving company using region movement if opponent is using the same type of location deck (minion/hero) as yourself. Make a roll modified by -2 for each ranger in the company. If the result is greater than 6, you must replace company’s new site card with a different site from your location deck that is located in the same region or an adjacent region as the company’s new site."
+    "effects": [
+      { "type": "play-condition", "requires": "region-movement" },
+      { "type": "play-condition", "requires": "player-state",
+        "condition": { "player.sameLocationDeckTypeAsOpponent": true } },
+      { "type": "roll-then-swap-new-site", "threshold": 6, "rangerModifier": -2 }
+    ],
+    "text": "Playable on a moving company using region movement if opponent is using the same type of location deck (minion/hero) as yourself. Make a roll modified by -2 for each ranger in the company. If the result is greater than 6, you must replace company’s new site card with a different site from your location deck that is located in the same region or an adjacent region as the company’s new site.",
+    "certified": "2026-08-27"
   },
   {
     "cardType": "hazard-event",
