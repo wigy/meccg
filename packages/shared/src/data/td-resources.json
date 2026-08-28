@@ -1153,12 +1153,36 @@
     "unique": false,
     "eventType": "short",
     "keywords": [
+      "ritual",
       "sage-only"
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Ritual. Tap a sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land [{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}] to a Wilderness [{w}]. Sage makes a corruption check."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "region-transform",
+        "options": [
+          { "from": "wilderness", "to": "border" },
+          { "from": "wilderness", "to": "shadow" },
+          { "from": "shadow", "to": "wilderness" },
+          { "from": "border", "to": "wilderness" }
+        ]
+      }
+    ],
+    "text": "Sage only. Ritual. Tap a sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land [{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}] to a Wilderness [{w}]. Sage makes a corruption check.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hero-resource-event",

@@ -12900,6 +12900,63 @@ persists when its company leaves the anchored (Wizard)haven.
 Used by: *Girdle of Radagast* (wh-110) — "The Wizardhaven's region and all
 adjacent regions become Wilderness [{w}]."
 
+### 43c. `region-transform`
+
+A resource short-event that lets the player **permanently** retype one
+**named** region on the map, chosen at play time — the sibling of
+`region-type-conversion` for a one-shot, player-chosen change rather than a
+persistent, site-anchored one. Paired with a `play-target` `character` effect
+naming the sage who pays the ritual's tap cost.
+
+```json
+{
+  "type": "play-target",
+  "target": "character",
+  "filter": { "target.skills": { "$includes": "sage" } },
+  "cost": { "tap": "character" }
+},
+{
+  "type": "region-transform",
+  "options": [
+    { "from": "wilderness", "to": "border" },
+    { "from": "wilderness", "to": "shadow" },
+    { "from": "shadow", "to": "wilderness" },
+    { "from": "border", "to": "wilderness" }
+  ],
+  "corruptionCheck": { "modifier": 0 }
+}
+```
+
+`options` lists every offered `from`→`to` choice; a region qualifies if its
+**effective** current type (via `getEffectiveRegionType`, so an
+already-transformed region reads correctly) matches any option's `from`.
+`collectRegionTransformTargets` (`legal-actions/organization.ts`, shared by
+both generic short-event dispatchers) scans every named `region` card in the
+pool and offers one `play-short-event` action per (sage × matching region ×
+option) combination, carrying `targetRegionName` / `newRegionType`.
+
+Unlike the turn-scoped `region-type-override` add-constraint (Deeper Shadow,
+le-179 — bound to a moving company's destination), this installs a
+**permanent** (`scope: "until-cleared"`) `region.type` `override`
+`attribute-modifier` constraint filtered on the chosen region's name — nothing
+ever removes it, and `getEffectiveRegionType` (`engine/effective.ts`) folds it
+into every consumer (movement, creature keying, detainment), not just keying.
+
+Per CoE 9.4/9.5 the play rides the chain of effects, exactly like a
+discard-in-play short event (Marvels Told, td-134): `handlePlayResourceShortEvent`
+(`reducer-events.ts`) pays the sage's tap cost immediately, then pushes the
+card onto the chain carrying `regionTransformName`/`regionTransformType` (plus
+`costTapCharacterId`). On un-negated resolution `applyShortEventRegionTransform`
+(`short-event-discard.ts`, invoked from `chain-reducer.ts`) installs the
+constraint and enqueues the sage's follow-up corruption check (rule 7.4:
+skipped when the tap-cost payer is an ally, e.g. a sage ally).
+`corruptionCheck.modifier` defaults to `0` when omitted.
+
+Used by: *Master of Wood, Water, or Hill* (td-136) — "Sage only. Ritual. Tap a
+sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land
+[{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}]
+to a Wilderness [{w}]. Sage makes a corruption check."
+
 ### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target

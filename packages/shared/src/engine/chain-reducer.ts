@@ -49,7 +49,7 @@ import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
 import { findLongDarkReachCandidates, fizzleLongDarkReach } from './long-dark-reach.js';
-import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay } from './short-event-discard.js';
+import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay, applyShortEventRegionTransform } from './short-event-discard.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
 import { shuffle } from '../rng.js';
 
@@ -4617,6 +4617,43 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       );
       if (result.error) {
         logDetail(`${def.name}: discard-in-play did not resolve — ${result.error}`);
+      } else {
+        current = result.state;
+      }
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      logDetail(`${def.name}: spent event card → discard`);
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+      }));
+    }
+  }
+
+  // A resource short-event that retypes a named region (Master of Wood,
+  // Water, or Hill td-136) rides the chain from the player's hand for the
+  // same reason the discard-in-play mode above does: CoE 9.4/9.5 owes the
+  // opponent a response window before the region's type actually changes.
+  // Now that the entry resolved un-negated, install the permanent region
+  // override plus its follow-up corruption check, and dispose of the spent
+  // event card.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.regionTransformName
+    && entry.payload.regionTransformType) {
+    const def = defById(current, entry.card.definitionId);
+    if (def) {
+      const result = applyShortEventRegionTransform(
+        current,
+        def,
+        entry.card.instanceId,
+        entry.declaredBy,
+        entry.payload.regionTransformName,
+        entry.payload.regionTransformType,
+        entry.payload.costTapCharacterId,
+      );
+      if (result.error) {
+        logDetail(`${def.name}: region-transform did not resolve — ${result.error}`);
       } else {
         current = result.state;
       }
