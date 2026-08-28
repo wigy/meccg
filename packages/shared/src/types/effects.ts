@@ -3300,6 +3300,16 @@ export interface EnqueuePendingFetchAction extends TriggeredActionBase {
    * lair, the found item "may be immediately played with bearer's company".
    */
   readonly unlockTappedSitePlay?: boolean;
+  /**
+   * When true and `fetchTo` is `'hand'`, the fetched card cannot simply sit
+   * in hand: a `play-or-discard-fetched-item` pending resolution blocks
+   * every other action for the actor until they either play that specific
+   * card (at the bearer's site, via the normal item-play flow) or discard
+   * it. Any `postCorruptionCheck` is deferred to fire after that choice
+   * resolves, instead of immediately after the fetch. Used by Dwarven Ring
+   * of Bávor's Tribe (tw-214): "Play this item immediately or discard."
+   */
+  readonly mustPlayOrDiscard?: boolean;
 }
 
 /** `enqueue-ring-play-offer` — bypass the gold-ring roll and offer ring categories from the test table. */
@@ -4854,6 +4864,19 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    * corruption check modified by -4" (Some Secret Art of Flame, le-232).
    */
   readonly costExemptRace?: Race;
+  /**
+   * Only meaningful alongside `cost`. `"payer"` (the default) keeps the
+   * single-target behavior — the chosen character who pays `cost` is the
+   * only one boosted. `"company"` decouples payer from recipients: the
+   * chosen character (matching `requiredSkill`/`requiredRace`) still pays
+   * `cost` alone, but every character in the defending company (subject to
+   * `filter`/`companyFilter`/`itemFilter`, same as the no-`cost` path)
+   * receives the boost. Used by Kindling of the Spirit (tw-262): "+2
+   * prowess against one attack for all characters in the same company as
+   * the Wizard. Wizard makes a corruption check modified by -2." — the
+   * Wizard alone pays, but the whole company is boosted.
+   */
+  readonly boostScope?: 'payer' | 'company';
 }
 
 /** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */
@@ -5718,6 +5741,15 @@ export interface FetchToDeckEffect extends EffectBase {
    * Dragon-lore (td-108).
    */
   readonly unlockTappedSitePlay?: boolean;
+  /**
+   * When true and `to` is `'hand'`, the fetched card must be played or
+   * discarded before any other action — set from `enqueue-pending-fetch`'s
+   * `mustPlayOrDiscard` flag. Consulted by `handleFetchFromPile`, which
+   * enqueues a `play-or-discard-fetched-item` pending resolution instead of
+   * firing `postCorruptionCheck` immediately. Used by Dwarven Ring of
+   * Bávor's Tribe (tw-214).
+   */
+  readonly mustPlayOrDiscard?: boolean;
 }
 
 /**

@@ -998,8 +998,13 @@ function inPlayCompanyTapGrantActions(
  * - All other cards are marked as not-playable with a reason.
  *
  * Pass is always available to end the company's site phase.
+ *
+ * Exported so the `play-or-discard-fetched-item` pending resolution
+ * (`legal-actions/pending.ts`) can reuse the full item-play eligibility
+ * logic, filtered down to one specific fetched card instance, instead of
+ * duplicating it (Dwarven Ring of Bávor's Tribe tw-214).
  */
-function playResourcesActions(
+export function playResourcesActions(
   state: GameState,
   playerId: PlayerId,
   siteState: SitePhaseState,

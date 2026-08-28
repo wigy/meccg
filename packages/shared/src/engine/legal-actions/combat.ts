@@ -4229,12 +4229,15 @@ function companyCombatBoostActions(
       continue;
     }
 
-    // Cost-bearing single-target mode (Some Secret Art of Flame le-232): the
-    // card is played on ONE character — matching `requiredSkill` if set —
+    // Cost-bearing mode (Some Secret Art of Flame le-232): the card is played
+    // via ONE character — matching `requiredSkill`/`requiredRace` if set —
     // who pays `cost` (skipped when the payer's race matches
-    // `costExemptRace`) and alone receives the boost. One action is offered
-    // per qualifying character, carrying `targetCharacterId` so the reducer
-    // knows who to charge and who to boost.
+    // `costExemptRace`). With the default `boostScope: "payer"` that same
+    // character alone receives the boost; with `boostScope: "company"`
+    // (Kindling of the Spirit tw-262) the payer only pays — the whole company
+    // is boosted downstream in the reducer. One action is offered per
+    // qualifying character, carrying `targetCharacterId` so the reducer knows
+    // who to charge.
     const costEffect = eligibleBoosts.find(e => e.cost);
     if (costEffect?.cost) {
       const cost = costEffect.cost;
