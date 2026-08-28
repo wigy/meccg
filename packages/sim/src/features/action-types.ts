@@ -223,6 +223,7 @@ export const ACTION_TYPES: readonly string[] = [
   'capture-in-lieu-of-body-check',
   'enable-multi-strike-option',
   'concede',
+  'recycle-hand-discard',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */
