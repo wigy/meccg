@@ -1875,7 +1875,9 @@ function discardWoundedCharacters(
 
 /**
  * After combat finalization, record the creature name in the M/H phase
- * state's `hazardsEncountered` list for troll-trio condition checks.
+ * state's `hazardsEncountered` list for troll-trio condition checks, and
+ * stamp the faced race(s)/name on the defending company (turn-scoped,
+ * surviving the M/H → Site phase transition).
  */
 export function recordHazardEncountered(
   stateAfterCombat: GameState,
@@ -1904,6 +1906,35 @@ export function recordHazardEncountered(
         return { ...c, facedHazardRaces: [...existing, ...added] };
       }),
     }));
+  }
+
+  // Stamp the specific creature's own printed name on the defending company
+  // — turn-scoped like `facedHazardRaces` above, surviving the M/H → Site
+  // phase transition. Lets a creature's self-effect condition on a *named*
+  // companion creature having already faced the company this turn, e.g.
+  // Orc-lieutenant (tw-073): "receives an additional +3 prowess if played
+  // on a company that has already faced Uruk-lieutenant (le-96) this turn."
+  const attackSource = combat.attackSource;
+  const creatureInstanceId = attackSource.type === 'creature' ? attackSource.instanceId
+    : attackSource.type === 'on-guard-creature' ? attackSource.cardInstanceId
+    : undefined;
+  if (creatureInstanceId) {
+    const creatureDefId = resolveInstanceId(originalState, creatureInstanceId);
+    const creatureDef = creatureDefId ? originalState.cardPool[creatureDefId] as { name?: string } | undefined : undefined;
+    const creatureName = creatureDef?.name;
+    if (creatureName) {
+      const defIdx = getPlayerIndex(s, combat.defendingPlayerId);
+      s = updatePlayer(s, defIdx, p => ({
+        ...p,
+        companies: p.companies.map(c => {
+          if (c.id !== combat.companyId) return c;
+          const existing = c.facedHazardNames ?? [];
+          if (existing.includes(creatureName)) return c;
+          logDetail(`Recording faced creature name "${creatureName}" on company ${c.id as string} (turn-scoped)`);
+          return { ...c, facedHazardNames: [...existing, creatureName] };
+        }),
+      }));
+    }
   }
 
   if (originalState.phaseState.phase !== Phase.MovementHazard) return s;

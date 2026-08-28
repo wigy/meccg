@@ -558,6 +558,18 @@ export interface Company {
    */
   readonly facedHazardRaces?: readonly Race[];
   /**
+   * Printed names of the hazard-creature attacks this company has faced this
+   * turn (CoE 8.03), the name sibling of {@link facedHazardRaces}. Stamped at
+   * every attack teardown ({@link recordHazardEncountered}) and cleared for
+   * every company at the start of each new turn (`enterUntapPhase`). Backs
+   * "played on a company that has already faced [named creature] this turn"
+   * self-effects that name a *specific companion creature* rather than a race
+   * — Orc-lieutenant (tw-073): "receives an additional +3 prowess if played
+   * on a company that has already faced Uruk-lieutenant (le-96) this turn" —
+   * across phase boundaries, the same way `facedHazardRaces` does.
+   */
+  readonly facedHazardNames?: readonly string[];
+  /**
    * Special movement granted by a card effect (e.g. Gwaihir, Paths of the Dead).
    * When set, the company uses special movement rules during planning and M/H phase:
    * - `'gwaihir'`: Can move to any non-Shadow-land/Dark-domain/Under-deeps site
