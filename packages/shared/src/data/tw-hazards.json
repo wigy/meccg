@@ -2127,8 +2127,30 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/Morgulhorse.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "This card allows you to place a tapped Nazgûl permanent-event back into your hand instead of discarding it.Alternatively, allows a Nazgûl to be played keyed to a Shadow-land [{s}]."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "return-chain-entry-card-to-hand",
+          "select": "target",
+          "filter": { "$and": [ { "target.cardType": "hazard-creature" }, { "target.keywords": { "$includes": "Nazgûl" } } ] }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "nazgul-boost-pending",
+          "scope": "company-mh-phase",
+          "race": "ringwraith",
+          "keyingRegionTypes": ["shadow"]
+        }
+      }
+    ],
+    "text": "This card allows you to place a tapped Nazgûl permanent-event back into your hand instead of discarding it.Alternatively, allows a Nazgûl to be played keyed to a Shadow-land [{s}].",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hazard-event",

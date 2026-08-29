@@ -1943,12 +1943,12 @@ export interface ActiveConstraint {
         readonly type: 'nazgul-boost-pending';
         /** The creature race this boost applies to (`"ringwraith"`). */
         readonly race: Race;
-        /** Strikes delta applied to the boosted creature's attack. */
-        readonly strikesModifier: number;
-        /** Prowess delta applied to the boosted creature's attack. */
-        readonly prowessModifier: number;
+        /** Strikes delta applied to the boosted creature's attack, if any (Morgul-horse tw-63 grants only keying, no combat bonus). */
+        readonly strikesModifier?: number;
+        /** Prowess delta applied to the boosted creature's attack, if any. */
+        readonly prowessModifier?: number;
         /** Whether the boosted creature's attack grants attacker-chooses-defenders. */
-        readonly grantAttackerChoosesDefenders: true;
+        readonly grantAttackerChoosesDefenders?: true;
         /** Extra region types the boosted creature may additionally be keyed to. */
         readonly keyingRegionTypes?: readonly import('./common.js').RegionType[];
         /** Extra site types the boosted creature may additionally be keyed to. */

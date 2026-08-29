@@ -346,13 +346,13 @@ export function buildConstraintKind(
         keyingRegionTypes?: import('../types/common.js').RegionType[];
         keyingSiteTypes?: import('../types/common.js').SiteType[];
       };
-      if (!apply.race || apply.strikesModifier === undefined || apply.prowessModifier === undefined) return null;
+      if (!apply.race) return null;
       return {
         type: 'nazgul-boost-pending',
         race: apply.race,
-        strikesModifier: apply.strikesModifier,
-        prowessModifier: apply.prowessModifier,
-        grantAttackerChoosesDefenders: true,
+        ...(apply.strikesModifier !== undefined ? { strikesModifier: apply.strikesModifier } : {}),
+        ...(apply.prowessModifier !== undefined ? { prowessModifier: apply.prowessModifier } : {}),
+        ...(apply.grantAttackerChoosesDefenders ? { grantAttackerChoosesDefenders: true as const } : {}),
         ...(apply.keyingRegionTypes ? { keyingRegionTypes: apply.keyingRegionTypes } : {}),
         ...(apply.keyingSiteTypes ? { keyingSiteTypes: apply.keyingSiteTypes } : {}),
       };

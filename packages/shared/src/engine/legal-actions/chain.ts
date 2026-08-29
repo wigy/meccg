@@ -18,7 +18,7 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect, CounterCancelAttackRollEffect } from '../../types/effects.js';
+import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect, CounterCancelAttackRollEffect, ReturnChainEntryCardToHandAction } from '../../types/effects.js';
 import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { cardStatusToName } from '../../types/common.js';
@@ -58,6 +58,7 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
   if (chain.restriction === 'normal') {
     actions.push(...playShortEventChainActions(state, playerId));
     actions.push(...playSkillCancelChainActions(state, playerId));
+    actions.push(...playReturnChainEntryCardActions(state, playerId));
     actions.push(...resourceEventChainActions(state, playerId));
   }
 
@@ -347,6 +348,81 @@ function playSkillCancelChainActions(state: GameState, playerId: PlayerId): Eval
       }
 
       logDetail(`Chain response: ${hazDef.name} can cancel ${(targetDef as { name?: string } | undefined)?.name ?? card.definitionId}${requiredSkill != null ? ` (requires ${requiredSkill})` : ''}`);
+      actions.push({
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetInstanceId: card.instanceId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
+ * During chain declaring, the priority player may play a hazard short event
+ * whose `on-event: self-enters-play` apply is `return-chain-entry-card-to-hand`
+ * (Morgul-horse tw-63) — moving the targeted entry's card back to its own
+ * hand instead of leaving it in the discard pile, without disturbing the
+ * entry's own effect resolution.
+ *
+ * Per CRF ruling, Morgul-horse "must be declared after tapping the Nazgûl is
+ * declared and before it resolves" by its own controller — so only entries
+ * `entry.declaredBy === playerId` are offered (you may only rescue your own
+ * tapped Nazgûl), and only when the entry's card is still actually sitting
+ * in that player's discard pile (excluding a live creature attack or a
+ * permanent-event still entering play, neither of which has been discarded
+ * yet — see `handleTapAltPermanentEvent`, which discards the Nazgûl at the
+ * moment its tap conversion is declared).
+ */
+function playReturnChainEntryCardActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+  if (!state.chain) return [];
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const pending = pendingChainCards(state);
+  const actions: EvaluatedAction[] = [];
+
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!def || def.cardType !== 'hazard-event') continue;
+    const hazDef = def;
+    if (hazDef.eventType !== 'short') continue;
+    const effects = (hazDef as { effects?: readonly CardEffect[] }).effects ?? [];
+
+    const returnEffect = effects.find(
+      (e): e is OnEventEffect & { apply: ReturnChainEntryCardToHandAction } =>
+        e.type === 'on-event'
+        && e.event === 'self-enters-play'
+        && e.apply?.type === 'return-chain-entry-card-to-hand'
+        && e.apply?.select === 'target',
+    );
+    if (!returnEffect) continue;
+    const filter = returnEffect.apply.filter;
+
+    for (const { entry, card, def: targetDef } of pending) {
+      if (card.instanceId === handCard.instanceId) continue;
+      if (entry.declaredBy !== playerId) continue;
+      if (!player.discardPile.some(c => c.instanceId === card.instanceId)) continue;
+      if (filter != null) {
+        const entryCtx = {
+          target: {
+            cardType: targetDef?.cardType,
+            eventType: (targetDef as { eventType?: string } | undefined)?.eventType,
+            name: (targetDef as { name?: string } | undefined)?.name,
+            keywords: (targetDef as { keywords?: readonly string[] } | undefined)?.keywords,
+          },
+        };
+        if (!matchesCondition(filter, entryCtx)) {
+          logDetail(`Chain response: ${hazDef.name} — entry "${(targetDef as { name?: string } | undefined)?.name ?? (card.definitionId as string)}" does not match filter`);
+          continue;
+        }
+      }
+
+      logDetail(`Chain response: ${hazDef.name} can return ${(targetDef as { name?: string } | undefined)?.name ?? card.definitionId} to hand`);
       actions.push({
         action: {
           type: 'play-short-event',
