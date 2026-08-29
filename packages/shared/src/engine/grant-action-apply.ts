@@ -1730,7 +1730,7 @@ function handleStoredCardGrantAction(
     };
     return updateCharacter(withoutStored, recipientId!, c => ({
       ...c,
-      items: [...c.items, { instanceId: source.instanceId, definitionId: source.definitionId, status: CardStatus.Untapped }],
+      items: [...c.items, { instanceId: source.instanceId, definitionId: source.definitionId, status: CardStatus.Untapped, restored: true }],
     }));
   });
 

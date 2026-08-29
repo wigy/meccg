@@ -29,9 +29,18 @@
  * primitive at all (see `place-source-with-item` / `storedCombineGrantActions`
  * / `handleStoredCardGrantAction`). The combine action itself — moving
  * Andúril out of storage and onto Narsil's bearer — is covered below.
- * Andúril's post-combine stat bonuses (+4 marshalling points, +4 prowess,
- * +1 direct influence, +1 corruption point) and its tap-to-untap-a-Dúnadan
- * ability are not yet certified and remain a follow-up.
+ *
+ * Regression: a third bug report (msg 146df4ad162f01ae, game
+ * mteaeipj-ji2dgz, seq 1173) showed Aragorn II bearing both Narsil and a
+ * combined Andúril with none of Andúril's bearer bonuses reflected in his
+ * effective stats — the card's `effects` array declared the combine
+ * mechanic but never the +4 marshalling points, +4 prowess (max 11), +1
+ * direct influence, and +1 corruption point the text promises "once
+ * combined". Fixed by marking the relocated item `restored: true` (the same
+ * flag `restore-item` uses for the Reforging family) and gating those bonuses
+ * on `item.restored`, mirroring Ringil (td-184)'s identical restore pattern.
+ * Andúril's tap-to-untap-a-Dúnadan ability is not yet certified and remains
+ * a follow-up.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -335,6 +344,30 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
     expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === ANDURIL)).toBe(false);
     expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === REFORGING)).toBe(false);
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === REFORGING)).toBe(true);
+  });
+
+  test('bug report 146df4ad162f01ae: combining with Narsil grants the bearer +4 prowess (max 11), +1 direct influence, +1 corruption point, and 4 marshalling points', () => {
+    const state = combineState({});
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const act = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .find(a => a.actionId === 'anduril-combine-with-narsil' && a.targetCardId === reforgingId && a.recipientCharacterId === aragornId);
+    const after = dispatch(state, act as GameAction);
+
+    const aragorn = after.players[RESOURCE_PLAYER].characters[aragornId];
+    const anduril = aragorn.items.find(i => i.definitionId === ANDURIL);
+    expect(anduril!.restored).toBe(true);
+
+    // Aragorn II: printed prowess 6, direct influence 3. Narsil: +1 prowess,
+    // +1 direct influence, 2 corruption points. Andúril (combined): +4
+    // prowess (max 11), +1 direct influence, +1 corruption point, 4
+    // marshalling points.
+    expect(aragorn.effectiveStats.prowess).toBe(11);
+    expect(aragorn.effectiveStats.directInfluence).toBe(5);
+    expect(aragorn.effectiveStats.corruptionPoints).toBe(3);
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(4);
   });
 
   test('NOT offered when there is no stored Reforging', () => {
