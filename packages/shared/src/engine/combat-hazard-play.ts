@@ -22,7 +22,7 @@ import { CardStatus, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { defById, findById, getCardEffects, getOnEventEffects, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, findById, getCardEffects, getOnEventEffects, isCombatReactiveShortEvent, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { isWardedAgainst } from './effects/index.js';
 import { addConstraint } from './pending.js';
 import { parseConstraintScope } from './constraint-kind.js';
@@ -99,12 +99,10 @@ export function handleCombatPlayHazard(
 
   // Words of Power and Terror (tw-115) and similar cards are `short` events
   // played reactively during combat: they resolve immediately (add a
-  // company-wide stat modifier for the rest of the turn) and discard, rather
-  // than attaching to a character like a Dragon's Curse-style permanent event.
-  const isCombatShortCompanyModifier = def.eventType === 'short'
-    && getOnEventEffects(def, 'self-enters-play-combat').some(
-      e => e.apply.type === 'add-constraint' && e.apply.constraint === 'company-stat-modifier',
-    );
+  // company-wide stat modifier, a one-strike prowess bonus, and/or a
+  // post-combat forced kill) and discard, rather than attaching to a
+  // character like a Dragon's Curse-style permanent event.
+  const isCombatShortCompanyModifier = isCombatReactiveShortEvent(def);
   if (def.eventType !== 'permanent' && !isCombatShortCompanyModifier) {
     return { state, error: 'only hazard permanent-events (or combat-reactive short events) may be played during combat' };
   }
@@ -161,7 +159,11 @@ export function handleCombatPlayHazard(
   }
 
   // Apply self-enters-play-combat on-event effects declared by the card.
+  // `workingCombat` threads state across iterations (a card may declare more
+  // than one applicable effect, e.g. Fury of the Iron Crown's prowess bonus
+  // and forced-kill schedule both fire from the same play).
   {
+    let workingCombat: CombatState = combat;
     for (const eff of getOnEventEffects(def, 'self-enters-play-combat')) {
       if (eff.apply.type === 'modify-current-strike-prowess') {
         // Adjusts the current strike's prowess via
@@ -172,12 +174,12 @@ export function handleCombatPlayHazard(
         const strikeDelta = eff.apply.value ?? 0;
         const defenderProwessDelta = -strikeDelta;
         logDetail(`Combat play-hazard: "${def.name}" modifies current strike's prowess by ${strikeDelta} (defender +${defenderProwessDelta})`);
-        const newAssignments = combat.strikeAssignments.map((a, i) =>
-          i === combat.currentStrikeIndex
+        const newAssignments = workingCombat.strikeAssignments.map((a, i) =>
+          i === workingCombat.currentStrikeIndex
             ? { ...a, strikeProwessBonus: (a.strikeProwessBonus ?? 0) + defenderProwessDelta }
             : a,
         );
-        newState = { ...newState, combat: { ...combat, strikeAssignments: newAssignments } };
+        workingCombat = { ...workingCombat, strikeAssignments: newAssignments };
       } else if (eff.apply.type === 'add-constraint' && eff.apply.constraint === 'company-stat-modifier') {
         // Words of Power and Terror (tw-115): "Modify the prowesses of all
         // characters in a company attacked by a Nazgûl by -1 until the end
@@ -198,8 +200,21 @@ export function handleCombatPlayHazard(
         } else {
           logDetail(`Combat play-hazard: "${def.name}" add-constraint(company-stat-modifier) missing/unsupported stat, value, or scope — fizzle`);
         }
+      } else if (eff.apply.type === 'force-attacker-kill-on-resolution') {
+        // Fury of the Iron Crown (tw-492): schedule the forced kill /
+        // named-card offer for `finalizeCombat` to apply once this attack
+        // resolves (see combat-finalize.ts).
+        logDetail(`Combat play-hazard: "${def.name}" schedules forced attacker kill on resolution (exclude race: ${eff.apply.excludeRace ?? 'none'}, offer: ${eff.apply.offerCardName ?? 'none'})`);
+        workingCombat = {
+          ...workingCombat,
+          forcedCreatureKillOnResolution: {
+            excludeRace: eff.apply.excludeRace,
+            offerCardName: eff.apply.offerCardName,
+          },
+        };
       }
     }
+    newState = { ...newState, combat: workingCombat };
   }
 
   return { state: newState };

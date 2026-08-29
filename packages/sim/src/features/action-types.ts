@@ -228,6 +228,8 @@ export const ACTION_TYPES: readonly string[] = [
   'swap-new-site-choice',
   // Added by certifying dm-110 (Spider of the Môrlat).
   'return-alt-permanent-event',
+  // Added by certifying tw-492 (Fury of the Iron Crown).
+  'play-named-card-offer',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

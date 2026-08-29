@@ -350,6 +350,10 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // kill-MP, mirroring standard auto-attacks.
   const creatureInstanceId = attackSourceCreatureInstanceId(combat);
   const isPlayedAutoAttack = combat.attackSource.type === 'played-auto-attack';
+  // Set below when a `force-attacker-kill-on-resolution` short event forces
+  // this creature into the defender's kill pile — read further down to decide
+  // whether to enqueue the "may immediately play <namedCard>" offer.
+  let forcedKillApplied = false;
 
   if (creatureInstanceId) {
     const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
@@ -365,12 +369,31 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
     };
 
+    // Fury of the Iron Crown (tw-492): "After the attack is resolved, if the
+    // creature is not a Nazgûl: the creature is removed from play (defender
+    // receives the marshalling points)." Overrides the normal
+    // all-strikes-defeated requirement (and the detainment §3.II.3
+    // discard-instead-of-kill-pile downgrade below) — the creature goes
+    // straight to the defender's kill pile regardless of the strike's actual
+    // outcome. `allDefeated` itself is left untouched so on-event effects
+    // keyed to the creature's true defeat status (e.g. `attack-not-defeated`)
+    // still evaluate correctly.
+    const forcedKill = combat.forcedCreatureKillOnResolution
+      && combat.creatureRace !== combat.forcedCreatureKillOnResolution.excludeRace;
+
     if (isPlayedAutoAttack && creatureCard) {
       newPlayers[atkIdx] = {
         ...newPlayers[atkIdx],
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
       };
       logDetail(`Played-auto-attack creature discarded (no kill-MP awarded — treated as site's automatic-attack)`);
+    } else if (forcedKill && creatureCard) {
+      newPlayers[defIdx] = {
+        ...newPlayers[defIdx],
+        killPile: [...newPlayers[defIdx].killPile, creatureCard],
+      };
+      forcedKillApplied = true;
+      logDetail(`Forced kill on resolution (race "${combat.creatureRace ?? 'none'}") — creature moved to defender's kill pile regardless of attack outcome`);
     } else if (
       allDefeated && creatureCard && combat.detainment
       && !playerHasKillMpExemption(state, state.players[defIdx])
@@ -1278,6 +1301,33 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // assist", and nothing returns them afterward.
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
 
+  // Fury of the Iron Crown (tw-492): once the forced kill has fired, if the
+  // defender holds the offered card by name in hand, let them immediately
+  // play it onto a character in the defending company.
+  if (forcedKillApplied && combat.forcedCreatureKillOnResolution?.offerCardName) {
+    const offerCardName = combat.forcedCreatureKillOnResolution.offerCardName;
+    const defIdxOffer = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    const defPlayerOffer = stateAfterCombat.players[defIdxOffer];
+    const hasNamedCard = defPlayerOffer.hand.some(
+      c => cardName(stateAfterCombat, c.definitionId, '') === offerCardName,
+    );
+    if (hasNamedCard) {
+      logDetail(`Fury of the Iron Crown: defender holds "${offerCardName}" in hand — offering immediate play`);
+      stateAfterCombat = enqueueResolution(stateAfterCombat, {
+        source: null,
+        actor: combat.defendingPlayerId,
+        scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+        kind: {
+          type: 'named-card-play-offer',
+          cardName: offerCardName,
+          companyId: combat.companyId,
+        },
+      });
+    } else {
+      logDetail(`Fury of the Iron Crown: defender does not hold "${offerCardName}" — no offer`);
+    }
+  }
+
   // card-triggered-attack: continue the queued attack sequence, or dispose of
   // the card now that its last attack has resolved.
   stateAfterCombat = continueOrDisposeCardTriggeredAttack(stateAfterCombat, combat, false);
@@ -1434,8 +1484,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // MELE §8.37: Trophy offer — after a non-detainment non-played-auto-attack
   // creature defeat, eligible Orc/Troll characters may take the creature as
   // a trophy. We transition to the `trophy-offer` phase rather than finalizing
-  // immediately so the defending player can choose.
-  if (allDefeated && !combat.detainment && !isPlayedAutoAttack && creatureInstanceId) {
+  // immediately so the defending player can choose. Also offered when a
+  // `force-attacker-kill-on-resolution` short event (Fury of the Iron Crown
+  // tw-492) forced the kill instead of a genuine all-strikes defeat — its
+  // own text offers the same choice ("le défenseur reçoit les points de
+  // rassemblement ou peut la prendre comme trophée").
+  if ((allDefeated || forcedKillApplied) && !combat.detainment && !isPlayedAutoAttack && creatureInstanceId) {
     const defIdx3 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
     const defPlayer3 = stateAfterCombat.players[defIdx3];
     // Find Orc/Troll (not half-orc) characters that faced at least one strike
