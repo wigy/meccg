@@ -1388,8 +1388,20 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Orc. One strike. If played on a company that has already faced an Orc attack this turn, Uruk-lieutenant receives +3 prowess. Orc-lieutenant receives an additional +3 prowess if played on a company that has already faced Uruk-lieutenant this turn."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "when": {
+          "company.facedRaces": {
+            "$includes": "orc"
+          }
+        }
+      }
+    ],
+    "text": "Orc. One strike. If played on a company that has already faced an Orc attack this turn, Uruk-lieutenant receives +3 prowess. Orc-lieutenant receives an additional +3 prowess if played on a company that has already faced Uruk-lieutenant this turn.",
+    "certified": "2026-08-29"
   },
   {
     "cardType": "hazard-creature",

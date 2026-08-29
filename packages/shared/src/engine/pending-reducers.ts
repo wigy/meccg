@@ -3388,6 +3388,58 @@ export function applyRingPlayOfferResolution(
 }
 
 /**
+ * Resolve a queued `named-card-play-offer` resolution (Fury of the Iron
+ * Crown, tw-492): the actor either passes (generic `pass` action) or plays
+ * the one eligible card from hand (`play-named-card-offer` action) onto a
+ * character in the offer's company. The card attaches as an item, the same
+ * way {@link applyRingPlayOfferResolution} places a replacement ring.
+ */
+export function applyNamedCardPlayOfferResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolutionOrPass(state, rawAction, top, 'play-named-card-offer', 'named-card-play-offer',
+    'named-card-play-offer: player passes — no card played');
+  if (!g.ok) return g.result;
+  const { action, actorIndex: playerIndex, player } = g;
+
+  const { cardInstanceId, targetCharacterId } = action;
+  const handIdx = player.hand.findIndex(c => c.instanceId === cardInstanceId);
+  if (handIdx < 0) {
+    return { state, error: `Card ${cardInstanceId as string} not found in hand` };
+  }
+  const card = player.hand[handIdx];
+  const stateAfterRemove = updatePlayer(state, playerIndex, p => ({
+    ...p,
+    hand: p.hand.filter((_, i) => i !== handIdx),
+  }));
+
+  const def = defById(state, card.definitionId);
+  const cardDefName = def?.name ?? (card.definitionId as string);
+
+  const char = stateAfterRemove.players[playerIndex].characters[targetCharacterId];
+  if (!char) {
+    return { state, error: `Character ${targetCharacterId as string} not found for named-card-play-offer placement` };
+  }
+  logDetail(`named-card-play-offer: playing ${cardDefName} (${cardInstanceId as string}) onto ${defById(state, char.definitionId)?.name ?? (targetCharacterId as string)}`);
+
+  const newItem: CharacterInPlay['items'][0] = {
+    instanceId: card.instanceId,
+    definitionId: card.definitionId,
+    status: CardStatus.Untapped,
+  };
+  const updatedChar: CharacterInPlay = { ...char, items: [...char.items, newItem] };
+
+  const stateAfterPlay = updatePlayer(stateAfterRemove, playerIndex, p => ({
+    ...p,
+    characters: { ...p.characters, [targetCharacterId as string]: updatedChar },
+  }));
+
+  return { state: dequeueResolution(stateAfterPlay, top.id) };
+}
+
+/**
  * Handle a `pair-resource-with-cof` organization-phase action.
  *
  * Crown of Flowers (dm-121) sits in play as an environment with no effect

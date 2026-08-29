@@ -78,6 +78,7 @@ export function siteMatchesEntry(
   effectiveSiteType: SiteType = siteDef.siteType,
   regionType?: RegionType,
   isUnderDeepsSurface = false,
+  dragonAtHomeVictory = false,
 ): boolean {
   if ('region' in entry) {
     // Region entries match any non-haven site in the named region.
@@ -120,9 +121,25 @@ export function siteMatchesEntry(
       // site. Together with the `under-deeps` keyword this lets a faction/ally
       // gate on "not an Under-deeps site or surface site thereof" (ba-80).
       isUnderDeepsSurface,
+      // True when an at-home Dragon manifestation was ever defeated at this
+      // site (`GameState.dragonAtHomeVictorySiteIds`), regardless of which
+      // company won or whether it remains in play. Lets a faction/ally gate on
+      // "a site where an at home Dragon manifestation was defeated" (Returned
+      // Exiles td-146).
+      dragonAtHomeVictory,
     },
   };
   return matchesCondition(entry.when, ctx);
+}
+
+/**
+ * True if an at-home Dragon manifestation was ever fully defeated at
+ * `siteDefId` — recorded permanently in {@link GameState.dragonAtHomeVictorySiteIds}
+ * by `combat-finalize.ts`. See {@link siteMatchesEntry}'s `dragonAtHomeVictory`
+ * parameter, which this feeds.
+ */
+export function siteHasDragonAtHomeVictory(state: GameState, siteDefId: CardDefinitionId): boolean {
+  return (state.dragonAtHomeVictorySiteIds ?? []).includes(siteDefId);
 }
 
 /**
@@ -1062,6 +1079,26 @@ export function getOnEventEffects(
   eventName: string,
 ): readonly OnEventEffect[] {
   return getCardEffects(def).filter((e): e is OnEventEffect => e.type === 'on-event' && e.event === eventName);
+}
+
+/**
+ * True for a `short` hazard-event whose `self-enters-play-combat` on-event
+ * declares one of the combat-reactive applies that resolve and discard
+ * immediately during a combat play window instead of attaching to a
+ * character like a Dragon's Curse-style permanent event (see
+ * `handleCombatPlayHazard`):
+ *
+ *  - `add-constraint`/`company-stat-modifier` — Words of Power and Terror (tw-115)
+ *  - `modify-current-strike-prowess` — a one-strike prowess bonus (Fury of the Iron Crown, tw-492)
+ *  - `force-attacker-kill-on-resolution` — schedules a post-combat forced kill (tw-492)
+ */
+export function isCombatReactiveShortEvent(def: CardDefinition | null | undefined): boolean {
+  if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') return false;
+  return getOnEventEffects(def, 'self-enters-play-combat').some(
+    e => (e.apply.type === 'add-constraint' && e.apply.constraint === 'company-stat-modifier')
+      || e.apply.type === 'modify-current-strike-prowess'
+      || e.apply.type === 'force-attacker-kill-on-resolution',
+  );
 }
 
 /**
@@ -4012,8 +4049,11 @@ export function isCardNameInPlayOrCharacters(state: GameState, name: string): bo
   const override = overriddenInPlay(state, name);
   if (override !== undefined) return override;
   return state.players.some(p =>
-    Object.values(p.characters).some(ch => defById(state, ch.definitionId)?.name === name) ||
-    p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
+    Object.values(p.characters).some(ch =>
+      defById(state, ch.definitionId)?.name === name
+      || ch.items.some(item => defById(state, item.definitionId)?.name === name),
+    )
+    || p.cardsInPlay.some(c => defById(state, c.definitionId)?.name === name),
   );
 }
 

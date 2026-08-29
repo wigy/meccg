@@ -906,6 +906,46 @@ function handleRevealOnGuardAttacks(
           return { state: { ...stateWithConstraint, players: newPlayers } };
         }
       }
+
+      // Short hazard-events with a raw `auto-attack-boost` effect (Arouse
+      // Denizens tw-6, Arouse Minions tw-7, Arouse Defenders le-101): install
+      // the same single-use `company-site-phase` constraint that playing the
+      // card directly during the M/H phase installs (see chain-reducer.ts).
+      // The boost is consumed by the first automatic-attack the company
+      // faces at this site (reducer-site.ts's automatic-attacks step).
+      const boostEffect = getCardEffects(def).find(
+        (e): e is import('../index.js').AutoAttackBoostEffect => e.type === 'auto-attack-boost',
+      );
+      if (boostEffect && company.currentSite) {
+        logDetail(`"${def.name}" revealed on-guard → auto-attack-boost (+${boostEffect.prowessBonus} prowess${boostEffect.uncancelable ? ', cannot be canceled' : ''}) applied to company ${company.id as string}`);
+        const newOnGuardCards = [...company.onGuardCards];
+        newOnGuardCards.splice(ogIdx, 1);
+        const newCompanies = [...resourcePlayer.companies];
+        newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+        const stateWithConstraint = addConstraint(state, {
+          source: revealedCard.instanceId,
+          sourceDefinitionId: revealedCard.definitionId,
+          scope: { kind: 'company-site-phase', companyId: company.id },
+          target: { kind: 'company', companyId: company.id },
+          kind: {
+            type: 'auto-attack-boost',
+            prowessBonus: boostEffect.prowessBonus,
+            uncancelable: boostEffect.uncancelable,
+            siteDefinitionId: company.currentSite.definitionId,
+          },
+        });
+
+        const hazardIndex = getPlayerIndex(stateWithConstraint, action.player);
+        const newPlayers = clonePlayers(stateWithConstraint);
+        newPlayers[activeIndex] = { ...newPlayers[activeIndex], companies: newCompanies };
+        newPlayers[hazardIndex] = {
+          ...newPlayers[hazardIndex],
+          discardPile: [...newPlayers[hazardIndex].discardPile, toCardInstance(revealedCard)],
+        };
+
+        return { state: { ...stateWithConstraint, players: newPlayers } };
+      }
     }
 
     // Creatures: mark as revealed (combat happens at Step 4)

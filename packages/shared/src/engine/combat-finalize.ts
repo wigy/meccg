@@ -350,6 +350,10 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // kill-MP, mirroring standard auto-attacks.
   const creatureInstanceId = attackSourceCreatureInstanceId(combat);
   const isPlayedAutoAttack = combat.attackSource.type === 'played-auto-attack';
+  // Set below when a `force-attacker-kill-on-resolution` short event forces
+  // this creature into the defender's kill pile — read further down to decide
+  // whether to enqueue the "may immediately play <namedCard>" offer.
+  let forcedKillApplied = false;
 
   if (creatureInstanceId) {
     const atkIdx = getPlayerIndex(state, combat.attackingPlayerId);
@@ -365,12 +369,31 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       cardsInPlay: newPlayers[atkIdx].cardsInPlay.filter(c => c.instanceId !== creatureInstanceId),
     };
 
+    // Fury of the Iron Crown (tw-492): "After the attack is resolved, if the
+    // creature is not a Nazgûl: the creature is removed from play (defender
+    // receives the marshalling points)." Overrides the normal
+    // all-strikes-defeated requirement (and the detainment §3.II.3
+    // discard-instead-of-kill-pile downgrade below) — the creature goes
+    // straight to the defender's kill pile regardless of the strike's actual
+    // outcome. `allDefeated` itself is left untouched so on-event effects
+    // keyed to the creature's true defeat status (e.g. `attack-not-defeated`)
+    // still evaluate correctly.
+    const forcedKill = combat.forcedCreatureKillOnResolution
+      && combat.creatureRace !== combat.forcedCreatureKillOnResolution.excludeRace;
+
     if (isPlayedAutoAttack && creatureCard) {
       newPlayers[atkIdx] = {
         ...newPlayers[atkIdx],
         discardPile: [...newPlayers[atkIdx].discardPile, creatureCard],
       };
       logDetail(`Played-auto-attack creature discarded (no kill-MP awarded — treated as site's automatic-attack)`);
+    } else if (forcedKill && creatureCard) {
+      newPlayers[defIdx] = {
+        ...newPlayers[defIdx],
+        killPile: [...newPlayers[defIdx].killPile, creatureCard],
+      };
+      forcedKillApplied = true;
+      logDetail(`Forced kill on resolution (race "${combat.creatureRace ?? 'none'}") — creature moved to defender's kill pile regardless of attack outcome`);
     } else if (
       allDefeated && creatureCard && combat.detainment
       && !playerHasKillMpExemption(state, state.players[defIdx])
@@ -1179,6 +1202,22 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         const atHomeDef = resolveDef(state, sourceInstId);
         const isDragonAtHome = ((atHomeDef as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [])
           .some(e => e.type === 'dragon-at-home');
+
+        // Returned Exiles (td-146): "Playable at a tapped or untapped site
+        // where an at home Dragon manifestation was defeated" — unlike King
+        // under the Mountain below, this is not restricted to Balin/Dáin
+        // II/Thorin II/Thráin II's own company (or excluded for Eärcaraxë at
+        // Home) and must survive the winning company disbanding, so it is
+        // recorded permanently on the site itself rather than on the
+        // defending characters. See `GameState.dragonAtHomeVictorySiteIds`.
+        if (isDragonAtHome && !(stateAfterCombat.dragonAtHomeVictorySiteIds ?? []).includes(siteDef.id)) {
+          logDetail(`Dragon-at-home victory tracking: recording ${siteDef.name} (${siteDef.id as string}) as a site where an at-home Dragon manifestation was defeated`);
+          stateAfterCombat = {
+            ...stateAfterCombat,
+            dragonAtHomeVictorySiteIds: [...(stateAfterCombat.dragonAtHomeVictorySiteIds ?? []), siteDef.id],
+          };
+        }
+
         const EARCARAXE_AT_HOME_ID = 'td-22' as CardDefinitionId;
         if (isDragonAtHome && atHomeDef?.id !== EARCARAXE_AT_HOME_ID) {
           const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
@@ -1261,6 +1300,33 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // company they joined — the card text says "join", not "temporarily
   // assist", and nothing returns them afterward.
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
+
+  // Fury of the Iron Crown (tw-492): once the forced kill has fired, if the
+  // defender holds the offered card by name in hand, let them immediately
+  // play it onto a character in the defending company.
+  if (forcedKillApplied && combat.forcedCreatureKillOnResolution?.offerCardName) {
+    const offerCardName = combat.forcedCreatureKillOnResolution.offerCardName;
+    const defIdxOffer = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    const defPlayerOffer = stateAfterCombat.players[defIdxOffer];
+    const hasNamedCard = defPlayerOffer.hand.some(
+      c => cardName(stateAfterCombat, c.definitionId, '') === offerCardName,
+    );
+    if (hasNamedCard) {
+      logDetail(`Fury of the Iron Crown: defender holds "${offerCardName}" in hand — offering immediate play`);
+      stateAfterCombat = enqueueResolution(stateAfterCombat, {
+        source: null,
+        actor: combat.defendingPlayerId,
+        scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+        kind: {
+          type: 'named-card-play-offer',
+          cardName: offerCardName,
+          companyId: combat.companyId,
+        },
+      });
+    } else {
+      logDetail(`Fury of the Iron Crown: defender does not hold "${offerCardName}" — no offer`);
+    }
+  }
 
   // card-triggered-attack: continue the queued attack sequence, or dispose of
   // the card now that its last attack has resolved.
@@ -1418,8 +1484,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // MELE §8.37: Trophy offer — after a non-detainment non-played-auto-attack
   // creature defeat, eligible Orc/Troll characters may take the creature as
   // a trophy. We transition to the `trophy-offer` phase rather than finalizing
-  // immediately so the defending player can choose.
-  if (allDefeated && !combat.detainment && !isPlayedAutoAttack && creatureInstanceId) {
+  // immediately so the defending player can choose. Also offered when a
+  // `force-attacker-kill-on-resolution` short event (Fury of the Iron Crown
+  // tw-492) forced the kill instead of a genuine all-strikes defeat — its
+  // own text offers the same choice ("le défenseur reçoit les points de
+  // rassemblement ou peut la prendre comme trophée").
+  if ((allDefeated || forcedKillApplied) && !combat.detainment && !isPlayedAutoAttack && creatureInstanceId) {
     const defIdx3 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
     const defPlayer3 = stateAfterCombat.players[defIdx3];
     // Find Orc/Troll (not half-orc) characters that faced at least one strike
@@ -1875,7 +1945,9 @@ function discardWoundedCharacters(
 
 /**
  * After combat finalization, record the creature name in the M/H phase
- * state's `hazardsEncountered` list for troll-trio condition checks.
+ * state's `hazardsEncountered` list for troll-trio condition checks, and
+ * stamp the faced race(s)/name on the defending company (turn-scoped,
+ * surviving the M/H → Site phase transition).
  */
 export function recordHazardEncountered(
   stateAfterCombat: GameState,
@@ -1904,6 +1976,35 @@ export function recordHazardEncountered(
         return { ...c, facedHazardRaces: [...existing, ...added] };
       }),
     }));
+  }
+
+  // Stamp the specific creature's own printed name on the defending company
+  // — turn-scoped like `facedHazardRaces` above, surviving the M/H → Site
+  // phase transition. Lets a creature's self-effect condition on a *named*
+  // companion creature having already faced the company this turn, e.g.
+  // Orc-lieutenant (tw-073): "receives an additional +3 prowess if played
+  // on a company that has already faced Uruk-lieutenant (le-96) this turn."
+  const attackSource = combat.attackSource;
+  const creatureInstanceId = attackSource.type === 'creature' ? attackSource.instanceId
+    : attackSource.type === 'on-guard-creature' ? attackSource.cardInstanceId
+    : undefined;
+  if (creatureInstanceId) {
+    const creatureDefId = resolveInstanceId(originalState, creatureInstanceId);
+    const creatureDef = creatureDefId ? originalState.cardPool[creatureDefId] as { name?: string } | undefined : undefined;
+    const creatureName = creatureDef?.name;
+    if (creatureName) {
+      const defIdx = getPlayerIndex(s, combat.defendingPlayerId);
+      s = updatePlayer(s, defIdx, p => ({
+        ...p,
+        companies: p.companies.map(c => {
+          if (c.id !== combat.companyId) return c;
+          const existing = c.facedHazardNames ?? [];
+          if (existing.includes(creatureName)) return c;
+          logDetail(`Recording faced creature name "${creatureName}" on company ${c.id as string} (turn-scoped)`);
+          return { ...c, facedHazardNames: [...existing, creatureName] };
+        }),
+      }));
+    }
   }
 
   if (originalState.phaseState.phase !== Phase.MovementHazard) return s;

@@ -2457,8 +2457,11 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable at the end of the movement/hazard phase on a company that moved to a Haven [{H}]. That company may move to an additional site on the same turn. Another site card may be played and a movement/hazard phase immediately follows for that company."
+    "effects": [
+      { "type": "grant-extra-mh-phase", "requiresDestinationSiteType": "haven" }
+    ],
+    "text": "Playable at the end of the movement/hazard phase on a company that moved to a Haven [{H}]. That company may move to an additional site on the same turn. Another site card may be played and a movement/hazard phase immediately follows for that company.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hero-resource-event",
