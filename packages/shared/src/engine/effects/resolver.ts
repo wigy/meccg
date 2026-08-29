@@ -936,6 +936,7 @@ function collectCompanyStatModifierEffects(
       type: 'stat-modifier',
       stat: constraint.kind.stat,
       value: constraint.kind.value,
+      ...(constraint.kind.max !== undefined ? { max: constraint.kind.max } : {}),
     };
     results.push({
       effect: synthesized,

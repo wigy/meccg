@@ -690,6 +690,40 @@ Together with `site-type-override` (`overrideType: "border-hold"`, no `purpose` 
 
 Used by *King under the Mountain* (td-126).
 
+### `company-stat-modifier` gains an optional `max` cap (Miruvor tw-283)
+
+Miruvor (tw-283): "Discard to give +2 body (to a maximum of 10) for all
+characters in bearer's company until the end of the turn." — the existing
+Orc-draughts-style `grant-action` → `add-constraint constraint:
+"company-stat-modifier"` shape (`cost: { discard: "self" }`, `target:
+"bearer-company"`, `scope: "turn"`) had no way to express a ceiling on the
+resulting stat, unlike the sibling `character-stat-modifier` kind (Biter and
+Beater! as-46) which already carried one. Three call sites now thread an
+optional `max` end to end:
+
+- `AddConstraintAction.max` (`types/effects.ts`) — the JSON `apply` clause may
+  carry `"max": 10` alongside `stat`/`value`.
+- `ActiveConstraint.kind` for `company-stat-modifier` (`types/pending.ts`)
+  gained an optional `max` field; `buildPayloadConstraintKind`
+  (`grant-action-apply.ts`) copies `apply.max` onto it when present.
+- `collectCompanyStatModifierEffects` (`effects/resolver.ts`) forwards
+  `constraint.kind.max` onto the synthesized `stat-modifier` effect, so the
+  existing `resolveStatModifiers` cap logic (`if (effect.max !== undefined)
+  result = Math.min(result, maxVal)`) applies exactly as it does for a
+  JSON-declared item bonus. Each stacked copy of the source item is capped
+  independently (its own `+2` clamped to 10), matching the printed "to a
+  maximum of 10" reading rather than a single company-wide ceiling.
+
+```json
+{ "type": "grant-action", "action": "company-body-boost", "anyPhase": true,
+  "cost": { "discard": "self" },
+  "apply": { "type": "add-constraint", "constraint": "company-stat-modifier",
+             "stat": "body", "value": 2, "max": 10,
+             "target": "bearer-company", "scope": "turn" } }
+```
+
+Used by *Miruvor* (tw-283).
+
 ### `dragonAtHomeVictorySiteIds` + `site.dragonAtHomeVictory` + `bearer.itemNames` — "a site where an at home Dragon manifestation was defeated" (Returned Exiles td-146)
 
 Returned Exiles (td-146) is "Playable at a tapped or untapped site where an at home Dragon manifestation was defeated if the influence check is greater than 12. Standard Modifications: King under the Mountain Dwarf (+5), other Dwarves (+2)." Its playability condition looks like King under the Mountain's (td-126, above) but is fundamentally different in shape: it must hold for *any* site, queryable at faction-playability time with no bearing character in scope, and must survive the winning company disbanding or dying — `dragonAtHomeVictorySiteId` (singular, per-character) cannot answer it. Three new pieces, all **fully implemented**:

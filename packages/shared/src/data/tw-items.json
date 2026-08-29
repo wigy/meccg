@@ -1772,8 +1772,27 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Discard to give +2 body (to a maximum of 10) for all characters in bearer’s company until the end of the turn."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "company-body-boost",
+        "anyPhase": true,
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "company-stat-modifier",
+          "stat": "body",
+          "value": 2,
+          "max": 10,
+          "target": "bearer-company",
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Discard to give +2 body (to a maximum of 10) for all characters in bearer’s company until the end of the turn.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hero-resource-item",

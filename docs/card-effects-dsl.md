@@ -2751,7 +2751,12 @@ Actions:
   prowess to every character in the bearer's company for the rest of
   the turn. Used by Orc-draughts (implemented in
   `reducer-organization.ts`, resolved through `collectCharacterEffects`
-  in `engine/effects/resolver.ts`)
+  in `engine/effects/resolver.ts`). The `add-constraint` apply may also
+  carry an optional `max` (e.g. `stat: "body"`, `"max": 10`) to cap the
+  resulting stat, mirroring a JSON `stat-modifier`'s own `max` field —
+  each stacked copy of the source item is capped independently. Used by
+  Miruvor (tw-283): "+2 body (to a maximum of 10) for all characters in
+  bearer's company until the end of the turn."
 - `transform-site` — discard the source item during the active player's
   site phase (declare `sitePhase: true`) to permanently transform the
   bearer's current site. The `apply` (type `"transform-site"`) carries

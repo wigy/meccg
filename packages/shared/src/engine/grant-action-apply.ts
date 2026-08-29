@@ -1291,7 +1291,12 @@ function buildPayloadConstraintKind(
   if (name === 'company-stat-modifier') {
     if (apply.stat !== 'prowess' && apply.stat !== 'body') return null;
     if (typeof apply.value !== 'number') return null;
-    return { type: 'company-stat-modifier', stat: apply.stat, value: apply.value };
+    return {
+      type: 'company-stat-modifier',
+      stat: apply.stat,
+      value: apply.value,
+      ...(typeof apply.max === 'number' ? { max: apply.max } : {}),
+    };
   }
   if (name === 'hand-size-modifier') {
     if (typeof apply.value !== 'number') return null;

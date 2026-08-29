@@ -2373,6 +2373,12 @@ export interface ActiveConstraint {
         readonly stat: 'prowess' | 'body';
         /** The bonus applied to every character in the company. */
         readonly value: number;
+        /**
+         * Optional ceiling applied to the running stat total immediately
+         * after this bonus is added (mirrors a JSON `stat-modifier`'s `max`
+         * field). Used by Miruvor (tw-283): "+2 body (to a maximum of 10)".
+         */
+        readonly max?: number;
       }
     | {
         /**
