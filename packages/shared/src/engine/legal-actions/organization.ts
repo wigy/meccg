@@ -972,13 +972,13 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   actions.push(...bareCardGrantActions(state, playerId));
 
   // Grant-actions on the player's stored (marshalling-point pile) cards —
-  // no bearer to attach to, so scanned separately (Reforging tw-314)
+  // no bearer to attach to, so scanned separately (Reforging tw-314).
+  // Andúril's stored combine action (tw-192) is folded into the
+  // `grantedActionActivations` call above instead of scanned here — it
+  // carries no phase restriction, so it is emitted through the same
+  // `anyPhase`-filtered path every phase's legal-action builder already
+  // uses for attached-item grant-actions.
   actions.push(...storedCardGrantActions(state, playerId));
-
-  // Stored-card combine actions — no tap, discard a differently-named
-  // stored card instead (Andúril tw-192: "discard a stored Reforging and
-  // place Andúril with Narsil")
-  actions.push(...storedCombineGrantActions(state, playerId));
 
   // The Lidless Eye (le-203) / Sauron (ba-43): once-per-org-phase dual-mode
   // ability (sideboard-fetch or peek-opponent-hand)
@@ -1868,6 +1868,12 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
     }
   }
 
+  // Stored (marshalling-point pile) combine grant-actions (Andúril
+  // tw-192) share the same phase-filter semantics as the attached-item
+  // scan above, so every `grantedActionActivations` call site — not just
+  // organization's own default (unfiltered) scan — surfaces them too.
+  actions.push(...storedCombineGrantActions(state, playerId, phaseFilter));
+
   return actions;
 }
 
@@ -2050,9 +2056,18 @@ export function storedCardGrantActions(state: GameState, playerId: PlayerId): Ev
  * routes such actions to `handleStoredCardGrantAction`.
  *
  * Used by Andúril, the Flame of the West (tw-192): "Once stored, you may
- * discard a stored Reforging and place Andúril with Narsil."
+ * discard a stored Reforging and place Andúril with Narsil." Unlike
+ * {@link storedCardGrantActions}'s Reforging retrieval (explicitly
+ * "During your organization phase"), Andúril's combine text carries no
+ * phase restriction, so per Rule 2.1.1 it is flagged `anyPhase: true` and
+ * offered from every phase's legal-action entry point, not just
+ * organization — pass `phaseFilter: 'anyPhase'` from those call sites.
  */
-export function storedCombineGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+export function storedCombineGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  phaseFilter?: GrantActionPhaseFilter,
+): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
@@ -2064,6 +2079,7 @@ export function storedCombineGrantActions(state: GameState, playerId: PlayerId):
 
     for (const effect of getCardEffects(def)) {
       if (effect.type !== 'grant-action' || !effect.fromStored) continue;
+      if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
       if (effect.cost.tap !== undefined || effect.cost.discard !== 'named-stored-card') continue;
       if (effect.apply?.type !== 'place-source-with-item') continue;
 
