@@ -191,8 +191,10 @@ export const CAVE_DRAKE = did('tw-020');
 export const ORC_GUARD = did('tw-072');
 /** Orc-warband — orc hazard, five strikes, prowess 4 (+3 after prior orc attack), keyed to wilderness/shadow/dark. */
 export const ORC_WARBAND = did('tw-076');
-/** Orc-lieutenant — orc hazard, one strike, prowess 7. */
+/** Orc-lieutenant — orc hazard, one strike, prowess 7 (+4 after prior orc attack, +3 more after Uruk-lieutenant). */
 export const ORC_LIEUTENANT = did('tw-073');
+/** Uruk-lieutenant — orc hazard, one strike, prowess 9 (+3 after prior orc attack). */
+export const URUK_LIEUTENANT = did('le-96');
 /** Orc-watch — orc hazard, three strikes, prowess 9, keyed to shadow/dark regions. */
 export const ORC_WATCH = did('tw-078');
 /** Orc-patrol — shadow-land hazard, common low-prowess roadblock. */

@@ -1396,6 +1396,15 @@ export interface CreatureSelfContext {
   /** Creature races the defending company has already faced this turn. */
   readonly companyFacedRaces: readonly Race[];
   /**
+   * Printed names of hazard-creature cards the defending company has already
+   * faced this turn — the name sibling of {@link companyFacedRaces}. Exposed
+   * as `company.facedNames` so a creature can boost its own prowess when a
+   * *specific* companion creature already attacked. Used by Orc-lieutenant
+   * (tw-073): "receives an additional +3 prowess if played on a company that
+   * has already faced Uruk-lieutenant (le-96) this turn."
+   */
+  readonly companyFacedNames: readonly string[];
+  /**
    * Alignment of the defending player (e.g. "hero", "ringwraith"). Exposed
    * as `defender.alignment` in the self-effect context so conditions can
    * key on the attacked company's alignment — used by cards like
@@ -1466,13 +1475,20 @@ function buildAttackContext(
   isAgentAttack = false,
   isAutomaticAttack = false,
   attackKeying?: readonly RegionType[],
+  companyFacedNames?: readonly string[],
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
     inPlay: inPlayNames,
   };
-  const withCompany = companyFacedRaces
-    ? { ...context, company: { facedRaces: companyFacedRaces } }
+  const withCompany = companyFacedRaces || companyFacedNames
+    ? {
+        ...context,
+        company: {
+          ...(companyFacedRaces ? { facedRaces: companyFacedRaces } : {}),
+          ...(companyFacedNames ? { facedNames: companyFacedNames } : {}),
+        },
+      }
     : context;
   const withDefender = defenderAlignment
     ? { ...withCompany, defender: { alignment: defenderAlignment } }
@@ -1544,7 +1560,7 @@ export function resolveAttackProwess(
   isAgentAttack = false,
   siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying, creatureSelf?.companyFacedNames);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));

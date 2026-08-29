@@ -663,10 +663,11 @@ export function enterUntapPhase(state: GameState): GameState {
       ),
     );
     // Companies' faced-attack history (Orc-lieutenant tw-073's "already faced
-    // an Orc attack this turn") is likewise turn-scoped.
+    // an Orc attack this turn", and its name-specific sibling for "already
+    // faced Uruk-lieutenant this turn") is likewise turn-scoped.
     const companies = p.companies.map(co =>
-      co.facedHazardRaces && co.facedHazardRaces.length > 0
-        ? { ...co, facedHazardRaces: [] }
+      (co.facedHazardRaces && co.facedHazardRaces.length > 0) || (co.facedHazardNames && co.facedHazardNames.length > 0)
+        ? { ...co, facedHazardRaces: [], facedHazardNames: [] }
         : co,
     );
     return p.sideboardAccessedDuringUntap

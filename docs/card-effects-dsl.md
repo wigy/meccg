@@ -344,7 +344,23 @@ Optional `target` scopes:
   `"fallen-wizard"`, or `"balrog"`) — so creatures like *Elf-lord
   Revealed in Wrath* can boost prowess against specific alignments
   (e.g. `{ "defender.alignment": "ringwraith" }` for "+4 vs
-  Ringwraiths").
+  Ringwraiths"). It also includes `company.facedNames` — the printed names
+  of the hazard-creature attacks the company has already faced this turn,
+  the name sibling of `company.facedRaces` — for conditions that name a
+  *specific* companion creature rather than a race. Both lists are backed
+  by the same turn-scoped company stamp (`facedHazardRaces` /
+  `facedHazardNames`, set in `recordHazardEncountered` and cleared in
+  `enterUntapPhase`), so they survive the M/H → Site phase transition the
+  same way. Used by Orc-lieutenant (tw-073): "receives an additional +3
+  prowess if played on a company that has already faced Uruk-lieutenant
+  this turn" — `{ "stat": "prowess", "value": 3, "when": {
+  "company.facedNames": { "$includes": "Uruk-lieutenant" } } }`. Notably,
+  this rule is printed on *Uruk-lieutenant* (le-96), not on Orc-lieutenant
+  itself, but names Orc-lieutenant as the beneficiary; since the two cards
+  are never the same attack, the effect is implemented on the beneficiary
+  card (Orc-lieutenant) rather than the announcing card, mirroring how the
+  announcing card's own text is otherwise unactionable at Orc-lieutenant's
+  combat-initiation time.
 
 ### 2. `check-modifier`
 
