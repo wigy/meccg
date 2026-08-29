@@ -1235,16 +1235,20 @@ function applyShortEventSelfEntersPlaySetStatus(state: GameState, entry: ChainEn
   const def = defById(state, card.definitionId);
   if (!def) return state;
   const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  // Match only applies aimed at the played-on character — the same predicate
+  // `handlePlayResourceShortEvent` routes on. A card whose status apply targets
+  // something else (Narya tw-290 untaps a whole company) is not resolved here
+  // and must not be discarded here either, or it would be discarded twice.
   const onEvents = getCardEffects(def).filter(
     (e): e is OnEventEffect =>
-      e.type === 'on-event' && e.event === 'self-enters-play' && e.apply.type === 'set-character-status',
+      e.type === 'on-event' && e.event === 'self-enters-play'
+      && e.apply.type === 'set-character-status'
+      && (!e.apply.target || e.apply.target === 'bearer' || e.apply.target === 'target-character'),
   );
   if (onEvents.length === 0) return state;
   let newState = state;
   for (const onEvent of onEvents) {
     if (onEvent.apply.type !== 'set-character-status' || !onEvent.apply.status) continue;
-    const statusTarget = onEvent.apply.target;
-    if (statusTarget && statusTarget !== 'bearer' && statusTarget !== 'target-character') continue;
     for (let pi = 0; pi < newState.players.length; pi++) {
       const charInPlay = newState.players[pi].characters[targetCharId];
       if (!charInPlay) continue;

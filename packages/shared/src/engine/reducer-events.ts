@@ -533,11 +533,31 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // untap (and any sibling self-enters-play `add-constraint`, e.g. the
   // hazard-limit-modifier) once both players pass priority. Previously this
   // resolved inline, silently skipping the opponent's response window.
-  const bareSetStatusEffect = action.targetCharacterId && !action.optionId
-    ? getOnEventEffects(def, 'self-enters-play').find(
-        (e): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').SetCharacterStatusAction } =>
-          e.apply.type === 'set-character-status',
-      )
+  //
+  // Only cards whose *whole* effect list the chain resolution path can
+  // reproduce take this route: `resolveEntry` fires the self-enters-play
+  // `set-character-status` on the played-on character plus any sibling
+  // `add-constraint`, and nothing else. The Sun Unveiled (as-56) additionally
+  // sweeps hazard permanent-events off the target (a `move` effect) and Narya
+  // (tw-290) untaps a whole company and enqueues a corruption check — applies
+  // the chain path does not (yet) fire — so both keep the inline handling
+  // below rather than silently losing half the card. Widen
+  // `chainResolvableOnEnter` in step with `applyShortEventSelfEntersPlay*`
+  // in chain-reducer.
+  const setsStatusOnPlayedOnCharacter = (
+    e: import('../types/effects.js').OnEventEffect,
+  ): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').SetCharacterStatusAction } =>
+    e.apply.type === 'set-character-status'
+    && (!e.apply.target || e.apply.target === 'bearer' || e.apply.target === 'target-character');
+  const chainResolvableOnEnter = (def.effects ?? []).every(e =>
+    // Play-time-only declarations: consumed by the legal-action emitter, never
+    // re-applied on resolution.
+    e.type === 'play-window' || e.type === 'play-target' || e.type === 'deck-restriction'
+    || (e.type === 'on-event' && e.event === 'self-enters-play'
+      && (e.apply.type === 'add-constraint' || setsStatusOnPlayedOnCharacter(e))),
+  );
+  const bareSetStatusEffect = action.targetCharacterId && !action.optionId && chainResolvableOnEnter
+    ? getOnEventEffects(def, 'self-enters-play').find(setsStatusOnPlayedOnCharacter)
     : undefined;
   if (bareSetStatusEffect) {
     return routeShortEventToChain(state, playerIndex, action.player, handCard, 'set-character-status', {
