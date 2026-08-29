@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1275 | 1275 | 0 | 100.0% |
+| 1283 | 1283 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 115 | 115 | 100.0% |
 | BA | 98 | 98 | 100.0% |
-| DM | 130 | 130 | 100.0% |
-| LE | 315 | 315 | 100.0% |
-| TD | 113 | 113 | 100.0% |
-| TW | 410 | 410 | 100.0% |
+| DM | 131 | 131 | 100.0% |
+| LE | 316 | 316 | 100.0% |
+| TD | 115 | 115 | 100.0% |
+| TW | 414 | 414 | 100.0% |
 | WH | 94 | 94 | 100.0% |
 
 ## Detailed Test Matrix
@@ -340,6 +340,7 @@
 | dm-134 | Hall of Fire | — | 13 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
+| dm-139 | Hobbit-lore | — | 13 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
 | dm-143 | The Hunt | — | 18 | ☑ |
@@ -448,6 +449,7 @@
 | le-91 | Sons of Kings | — | 5 | ☑ |
 | le-92 | Stirring Bones | — | 8 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |
+| le-96 | Uruk-lieutenant | — | 5 | ☑ |
 | le-97 | Wandering Eldar | — | 13 | ☑ |
 | le-98 | Wargs | — | 5 | ☑ |
 | le-99 | Watcher in the Water | — | 9 | ☑ |
@@ -760,14 +762,16 @@
 | td-131 | Many Foes He Fought | — | 9 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
 | td-133 | Map to Mithril | — | 14 | ☑ |
-| td-134 | Marvels Told | — | 28 | ☑ |
+| td-134 | Marvels Told | — | 29 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-136 | Master of Wood, Water, or Hill | — | 16 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
+| td-139 | Men of Lake-town | — | 3 | ☑ |
 | td-140 | More Sense than You | — | 9 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 12 | ☑ |
 | td-144 | Pledge of Conduct | — | 9 | ☑ |
+| td-146 | Returned Exiles | — | 11 | ☑ |
 | td-148 | Riddling Talk | — | 16 | ☑ |
 | td-149 | Sated Beast | — | 15 | ☑ |
 | td-150 | Scabbard of Chalcedony | — | 7 | ☑ |
@@ -857,6 +861,7 @@
 | tw-60 | Lure of the Senses | — | 2 | ☑ |
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
+| tw-63 | Morgul-horse | — | 10 | ☑ |
 | tw-64 | Morgul-knife | — | 17 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
 | tw-66 | Mûmak (Oliphant) | — | 11 | ☑ |
@@ -867,7 +872,7 @@
 | tw-70 | Old Man Willow | — | 9 | ☑ |
 | tw-71 | Olog-hai (Trolls) | — | 8 | ☑ |
 | tw-072 | Orc-guard | — | 3 | ☑ |
-| tw-073 | Orc-lieutenant | — | 5 | ☑ |
+| tw-073 | Orc-lieutenant | — | 6 | ☑ |
 | tw-074 | Orc-patrol | — | 3 | ☑ |
 | tw-75 | Orc-raiders | — | 8 | ☑ |
 | tw-076 | Orc-warband | — | 3 | ☑ |
@@ -991,6 +996,7 @@
 | tw-199 | Block | — | 7 | ☑ |
 | tw-200 | Blue Mountain Dwarves | — | 3 | ☑ |
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
+| tw-202 | Bridge | — | 6 | ☑ |
 | tw-203 | Clear Skies | — | 5 | ☑ |
 | tw-204 | Concealment | — | 11 | ☑ |
 | tw-205 | Cracks of Doom | — | 9 | ☑ |
@@ -1058,6 +1064,7 @@
 | tw-280 | Men of Lebennin | — | 2 | ☑ |
 | tw-281 | Men of Northern Rhovanion | — | 2 | ☑ |
 | tw-282 | Mirror of Galadriel | — | 14 | ☑ |
+| tw-283 | Miruvor | — | 12 | ☑ |
 | tw-285 | Moon | — | 10 | ☑ |
 | tw-288 | Muster | — | 11 | ☑ |
 | tw-289 | Narsil | — | 6 | ☑ |
@@ -1199,6 +1206,7 @@
 | tw-437 | Wellinghall | — | 4 | ☑ |
 | tw-438 | Woodmen-town | — | 2 | ☑ |
 | tw-439 | Wose Passage-hold | — | 3 | ☑ |
+| tw-492 | Fury of the Iron Crown | — | 10 | ☑ |
 | tw-493 | Neeker-breekers | — | 16 | ☑ |
 | tw-494 | Black Arrow | — | 9 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |

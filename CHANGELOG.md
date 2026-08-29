@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.135.0 — 2026-08-29
+
+Eight cards certified and on-guard reveal fixes
+
+### Game Engine
+
+- Certified 8 cards: Uruk-lieutenant (le-96), Morgul-horse (tw-63), Fury of the Iron Crown (tw-492), Hobbit-lore (dm-139), Bridge (tw-202), Miruvor (tw-283), Returned Exiles (td-146), and Men of Lake-town (td-139)
+- New primitives: `return-chain-entry-card-to-hand` (Morgul-horse returns a tapped Nazgûl permanent-event to hand mid-chain), `force-attacker-kill-on-resolution` + `named-card-play-offer` (Fury of the Iron Crown), `company-stat-modifier` optional `max` cap (Miruvor's +2 body to a maximum of 10), and `dragonAtHomeVictorySiteIds` site tracking with `site.dragonAtHomeVictory` playability conditions and `bearer.itemNames` check modifiers (Returned Exiles)
+- Fixed on-guard reveal for auto-attack-boost hazard events (Arouse Denizens)
+- Fixed discarding Wake of War over-reducing "each character faces one strike" attacks
+- Fixed `card-not-in-play`/`card-in-play` conditions missing named cards attached as character items
+
+### Web Client
+
+- Disambiguated Wizard's Test gold-ring choices in the play menu
+- Hid on-guard card identity even when the instance was previously revealed
+
+### Simulation
+
+- Added `play-named-card-offer` to the action-type vocabulary
+
 ## 0.134.0 — 2026-08-28
 
 21 cards certified, concede state cleanup, and virtual-site movement
