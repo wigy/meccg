@@ -1219,6 +1219,70 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
 }
 
 /**
+ * Fire a bare (not play-option-gated) `on-event self-enters-play →
+ * set-character-status` effect carried by a resolving resource short-event
+ * targeting a character (e.g. Hundreds of Butterflies dm-142: "Untap the
+ * character..."). The play-option-gated variant (And Forth He Hastened,
+ * Halfling Strength, etc.) is handled separately where `entry.payload.optionId`
+ * is set — this covers cards whose status change is unconditional on the
+ * target, not chosen among several options.
+ */
+function applyShortEventSelfEntersPlaySetStatus(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card || entry.payload.type !== 'short-event') return state;
+  const targetCharId = entry.payload.targetCharacterId;
+  if (!targetCharId) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const cardName = (def as { name?: string }).name ?? (card.definitionId as string);
+  const onEvents = getCardEffects(def).filter(
+    (e): e is OnEventEffect =>
+      e.type === 'on-event' && e.event === 'self-enters-play' && e.apply.type === 'set-character-status',
+  );
+  if (onEvents.length === 0) return state;
+  let newState = state;
+  for (const onEvent of onEvents) {
+    if (onEvent.apply.type !== 'set-character-status' || !onEvent.apply.status) continue;
+    const statusTarget = onEvent.apply.target;
+    if (statusTarget && statusTarget !== 'bearer' && statusTarget !== 'target-character') continue;
+    for (let pi = 0; pi < newState.players.length; pi++) {
+      const charInPlay = newState.players[pi].characters[targetCharId];
+      if (!charInPlay) continue;
+      const newStatus = cardStatusFromName(onEvent.apply.status);
+      // Per the glossary, "untap" requires the target be tapped (not wounded
+      // or already untapped) and "tap" requires the target be untapped (not
+      // wounded or already tapped); "wound" always applies regardless of
+      // current status. Hundreds of Butterflies (dm-142) untapping a wounded
+      // character must be a no-op, not silently clear the wound.
+      if (newStatus === CardStatus.Untapped && charInPlay.status !== CardStatus.Tapped) {
+        logDetail(`"${cardName}": set-character-status — untap requires a tapped target (${targetCharId as string} is ${charInPlay.status}) — no effect`);
+        break;
+      }
+      if (newStatus === CardStatus.Tapped && charInPlay.status !== CardStatus.Untapped) {
+        logDetail(`"${cardName}": set-character-status — tap requires an untapped target (${targetCharId as string} is ${charInPlay.status}) — no effect`);
+        break;
+      }
+      logDetail(`"${cardName}" resolved — set-character-status: ${targetCharId as string} → ${onEvent.apply.status}`);
+      newState = updatePlayer(newState, pi, p => ({
+        ...p,
+        characters: { ...p.characters, [targetCharId as string]: { ...charInPlay, status: newStatus } },
+      }));
+      break;
+    }
+  }
+  // The card rode the chain entry from hand (see handlePlayResourceShortEvent)
+  // rather than being pre-discarded at play time — dispose it now that it
+  // resolved un-negated (a negated entry is flushed by `completeChain`).
+  const declaringIndex = getPlayerIndex(newState, entry.declaredBy);
+  logDetail(`${cardName}: spent event card → discard`);
+  newState = updatePlayer(newState, declaringIndex, p => ({
+    ...p,
+    discardPile: [...p.discardPile, toCardInstance(card)],
+  }));
+  return newState;
+}
+
+/**
  * Greed (le-113 / tw-42): install the turn-scoped `item-play-corruption-check`
  * constraint bound to the target site. The constraint targets the resource
  * (active) player — the one who plays items at the site during the site phase —
@@ -4404,6 +4468,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Short events with a bare (not play-option-gated) self-enters-play →
+  // set-character-status effect (e.g. Hundreds of Butterflies dm-142: "Untap
+  // the character"): fire the status change on resolution, after the entry
+  // survived any hazard response (Many Sorrows Befall td-46 and similar).
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card && !entry.payload.optionId) {
+    current = applyShortEventSelfEntersPlaySetStatus(current, entry);
   }
 
   // Greed (le-113 / tw-42): a hazard short-event played on a site installs a

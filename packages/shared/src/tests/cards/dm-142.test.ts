@@ -23,7 +23,8 @@ import {
   makeMHState,
   CardStatus,
   companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
-  RESOURCE_PLAYER,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
+  resolveChain, findHandCardId, viableActionsForHandCard, firstAction,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
@@ -172,7 +173,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const after = dispatch(state, playActions[0].action);
+    const after = resolveChain(dispatch(state, playActions[0].action));
 
     expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
   });
@@ -192,7 +193,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
     expectCharStatus(state, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
-    const after = dispatch(state, playActions[0].action);
+    const after = resolveChain(dispatch(state, playActions[0].action));
 
     expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
   });
@@ -218,7 +219,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const after = dispatch(state, playActions[0].action);
+    const after = resolveChain(dispatch(state, playActions[0].action));
 
     expectCharStatus(after, RESOURCE_PLAYER, ARAGORN, CardStatus.Inverted);
   });
@@ -240,7 +241,7 @@ describe('Hundreds of Butterflies (dm-142)', () => {
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
     expect(playActions).toHaveLength(1);
-    const after = dispatch(state, playActions[0].action);
+    const after = resolveChain(dispatch(state, playActions[0].action));
 
     const hazardLimitConstraints = after.activeConstraints.filter(
       c => c.kind.type === 'hazard-limit-modifier',
@@ -272,9 +273,84 @@ describe('Hundreds of Butterflies (dm-142)', () => {
     const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
 
     const playActions = viableActions(state, PLAYER_1, 'play-short-event');
-    const after = dispatch(state, playActions[0].action);
+    const after = resolveChain(dispatch(state, playActions[0].action));
 
     expect(after.players[RESOURCE_PLAYER].hand).toHaveLength(0);
     expectInDiscardPile(after, RESOURCE_PLAYER, HUNDREDS_OF_BUTTERFLIES);
+  });
+
+  // ── Chain-of-effects response window ────────────────────────────────────────
+
+  test('opens a chain response window a hazard canceler can target before it resolves', () => {
+    // Regression: bug report (game mte5ieya-4on50g, turn 19, movement-hazard
+    // phase) — the hazard player held Many Sorrows Befall (td-46, "cancel one
+    // resource short-event declared earlier in the same chain of effects")
+    // but the engine never offered it against Hundreds of Butterflies: the
+    // card's untap + hazard-limit-modifier applied immediately at play time
+    // instead of riding the chain, so the opponent never got the response
+    // window CoE 9.4/9.5 owes every played action.
+    const MANY_SORROWS_BEFALL = 'td-46' as CardDefinitionId;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, status: CardStatus.Tapped }] }], hand: [HUNDREDS_OF_BUTTERFLIES], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [MANY_SORROWS_BEFALL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+
+    // The play opens a chain instead of resolving inline; priority passes to
+    // the hazard player.
+    expect(afterPlay.chain).not.toBeNull();
+    expect(afterPlay.chain!.priority).toBe(PLAYER_2);
+    expectCharStatus(afterPlay, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+
+    const msbId = findHandCardId(afterPlay, HAZARD_PLAYER, MANY_SORROWS_BEFALL);
+    const msbPlays = viableActionsForHandCard(afterPlay, PLAYER_2, 'play-short-event', HAZARD_PLAYER, MANY_SORROWS_BEFALL)
+      .map(ea => ea.action as PlayShortEventAction);
+    expect(msbPlays).toHaveLength(1);
+    const butterfliesEntry = afterPlay.chain!.entries.find(e => e.card?.definitionId === HUNDREDS_OF_BUTTERFLIES)!;
+    expect(msbPlays[0].targetInstanceId).toBe(butterfliesEntry.card!.instanceId);
+
+    const resolved = resolveChain(dispatch(afterPlay, msbPlays[0]));
+
+    // Chain resolves LIFO: Many Sorrows Befall negates Hundreds of
+    // Butterflies before it resolves — neither the untap nor the
+    // hazard-limit-modifier ever take effect.
+    expect(resolved.chain).toBeNull();
+    expectCharStatus(resolved, RESOURCE_PLAYER, ARAGORN, CardStatus.Tapped);
+    expect(resolved.activeConstraints.filter(c => c.kind.type === 'hazard-limit-modifier')).toHaveLength(0);
+    expectInDiscardPile(resolved, RESOURCE_PLAYER, HUNDREDS_OF_BUTTERFLIES);
+    expectInDiscardPile(resolved, HAZARD_PLAYER, msbId);
+  });
+
+  test('resolves normally (untap + hazard-limit-modifier) when the hazard player does not cancel it', () => {
+    const MANY_SORROWS_BEFALL = 'td-46' as CardDefinitionId;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [{ defId: ARAGORN, status: CardStatus.Tapped }] }], hand: [HUNDREDS_OF_BUTTERFLIES], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [MANY_SORROWS_BEFALL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0, destinationSiteName: 'Minas Tirith', siteRevealed: true }) };
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const passAction = firstAction(afterPlay, PLAYER_2, 'pass-chain-priority');
+    const resolved = resolveChain(dispatch(afterPlay, passAction));
+
+    expect(resolved.chain).toBeNull();
+    expectCharStatus(resolved, RESOURCE_PLAYER, ARAGORN, CardStatus.Untapped);
+    const hazardLimitConstraints = resolved.activeConstraints.filter(c => c.kind.type === 'hazard-limit-modifier');
+    expect(hazardLimitConstraints).toHaveLength(1);
+    expectInDiscardPile(resolved, RESOURCE_PLAYER, HUNDREDS_OF_BUTTERFLIES);
   });
 });

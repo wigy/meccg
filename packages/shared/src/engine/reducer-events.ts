@@ -522,6 +522,30 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     });
   }
 
+  // Hundreds of Butterflies (dm-142): "Untap the character and increase the
+  // hazard limit against his company by one." Its bare on-event
+  // self-enters-play `set-character-status` apply (not gated by a
+  // play-option — see the `selectedOption` branch below for that variant)
+  // must still be declared on the chain of effects per CoE 9.4/9.5, so a
+  // hazard response like Many Sorrows Befall (td-46) can target and cancel
+  // it before it resolves. The card leaves the hand and rides the chain
+  // entry, carrying the chosen target character; `resolveEntry` applies the
+  // untap (and any sibling self-enters-play `add-constraint`, e.g. the
+  // hazard-limit-modifier) once both players pass priority. Previously this
+  // resolved inline, silently skipping the opponent's response window.
+  const bareSetStatusEffect = action.targetCharacterId && !action.optionId
+    ? getOnEventEffects(def, 'self-enters-play').find(
+        (e): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').SetCharacterStatusAction } =>
+          e.apply.type === 'set-character-status',
+      )
+    : undefined;
+  if (bareSetStatusEffect) {
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'set-character-status', {
+      type: 'short-event',
+      targetCharacterId: action.targetCharacterId,
+    });
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent
