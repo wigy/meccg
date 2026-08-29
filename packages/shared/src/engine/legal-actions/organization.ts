@@ -41,7 +41,7 @@ import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js'
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
-import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, hasSiteFlag } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -695,7 +695,7 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
           if (!company.currentSite) return false;
           const siteDef = defById(state, company.currentSite.definitionId);
           return siteDef !== undefined && isSiteCard(siteDef)
-            && def.playableAt.some(entry => siteMatchesEntry(siteDef, entry));
+            && def.playableAt.some(entry => siteMatchesEntry(siteDef, entry, undefined, undefined, undefined, siteHasDragonAtHomeVictory(state, siteDef.id)));
         });
         if (!hasQualifyingSite) {
           logDetail(`${cofDef.name}: ${def.name} not offered as pair — no company at a site matching its playableAt`);

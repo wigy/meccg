@@ -165,6 +165,25 @@ export interface GameState {
    * Absent on states built before the field existed; treat as empty.
    */
   readonly singletonTapLocks?: readonly string[];
+  /**
+   * Site definition ids where an at-home Dragon manifestation (a "\<Dragon\> at
+   * Home" permanent-event's augmented automatic-attack — not the lair's
+   * baseline printed Dragon attack, which CoE rule g.man.3 excludes from
+   * "manifestations") has been fully defeated.
+   *
+   * Recorded permanently in `combat-finalize.ts` alongside the per-character
+   * `CharacterInPlay.dragonAtHomeVictorySiteId` stamp, but scoped to the site
+   * itself rather than to whichever characters won the fight — the site
+   * remains "where a Dragon was defeated" even after the winning company
+   * disbands or its characters leave play. Queried by `siteMatchesEntry`
+   * (`reducer-utils.ts`) as `site.dragonAtHomeVictory` for faction/ally
+   * `playableAt` `when` clauses — used by Returned Exiles (td-146): "Playable
+   * at a tapped or untapped site where an at home Dragon manifestation was
+   * defeated."
+   *
+   * Absent on states built before the field existed; treat as empty.
+   */
+  readonly dragonAtHomeVictorySiteIds?: readonly CardDefinitionId[];
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */
   readonly rng: RngState;
   /** Monotonically increasing sequence number for state changes, used for log replay. */

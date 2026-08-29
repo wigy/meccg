@@ -1392,11 +1392,49 @@
     "race": "dwarf",
     "playableAt": [
       {
-        "site": "a"
+        "any": true,
+        "when": {
+          "site.dragonAtHomeVictory": true
+        }
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at a tapped or untapped site where an at home Dragon manifestation was defeated if the influence check is greater than 12. Standard Modifications:King under the Mountain Dwarf (+5),other Dwarves (+2)."
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 5,
+        "when": {
+          "bearer.itemNames": {
+            "$includes": "King under the Mountain"
+          }
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "$and": [
+            {
+              "bearer.race": "dwarf"
+            },
+            {
+              "$not": {
+                "bearer.itemNames": {
+                  "$includes": "King under the Mountain"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Unique. Playable at a tapped or untapped site where an at home Dragon manifestation was defeated if the influence check is greater than 12. Standard Modifications:King under the Mountain Dwarf (+5),other Dwarves (+2).",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hero-resource-event",
