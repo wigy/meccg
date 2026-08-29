@@ -459,6 +459,89 @@ export function discardOnlyChoices(
 }
 
 /**
+ * Label the `play-short-event` actions offered for a hand card, one label per
+ * legal target combination. Exported (rather than inlined in
+ * `showShortEventTargetMenu`) so the label logic — including the
+ * gold-ring-test disambiguation below — is unit-testable without a DOM.
+ */
+export function buildShortEventTargetChoices(
+  actions: readonly GameAction[],
+  lookup: (id: CardInstanceId) => CardDefinitionId | undefined,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  view: PlayerView,
+): readonly ShortEventPlayChoice[] {
+  const playChoices: ShortEventPlayChoice[] = [];
+
+  for (const action of actions) {
+    if (action.type !== 'play-short-event') continue;
+
+    let label: string;
+    if (action.targetInstanceId) {
+      // Canceling an environment
+      const targetDefId = lookup(action.targetInstanceId);
+      const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
+      const targetName = targetDef ? targetDef.name : '?';
+      const chainEntry = view.chain?.entries.find(e => e.card?.instanceId === action.targetInstanceId);
+      const ownerName = chainEntry
+        ? (chainEntry.declaredBy === view.self.id ? 'You' : view.opponent.name)
+        : null;
+      label = ownerName ? `Cancel ${targetName} (${ownerName})` : `Cancel ${targetName}`;
+    } else if (action.discardTargetInstanceId) {
+      // Cards like Marvels Told: may tap a character AND force the discard
+      // of an in-play card. The player must see and pick the discard target
+      // rather than having the UI silently commit to the first match.
+      const discardDefId = lookup(action.discardTargetInstanceId);
+      const discardDef = discardDefId ? cardPool[discardDefId as string] : undefined;
+      const discardName = discardDef ? discardDef.name : '?';
+      // Two identical-named hazards (e.g. Foolish Words) can both be legal
+      // discard targets when attached to different characters. Append the
+      // bearer character's name so the two actions don't render as duplicates.
+      const bearerName = findHazardBearerName(action.discardTargetInstanceId, view, cardPool);
+      const discardLabel = bearerName ? `${discardName} (on ${bearerName})` : discardName;
+      if (action.targetScoutInstanceId) {
+        const scoutDefId = lookup(action.targetScoutInstanceId);
+        const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
+        const scoutName = scoutDef ? scoutDef.name : '?';
+        label = `Tap ${scoutName}, discard ${discardLabel}`;
+      } else {
+        label = `Discard ${discardLabel}`;
+      }
+    } else if (action.targetScoutInstanceId) {
+      // Targeting a scout (e.g. Stealth)
+      const scoutDefId = lookup(action.targetScoutInstanceId);
+      const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
+      label = scoutDef ? scoutDef.name : '?';
+    } else if (action.targetCharacterId) {
+      // Character-targeted short events with no tap cost (e.g. Vilya on Elrond)
+      const charDefId = lookup(action.targetCharacterId);
+      const charDef = charDefId ? cardPool[charDefId as string] : undefined;
+      const charName = charDef ? charDef.name : '?';
+      // Gold-ring-test cards (Wizard's Test tw-365, Test of Fire le-239) offer
+      // one action per gold ring in the target's company — same target
+      // character, different targetGoldRingInstanceId. Without the ring's
+      // name, two rings on the same sage render as two identical "Play on
+      // <sage>" buttons with no way to tell them apart (bug report
+      // 3e42ddb1e89ecb46).
+      if (action.targetGoldRingInstanceId) {
+        const ringDefId = lookup(action.targetGoldRingInstanceId);
+        const ringDef = ringDefId ? cardPool[ringDefId as string] : undefined;
+        const ringName = ringDef ? ringDef.name : '?';
+        label = `Play on ${charName} (${ringName})`;
+      } else {
+        label = `Play on ${charName}`;
+      }
+    } else {
+      // No specific target — simple play with no disambiguation needed
+      label = 'Play';
+    }
+
+    playChoices.push({ label, action });
+  }
+
+  return playChoices;
+}
+
+/**
  * Show a disambiguation tooltip near the clicked short-event card
  * when there are multiple valid targets. Each button names a target
  * environment; clicking it sends the corresponding action.
@@ -480,59 +563,7 @@ function showShortEventTargetMenu(
   onGuardAction?: GameAction,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
-  const playChoices: ShortEventPlayChoice[] = [];
-
-  for (const action of actions) {
-    if (action.type !== 'play-short-event') continue;
-
-    let label: string;
-    if (action.targetInstanceId) {
-      // Canceling an environment
-      const targetDefId = cachedInstanceLookup(action.targetInstanceId);
-      const targetDef = targetDefId ? cardPool[targetDefId as string] : undefined;
-      const targetName = targetDef ? targetDef.name : '?';
-      const chainEntry = view.chain?.entries.find(e => e.card?.instanceId === action.targetInstanceId);
-      const ownerName = chainEntry
-        ? (chainEntry.declaredBy === view.self.id ? 'You' : view.opponent.name)
-        : null;
-      label = ownerName ? `Cancel ${targetName} (${ownerName})` : `Cancel ${targetName}`;
-    } else if (action.discardTargetInstanceId) {
-      // Cards like Marvels Told: may tap a character AND force the discard
-      // of an in-play card. The player must see and pick the discard target
-      // rather than having the UI silently commit to the first match.
-      const discardDefId = cachedInstanceLookup(action.discardTargetInstanceId);
-      const discardDef = discardDefId ? cardPool[discardDefId as string] : undefined;
-      const discardName = discardDef ? discardDef.name : '?';
-      // Two identical-named hazards (e.g. Foolish Words) can both be legal
-      // discard targets when attached to different characters. Append the
-      // bearer character's name so the two actions don't render as duplicates.
-      const bearerName = findHazardBearerName(action.discardTargetInstanceId, view, cardPool);
-      const discardLabel = bearerName ? `${discardName} (on ${bearerName})` : discardName;
-      if (action.targetScoutInstanceId) {
-        const scoutDefId = cachedInstanceLookup(action.targetScoutInstanceId);
-        const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
-        const scoutName = scoutDef ? scoutDef.name : '?';
-        label = `Tap ${scoutName}, discard ${discardLabel}`;
-      } else {
-        label = `Discard ${discardLabel}`;
-      }
-    } else if (action.targetScoutInstanceId) {
-      // Targeting a scout (e.g. Stealth)
-      const scoutDefId = cachedInstanceLookup(action.targetScoutInstanceId);
-      const scoutDef = scoutDefId ? cardPool[scoutDefId as string] : undefined;
-      label = scoutDef ? scoutDef.name : '?';
-    } else if (action.targetCharacterId) {
-      // Character-targeted short events with no tap cost (e.g. Vilya on Elrond)
-      const charDefId = cachedInstanceLookup(action.targetCharacterId);
-      const charDef = charDefId ? cardPool[charDefId as string] : undefined;
-      label = charDef ? `Play on ${charDef.name}` : '?';
-    } else {
-      // No specific target — simple play with no disambiguation needed
-      label = 'Play';
-    }
-
-    playChoices.push({ label, action });
-  }
+  const playChoices = buildShortEventTargetChoices(actions, cachedInstanceLookup, cardPool, view);
 
   // Append "Discard" (end-of-turn voluntary discard, CoE 2.VI.i) and
   // "Place on-guard" (CoE 2.IV.vii.4) when legal, so neither is silently
