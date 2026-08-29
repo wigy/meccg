@@ -315,6 +315,59 @@ describe('place-on-guard — resource player must not learn the placed card', ()
     const realName = pool[BARROW_WIGHT as string]?.name;
     if (realName) expect(audienceDesc).not.toContain(realName);
   });
+
+  /**
+   * Regression for bug 34d5a073baf515a5 (game mtcx93pk-1pf831, seq 204):
+   * the on-guard card (Barrow-wight) had earlier fought in combat while
+   * still in hand and was recorded in `revealedInstances` (append-only —
+   * see visibility.ts). Placing that same instance face-down on-guard later
+   * in the game still broadcast its real name in the resource player's
+   * toast ("Place on-guard card Barrow-wight"), because `place-on-guard`
+   * was missing from `PRIVATE_ACTION_FIELDS` — unlike the analogous
+   * `plan-movement.destinationSite` case just below. CoE 2.IV.vii.4 places
+   * the card face-down regardless of any earlier public appearance.
+   */
+  test('extractActionCardDefs omits the on-guard card even when it was previously revealed', () => {
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BARROW_WIGHT], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const mhState = { ...base, phaseState: makeMHState() };
+    const cardId = handCardId(mhState, HAZARD_PLAYER);
+
+    // Simulate the card having fought in combat earlier while still in hand
+    // (or otherwise been publicly revealed) before returning to hand.
+    const state: typeof mhState = {
+      ...mhState,
+      revealedInstances: { ...mhState.revealedInstances, [cardId as string]: BARROW_WIGHT },
+    };
+
+    const action: PlaceOnGuardAction = {
+      type: 'place-on-guard',
+      player: PLAYER_2,
+      cardInstanceId: cardId,
+    };
+    const after = dispatch(state, action);
+
+    // Precondition: the instance is still recorded as revealed (the map
+    // only grows) even though it is now face-down on-guard.
+    expect(after.revealedInstances[cardId]).toBe(BARROW_WIGHT);
+
+    // The broadcast map must NOT name the on-guard card — bluffing must be
+    // preserved regardless of the instance's earlier public history.
+    const defs = extractActionCardDefs(after, action);
+    expect(defs[cardId as string]).toBeUndefined();
+
+    const audienceLookup = (id: CardInstanceId) => defs[id as string];
+    const audienceDesc = describeAction(action, pool, audienceLookup);
+    expect(audienceDesc).toContain('a card');
+    const realName = pool[BARROW_WIGHT as string]?.name;
+    if (realName) expect(audienceDesc).not.toContain(realName);
+  });
 });
 
 describe('fetch-from-pile — opponent must not learn which card was fetched', () => {
