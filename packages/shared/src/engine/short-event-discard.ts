@@ -67,8 +67,16 @@ function recomputeLiveAttackAfterDiscard(before: GameState, after: GameState): G
   const beforeNames = buildInPlayNames(before);
   const afterNames = buildInPlayNames(after);
 
-  const strikesDelta = resolveAttackStrikes(after, 0, afterNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack)
-    - resolveAttackStrikes(before, 0, beforeNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack);
+  // "Each character faces one strike" creatures (Watcher in the Water, etc.)
+  // derive `strikesTotal` from the defending company's character count, not
+  // from the printed/modified strikes stat (see chain-reducer.ts's
+  // `oneStrikePerCharacter` branch) — an `all-attacks` strikes bonus like
+  // Wake of War never fed into `strikesTotal` to begin with, so it must not
+  // be subtracted back out when the card granting it leaves play.
+  const strikesDelta = combat.eachCharacterFacesOneStrike
+    ? 0
+    : resolveAttackStrikes(after, 0, afterNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack)
+      - resolveAttackStrikes(before, 0, beforeNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack);
   const prowessDelta = resolveAttackProwess(after, 0, afterNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack)
     - resolveAttackProwess(before, 0, beforeNames, combat.creatureRace, isAutomaticAttack, undefined, undefined, isAgentAttack);
   if (strikesDelta === 0 && prowessDelta === 0) return after;
