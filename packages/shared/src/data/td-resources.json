@@ -1213,8 +1213,26 @@
         "site": "Lake-town"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Lake-town if the influence check is greater than 8. Standard Modifications: Men (+2), Dwarves (-1)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "man"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Lake-town if the influence check is greater than 8. Standard Modifications: Men (+2), Dwarves (-1).",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hero-resource-event",
