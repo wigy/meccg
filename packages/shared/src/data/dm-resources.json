@@ -1060,7 +1060,20 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.name": "Gandalf" } },
+      { "type": "play-window", "phase": "organization" },
+      { "type": "play-condition", "requires": "site-type", "siteTypes": ["haven"] },
+      { "type": "on-event", "event": "self-enters-play",
+        "apply": { "type": "set-character-status", "status": "tapped",
+                   "when": { "target.status": "untapped" } } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 2,
+        "when": { "$or": [
+          { "reason": "influence-check", "target.race": "hobbit" },
+          { "$and": [ { "reason": "faction-influence-check" }, { "faction.race": "hobbit" } ] }
+        ] } }
+    ],
+    "certified": "2026-08-28",
     "text": "Playable on Gandalf during the organization phase while at a Haven [{H}]. If untapped, tap Gandalf afterwards. He receives +2 direct influence against Hobbits and Hobbit factions."
   },
   {

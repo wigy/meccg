@@ -181,12 +181,21 @@ export function extractActionCardDefs(
  *   `revealedInstances` never forgets that — but re-selecting it as a new
  *   destination must not leak its identity again. The opponent's toast
  *   reads "Move company to a site".
+ * - `place-on-guard` `cardInstanceId` — the card is declared as a hazard and
+ *   placed face-down at the site (CoE 2.IV.vii.4); bluffing is allowed, so
+ *   the resource player must not learn its identity until it is later
+ *   revealed. If this exact instance was public earlier in the game (e.g. it
+ *   fought in combat or was played face-up before returning to hand),
+ *   `revealedInstances` never forgets that — but placing it on-guard now must
+ *   not leak its identity again. The resource player's toast reads "Place
+ *   on-guard card a card".
  */
 const PRIVATE_ACTION_FIELDS: Partial<Record<GameAction['type'], readonly string[]>> = {
   'fetch-from-pile': ['cardInstanceId'],
   'exchange-sideboard': ['discardCardInstanceId', 'sideboardCardInstanceId'],
   'arrange-deck-top-card': ['cardInstanceId'],
   'plan-movement': ['destinationSite'],
+  'place-on-guard': ['cardInstanceId'],
 };
 
 /**
@@ -762,6 +771,8 @@ export function describeAction(
       return `${playerName(action.player)} rolls for ${instName(action.targetCharacterId)}: ${action.explanation}`;
     case 'opposed-roll':
       return `${playerName(action.player)} rolls for ${instName(action.characterId)}: ${action.explanation}`;
+    case 'play-named-card-offer':
+      return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} onto ${instName(action.targetCharacterId)}`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

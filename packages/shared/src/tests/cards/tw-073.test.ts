@@ -3,25 +3,33 @@
  *
  * Card test: Orc-lieutenant (tw-073)
  * Type: hazard-creature
- * Effects: 1
+ * Effects: 2
  *
  * "Orcs. One strike. If played on a company that has already faced an Orc
  * attack this turn, Orc-lieutenant receives +4 prowess."
+ *
+ * A second self-effect — "receives an additional +3 prowess if played on a
+ * company that has already faced Uruk-lieutenant this turn" — is printed on
+ * *Uruk-lieutenant* (le-96), not on this card, but names Orc-lieutenant as
+ * the beneficiary; it is implemented here as Orc-lieutenant's own second
+ * stat-modifier (see le-96.test.ts for the companion coverage).
  *
  * This tests:
  * 1. Base stats: 1 strike, 7 prowess, no body, 1 kill MP
  * 2. stat-modifier: +4 prowess when company.facedRaces includes "orc"
  * 3. No prowess bonus when no prior Orc attack faced
+ * 4. stat-modifier: +3 additional prowess when company.facedNames includes "Uruk-lieutenant"
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, GIMLI,
-  ORC_LIEUTENANT,
+  ORC_LIEUTENANT, URUK_LIEUTENANT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeMHState, makeSitePhase,
   resolveChain, makeCancelWindowCombat, viableActions,
+  playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
   buildSitePhaseTwoPlayer, placeOnGuard,
 } from '../test-helpers.js';
@@ -285,5 +293,49 @@ describe('Orc-lieutenant (tw-073)', () => {
     const afterChain = resolveChain(afterPass);
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.strikeProwess).toBe(11); // NOT 7
+  });
+
+  test('+3 additional prowess (total 14) when played after Uruk-lieutenant (le-96) attacked the company this turn', () => {
+    // The bonus is printed on Uruk-lieutenant's own text, not Orc-lieutenant's,
+    // but names Orc-lieutenant as the beneficiary — see le-96.test.ts.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [URUK_LIEUTENANT, ORC_LIEUTENANT],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+    });
+    const gameState = { ...state, phaseState: mhState };
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const keying = { method: 'site-type' as const, value: SiteType.ShadowHold };
+
+    const urukId = handCardId(gameState, HAZARD_PLAYER, 0);
+    const afterUrukChain = playCreatureHazardAndResolve(gameState, PLAYER_2, urukId, companyId, keying);
+    const afterUruk = runCreatureCombat(afterUrukChain, ARAGORN, 12, null);
+    expect(afterUruk.combat).toBeNull();
+    expect(afterUruk.players[RESOURCE_PLAYER].companies[0].facedHazardNames).toContain('Uruk-lieutenant');
+
+    const orcId = handCardId(afterUruk, HAZARD_PLAYER, 0);
+    const afterOrcChain = playCreatureHazardAndResolve(afterUruk, PLAYER_2, orcId, companyId, keying);
+    expect(afterOrcChain.combat).not.toBeNull();
+    expect(afterOrcChain.combat!.strikeProwess).toBe(14); // 7 base + 4 (orc) + 3 (named Uruk-lieutenant)
   });
 });

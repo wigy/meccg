@@ -3918,6 +3918,17 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     ...derivedFacedRaces,
     ...(targetCompanyForFacedRaces?.facedHazardRaces ?? []),
   ]));
+  // Name sibling of `companyFacedRaces` — the M/H phase state's raw
+  // `hazardsEncountered` list already holds creature names directly, unioned
+  // with the persisted turn-scoped `facedHazardNames` so a Site-phase
+  // on-guard reveal still sees named creatures faced earlier in the turn.
+  const derivedFacedNames = state.phaseState.phase === 'movement-hazard'
+    ? state.phaseState.hazardsEncountered
+    : [];
+  const companyFacedNames = Array.from(new Set([
+    ...derivedFacedNames,
+    ...(targetCompanyForFacedRaces?.facedHazardNames ?? []),
+  ]));
   const defenderAlignment = defenderAlignmentLabel(state.players[activePlayerIndex].alignment);
   // A creature's `keyedTo` can list several independent ways it may be
   // played (e.g. Orc-watch: region type Shadow/Dark *or* site type
@@ -3952,6 +3963,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     ? {
         effects: creatureDef.effects,
         companyFacedRaces,
+        companyFacedNames,
         defenderAlignment,
         attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
       }

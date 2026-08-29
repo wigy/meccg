@@ -2241,6 +2241,7 @@ export type TriggeredActionType =
   | 'return-character-to-hand'
   | 'increment-company-extra-region-distance'
   | 'modify-current-strike-prowess'
+  | 'force-attacker-kill-on-resolution'
   | 'move'
   | 'place-item-on-character'
   | 'place-source-with-item'
@@ -3546,6 +3547,24 @@ export interface ModifyCurrentStrikeProwessAction extends TriggeredActionBase {
   readonly value?: number;
 }
 
+/**
+ * `force-attacker-kill-on-resolution` — Fury of the Iron Crown (tw-492): schedule
+ * the attacking creature to be forced into the defender's kill pile (awarding
+ * marshalling points) once this combat's finalization runs, bypassing the
+ * normal all-strikes-defeated requirement. Skipped entirely when the
+ * attacker's race matches `excludeRace` (Nazgûl are never removed this way).
+ * When the forced kill fires and the defender then holds a card named
+ * `offerCardName` in hand, a `named-card-play-offer` pending resolution lets
+ * them immediately play it onto a character in the defending company.
+ */
+export interface ForceAttackerKillOnResolutionAction extends TriggeredActionBase {
+  readonly type: 'force-attacker-kill-on-resolution';
+  /** Race this forced kill does not apply to. */
+  readonly excludeRace?: Race;
+  /** Card name the defender may immediately play if held in hand once the kill resolves. */
+  readonly offerCardName?: string;
+}
+
 /** `transform-site` — override all versions of the bearer's current site's type, optionally with a bespoke attack (Vile Fumes). */
 export interface TransformSiteAction extends TriggeredActionBase {
   readonly type: 'transform-site';
@@ -3767,6 +3786,7 @@ export type TriggeredAction =
   | ShuffleDeckTopAction
   | IncrementCompanyExtraRegionDistanceAction
   | ModifyCurrentStrikeProwessAction
+  | ForceAttackerKillOnResolutionAction
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction

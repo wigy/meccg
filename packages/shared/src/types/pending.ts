@@ -615,6 +615,22 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Named out-of-sequence item-play offer — enqueued by a
+         * `force-attacker-kill-on-resolution` apply whose `offerCardName` names
+         * a card the actor holds in hand once the forced kill resolves (Fury
+         * of the Iron Crown tw-492: "if the defender has The Iron Crown in
+         * his hand, he may immediately play it with a character in the
+         * defending company"). The actor may play the one named card from
+         * hand onto any character in `companyId`, or pass.
+         */
+        readonly type: 'named-card-play-offer';
+        /** Exact card name eligible for this offer. */
+        readonly cardName: string;
+        /** Company whose characters may receive the card. */
+        readonly companyId: CompanyId;
+      }
+    | {
+        /**
          * The Windlord Found Me (dm-164): when stored at a Haven, if the
          * resource player's Wizard is not already in play, they may search
          * their play deck or discard pile for a Wizard and play him at that

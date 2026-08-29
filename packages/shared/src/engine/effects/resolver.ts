@@ -143,6 +143,17 @@ export interface ResolverContext {
      */
     readonly homesiteRegions?: readonly string[];
     /**
+     * Names of items borne by the character — including character-attached
+     * permanent events, which are stored in `CharacterInPlay.items` alongside
+     * true items (there is no separate attached-event zone; see
+     * `keyword-replaced.ts`). Populated only in the `faction-influence-check`
+     * context. Lets a faction's printed modification target a named card
+     * holder, e.g. Returned Exiles (td-146): "King under the Mountain Dwarf
+     * (+5)" via `{ "bearer.itemNames": { "$includes": "King under the
+     * Mountain" } }`.
+     */
+    readonly itemNames?: readonly string[];
+    /**
      * The character's *printed* skills only — never merged with skills granted
      * by borne items/effects. Populated only in the effective-stats context
      * (alongside the item-merged `skills`), so a `stat-modifier`'s `when` can
@@ -1385,6 +1396,15 @@ export interface CreatureSelfContext {
   /** Creature races the defending company has already faced this turn. */
   readonly companyFacedRaces: readonly Race[];
   /**
+   * Printed names of hazard-creature cards the defending company has already
+   * faced this turn — the name sibling of {@link companyFacedRaces}. Exposed
+   * as `company.facedNames` so a creature can boost its own prowess when a
+   * *specific* companion creature already attacked. Used by Orc-lieutenant
+   * (tw-073): "receives an additional +3 prowess if played on a company that
+   * has already faced Uruk-lieutenant (le-96) this turn."
+   */
+  readonly companyFacedNames: readonly string[];
+  /**
    * Alignment of the defending player (e.g. "hero", "ringwraith"). Exposed
    * as `defender.alignment` in the self-effect context so conditions can
    * key on the attacked company's alignment — used by cards like
@@ -1455,13 +1475,20 @@ function buildAttackContext(
   isAgentAttack = false,
   isAutomaticAttack = false,
   attackKeying?: readonly RegionType[],
+  companyFacedNames?: readonly string[],
 ): ResolverContext {
   const context: ResolverContext = {
     reason: 'combat',
     inPlay: inPlayNames,
   };
-  const withCompany = companyFacedRaces
-    ? { ...context, company: { facedRaces: companyFacedRaces } }
+  const withCompany = companyFacedRaces || companyFacedNames
+    ? {
+        ...context,
+        company: {
+          ...(companyFacedRaces ? { facedRaces: companyFacedRaces } : {}),
+          ...(companyFacedNames ? { facedNames: companyFacedNames } : {}),
+        },
+      }
     : context;
   const withDefender = defenderAlignment
     ? { ...withCompany, defender: { alignment: defenderAlignment } }
@@ -1533,7 +1560,7 @@ export function resolveAttackProwess(
   isAgentAttack = false,
   siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying, creatureSelf?.companyFacedNames);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));

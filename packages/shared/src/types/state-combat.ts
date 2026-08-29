@@ -564,6 +564,20 @@ export interface CombatState {
    */
   readonly anyAttackCanceled?: boolean;
   /**
+   * Set when a `force-attacker-kill-on-resolution` short event (Fury of the
+   * Iron Crown tw-492) was played during this combat: at finalization, the
+   * attacking creature is forced into the defender's kill pile (marshalling
+   * points awarded) regardless of whether the strike(s) actually defeated
+   * it, unless the creature's race matches `excludeRace` (Nazgûl cannot be
+   * removed this way — the prowess boost still applies). If the forced kill
+   * fires and the defender then holds a card named `offerCardName` in hand,
+   * `finalizeCombat` enqueues a `named-card-play-offer` pending resolution.
+   */
+  readonly forcedCreatureKillOnResolution?: {
+    readonly excludeRace?: Race;
+    readonly offerCardName?: string;
+  };
+  /**
    * Number of separate attacks in a multi-attack creature (e.g. Assassin = 3).
    * When present, `strikesTotal` equals `multiAttackCount × strikesPerAttack`.
    * Used by the UI to display "3 attacks of 1 strike" instead of "3 strikes".

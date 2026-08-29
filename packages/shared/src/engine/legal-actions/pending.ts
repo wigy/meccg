@@ -3245,6 +3245,60 @@ export function ringPlayOfferActions(
   return actions;
 }
 
+/**
+ * Compute the legal actions for a queued `named-card-play-offer` resolution
+ * (Fury of the Iron Crown, tw-492): the actor may play one card from hand
+ * whose name matches `top.kind.cardName` onto any character in
+ * `top.kind.companyId`, or pass.
+ */
+export function namedCardPlayOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'named-card-play-offer') return [];
+  const { cardName: offerCardName, companyId } = top.kind;
+
+  const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
+
+  const player = playerById(state, actor);
+  if (!player) return actions;
+  const company = companyById(player.companies, companyId);
+  if (!company) return actions;
+
+  const matchingCards = player.hand.filter(card => {
+    const def = defById(state, card.definitionId);
+    if (!def || def.name !== offerCardName) return false;
+    // A unique card cannot enter play while a copy is already in play.
+    const isUnique = 'unique' in def && (def as { unique?: boolean }).unique === true;
+    if (isUnique && countCopiesInPlay(state, def.name) > 0) {
+      logDetail(`named-card-play-offer: ${def.name} is unique and already in play — not offered`);
+      return false;
+    }
+    return true;
+  });
+  if (matchingCards.length === 0) return actions;
+
+  for (const card of matchingCards) {
+    for (const charId of company.characters) {
+      const charData = player.characters[charId];
+      if (!charData) continue;
+      logDetail(`named-card-play-offer: offering ${offerCardName} onto ${defById(state, charData.definitionId)?.name ?? (charId as string)}`);
+      actions.push({
+        action: {
+          type: 'play-named-card-offer' as const,
+          player: actor,
+          cardInstanceId: card.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
 /** Compute eligible ring categories from a `ring-test-table` effect and a roll total. */
 export function eligibleRingCategories(table: RingTestTableEffect['table'], rollTotal: number): readonly RingCategory[] {
   return table

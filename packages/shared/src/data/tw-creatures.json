@@ -213,6 +213,16 @@
             "$includes": "orc"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "when": {
+          "company.facedNames": {
+            "$includes": "Uruk-lieutenant"
+          }
+        }
       }
     ],
     "text": "Orcs. One strike. If played on a company that has already faced an Orc attack this turn, Orc-lieutenant receives +4 prowess.",

@@ -2880,8 +2880,46 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/FuryoftheIronCrown.jpg",
     "unique": true,
     "eventType": "short",
-    "effects": [],
-    "text": "Unique. May not be played if The Iron Crown is in play. The prowess of one strike of an attack by an Orc, Troll, Man, or Nazgûl creature is increased by +4. After the attack is resolved, if the creature is not a Nazgûl: the creature is removed from play (defender receives the marshalling points); and, in addition, if the defender has The Iron Crown in his hand, he may immediately play it with a character in the defending company."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "resolve-strike"
+      },
+      {
+        "type": "play-condition",
+        "requires": "card-not-in-play",
+        "cardName": "The Iron Crown"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "attack.race": {
+            "$in": ["orc", "troll", "man", "ringwraith"]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play-combat",
+        "apply": {
+          "type": "modify-current-strike-prowess",
+          "value": 4
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play-combat",
+        "apply": {
+          "type": "force-attacker-kill-on-resolution",
+          "excludeRace": "ringwraith",
+          "offerCardName": "The Iron Crown"
+        }
+      }
+    ],
+    "text": "Unique. May not be played if The Iron Crown is in play. The prowess of one strike of an attack by an Orc, Troll, Man, or Nazgûl creature is increased by +4. After the attack is resolved, if the creature is not a Nazgûl: the creature is removed from play (defender receives the marshalling points); and, in addition, if the defender has The Iron Crown in his hand, he may immediately play it with a character in the defending company.",
+    "certified": "2026-08-28"
   },
   {
     "cardType": "hazard-event",
