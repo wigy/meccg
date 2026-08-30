@@ -342,7 +342,7 @@
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-139 | Hobbit-lore | — | 13 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
-| dm-142 | Hundreds of Butterflies | — | 11 | ☑ |
+| dm-142 | Hundreds of Butterflies | — | 13 | ☑ |
 | dm-143 | The Hunt | — | 18 | ☑ |
 | dm-145 | Into Dark Tunnels | — | 9 | ☑ |
 | dm-148 | Mallorn | — | 18 | ☑ |
@@ -478,7 +478,7 @@
 | le-129 | Plague | — | 12 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
 | le-132 | Rebel-talk | — | 12 | ☑ |
-| le-134 | River | — | 1 | ☑ |
+| le-134 | River | — | 2 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-137 | Shut Yer Mouth | — | 11 | ☑ |
@@ -986,7 +986,7 @@
 | tw-189 | A Friend or Three | — | 12 | ☑ |
 | tw-190 | Align Palantír | — | 11 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |
-| tw-192 | Andúril, the Flame of the West | — | 15 | ☑ |
+| tw-192 | Andúril, the Flame of the West | — | 17 | ☑ |
 | tw-193 | Army of the Dead | — | 5 | ☑ |
 | tw-194 | Ash Mountains | — | 13 | ☑ |
 | tw-195 | Athelas | — | 11 | ☑ |

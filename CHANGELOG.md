@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.136.0 — 2026-08-30
+
+Andúril reforging and hazard timing fixes
+
+### Game Engine
+
+- Andúril (tw-192): implemented the post-combine bearer bonuses that were never applied after placing Andúril with Narsil
+- Andúril (tw-192): the stored combine-with-Narsil action is now offered during any phase of the controller's turn (CoE 2.1.1), not just organization — stored-card combine grant-actions flow through the shared `anyPhase` grant-action path
+- Hundreds of Butterflies no longer bypasses the chain of effects, restoring the opponent's hazard response window; chain routing is now restricted to short events the chain can fully resolve
+- River (and similar arrival-only hazards) are no longer offered against a non-moving company
+- Fixed rule 5.22 test to declare the move on the company, not just phase state
+
 ## 0.135.0 — 2026-08-29
 
 Eight cards certified and on-guard reveal fixes
