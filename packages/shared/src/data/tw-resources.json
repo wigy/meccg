@@ -2311,6 +2311,7 @@
         "type": "grant-action",
         "action": "anduril-combine-with-narsil",
         "fromStored": true,
+        "anyPhase": true,
         "cost": {
           "discard": "named-stored-card",
           "discardCardName": "Reforging"

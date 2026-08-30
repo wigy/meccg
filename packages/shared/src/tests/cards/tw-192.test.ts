@@ -57,7 +57,7 @@ import {
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import { Phase } from '../../index.js';
-import type { CardDefinitionId, CardInstanceId, PlayPermanentEventAction, GameAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, PlayPermanentEventAction, GameAction, EndOfTurnPhaseState } from '../../index.js';
 import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 const ANDURIL = 'tw-192' as CardDefinitionId;
@@ -384,5 +384,51 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
       .map(a => a.action as { actionId?: string })
       .some(a => a.actionId === 'anduril-combine-with-narsil');
     expect(offered).toBe(false);
+  });
+
+  // ── Rule 2.1.1: combine is not restricted to the organization phase
+  //    (bug report msg f4380bc5ef290ece, game mtek3wk2-frgnkn seq 413) ──
+
+  test('CoE 2.1.1: offered during the end-of-turn phase, not just organization', () => {
+    const site = RIVENDELL;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site, characters: [{ defId: ARAGORN, items: [NARSIL] }] }],
+          hand: [],
+          siteDeck: [],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    let stored = addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: ANDURIL, storedAtSite: site },
+    );
+    stored = addToPile(
+      stored, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: REFORGING, storedAtSite: site },
+    );
+    const signalEnd: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+    const state = { ...recomputeDerived(stored), phaseState: signalEnd };
+
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const matches = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .filter(a => a.actionId === 'anduril-combine-with-narsil');
+
+    expect(matches.some(a => a.targetCardId === reforgingId && a.recipientCharacterId === aragornId)).toBe(true);
   });
 });
