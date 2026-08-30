@@ -19,7 +19,7 @@ import { matchesDefinition, characterEntries, playerById, getCardEffects, defByI
 import { isCharacterCard, isSiteCard } from '../../types/cards.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
-import { buildGrantActionContext, grantedActionActivations } from './organization.js';
+import { buildGrantActionContext, grantedActionActivations, storedCombineGrantActions } from './organization.js';
 import { resolveHandSize } from '../effects/index.js';
 import { logHeading, logDetail } from './log.js';
 import { deckExhaustExchangeActions } from './movement-hazard.js';
@@ -81,6 +81,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
         base.push(...playPermanentEventActions(state, playerId));
         base.push(...recruitViaEventActions(state, playerId));
         base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+        base.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
       }
       return base;
     }
@@ -93,6 +94,7 @@ export function endOfTurnActions(state: GameState, playerId: PlayerId): Evaluate
         base.push(...playPermanentEventActions(state, playerId));
         base.push(...recruitViaEventActions(state, playerId));
         base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+        base.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
       }
       return base;
     }

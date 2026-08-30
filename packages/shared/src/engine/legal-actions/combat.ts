@@ -27,7 +27,7 @@ import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames, bui
 import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
-import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
+import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, storedCombineGrantActions, playerStateGateMet } from './organization.js';
 import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers } from '../reducer-utils.js';
 import { countConstraintsFromDefinition, constraintsOnCompany } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
@@ -200,7 +200,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   // without this the any-phase grant is unreachable during assign-strikes,
   // same gap fixed for `resolveStrikeActions` below.
   const preAssignmentGrantedActions = playerId === state.activePlayer && combat.strikeAssignments.length === 0
-    ? grantedActionActivations(state, playerId, 'anyPhase')
+    ? [...grantedActionActivations(state, playerId, 'anyPhase'), ...storedCombineGrantActions(state, playerId, 'anyPhase')]
     : [];
 
   switch (combat.phase) {
@@ -1840,6 +1840,7 @@ function resolveStrikeActions(
   // any-phase grant is silently unreachable for the whole strike sequence.
   if (playerId === state.activePlayer) {
     actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+    actions.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
   }
 
   return actions;

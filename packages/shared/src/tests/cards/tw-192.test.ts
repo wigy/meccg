@@ -352,4 +352,45 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
       .some(a => a.actionId === 'anduril-combine-with-narsil');
     expect(offered).toBe(false);
   });
+
+  // ── Rule 2.1.1: no phase restriction on the combine clause (bug report
+  //    msg bbdc4df9c0e495a5, game mtexz1g7-mlo1hv) ──
+
+  test('CRF 2.1.1: also offered during the end-of-turn phase, unlike Reforging\'s own organization-only retrieve ability', () => {
+    // "Once stored, you may discard a stored Reforging and place Andúril
+    // with Narsil" carries no phase restriction on the card, unlike
+    // Reforging's own ability ("During your organization phase, you may
+    // tap a sage..."). The engine wrongly gated the combine action behind
+    // organization.ts only, so a player who stored Reforging during the
+    // end-of-turn phase (e.g. via Safe from the Shadow, as-54) could not
+    // combine Andúril with Narsil until their next organization phase.
+    const site = RIVENDELL;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site, characters: [{ defId: ARAGORN, items: [NARSIL] }] }], hand: [], siteDeck: [AMON_HEN], playDeck: makePlayDeck() },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [AMON_HEN] },
+      ],
+    });
+    let stored = addToPile(
+      base, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: ANDURIL, storedAtSite: site },
+    );
+    stored = addToPile(
+      stored, RESOURCE_PLAYER, 'killPile',
+      { instanceId: mint(), definitionId: REFORGING, storedAtSite: site },
+    );
+    const state = recomputeDerived(stored);
+
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const matches = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .filter(a => a.actionId === 'anduril-combine-with-narsil');
+
+    expect(matches.some(a => a.targetCardId === reforgingId && a.recipientCharacterId === aragornId)).toBe(true);
+  });
 });

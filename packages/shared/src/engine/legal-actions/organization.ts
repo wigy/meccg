@@ -2050,9 +2050,17 @@ export function storedCardGrantActions(state: GameState, playerId: PlayerId): Ev
  * routes such actions to `handleStoredCardGrantAction`.
  *
  * Used by Andúril, the Flame of the West (tw-192): "Once stored, you may
- * discard a stored Reforging and place Andúril with Narsil."
+ * discard a stored Reforging and place Andúril with Narsil." Andúril's card
+ * text does not restrict this to the organization phase (unlike Reforging's
+ * own "During your organization phase..." ability), so it is flagged
+ * `anyPhase: true` (CRF rule 2.1.1) and callers outside organization.ts pass
+ * `'anyPhase'` here to offer it during their own phase too.
  */
-export function storedCombineGrantActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+export function storedCombineGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  phaseFilter?: GrantActionPhaseFilter,
+): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
   const actions: EvaluatedAction[] = [];
@@ -2064,6 +2072,7 @@ export function storedCombineGrantActions(state: GameState, playerId: PlayerId):
 
     for (const effect of getCardEffects(def)) {
       if (effect.type !== 'grant-action' || !effect.fromStored) continue;
+      if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
       if (effect.cost.tap !== undefined || effect.cost.discard !== 'named-stored-card') continue;
       if (effect.apply?.type !== 'place-source-with-item') continue;
 

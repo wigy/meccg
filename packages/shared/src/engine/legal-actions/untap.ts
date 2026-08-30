@@ -18,7 +18,7 @@ import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
-import { grantedActionActivations } from './organization.js';
+import { grantedActionActivations, storedCombineGrantActions } from './organization.js';
 
 /** Maximum hazard cards that can be fetched to discard per untap. */
 const MAX_HAZARD_SIDEBOARD_TO_DISCARD = 5;
@@ -121,6 +121,7 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // Gandalf tapping to test a gold ring in his company, tw-156) during any
   // phase of their own turn, including the untap phase.
   actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+  actions.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
 
   for (const handCard of player.hand) {
     actions.push(notPlayable(playerId, handCard.instanceId, 'Cards cannot be played during the untap phase'));

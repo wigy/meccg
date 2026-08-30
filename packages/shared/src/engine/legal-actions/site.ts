@@ -25,7 +25,7 @@ import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEff
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
+import { availableDI, normalUnusedDI, grantedActionActivations, storedCombineGrantActions, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
@@ -187,6 +187,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // (e.g. Foul-smelling Paste le-310) at this earliest site-phase
       // window too, not just once play-resources is reached.
       base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+      base.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -216,6 +217,7 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // Rule 2.1.1: resource player may also activate any-phase grant-actions
       // (e.g. Foul-smelling Paste le-310) at this window.
       base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+      base.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
     } else {
       base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
@@ -3017,6 +3019,7 @@ export function playResourcesActions(
 
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
   actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+  actions.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
 
   // Site-phase grant-actions declared on the current site (e.g. The Worthy Hills as-142:
   // tap sage + scout to untap the site).

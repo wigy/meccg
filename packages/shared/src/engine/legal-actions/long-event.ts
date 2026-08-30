@@ -25,7 +25,7 @@ import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, withdrawAgentTargetActions } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, storedCombineGrantActions, collectDiscardInPlayTargets, collectRegionTransformTargets, withdrawAgentTargetActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -154,6 +154,7 @@ export function longEventActions(state: GameState, playerId: PlayerId): Evaluate
 
   // Rule 2.1.1: resource player may activate any-phase grant-actions (e.g. Cram untap-bearer)
   actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+  actions.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
 
   actions.push({ action: { type: 'pass', player: playerId }, viable: true });
   const playableCount = actions.filter(a => a.viable).length - 1; // exclude pass

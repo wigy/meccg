@@ -34,7 +34,7 @@ import { companyMovementRestrictions } from '../effects/company-restrictions.js'
 import { logDetail, logHeading } from './log.js';
 import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { playPermanentEventActions, playShortEventActions } from './organization-events.js';
-import { grantedActionActivations, buildPlayOptionContext, playerStateGateMet } from './organization.js';
+import { grantedActionActivations, storedCombineGrantActions, buildPlayOptionContext, playerStateGateMet } from './organization.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -4536,6 +4536,7 @@ function playHazardsActions(
       actions.push(...tapDiscardAttachedHazardActions(state, playerId, company));
     }
     actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+    actions.push(...storedCombineGrantActions(state, playerId, 'anyPhase'));
   }
 
   // Hazard player may tap an in-play dual-mode creature-permanent-event
