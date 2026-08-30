@@ -41,6 +41,7 @@ import {
   CardStatus,
   makeMHState,
   companyIdAt, handCardId, HAZARD_PLAYER, RESOURCE_PLAYER,
+  viableActions,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 
@@ -106,5 +107,27 @@ describe('River (le-134)', () => {
     if (grant.kind.type === 'granted-action') {
       expect(grant.kind.action).toBe('cancel-river');
     }
+  });
+
+  // Bug report: the AI hazard player kept playing River on companies that
+  // weren't moving this turn. River's on-event effect ("a company that has
+  // moved to this site this turn", CRF 22) only fires for a moving company
+  // (chain-reducer's applyShortEventArrivalTrigger already skips a
+  // stationary target), so offering the play at all wastes the card — it can
+  // never have any effect. It must not be a legal action.
+  test('not playable on a company that is not moving', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [RIVER_LE], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const stateAtPlayHazards = { ...state, phaseState: makeMHState() };
+    const actions = viableActions(stateAtPlayHazards, PLAYER_2, 'play-hazard');
+    expect(actions).toHaveLength(0);
   });
 });

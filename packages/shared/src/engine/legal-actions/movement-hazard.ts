@@ -3665,6 +3665,21 @@ function playHazardsActions(
 
         // Site-targeting short events (e.g. Incite Defenders): apply filter on destination site
         if (shortPlayTarget?.target === 'site') {
+          // River, Incite Defenders/Denizens, etc. do nothing except through
+          // their `on-event: company-arrives-at-site` hook, which
+          // `applyShortEventArrivalTrigger` fires only for a moving company
+          // (CRF 22: River requires "a company that has moved to this site
+          // this turn"). Playing such a card on a stationary company always
+          // fizzles, so don't offer it as a legal action in that case.
+          const onlyFiresOnArrival = getCardEffects(def).some(
+            (e): e is import('../../types/effects.js').OnEventEffect =>
+              e.type === 'on-event' && e.event === 'company-arrives-at-site',
+          );
+          if (onlyFiresOnArrival && !targetCompany.destinationSite) {
+            logDetail(`Hazard short-event "${def.name}" not playable — company is not moving (effect only fires on arrival)`);
+            actions.push({ action, viable: false, reason: `${def.name}: the company is not moving` });
+            continue;
+          }
           const destSiteInstanceId = targetCompany.destinationSite?.instanceId
             ?? targetCompany.currentSite?.instanceId
             ?? null;

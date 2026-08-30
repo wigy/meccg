@@ -70,12 +70,15 @@ describe('Rule 5.22 — Playing an Event Hazard', () => {
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       players: [
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [RIVER], siteDeck: [MINAS_TIRITH] },
       ],
     });
 
-    // Company is moving to MORIA via a wilderness region
+    // Company is moving to MORIA via a wilderness region. The move must be
+    // declared on the company itself (`destinationSite`), not just in the
+    // phase state: River's arrival trigger — and therefore the legality of
+    // playing it — keys off `company.destinationSite`.
     const state = {
       ...base,
       phaseState: makeShadowMHState({
