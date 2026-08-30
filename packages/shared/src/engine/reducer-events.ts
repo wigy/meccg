@@ -522,6 +522,50 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     });
   }
 
+  // Hundreds of Butterflies (dm-142): "Untap the character and increase the
+  // hazard limit against his company by one." Its bare on-event
+  // self-enters-play `set-character-status` apply (not gated by a
+  // play-option — see the `selectedOption` branch below for that variant)
+  // must still be declared on the chain of effects per CoE 9.4/9.5, so a
+  // hazard response like Many Sorrows Befall (td-46) can target and cancel
+  // it before it resolves. The card leaves the hand and rides the chain
+  // entry, carrying the chosen target character; `resolveEntry` applies the
+  // untap (and any sibling self-enters-play `add-constraint`, e.g. the
+  // hazard-limit-modifier) once both players pass priority. Previously this
+  // resolved inline, silently skipping the opponent's response window.
+  //
+  // Only cards whose *whole* effect list the chain resolution path can
+  // reproduce take this route: `resolveEntry` fires the self-enters-play
+  // `set-character-status` on the played-on character plus any sibling
+  // `add-constraint`, and nothing else. The Sun Unveiled (as-56) additionally
+  // sweeps hazard permanent-events off the target (a `move` effect) and Narya
+  // (tw-290) untaps a whole company and enqueues a corruption check — applies
+  // the chain path does not (yet) fire — so both keep the inline handling
+  // below rather than silently losing half the card. Widen
+  // `chainResolvableOnEnter` in step with `applyShortEventSelfEntersPlay*`
+  // in chain-reducer.
+  const setsStatusOnPlayedOnCharacter = (
+    e: import('../types/effects.js').OnEventEffect,
+  ): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').SetCharacterStatusAction } =>
+    e.apply.type === 'set-character-status'
+    && (!e.apply.target || e.apply.target === 'bearer' || e.apply.target === 'target-character');
+  const chainResolvableOnEnter = (def.effects ?? []).every(e =>
+    // Play-time-only declarations: consumed by the legal-action emitter, never
+    // re-applied on resolution.
+    e.type === 'play-window' || e.type === 'play-target' || e.type === 'deck-restriction'
+    || (e.type === 'on-event' && e.event === 'self-enters-play'
+      && (e.apply.type === 'add-constraint' || setsStatusOnPlayedOnCharacter(e))),
+  );
+  const bareSetStatusEffect = action.targetCharacterId && !action.optionId && chainResolvableOnEnter
+    ? getOnEventEffects(def, 'self-enters-play').find(setsStatusOnPlayedOnCharacter)
+    : undefined;
+  if (bareSetStatusEffect) {
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'set-character-status', {
+      type: 'short-event',
+      targetCharacterId: action.targetCharacterId,
+    });
+  }
+
   // Resource short events skip the chain today — the played card goes
   // straight to the owner's face-down discard pile (see TODO in
   // `visibility.ts`). Announce the identity explicitly so the opponent
