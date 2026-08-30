@@ -3105,8 +3105,11 @@ export interface PlaceItemOnCharacterAction extends TriggeredActionBase {
  * `handleStoredCardGrantAction` — the source has no bearer, so it is routed
  * there rather than through the generic attached-card apply dispatch. Used
  * by Andúril, the Flame of the West (tw-192): "Once stored, you may discard
- * a stored Reforging and place Andúril with Narsil." Narsil's stat bonuses
- * once combined are not yet certified — see the card's data comment.
+ * a stored Reforging and place Andúril with Narsil." The relocated source
+ * item is marked `restored: true` (the same flag `restore-item` sets), so
+ * Andúril's post-combine bearer bonuses — declared as `item.restored`-gated
+ * `stat-modifier`/`restored-item-stats` effects on its own definition, per
+ * the Ringil (td-184) pattern — activate immediately once placed.
  */
 export interface PlaceSourceWithItemAction extends TriggeredActionBase {
   readonly type: 'place-source-with-item';
