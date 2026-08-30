@@ -19,7 +19,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, isCovertCompany, matchesDefinition, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -29,6 +29,8 @@ import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './re
 import { shuffle } from '../rng.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
+import { availableDI } from './legal-actions/organization.js';
+import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { isCharacterCard, isItemCard, isAllyCard, isResourceEventCard, isFactionCard } from '../types/cards.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import type { CardDefinition } from '../types/cards.js';
@@ -360,6 +362,113 @@ function resolveShortEventRollUntap(
 }
 
 /**
+ * Resolve Hour of Need (dm-141): tap the diplomat, then make a synchronous
+ * influence attempt against the faction card named on the action, using the
+ * diplomat's own free direct influence modified by `-(penaltyBase +
+ * regionDistance)` — the inclusive region distance from the diplomat's
+ * current site to the faction's normally-playable region ({@link
+ * factionPlayableSiteRegions} / {@link influenceRegionPenalty}, the same
+ * primitives Prophet of Doom wh-106 uses). No chain / on-guard window is
+ * opened — like `faction-influence-untethered` (Roäc the Raven), this is a
+ * synchronous resolution outside the site phase.
+ *
+ * On success the faction enters play untapped, the diplomat is tapped, the
+ * diplomat's company's current site is tapped, and a turn-scoped
+ * `minor-item-play-blocked` site-flag constraint is added there — the site
+ * phase never runs its own `resourcePlayed`/site-tap bookkeeping for this
+ * attempt, so the card's own text ("you cannot play a minor item and you
+ * must tap the character's site") reproduces those consequences by hand. On
+ * failure both the diplomat (discarded to their controller's discard pile,
+ * freeing followers/possessions via {@link discardCharacterToDiscardPile})
+ * and the faction (discarded) leave play.
+ */
+function resolveFactionInfluenceRegionPenalty(
+  state: GameState,
+  diplomatId: CardInstanceId,
+  factionCardId: CardInstanceId,
+  def: CardDefinition,
+  handCard: CardInstance,
+  playerIndex: number,
+  newHand: readonly CardInstance[],
+  apply: import('../types/effects.js').FactionInfluenceRegionPenaltyAction,
+): ReducerResult {
+  const player = state.players[playerIndex];
+  const diplomat = player.characters[diplomatId];
+  if (!diplomat) return { state, error: `${def.name}: diplomat ${diplomatId as string} not found` };
+  const company = findCharacterCompany(player.companies, diplomatId);
+  if (!company) return { state, error: `${def.name}: diplomat is not in any company` };
+
+  const factionHandCard = findById(newHand, factionCardId);
+  if (!factionHandCard) return { state, error: `${def.name}: faction ${factionCardId as string} not in hand` };
+  const factionDef = defById(state, factionHandCard.definitionId);
+  if (!factionDef || !isFactionCard(factionDef)) return { state, error: `${def.name}: ${factionHandCard.definitionId as string} is not a faction` };
+
+  const diplomatDef = defById(state, diplomat.definitionId);
+  const diplomatName = diplomatDef?.name ?? String(diplomatId);
+
+  const influencerRegion = companySiteRegion(state, company);
+  const targetRegions = factionPlayableSiteRegions(state, factionDef);
+  const regionDistance = influenceRegionPenalty(state, influencerRegion, targetRegions);
+  const freeDI = availableDI(state, diplomatId, player);
+  const modifier = freeDI - (apply.penaltyBase + regionDistance);
+
+  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const total = roll.die1 + roll.die2 + modifier;
+  logDetail(`${def.name}: ${diplomatName} rolls ${roll.die1} + ${roll.die2} + ${modifier} (free DI ${freeDI} - region penalty ${apply.penaltyBase + regionDistance}) = ${total} vs influence # ${factionDef.influenceNumber}`);
+  const rollEffect = diceRollEffect(player.name, roll, `${def.name}: influence ${factionDef.name}`);
+
+  const handAfterFaction = removeById(newHand, factionCardId);
+  const succeeded = total >= factionDef.influenceNumber;
+
+  // Tap the diplomat — the cost of declaring the attempt — regardless of
+  // outcome; a failed attempt discards him anyway (a stronger state).
+  let nextState: GameState = updatePlayer({ ...state, rng, cheatRollTotal }, playerIndex, p =>
+    updateCharacter(p, diplomatId, c => ({ ...c, status: CardStatus.Tapped })));
+
+  if (succeeded) {
+    const mpPin = playedAfterFactionMpPin(state, player);
+    logDetail(`${def.name}: influence attempt succeeded — ${factionDef.name} enters play untapped`);
+    nextState = updatePlayer(nextState, playerIndex, p => ({
+      ...p,
+      hand: handAfterFaction,
+      discardPile: [...p.discardPile, handCard],
+      cardsInPlay: [
+        ...p.cardsInPlay,
+        { instanceId: factionHandCard.instanceId, definitionId: factionHandCard.definitionId, status: CardStatus.Untapped, ...(mpPin !== undefined ? { mpPinned: mpPin } : {}) },
+      ],
+    }));
+    const siteInPlay = company.currentSite;
+    if (siteInPlay) {
+      logDetail(`${def.name}: tapping ${diplomatName}'s site and blocking minor-item plays there this turn`);
+      nextState = updatePlayer(nextState, playerIndex, p => ({
+        ...p,
+        companies: p.companies.map(c => (c.id === company.id
+          ? { ...c, currentSite: { ...siteInPlay, status: CardStatus.Tapped } }
+          : c)),
+      }));
+      nextState = addConstraint(nextState, {
+        source: handCard.instanceId,
+        sourceDefinitionId: handCard.definitionId,
+        scope: { kind: 'turn' },
+        target: { kind: 'company', companyId: company.id },
+        kind: { type: 'site-flag', flag: 'minor-item-play-blocked', siteDefinitionId: siteInPlay.definitionId },
+      });
+    }
+  } else {
+    logDetail(`${def.name}: influence attempt failed — discarding ${diplomatName} and ${factionDef.name}`);
+    nextState = updatePlayer(nextState, playerIndex, p => ({
+      ...p,
+      hand: handAfterFaction,
+      discardPile: [...p.discardPile, handCard, factionHandCard],
+    }));
+    const diplomatInPlay = nextState.players[playerIndex].characters[diplomatId];
+    nextState = discardCharacterToDiscardPile(nextState, playerIndex, diplomatId, diplomatInPlay);
+  }
+
+  return { state: nextState, effects: [rollEffect] };
+}
+
+/**
  * Handle playing a resource short-event card during the long-event phase.
  *
  * Removes the card from hand, discards it, and if it has a `fetch-to-deck`
@@ -590,6 +699,26 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   if (action.type === 'play-short-event' && action.targetCharacterId && rollUntapOnEnter) {
     return resolveShortEventRollUntap(
       state, action.targetCharacterId, def, handCard, playerIndex, newHand, rollUntapOnEnter.apply,
+    );
+  }
+
+  // Hour of Need (dm-141): the end-of-org emitter carries the diplomat on
+  // `targetScoutInstanceId` (or `targetCharacterId` for a no-cost variant)
+  // and the chosen hand faction on `targetFactionCardId`. Resolves the
+  // region-penalised influence attempt synchronously — see
+  // `resolveFactionInfluenceRegionPenalty`.
+  const diplomatTargetId = action.type === 'play-short-event'
+    ? (action.targetCharacterId ?? action.targetScoutInstanceId)
+    : undefined;
+  const factionInfluenceOnEnter = diplomatTargetId && action.type === 'play-short-event' && action.targetFactionCardId
+    ? getOnEventEffects(def, 'self-enters-play').find(
+        (e): e is import('../types/effects.js').OnEventEffect & { apply: import('../types/effects.js').FactionInfluenceRegionPenaltyAction } =>
+          e.apply.type === 'faction-influence-region-penalty',
+      )
+    : undefined;
+  if (action.type === 'play-short-event' && diplomatTargetId && action.targetFactionCardId && factionInfluenceOnEnter) {
+    return resolveFactionInfluenceRegionPenalty(
+      state, diplomatTargetId, action.targetFactionCardId, def, handCard, playerIndex, newHand, factionInfluenceOnEnter.apply,
     );
   }
 

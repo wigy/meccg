@@ -1067,6 +1067,12 @@ export function playResourcesActions(
   const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
   logDetail(`Site ${siteName}: playable resource types: ${[...playableTypes].join(', ') || 'none'}, tapped: ${siteIsTapped}`);
 
+  // Hour of Need (dm-141): a successful org-phase influence attempt off this
+  // site forbids playing a minor item there this turn, on top of tapping the
+  // site — the tap alone would leave the narrow tapped-site bypasses below
+  // (minor-item bonus window, War-forges, etc.) still open to a minor item.
+  const minorItemPlayBlocked = hasSiteFlag(state.activeConstraints, 'minor-item-play-blocked', siteDefId);
+
   // Check for major-item-unlocked constraint (Hermit's Hill dm-32 special ability)
   const majorItemUnlocked = state.activeConstraints.some(
     c => c.kind.type === 'major-item-unlocked'
@@ -1969,6 +1975,12 @@ export function playResourcesActions(
       if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !warForgesUnlockActive && !burglaryUnlockActive && !tappedSiteFetchUnlockActive) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
+        continue;
+      }
+
+      if (minorItemPlayBlocked && itemDef.subtype === 'minor') {
+        logDetail(`Item ${itemDef.name}: minor item play blocked at ${siteName} this turn (Hour of Need)`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: minor item play blocked at ${siteName} this turn`));
         continue;
       }
 
