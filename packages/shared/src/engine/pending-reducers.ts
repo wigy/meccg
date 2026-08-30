@@ -381,22 +381,63 @@ export function applyCorruptionCheckResolution(
       && r.kind.type === 'corruption-check'
       && r.kind.characterId === supportTargetId
       && (r.id === topId || (topKind.selectableOrder && r.source === topSource && r.kind.selectableOrder)));
-    if (!supportEntry || supportEntry.kind.type !== 'corruption-check' || !supportEntry.kind.allowSupport) {
+    if (!supportEntry || supportEntry.kind.type !== 'corruption-check') {
+      return { state, error: 'support-corruption-check: no matching pending corruption check' };
+    }
+
+    // Item-sourced boost (Phial of Galadriel dm-176): a `corruption-check-boost`
+    // item taps to add its own flat bonus to its bearer's own check. Distinct
+    // from character company-mate support below — not gated by `allowSupport`
+    // (a separate rule for CoE 7.1.1 tap-in-support) and legal on the bearer's
+    // own check (there is no "cannot support its own check" restriction here).
+    if (action.supportingItemInstanceId !== undefined) {
+      const boostPlayerIndex = getPlayerIndex(state, action.player);
+      const boostPlayer = state.players[boostPlayerIndex];
+      const bearer = boostPlayer.characters[supportTargetId];
+      if (!bearer) return { state, error: 'support-corruption-check: checking character not found' };
+      const itemIndex = bearer.items.findIndex(it => it.instanceId === action.supportingItemInstanceId);
+      if (itemIndex < 0) return { state, error: 'support-corruption-check: item not found on checking character' };
+      const item = bearer.items[itemIndex];
+      if (item.status !== CardStatus.Untapped) return { state, error: 'support-corruption-check: item is not untapped' };
+      const itemDef = defById(state, item.definitionId);
+      const boostEffect = getCardEffects(itemDef).find(
+        (e): e is import('../types/effects.js').CorruptionCheckBoostEffect => e.type === 'corruption-check-boost',
+      );
+      if (!boostEffect) return { state, error: 'support-corruption-check: item has no corruption-check-boost effect' };
+      logDetail(`Support: ${itemDef?.name ?? (item.definitionId as string)} taps for ${formatSignedNumber(boostEffect.value)} to ${cardName(state, resolveInstanceId(state, supportTargetId) ?? bearer.definitionId)}'s corruption check (${supportEntry.kind.reason})`);
+      let boostState = updatePlayer(state, boostPlayerIndex, p =>
+        updateCharacter(p, supportTargetId, ch => ({
+          ...ch,
+          items: ch.items.map((it, i) => i === itemIndex ? { ...it, status: CardStatus.Tapped } : it),
+        })));
+      boostState = addConstraint(boostState, {
+        source: item.instanceId,
+        sourceDefinitionId: item.definitionId,
+        target: { kind: 'character', characterId: supportTargetId },
+        kind: { type: 'check-modifier', check: 'corruption', value: boostEffect.value },
+        scope: { kind: 'phase', phase: Phase.MovementHazard },
+      });
+      return { state: boostState };
+    }
+
+    if (!supportEntry.kind.allowSupport) {
       return { state, error: 'support-corruption-check: this pending corruption check does not allow tap-in-support' };
     }
     const supPlayerIndex = getPlayerIndex(state, action.player);
     const supPlayer = state.players[supPlayerIndex];
-    const supporter = supPlayer.characters[action.supportingCharacterId];
+    const supportingCharacterId = action.supportingCharacterId;
+    if (supportingCharacterId === undefined) return { state, error: 'support-corruption-check: no supporting character or item specified' };
+    const supporter = supPlayer.characters[supportingCharacterId];
     if (!supporter) return { state, error: 'support-corruption-check: supporting character not found' };
     if (supporter.status !== CardStatus.Untapped) return { state, error: 'support-corruption-check: supporting character is not untapped' };
-    if (action.supportingCharacterId === supportTargetId) return { state, error: 'support-corruption-check: a character cannot support its own check' };
+    if (supportingCharacterId === supportTargetId) return { state, error: 'support-corruption-check: a character cannot support its own check' };
     const supportCompany = findCharacterCompany(supPlayer.companies, supportTargetId);
-    if (!supportCompany || !supportCompany.characters.includes(action.supportingCharacterId)) {
+    if (!supportCompany || !supportCompany.characters.includes(supportingCharacterId)) {
       return { state, error: 'support-corruption-check: supporter must be in the checking character\'s company' };
     }
     logDetail(`Support: ${cardName(state, supporter.definitionId)} taps for +1 to ${cardName(state, resolveInstanceId(state, supportTargetId) ?? supporter.definitionId)}'s corruption check (${supportEntry.kind.reason})`);
     let supState = updatePlayer(state, supPlayerIndex, p =>
-      updateCharacter(p, action.supportingCharacterId, ch => ({ ...ch, status: CardStatus.Tapped })));
+      updateCharacter(p, supportingCharacterId, ch => ({ ...ch, status: CardStatus.Tapped })));
     supState = addConstraint(supState, {
       source: supporter.instanceId,
       sourceDefinitionId: supporter.definitionId,

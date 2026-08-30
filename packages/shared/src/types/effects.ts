@@ -6679,6 +6679,70 @@ export interface ModifyAttackEffect extends EffectBase {
    * each character gives a -4 modification to his prowess instead of -1."
    */
   readonly firstExcessStrikePenalty?: number;
+  /**
+   * When true (in-play item path, whole-attack scope), activating grants the
+   * defending player free choice of strike-target assignment for this
+   * specific attack — {@link CombatState.defenderFreeStrikeAssignment} is
+   * set, the same flag the `free-strike-assignment` global environment
+   * effect (Cloudless Day td-104) grants passively. Bypasses the normal
+   * untapped-only gate in `assignStrikeActions` (`legal-actions/combat.ts`)
+   * — the defender may assign strikes to tapped or wounded (Inverted)
+   * characters — and overrides the attack's own attacker-chooses-defenders
+   * rule if one applies. Used by Phial of Galadriel (dm-176): "you choose
+   * targets of such an attack's strikes (regardless of tapped status,
+   * wounded status, and the normal abilities of the attack)."
+   */
+  readonly grantsDefenderFreeStrikeAssignment?: true;
+}
+
+/**
+ * A tap-activated item ability that adds a flat bonus to a corruption check
+ * made by its own bearer — reactive support offered alongside the roll
+ * action for any pending `corruption-check` targeting the bearer (the same
+ * window `support-corruption-check` uses for company-mate CoE 7.1.1
+ * support), regardless of whether that pending check carries `allowSupport`
+ * (which gates only the company-mate tap-in-support rule, a separate
+ * mechanic). Activating taps the item and banks a one-shot `check-modifier`
+ * constraint (`check: "corruption"`, `value`) on the bearer, consumed the
+ * moment the check resolves — the exact same constraint the character
+ * support and grant-action (`When I Know Anything` td-166) modifiers use.
+ * Used by Phial of Galadriel (dm-176): "Tap Phial to give +2 to any
+ * corruption check by its bearer."
+ */
+export interface CorruptionCheckBoostEffect extends EffectBase {
+  readonly type: 'corruption-check-boost';
+  /** Cost to activate — always `{ tap: "self" }` in current usage. */
+  readonly cost: ActionCost;
+  /** Bonus added to the bearer's corruption-check roll. */
+  readonly value: number;
+}
+
+/**
+ * An on-play item mechanic that upgrades an existing item already borne by
+ * the target character: the new item (carrying this effect) replaces the
+ * named item, which is removed from the game entirely (CoE "remove from
+ * play" wording for items, distinct from a plain discard — it goes to
+ * {@link CardInPlay.outOfPlayPile} flagged {@link CardInstance.removedFromGame}
+ * rather than to a discard pile). Play additionally requires an untapped
+ * companion character of the given name in the same company, who taps as
+ * part of the cost (on top of the normal bearer/site tap-on-play, which the
+ * generic item-play flow already applies unless the item declares
+ * `no-tap-on-play`). The bearer-eligibility filter itself — "bearer of
+ * <itemName>" plus any race exclusions — is expressed on the item's own
+ * `play-target` `target: "character"` `filter` via the `target.itemNames`
+ * context field (`legal-actions/site.ts`), not by this effect; this effect
+ * only carries the swap/removal/companion-tap mechanics. Used by Phial of
+ * Galadriel (dm-176): "Playable on a non-Wizard, non-Dwarf bearer of
+ * Star-glass … in the same company as an untapped Galadriel. Tap Galadriel,
+ * replace Star-glass with Phial of Galadriel, and remove Star-glass from
+ * play."
+ */
+export interface ReplaceItemOnPlayEffect extends EffectBase {
+  readonly type: 'replace-item-on-play';
+  /** Name of the item this card replaces on the bearer. */
+  readonly itemName: string;
+  /** Name of the companion character (in the same company) who must be untapped and taps as part of the play cost. */
+  readonly tapCompanionNamed: string;
 }
 
 /**
@@ -9390,6 +9454,8 @@ export type CardEffect =
   | CancelInfluenceEffect
   | StrikeModifierEffect
   | ModifyAttackEffect
+  | CorruptionCheckBoostEffect
+  | ReplaceItemOnPlayEffect
   | FaceStrikeOnTapEffect
   | FaceAllStrikesOptionEffect
   | MultiStrikeOptionEffect

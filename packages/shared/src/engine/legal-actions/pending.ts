@@ -1656,6 +1656,27 @@ function corruptionCheckEntryActions(
     }
   }
 
+  // Item-sourced boost (Phial of Galadriel dm-176): the checking character's
+  // own untapped items carrying `corruption-check-boost` may tap for their
+  // own bonus. Unlike the company-mate support above, this is independent
+  // of `allowSupport` (a separate rule) and legal on the bearer's own check.
+  for (const item of char.items) {
+    if (item.status !== CardStatus.Untapped) continue;
+    const itemDef = defById(state, item.definitionId);
+    const boostEffect = getCardEffects(itemDef).find(e => e.type === 'corruption-check-boost');
+    if (!boostEffect) continue;
+    logDetail(`Support available: ${itemDef?.name ?? (item.definitionId as string)} can tap for a bonus to ${charName}'s corruption check`);
+    supportActions.push({
+      action: {
+        type: 'support-corruption-check',
+        player: playerId,
+        supportingItemInstanceId: item.instanceId,
+        targetCharacterId: characterId,
+      },
+      viable: true,
+    });
+  }
+
   return [rollAction, ...reactivePlays, ...modifierGrants, ...supportActions];
 }
 

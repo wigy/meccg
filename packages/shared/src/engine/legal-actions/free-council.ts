@@ -23,7 +23,7 @@ import { logDetail } from './log.js';
 import { grantedActionActivations, modifyCorruptionCheckGrantActions } from './organization.js';
 import { reactiveCorruptionCheckPlays } from './pending.js';
 import { characterPossessions } from '../pending.js';
-import { characterIds, findCharacterCompany, playerById, defById } from '../reducer-utils.js';
+import { characterIds, findCharacterCompany, playerById, defById, getCardEffects } from '../reducer-utils.js';
 import { asViable as viable } from './evaluated.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -157,6 +157,25 @@ function supportActions(
         type: 'support-corruption-check',
         player: playerId,
         supportingCharacterId: charId,
+      });
+    }
+  }
+
+  // Item-sourced boost (Phial of Galadriel dm-176): the checking character's
+  // own untapped items carrying `corruption-check-boost` may tap for their
+  // own bonus, independent of company-mate support above.
+  const checkingChar = player.characters[pending.characterId];
+  if (checkingChar) {
+    for (const item of checkingChar.items) {
+      if (item.status !== CardStatus.Untapped) continue;
+      const itemDef = defById(state, item.definitionId);
+      const boostEffect = getCardEffects(itemDef).find(e => e.type === 'corruption-check-boost');
+      if (!boostEffect) continue;
+      logDetail(`Support available: ${itemDef?.name ?? (item.definitionId as string)} can tap for a corruption-check bonus`);
+      actions.push({
+        type: 'support-corruption-check',
+        player: playerId,
+        supportingItemInstanceId: item.instanceId,
       });
     }
   }

@@ -18022,3 +18022,100 @@ is returned to its player's hand" clause needs no new code either — it's the
 same `nazgul-boost-pending`-unconsumed-at-company-M/H-phase-end handling
 Fell Beast already relies on (`finalizeCompanyMH`, `mh-hazard-play.ts`),
 confirmed by an identically-worded CRF ruling for both cards.
+
+### 83. `modify-attack` `grantsDefenderFreeStrikeAssignment` + `corruption-check-boost` + `replace-item-on-play` (Phial of Galadriel)
+
+Three new primitives certifying Phial of Galadriel (dm-176): "Playable on a
+non-Wizard, non-Dwarf bearer of Star-glass at a Haven [{H}] in the same
+company as an untapped Galadriel. Tap Galadriel, replace Star-glass with
+Phial of Galadriel, and remove Star-glass from play. Tap Phial to cancel any
+Undead attack against the bearer's company. Tap Phial to modify the prowess
+of any hazard creature attack against the bearer's company keyed to a
+Dark-domain [{d}], Shadow-land [{s}], Dark-hold [{D}], or Shadow-hold [{S}]
+by -2 — you choose targets of such an attack's strikes (regardless of tapped
+status, wounded status, and the normal abilities of the attack). Tap Phial to
+give +2 to any corruption check by its bearer. Cannot be transferred."
+
+```json
+{
+  "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "$not": { "target.race": { "$in": ["wizard", "dwarf"] } } },
+    { "target.itemNames": { "$includes": "Star-glass" } }
+  ] }
+},
+{ "type": "item-play-site", "filter": { "site.siteType": "haven" } },
+{ "type": "replace-item-on-play", "itemName": "Star-glass", "tapCompanionNamed": "Galadriel" },
+{ "type": "cancel-attack", "cost": { "tap": "self" }, "when": { "enemy.race": "undead" } },
+{
+  "type": "modify-attack", "cost": { "tap": "self" }, "prowessModifier": -2,
+  "when": { "$or": [
+    { "attack.keying": { "$in": ["shadow", "dark"] } },
+    { "attack.siteKeyingTypes": { "$in": ["shadow-hold", "dark-hold"] } }
+  ] },
+  "grantsDefenderFreeStrikeAssignment": true
+},
+{ "type": "corruption-check-boost", "cost": { "tap": "self" }, "value": 2 },
+{ "type": "play-flag", "flag": "no-transfer" }
+```
+
+- **`target.itemNames` on the item bearer play-target filter** — the
+  "bearer of \<item name\>" gate reuses the existing item-play-loop bearer
+  context (`legal-actions/site.ts`), which already carried `race`/`skills`/
+  `status`/`name`/`prowess`/`baseProwess`; `itemNames` (via the shared
+  `defNamesOf` helper) is the one addition, so any future item can gate on
+  "bearer of \<named item\>" without new engine work.
+- **`replace-item-on-play`** — `itemName` names the item this card replaces
+  on the bearer; `tapCompanionNamed` names a companion character (in the
+  same company, untapped) who must tap as part of the play cost. The
+  companion-presence check runs in the same item-play loop right after the
+  bearer filter (`legal-actions/site.ts`), resolving the companion's
+  instance id into the action's new `companionCharacterId` field
+  (`PlayHeroResourceAction`) so the reducer never re-searches. On resolution
+  (`handleSitePlayHeroResource`, `reducer-site.ts`, right before the final
+  return) the companion taps and the named item is spliced out of the
+  bearer's `items` into `PlayerState.outOfPlayPile` flagged
+  `removedFromGame: true` — the "remove from the game" zone (distinct from a
+  discard pile), matching the card's French/Spanish text ("retirez ... du
+  jeu"/"elimina del juego") even though the English print says "remove from
+  play". The ordinary item-play flow (bearer + site tap-on-play, since the
+  card carries no `no-tap-on-play` flag) is untouched — this effect only
+  adds the companion tap and the swap/removal.
+- **`modify-attack` `grantsDefenderFreeStrikeAssignment`** — activating a
+  whole-attack item `modify-attack` sets `CombatState.defenderFreeStrikeAssignment`
+  (`combat-actions.ts`), the same flag the passive `free-strike-assignment`
+  global environment effect (Cloudless Day td-104) grants — `assignStrikeActions`
+  (`legal-actions/combat.ts`) already honored this flag by dropping its
+  untapped-only gate; activating the item now also sets it per-attack. It
+  also overrides the attack's own attacker-chooses-defenders rule exactly
+  like the existing `removeAttackerChoosesDefenders` ally path: if
+  `CombatState.attackerChoosesDefenders` was set and assignment had already
+  passed to the attacker, it flips back to the defender. The item
+  `modify-attack` `when` context (`modifyAttackWhenContext`,
+  `legal-actions/combat.ts`) gained `attack.siteKeyingTypes` (the specific
+  site types a creature is keyed to) alongside the pre-existing `attack.keying`
+  (region types) and `attack.siteKeyed` (boolean) — the cancel-attack/
+  cancel-strike context already exposed this field via `buildAttackKeyingCtx`;
+  it was missing from the modify-attack context until this card needed to
+  gate on Dark-hold/Shadow-hold specifically, not just "keyed to some site".
+- **`corruption-check-boost`** — a tap-activated item ability adding a flat
+  bonus to a corruption check made by its own bearer. Reuses the
+  `support-corruption-check` action (`SupportCorruptionCheckAction` gained an
+  optional `supportingItemInstanceId`, mutually exclusive with
+  `supportingCharacterId`) and the same one-shot `check-modifier` constraint
+  every other corruption-check modifier already produces (character support,
+  `When I Know Anything` td-166's grant-action) — so the roll re-read and
+  consumption logic needed zero changes. Two differences from the CoE 7.1.1
+  character-support sibling it rides alongside: it is **not** gated by the
+  pending check's `allowSupport` flag (a separate rule governing company-mate
+  support) and it **is** legal on the bearer's own check (there is no "cannot
+  support its own check" restriction for an item boosting its own bearer).
+  Offered in both windows a corruption check can be pending: the mid-game
+  unified pending-resolution window (`corruptionCheckEntryActions`,
+  `legal-actions/pending.ts`; reducer branch in `pending-reducers.ts`) and
+  the Free Council support window (`supportActions`,
+  `legal-actions/free-council.ts`; reducer branch in
+  `handleSupportCorruptionCheck`, `reducer-free-council.ts`) — both scan the
+  checking character's own `items` for an untapped `corruption-check-boost`
+  effect and tap it into a `check-modifier` constraint carrying the effect's
+  `value` instead of the character-support path's fixed `+1`.

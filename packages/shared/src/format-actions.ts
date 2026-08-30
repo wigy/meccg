@@ -540,7 +540,9 @@ export function describeAction(
     case 'play-sacrifice-of-form':
       return `Play ${instName(action.cardInstanceId)}: sacrifice ${instName(action.characterInstanceId)} — all strikes of this attack fail (+3 body checks)`;
     case 'support-corruption-check':
-      return `Tap ${instName(action.supportingCharacterId)} for CC support (+1)`;
+      return action.supportingItemInstanceId !== undefined
+        ? `Tap ${instName(action.supportingItemInstanceId)} for CC support`
+        : `Tap ${instName(action.supportingCharacterId!)} for CC support (+1)`;
     case 'resolve-dice-check':
       return action.explanation;
     case 'flattery-attempt':

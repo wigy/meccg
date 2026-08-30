@@ -1201,6 +1201,13 @@ function modifyAttackWhenContext(
   if (combat.creatureRace) ctx['enemy'] = { race: combat.creatureRace };
   const attackCtx: Record<string, unknown> = { source: combat.attackSource.type };
   if (combat.attackKeying && combat.attackKeying.length > 0) attackCtx['keying'] = combat.attackKeying;
+  // The specific site types a creature is keyed to (e.g. `dark-hold`,
+  // `shadow-hold`) — the same field `cancel-attack`/`cancel-strike` conditions
+  // read via `buildAttackKeyingCtx`. Used by Phial of Galadriel (dm-176):
+  // "keyed to a Dark-domain, Shadow-land, Dark-hold, or Shadow-hold".
+  if (combat.attackSiteKeyingTypes && combat.attackSiteKeyingTypes.length > 0) {
+    attackCtx['siteKeyingTypes'] = combat.attackSiteKeyingTypes;
+  }
   const isSiteKeyedCreature = (
     combat.attackSource.type === 'creature' || combat.attackSource.type === 'on-guard-creature'
   ) && !(combat.attackKeying && combat.attackKeying.length > 0)
