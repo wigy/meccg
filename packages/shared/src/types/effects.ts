@@ -4980,6 +4980,33 @@ export interface CompanyCombatBoostEffect extends EffectBase {
    * Wizard alone pays, but the whole company is boosted.
    */
   readonly boostScope?: 'payer' | 'company';
+  /**
+   * Only meaningful alongside `cost` (cost-bearing single-target mode).
+   * Restricts the paying/boosted character to one bearing at least one item
+   * matching this per-item condition, evaluated against `{ item: { name,
+   * keywords, cardType, subtype } }` (same shape as the no-`cost` `itemFilter`
+   * above, but gating *candidate selection* rather than per-item stacking —
+   * cost-bearing mode boosts exactly one character regardless of how many
+   * matching items they bear). Used by Staff Asunder (td-153): "Playable on
+   * a Wizard bearing Wizard's Staff whose company is facing an attack."
+   */
+  readonly requiredItemFilter?: Condition;
+  /**
+   * Only meaningful alongside `requiredItemFilter`. When `true`, the item
+   * that satisfied `requiredItemFilter` on the chosen character is removed
+   * from its bearer and placed into the controller's marshalling point pile
+   * (`killPile`) once the cost is paid — "Place Wizard's Staff in your
+   * marshalling point pile" (Staff Asunder, td-153).
+   */
+  readonly consumeMatchedItem?: boolean;
+  /**
+   * Only meaningful in cost-bearing single-target mode. Adjusts the
+   * attacking creature's body (`combat.creatureBody`) by this signed amount
+   * when the boost resolves — the same field/semantics as {@link
+   * ModifyAttackEffect.bodyModifier}. Used by Staff Asunder (td-153):
+   * "Modify the attack's body by -2."
+   */
+  readonly bodyModifier?: number;
 }
 
 /** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */

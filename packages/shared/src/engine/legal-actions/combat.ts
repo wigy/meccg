@@ -4255,6 +4255,18 @@ function companyCombatBoostActions(
         if (!charDef || !isCharacterCard(charDef)) continue;
         if (costEffect.requiredSkill && !charDef.skills.includes(costEffect.requiredSkill as import('../../types/common.js').Skill)) continue;
         if (costEffect.requiredRace && charDef.race !== costEffect.requiredRace) continue;
+        if (costEffect.requiredItemFilter) {
+          const bearsMatchingItem = charData.items.some(item => {
+            const itemDef = defById(state, item.definitionId);
+            return itemDef && matchesCondition(costEffect.requiredItemFilter!, { item: {
+              name: (itemDef as { name?: string }).name ?? '',
+              keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+              cardType: itemDef.cardType,
+              subtype: (itemDef as { subtype?: string }).subtype,
+            } });
+          });
+          if (!bearsMatchingItem) continue;
+        }
         const exempt = costEffect.costExemptRace && charDef.race === costEffect.costExemptRace;
         if (!exempt && !canPayCost(cost, charData)) continue;
         logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);

@@ -749,3 +749,15 @@ Rumours of Rings (ba-31): "During your organization phase, you may take one ring
 - **`starting-company-placement`** (pre-existing, Open to the Summons wh-46 / Orders from Lugbúrz as-94) needed no changes — ba-31 carries the same effect plus the `starting-item` keyword so an undrafted copy left in the pool at draft finalize sinks to the sideboard (`isStageResourceCard`) instead of vanishing, and `place-starting-company-event` puts it into play bound to a company during the item-draft setup step exactly like the existing precedents.
 
 Used by *Rumours of Rings* (ba-31).
+
+### `company-combat-boost` `requiredItemFilter` + `consumeMatchedItem` + `bodyModifier` (cost-bearing mode consuming a borne item and touching the attack, Staff Asunder td-153)
+
+Staff Asunder (td-153): "Playable on a Wizard bearing Wizard's Staff whose company is facing an attack. Wizard makes a corruption check. Place Wizard's Staff in your marshalling point pile. Wizard gains +5 prowess against the attack. Modify the attack's body by -2." Same cost-bearing single-target shape as Wizard's Fire (tw-360, `requiredRace`) plus three new fields, all scoped to cost-bearing mode:
+
+- **`requiredItemFilter`** (`Condition`, matched against `{ item: { name, keywords, cardType, subtype } }`, same shape as the no-`cost` `itemFilter`) — restricts candidate payers/recipients to a character bearing at least one matching item. `companyCombatBoostActions` (`legal-actions/combat.ts`) checks every item on each candidate character (no "active/in-use" filtering — bearing is enough, unlike the item-*stacking* `itemFilter` mode) before offering the `play-short-event` action.
+- **`consumeMatchedItem`** (`boolean`) — when set alongside `requiredItemFilter`, the matched item on the chosen character is removed and moved to the controller's `killPile` (the marshalling point pile) once the cost is paid, independent of the corruption check's outcome — reuses `removeAttachment`/`toCardInstance`, the same primitives `handleStoreItem` (`reducer-organization.ts`) uses to move a stored item to the kill pile.
+- **`bodyModifier`** (`number`) — adjusts `combat.creatureBody` by this signed amount when the boost resolves, same field/semantics as `ModifyAttackEffect.bodyModifier`. A no-op when `combat.creatureBody` is `null` (no body-checkable creature backs the attack).
+
+`cost: { check: "corruption" }` with no `modifier` is a plain (unmodified) corruption check — `applyCost` (`cost-evaluator.ts`) already defaults `cost.modifier` to `0`.
+
+Used by *Staff Asunder* (td-153): `{ "type": "company-combat-boost", "stat": "prowess", "value": 5, "requiredRace": "wizard", "requiredItemFilter": { "item.name": "Wizard's Staff" }, "consumeMatchedItem": true, "bodyModifier": -2, "cost": { "check": "corruption" } }`.

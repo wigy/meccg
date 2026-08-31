@@ -1230,6 +1230,43 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               }
               newState = costResult.state;
             }
+            // Staff Asunder (td-153): "Place Wizard's Staff in your
+            // marshalling point pile" — the item that satisfied
+            // `requiredItemFilter` on the chosen character is removed from
+            // its bearer and moved to the controller's kill pile (the
+            // marshalling point pile), independent of the corruption check's
+            // outcome — mirrors `handleStoreItem`'s item→killPile move.
+            if (boostEffect.requiredItemFilter && boostEffect.consumeMatchedItem) {
+              const bearer = newState.players[defPlayerIndex].characters[targetId];
+              const matchedItem = bearer?.items.find(item => {
+                const itemDef = defById(newState, item.definitionId);
+                return itemDef && matchesCondition(boostEffect.requiredItemFilter!, { item: {
+                  name: (itemDef as { name?: string }).name ?? '',
+                  keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+                  cardType: itemDef.cardType,
+                  subtype: (itemDef as { subtype?: string }).subtype,
+                } });
+              });
+              if (matchedItem) {
+                const itemDef = defById(newState, matchedItem.definitionId);
+                const removed = removeAttachment(newState.players[defPlayerIndex], 'items', matchedItem.instanceId);
+                if (removed) {
+                  logDetail(`${def.name}: placing ${itemDef?.name ?? '?'} in marshalling point pile`);
+                  newState = updatePlayer(newState, defPlayerIndex, () => ({
+                    ...removed.player,
+                    killPile: [...removed.player.killPile, toCardInstance(removed.attachment)],
+                  }));
+                }
+              }
+            }
+            // Staff Asunder (td-153): "Modify the attack's body by -2" — same
+            // field/semantics as `ModifyAttackEffect.bodyModifier`.
+            if (boostEffect.bodyModifier && newState.combat) {
+              const c = newState.combat;
+              const newCreatureBody = c.creatureBody === null ? null : c.creatureBody + boostEffect.bodyModifier;
+              logDetail(`${def.name}: attack body ${c.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+              newState = { ...newState, combat: { ...c, creatureBody: newCreatureBody } };
+            }
             // `boostScope: "company"` (Kindling of the Spirit tw-262) decouples
             // the payer from the recipients: the chosen character alone paid
             // above, but every company member is boosted — fall through into

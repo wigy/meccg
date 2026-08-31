@@ -1575,7 +1575,23 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 5,
+        "requiredRace": "wizard",
+        "requiredItemFilter": {
+          "item.name": "Wizard’s Staff"
+        },
+        "consumeMatchedItem": true,
+        "bodyModifier": -2,
+        "cost": {
+          "check": "corruption"
+        }
+      }
+    ],
+    "certified": "2026-08-31",
     "text": "Playable on a Wizard bearing Wizard’s Staff whose company is facing an attack. Wizard makes a corruption check. Place Wizard’s Staff in yourmarshalling point pile. Wizard gains +5 prowess against the attack. Modify the attack’s body by -2."
   },
   {
