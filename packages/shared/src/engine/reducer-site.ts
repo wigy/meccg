@@ -3246,6 +3246,40 @@ export function handleSitePlayHeroResource(
     afterAttach = removeItemFromSetAside(afterAttach, action.cardInstanceId);
   }
 
+  // Item-upgrade play (Phial of Galadriel dm-176): tap the named companion
+  // (legal-action time already verified it is untapped and in the same
+  // company — resolved into `action.companionCharacterId`) and remove the
+  // replaced item from the bearer entirely — CoE "remove from play" for an
+  // item goes to the out-of-play pile flagged `removedFromGame`, never to a
+  // discard pile, per CoE 3.IV.4/the card's own French/Spanish text ("retire
+  // ... du jeu"/"elimina del juego").
+  if (isItem) {
+    const replaceItemEffect = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').ReplaceItemOnPlayEffect => e.type === 'replace-item-on-play',
+    );
+    if (replaceItemEffect && action.companionCharacterId !== undefined) {
+      const companionId = action.companionCharacterId;
+      const bearer = afterAttach.players[playerIndex].characters[targetCharId];
+      const replacedIndex = bearer.items.findIndex(
+        it => defById(afterAttach, it.definitionId)?.name === replaceItemEffect.itemName,
+      );
+      if (replacedIndex >= 0) {
+        const replacedItem = bearer.items[replacedIndex];
+        const companionName = cardName(afterAttach, afterAttach.players[playerIndex].characters[companionId].definitionId);
+        logDetail(`${def.name}: taps companion ${companionName}, removes ${replaceItemEffect.itemName} from the game`);
+        afterAttach = updatePlayer(afterAttach, playerIndex, p => ({
+          ...p,
+          characters: {
+            ...p.characters,
+            [targetCharId as string]: { ...p.characters[targetCharId], items: p.characters[targetCharId].items.filter((_, i) => i !== replacedIndex) },
+            [companionId as string]: { ...p.characters[companionId], status: CardStatus.Tapped },
+          },
+          outOfPlayPile: [...p.outOfPlayPile, { ...toCardInstance(replacedItem), removedFromGame: true as const }],
+        }));
+      }
+    }
+  }
+
   return { state: afterAttach };
 }
 

@@ -23,8 +23,24 @@ export interface SupportCorruptionCheckAction {
   readonly type: 'support-corruption-check';
   /** The player whose character is providing support. */
   readonly player: PlayerId;
-  /** The untapped character being tapped for +1 support. */
-  readonly supportingCharacterId: CardInstanceId;
+  /**
+   * The untapped character being tapped for +1 support. Mutually exclusive
+   * with {@link supportingItemInstanceId} — exactly one source is set.
+   */
+  readonly supportingCharacterId?: CardInstanceId;
+  /**
+   * An untapped item, borne by the checking character himself, being tapped
+   * to add its own flat bonus (a `corruption-check-boost` effect's `value`,
+   * not the fixed +1 of character support) to the roll — e.g. Phial of
+   * Galadriel (dm-176): "Tap Phial to give +2 to any corruption check by its
+   * bearer." Unlike character support, this is available on the checking
+   * character's *own* check (there is no "cannot support its own check"
+   * restriction — the item boosts its own bearer by design) and is not
+   * gated by the pending check's `allowSupport` flag, a separate rule for
+   * company-mate CoE 7.1.1 support. Mutually exclusive with
+   * {@link supportingCharacterId}.
+   */
+  readonly supportingItemInstanceId?: CardInstanceId;
   /**
    * The character whose check is being supported. Required in the pending
    * corruption-check window (a card like Ren the Unclean tw-83 may queue

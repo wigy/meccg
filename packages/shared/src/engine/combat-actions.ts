@@ -2428,10 +2428,32 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
   const newStrikesTotal = strikesModifier !== 0 ? Math.max(1, combat.strikesTotal + strikesModifier) : combat.strikesTotal;
   logDetail(`Modify-attack applied: strike prowess ${combat.strikeProwess} → ${newStrikeProwess}, creature body ${combat.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}, strikes ${combat.strikesTotal} → ${newStrikesTotal}`);
 
+  // Phial of Galadriel (dm-176): free strike assignment also overrides the
+  // attack's own attacker-chooses-defenders rule, exactly like the
+  // dedicated `removeAttackerChoosesDefenders` ally path above — hand
+  // assignment back to the defender if the attacker was already up to
+  // assign (no strikes placed yet, guaranteed by the pre-assignment gate).
+  const overridesAttackerChooses = effect.grantsDefenderFreeStrikeAssignment === true
+    && combat.attackerChoosesDefenders === true;
+  const newAssignmentPhase = overridesAttackerChooses && combat.assignmentPhase === 'attacker'
+    ? 'defender' as const
+    : combat.assignmentPhase;
+  if (effect.grantsDefenderFreeStrikeAssignment) {
+    logDetail(`Modify-attack: ${itemName} grants free strike assignment — defender may assign to any character regardless of status${overridesAttackerChooses ? ', overriding attacker-chooses-defenders' : ''}`);
+  }
+
   let resultState: GameState = {
     ...state,
     players: newPlayers,
-    combat: { ...combat, strikeProwess: newStrikeProwess, creatureBody: newCreatureBody, strikesTotal: newStrikesTotal },
+    combat: {
+      ...combat,
+      strikeProwess: newStrikeProwess,
+      creatureBody: newCreatureBody,
+      strikesTotal: newStrikesTotal,
+      assignmentPhase: newAssignmentPhase,
+      ...(effect.grantsDefenderFreeStrikeAssignment ? { defenderFreeStrikeAssignment: true } : {}),
+      ...(overridesAttackerChooses ? { attackerChoosesDefenders: undefined } : {}),
+    },
   };
 
   if (effect.enqueueCorruptionCheck) {

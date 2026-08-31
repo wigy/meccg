@@ -2092,6 +2092,16 @@ export function playResourcesActions(
           e.type === 'play-target' && e.target === 'character',
       );
 
+      // Item-upgrade play (Phial of Galadriel dm-176): the item replaces a
+      // named item already on the bearer, and additionally requires an
+      // untapped companion character of a given name in the same company to
+      // tap as part of the play cost. The "bearer of <itemName>" gate itself
+      // is expressed generically via `target.itemNames` on `bearerPlayTarget`
+      // above — this effect only carries the companion-tap/removal mechanics.
+      const replaceItemEffect = itemDef.effects?.find(
+        (e): e is import('../../index.js').ReplaceItemOnPlayEffect => e.type === 'replace-item-on-play',
+      );
+
       // Company-scope duplication limit: count copies of this item already
       // borne by any character in the active company. Backs "Cannot be
       // duplicated in a given company" (e.g. Records Unread as-130).
@@ -2146,12 +2156,33 @@ export function playResourcesActions(
               // so its own bonus never feeds back into its own gate.
               prowess: ch.effectiveStats.prowess,
               baseProwess: charDef.prowess,
+              // Names of items already borne by the candidate (Phial of
+              // Galadriel dm-176: "bearer of Star-glass" via
+              // `target.itemNames $includes "Star-glass"`).
+              itemNames: defNamesOf(state, ch.items),
             },
           };
           if (!matchesCondition(bearerPlayTarget.filter, bearerCtx)) {
             logDetail(`Item ${itemDef.name}: ${charName} fails bearer filter`);
             continue;
           }
+        }
+
+        // Item-upgrade companion requirement (Phial of Galadriel dm-176):
+        // an untapped companion of the named character must be present in
+        // the same company (and be a different character than the bearer).
+        let replaceCompanionId: import('../../index.js').CardInstanceId | undefined;
+        if (replaceItemEffect) {
+          const companion = company.characters
+            .map(cid => player.characters[cid])
+            .find(c => c !== undefined && c.instanceId !== ch.instanceId
+              && c.status === CardStatus.Untapped
+              && defById(state, c.definitionId)?.name === replaceItemEffect.tapCompanionNamed);
+          if (!companion) {
+            logDetail(`Item ${itemDef.name}: no untapped ${replaceItemEffect.tapCompanionNamed} in company — cannot play`);
+            continue;
+          }
+          replaceCompanionId = companion.instanceId;
         }
 
         // Check character-scoped duplication: count copies of this item already on the character
@@ -2177,6 +2208,7 @@ export function playResourcesActions(
             companyId: company.id,
             attachToCharacterId: ch.instanceId,
             ...(isFromSetAside ? { fromSetAside: true } : {}),
+            ...(replaceCompanionId !== undefined ? { companionCharacterId: replaceCompanionId } : {}),
           },
           viable: true,
         });

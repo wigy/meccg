@@ -434,7 +434,66 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable on a non-Wizard, non-Dwarf bearer of Star-glass at a Haven [{H}] in the same company as an untapped Galadriel. Tap Galadriel, replace Star-glass with Phial of Galadriel, and remove Star-glass from play. Tap Phial to cancel any Undead attack against the bearer's company. Tap Phial to modify the prowess of any hazard creature attack against the bearer's company keyed to a Dark-domain [{d}], Shadow-land [{s}], Dark-hold [{D}], or Shadow-hold [{S}] by -2 — you choose targets of such an attack’s strikes (regardless of tapped status, wounded status, and the normal abilities of the attack). Tap Phial to give +2 to any corruption check by its bearer. Cannot be transferred."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "$not": {
+                "target.race": {
+                  "$in": ["wizard", "dwarf"]
+                }
+              }
+            },
+            {
+              "target.itemNames": {
+                "$includes": "Star-glass"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "item-play-site",
+        "filter": {
+          "site.siteType": "haven"
+        }
+      },
+      {
+        "type": "replace-item-on-play",
+        "itemName": "Star-glass",
+        "tapCompanionNamed": "Galadriel"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": { "enemy.race": "undead" }
+      },
+      {
+        "type": "modify-attack",
+        "cost": { "tap": "self" },
+        "prowessModifier": -2,
+        "when": {
+          "$or": [
+            { "attack.keying": { "$in": ["shadow", "dark"] } },
+            { "attack.siteKeyingTypes": { "$in": ["shadow-hold", "dark-hold"] } }
+          ]
+        },
+        "grantsDefenderFreeStrikeAssignment": true
+      },
+      {
+        "type": "corruption-check-boost",
+        "cost": { "tap": "self" },
+        "value": 2
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-transfer"
+      }
+    ],
+    "text": "Unique. Playable on a non-Wizard, non-Dwarf bearer of Star-glass at a Haven [{H}] in the same company as an untapped Galadriel. Tap Galadriel, replace Star-glass with Phial of Galadriel, and remove Star-glass from play. Tap Phial to cancel any Undead attack against the bearer's company. Tap Phial to modify the prowess of any hazard creature attack against the bearer's company keyed to a Dark-domain [{d}], Shadow-land [{s}], Dark-hold [{D}], or Shadow-hold [{S}] by -2 — you choose targets of such an attack’s strikes (regardless of tapped status, wounded status, and the normal abilities of the attack). Tap Phial to give +2 to any corruption check by its bearer. Cannot be transferred.",
+    "certified": "2026-08-30"
   }
 ]

@@ -264,6 +264,13 @@ export interface PlayHeroResourceAction {
    * wh-83): "The item may be taken from your discard pile or sideboard."
    */
   readonly fromSideboard?: boolean;
+  /**
+   * For an item carrying `replace-item-on-play` (Phial of Galadriel dm-176):
+   * the instance id of the untapped, same-company companion character (named
+   * by the effect's `tapCompanionNamed`) who taps as part of the play cost.
+   * Resolved at legal-action time so the reducer need not re-search.
+   */
+  readonly companionCharacterId?: CardInstanceId;
 }
 
 /**
