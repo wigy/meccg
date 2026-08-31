@@ -667,6 +667,7 @@
       {
         "type": "grant-action",
         "action": "restore-item",
+        "anyPhase": true,
         "cost": {
           "discard": "named-stored-card",
           "discardCardName": "Reforging"
@@ -741,6 +742,7 @@
       {
         "type": "grant-action",
         "action": "restore-item",
+        "anyPhase": true,
         "cost": {
           "discard": "named-stored-card",
           "discardCardName": "Reforging"
