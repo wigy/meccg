@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1283 | 1283 | 0 | 100.0% |
+| 1288 | 1288 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
 | AS | 115 | 115 | 100.0% |
-| BA | 98 | 98 | 100.0% |
-| DM | 131 | 131 | 100.0% |
+| BA | 99 | 99 | 100.0% |
+| DM | 133 | 133 | 100.0% |
 | LE | 316 | 316 | 100.0% |
 | TD | 115 | 115 | 100.0% |
-| TW | 414 | 414 | 100.0% |
+| TW | 416 | 416 | 100.0% |
 | WH | 94 | 94 | 100.0% |
 
 ## Detailed Test Matrix
@@ -168,6 +168,7 @@
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
 | ba-29 | Crept Along Carefully | — | 18 | ☑ |
 | ba-30 | Longbottom Leaf | — | 8 | ☑ |
+| ba-31 | Rumours of Rings | — | 8 | ☑ |
 | ba-33 | To Fealty Sworn | — | 11 | ☑ |
 | ba-35 | Cave Troll | — | 9 | ☑ |
 | ba-36 | Ancient Secrets | — | 13 | ☑ |
@@ -342,6 +343,7 @@
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-139 | Hobbit-lore | — | 13 | ☑ |
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
+| dm-141 | Hour of Need | — | 13 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 13 | ☑ |
 | dm-143 | The Hunt | — | 18 | ☑ |
 | dm-145 | Into Dark Tunnels | — | 9 | ☑ |
@@ -363,6 +365,7 @@
 | dm-168 | Dwarven Light-stone | — | 13 | ☑ |
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
+| dm-176 | Phial of Galadriel | — | 19 | ☑ |
 | dm-178 | Mistress Lobelia | — | 16 | ☑ |
 | dm-179 | Noble Hound | — | 13 | ☑ |
 | dm-180 | Folco Boffin | — | 11 | ☑ |
@@ -1008,7 +1011,9 @@
 | tw-211 | Dunlendings | — | 4 | ☑ |
 | tw-212 | Durin’s Axe | — | 9 | ☑ |
 | tw-214 | Dwarven Ring of Bávor’s Tribe | — | 16 | ☑ |
+| tw-215 | Dwarven Ring of Drúin’s Tribe | — | 16 | ☑ |
 | tw-216 | Dwarven Ring of Durin’s Tribe | — | 15 | ☑ |
+| tw-217 | Dwarven Ring of Dwálin’s Tribe | — | 16 | ☑ |
 | tw-220 | Eagle-mounts | — | 9 | ☑ |
 | tw-221 | Earth of Galadriel’s Orchard | — | 11 | ☑ |
 | tw-222 | Easterlings | — | 2 | ☑ |

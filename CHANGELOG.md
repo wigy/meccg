@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.137.0 — 2026-08-31
+
+Ring certifications and tiered action buttons
+
+### Game Engine
+
+- Certified Phial of Galadriel (dm-176) with three new primitives: `replace-item-on-play` (tap a named companion, remove the replaced item from the game), `modify-attack` `grantsDefenderFreeStrikeAssignment`, and `corruption-check-boost` (tap an item to modify its bearer's corruption check) (#2939)
+- Certified Hour of Need (dm-141) with the `faction-influence-region-penalty` primitive: an end-of-organization faction play through a diplomat, penalised by the region distance to where the faction is normally playable (#2940)
+- Certified Rumours of Rings (ba-31) (#2942)
+- Certified Dwarven Ring of Drúin's Tribe (tw-215) and Dwarven Ring of Dwálin's Tribe (tw-217) (#2943, #2944)
+- Fixed the general-influence tooltip to use the lowest stacked control-restriction cost (#2945)
+
+### Web Client
+
+- Split visual-panel action buttons into three fixed tiers (#2941)
+
 ## 0.136.0 — 2026-08-30
 
 Andúril reforging and hazard timing fixes
