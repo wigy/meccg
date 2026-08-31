@@ -52,6 +52,7 @@ import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
 import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
 import { getFocusedCompanyId, setSavedFocusedCompanyId, setFocusedCompanyId } from './company-view-state.js';
+import { onGuardModifyAttackActions } from './on-guard-modify-attack.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -149,6 +150,17 @@ export function renderCombatView(
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
   const takeTrophyActions = viable.filter((a): a is TakeTrophyAction => a.type === 'take-trophy');
 
+  // Modify-attack actions sourced from an unrevealed on-guard card on the
+  // defending company (e.g. Unabated in Malice ba-26 placed on-guard during
+  // M/H, then revealed onto the site's automatic-attack per CoE rule 2.V.i).
+  // `modifyAttackActions` above also covers in-play items/allies, which are
+  // rendered by clicking the item on a character (see modifyAttackMap in
+  // renderDefenderRow) — but an on-guard card has no character to click on,
+  // so without this it was legal per the engine yet had no click target
+  // anywhere in the UI (game mthd1qtm-uee04u, seq 389).
+  const defendingCompanyForModify = findCompany(combat.companyId, view);
+  const onGuardModifyAttackActionsList = onGuardModifyAttackActions(defendingCompanyForModify, modifyAttackActions);
+
   // Two-step attacker selection is used in two CvCC sub-phases:
   // - 'attacker': the attacker pairs their untapped characters with defenders
   // - 'defender-any': the defender assigns remaining unpaired attackers to any of their characters
@@ -195,6 +207,12 @@ export function renderCombatView(
   // Salvage items panel — rendered between the two rows during item-salvage phase
   if (combat.phase === 'item-salvage' && iAmDefender && salvageActions.length > 0) {
     arena.appendChild(renderSalvagePanel(combat, view, cardPool, salvageActions, onAction));
+  }
+
+  // On-guard modify-attack panel — rendered between the two rows during the
+  // pre-assignment window (rule 2.V.i reveal onto an automatic-attack).
+  if (onGuardModifyAttackActionsList.length > 0) {
+    arena.appendChild(renderOnGuardModifyAttackPanel(onGuardModifyAttackActionsList, onAction));
   }
 
   // SVG arrows placeholder — drawn after layout
@@ -1416,6 +1434,50 @@ function showCombatChoiceTooltip(
   items.push({ label: 'Tap to Cancel Strike', onClick: () => onAction(cancelAction) });
 
   showTooltipMenu(anchor, items);
+}
+
+// ---- On-guard modify-attack panel ----
+
+/**
+ * Render the on-guard modify-attack panel between the combat rows. Shows
+ * each unrevealed on-guard card with a live `modify-attack` action as a
+ * clickable face-down card — mirroring the face-down rendering used for
+ * `reveal-on-guard` cards on the board (company-site.ts), since the engine
+ * redacts an on-guard card's identity even from the player who placed it
+ * until it is actually revealed. Clicking dispatches the action directly;
+ * unlike items/allies there is no character or hand-arc slot to click.
+ */
+function renderOnGuardModifyAttackPanel(
+  actions: readonly ModifyAttackAction[],
+  onAction: (action: GameAction) => void,
+): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'combat-modify-attack-panel';
+
+  const label = document.createElement('div');
+  label.className = 'combat-modify-attack-label';
+  label.textContent = 'On-guard card affecting this attack — click to reveal and play:';
+  panel.appendChild(label);
+
+  const cardsRow = document.createElement('div');
+  cardsRow.className = 'combat-modify-attack-cards';
+
+  for (const action of actions) {
+    const img = document.createElement('img');
+    img.src = '/images/card-back.jpg';
+    img.alt = 'On-guard card';
+    img.className = 'company-card company-card--item combat-card--assignable';
+    img.dataset.instanceId = action.cardInstanceId as string;
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onAction(action);
+    });
+    cardsRow.appendChild(img);
+  }
+
+  panel.appendChild(cardsRow);
+  return panel;
 }
 
 // ---- Item salvage panel ----
