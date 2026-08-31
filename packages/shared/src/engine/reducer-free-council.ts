@@ -22,13 +22,13 @@ import { isCharacterCard } from '../types/cards.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { modifyCorruptionCheckGrantActions } from './legal-actions/organization.js';
 import { reactiveCorruptionCheckPlays } from './legal-actions/pending.js';
-import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar } from './reducer-utils.js';
+import { rollDiceForPlayer, classifyCorruptionOutcome, clonePlayers, cleanupEmptyCompanies, updatePlayer, updateCharacter, findCharacterCompany, playerById, defById, toCardInstance, hasEliminatedAvatar, getCardEffects } from './reducer-utils.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { dispatchShortEventByCardType } from './reducer-events.js';
-import { removeConstraint, characterPossessions } from './pending.js';
+import { removeConstraint, addConstraint, characterPossessions } from './pending.js';
 
 
 /**
@@ -205,14 +205,52 @@ function handleSupportCorruptionCheck(
   if (action.type !== 'support-corruption-check') return { state, error: 'Expected support-corruption-check' };
 
   const playerIndex = getPlayerIndex(state, action.player);
-  const supporterDef = resolveDef(state, action.supportingCharacterId);
-  const supporterName = supporterDef?.name ?? (action.supportingCharacterId as string);
+
+  // Item-sourced boost (Phial of Galadriel dm-176): taps its own bearer's
+  // item for a flat bonus, banked as a one-shot `check-modifier` constraint
+  // that `resolveCorruptionCheck` below already consumes generically (the
+  // same path When I Know Anything td-166 uses) — distinct from the fixed
+  // +1-per-tap `supportCount` counter the character-support path below uses.
+  if (action.supportingItemInstanceId !== undefined) {
+    const checkingCharacterId = fcState.pendingCheck!.characterId;
+    const player = playerById(state, action.player);
+    const bearer = player?.characters[checkingCharacterId];
+    if (!bearer) return { state, error: 'support-corruption-check: checking character not found' };
+    const itemIndex = bearer.items.findIndex(it => it.instanceId === action.supportingItemInstanceId);
+    if (itemIndex < 0) return { state, error: 'support-corruption-check: item not found on checking character' };
+    const item = bearer.items[itemIndex];
+    if (item.status !== CardStatus.Untapped) return { state, error: 'support-corruption-check: item is not untapped' };
+    const itemDef = defById(state, item.definitionId);
+    const boostEffect = getCardEffects(itemDef).find(
+      (e): e is import('../types/effects.js').CorruptionCheckBoostEffect => e.type === 'corruption-check-boost',
+    );
+    if (!boostEffect) return { state, error: 'support-corruption-check: item has no corruption-check-boost effect' };
+    logDetail(`Free Council: ${itemDef?.name ?? (item.definitionId as string)} taps for ${formatSignedNumber(boostEffect.value)} to corruption check`);
+    let boostState = updatePlayer(state, playerIndex, p =>
+      updateCharacter(p, checkingCharacterId, ch => ({
+        ...ch,
+        items: ch.items.map((it, i) => i === itemIndex ? { ...it, status: CardStatus.Tapped } : it),
+      })));
+    boostState = addConstraint(boostState, {
+      source: item.instanceId,
+      sourceDefinitionId: item.definitionId,
+      target: { kind: 'character', characterId: checkingCharacterId },
+      kind: { type: 'check-modifier', check: 'corruption', value: boostEffect.value },
+      scope: { kind: 'phase', phase: Phase.FreeCouncil },
+    });
+    return { state: boostState };
+  }
+
+  const supportingCharacterId = action.supportingCharacterId;
+  if (supportingCharacterId === undefined) return { state, error: 'support-corruption-check: no supporting character or item specified' };
+  const supporterDef = resolveDef(state, supportingCharacterId);
+  const supporterName = supporterDef?.name ?? (supportingCharacterId as string);
 
   logDetail(`Free Council: ${supporterName} taps to support corruption check — +1`);
 
   // Tap the supporter
   const newState = updatePlayer(state, playerIndex, p =>
-    updateCharacter(p, action.supportingCharacterId, c => ({ ...c, status: CardStatus.Tapped })),
+    updateCharacter(p, supportingCharacterId, c => ({ ...c, status: CardStatus.Tapped })),
   );
 
   return {

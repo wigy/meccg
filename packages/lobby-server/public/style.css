@@ -5141,18 +5141,31 @@ h2 {
   min-width: 0;
 }
 
-/* Action button panel — fixed above the radar minimap, stacks buttons upward.
-   Gap is deliberately generous (not the 0.5rem used elsewhere): this panel
-   often grows a secondary "Pass"/step-ending button directly above a primary
-   repeatable action (e.g. "Draw"), and a tight gap made it easy to
-   double-click into the wrong one and skip ahead a step. */
+/* Action button panel — fixed above the radar minimap. Three always-present
+   tiers (special / in-phase-pass / end-of-phase, top to bottom) so a given
+   screen slot always means the same kind of action turn over turn — buttons
+   used to be appended in whatever order the current turn's branches ran,
+   so "second from the bottom" could be a completely different action next
+   turn (or absent), causing muscle-memory misclicks. The panel is anchored
+   by `bottom`, so its bottom edge (the end-of-phase tier) never moves
+   regardless of how many buttons occupy the tiers above it; the container
+   grows upward instead. Gap is deliberately generous (not the 0.5rem used
+   elsewhere): a tight gap made it easy to double-click into the wrong
+   button and skip ahead a step. */
 #visual-panel {
   position: fixed;
   bottom: calc(1rem + 162px + 0.75rem);
   right: 1rem;
   z-index: var(--z-panel);
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+#tier-special, #tier-in-phase-pass, #tier-end-of-phase {
+  display: flex;
+  flex-direction: column;
   align-items: flex-end;
   gap: 1rem;
 }
@@ -5201,6 +5214,27 @@ h2 {
 .enter-site-btn:hover {
   background: rgba(90, 196, 120, 0.3);
   border-color: rgba(90, 196, 120, 0.8);
+}
+
+/* Top-tier "special" button — granted card abilities (Carambor-style taps,
+   etc.), reusing #tier-special. Purple accent distinguishes it from the
+   gold end-of-phase button and the green in-phase-pass buttons below it. */
+.special-action-btn {
+  font-family: 'MedievalSharp', cursive;
+  font-size: 1.2rem;
+  color: rgba(190, 150, 220, 0.9);
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(150, 100, 200, 0.5);
+  border-radius: 8px;
+  padding: 0.4rem 1.5rem;
+  cursor: pointer;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.special-action-btn:hover {
+  background: rgba(150, 100, 200, 0.3);
+  border-color: rgba(150, 100, 200, 0.8);
 }
 
 /* Card arcs — fanned cards at top and bottom of the visual view */

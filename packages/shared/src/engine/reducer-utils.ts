@@ -27,6 +27,7 @@ import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSk
 import type { ResolverContext } from './effects/index.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { revealInstances, forgetDeckReveals } from './visibility.js';
+import { placeCardSetAside } from './set-aside.js';
 import { evaluateRules } from '../rules/evaluator.js';
 import { STAGE_RESOURCE_DRAFT_RULES } from '../rules/definitions/character-draft.js';
 
@@ -7023,6 +7024,19 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     } else {
       newPlayers[playerIndex] = { ...player, discardPile: newSourcePile, hand: [...player.hand, fetchedCard] };
     }
+  } else if (fetchTo === 'set-aside') {
+    // Remove from the source pile only — placement into the fetching host's
+    // own set-aside cache (`placeCardSetAside`) happens once `newState` below
+    // is assembled (Rumours of Rings ba-31).
+    if (action.source === 'sideboard') {
+      newPlayers[playerIndex] = { ...player, sideboard: newSourcePile };
+    } else if (action.source === 'deck') {
+      const [reshuffledDeck, rng2] = shuffle(newSourcePile, state.rng);
+      nextRng = rng2;
+      newPlayers[playerIndex] = { ...player, playDeck: reshuffledDeck };
+    } else {
+      newPlayers[playerIndex] = { ...player, discardPile: newSourcePile };
+    }
   } else {
     // Default: place in play deck and shuffle
     const [shuffledDeck, rng2] = shuffle([...player.playDeck, fetchedCard], state.rng);
@@ -7044,6 +7058,12 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     ? [{ ...current, effect: { ...current.effect, count: newCount } } as import('../types/state-combat.js').PendingEffect, ...state.pendingEffects.slice(1)]
     : state.pendingEffects.slice(1);
   let newState: GameState = { ...state, players: newPlayers, rng: nextRng, pendingEffects: remaining };
+  if (fetchTo === 'set-aside') {
+    // Rumours of Rings (ba-31): the fetched item is kept "off to the side"
+    // with the fetching host itself, out of play and scoring no marshalling
+    // points of its own.
+    newState = placeCardSetAside(newState, current.cardInstanceId, fetchedCard, false, true);
+  }
   // Reveal-to-opponent (Inner Cunning dm-68 mode 2): the fetched card's identity
   // becomes public as it is taken to hand.
   if (current.effect.type === 'fetch-to-deck' && current.effect.revealToOpponent) {

@@ -23,6 +23,7 @@ const pool = loadCardPool();
 
 const TROLL_CHIEF = 'le-45' as CardDefinitionId; // mind 6, race troll
 const WIZARDS_MYRMIDON = 'wh-84' as CardDefinitionId; // control-restriction cost 3
+const SQUIRE_OF_THE_HUNT = 'wh-95' as CardDefinitionId; // control-restriction cost 2
 const ANNALENA = 'tw-119' as CardDefinitionId; // mind 3, no restriction
 const ROBIN = 'tw-179' as CardDefinitionId; // Robin Smallburrow, mind 3
 const AWAIT_ADVENT = 'dm-117' as CardDefinitionId; // Await the Advent of Allies: general-influence-exempt
@@ -71,6 +72,32 @@ describe('GI tooltip honours control-restriction cost (Wizard\'s Myrmidon)', () 
     // No override -> printed mind 6 is subtracted: free = 20 − 6.
     expect(html).toContain('−6');
     expect(html).toContain('mp-total">14<');
+  });
+
+  // Regression for game mtgv4fsx-eoas7w, seq 656: Gimli (tw-159, printed mind
+  // 6) bore both Wizard's Myrmidon (wh-84, cost 3) and Squire of the Hunt
+  // (wh-95, cost 2) at once. `controlRestrictionCost` returned the *first*
+  // control-restriction found while walking `char.items` — Myrmidon, since it
+  // was attached before Squire — instead of the lowest, so the tooltip (and
+  // any other reader of the same helper) showed 3 instead of the CRF-22
+  // "use the lower number" value of 2.
+  test('with two stacked control-restrictions, the lower cost governs regardless of item order', () => {
+    const characters: Record<string, CharacterInPlay> = {
+      'p1-124': generalChar(TROLL_CHIEF, 'p1-124', { items: [WIZARDS_MYRMIDON, SQUIRE_OF_THE_HUNT] }),
+    };
+    const html = buildGITooltip(20, characters, pool);
+    // Lower of (3, 2) is 2, with the printed mind (6) shown in parens.
+    expect(html).toContain('−2 (6)');
+    expect(html).toContain('mp-total">18<');
+  });
+
+  test('with two stacked control-restrictions in the opposite item order, the lower cost still governs', () => {
+    const characters: Record<string, CharacterInPlay> = {
+      'p1-124': generalChar(TROLL_CHIEF, 'p1-124', { items: [SQUIRE_OF_THE_HUNT, WIZARDS_MYRMIDON] }),
+    };
+    const html = buildGITooltip(20, characters, pool);
+    expect(html).toContain('−2 (6)');
+    expect(html).toContain('mp-total">18<');
   });
 });
 

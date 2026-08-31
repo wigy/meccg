@@ -166,7 +166,7 @@ export interface FetchFromPileAction {
   /** Which pile the card is being fetched from. */
   readonly source: 'sideboard' | 'discard-pile' | 'deck';
   /** Destination zone. Defaults to `'deck'` for backward compatibility. */
-  readonly to?: 'deck' | 'hand';
+  readonly to?: 'deck' | 'hand' | 'set-aside';
 }
 
 /**

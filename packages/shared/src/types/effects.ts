@@ -1197,15 +1197,24 @@ export interface AllowCharacterPlayEffect extends EffectBase {
 
 /**
  * Grants the controlling player an optional once-per-organization-phase action
- * to take one card matching {@link filter} from a pile into their hand.
+ * to take one card matching {@link filter} from a pile into their hand (or,
+ * with `to: 'set-aside'`, into this host's own set-aside cache instead).
  * Carried by a permanent-event the player controls (e.g. A Strident Spawn
  * wh-61: "During your organization phase, you may take one Half-orc character
- * from your discard pile to your hand").
+ * from your discard pile to your hand"; Rumours of Rings ba-31: "you may take
+ * one ring special item … from your sideboard or discard pile and place it
+ * 'off to the side' with this card").
  *
  * Emitted by `organizationActions` (one `activate-org-fetch` per source card
- * that still has its activation available this turn and has at least one
- * matching candidate). Activating enqueues the shared `fetch-to-deck` pending
- * effect (`to: 'hand'`), which drives the existing pick-one-or-pass sub-flow.
+ * that still has its activation available this turn, has at least one
+ * matching candidate, and — for `to: 'set-aside'` — has not yet reached
+ * {@link maxCached} items kept under it). Activating enqueues the shared
+ * `fetch-to-deck` pending effect with the same `to`, which drives the existing
+ * pick-one-or-pass sub-flow; a `'set-aside'` destination resolves via
+ * `placeCardSetAside` (`engine/set-aside.ts`, MEAS §1) onto the fetching host
+ * itself instead of the hand, scoring no marshalling points
+ * (`setAsideNoMp: true`) — pair with an `item-cache-play-source` effect on the
+ * same card to let the cached item be played "as though it were in hand".
  */
 export interface OrgPhaseFetchEffect extends EffectBase {
   readonly type: 'org-phase-fetch';
@@ -1213,6 +1222,10 @@ export interface OrgPhaseFetchEffect extends EffectBase {
   readonly from: readonly ('discard-pile' | 'sideboard' | 'deck')[];
   /** DSL condition matched against each candidate card's definition. */
   readonly filter: Condition;
+  /** Fetch destination. Defaults to `'hand'`. */
+  readonly to?: 'hand' | 'set-aside';
+  /** With `to: 'set-aside'`, the maximum number of items kept under this host at once. */
+  readonly maxCached?: number;
 }
 
 /**
@@ -5790,8 +5803,11 @@ export interface FetchToDeckEffect extends EffectBase {
   /**
    * Destination pile for the fetched card. Defaults to 'deck'.
    * When 'hand', the card is placed directly in the player's hand instead.
+   * When 'set-aside', the card is placed "off to the side" kept with the
+   * fetching host card itself (`placeCardSetAside`, `noMp: true`) — used by
+   * `org-phase-fetch` effects with `to: 'set-aside'` (Rumours of Rings ba-31).
    */
-  readonly to?: 'deck' | 'hand';
+  readonly to?: 'deck' | 'hand' | 'set-aside';
   /**
    * When set, only cards playable at this site qualify (in addition to
    * `filter`). Captured from the bearer's company's current site when an
@@ -6707,6 +6723,70 @@ export interface ModifyAttackEffect extends EffectBase {
    * each character gives a -4 modification to his prowess instead of -1."
    */
   readonly firstExcessStrikePenalty?: number;
+  /**
+   * When true (in-play item path, whole-attack scope), activating grants the
+   * defending player free choice of strike-target assignment for this
+   * specific attack — {@link CombatState.defenderFreeStrikeAssignment} is
+   * set, the same flag the `free-strike-assignment` global environment
+   * effect (Cloudless Day td-104) grants passively. Bypasses the normal
+   * untapped-only gate in `assignStrikeActions` (`legal-actions/combat.ts`)
+   * — the defender may assign strikes to tapped or wounded (Inverted)
+   * characters — and overrides the attack's own attacker-chooses-defenders
+   * rule if one applies. Used by Phial of Galadriel (dm-176): "you choose
+   * targets of such an attack's strikes (regardless of tapped status,
+   * wounded status, and the normal abilities of the attack)."
+   */
+  readonly grantsDefenderFreeStrikeAssignment?: true;
+}
+
+/**
+ * A tap-activated item ability that adds a flat bonus to a corruption check
+ * made by its own bearer — reactive support offered alongside the roll
+ * action for any pending `corruption-check` targeting the bearer (the same
+ * window `support-corruption-check` uses for company-mate CoE 7.1.1
+ * support), regardless of whether that pending check carries `allowSupport`
+ * (which gates only the company-mate tap-in-support rule, a separate
+ * mechanic). Activating taps the item and banks a one-shot `check-modifier`
+ * constraint (`check: "corruption"`, `value`) on the bearer, consumed the
+ * moment the check resolves — the exact same constraint the character
+ * support and grant-action (`When I Know Anything` td-166) modifiers use.
+ * Used by Phial of Galadriel (dm-176): "Tap Phial to give +2 to any
+ * corruption check by its bearer."
+ */
+export interface CorruptionCheckBoostEffect extends EffectBase {
+  readonly type: 'corruption-check-boost';
+  /** Cost to activate — always `{ tap: "self" }` in current usage. */
+  readonly cost: ActionCost;
+  /** Bonus added to the bearer's corruption-check roll. */
+  readonly value: number;
+}
+
+/**
+ * An on-play item mechanic that upgrades an existing item already borne by
+ * the target character: the new item (carrying this effect) replaces the
+ * named item, which is removed from the game entirely (CoE "remove from
+ * play" wording for items, distinct from a plain discard — it goes to
+ * {@link CardInPlay.outOfPlayPile} flagged {@link CardInstance.removedFromGame}
+ * rather than to a discard pile). Play additionally requires an untapped
+ * companion character of the given name in the same company, who taps as
+ * part of the cost (on top of the normal bearer/site tap-on-play, which the
+ * generic item-play flow already applies unless the item declares
+ * `no-tap-on-play`). The bearer-eligibility filter itself — "bearer of
+ * <itemName>" plus any race exclusions — is expressed on the item's own
+ * `play-target` `target: "character"` `filter` via the `target.itemNames`
+ * context field (`legal-actions/site.ts`), not by this effect; this effect
+ * only carries the swap/removal/companion-tap mechanics. Used by Phial of
+ * Galadriel (dm-176): "Playable on a non-Wizard, non-Dwarf bearer of
+ * Star-glass … in the same company as an untapped Galadriel. Tap Galadriel,
+ * replace Star-glass with Phial of Galadriel, and remove Star-glass from
+ * play."
+ */
+export interface ReplaceItemOnPlayEffect extends EffectBase {
+  readonly type: 'replace-item-on-play';
+  /** Name of the item this card replaces on the bearer. */
+  readonly itemName: string;
+  /** Name of the companion character (in the same company) who must be untapped and taps as part of the play cost. */
+  readonly tapCompanionNamed: string;
 }
 
 /**
@@ -9418,6 +9498,8 @@ export type CardEffect =
   | CancelInfluenceEffect
   | StrikeModifierEffect
   | ModifyAttackEffect
+  | CorruptionCheckBoostEffect
+  | ReplaceItemOnPlayEffect
   | FaceStrikeOnTapEffect
   | FaceAllStrikesOptionEffect
   | MultiStrikeOptionEffect
@@ -9556,6 +9638,7 @@ export type CardEffect =
   | DiscardForHazardLimitEffect
   | RingTestTableEffect
   | RingTestSearchEffect
+  | RingCachePlaySourceEffect
   | GrantSkillEffect
   | OverrideSkillsEffect
   | ItemSlotModifierEffect
@@ -11166,6 +11249,23 @@ export interface RingTestTableEffect extends EffectBase {
 export interface RingTestSearchEffect extends EffectBase {
   readonly type: 'ring-test-search';
   readonly category: RingCategory;
+}
+
+/**
+ * Marks a host permanent-event's set-aside cache as a source for the
+ * `ring-play-offer` resolution (Rule 9.21): a special ring kept "off to the
+ * side" with this host (see `org-phase-fetch`'s `to: 'set-aside'` mode) may be
+ * chosen as though it were in hand when a gold-ring test offers a matching
+ * category, in addition to the player's actual hand. Rings never enter play
+ * through the ordinary site item-play path (`item-cache-play-source` merges
+ * into that loop and so does not apply to them), which is why this is a
+ * distinct marker rather than a reuse of that effect.
+ *
+ * Used by Rumours of Rings (ba-31): "You may play a ring special item placed
+ * with this card as though it were in your hand."
+ */
+export interface RingCachePlaySourceEffect extends EffectBase {
+  readonly type: 'ring-cache-play-source';
 }
 
 /**

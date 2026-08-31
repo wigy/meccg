@@ -7,30 +7,38 @@
  * meter breadcrumb (see {@link module:render-phase-meter}).
  */
 
-import type { PlayerView, GameAction } from '@meccg/shared';
+import type { PlayerView, GameAction, ActivateGrantedAction, CardInstanceId } from '@meccg/shared';
 import { Phase, getTitleCharacter } from '@meccg/shared';
 import { appState, cardPool } from './app-state.js';
 import { passButtonLabel } from './pass-button-label.js';
+import { classifyActionKind } from './button-classification.js';
+import { showTooltipMenu } from './tooltip-menu.js';
+import { buildGrantedActionMenuItems } from './company-modals.js';
+
+/**
+ * Remove every child of the tier container `id` (a no-op if the container is
+ * missing or already empty). Used to clear the middle and top tiers before
+ * rebuilding them from the current legal actions — unlike the previous
+ * per-class removal list, a button placed in a tier is guaranteed to be
+ * cleaned up on the next render without needing its own cleanup entry.
+ */
+function clearTier(id: string): HTMLElement | null {
+  const el = document.getElementById(id);
+  if (el) [...el.children].forEach(child => child.remove());
+  return el;
+}
 
 /** Render the pass/stop button in the visual view if a pass-like action is available. */
 export function renderPassButton(view: PlayerView, onAction: (action: GameAction) => void): void {
   const btn = document.getElementById('pass-btn') as HTMLButtonElement | null;
   if (!btn) return;
 
-  // Remove all dynamic buttons from previous renders before rebuilding from
-  // the current legal actions. This prevents stale buttons when the early
-  // return (no pass action) skips the conditional re-creation below.
-  document.getElementById('enter-site-btn')?.remove();
-  document.getElementById('secondary-pass-btn')?.remove();
-  document.getElementById('call-council-btn')?.remove();
-  document.getElementById('skip-cvcc-btn')?.remove();
-  document.querySelectorAll('.hazard-sb-btn').forEach(b => b.remove());
-  document.querySelectorAll('.gold-ring-choice-btn').forEach(b => b.remove());
-  document.querySelectorAll('.great-hunt-choice-btn').forEach(b => b.remove());
-  document.querySelectorAll('.hunt-target-choice-btn').forEach(b => b.remove());
-  document.querySelectorAll('.influence-overflow-discard-btn').forEach(b => b.remove());
-  document.querySelectorAll('.transfer-returned-item-btn').forEach(b => b.remove());
-  document.querySelectorAll('.cvcc-attack-btn').forEach(b => b.remove());
+  // Clear the middle (in-phase-pass) and top (special) tiers before
+  // rebuilding them from the current legal actions. The bottom tier's only
+  // dynamic content is #pass-btn itself, toggled via the "hidden" class
+  // rather than removed, so it is left alone here.
+  const inPhaseTier = clearTier('tier-in-phase-pass');
+  const specialTier = clearTier('tier-special');
 
   // Spectators never act: hide both the pass button and the "Waiting…" box
   // (which would otherwise show permanently, since they have no legal actions).
@@ -38,6 +46,31 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     btn.classList.add('hidden');
     document.getElementById('waiting-indicator')?.classList.add('hidden');
     return;
+  }
+
+  // Top tier: card-granted actions (e.g. Carambor-style taps), otherwise
+  // only reachable via portrait click. Rendered here in addition to that
+  // affordance — not a replacement — so the fixed slot always exists once
+  // any such ability is viable, and multiple simultaneously-viable
+  // abilities collapse into one menu instead of one button apiece.
+  if (specialTier) {
+    const grantedActionEvals = view.legalActions.filter(
+      ea => ea.viable && classifyActionKind(ea.action.type) === 'special',
+    );
+    if (grantedActionEvals.length > 0) {
+      const grantedActions = grantedActionEvals.map(ea => ea.action as ActivateGrantedAction);
+      const specialBtn = document.createElement('button');
+      specialBtn.className = 'special-action-btn';
+      specialBtn.textContent = 'Special ▾';
+      specialBtn.onclick = () => {
+        const resolveName = (id: CardInstanceId): string | undefined => {
+          const defId = appState.lastInstanceLookup(id);
+          return defId ? cardPool[defId as string]?.name : undefined;
+        };
+        showTooltipMenu(specialBtn, buildGrantedActionMenuItems(grantedActions, onAction, resolveName), { placement: 'over' });
+      };
+      specialTier.appendChild(specialBtn);
+    }
   }
 
   // A corruption-check action only belongs on the generic bottom button when
@@ -48,17 +81,12 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   // one here as a "Roll" button would silently bypass that choice.
   const corruptionCheckCount = view.legalActions.filter(ea => ea.viable && ea.action.type === 'corruption-check').length;
 
-  // Find a viable pass-like or single-step action (including chain priority pass)
+  // Find a viable end-of-phase action (including chain priority pass) for the
+  // bottom tier. `classifyActionKind` centralizes the whitelist of action
+  // types this tier accepts (see button-classification.ts).
   const passEval = view.legalActions.find(ea =>
-    ea.viable && (ea.action.type === 'pass' || ea.action.type === 'draft-stop'
-    || ea.action.type === 'shuffle-play-deck' || ea.action.type === 'draw-cards'
-    || ea.action.type === 'roll-initiative' || (ea.action.type === 'corruption-check' && corruptionCheckCount === 1)
-    || ea.action.type === 'faction-influence-roll' || ea.action.type === 'under-deeps-roll'
-    || ea.action.type === 'pass-chain-priority' || ea.action.type === 'deck-exhaust'
-    || ea.action.type === 'finished' || ea.action.type === 'untap'
-    || ea.action.type === 'opponent-influence-defend' || ea.action.type === 'resolve-dice-check'
-    || ea.action.type === 'flattery-attempt' || ea.action.type === 'seized-by-terror-roll'
-    || ea.action.type === 'gold-ring-test-roll'));
+    ea.viable && classifyActionKind(ea.action.type) === 'end-of-phase'
+    && !(ea.action.type === 'corruption-check' && corruptionCheckCount !== 1));
   const passAction = passEval?.action;
   const waitingEl = document.getElementById('waiting-indicator');
   if (!passAction) {
@@ -80,7 +108,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         chooseBtn.textContent = `Use ${chooseAction.rollTotal}`;
         chooseBtn.title = chooseAction.explanation;
         chooseBtn.onclick = () => onAction(chooseAction);
-        document.getElementById('visual-panel')?.appendChild(chooseBtn);
+        inPhaseTier?.appendChild(chooseBtn);
       }
       return;
     }
@@ -101,7 +129,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         chooseBtn.className = 'enter-site-btn great-hunt-choice-btn';
         chooseBtn.textContent = chooseAction.source === 'deck' ? 'Reveal Play Deck' : 'Reveal Discard Pile';
         chooseBtn.onclick = () => onAction(chooseAction);
-        document.getElementById('visual-panel')?.appendChild(chooseBtn);
+        inPhaseTier?.appendChild(chooseBtn);
       }
       return;
     }
@@ -128,7 +156,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         chooseBtn.className = 'enter-site-btn hunt-target-choice-btn';
         chooseBtn.textContent = `Name ${creatureName}`;
         chooseBtn.onclick = () => onAction(chooseAction);
-        document.getElementById('visual-panel')?.appendChild(chooseBtn);
+        inPhaseTier?.appendChild(chooseBtn);
       }
       return;
     }
@@ -153,7 +181,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         discardBtn.className = 'enter-site-btn influence-overflow-discard-btn';
         discardBtn.textContent = `Remove ${charName ?? discardAction.characterInstanceId as string}`;
         discardBtn.onclick = () => onAction(discardAction);
-        document.getElementById('visual-panel')?.appendChild(discardBtn);
+        inPhaseTier?.appendChild(discardBtn);
       }
       return;
     }
@@ -189,7 +217,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
           transferBtn.textContent = 'Leave Discarded';
         }
         transferBtn.onclick = () => onAction(transferAction);
-        document.getElementById('visual-panel')?.appendChild(transferBtn);
+        inPhaseTier?.appendChild(transferBtn);
       }
       return;
     }
@@ -211,7 +239,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         skipBtn.textContent = 'Skip';
         skipBtn.disabled = true;
         skipBtn.title = 'reason' in gatedSkip && typeof gatedSkip.reason === 'string' ? gatedSkip.reason : '';
-        document.getElementById('visual-panel')?.appendChild(skipBtn);
+        inPhaseTier?.appendChild(skipBtn);
         waitingEl?.classList.add('hidden');
         return;
       }
@@ -230,8 +258,6 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   btn.classList.remove('hidden');
   btn.onclick = () => onAction(passAction);
 
-  const panel = btn.parentElement;
-
   // When the primary button is a non-pass action (e.g. Draw) and a pass action
   // also exists, show a secondary Pass button so both options are available.
   if (passAction.type !== 'pass') {
@@ -242,7 +268,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       passBtn2.className = 'enter-site-btn'; // reuse same styling
       passBtn2.textContent = passButtonLabel(secondaryPass.action, view);
       passBtn2.onclick = () => onAction(secondaryPass.action);
-      panel?.appendChild(passBtn2);
+      inPhaseTier?.appendChild(passBtn2);
     }
   }
 
@@ -254,7 +280,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       toDiscardBtn.className = 'enter-site-btn hazard-sb-btn';
       toDiscardBtn.textContent = 'Hazards to Discard';
       toDiscardBtn.onclick = () => onAction(toDiscardEval.action);
-      panel?.appendChild(toDiscardBtn);
+      inPhaseTier?.appendChild(toDiscardBtn);
     }
     const toDeckEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'start-hazard-sideboard-to-deck');
     if (toDeckEval) {
@@ -262,7 +288,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       toDeckBtn.className = 'enter-site-btn hazard-sb-btn';
       toDeckBtn.textContent = 'Hazard to Deck';
       toDeckBtn.onclick = () => onAction(toDeckEval.action);
-      panel?.appendChild(toDeckBtn);
+      inPhaseTier?.appendChild(toDeckBtn);
     }
   }
 
@@ -275,7 +301,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       councilBtn.className = 'enter-site-btn';
       councilBtn.textContent = 'Call Council';
       councilBtn.onclick = () => onAction(councilEval.action);
-      panel?.appendChild(councilBtn);
+      inPhaseTier?.appendChild(councilBtn);
     }
   }
 
@@ -296,7 +322,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       skipBtn.className = 'enter-site-btn';
       skipBtn.textContent = 'Skip CvCC';
       skipBtn.onclick = () => onAction(passAction);
-      panel?.appendChild(skipBtn);
+      inPhaseTier?.appendChild(skipBtn);
     } else if (attackEvals.length > 1) {
       // Several opponent companies share the site: label each button with the
       // target company's title character so the player can tell them apart.
@@ -310,7 +336,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
         attackBtn.className = 'enter-site-btn cvcc-attack-btn';
         attackBtn.textContent = titleName ? `Attack ${titleName}'s company` : 'Attack';
         attackBtn.onclick = () => onAction(action);
-        panel?.appendChild(attackBtn);
+        inPhaseTier?.appendChild(attackBtn);
       }
     }
   }
@@ -330,7 +356,7 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       skipBtn.className = 'enter-site-btn';
       skipBtn.textContent = 'Skip';
       skipBtn.onclick = () => onAction(passAction);
-      panel?.appendChild(skipBtn);
+      inPhaseTier?.appendChild(skipBtn);
     }
   }
 }
