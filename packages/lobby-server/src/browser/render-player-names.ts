@@ -13,27 +13,34 @@ import { buildMPTooltip } from './mp-categories.js';
 
 
 /**
- * Influence-to-control cost override carried by a character via an attached
- * `control-restriction` effect (a resource permanent-event played on the
- * character, e.g. Wizard's Myrmidon wh-84 → cost 3). Mirrors the engine's
- * `controlCostOf`: when present, this `cost` replaces the bearer's mind for
- * influence-to-control accounting. Returns `undefined` when no such override is
- * attached. Resolves item definitions from the card pool by `definitionId` so it
- * works against the redacted player view (no game state required).
+ * Influence-to-control cost override carried by a character via its attached
+ * `control-restriction` effects (resource permanent-events played on the
+ * character, e.g. Wizard's Myrmidon wh-84 → cost 3, Squire of the Hunt wh-95
+ * → cost 2). Mirrors the engine's `controlCostOf`/`governingControlRestriction`:
+ * when several such cards are stacked, the lowest cost governs (CRF 22 ruling
+ * on Wizard's Myrmidon: "Can be played with another card, like Squire of the
+ * Hunt, that reduces the influence required to control the character. Use the
+ * lower number to control the character."). Returns `undefined` when no
+ * override is attached. Resolves item definitions from the card pool by
+ * `definitionId` so it works against the redacted player view (no game state
+ * required).
  */
 function controlRestrictionCost(
   char: CharacterInPlay,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): number | undefined {
+  let lowest: number | undefined;
   for (const item of char.items) {
     const def = cardPool[item.definitionId as string];
     const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
     if (!effects) continue;
     for (const e of effects) {
-      if (e.type === 'control-restriction' && typeof e.cost === 'number') return e.cost;
+      if (e.type === 'control-restriction' && typeof e.cost === 'number') {
+        if (lowest === undefined || e.cost < lowest) lowest = e.cost;
+      }
     }
   }
-  return undefined;
+  return lowest;
 }
 
 /**
