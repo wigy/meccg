@@ -20,6 +20,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { defById, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
+import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import { countExtraAgentActions } from './mh-agents.js';
 import type { OnEventEffect, CardEffect, UntapMindRollEffect, TakePrisonerEffect } from '../types/effects.js';
@@ -64,6 +65,18 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
   // through to the hazard-pass branch below and be silently consumed.
   if (action.type === 'activate-granted-action') {
     return handleGrantActionApply(state, action);
+  }
+
+  // A reactive resource short-event play (e.g. A Friend or Three tw-189's
+  // corruption-check-boost) is legal here when an any-phase grant-action
+  // (Magical Harp td-130) has queued a corruption-check resolution mid-untap.
+  // `applyCorruptionCheckResolution` defers `play-short-event` to the
+  // per-phase reducer rather than resolving it inline — see its own comment —
+  // so route it to the shared resource short-event handler like every other
+  // phase reducer does, or it is rejected as "wrong action type" and the
+  // player can never resolve the check.
+  if (action.type === 'play-short-event') {
+    return handlePlayResourceShortEvent(state, action);
   }
 
   // Everything below treats the action as the hazard player's pass; any
