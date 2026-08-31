@@ -54,17 +54,20 @@ class StubEl {
 
 let passBtn: StubEl;
 let waitingEl: StubEl;
-let visualPanel: StubEl;
+let tierInPhasePass: StubEl;
+let tierSpecial: StubEl;
 
 beforeEach(() => {
   allCreated = [];
   passBtn = new StubEl('button');
   waitingEl = new StubEl('div');
-  visualPanel = new StubEl('div');
+  tierInPhasePass = new StubEl('div');
+  tierSpecial = new StubEl('div');
   const byId: Record<string, StubEl | null> = {
     'pass-btn': passBtn,
     'waiting-indicator': waitingEl,
-    'visual-panel': visualPanel,
+    'tier-in-phase-pass': tierInPhasePass,
+    'tier-special': tierSpecial,
   };
   (globalThis as unknown as { document: unknown }).document = {
     createElement: (tag: string) => new StubEl(tag),
@@ -303,8 +306,8 @@ describe('renderPassButton — choose-gold-ring-test-roll (Wizard\'s Test)', () 
 
     expect(passBtn.classList.contains('hidden')).toBe(true);
     expect(waitingEl.classList.contains('hidden')).toBe(true);
-    expect(visualPanel.children).toHaveLength(2);
-    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Use 9', 'Use 12']);
+    expect(tierInPhasePass.children).toHaveLength(2);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Use 9', 'Use 12']);
   });
 
   test('clicking a choice button sends that total\'s action', () => {
@@ -313,7 +316,7 @@ describe('renderPassButton — choose-gold-ring-test-roll (Wizard\'s Test)', () 
     const twelve = chooseGoldRingTestRoll(12, 'Precious Gold Ring tests as lesser-ring, dwarven-ring, the-one-ring on a 12');
     renderPassButton(viewWith([nine, twelve]), action => { sent = action; });
 
-    visualPanel.children[1].onclick?.();
+    tierInPhasePass.children[1].onclick?.();
 
     expect(sent).toEqual(twelve.action);
   });
@@ -351,8 +354,8 @@ describe('renderPassButton — choose-great-hunt-source (The Great Hunt)', () =>
 
     expect(passBtn.classList.contains('hidden')).toBe(true);
     expect(waitingEl.classList.contains('hidden')).toBe(true);
-    expect(visualPanel.children).toHaveLength(2);
-    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Reveal Play Deck', 'Reveal Discard Pile']);
+    expect(tierInPhasePass.children).toHaveLength(2);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Reveal Play Deck', 'Reveal Discard Pile']);
   });
 
   test('clicking a choice button sends that pile\'s action', () => {
@@ -361,7 +364,7 @@ describe('renderPassButton — choose-great-hunt-source (The Great Hunt)', () =>
     const discard = chooseGreatHuntSource('discard');
     renderPassButton(viewWith([deck, discard]), action => { sent = action; });
 
-    visualPanel.children[1].onclick?.();
+    tierInPhasePass.children[1].onclick?.();
 
     expect(sent).toEqual(discard.action);
   });
@@ -403,15 +406,15 @@ describe('renderPassButton — choose-hunt-target (The Hunt)', () => {
 
     expect(passBtn.classList.contains('hidden')).toBe(true);
     expect(waitingEl.classList.contains('hidden')).toBe(true);
-    expect(visualPanel.children).toHaveLength(2);
-    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Name Hobgoblins', 'Name Orc-watch']);
+    expect(tierInPhasePass.children).toHaveLength(2);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Name Hobgoblins', 'Name Orc-watch']);
   });
 
   test('clicking a choice button sends that creature\'s action', () => {
     let sent: unknown = null;
     renderPassButton(viewWith([hobgoblins, orcWatch]), action => { sent = action; });
 
-    visualPanel.children[1].onclick?.();
+    tierInPhasePass.children[1].onclick?.();
 
     expect(sent).toEqual(orcWatch.action);
   });
@@ -469,12 +472,11 @@ const playHazardsViewWith = (legalActions: EvaluatedAction[], hazardLimitAtRevea
 
 describe('renderPassButton — Movement/Hazard draw-cards vs play-hazards labels', () => {
   test('draw-cards step renders "Draw" and a distinctly-labeled secondary pass button', () => {
-    passBtn.parentElement = visualPanel;
     renderPassButton(viewWithMH('draw-cards', [drawCardsEval(), passEval()]), () => { /* no-op */ });
 
     expect(passBtn.textContent).toBe('Draw');
-    expect(visualPanel.children).toHaveLength(1);
-    expect(visualPanel.children[0].textContent).toBe('Pass Draw');
+    expect(tierInPhasePass.children).toHaveLength(1);
+    expect(tierInPhasePass.children[0].textContent).toBe('Pass Draw');
   });
 
   test('play-hazards step renders "Pass Hazards" on the primary button', () => {
@@ -556,8 +558,8 @@ describe('renderPassButton — influence-overflow-discard (CoE 3.47 general-infl
 
     expect(passBtn.classList.contains('hidden')).toBe(true);
     expect(waitingEl.classList.contains('hidden')).toBe(true);
-    expect(visualPanel.children).toHaveLength(2);
-    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Remove Ivic', 'Remove Asternak']);
+    expect(tierInPhasePass.children).toHaveLength(2);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Remove Ivic', 'Remove Asternak']);
   });
 
   test('clicking a candidate button sends that character\'s discard action', () => {
@@ -567,7 +569,7 @@ describe('renderPassButton — influence-overflow-discard (CoE 3.47 general-infl
 
     renderPassButton(viewWith([onlyCandidate]), action => { sent = action; });
 
-    visualPanel.children[0].onclick?.();
+    tierInPhasePass.children[0].onclick?.();
 
     expect(sent).toEqual(onlyCandidate.action);
   });
@@ -588,11 +590,11 @@ describe('renderPassButton — influence-overflow-discard (CoE 3.47 general-infl
     appState.lastInstanceLookup = lookupOf({ 'p1-108': 'tw-148' }); // Erkenbrand
 
     renderPassButton(viewWith([influenceOverflowDiscard('p1-108')]), () => { /* no-op */ });
-    expect(visualPanel.children.map(c => c.textContent)).toEqual(['Remove Erkenbrand']);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Remove Erkenbrand']);
 
     renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
 
-    expect(visualPanel.children.map(c => c.textContent)).not.toContain('Remove Erkenbrand');
+    expect(tierInPhasePass.children.map(c => c.textContent)).not.toContain('Remove Erkenbrand');
   });
 });
 
@@ -639,35 +641,32 @@ const cvccViewWith = (legalActions: EvaluatedAction[]): PlayerView =>
 
 describe('renderPassButton — multi-target CvCC attack buttons', () => {
   test('labels each Attack button with its target company and dispatches that target', () => {
-    passBtn.parentElement = visualPanel;
     let sent: unknown = null;
     renderPassButton(
       cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]),
       action => { sent = action; },
     );
 
-    const labels = visualPanel.children.map(c => c.textContent);
+    const labels = tierInPhasePass.children.map(c => c.textContent);
     expect(labels).toContain("Attack Erkenbrand's company");
     expect(labels).toContain("Attack Gimli's company");
 
-    const gimliBtn = visualPanel.children.find(c => c.textContent === "Attack Gimli's company");
+    const gimliBtn = tierInPhasePass.children.find(c => c.textContent === "Attack Gimli's company");
     gimliBtn?.onclick?.();
     expect(sent).toEqual(declareAttack('company-p2-1').action);
   });
 
   test('does not accumulate duplicate Attack buttons across re-renders', () => {
-    passBtn.parentElement = visualPanel;
     const view = cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]);
 
     renderPassButton(view, () => { /* no-op */ });
     renderPassButton(view, () => { /* no-op */ });
 
-    const attackButtons = visualPanel.children.filter(c => c.textContent.startsWith('Attack'));
+    const attackButtons = tierInPhasePass.children.filter(c => c.textContent.startsWith('Attack'));
     expect(attackButtons).toHaveLength(2);
   });
 
   test('removes the Attack buttons once the step is over', () => {
-    passBtn.parentElement = visualPanel;
     renderPassButton(
       cvccViewWith([passEval(), declareAttack('company-p2-0'), declareAttack('company-p2-1')]),
       () => { /* no-op */ },
@@ -675,7 +674,7 @@ describe('renderPassButton — multi-target CvCC attack buttons', () => {
 
     renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
 
-    expect(visualPanel.children.filter(c => c.textContent.startsWith('Attack'))).toHaveLength(0);
+    expect(tierInPhasePass.children.filter(c => c.textContent.startsWith('Attack'))).toHaveLength(0);
   });
 });
 
@@ -713,7 +712,7 @@ describe('renderPassButton — transfer-returned-item (Call of Home / Pilfer Any
 
     expect(passBtn.classList.contains('hidden')).toBe(true);
     expect(waitingEl.classList.contains('hidden')).toBe(true);
-    expect(visualPanel.children.map(c => c.textContent)).toEqual([
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual([
       'Give Horn of Anor to Boromir II',
       'Give Horn of Anor to Bilbo',
       'Leave Discarded',
@@ -727,7 +726,7 @@ describe('renderPassButton — transfer-returned-item (Call of Home / Pilfer Any
 
     renderPassButton(viewWith([giveToMate, transferReturnedItem()]), action => { sent = action; });
 
-    visualPanel.children[0].onclick?.();
+    tierInPhasePass.children[0].onclick?.();
 
     expect(sent).toEqual(giveToMate.action);
   });
@@ -739,8 +738,59 @@ describe('renderPassButton — transfer-returned-item (Call of Home / Pilfer Any
 
     renderPassButton(viewWith([transferReturnedItem('p1-184'), decline]), action => { sent = action; });
 
-    visualPanel.children[1].onclick?.();
+    tierInPhasePass.children[1].onclick?.();
 
     expect(sent).toEqual(decline.action);
+  });
+});
+
+/**
+ * Regression tests for the three-tier action-button layout (feature request
+ * "changing tight buttons"): buttons that end the phase, resolve an in-phase
+ * decision, or activate a card-granted ability now render into three
+ * always-present containers (`#tier-end-of-phase`, `#tier-in-phase-pass`,
+ * `#tier-special`) instead of being appended in whatever order their branch
+ * happened to run — so a given screen slot always holds the same kind of
+ * action from one turn to the next. This locks in that `activate-granted-action`
+ * (e.g. Carambor-style taps) surfaces a top-tier button in addition to the
+ * existing portrait-click affordance, and that it is cleaned up once no
+ * longer viable, mirroring the existing per-tier cleanup tests above.
+ */
+const activateGrantedAction = (actionId: string, characterId: string): EvaluatedAction => ({
+  action: {
+    type: 'activate-granted-action',
+    player: 'p1',
+    characterId,
+    sourceCardId: characterId,
+    sourceCardDefinitionId: 'tw-1',
+    actionId,
+    rollThreshold: 6,
+  },
+  viable: true,
+} as unknown as EvaluatedAction);
+
+describe('renderPassButton — top-tier special actions (activate-granted-action)', () => {
+  test('renders a Special button in the top tier alongside a normal bottom-tier pass button', () => {
+    renderPassButton(viewWith([passEval(), activateGrantedAction('untap-bearer', 'p1-4')]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(tierSpecial.children).toHaveLength(1);
+    expect(tierSpecial.children[0].textContent).toBe('Special ▾');
+    expect(tierSpecial.children[0].classList.contains('special-action-btn')).toBe(true);
+  });
+
+  test('does not render a Special button when no granted action is viable', () => {
+    renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
+
+    expect(tierSpecial.children).toHaveLength(0);
+  });
+
+  test('removes a stale Special button once the granted action is gone', () => {
+    renderPassButton(viewWith([passEval(), activateGrantedAction('untap-bearer', 'p1-4')]), () => { /* no-op */ });
+    expect(tierSpecial.children).toHaveLength(1);
+
+    renderPassButton(viewWith([passEval()]), () => { /* no-op */ });
+
+    expect(tierSpecial.children).toHaveLength(0);
   });
 });
