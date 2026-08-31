@@ -36,7 +36,7 @@ import {
   RESOURCE_PLAYER,
   companyIdAt,
 } from '../test-helpers.js';
-import type { PlayHazardAction, CorruptionCheckAction, CardDefinitionId } from '../../index.js';
+import type { PlayHazardAction, CorruptionCheckAction, SupportCorruptionCheckAction, CardDefinitionId } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 const DRAGON_SICKNESS = 'td-18' as CardDefinitionId;
@@ -229,6 +229,51 @@ describe('Dragon-sickness (td-18)', () => {
     expect(cc.corruptionModifier).toBe(-1);
     expect(cc.characterId).toBe(aragornId);
     void companyId;
+  });
+
+  test('company mate may tap in support of the Dragon-sickness corruption check (CoE 7.1.1)', () => {
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: ARAGORN, items: [GLAMDRING] }, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS }] }],
+          hand: [DRAGON_SICKNESS],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const mhGameState = { ...base, phaseState: makeMHState() };
+    const dsCard = mhGameState.players[1].hand[0];
+    const aragornId = charIdAt(mhGameState, RESOURCE_PLAYER);
+
+    const viablePlays = computeLegalActions(mhGameState, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard'
+        && (ea.action).cardInstanceId === dsCard.instanceId);
+    expect(viablePlays.length).toBe(1);
+
+    const playResult = reduce(mhGameState, viablePlays[0].action);
+    expect(playResult.error).toBeUndefined();
+
+    const afterChain = resolveChain(playResult.state);
+    expect(afterChain.chain).toBeNull();
+
+    // The untapped company mate (Legolas) should be offered as support for
+    // Aragorn's corruption check.
+    const supportActions = computeLegalActions(afterChain, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'support-corruption-check')
+      .map(ea => ea.action as SupportCorruptionCheckAction);
+    expect(supportActions).toHaveLength(1);
+    expect(supportActions[0].targetCharacterId).toBe(aragornId);
+    expect(supportActions[0].supportingCharacterId).not.toBe(aragornId);
   });
 
   test('still playable on a character that already received a corruption card this turn', () => {
