@@ -41,7 +41,7 @@ import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js'
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
-import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -2951,6 +2951,11 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *    contains at least one character with the `diplomat` skill.
  *    Enables cards like New Friendship to offer a corruption-check boost
  *    to any character in a diplomat's company, not just the diplomat.
+ *  - `company.siteUntapped` — `true`/`false` (null with no current site)
+ *    for whether the character's company's current site is untapped, and
+ *    `company.siteIsUnderDeeps` — whether that site carries the
+ *    `under-deeps` keyword. Used by Hour of Need (dm-141): "at an untapped
+ *    non-Under-deeps site".
  *  - `pending.corruptionCheckTargetsMe` — `true` iff a pending
  *    corruption-check resolution exists whose `characterId` matches
  *    the candidate. Enables reactive plays like Halfling Strength's
@@ -2997,6 +3002,8 @@ export function buildPlayOptionContext(
   let companySiteType: string | null = null;
   let companySiteName: string | null = null;
   let companySiteRegion: string | null = null;
+  let companySiteUntapped: boolean | null = null;
+  let companySiteIsUnderDeeps = false;
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
@@ -3039,6 +3046,8 @@ export function buildPlayOptionContext(
       if (siteDef && 'siteType' in siteDef) companySiteType = (siteDef as { siteType: string }).siteType;
       if (siteDef) companySiteName = siteDef.name;
       if (siteDef) companySiteRegion = (siteDef as { region?: string }).region ?? null;
+      companySiteUntapped = charCompany.currentSite.status === CardStatus.Untapped;
+      companySiteIsUnderDeeps = isUnderDeepsSiteRef(state, charCompany.currentSite);
     }
     // The region type containing the company's *declared* destination site
     // (Organization phase `plan-movement`, or a still-set destination during
@@ -3123,6 +3132,8 @@ export function buildPlayOptionContext(
       siteType: companySiteType,
       siteName: companySiteName,
       siteRegion: companySiteRegion,
+      siteUntapped: companySiteUntapped,
+      siteIsUnderDeeps: companySiteIsUnderDeeps,
       containsDiplomat,
       moving: companyMoving,
       destinationSiteType,
@@ -3721,6 +3732,21 @@ export function playResourceShortEventActions(
       // offered every mode whose own eligibility is met.
       const eoTargets = getPlayTargetEffects(def);
       const companyDupLimit = findDuplicationLimitEffect(def, 'company');
+      // Hour of Need (dm-141): a `faction-influence-region-penalty` card needs
+      // a SECOND target — the faction card in hand it plays and makes the
+      // diplomat's influence attempt against — alongside the primary
+      // character play-target. Detected once per card so the per-target loop
+      // below can cross each eligible diplomat with each hand faction.
+      const factionInfluenceApply = getOnEventEffects(def, 'self-enters-play').find(
+        (e): e is import('../../types/effects.js').OnEventEffect & { apply: import('../../types/effects.js').FactionInfluenceRegionPenaltyAction } =>
+          e.apply.type === 'faction-influence-region-penalty',
+      );
+      const handFactions = factionInfluenceApply
+        ? player.hand.filter(c => {
+            const cDef = defById(state, c.definitionId);
+            return cDef && isFactionCard(cDef);
+          })
+        : [];
       let anyModeEmitted = false;
       let lastReason = '';
       for (const eoTarget of eoTargets.length > 0 ? eoTargets : [undefined]) {
@@ -3764,6 +3790,27 @@ export function playResourceShortEventActions(
                   continue;
                 }
               }
+            }
+            if (factionInfluenceApply) {
+              // Hour of Need: "if you have a faction in your hand" is checked
+              // here by the enumeration itself — no faction in hand means no
+              // action is emitted for this diplomat at all (CoE 9.1: no
+              // playing a card without possible effect).
+              for (const factionCard of handFactions) {
+                logDetail(`Resource short-event playable (end-of-org, diplomat ${targetId as string}, faction ${factionCard.instanceId as string}): ${def.name} (${handCard.instanceId as string})`);
+                actions.push({
+                  action: {
+                    type: 'play-short-event',
+                    player: playerId,
+                    cardInstanceId: handCard.instanceId,
+                    targetScoutInstanceId: targetId,
+                    targetFactionCardId: factionCard.instanceId,
+                  },
+                  viable: true,
+                });
+                anyModeEmitted = true;
+              }
+              continue;
             }
             logDetail(`Resource short-event playable (end-of-org, target ${targetId as string}): ${def.name} (${handCard.instanceId as string})`);
             actions.push({

@@ -1116,9 +1116,37 @@
           "deck.alignment": "fallen-wizard"
         },
         "reason": "rule 1.18"
+      },
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.status": "untapped" },
+            { "target.skills": { "$includes": "diplomat" } },
+            { "$not": { "target.skills": { "$includes": "warrior" } } },
+            { "target.race": { "$ne": "wizard" } },
+            { "company.siteUntapped": true },
+            { "company.siteIsUnderDeeps": false }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "faction-influence-region-penalty",
+          "penaltyBase": 2
+        }
       }
     ],
-    "text": "Playable during the organization phase on an untapped non-warrior, non-Wizard diplomat at an untapped non-Under-deeps site, if you have a faction in your hand. Play a faction from your hand. Tap diplomat who then makes an influence attempt on this faction. Count out the number of contiguous regions from the diplomat’s site to the site where the faction is normally playable (including the regions containing both sites)—subtract two plus this number from the diplomat’s attempt. If the attempt is unsuccessful, discard the diplomat and faction. If the attempt is succesful you cannot play a minor item and you must tap the character's site. Cannot be included in a Fallen-wizard's deck."
+    "text": "Playable during the organization phase on an untapped non-warrior, non-Wizard diplomat at an untapped non-Under-deeps site, if you have a faction in your hand. Play a faction from your hand. Tap diplomat who then makes an influence attempt on this faction. Count out the number of contiguous regions from the diplomat’s site to the site where the faction is normally playable (including the regions containing both sites)—subtract two plus this number from the diplomat’s attempt. If the attempt is unsuccessful, discard the diplomat and faction. If the attempt is succesful you cannot play a minor item and you must tap the character's site. Cannot be included in a Fallen-wizard's deck.",
+    "certified": "2026-08-30"
   },
   {
     "cardType": "hero-resource-event",

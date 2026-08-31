@@ -2580,6 +2580,33 @@ export interface FactionInfluenceUntetheredAction extends TriggeredActionBase {
 }
 
 /**
+ * `faction-influence-region-penalty` — declare and immediately resolve an
+ * influence attempt to bring a faction card from hand into play, using the
+ * bearer's own current site as the point of origin (unlike
+ * `faction-influence-untethered`, which detaches from any site). The
+ * modifier is the influencer's own free direct influence, minus `penaltyBase`
+ * plus the inclusive region-distance from the influencer's site to the
+ * faction's normally-playable region ({@link regionDistanceInclusive} via
+ * {@link influenceRegionPenalty}). Used by Hour of Need (dm-141): "Count out
+ * the number of contiguous regions from the diplomat's site to the site
+ * where the faction is normally playable (including the regions containing
+ * both sites)—subtract two plus this number from the diplomat's attempt."
+ *
+ * On success the faction enters play untapped (as usual), the diplomat's
+ * company's current site is tapped, and a `minor-item-play-blocked` site-flag
+ * constraint (turn-scoped) is added there — reproducing the site-tap and
+ * "no other resource this site-phase" consequences of a normal faction play,
+ * since this attempt happens outside the site phase and never touches a real
+ * `resourcePlayed` gate. On failure both the diplomat (discarded to their
+ * owner's discard pile) and the faction (discarded) leave play.
+ */
+export interface FactionInfluenceRegionPenaltyAction extends TriggeredActionBase {
+  readonly type: 'faction-influence-region-penalty';
+  /** Added to the inclusive region distance before subtracting from the roll (dm-141: 2). */
+  readonly penaltyBase: number;
+}
+
+/**
  * `un-eliminate-creature` — "make a roll—if the result is greater than 8, bring
  * an eliminated hazard creature to its owner's discard pile **and** place this
  * card in your opponent's marshalling point pile, otherwise, discard this card."
@@ -3759,6 +3786,7 @@ export type TriggeredAction =
   | RollCheckAction
   | RollThenApplyAction
   | FactionInfluenceUntetheredAction
+  | FactionInfluenceRegionPenaltyAction
   | UnEliminateCreatureAction
   | WinConditionRollAction
   | WinGameAction

@@ -124,6 +124,14 @@ export interface PlayShortEventAction {
    * targeted region becomes. Paired with {@link targetRegionName}.
    */
   readonly newRegionType?: import('./common.js').RegionType;
+  /**
+   * For a {@link FactionInfluenceRegionPenaltyAction} card (Hour of Need,
+   * dm-141), the faction card in hand the event plays and makes the
+   * diplomat's influence attempt against. One legal action is emitted per
+   * (diplomat × hand faction) pair, paired with {@link targetScoutInstanceId}
+   * (or {@link targetCharacterId}) naming the diplomat.
+   */
+  readonly targetFactionCardId?: CardInstanceId;
 }
 
 /**

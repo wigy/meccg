@@ -1437,7 +1437,9 @@ export type SiteFlag =
   /** War-forges (wh-83): one non-hoard, non-unique minor item is playable at the bound site this turn, whether the site is tapped or untapped, sourced from hand, the discard pile, or the sideboard. */
   | 'war-forges-item-unlocked'
   /** King under the Mountain (td-126): the bound site counts as a Dwarf-hold (the `dwarf-hold` site keyword) for every purpose that consults it. */
-  | 'dwarf-hold-override';
+  | 'dwarf-hold-override'
+  /** Hour of Need (dm-141): a minor item may not be played at the bound site this turn, on top of the site's tapped status. */
+  | 'minor-item-play-blocked';
 
 /**
  * A scoped restriction on the legal actions available to some target.
