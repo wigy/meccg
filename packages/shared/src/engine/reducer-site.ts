@@ -3364,6 +3364,9 @@ function fireCharacterGainsItemChecks(
           characterId: charId,
           reason: `${hDef?.name} (item gained)`,
           possessions,
+          // CoE 7.1.1: any corruption check declared but not yet resolved may
+          // be supported by tapping untapped company mates for +1 each.
+          allowSupport: true,
         });
       }
     }
