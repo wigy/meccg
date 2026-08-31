@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.138.0 — 2026-08-31
+
+Corruption-check support windows and stability fixes
+
+### Game Engine
+
+- Corruption checks triggered by hazards (movement/hazard phase) now open the tap-in-support window for same-company characters (#2949)
+- Lure of Expedience's item-gain corruption check likewise offers tap-in-support before resolving (#2947)
+- Fellowship-type permanent events are swept when a company member fails a corruption check and leaves the company (#2948)
+- Fixed a game stuck in the untap phase when a corruption-check boost (e.g. Phial of Galadriel) was played mid-untap (#2954)
+- Ringil and Horn of Defiance can be restored (recombined) during any phase of the controller's turn, not just organization (#2953)
+- Crown of Flowers no longer pairs with short-events (#2946)
+- Certified Staff Asunder (td-153) (#2950)
+
+### Web Client
+
+- Wired up the on-guard modify-attack click during automatic-attack combat (#2952)
+
+### Infrastructure
+
+- An AI client decision error no longer permanently hangs the game; the server recovers and the game continues (#2951)
+- Behavioral-cloning training: the collate step handles decisions whose view has no entity rows (empty-board states) (#2955)
+
 ## 0.137.0 — 2026-08-31
 
 Ring certifications and tiered action buttons

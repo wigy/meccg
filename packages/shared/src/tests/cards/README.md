@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1288 | 1288 | 0 | 100.0% |
+| 1289 | 1289 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 99 | 99 | 100.0% |
 | DM | 133 | 133 | 100.0% |
 | LE | 316 | 316 | 100.0% |
-| TD | 115 | 115 | 100.0% |
+| TD | 116 | 116 | 100.0% |
 | TW | 416 | 416 | 100.0% |
 | WH | 94 | 94 | 100.0% |
 
@@ -330,7 +330,7 @@
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 12 | ☑ |
 | dm-120 | Choice of Lúthien | — | 14 | ☑ |
-| dm-121 | Crown of Flowers | — | 8 | ☑ |
+| dm-121 | Crown of Flowers | — | 9 | ☑ |
 | dm-123 | Dark Numbers | — | 16 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-125 | Enduring Tales | — | 6 | ☑ |
@@ -473,7 +473,7 @@
 | le-115 | Incite Defenders | — | 12 | ☑ |
 | le-116 | Incite Denizens | — | 10 | ☑ |
 | le-117 | Long Winter | — | 8 | ☑ |
-| le-122 | Lure of Expedience | — | 12 | ☑ |
+| le-122 | Lure of Expedience | — | 13 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
 | le-126 | Muster Disperses | — | 6 | ☑ |
 | le-127 | News of Doom | — | 6 | ☑ |
@@ -694,7 +694,7 @@
 | td-10 | Daelomin Ahunt | — | 9 | ☑ |
 | td-11 | Daelomin at Home | — | 11 | ☑ |
 | td-16 | Dragon’s Curse | — | 17 | ☑ |
-| td-18 | Dragon-sickness | — | 8 | ☑ |
+| td-18 | Dragon-sickness | — | 9 | ☑ |
 | td-19 | Dunlending Raiders | — | 2 | ☑ |
 | td-20 | Eärcaraxë | — | 9 | ☑ |
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
@@ -778,6 +778,7 @@
 | td-148 | Riddling Talk | — | 16 | ☑ |
 | td-149 | Sated Beast | — | 15 | ☑ |
 | td-150 | Scabbard of Chalcedony | — | 7 | ☑ |
+| td-153 | Staff Asunder | — | 4 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
 | td-157 | Three Golden Hairs | — | 11 | ☑ |
 | td-158 | Thrór’s Map | — | 6 | ☑ |
@@ -800,7 +801,7 @@
 | td-179 | Ovir Hollow | — | 7 | ☑ |
 | td-180 | Tharbad | — | 7 | ☑ |
 | td-181 | Zarak Dûm | — | 10 | ☑ |
-| td-183 | Horn of Defiance | — | 11 | ☑ |
+| td-183 | Horn of Defiance | — | 12 | ☑ |
 | td-184 | Ringil | — | 17 | ☑ |
 | tw-1 | Abductor | — | 8 | ☑ |
 | tw-2 | Adûnaphel | — | 11 | ☑ |
@@ -986,7 +987,7 @@
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
 | tw-188 | A Chance Meeting | — | 13 | ☑ |
-| tw-189 | A Friend or Three | — | 12 | ☑ |
+| tw-189 | A Friend or Three | — | 13 | ☑ |
 | tw-190 | Align Palantír | — | 11 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 17 | ☑ |
@@ -1029,7 +1030,7 @@
 | tw-237 | Fair Travels in Wilderness | — | 11 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
-| tw-240 | Fellowship | — | 15 | ☑ |
+| tw-240 | Fellowship | — | 16 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
