@@ -12,6 +12,7 @@ import type { WebSocket } from 'ws';
 import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, GameAction, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
 import { Alignment, buildInstanceLookup, formatCardList } from '@meccg/shared';
 import { loadDeck, listDecks } from '@meccg/sim';
+import type { Agent, AgentContext, AgentDecision } from '@meccg/sim';
 
 // ---- Deck catalog (shared with the sim harness in @meccg/sim) ----
 
@@ -288,4 +289,33 @@ export function buildAgentDecisionInput(
   const actions = nonConcede.filter(e => e.viable).map(e => e.action);
   if (actions.length === 0) return null;
   return { view: { ...view, legalActions: nonConcede }, actions };
+}
+
+/**
+ * Choose an action without letting a broken decision take the whole client
+ * down. `agent.chooseAction` runs untrusted-in-practice search/heuristic
+ * code (the flat Monte-Carlo agent's worker pool, for one, throws loudly
+ * rather than hanging silently when a worker dies — see `mc-pool.ts`), and
+ * an AI client has nothing above it in the process tree that respawns it:
+ * `launcher.ts` supervises the game-server child but never the AI child it
+ * spawns alongside it. One uncaught decision error therefore used to crash
+ * the client and strand the human opponent forever, mid-game, with no
+ * further legal actions ever offered on their side — the position never
+ * fully vanished from `agent.chooseAction`'s own list of legal actions, it
+ * was the process holding the decision that never came back (bug report:
+ * game mthc4u90-sgd13r, seq 399, "system hangs").
+ *
+ * Falls back to `pass` when offered (it always ends the current window
+ * without inventing an opinion) and otherwise to the first legal action, so
+ * a single bad decision costs one below-average move rather than the rest
+ * of the game.
+ */
+export function safeChooseAction(agent: Agent, context: AgentContext): AgentDecision {
+  try {
+    return agent.chooseAction(context);
+  } catch (err) {
+    console.error(`AI decision failed (${agent.name}), falling back to a safe action:`, err);
+    const fallback = context.legalActions.find(a => a.type === 'pass') ?? context.legalActions[0];
+    return { action: fallback, note: `decision error — fell back to ${fallback.type}` };
+  }
 }

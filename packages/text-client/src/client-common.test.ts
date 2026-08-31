@@ -11,9 +11,10 @@
 import { EventEmitter } from 'events';
 import type { WebSocket } from 'ws';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CardDefinition, PlayerView } from '@meccg/shared';
+import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import { stripCardMarkers } from '@meccg/shared';
-import { buildAgentDecisionInput, formatDraftLines, installReconnect, resetReconnectAttempts } from './client-common.js';
+import type { Agent, AgentContext } from '@meccg/sim';
+import { buildAgentDecisionInput, formatDraftLines, installReconnect, resetReconnectAttempts, safeChooseAction } from './client-common.js';
 
 /** Stand-in for a `ws` socket: only the event surface matters here. */
 function fakeSocket(): EventEmitter & WebSocket {
@@ -295,5 +296,66 @@ describe('buildAgentDecisionInput', () => {
     const view = { ...viewWithActions([]), legalActions: [] } as PlayerView;
 
     expect(buildAgentDecisionInput(view)).toBeNull();
+  });
+});
+
+// ---- safeChooseAction ----
+
+// A broken decision must not crash the AI client: `launcher.ts` spawns the
+// AI child but never supervises it (no `exit` handler that respawns it, the
+// way it kills the AI child when the *game server* exits), so an uncaught
+// exception here used to end the process mid-game with nothing left to act
+// on that seat ever again — the human opponent's legal-action list stayed
+// empty forever. Reproduced from game mthc4u90-sgd13r, seq 399: the AI
+// (agent spec "AI-MC", the flat Monte-Carlo searcher) never submitted
+// another action after activating Magical Harp's corruption check, and the
+// game never recovered even after a server restart.
+describe('safeChooseAction', () => {
+  function fakeContext(legalActions: readonly GameAction[]): AgentContext {
+    return {
+      view: {} as PlayerView,
+      cardPool: {},
+      legalActions,
+      evaluated: [],
+      random: () => 0.5,
+    };
+  }
+
+  it('returns the agent decision when chooseAction succeeds', () => {
+    const action = { type: 'pass', player: 'p2' } as unknown as GameAction;
+    const agent: Agent = { name: 'stub', chooseAction: () => ({ action }) };
+
+    const decision = safeChooseAction(agent, fakeContext([action]));
+
+    expect(decision.action).toBe(action);
+  });
+
+  it('falls back to pass when the agent throws and pass is offered', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const passAction = { type: 'pass', player: 'p2' } as unknown as GameAction;
+    const otherAction = { type: 'play-short-event', player: 'p2' } as unknown as GameAction;
+    const agent: Agent = {
+      name: 'broken',
+      chooseAction: () => { throw new Error('mc-pool: no worker progress'); },
+    };
+
+    const decision = safeChooseAction(agent, fakeContext([otherAction, passAction]));
+
+    expect(decision.action).toBe(passAction);
+    vi.restoreAllMocks();
+  });
+
+  it('falls back to the first legal action when the agent throws and there is no pass', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onlyAction = { type: 'corruption-check', player: 'p2' } as unknown as GameAction;
+    const agent: Agent = {
+      name: 'broken',
+      chooseAction: () => { throw new Error('boom'); },
+    };
+
+    const decision = safeChooseAction(agent, fakeContext([onlyAction]));
+
+    expect(decision.action).toBe(onlyAction);
+    vi.restoreAllMocks();
   });
 });

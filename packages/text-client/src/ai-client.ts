@@ -26,7 +26,7 @@ import type { WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
 import { createAgentFromWeights, resolveAgent, makeActionDescriber, renderCandidateRanking } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
-import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage, buildAgentDecisionInput } from './client-common.js';
+import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage, buildAgentDecisionInput, safeChooseAction } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
 
@@ -137,7 +137,7 @@ function logCandidates(
 function pickAction(view: PlayerView, actions: readonly GameAction[]): GameAction {
   // The value estimate (for a policy-net agent) or weight ranking (for the
   // heuristic) is logged so a lobby-log tail shows what the AI is thinking.
-  const decision = agent.chooseAction({
+  const decision = safeChooseAction(agent, {
     view,
     cardPool,
     legalActions: actions,
