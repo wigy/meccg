@@ -50,6 +50,7 @@ import type {
   CardDefinitionId,
   PlayHazardAction,
   RevealOnGuardAction,
+  SupportCorruptionCheckAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
@@ -221,6 +222,40 @@ describe('Lure of Expedience (le-122)', () => {
       expect(pending[0].kind.characterId).toBe(charIdAt(withHazard, RESOURCE_PLAYER));
       expect(pending[0].kind.reason).toContain('Lure of Expedience');
     }
+  });
+
+  test('bearer may be supported by tapping untapped company mates before the check resolves (CoE 7.1.1)', () => {
+    // Aragorn (bearer) is in company with Legolas and Gimli. Legolas gains
+    // an item, triggering Aragorn's corruption check — before that check
+    // rolls, Gimli (an untapped company mate other than Aragorn) must be
+    // offered the chance to tap in support, per the general CoE 7.1.1 rule.
+    const base = buildSitePhaseState({
+      site: MORIA,
+      characters: [ARAGORN, LEGOLAS, GIMLI],
+      hand: [DAGGER_OF_WESTERNESSE],
+    });
+
+    const withHazard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_EXPEDIENCE);
+    const daggerId = handCardId(withHazard, RESOURCE_PLAYER);
+    const legolasId = findCharInstanceId(withHazard, RESOURCE_PLAYER, LEGOLAS);
+    const aragornId = findCharInstanceId(withHazard, RESOURCE_PLAYER, ARAGORN);
+    const gimliId = findCharInstanceId(withHazard, RESOURCE_PLAYER, GIMLI);
+    const compId = companyIdAt(withHazard, RESOURCE_PLAYER);
+
+    const afterPlay = dispatch(withHazard, {
+      type: 'play-hero-resource',
+      player: PLAYER_1,
+      cardInstanceId: daggerId,
+      companyId: compId,
+      attachToCharacterId: legolasId,
+    });
+
+    const supports = viableActions(afterPlay, PLAYER_1, 'support-corruption-check')
+      .map(a => a.action as SupportCorruptionCheckAction);
+    expect(supports).toContainEqual(expect.objectContaining({
+      supportingCharacterId: gimliId,
+      targetCharacterId: aragornId,
+    }));
   });
 
   test('enqueues a corruption check for bearer when the bearer itself gains an item', () => {
