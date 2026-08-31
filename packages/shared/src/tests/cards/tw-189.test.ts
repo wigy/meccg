@@ -510,4 +510,60 @@ describe('A Friend or Three (tw-189)', () => {
     expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
     expect((after.phaseState as FreeCouncilPhaseState).pendingCheck).not.toBeNull();
   });
+
+  test('corruption-check-boost: playing the card during the untap phase applies the constraint (regression)', () => {
+    // Regression: an any-phase grant-action (e.g. Magical Harp td-130) can
+    // enqueue a corruption-check resolution mid-untap-phase. handleUntap only
+    // recognized 'pass', 'untap', 'activate-granted-action', and the
+    // hazard-sideboard actions — any other action type (including
+    // play-short-event) was rejected as "wrong action type", so a reactive
+    // corruption-check-boost play left the check — and the whole untap phase —
+    // stuck forever. See bug report: "doesn't get out of untap phase" (game
+    // mthc4u90-sgd13r, turn 8).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [A_FRIEND_OR_THREE], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = charIdAt(base, RESOURCE_PLAYER);
+    const cardInstance = handCardId(base, RESOURCE_PLAYER);
+
+    const withCheck = enqueueResolution(base, {
+      source: null,
+      actor: PLAYER_1,
+      scope: { kind: 'phase', phase: Phase.Untap },
+      kind: {
+        type: 'corruption-check',
+        characterId: aragornId,
+        modifier: 0,
+        reason: 'test',
+        possessions: [],
+        transferredItemId: null,
+      },
+    });
+
+    const after = dispatch(withCheck, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: aragornId,
+      optionId: 'corruption-check-boost',
+    });
+
+    const constraints = after.activeConstraints.filter(
+      c => c.kind.type === 'check-modifier' && c.kind.check === 'corruption',
+    );
+    expect(constraints).toHaveLength(1);
+    if (constraints[0].kind.type === 'check-modifier') {
+      expect(constraints[0].kind.value).toBe(1);
+    }
+    // Card consumed; the pending corruption check stays open until resolved.
+    expect(after.players[0].hand).toHaveLength(0);
+    expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+    expect(after.pendingResolutions).toHaveLength(1);
+    expect(after.pendingResolutions[0].kind.type).toBe('corruption-check');
+  });
 });
