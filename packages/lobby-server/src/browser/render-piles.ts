@@ -707,9 +707,10 @@ export function openMovementViewer(
 /**
  * Prepare the fetch-from-pile sub-flow UI.
  *
- * Opens the deck box, highlights the sideboard and discard pile cells,
- * and wires up the pile browser so clicking an eligible card sends
- * the corresponding fetch-from-pile action.
+ * Opens the deck box, highlights the sideboard, discard, and play deck pile
+ * cells (whichever the effect's sources include), and wires up the pile
+ * browser so clicking an eligible card sends the corresponding
+ * fetch-from-pile action.
  */
 export function prepareFetchFromPile(
   view: PlayerView,
@@ -731,14 +732,18 @@ export function prepareFetchFromPile(
   document.body.classList.remove('all-companies-mode');
   document.getElementById('self-deck-box')?.classList.remove('deck-box--compact');
 
-  // Highlight sideboard and discard pile cells
+  // Highlight sideboard, discard, and play deck pile cells
   const hasSideboard = fetchActions.some(ea => (ea.action as { source: string }).source === 'sideboard');
   const hasDiscard = fetchActions.some(ea => (ea.action as { source: string }).source === 'discard-pile');
+  const hasDeck = fetchActions.some(ea => (ea.action as { source: string }).source === 'deck');
   if (hasSideboard) {
     document.getElementById('self-sideboard-pile')?.classList.add('pile--fetch-active');
   }
   if (hasDiscard) {
     document.getElementById('self-discard-pile')?.classList.add('pile--fetch-active');
+  }
+  if (hasDeck) {
+    document.getElementById('self-deck-pile')?.classList.add('pile--fetch-active');
   }
 
   // Set up selection state so pile browser highlights eligible cards
