@@ -6141,6 +6141,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           reason: cardNm,
           modifier: apply.modifier ?? 0,
           possessions,
+          // CoE 7.1.1: any corruption check declared but not yet resolved
+          // may be supported by tapping untapped company mates for +1 each.
+          allowSupport: true,
         });
       } else if (apply.type === 'add-constraint'
         && apply.constraint === 'check-modifier'
@@ -6369,6 +6372,9 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         possessions,
         failureMode,
         alsoDiscardItemId,
+        // CoE 7.1.1: any corruption check declared but not yet resolved
+        // may be supported by tapping untapped company mates for +1 each.
+        allowSupport: true,
       });
     }
   }
