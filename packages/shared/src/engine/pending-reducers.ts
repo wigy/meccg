@@ -835,6 +835,12 @@ export function applyCorruptionCheckResolution(
     players: playersAfterRoll,
   });
   if (elimHost) cleanedState = consumeEliminateInsteadOfDiscardHost(cleanedState, elimHost);
+  // The failed character just left its company (discarded or eliminated) — sweep
+  // any company-bound permanent event (e.g. Fellowship tw-240) that must be
+  // discarded when company membership changes (CoE — card text).
+  if (traitorCompanyId) {
+    cleanedState = sweepCompanyMembershipChangedEvents(cleanedState, [traitorCompanyId]);
+  }
 
   const failedState = dequeueResolution(cleanedState, top.id);
   return {

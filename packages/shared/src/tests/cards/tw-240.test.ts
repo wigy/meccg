@@ -15,7 +15,7 @@
  * | 1 | play-target: company, siteType=haven, 4+   | IMPLEMENTED | filter in organization-events legal actions   |
  * | 2 | company-modifier: prowess +1               | IMPLEMENTED | collectCompanyPermanentEventEffects resolver  |
  * | 3 | company-modifier: corruption check +1      | IMPLEMENTED | synthesised check-modifier in resolver        |
- * | 4 | on-event: company-membership-changes discard | IMPLEMENTED | sweepCompanyMembershipChangedEvents (discard, split, elimination, Call of Home) |
+ * | 4 | on-event: company-membership-changes discard | IMPLEMENTED | sweepCompanyMembershipChangedEvents (discard, split, elimination, Call of Home, corruption-check failure) |
  *
  * Playable: YES
  */
@@ -31,7 +31,7 @@ import {
   buildTestState, resetMint,
   viableActions, dispatch, getCharacter, handCardId, makeMHState,
   companyIdAt, findCharInstanceId,
-  playPermanentEventAndResolve, enqueueTransferCorruptionCheck,
+  playPermanentEventAndResolve, enqueueTransferCorruptionCheck, enqueueCorruptionCheck,
   makeBodyCheckCombat, setCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   autoMergeNonHavenCompanies,
@@ -458,6 +458,55 @@ describe('Fellowship (tw-240)', () => {
     // Bilbo was eliminated and removed from the company…
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === bilboId)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].companies[0].characters).not.toContain(bilboId);
+    // …which must discard Fellowship too, since a character left the company.
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(0);
+    expect(after.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
+  });
+
+  // ── Auto-discard when a character fails a corruption check ────────────────
+
+  test('discarded when a character fails a corruption check and leaves the company', () => {
+    // Regression test: a bug report (game mth1ahu8-bqdcqv, stateSeq 802) showed
+    // Fellowship staying in cardsInPlay after Gimli failed a corruption check
+    // (Lure of Expedience) and was discarded out of the company — the
+    // pending-resolution corruption-check path removed the character but never
+    // swept `company-membership-changes` events, unlike the parallel
+    // discardCharacter() and returnCharacterToHand() paths.
+    const fellowshipInPlay: CardInPlay = {
+      instanceId: 'fellowship-1' as CardInstanceId,
+      definitionId: FELLOWSHIP,
+      status: CardStatus.Untapped,
+      companyId: P1_COMPANY,
+    };
+
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS, GIMLI, BILBO] }], hand: [], siteDeck: [MORIA], cardsInPlay: [fellowshipInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FARAMIR] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const withCheck = enqueueCorruptionCheck(state, PLAYER_1, gimliId);
+
+    // Roll 4 == CP 4: hero fails at CP → discarded (not eliminated).
+    const after = dispatch({ ...withCheck, cheatRollTotal: 4 }, {
+      type: 'corruption-check',
+      player: PLAYER_1,
+      characterId: gimliId,
+      corruptionPoints: 4,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 5,
+      explanation: 'Test',
+    });
+
+    // Gimli failed and was discarded out of the company…
+    expect(after.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId)).toContain(gimliId);
+    expect(after.players[RESOURCE_PLAYER].companies[0].characters).not.toContain(gimliId);
     // …which must discard Fellowship too, since a character left the company.
     expect(after.players[RESOURCE_PLAYER].cardsInPlay).toHaveLength(0);
     expect(after.players[RESOURCE_PLAYER].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
