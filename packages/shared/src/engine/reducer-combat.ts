@@ -20,7 +20,7 @@ import { nextStrikePhase, handleResolveStrike, advanceStrikeOrFinalize } from '.
 import { assignStrikeActions, findAllyInCompany, findCompanyAllies, isAllyImmuneToSiteKeyedAttack } from './legal-actions/combat.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { handleCancelAttack, handleCancelByTap, handleCancelWeaponEffects } from './combat-cancel.js';
-import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleEnableMultiStrikeOption, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer, handleCancelPrisonerTaking, finalizeCombatFromCancelPrisonerTakingOffer, handleCaptureInLieuOfBodyCheck } from './combat-actions.js';
+import { handleHavenJoinAttack, handleAgentStrikeRoll, handleSupportStrike, handleCancelStrike, handleDodgeStrike, handleFleeFromStrike, handleSacrificeOfForm, handlePlayStrikeEvent, handleBodyCheckRoll, handleShieldDiscardRoll, handleConvertCreatureToAlly, handleHalveStrikes, handleProtectFromStrikeAssignment, handleEnableMultiStrikeOption, handleTapItemForStrike, handleFaceStrikeOnTap, handleTapAllyCombatBoost, handleTapAllyBodyCheckBoost, handleModifyAttack, handleSalvageItem, finishSalvage, handleDiscardItemFromCompany, handleTakeTrophy, finalizeCombatFromTrophyOffer, handleStoreCreatureInItem, finalizeCombatFromCreatureStorageOffer, handleCancelPrisonerTaking, finalizeCombatFromCancelPrisonerTakingOffer, handleCaptureInLieuOfBodyCheck } from './combat-actions.js';
 import { finalizeCombat } from './combat-finalize.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 
@@ -80,6 +80,7 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   // handler applies its effects without touching the combat state.
   'play-short-event': handlePlayResourceShortEvent,
   'take-trophy': handleTakeTrophy,
+  'store-creature-in-item': handleStoreCreatureInItem,
   // Rule 2.1.1: any-phase grant-actions (e.g. Cram's discard-to-untap-bearer)
   // remain activatable while combat is active — `handleGrantActionApply` is
   // combat-agnostic and just ignores the unused `combat` parameter.
@@ -546,6 +547,12 @@ function handleCombatPass(state: GameState, action: GameAction, combat: CombatSt
   // Pass during trophy-offer: defending player declines to take a trophy.
   if (combat.phase === 'trophy-offer') {
     return finalizeCombatFromTrophyOffer(state, combat);
+  }
+
+  // Pass during creature-storage-offer: defending player declines to store
+  // the defeated creature with an eligible item (Elven Rope ba-34).
+  if (combat.phase === 'creature-storage-offer') {
+    return finalizeCombatFromCreatureStorageOffer(state, combat);
   }
 
   // Pass during cancel-prisoner-taking-choice: defending player declines to

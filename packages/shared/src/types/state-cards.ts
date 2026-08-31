@@ -134,6 +134,18 @@ export interface ItemInPlay {
    * while this is set (`recompute-derived.ts`).
    */
   readonly restored?: true;
+  /**
+   * A creature card stored on this item instead of being routed to the
+   * defending player's kill pile for marshalling points (Elven Rope ba-34:
+   * "Instead of eliminating a creature the bearer's company defeated ...
+   * you may place the creature's card with Elven Rope"). While set, the
+   * item's `creature-storage` effect scores a flat misc-MP bonus
+   * (`recompute-derived.ts`) instead of the creature's own kill-MP value.
+   * Cleared (and the creature released to its owner's discard pile) when
+   * the item's bearer becomes wounded (`combat-finalize.ts`) or the item
+   * otherwise leaves play (`creature-storage.ts`'s orphan sweep).
+   */
+  readonly storedCreature?: CardInstance;
 }
 
 /**

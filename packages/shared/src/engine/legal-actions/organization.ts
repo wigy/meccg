@@ -1545,7 +1545,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         }
 
         const def = defById(state, item.definitionId);
-        const costLabel = effect.cost.tap === 'self' ? 'tap' : 'discard';
+        const costLabel = effect.cost.tap ? 'tap' : 'discard';
 
         // `place-item-on-character` (The Forge-master wh-117): tap the bearer to
         // place a qualifying minor item — fetched from the player's discard pile,

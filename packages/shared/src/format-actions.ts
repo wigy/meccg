@@ -650,6 +650,8 @@ export function describeAction(
       return `${playerName(action.player)} declares company attack on ${compName(action.targetCompanyId)}`;
     case 'take-trophy':
       return `${playerName(action.player)} takes creature ${instName(action.creatureInstanceId)} as trophy for ${instName(action.characterId)}`;
+    case 'store-creature-in-item':
+      return `${playerName(action.player)} stores creature ${instName(action.creatureInstanceId)} with ${instName(action.itemInstanceId)}`;
     case 'shield-discard-roll':
       return `${playerName(action.player)} rolls to determine if shield ${instName(action.itemInstanceId)} is discarded`;
     case 'tap-character-by-effect':

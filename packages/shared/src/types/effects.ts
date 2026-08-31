@@ -6925,6 +6925,34 @@ export interface RestoredItemStatsEffect extends EffectBase {
 }
 
 /**
+ * Declares that a hero-resource-item may hold a defeated hazard creature
+ * instead of routing it to the defending player's kill pile for marshalling
+ * points (Elven Rope ba-34: "Instead of eliminating a creature the bearer's
+ * company defeated ... you may place the creature's card with Elven Rope").
+ *
+ * When the bearer's company defeats a non-detainment creature whose printed
+ * `prowess` is below {@link maxNormalProwess}, `finalizeCombat`
+ * (`combat-finalize.ts`) offers the defending player a `creature-storage-offer`
+ * combat phase for every untapped-eligible item on the company carrying this
+ * effect with no `ItemInPlay.storedCreature` already set. Accepting
+ * (`store-creature-in-item`) removes the creature from the kill pile and
+ * attaches it to the item instead. While attached, `recompute-derived.ts`
+ * scores a flat `marshallingPoints` bonus into the owner's **misc** category
+ * ("you receive three miscellaneous marshalling points") rather than the
+ * creature's own printed kill-MP. The stored creature is released to its
+ * owner's discard pile — and the bonus stops — the moment the item's bearer
+ * is wounded (`combat-finalize.ts`'s `bearer-wounded` sweep) or the item
+ * otherwise leaves play (`creature-storage.ts`'s orphan sweep).
+ */
+export interface CreatureStorageEffect extends EffectBase {
+  readonly type: 'creature-storage';
+  /** A creature qualifies for storage only if its printed prowess is strictly below this. */
+  readonly maxNormalProwess: number;
+  /** Flat misc marshalling points scored while a creature is stored on this item. */
+  readonly marshallingPoints: number;
+}
+
+/**
  * `combat-cancel-weapon` — an in-play item ability, usable only during a
  * company-vs-company combat (CvCC) in which the item's bearer's company is a
  * participant. The controller pays the {@link cost} (tapping the item) and
@@ -9531,6 +9559,7 @@ export type CardEffect =
   | FaceAllStrikesOptionEffect
   | MultiStrikeOptionEffect
   | RestoredItemStatsEffect
+  | CreatureStorageEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
   | CombatDiscardOpponentItemEffect
