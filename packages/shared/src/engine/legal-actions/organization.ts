@@ -689,6 +689,14 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
         def.cardType !== 'hero-resource-faction'
       ) continue;
 
+      // Short-events (CoE 5.1) are only playable at the moment they have an
+      // immediate effect (e.g. Muster tw-288 during an influence check), and
+      // are discarded immediately after resolving — they never sit in play as
+      // a static resource. Pairing one with Crown of Flowers here would move
+      // it into cardsInPlay with no target and no check to modify, so only
+      // long/permanent resource-events (which do sit in play) are offered.
+      if (def.cardType === 'hero-resource-event' && def.eventType === 'short') continue;
+
       // Crown of Flowers only re-interprets the resource's own text as though
       // Gates of Morning were in play and Doors of Night were not — it "does
       // not affect the interpretation of any card except the resource played

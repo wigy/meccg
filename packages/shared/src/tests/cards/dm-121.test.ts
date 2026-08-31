@@ -40,6 +40,7 @@ import { CardStatus } from '../../index.js';
 import { CROWN_OF_FLOWERS } from '../../card-ids.js';
 
 const GOLLUM = 'tw-246' as CardDefinitionId;
+const MUSTER = 'tw-288' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -190,6 +191,30 @@ describe('Crown of Flowers (dm-121)', () => {
       c => c.definitionId === GOLLUM,
     ) as CardInPlay;
     expect(gollumInPlay).toBeDefined();
+  });
+
+  // Regression (Bug Report: Muster, game mth1ahu8-bqdcqv seq 412): Muster
+  // (tw-288) is a short-event (CoE 5.1) that only has an immediate effect
+  // during a specific influence check and must be discarded immediately
+  // after resolving — it never sits in play as a static resource. Pairing it
+  // with Crown of Flowers moved it into cardsInPlay with no target character
+  // and no check to modify, leaving it stuck there as though it were a
+  // long/permanent event.
+  test('does not offer to pair a short-event resource (Muster) with CoF', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, MUSTER], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
   });
 
   test('discarding CoF also discards the paired resource (cascade)', () => {
