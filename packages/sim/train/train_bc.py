@@ -287,7 +287,7 @@ def collate(batch, global_width):
     the stored policy distribution *is* the sampling distribution).
     """
     size = len(batch)
-    max_e = max(len(item[0]["entities"]) for item in batch)
+    max_e = max(1, max(len(item[0]["entities"]) for item in batch))
     max_c = max(len(item[0]["candidates"]) for item in batch)
     glob = torch.zeros(size, global_width)
     entities = torch.zeros(size, max_e, 13)
@@ -302,9 +302,14 @@ def collate(batch, global_width):
     for i, item in enumerate(batch):
         d, z = item[0], item[1]
         glob[i] = torch.tensor(d["global"])
-        ents = torch.tensor(d["entities"])
-        entities[i, : ents.shape[0]] = ents
-        entity_mask[i, : ents.shape[0]] = 1.0
+        # A view can legitimately hold no entity rows at all -- a player who
+        # has lost every character with an empty hand sees no card in any
+        # structured zone. `torch.tensor([])` is shape [0], not [0,13], so the
+        # assignment has to be skipped; the mask keeps the pooled mean at zero.
+        if d["entities"]:
+            ents = torch.tensor(d["entities"])
+            entities[i, : ents.shape[0]] = ents
+            entity_mask[i, : ents.shape[0]] = 1.0
         cands = torch.tensor(d["candidates"])
         candidates[i, : cands.shape[0]] = cands
         cand_mask[i, : cands.shape[0]] = torch.tensor([float(m) for m in d["mask"]])
