@@ -1247,8 +1247,70 @@
     "prowessModifier": 2,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Unique. Dwarven Ring. Playable only with a gold ring and after a test indicates a Dwarven Ring. Values in parentheses and brackets apply to a Dwarf bearer. Tap a Dwarf bearer to search your play deck for a greater item playable at the bearer’s site. Play this item immediately or discard; reshuffle the play deck. Bearer makes a corruption check modified by +2."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "id": "tw215-prowess"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 4,
+        "overrides": "tw215-prowess",
+        "when": { "bearer.race": "dwarf" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "id": "tw215-direct-influence"
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 7,
+        "overrides": "tw215-direct-influence",
+        "when": { "bearer.race": "dwarf" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 2,
+        "when": { "bearer.race": "dwarf" }
+      },
+      {
+        "type": "mp-modifier",
+        "value": 2,
+        "when": { "bearer.race": "dwarf" }
+      },
+      {
+        "type": "grant-action",
+        "action": "tw215-search-item",
+        "activeSitePhase": true,
+        "cost": { "tap": "bearer" },
+        "when": { "bearer.race": "dwarf" },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["deck"],
+          "fetchTo": "hand",
+          "fetchShuffle": true,
+          "playableAtBearerSite": true,
+          "mustPlayOrDiscard": true,
+          "postCorruptionCheck": true,
+          "postCorruptionCheckModifier": 2,
+          "filter": {
+            "$and": [
+              { "cardType": "hero-resource-item" },
+              { "subtype": "greater" }
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Unique. Dwarven Ring. Playable only with a gold ring and after a test indicates a Dwarven Ring. Values in parentheses and brackets apply to a Dwarf bearer. Tap a Dwarf bearer to search your play deck for a greater item playable at the bearer’s site. Play this item immediately or discard; reshuffle the play deck. Bearer makes a corruption check modified by +2.",
+    "certified": "2026-08-31"
   },
   {
     "cardType": "hero-resource-item",
