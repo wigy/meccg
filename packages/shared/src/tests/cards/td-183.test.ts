@@ -134,6 +134,36 @@ describe('Horn of Defiance (td-183)', () => {
     expect(matches.some(a => a.characterId === aragornId && a.targetCardId === reforgingId)).toBe(true);
   });
 
+  // Bug report (game mthd1qtm-uee04u): restore-item was missing `anyPhase`,
+  // so the generic per-phase scanner (`extractGrantActions`) only surfaced
+  // it during the organization phase. A player with a stored Reforging and
+  // an untapped Horn of Defiance/Ringil at end-of-turn had no way to restore
+  // it — rule 2.1.1 makes resource/character actions on cards in play legal
+  // "during any phase of their turn" unless the card text itself restricts
+  // the phase, and neither item's text names one.
+  test('offered during the end-of-turn phase (rule 2.1.1: any phase unless restricted)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [], siteDeck: [LORIEN] },
+      ],
+    });
+    const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, HORN_OF_DEFIANCE);
+    const state = addStoredCard(withItem, RESOURCE_PLAYER, REFORGING, RIVENDELL).state;
+
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+
+    const matches = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; characterId?: unknown })
+      .filter(a => a.actionId === 'restore-item');
+
+    expect(matches.some(a => a.characterId === aragornId && a.targetCardId === reforgingId)).toBe(true);
+  });
+
   test('NOT offered when there is no stored Reforging', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
