@@ -588,6 +588,13 @@ export function orgPhaseFetchActivations(state: GameState, playerId: PlayerId): 
     if (!def) continue;
     for (const eff of getCardEffects(def)) {
       if (eff.type !== 'org-phase-fetch') continue;
+      if (eff.to === 'set-aside' && eff.maxCached !== undefined) {
+        const cachedCount = card.setAside?.length ?? 0;
+        if (cachedCount >= eff.maxCached) {
+          logDetail(`${def.name}: org-phase-fetch (set-aside) already at cache limit (${cachedCount}/${eff.maxCached})`);
+          continue;
+        }
+      }
       const hasCandidate = eff.from.some(src => {
         const pile = src === 'sideboard' ? player.sideboard
           : src === 'deck' ? player.playDeck

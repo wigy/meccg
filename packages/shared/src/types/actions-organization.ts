@@ -291,9 +291,11 @@ export interface PlayRingAfterTestAction {
   /**
    * Where the ring card comes from. Defaults to `'hand'` when absent (the
    * normal case). Set to `'play-deck'` or `'discard-pile'` when the card
-   * was found via a `ring-test-search` effect (e.g. Gleaming Gold Ring).
+   * was found via a `ring-test-search` effect (e.g. Gleaming Gold Ring), or
+   * `'set-aside'` when it is taken from a `ring-cache-play-source` host's
+   * set-aside cache (Rumours of Rings ba-31).
    */
-  readonly source?: 'hand' | 'play-deck' | 'discard-pile';
+  readonly source?: 'hand' | 'play-deck' | 'discard-pile' | 'set-aside';
 }
 
 /**

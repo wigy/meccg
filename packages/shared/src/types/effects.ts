@@ -1197,15 +1197,24 @@ export interface AllowCharacterPlayEffect extends EffectBase {
 
 /**
  * Grants the controlling player an optional once-per-organization-phase action
- * to take one card matching {@link filter} from a pile into their hand.
+ * to take one card matching {@link filter} from a pile into their hand (or,
+ * with `to: 'set-aside'`, into this host's own set-aside cache instead).
  * Carried by a permanent-event the player controls (e.g. A Strident Spawn
  * wh-61: "During your organization phase, you may take one Half-orc character
- * from your discard pile to your hand").
+ * from your discard pile to your hand"; Rumours of Rings ba-31: "you may take
+ * one ring special item … from your sideboard or discard pile and place it
+ * 'off to the side' with this card").
  *
  * Emitted by `organizationActions` (one `activate-org-fetch` per source card
- * that still has its activation available this turn and has at least one
- * matching candidate). Activating enqueues the shared `fetch-to-deck` pending
- * effect (`to: 'hand'`), which drives the existing pick-one-or-pass sub-flow.
+ * that still has its activation available this turn, has at least one
+ * matching candidate, and — for `to: 'set-aside'` — has not yet reached
+ * {@link maxCached} items kept under it). Activating enqueues the shared
+ * `fetch-to-deck` pending effect with the same `to`, which drives the existing
+ * pick-one-or-pass sub-flow; a `'set-aside'` destination resolves via
+ * `placeCardSetAside` (`engine/set-aside.ts`, MEAS §1) onto the fetching host
+ * itself instead of the hand, scoring no marshalling points
+ * (`setAsideNoMp: true`) — pair with an `item-cache-play-source` effect on the
+ * same card to let the cached item be played "as though it were in hand".
  */
 export interface OrgPhaseFetchEffect extends EffectBase {
   readonly type: 'org-phase-fetch';
@@ -1213,6 +1222,10 @@ export interface OrgPhaseFetchEffect extends EffectBase {
   readonly from: readonly ('discard-pile' | 'sideboard' | 'deck')[];
   /** DSL condition matched against each candidate card's definition. */
   readonly filter: Condition;
+  /** Fetch destination. Defaults to `'hand'`. */
+  readonly to?: 'hand' | 'set-aside';
+  /** With `to: 'set-aside'`, the maximum number of items kept under this host at once. */
+  readonly maxCached?: number;
 }
 
 /**
@@ -5762,8 +5775,11 @@ export interface FetchToDeckEffect extends EffectBase {
   /**
    * Destination pile for the fetched card. Defaults to 'deck'.
    * When 'hand', the card is placed directly in the player's hand instead.
+   * When 'set-aside', the card is placed "off to the side" kept with the
+   * fetching host card itself (`placeCardSetAside`, `noMp: true`) — used by
+   * `org-phase-fetch` effects with `to: 'set-aside'` (Rumours of Rings ba-31).
    */
-  readonly to?: 'deck' | 'hand';
+  readonly to?: 'deck' | 'hand' | 'set-aside';
   /**
    * When set, only cards playable at this site qualify (in addition to
    * `filter`). Captured from the bearer's company's current site when an
@@ -9594,6 +9610,7 @@ export type CardEffect =
   | DiscardForHazardLimitEffect
   | RingTestTableEffect
   | RingTestSearchEffect
+  | RingCachePlaySourceEffect
   | GrantSkillEffect
   | OverrideSkillsEffect
   | ItemSlotModifierEffect
@@ -11204,6 +11221,23 @@ export interface RingTestTableEffect extends EffectBase {
 export interface RingTestSearchEffect extends EffectBase {
   readonly type: 'ring-test-search';
   readonly category: RingCategory;
+}
+
+/**
+ * Marks a host permanent-event's set-aside cache as a source for the
+ * `ring-play-offer` resolution (Rule 9.21): a special ring kept "off to the
+ * side" with this host (see `org-phase-fetch`'s `to: 'set-aside'` mode) may be
+ * chosen as though it were in hand when a gold-ring test offers a matching
+ * category, in addition to the player's actual hand. Rings never enter play
+ * through the ordinary site item-play path (`item-cache-play-source` merges
+ * into that loop and so does not apply to them), which is why this is a
+ * distinct marker rather than a reuse of that effect.
+ *
+ * Used by Rumours of Rings (ba-31): "You may play a ring special item placed
+ * with this card as though it were in your hand."
+ */
+export interface RingCachePlaySourceEffect extends EffectBase {
+  readonly type: 'ring-cache-play-source';
 }
 
 /**

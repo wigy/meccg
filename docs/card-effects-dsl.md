@@ -11982,6 +11982,36 @@ normal hand-play offer).
 
 Used by Gleaming Gold Ring (le-311).
 
+### 51a. `ring-cache-play-source`
+
+Type-only marker on a host permanent-event: special rings kept "off to the
+side" under this host (via an `org-phase-fetch` effect with `to: "set-aside"`,
+or any other set-aside placement) may be chosen during a `ring-play-offer`
+resolution (Rule 9.21) exactly as though they were in hand, in addition to the
+player's actual hand and any `ring-test-search` sources.
+
+Rings never enter play through the ordinary site item-play path — a plain
+ring's own `effects` array carries no `item-play-site` restriction, and no
+site's `playableResources` lists the `special` subtype, so `item-cache-play-source`
+(§21z) does not apply to them. This marker is the ring-specific equivalent,
+consumed by `ringPlayOfferActions` (`legal-actions/pending.ts`) instead of the
+site-phase hand-card loop.
+
+```json
+{ "type": "ring-cache-play-source" }
+```
+
+Behaviour: `ringPlayOfferActions` additionally scans the actor's own
+`cardsInPlay` for set-aside cards (`isSetAsideCard`) that are special rings
+matching one of the pending `ring-play-offer`'s `eligibleCategories`, whose
+`setAsideHost` carries this marker — offering one `play-ring-after-test` action
+per match with `source: "set-aside"`. `applyRingPlayOfferResolution`
+(`pending-reducers.ts`) resolves that source by pulling the ring out of the
+cache with `removeItemFromSetAside` instead of removing it from hand/deck/discard.
+
+Used by *Rumours of Rings* (ba-31): "You may play a ring special item placed
+with this card as though it were in your hand."
+
 ### 52. `hazard-limit-swap`
 
 Marks a permanent hazard event as a bidirectional hazard-limit exchanger: the
@@ -13863,6 +13893,8 @@ permanent-event the player controls.
 |-------|----------|-------------|
 | `from` | yes | Piles to fetch from: any of `"discard-pile"`, `"sideboard"`, `"deck"`. |
 | `filter` | yes | DSL `Condition` matched against each candidate card's definition. |
+| `to` | no | Fetch destination: `"hand"` (default) or `"set-aside"`. |
+| `maxCached` | no | With `to: "set-aside"`, the max items kept under this host at once. |
 
 ```json
 { "type": "org-phase-fetch", "from": ["discard-pile"],
@@ -13877,9 +13909,25 @@ Behaviour: `organizationActions` (`orgPhaseFetchActivations` in
 card that still has its activation available this turn and has at least one
 matching candidate. Activating (`handleActivateOrgFetch` in
 `reducer-organization.ts`) enqueues the shared `fetch-to-deck` pending effect
-(`to: "hand"`), which drives the existing pick-one-or-pass sub-flow, and records
-the source in `OrganizationPhaseState.discardFetchUsedThisTurn` so it cannot be
-re-activated until the next turn.
+with the same `to`, which drives the existing pick-one-or-pass sub-flow, and
+records the source in `OrganizationPhaseState.discardFetchUsedThisTurn` so it
+cannot be re-activated until the next turn.
+
+**`to: "set-aside"` mode** — instead of moving the fetched card to hand,
+`handleFetchFromPile` (`reducer-utils.ts`) places it "off to the side" kept with
+the fetching host itself (`placeCardSetAside`, MEAS §1, `noMp: true`), scoring no
+marshalling points. `orgPhaseFetchActivations` additionally gates the activation
+on `maxCached` (comparing against the host's current `setAside.length`). Used by
+*Rumours of Rings* (ba-31): "During your organization phase, you may take one
+ring special item … from your sideboard or discard pile and place it 'off to the
+side' with this card. … A maximum of two items may be with this card at one
+time."
+
+```json
+{ "type": "org-phase-fetch", "from": ["sideboard", "discard-pile"], "to": "set-aside", "maxCached": 2,
+  "filter": { "$and": [{ "cardType": "hero-resource-item" }, { "subtype": "special" },
+    { "keywords": { "$includes": "ring" } }, { "name": { "$ne": "The One Ring" } }] } }
+```
 
 ### 52. `region-movement-limit`
 
