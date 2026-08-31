@@ -50,7 +50,7 @@ import type { EliminateInsteadOfDiscardHost } from './eliminate-instead-of-disca
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
 import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { isCharacterRemovalProtected } from './removal-protection.js';
-import { placeCardSetAside, removeItemFromSetAside } from './set-aside.js';
+import { placeCardSetAside, removeItemFromSetAside, isSetAsideCard } from './set-aside.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import {
@@ -3345,6 +3345,14 @@ export function applyRingPlayOfferResolution(
       discardPile: p.discardPile.filter((_, i) => i !== discardIdx),
     }));
     logDetail(`ring-play-offer: found ${ringCard.definitionId as string} in discard pile (ring-test-search)`);
+  } else if (source === 'set-aside') {
+    const cached = player.cardsInPlay.find(c => c.instanceId === ringInstanceId && isSetAsideCard(c));
+    if (!cached) {
+      return { state, error: `Ring ${ringInstanceId as string} not found in set-aside cache` };
+    }
+    ringCard = cached;
+    stateAfterRemove = removeItemFromSetAside(state, ringInstanceId);
+    logDetail(`ring-play-offer: found ${ringCard.definitionId as string} in set-aside cache (Rumours of Rings)`);
   } else {
     const handIdx = player.hand.findIndex(c => c.instanceId === ringInstanceId);
     if (handIdx < 0) {

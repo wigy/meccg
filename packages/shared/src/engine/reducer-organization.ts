@@ -580,7 +580,7 @@ function handleActivateOrgFetch(state: GameState, action: GameAction): ReducerRe
     filter: fetchEffect.filter,
     count: 1,
     shuffle: false,
-    to: 'hand' as const,
+    to: fetchEffect.to ?? 'hand',
   });
   if (!orgFetch) {
     return { state, error: `${def?.name ?? 'This'} fetch is canceled while the play-deck/discard search cancel is in play` };

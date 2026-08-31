@@ -139,8 +139,27 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "During your organization phase, you may take one ring special item (except for The One Ring) from your sideboard or discard pile and place it “off to the side” with this card. This item gives no marshalling points. A maximum of two items may be with this card at one time. You may play a ring special item placed with this card as though it were in your hand. You may start the game with this card in lieu of playing a minor item."
+    "effects": [
+      {
+        "type": "org-phase-fetch",
+        "from": ["sideboard", "discard-pile"],
+        "filter": {
+          "$and": [
+            { "cardType": "hero-resource-item" },
+            { "subtype": "special" },
+            { "keywords": { "$includes": "ring" } },
+            { "name": { "$ne": "The One Ring" } }
+          ]
+        },
+        "to": "set-aside",
+        "maxCached": 2
+      },
+      { "type": "ring-cache-play-source" },
+      { "type": "starting-company-placement" }
+    ],
+    "keywords": ["starting-item"],
+    "text": "During your organization phase, you may take one ring special item (except for The One Ring) from your sideboard or discard pile and place it “off to the side” with this card. This item gives no marshalling points. A maximum of two items may be with this card at one time. You may play a ring special item placed with this card as though it were in your hand. You may start the game with this card in lieu of playing a minor item.",
+    "certified": "2026-08-31"
   },
   {
     "cardType": "hero-resource-event",

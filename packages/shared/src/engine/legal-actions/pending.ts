@@ -57,6 +57,7 @@ import { grantedAction } from './granted-action-emit.js';
 import { revealAgentActions } from './movement-hazard.js';
 import type { RevealAgentAction } from '../../types/actions-movement-hazard.js';
 import { findHuntCandidates } from '../hunt.js';
+import { isSetAsideCard } from '../set-aside.js';
 
 
 /**
@@ -3240,6 +3241,48 @@ export function ringPlayOfferActions(
         });
       }
     }
+  }
+
+  // ring-cache-play-source (Rumours of Rings ba-31): special rings kept "off
+  // to the side" under a host carrying this marker are also offered, exactly
+  // like a hand card, whenever the ring's category matches.
+  for (const card of player.cardsInPlay) {
+    if (!isSetAsideCard(card)) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    if (!('subtype' in def) || (def as { subtype?: string }).subtype !== 'special') continue;
+    const keywords: readonly string[] = ('keywords' in def && Array.isArray((def as { keywords?: unknown }).keywords))
+      ? (def as unknown as { keywords: readonly string[] }).keywords
+      : [];
+    if (!keywords.includes('ring')) continue;
+    const category = (eligibleCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
+    if (!category) continue;
+    const hostDef = defById(state, player.cardsInPlay.find(c => c.instanceId === card.setAsideHost)?.definitionId as CardDefinitionId);
+    if (!getCardEffects(hostDef).some(e => e.type === 'ring-cache-play-source')) continue;
+    if (isUniqueRingAlreadyInPlay(state, def)) continue;
+    const charDupLimit = findDuplicationLimitEffect(def, 'character');
+    if (charDupLimit) {
+      const { characterInstanceId } = top.kind as { characterInstanceId: CardInstanceId };
+      const targetChar = player.characters[characterInstanceId];
+      const copiesOnChar = targetChar?.items.filter(item => {
+        const iDef = defById(state, item.definitionId);
+        return iDef?.name === def.name;
+      }).length ?? 0;
+      if (copiesOnChar >= charDupLimit.max) {
+        logDetail(`ring-play-offer (set-aside): ${def.name} blocked by duplication-limit (${copiesOnChar}/${charDupLimit.max})`);
+        continue;
+      }
+    }
+    logDetail(`ring-play-offer: offering ${def.name} (${card.instanceId as string}) from set-aside cache — category ${category}`);
+    actions.push({
+      action: {
+        type: 'play-ring-after-test' as const,
+        player: actor,
+        ringInstanceId: card.instanceId,
+        source: 'set-aside' as const,
+      },
+      viable: true,
+    });
   }
 
   return actions;
