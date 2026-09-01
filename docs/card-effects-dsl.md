@@ -12351,7 +12351,8 @@ attack-scoped constraint from that ally instance is live).
 | `stat` | yes | `"prowess"` or `"body"`. |
 | `value` | yes | Modifier value (positive boosts, negative penalises). |
 | `filter` | no | DSL condition matched against `{ target: { race, name, skills } }` per company member. When absent, every member is boosted. |
-| `cost` | yes | Always `{ "tap": "self" }` (the ally taps itself). |
+| `cost` | yes | `{ "tap": "self" }` (the ally taps itself) or `{ "tap": "bearer" }` (an in-play item grants the ability, but its *bearer* character taps instead of the item). |
+| `enqueueCorruptionCheck` | no | `cost: { tap: "bearer" }` only. When true, the bearer makes a corruption check immediately after the boost is applied. |
 
 ```json
 { "type": "combat-tap-company-boost", "stat": "prowess", "value": 2,
@@ -12362,10 +12363,26 @@ attack-scoped constraint from that ally instance is live).
 Used by Great Lord of Goblin-gate (as-75): "Tap to give +2 prowess to all Orcs
 in its company: against one attack or in company versus company combat."
 
+```json
+{ "type": "combat-tap-company-boost", "stat": "prowess", "value": 1,
+  "cost": { "tap": "bearer" }, "enqueueCorruptionCheck": true }
+```
+
+Used by Lore of the Ages (td-129): "Playable on an untapped Elf at a Haven
+[{H}]. Tap the Elf. When facing an attack, bearer may tap to give +1 prowess
+to all characters in his company against the attack. Bearer makes a
+corruption check." The card is a resource permanent-event played "on" the
+Elf, so (per the `chain-reducer.ts` `isResource` in-play-on-character
+routing) it is placed among the Elf's `items` — the bearer-tap path scans
+each company member's items for a `cost: { tap: "bearer" }` effect, gated on
+the *bearer's* untapped status rather than the item's.
+
 Implemented in `engine/legal-actions/combat.ts` (`tapAllyCombatBoostActions`,
 wired into the assign-strikes and resolve-strike windows of `combatActions`),
-`engine/reducer-combat.ts` (`handleTapAllyCombatBoost`), and `engine/reducer.ts`
-(`tap-ally-combat-boost` routed to the combat handler).
+`engine/combat-actions.ts` (`handleTapAllyCombatBoost`), and `engine/reducer.ts`
+(`tap-ally-combat-boost` routed to the combat handler). The bearer-tap variant
+adds an optional `characterInstanceId` to `TapAllyCombatBoostAction`
+identifying the bearer to tap.
 
 ---
 

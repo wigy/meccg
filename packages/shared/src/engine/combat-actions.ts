@@ -1802,6 +1802,9 @@ export function handleFaceStrikeOnTap(state: GameState, action: GameAction, comb
  * combat and for either company in CvCC.
  *
  * Used by Great Lord of Goblin-gate (as-75).
+ *
+ * Also handles the `cost: { tap: "bearer" }` variant sourced from an in-play
+ * item (`action.characterInstanceId` set) — see Lore of the Ages (td-129).
  */
 export function handleTapAllyCombatBoost(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'tap-ally-combat-boost') return wrongActionType(state, action, 'tap-ally-combat-boost');
@@ -1809,6 +1812,88 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
   const playerIndex = getPlayerIndex(state, action.player);
   if (playerIndex < 0) return { state, error: 'Player not found' };
   const player = state.players[playerIndex];
+
+  // --- Bearer-tap path: an in-play item (including a resource permanent-event
+  // played "on a character", which is placed among their items) grants the
+  // ability, but the *bearer* character taps instead of the source card
+  // (Lore of the Ages td-129). ---
+  if (action.characterInstanceId !== undefined) {
+    const bearerCharId = action.characterInstanceId;
+    const charData = player.characters[bearerCharId];
+    if (!charData) return { state, error: 'Character not found' };
+    if (charData.status !== CardStatus.Untapped) return { state, error: 'Bearer must be untapped to activate' };
+
+    const itemMatch = charData.items.find(i => i.instanceId === action.cardInstanceId);
+    const sourceDefinitionId = itemMatch?.definitionId;
+    if (!sourceDefinitionId) return { state, error: 'Boost source not found on bearer' };
+
+    const sourceDef = defById(state, sourceDefinitionId);
+    const boostEffects = getCardEffects(sourceDef).filter(
+      (e): e is CombatTapCompanyBoostEffect => e.type === 'combat-tap-company-boost' && e.cost?.tap === 'bearer',
+    );
+    if (boostEffects.length === 0) return { state, error: 'Source has no bearer-tap combat-tap-company-boost effect' };
+
+    const company = player.companies.find(c => c.characters.includes(bearerCharId));
+    if (!company) return { state, error: 'Bearer is not in a company' };
+    const attackingCompanyId = combat.attackSource.type === 'company-attack' ? combat.attackSource.attackingCompanyId : undefined;
+    const involved = company.id === combat.companyId || (combat.isCvCC === true && company.id === attackingCompanyId);
+    if (!involved) return { state, error: 'Bearer company not involved in this combat' };
+
+    const already = state.activeConstraints.some(c => c.source === action.cardInstanceId && c.scope.kind === 'attack');
+    if (already) return { state, error: 'Boost already applied this attack' };
+
+    const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? (sourceDefinitionId as string);
+    let newState = updatePlayer(state, playerIndex, p => updateCharacter(p, bearerCharId, c => ({ ...c, status: CardStatus.Tapped })));
+
+    let applied = 0;
+    for (const boostEffect of boostEffects) {
+      for (const memberCharId of company.characters) {
+        const memberData = newState.players[playerIndex].characters[memberCharId];
+        if (!memberData) continue;
+        const memberDef = defById(newState, memberData.definitionId);
+        if (!memberDef) continue;
+        if (boostEffect.filter) {
+          const ctx = {
+            target: {
+              race: 'race' in memberDef ? (memberDef as { race?: Race }).race : undefined,
+              name: (memberDef as { name?: string }).name ?? '',
+              skills: ('skills' in memberDef ? (memberDef as { skills?: readonly string[] }).skills : undefined) ?? [],
+            },
+          };
+          if (!matchesCondition(boostEffect.filter, ctx)) continue;
+        }
+        logDetail(`${sourceName}: adding attack-scoped ${formatSignedNumber(boostEffect.value)} ${boostEffect.stat} to ${memberCharId as string}`);
+        newState = addConstraint(newState, {
+          source: action.cardInstanceId,
+          sourceDefinitionId,
+          scope: { kind: 'attack' },
+          target: { kind: 'character', characterId: memberCharId },
+          kind: {
+            type: 'character-stat-modifier',
+            stat: boostEffect.stat,
+            value: boostEffect.value,
+            characterId: memberCharId,
+          },
+        });
+        applied++;
+      }
+    }
+    logDetail(`${sourceName}: bearer ${bearerCharId as string} tapped — applied combat boost to ${applied} character(s) in company ${company.id as string}`);
+
+    if (boostEffects.some(e => e.enqueueCorruptionCheck)) {
+      const scope = companySubphaseScope(newState.phaseState.phase, company.id);
+      logDetail(`${sourceName}: enqueuing corruption check on bearer ${bearerCharId as string}`);
+      newState = enqueueCorruptionCheck(newState, {
+        source: action.cardInstanceId,
+        actor: action.player,
+        scope,
+        characterId: bearerCharId,
+        reason: sourceName,
+      });
+    }
+
+    return { state: newState };
+  }
 
   // Locate the ally and the character bearing it.
   const tapped = updateAttachment(player, 'allies', action.cardInstanceId, a => ({ ...a, status: CardStatus.Tapped }));

@@ -4503,6 +4503,32 @@ function joinCombatForceStrikeActions(
 }
 
 /**
+ * True if at least one character in `company` matches the boost effect's
+ * optional `filter` (absent filter matches unconditionally).
+ */
+function combatTapCompanyBoostHasMatch(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  effect: CombatTapCompanyBoostEffect,
+): boolean {
+  if (!effect.filter) return true;
+  for (const memberId of company.characters) {
+    const member = player.characters[memberId];
+    if (!member) continue;
+    const memberDef = defById(state, member.definitionId);
+    if (!memberDef || !('race' in memberDef)) continue;
+    const ctx = { target: {
+      race: (memberDef as { race?: Race }).race,
+      name: (memberDef as { name?: string }).name ?? '',
+      skills: (memberDef as { skills?: readonly string[] }).skills ?? [],
+    } };
+    if (matchesCondition(effect.filter, ctx)) return true;
+  }
+  return false;
+}
+
+/**
  * Generate `tap-ally-combat-boost` actions: the owner of an untapped in-play
  * ally carrying a `combat-tap-company-boost` effect may tap it during combat to
  * grant an attack-scoped stat boost to matching characters in the ally's own
@@ -4513,6 +4539,16 @@ function joinCombatForceStrikeActions(
  * once per attack.
  *
  * Used by Great Lord of Goblin-gate (as-75).
+ *
+ * Also covers the `cost: { tap: "bearer" }` variant: an in-play item (which
+ * includes a resource permanent-event played "on a character" — it is placed
+ * among their items, not `cardsInPlay`) grants the same ability, but the
+ * *bearer* character taps instead of the source card — the source card's own
+ * tapped status is irrelevant and untouched. Used by Lore of the Ages
+ * (td-129): "Playable on an untapped Elf at a Haven. Tap the Elf. When facing
+ * an attack, bearer may tap to give +1 prowess to all characters in his
+ * company against the attack. Bearer makes a corruption check."
+ * (`enqueueCorruptionCheck: true`).
  */
 function tapAllyCombatBoostActions(
   state: GameState,
@@ -4540,7 +4576,7 @@ function tapAllyCombatBoostActions(
       if (ally.status !== CardStatus.Untapped) continue;
       const allyDef = defById(state, ally.definitionId);
       const boostEffects = getCardEffects(allyDef).filter(
-        (e): e is CombatTapCompanyBoostEffect => e.type === 'combat-tap-company-boost',
+        (e): e is CombatTapCompanyBoostEffect => e.type === 'combat-tap-company-boost' && e.cost?.tap !== 'bearer',
       );
       if (boostEffects.length === 0) continue;
 
@@ -4554,28 +4590,47 @@ function tapAllyCombatBoostActions(
       }
 
       // At least one character in the company must match a boost filter.
-      let hasMatch = false;
-      for (const effect of boostEffects) {
-        if (!effect.filter) { hasMatch = true; break; }
-        for (const memberId of company.characters) {
-          const member = player.characters[memberId];
-          if (!member) continue;
-          const memberDef = defById(state, member.definitionId);
-          if (!memberDef || !('race' in memberDef)) continue;
-          const ctx = { target: {
-            race: (memberDef as { race?: Race }).race,
-            name: (memberDef as { name?: string }).name ?? '',
-            skills: (memberDef as { skills?: readonly string[] }).skills ?? [],
-          } };
-          if (matchesCondition(effect.filter, ctx)) { hasMatch = true; break; }
-        }
-        if (hasMatch) break;
-      }
+      const hasMatch = boostEffects.some(effect => combatTapCompanyBoostHasMatch(state, player, company, effect));
       if (!hasMatch) continue;
 
       logDetail(`Tap-ally-combat-boost available: ${(allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string)}`);
       actions.push({
         action: { type: 'tap-ally-combat-boost', player: playerId, cardInstanceId: ally.instanceId },
+        viable: true,
+      });
+    }
+
+    // Bearer-tap sources: items borne by this character (a resource
+    // permanent-event played "on a character" is placed among their items —
+    // see chain-reducer.ts's `isResource` in-play-on-character routing). The
+    // bearer itself must be untapped to activate.
+    if (charData.status !== CardStatus.Untapped) continue;
+    for (const source of charData.items) {
+      const sourceDef = defById(state, source.definitionId);
+      const boostEffects = getCardEffects(sourceDef).filter(
+        (e): e is CombatTapCompanyBoostEffect => e.type === 'combat-tap-company-boost' && e.cost?.tap === 'bearer',
+      );
+      if (boostEffects.length === 0) continue;
+
+      const already = state.activeConstraints.some(
+        c => c.source === source.instanceId && c.scope.kind === 'attack',
+      );
+      if (already) {
+        logDetail(`${(sourceDef as { name?: string } | undefined)?.name ?? (source.definitionId as string)}: boost already applied this attack`);
+        continue;
+      }
+
+      const hasMatch = boostEffects.some(effect => combatTapCompanyBoostHasMatch(state, player, company, effect));
+      if (!hasMatch) continue;
+
+      logDetail(`Tap-ally-combat-boost available (bearer taps): ${(sourceDef as { name?: string } | undefined)?.name ?? (source.definitionId as string)}`);
+      actions.push({
+        action: {
+          type: 'tap-ally-combat-boost',
+          player: playerId,
+          cardInstanceId: source.instanceId,
+          characterInstanceId: charId as CardInstanceId,
+        },
         viable: true,
       });
     }

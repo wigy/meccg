@@ -625,14 +625,21 @@ export interface CancelWeaponEffectsAction {
  * Goblin-gate as-75: "Tap to give +2 prowess to all Orcs in its company").
  * The ally carries a `combat-tap-company-boost` effect; activating it taps the
  * ally and adds attack-scoped `character-stat-modifier` constraints.
+ *
+ * Also covers the `cost: { tap: "bearer" }` variant, where the source card is
+ * an in-play item or an attached permanent-event and the *bearer* character
+ * taps instead of the source card (Lore of the Ages td-129). In that case
+ * `characterInstanceId` identifies the bearer to tap.
  */
 export interface TapAllyCombatBoostAction {
   /** Action discriminant. */
   readonly type: 'tap-ally-combat-boost';
   /** The player who owns the ally being tapped. */
   readonly player: PlayerId;
-  /** The in-play ally being tapped. */
+  /** The in-play ally, item, or attached permanent-event being activated. */
   readonly cardInstanceId: CardInstanceId;
+  /** Bearer character to tap, for a `cost: { tap: "bearer" }` source. */
+  readonly characterInstanceId?: CardInstanceId;
 }
 
 /**
