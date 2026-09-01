@@ -69,24 +69,53 @@ const NO_PROGRESS_TIMEOUT_MS = 120_000;
 export class McPool {
   private workers: Worker[] = [];
   private readonly jobs: number;
+  private readonly noProgressTimeoutMs: number;
+  private readonly entryOverride?: { readonly file: string; readonly execArgv: string[] };
 
-  constructor(jobs: number) {
+  /**
+   * @param noProgressTimeoutMs Watchdog override, test-only — production
+   *   code always gets the {@link NO_PROGRESS_TIMEOUT_MS} default; a real
+   *   two-minute wait is not something a test should sit through.
+   * @param entryOverride Worker script override, test-only — lets a test
+   *   point the pool at a worker that deliberately dies on startup instead
+   *   of paying for the real mc-worker's card-pool load.
+   */
+  constructor(
+    jobs: number,
+    noProgressTimeoutMs: number = NO_PROGRESS_TIMEOUT_MS,
+    entryOverride?: { readonly file: string; readonly execArgv: string[] },
+  ) {
     this.jobs = Math.max(1, Math.floor(jobs));
+    this.noProgressTimeoutMs = noProgressTimeoutMs;
+    this.entryOverride = entryOverride;
   }
 
   /** Lazily spawns the workers (first searched decision pays the startup). */
   private ensureWorkers(): void {
     if (this.workers.length > 0) return;
-    const entry = workerEntry();
+    const entry = this.entryOverride ?? workerEntry();
     for (let workerIndex = 0; workerIndex < this.jobs; workerIndex++) {
       const worker = new Worker(entry.file, {
         execArgv: entry.execArgv,
         workerData: { workerIndex, workerCount: this.jobs },
       });
       worker.on('error', (err: Error) => {
-        // A dead worker would deadlock the next Atomics.wait; surfacing loudly
-        // beats a silent hang. The done-counter bump is lost, so fail fast.
-        throw new Error(`mc-pool worker ${workerIndex} died: ${err.message}`);
+        // A dead worker's done-counter bump is lost, so its round never
+        // completes and the zero-progress watchdog below eventually throws
+        // to surface the failure loudly — but that throw happens inside
+        // `runRounds`, on the same call stack `chooseAction()` started, so
+        // `safeChooseAction` (client-common.ts) can catch it and fall back
+        // to a safe move. This callback runs later and separately: with the
+        // caller blocked in `Atomics.wait`, the 'error' event cannot be
+        // delivered until that blocking loop finally returns control to the
+        // event loop, by which point the decision (and its try/catch) has
+        // already completed. Throwing *here* would therefore be a genuinely
+        // uncaught exception with nothing left on the stack to catch it,
+        // killing the whole AI client outright — observed as the AI process
+        // dying mid-game with no further moves ever offered (bug report:
+        // game mtijwas7-dqm2i1, AI died right after the first searched
+        // decision of the game, in the organization phase after untap).
+        console.error(`mc-pool worker ${workerIndex} died: ${err.message}`);
       });
       worker.unref();
       this.workers.push(worker);
@@ -134,11 +163,11 @@ export class McPool {
       if (done !== lastDone) {
         lastDone = done;
         lastProgressAt = Date.now();
-      } else if (Date.now() - lastProgressAt > NO_PROGRESS_TIMEOUT_MS) {
-        throw new Error(`mc-pool: no worker progress for ${NO_PROGRESS_TIMEOUT_MS} ms (${done}/${this.jobs} done) — a worker died or never started`);
+      } else if (Date.now() - lastProgressAt > this.noProgressTimeoutMs) {
+        throw new Error(`mc-pool: no worker progress for ${this.noProgressTimeoutMs} ms (${done}/${this.jobs} done) — a worker died or never started`);
       }
       if (deadline === undefined) {
-        Atomics.wait(control, 0, done, NO_PROGRESS_TIMEOUT_MS);
+        Atomics.wait(control, 0, done, this.noProgressTimeoutMs);
         continue;
       }
       const left = deadline - Date.now();
