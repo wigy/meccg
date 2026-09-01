@@ -221,7 +221,7 @@ concedeBtn?.addEventListener('click', () => { void (async () => {
   if (!appState.playerId || appState.spectating || appState.currentPhase === Phase.GameOver) return;
   const ok = await showConfirm(
     'Concede this game? Your opponent immediately wins and this cannot be undone.',
-    { okLabel: 'Concede', cancelLabel: 'Cancel' },
+    { okLabel: 'Concede', cancelLabel: 'Cancel', destructive: true },
   );
   if (!ok) return;
   sendAction({ type: 'concede', player: appState.playerId as PlayerId });
