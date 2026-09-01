@@ -230,6 +230,8 @@ export const ACTION_TYPES: readonly string[] = [
   'return-alt-permanent-event',
   // Added by certifying tw-492 (Fury of the Iron Crown).
   'play-named-card-offer',
+  // Added by certifying ba-34 (Elven Rope).
+  'store-creature-in-item',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

@@ -868,6 +868,44 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
+  // Elven Rope (ba-34): "Discard the creature if Elven Rope's bearer becomes
+  // wounded." A creature stored via `creature-storage` is released to its
+  // owner's (the hazard player's) discard pile the instant the item's bearer
+  // is wounded — the flat storage MP bonus (`recompute-derived.ts`) stops the
+  // moment `storedCreature` clears.
+  if (woundedCharIds.length > 0) {
+    const defPlayerIdx2 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    const oppPlayerIdx2 = 1 - defPlayerIdx2;
+    let defPlayer2 = stateAfterCombat.players[defPlayerIdx2];
+    const releasedCreatures: { instanceId: CardInstanceId; definitionId: CardDefinitionId }[] = [];
+    let anyReleased = false;
+    for (const charId of woundedCharIds) {
+      const charData = defPlayer2.characters[charId];
+      if (!charData || !charData.items.some(i => i.storedCreature)) continue;
+      const newItems = charData.items.map(item => {
+        if (!item.storedCreature) return item;
+        const itemDef = defById(stateAfterCombat, item.definitionId);
+        const creatureDef = defById(stateAfterCombat, item.storedCreature.definitionId);
+        logDetail(`bearer-wounded: releasing creature "${creatureDef?.name ?? item.storedCreature.definitionId as string}" stored on "${itemDef?.name ?? item.definitionId as string}" (bearer ${charId as string} wounded)`);
+        releasedCreatures.push(item.storedCreature);
+        anyReleased = true;
+        const { storedCreature: _dropped, ...rest } = item;
+        return rest;
+      });
+      defPlayer2 = {
+        ...defPlayer2,
+        characters: { ...defPlayer2.characters, [charId as string]: { ...charData, items: newItems } },
+      };
+    }
+    if (anyReleased) {
+      stateAfterCombat = updatePlayer(stateAfterCombat, defPlayerIdx2, () => defPlayer2);
+      stateAfterCombat = updatePlayer(stateAfterCombat, oppPlayerIdx2, p => ({
+        ...p,
+        discardPile: [...p.discardPile, ...releasedCreatures],
+      }));
+    }
+  }
+
   // LE-140 Stay Her Appetite: if the detainment attack was not fully defeated,
   // the ally that triggered the attack is discarded.
   if (combat.attackSource.type === 'stay-her-appetite-attack' && !allDefeated) {
@@ -1518,6 +1556,49 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         trophyEligibleCharacters: trophyEligible,
       };
       return { state: { ...stateAfterCombat, combat: trophyOfferCombat }, effects };
+    }
+  }
+
+  // Elven Rope (ba-34): the bearer of an item carrying `creature-storage`
+  // may store the defeated creature on that item instead of it being scored
+  // via the kill pile, provided the creature's printed prowess is below the
+  // item's threshold and the item isn't already holding a creature. Reached
+  // only when no trophy offer applies above — Orc/Troll trophy-takers and
+  // hero-side storage items never overlap in practice, so the ordering
+  // leaves the existing trophy-offer behavior untouched.
+  if ((allDefeated || forcedKillApplied) && !combat.detainment && !isPlayedAutoAttack && creatureInstanceId) {
+    const defIdx4 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+    const defPlayer4 = stateAfterCombat.players[defIdx4];
+    const defCompany4 = companyById(defPlayer4.companies, combat.companyId);
+    const creatureDef4 = resolveDef(stateAfterCombat, creatureInstanceId);
+    const creatureProwess4 = creatureDef4 && 'prowess' in creatureDef4
+      ? (creatureDef4 as { prowess: number }).prowess
+      : undefined;
+    const storageEligible: CardInstanceId[] = [];
+    if (defCompany4 && creatureProwess4 !== undefined) {
+      for (const charId of defCompany4.characters) {
+        const char = defPlayer4.characters[charId];
+        if (!char) continue;
+        for (const item of char.items) {
+          if (item.storedCreature) continue;
+          const itemDef = defById(stateAfterCombat, item.definitionId);
+          const storageEffect = getCardEffects(itemDef).find(
+            (e): e is import('../types/effects.js').CreatureStorageEffect => e.type === 'creature-storage',
+          );
+          if (storageEffect && creatureProwess4 < storageEffect.maxNormalProwess) {
+            storageEligible.push(item.instanceId);
+          }
+        }
+      }
+    }
+    if (storageEligible.length > 0) {
+      logDetail(`Creature storage offer: ${storageEligible.length} eligible item(s) may store creature ${creatureInstanceId as string} instead of scoring kill MP (Elven Rope ba-34)`);
+      const storageOfferCombat: CombatState = {
+        ...combat,
+        phase: 'creature-storage-offer',
+        creatureStorageEligibleItems: storageEligible,
+      };
+      return { state: { ...stateAfterCombat, combat: storageOfferCombat }, effects };
     }
   }
 

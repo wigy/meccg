@@ -297,6 +297,9 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
     for (const ch of Object.values(player.characters)) {
       for (const item of ch.items) {
         if (item.instanceId === instanceId) return item.definitionId;
+        // A creature stored on an item (Elven Rope ba-34) lives only here
+        // while stored.
+        if (item.storedCreature?.instanceId === instanceId) return item.storedCreature.definitionId;
       }
       for (const ally of ch.allies) {
         if (ally.instanceId === instanceId) return ally.definitionId;

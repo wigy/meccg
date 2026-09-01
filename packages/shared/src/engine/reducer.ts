@@ -39,6 +39,7 @@ import { sweepReturnSelfToHandWhen } from './return-self-when.js';
 import { sweepDiscardSelfWhenCompany } from './company-composition.js';
 import { sweepKeywordReplaced } from './keyword-replaced.js';
 import { sweepSacrificeOfForm, sweepSacrificeOfFormReturn } from './sacrifice-of-form.js';
+import { sweepOrphanedStoredCreatures } from './creature-storage.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -94,7 +95,13 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // Reverse direction: if a Wizard previously sacrificed this way is put back
   // into play by any means, reattach the host card and return his items.
   const afterSacrificeReturn = prevState ? sweepSacrificeOfFormReturn(prevState, afterSacrifice) : afterSacrifice;
-  return accrueRevealedInstances(recomputeDerived(afterSacrificeReturn));
+  // Elven Rope (ba-34): rescue any creature whose storing item left play
+  // through a path that didn't know to release it explicitly — see
+  // `creature-storage.ts` for why this needs to be a generic prev/next diff.
+  const afterStoredCreatureSweep = prevState
+    ? sweepOrphanedStoredCreatures(prevState, afterSacrificeReturn)
+    : afterSacrificeReturn;
+  return accrueRevealedInstances(recomputeDerived(afterStoredCreatureSweep));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -207,7 +214,7 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   // pending-effects gate below. Without this guard the pending fetch was skipped
   // by the combat `pass` branch and lost (Smoke Rings dm-159 "disappeared
   // without effect", game mrs06zup-du4wde seq 128).
-  if (state.combat != null && state.pendingEffects.length === 0 && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer' || state.combat.phase === 'cancel-prisoner-taking-choice')))) {
+  if (state.combat != null && state.pendingEffects.length === 0 && combatPendingTop === null && !isChainShortEvent && (COMBAT_ACTION_TYPES.has(action.type) || (action.type === 'pass' && (state.combat.phase === 'assign-strikes' || state.combat.phase === 'item-salvage' || state.combat.phase === 'resolve-strike' || state.combat.phase === 'trophy-offer' || state.combat.phase === 'creature-storage-offer' || state.combat.phase === 'cancel-prisoner-taking-choice')))) {
     logDetail(`Combat active — dispatching '${action.type}' to combat handler`);
     const combatResult = handleCombatAction(state, action);
     if (!combatResult.error) {

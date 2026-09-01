@@ -31,7 +31,7 @@ import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
 import { chargeHazardLimit } from './hazard-limit.js';
 import { logDetail } from './legal-actions/log.js';
-import { findAllyInCompany, buildPlayedModifyAttackContext } from './legal-actions/combat.js';
+import { findAllyInCompany, findItemInCompany, buildPlayedModifyAttackContext } from './legal-actions/combat.js';
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -2717,6 +2717,68 @@ export function handleTakeTrophy(state: GameState, action: GameAction, combat: C
  */
 export function finalizeCombatFromTrophyOffer(state: GameState, combat: CombatState): ReducerResult {
   logDetail('Trophy offer declined — combat finalized without trophy');
+  const finalState = applyRule8_22AfterTrophyDecision(state, combat);
+  return { state: completeCombat({ ...finalState, combat: null }) };
+}
+
+/**
+ * Handle a `store-creature-in-item` action during the `creature-storage-offer`
+ * combat phase (Elven Rope ba-34).
+ *
+ * The chosen item receives the defeated creature card, attached as
+ * `ItemInPlay.storedCreature`. The creature is removed from the kill pile
+ * (like `handleTakeTrophy`, rule 8.22's alignment-based kill-pile/out-of-play
+ * routing never applies — the creature isn't left in the kill pile). After
+ * storing, the phase returns to normal (removes the combat state).
+ */
+export function handleStoreCreatureInItem(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'store-creature-in-item') return wrongActionType(state, action, 'store-creature-in-item');
+  if (combat.phase !== 'creature-storage-offer') return { state, error: 'store-creature-in-item only valid in creature-storage-offer phase' };
+
+  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
+  const defPlayer = state.players[defPlayerIndex];
+  const company = companyById(defPlayer.companies, combat.companyId);
+  if (!company) return { state, error: 'Defending company not found' };
+
+  const found = findItemInCompany(defPlayer, company.characters, action.itemInstanceId);
+  if (!found) return { state, error: 'Storage item not found in defending company' };
+
+  const creatureInKillPile = findById(defPlayer.killPile, action.creatureInstanceId);
+  if (!creatureInKillPile) return { state, error: 'Creature not found in kill pile for storage' };
+
+  const { item, hostCharId } = found;
+  const itemDef = defById(state, item.definitionId);
+  const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+
+  logDetail(`Creature storage: ${itemName} stores ${action.creatureInstanceId as string} instead of scoring kill MP (Elven Rope ba-34)`);
+
+  const newKillPile = removeById(defPlayer.killPile, action.creatureInstanceId);
+  const newPlayers = clonePlayers(state);
+  const hostChar = newPlayers[defPlayerIndex].characters[hostCharId];
+  newPlayers[defPlayerIndex] = {
+    ...newPlayers[defPlayerIndex],
+    killPile: newKillPile,
+    characters: {
+      ...newPlayers[defPlayerIndex].characters,
+      [hostCharId as string]: {
+        ...hostChar,
+        items: hostChar.items.map(i =>
+          i.instanceId === action.itemInstanceId ? { ...i, storedCreature: creatureInKillPile } : i),
+      },
+    },
+  };
+
+  return { state: completeCombat({ ...state, players: newPlayers, combat: null }) };
+}
+
+/**
+ * Handle a `pass` action during the `creature-storage-offer` combat phase.
+ * The defending player declines to store the creature; combat ends normally,
+ * with the creature already scored via the kill pile. Applies rule 8.22 the
+ * same as a declined trophy offer.
+ */
+export function finalizeCombatFromCreatureStorageOffer(state: GameState, combat: CombatState): ReducerResult {
+  logDetail('Creature storage offer declined — combat finalized without storage (Elven Rope ba-34)');
   const finalState = applyRule8_22AfterTrophyDecision(state, combat);
   return { state: completeCombat({ ...finalState, combat: null }) };
 }

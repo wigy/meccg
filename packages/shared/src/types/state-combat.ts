@@ -462,8 +462,9 @@ export interface CombatState {
    * - `'item-salvage'`: item transfer from an eliminated character
    * - `'discard-item-from-company'`: defender must discard one item
    * - `'trophy-offer'`: Orc/Troll characters may take the defeated creature as a trophy (MELE §8.37)
+   * - `'creature-storage-offer'`: an item's bearer may store the defeated creature on that item instead of scoring it (Elven Rope ba-34)
    */
-  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer' | 'shield-discard-roll' | 'cancel-prisoner-taking-choice';
+  readonly phase: 'assign-strikes' | 'choose-strike-order' | 'resolve-strike' | 'body-check' | 'item-salvage' | 'discard-item-from-company' | 'trophy-offer' | 'creature-storage-offer' | 'shield-discard-roll' | 'cancel-prisoner-taking-choice';
   /**
    * During assign-strikes, tracks who is currently assigning:
    * - `'cancel-window'`: defender's pre-assignment window to cancel the attack
@@ -650,6 +651,14 @@ export interface CombatState {
    * is the combat's creatureInstanceId.
    */
   readonly trophyEligibleCharacters?: readonly CardInstanceId[];
+  /**
+   * Item instance IDs (borne anywhere in the defending company) carrying a
+   * `creature-storage` effect that may receive the defeated creature instead
+   * of it being scored via the kill pile (Elven Rope ba-34). Set when
+   * transitioning to the `'creature-storage-offer'` phase. The creature
+   * instance is the combat's creatureInstanceId.
+   */
+  readonly creatureStorageEligibleItems?: readonly CardInstanceId[];
   /**
    * CoE rule 3.iv.1 — Strike Sequence, Step 1 (Attacking Player Actions).
    * While the attacker has any playable combat hazards (e.g. Dragon's Curse)

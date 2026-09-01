@@ -1647,6 +1647,23 @@ export interface TakeTrophyAction {
 }
 
 /**
+ * Available during the `creature-storage-offer` combat phase after a
+ * non-detainment creature defeat (Elven Rope ba-34). The defending player may
+ * store the defeated creature on an eligible `creature-storage` item instead
+ * of it being scored via the kill pile, or pass to decline.
+ */
+export interface StoreCreatureInItemAction {
+  /** Action discriminant. */
+  readonly type: 'store-creature-in-item';
+  /** The defending player offering the storage. */
+  readonly player: PlayerId;
+  /** The item that will hold the creature (must carry `creature-storage` and have no creature already stored). */
+  readonly itemInstanceId: CardInstanceId;
+  /** The creature instance being stored. */
+  readonly creatureInstanceId: CardInstanceId;
+}
+
+/**
  * Move a Dragon or Drake hazard creature from hand into the Summons from Long
  * Sleep (as-39) reservation slot. Does not count against the hazard limit.
  */

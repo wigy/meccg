@@ -18167,3 +18167,105 @@ give +2 to any corruption check by its bearer. Cannot be transferred."
   checking character's own `items` for an untapped `corruption-check-boost`
   effect and tap it into a `check-modifier` constraint carrying the effect's
   `value` instead of the character-support path's fixed `+1`.
+
+### 80. `creature-storage` + `self-and-bearer` grant-action costs (Elven Rope)
+
+Two additions for a hero item with a tap-item-and-bearer movement ability
+plus a novel "store a defeated creature instead of scoring it" mechanic.
+
+**`grant-action` cost `"self-and-bearer"` generalized to the shared
+cost-evaluator** (`cost-evaluator.ts`). The cost variant already existed in
+the type system (`ActionCost.tap`) and was handled by bespoke logic in
+`combat-cancel.ts`/`legal-actions/combat.ts` for `cancel-attack` (Torque of
+Hues) — but `canPayCost`/`applyCost`, the shared primitives `grant-action`
+(organization-phase item/ally/character abilities) routes through, only
+special-cased plain `"self"` (tap the attachment only) and fell back to
+tapping the actor for everything else, silently treating `"self-and-bearer"`
+as if it were `"bearer"` (item never checked/tapped). `canPayCost` now
+requires both the source and the actor untapped for `"self-and-bearer"`;
+`applyTapCost` now taps the attachment first (mirroring `"self"`) and then
+falls through to also tap the actor, instead of returning early. This is a
+pure generalization — every existing `grant-action` cost variant keeps its
+old behavior; only `"self-and-bearer"` previously had no shared-path support
+at all.
+
+```json
+{ "type": "grant-action", "action": "extra-region-movement",
+  "cost": { "tap": "self-and-bearer" },
+  "when": { "$and": [
+    { "bearer.skills": { "$includes": "ranger" } },
+    { "company.hasPlannedMovement": false },
+    { "company.hasExtraRegionDistance": false } ] },
+  "apply": { "type": "increment-company-extra-region-distance", "amount": 1 } }
+```
+
+Used by Elven Rope (ba-34): "Tap Elven Rope and a ranger bearer during your
+organization phase to allow his company to move an additional region." —
+the same `increment-company-extra-region-distance` apply and
+`hasPlannedMovement`/`hasExtraRegionDistance` stacking guard as Cram
+(td-105)'s discard-based mode, just paid with a tap instead of a discard, and
+gated to a ranger bearer via `bearer.skills`.
+
+**`creature-storage`** — declared on a hero-resource-item, offers the
+defending player a choice, after their company defeats a non-detainment
+creature whose printed `prowess` is below `maxNormalProwess`, to store the
+creature on the item instead of routing it to the kill pile for marshalling
+points.
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `maxNormalProwess` | yes | A creature qualifies only if its printed `prowess` is strictly below this. |
+| `marshallingPoints` | yes | Flat **misc**-category MP scored while a creature is stored (not the creature's own kill-MP — a CoE ruling confirms "the stored creature doesn't give kill MP to the controller of Elven Rope"). |
+
+```json
+{ "type": "creature-storage", "maxNormalProwess": 11, "marshallingPoints": 3 }
+```
+
+Mechanically this is a sibling of the existing MELE §8.37 trophy-offer, but
+item-bound rather than Orc/Troll-character-bound, with a flat MP value
+instead of the creature's own. `finalizeCombat` (`combat-finalize.ts`) checks
+for `creature-storage`-eligible items in the defending company (any item with
+no `ItemInPlay.storedCreature` already set, whose `maxNormalProwess` beats
+the defeated creature's printed prowess) right after the existing trophy-offer
+check — reached only when trophy-offer didn't already claim the creature
+(hero-side storage items and minion-side Orc/Troll trophy-takers never
+overlap in practice). If eligible items exist, combat transitions to a new
+`'creature-storage-offer'` phase (mirroring `'trophy-offer'`) carrying
+`creatureStorageEligibleItems`; `creatureStorageOfferActions`
+(`legal-actions/combat.ts`) offers one `store-creature-in-item` action per
+eligible item plus a `pass` to decline (added to the top-level reducer's
+combat-phase `pass` allowlist in `reducer.ts` alongside `'trophy-offer'`).
+`handleStoreCreatureInItem` (`combat-actions.ts`) removes the creature from
+the kill pile and attaches it as `ItemInPlay.storedCreature` — like
+`handleTakeTrophy`, rule 8.22's alignment-based kill-pile/out-of-play routing
+never applies, since the creature isn't left in the kill pile.
+`finalizeCombatFromCreatureStorageOffer` handles a decline exactly like
+`finalizeCombatFromTrophyOffer`.
+
+While `storedCreature` is set, `recompute-derived.ts`'s per-item MP loop adds
+the effect's `marshallingPoints` to the owner's `misc` category (additive,
+not a replacement — the item's own printed MP, 0 for Elven Rope, still scores
+separately). Two release paths clear it: (1) "Discard the creature if Elven
+Rope's bearer becomes wounded" is handled inline in `combat-finalize.ts`
+alongside the existing `bearer-wounded` self-discard sweep — a wounded
+character's items with a `storedCreature` are released to the *opposing*
+player's discard pile (the creature's actual owner) rather than the item's
+own owner's pile; (2) a generic orphan-sweep safety net
+(`creature-storage.ts`, `sweepOrphanedStoredCreatures`, wired into
+`postReduce` in `reducer.ts` as a prev/next diff like
+`discard-on-card-leaves.ts`) rescues a stored creature whose item left play
+through any of the many generic "discard this item" reducer paths that don't
+know about `storedCreature` (a bare `toCardInstance()` conversion silently
+drops the field) — if the creature instance isn't reachable anywhere in the
+post-action state, it's pushed to the opposing player's discard pile. Also
+required a one-line addition to `resolveInstanceId` (`types/state.ts`) to
+scan `item.storedCreature`, since a stored creature otherwise lives nowhere
+`resolveInstanceId` looked (mirroring the existing `character.trophies` scan
+for MELE §8.37 trophies).
+
+Used by Elven Rope (ba-34): "Instead of eliminating a creature the bearer's
+company defeated (with a normal prowess less than 11), you may place the
+creature's card with Elven Rope. Discard the creature if Elven Rope's bearer
+becomes wounded. If stored with a creature, the creature stays with Elven
+Rope and you receive three miscellaneous marshalling points. Otherwise, the
+creature has no effect on play."

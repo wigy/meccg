@@ -78,6 +78,10 @@ export type CostResult = { readonly state: GameState } | { readonly error: strin
  *   `actor` must be untapped.
  * - tap "self" on attachment: pass the item/ally/hazard as `source`;
  *   `source` must be untapped.
+ * - tap "self-and-bearer" on attachment: both `source` (the item) and
+ *   `actor` (its bearer) must be untapped (Elven Rope ba-34, Torque of
+ *   Hues) — the attachment-tapping half mirrors plain `"self"`, the
+ *   bearer-tapping half mirrors plain `"bearer"`.
  * - discard | check | wound: always payable (payment happens at apply time).
  */
 export function canPayCost(
@@ -87,6 +91,10 @@ export function canPayCost(
 ): boolean {
   if (!cost.tap) return true;
   if (cost.tap === 'self' && source) return source.status === CardStatus.Untapped;
+  if (cost.tap === 'self-and-bearer') {
+    if (source && source.status !== CardStatus.Untapped) return false;
+    return actor.status === CardStatus.Untapped;
+  }
   return actor.status === CardStatus.Untapped;
 }
 
@@ -227,26 +235,35 @@ function applyTapCost(
   }
   const actor = player.characters[actorId];
 
-  if (cost.tap === 'self' && sourceCardId && sourceCardId !== actorId) {
+  // 'self' taps only the attachment; 'self-and-bearer' taps the attachment
+  // AND falls through below to also tap the bearer (Elven Rope ba-34,
+  // Torque of Hues).
+  const tapsAttachment = (cost.tap === 'self' || cost.tap === 'self-and-bearer')
+    && sourceCardId && sourceCardId !== actorId;
+  let currentState = state;
+  if (tapsAttachment) {
     if (!actor) return { error: `applyCost: actor ${actorId as string} not found` };
     // Tap the attachment in place (item / ally / hazard).
     const updated = tapAttachment(actor, sourceCardId);
     if (!updated) {
       return { error: `applyCost: source ${sourceCardId as string} not found on actor ${actorId as string}` };
     }
-    const newState = updatePlayer(state, playerIndex, p => ({
+    currentState = updatePlayer(currentState, playerIndex, p => ({
       ...p,
       characters: { ...p.characters, [actorId as string]: updated },
     }));
     logDetail(`Cost (${label}): tapped attachment ${sourceCardId as string}`);
-    return { state: newState };
+    if (cost.tap === 'self') {
+      return { state: currentState };
+    }
   }
 
-  if (actor) {
+  const refreshedActor = currentState.players[playerIndex]?.characters[actorId] ?? actor;
+  if (refreshedActor) {
     // Tap the actor character itself.
-    const newState = updatePlayer(state, playerIndex, p => ({
+    const newState = updatePlayer(currentState, playerIndex, p => ({
       ...p,
-      characters: { ...p.characters, [actorId as string]: { ...actor, status: CardStatus.Tapped } },
+      characters: { ...p.characters, [actorId as string]: { ...refreshedActor, status: CardStatus.Tapped } },
     }));
     logDetail(`Cost (${label}): tapped ${actorId as string}`);
     return { state: newState };
@@ -258,7 +275,7 @@ function applyTapCost(
   // fulfilling that skill condition, so tap the ally in place.
   const allyUpdate = updateAttachment(player, 'allies', actorId, a => ({ ...a, status: CardStatus.Tapped }));
   if (allyUpdate) {
-    const newState = updatePlayer(state, playerIndex, () => allyUpdate.player);
+    const newState = updatePlayer(currentState, playerIndex, () => allyUpdate.player);
     logDetail(`Cost (${label}): tapped ally ${actorId as string}`);
     return { state: newState };
   }

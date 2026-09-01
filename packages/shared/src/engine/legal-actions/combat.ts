@@ -325,6 +325,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     }
     case 'trophy-offer':
       return trophyOfferActions(state, playerId, combat);
+    case 'creature-storage-offer':
+      return creatureStorageOfferActions(state, playerId, combat);
     case 'body-check':
       return [...bodyCheckActions(state, playerId, combat), ...tapAllyBodyCheckBoostActions(state, playerId, combat), ...captureInLieuOfBodyCheckActions(state, playerId, combat)];
     case 'shield-discard-roll':
@@ -403,6 +405,43 @@ function trophyOfferActions(
   }
   // Defender may decline all trophies (CoE 3.IV.1 — "may take").
   logDetail('Trophy offer: defender may also pass to decline all trophies');
+  actions.push({ action: { type: 'pass' as const, player: playerId }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions during the `creature-storage-offer` combat phase (Elven Rope
+ * ba-34). After a non-detainment creature defeat, the *defending* player may
+ * store the defeated creature (now in their kill pile) on any eligible
+ * `creature-storage` item in the defending company, or pass to decline
+ * ("Instead of eliminating a creature ... you may place the creature's card
+ * with Elven Rope").
+ *
+ * Only the defending player acts here — mirrors `trophyOfferActions`.
+ */
+function creatureStorageOfferActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+
+  const creatureInstanceId = attackSourceCreatureInstanceId(combat);
+  const eligible = combat.creatureStorageEligibleItems ?? [];
+  if (!creatureInstanceId || eligible.length === 0) {
+    logDetail('Creature storage offer: nothing to store — defender may only pass');
+    return [{ action: { type: 'pass' as const, player: playerId }, viable: true }];
+  }
+
+  const actions: EvaluatedAction[] = [];
+  for (const itemInstanceId of eligible) {
+    logDetail(`Creature storage offer: ${itemInstanceId as string} may store ${creatureInstanceId as string} instead of scoring kill MP (Elven Rope ba-34)`);
+    actions.push({
+      action: { type: 'store-creature-in-item' as const, player: playerId, itemInstanceId, creatureInstanceId },
+      viable: true,
+    });
+  }
+  logDetail('Creature storage offer: defender may also pass to decline all storage offers');
   actions.push({ action: { type: 'pass' as const, player: playerId }, viable: true });
   return actions;
 }

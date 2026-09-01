@@ -50,7 +50,7 @@ import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corrup
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, findPlayConditionEffect, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
-import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect, RestoredItemStatsEffect } from '../types/effects.js';
+import type { Condition, AgentHomeSiteFactionLockEffect, PlayTargetEffect, RestoredItemStatsEffect, CreatureStorageEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -1710,6 +1710,21 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
           if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, [cat]: underDeepsMp[cat] + peOverride };
         }
         continue;
+      }
+      // Elven Rope (ba-34): a creature stored on this item ("place the
+      // creature's card with Elven Rope") scores a flat misc-MP bonus
+      // instead of the creature's own kill-MP value — it never reaches the
+      // kill pile (CoE ruling: "the stored creature doesn't give kill MP to
+      // the controller of Elven Rope"). Additive, not a replacement, so the
+      // item's own printed MP (0 for Elven Rope) is still scored below.
+      if (item.storedCreature) {
+        const storageEffect = getCardEffects(itemDef).find(
+          (e): e is CreatureStorageEffect => e.type === 'creature-storage',
+        );
+        if (storageEffect) {
+          mp = { ...mp, misc: mp.misc + storageEffect.marshallingPoints };
+          if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, misc: underDeepsMp.misc + storageEffect.marshallingPoints };
+        }
       }
       // Reforging family of hoard items (Horn of Defiance td-183 et al.):
       // once restored, the printed marshalling points are replaced by the
