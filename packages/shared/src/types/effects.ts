@@ -1986,6 +1986,10 @@ export interface GrantActionEffect extends EffectBase {
  *
  * `scope` names a zone relative to the action's bearer. Supported values:
  * - `"company-items"` — items borne by any character in the bearer's company.
+ * - `"bearer-items"` — items borne by the bearer character himself only
+ *   (unlike `"company-items"`, never a company-mate's item). Used by Magic
+ *   Ring of Lore (tw-272): "he may tap to use a Palantír" — "he" (the ring's
+ *   own bearer) must bear the Palantír, not just anyone in his company.
  * - `"characters-at-site"` — characters at the same site as the bearer.
  *   Optionally restricted to specific definition IDs via `definitionIds`.
  * - `"company-characters"` — characters in the bearer's own company
@@ -2030,7 +2034,7 @@ export interface GrantActionEffect extends EffectBase {
  * definition; candidates that fail the filter are skipped.
  */
 export interface GrantActionTargets {
-  readonly scope: 'company-items' | 'characters-at-site' | 'company-characters' | 'company-wounded-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards' | 'own-hand-factions';
+  readonly scope: 'company-items' | 'bearer-items' | 'characters-at-site' | 'company-characters' | 'company-wounded-characters' | 'player-companies' | 'opponent-cards-in-play' | 'own-hazard-corruption-cards' | 'company-hazard-corruption-cards' | 'own-hand-factions';
   readonly filter?: Condition;
   /** For scope `'characters-at-site'`: definition IDs of eligible characters. */
   readonly definitionIds?: readonly string[];
@@ -2941,6 +2945,21 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * `keyedTo` (Fell Beast tw-33: "...or Shadow-hold").
    */
   readonly keyingSiteTypes?: readonly SiteType[];
+  /**
+   * When `'action-target'`, the constraint's `source` (and
+   * `sourceDefinitionId`) is taken from the activating grant-action's chosen
+   * `targetCardId` instead of the granting card itself. Used when a card
+   * grants the *ability to use another card the bearer holds*, rather than
+   * an ability of its own: Magic Ring of Lore (tw-272) — "he may tap to use
+   * a Palantír" — enumerates the bearer's own Palantír items via a
+   * `bearer-items` {@link GrantActionEffect.targets} scope and sources the
+   * resulting `can-use-palantir` constraint from the *chosen Palantír*, so
+   * `buildGrantActionContext`'s `c.source === sourceInstanceId` match scopes
+   * the ability to that one Palantír — exactly like Palantír of Elostirion
+   * (le-332), which sources the same constraint from itself since it *is*
+   * the Palantír. Omit for the default (source = the granting card).
+   */
+  readonly sourceFrom?: 'action-target';
 }
 
 /**
