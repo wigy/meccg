@@ -919,8 +919,34 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Playable only at a Free-hold [{F}] or Border-hold [{B}]. May also be played if the site is tapped. Discard during organization phase to allow its bearer’s company to play two additional region cards."
+    "effects": [
+      {
+        "type": "item-play-site",
+        "allowTapped": true,
+        "filter": {
+          "site.siteType": {
+            "$in": ["free-hold", "border-hold"]
+          }
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "extra-region-movement",
+        "cost": {
+          "discard": "self"
+        },
+        "when": {
+          "company.hasPlannedMovement": false,
+          "company.hasExtraRegionDistance": false
+        },
+        "apply": {
+          "type": "increment-company-extra-region-distance",
+          "amount": 2
+        }
+      }
+    ],
+    "text": "Playable only at a Free-hold [{F}] or Border-hold [{B}]. May also be played if the site is tapped. Discard during organization phase to allow its bearer’s company to play two additional region cards.",
+    "certified": "2026-09-01"
   },
   {
     "cardType": "hero-resource-item",
