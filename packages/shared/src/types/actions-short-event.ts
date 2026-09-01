@@ -125,6 +125,12 @@ export interface PlayShortEventAction {
    */
   readonly newRegionType?: import('./common.js').RegionType;
   /**
+   * For a {@link SiteUntapEffect} card (Look More Closely Later, td-128), the
+   * site instance the event untaps. One legal action is emitted per (sage ×
+   * eligible tapped site) pair.
+   */
+  readonly targetSiteInstanceId?: CardInstanceId;
+  /**
    * For a {@link FactionInfluenceRegionPenaltyAction} card (Hour of Need,
    * dm-141), the faction card in hand the event plays and makes the
    * diplomat's influence attempt against. One legal action is emitted per

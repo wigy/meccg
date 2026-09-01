@@ -31,7 +31,7 @@ import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, is
 import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { CardStatus, cardStatusToName, Race, Skill, type RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect, SiteUntapEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -2920,6 +2920,39 @@ export function collectRegionTransformTargets(
 }
 
 /**
+ * Enumerates every tapped site a {@link SiteUntapEffect} (Look More Closely
+ * Later, td-128) can currently untap: every company's (either player's)
+ * `currentSite` whose status is `Tapped` and whose card definition matches
+ * `effect.filter` (evaluated via {@link buildSiteFilterContext}, the same
+ * context every other site play-target matcher uses). A site instance is
+ * deduplicated across companies sharing it (e.g. two companies stacked at
+ * the same site).
+ */
+export function collectSiteUntapTargets(
+  state: GameState,
+  effect: SiteUntapEffect,
+): { siteInstanceId: CardInstanceId; siteName: string }[] {
+  const out: { siteInstanceId: CardInstanceId; siteName: string }[] = [];
+  const seen = new Set<CardInstanceId>();
+  for (const p of state.players) {
+    for (const company of p.companies) {
+      const site = company.currentSite;
+      if (!site || site.status !== CardStatus.Tapped) continue;
+      if (seen.has(site.instanceId)) continue;
+      const siteDef = defById(state, site.definitionId);
+      if (!siteDef || !isSiteCard(siteDef)) continue;
+      if (effect.filter) {
+        const matchTarget = buildSiteFilterContext(state, siteDef, site.instanceId);
+        if (!matchesCondition(effect.filter, matchTarget)) continue;
+      }
+      seen.add(site.instanceId);
+      out.push({ siteInstanceId: site.instanceId, siteName: siteDef.name });
+    }
+  }
+  return out;
+}
+
+/**
  * Returns all {@link PlayOptionEffect}s declared on the given card.
  */
 export function getPlayOptionEffects(def: ResourceEventCard): readonly PlayOptionEffect[] {
@@ -4235,6 +4268,23 @@ export function playResourceShortEventActions(
       }
     }
 
+    // Collect eligible site-untap targets (Look More Closely Later td-128:
+    // "Tap a sage to untap a site at which Information is playable"). One
+    // target per currently-tapped site (either player's) matching the
+    // effect's filter; not playable when nothing currently qualifies.
+    const siteUntapEffect = def.effects?.find(
+      (e): e is SiteUntapEffect => e.type === 'site-untap',
+    );
+    let siteUntapTargets: { siteInstanceId: CardInstanceId; siteName: string }[] | null = null;
+    if (siteUntapEffect) {
+      siteUntapTargets = collectSiteUntapTargets(state, siteUntapEffect);
+      if (siteUntapTargets.length === 0) {
+        logDetail(`${def.name}: no tapped site currently matches the site-untap filter — not playable`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no eligible site to untap`));
+        continue;
+      }
+    }
+
     // duplication-limit: scope "turn" — cannot play if a copy was already
     // played this turn (tracked via active constraints sourced from this def).
     const turnDupLimit = findDuplicationLimitEffect(def, 'turn');
@@ -4298,6 +4348,20 @@ export function playResourceShortEventActions(
               ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
               targetRegionName: regionName,
               newRegionType,
+            },
+            viable: true,
+          });
+        }
+      } else if (siteUntapTargets) {
+        for (const { siteInstanceId, siteName } of siteUntapTargets) {
+          logDetail(`Resource short-event playable (target ${String(tapTargetId)}, untap site ${siteName}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              ...(tapTargetId ? { targetScoutInstanceId: tapTargetId } : {}),
+              targetSiteInstanceId: siteInstanceId,
             },
             viable: true,
           });

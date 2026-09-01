@@ -5442,6 +5442,40 @@ export interface RegionTransformEffect extends EffectBase {
 }
 
 /**
+ * A resource short-event that lets the player untap one currently-tapped
+ * site in play, chosen at play time from every company's `currentSite`
+ * matching {@link filter}. The sibling of {@link RegionTransformEffect} for a
+ * one-shot site-state change rather than a permanent region retype — nothing
+ * is installed, the site instance simply flips back to `Untapped`.
+ *
+ * Combined with a `play-target` tap-cost effect naming the sage who pays the
+ * ritual's cost, exactly like `region-transform`. Resolved as a top-level
+ * effect when the carrying short-event resolves on the chain of effects (CoE
+ * 9.4/9.5): `handlePlayResourceShortEvent` (`reducer-events.ts`) pushes the
+ * chosen site instance onto the chain entry payload (`siteUntapInstanceId`);
+ * on un-negated resolution `applyShortEventSiteUntap`
+ * (`short-event-discard.ts`) untaps the site and enqueues the sage's
+ * follow-up corruption check (rule 7.4: skipped when the tap-cost payer is
+ * an ally).
+ *
+ * Used by: *Look More Closely Later* (td-128) — "Tap a sage to untap a site
+ * at which Information is playable. Sage makes a corruption check."
+ */
+export interface SiteUntapEffect extends EffectBase {
+  readonly type: 'site-untap';
+  /**
+   * Condition evaluated against the site's {@link buildSiteFilterContext}
+   * fields (e.g. `{ "playableResources": { "$includes": "information" } }`).
+   * A site qualifies only while its `currentSite.status` is `Tapped`
+   * (untapping an already-untapped site is not offered) AND this filter
+   * (when present) matches.
+   */
+  readonly filter?: Condition;
+  /** Modifier applied to the sage's follow-up corruption check (default 0). */
+  readonly corruptionCheck?: { readonly modifier: number };
+}
+
+/**
  * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
  * end of the turn, every character at the bound site (except the one playing
  * the item) must make a corruption check each time an item is played at the
@@ -9593,6 +9627,7 @@ export type CardEffect =
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | RegionTransformEffect
+  | SiteUntapEffect
   | ItemPlayCorruptionCheckEffect
   | TapAtSiteEffect
   | PlayTargetEffect

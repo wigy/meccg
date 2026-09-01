@@ -13220,6 +13220,57 @@ sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land
 [{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}]
 to a Wilderness [{w}]. Sage makes a corruption check."
 
+### 43d. `site-untap`
+
+A resource short-event that lets the player untap one currently-tapped site
+in play, chosen at play time — the sibling of `region-transform` for a
+one-shot **site-state** change (nothing installed, just a status flip)
+rather than a permanent region retype. Paired with the same `play-target`
+character effect naming the sage who pays the ritual's tap cost.
+
+```json
+{
+  "type": "play-target",
+  "target": "character",
+  "filter": { "target.skills": { "$includes": "sage" } },
+  "cost": { "tap": "character" }
+},
+{
+  "type": "site-untap",
+  "filter": { "playableResources": { "$includes": "information" } },
+  "corruptionCheck": { "modifier": 0 }
+}
+```
+
+`filter` (optional) is evaluated with `buildSiteFilterContext` (`effective.ts`)
+— the same flat site-field context every other site play-target matcher uses
+(`site.ts`, `organization-events.ts`, `movement-hazard.ts`), so paths are
+bare field names (`playableResources`, `siteType`, `effectiveSiteType`, …),
+not `target.`-prefixed. `collectSiteUntapTargets`
+(`legal-actions/organization.ts`, shared by both generic short-event
+dispatchers — `organization.ts`'s `playResourceShortEventActions` and
+`long-event.ts`'s `heroResourceShortEventActions`) scans every company of
+**both** players for a `currentSite` that is currently `Tapped` and matches
+`filter`, deduplicating a site instance shared by two companies. One
+`play-short-event` action is offered per (sage × qualifying site), carrying
+`targetSiteInstanceId`; the card is not playable when nothing currently
+qualifies (CoE 9.1).
+
+Per CoE 9.4/9.5 the play rides the chain of effects exactly like
+`region-transform`: `handlePlayResourceShortEvent` (`reducer-events.ts`) pays
+the sage's tap cost immediately, then pushes the card onto the chain
+carrying `siteUntapInstanceId` (plus `costTapCharacterId`). On un-negated
+resolution `applyShortEventSiteUntap` (`short-event-discard.ts`) rewrites the
+target site instance's `currentSite.status` to `Untapped` (found by scanning
+every company of every player again, since either side's site may qualify)
+and enqueues the sage's follow-up corruption check (rule 7.4: skipped when
+the tap-cost payer is an ally). `corruptionCheck.modifier` defaults to `0`
+when omitted.
+
+Used by: *Look More Closely Later* (td-128) — "Sage only. Ritual. Tap a sage
+to untap a site at which Information is playable. Sage makes a corruption
+check."
+
 ### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target

@@ -17,7 +17,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState, Company } from '../../index.js';
-import type { PlayOptionEffect, RegionTransformEffect } from '../../types/effects.js';
+import type { PlayOptionEffect, RegionTransformEffect, SiteUntapEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { isResourceEventCard, isSiteCard, isAllyCard } from '../../types/cards.js';
 import { CardStatus, cardStatusToName, type RegionType } from '../../types/common.js';
@@ -25,7 +25,7 @@ import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, withdrawAgentTargetActions } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, collectSiteUntapTargets, withdrawAgentTargetActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -460,6 +460,21 @@ export function heroResourceShortEventActions(
       }
     }
 
+    // Collect eligible site-untap targets (Look More Closely Later td-128).
+    // See the identical block in organization.ts's `playResourceShortEventActions`.
+    const siteUntapEffect = def.effects?.find(
+      (e): e is SiteUntapEffect => e.type === 'site-untap',
+    );
+    let siteUntapTargets: { siteInstanceId: CardInstanceId; siteName: string }[] | null = null;
+    if (siteUntapEffect) {
+      siteUntapTargets = collectSiteUntapTargets(state, siteUntapEffect);
+      if (siteUntapTargets.length === 0) {
+        logDetail(`${def.name}: no tapped site currently matches the site-untap filter — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} has no eligible site to untap`));
+        continue;
+      }
+    }
+
     // "Discard every matching card in play" (Wizard's River-horses tw-364:
     // "All Nazgûl events are discarded"). Unlike the single-target shape above
     // there is nothing to choose — the mode is simply not playable while
@@ -558,6 +573,20 @@ export function heroResourceShortEventActions(
               ...(sageId ? { targetScoutInstanceId: sageId } : {}),
               targetRegionName: regionName,
               newRegionType,
+            },
+            viable: true,
+          });
+        }
+      } else if (siteUntapTargets) {
+        for (const { siteInstanceId, siteName } of siteUntapTargets) {
+          logDetail(`Resource short-event playable (sage ${String(sageId)}, untap site ${siteName}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId,
+              ...(sageId ? { targetScoutInstanceId: sageId } : {}),
+              targetSiteInstanceId: siteInstanceId,
             },
             viable: true,
           });
