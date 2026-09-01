@@ -786,7 +786,32 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": "dunadan" },
+            { "target.status": "untapped" }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "site-type",
+        "siteTypes": ["haven"]
+      },
+      {
+        "type": "play-flag",
+        "flag": "tap-character-on-play"
+      },
+      {
+        "type": "grant-skill",
+        "skill": "sage"
+      }
+    ],
+    "certified": "2026-09-01",
     "text": "Playable on a Dúnadan at a Haven [{H}]; tap the Dúnadan. Gives the bearer sage skill."
   },
   {
