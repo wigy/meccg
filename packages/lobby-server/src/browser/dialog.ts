@@ -94,20 +94,33 @@ export function showAlert(message: string): Promise<void> {
 export interface ConfirmOptions {
   readonly okLabel?: string;
   readonly cancelLabel?: string;
+  /**
+   * For actions that are hard or impossible to undo (e.g. conceding a
+   * game): Cancel gets initial focus instead of OK, and Enter cancels
+   * instead of confirming. Without this, a stray Enter keypress — the same
+   * key players habitually use to advance through the game — silently
+   * confirms the destructive action instead of dismissing the dialog. See
+   * bug report 974d2bb0d9d0fa9a: a concede fired 98ms after the player's
+   * last unrelated action, far too fast to be a deliberate click-through of
+   * this dialog. Escape always cancels either way.
+   */
+  readonly destructive?: boolean;
 }
 
 /**
  * Show a modal confirmation dialog with OK and Cancel buttons. Resolves
  * to `true` if the user confirms, `false` if they cancel (Cancel button,
- * backdrop click, or Escape). Enter confirms.
+ * backdrop click, or Escape). Enter confirms, unless `options.destructive`
+ * is set, in which case Enter cancels (see {@link ConfirmOptions.destructive}).
  */
 export function showConfirm(message: string, options: ConfirmOptions = {}): Promise<boolean> {
+  const enterValue = !options.destructive;
   return showDialog(
     message,
     [
       { label: options.cancelLabel ?? 'Cancel', value: false, className: 'app-dialog-btn-cancel' },
       { label: options.okLabel ?? 'OK', value: true },
     ],
-    { enter: true, escape: false },
+    { enter: enterValue, escape: false },
   );
 }
