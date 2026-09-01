@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.139.0 — 2026-09-01
+
+Client safeguards and Elven Rope certification
+
+### Game Engine
+
+- Certified Elven Rope (ba-34) (#2956)
+- Deck-legality errors now include the offending card's details in the validation message (#2960)
+
+### Web Client
+
+- The concede confirmation dialog no longer defaults to "concede" on a stray Enter keypress (#2958)
+- Deck-source fetch-to-deck effects (e.g. Far-Sight) now highlight the play deck pile as the target (#2957)
+
+### Infrastructure
+
+- A dead Monte-Carlo pool worker no longer crashes the whole AI client; the pool recovers and play continues (#2959)
+- Registered the store-creature-in-item action in the sim action-type vocabulary (#2956)
+
 ## 0.138.0 — 2026-08-31
 
 Corruption-check support windows and stability fixes

@@ -6,14 +6,14 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1289 | 1289 | 0 | 100.0% |
+| 1290 | 1290 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
 | AS | 115 | 115 | 100.0% |
-| BA | 99 | 99 | 100.0% |
+| BA | 100 | 100 | 100.0% |
 | DM | 133 | 133 | 100.0% |
 | LE | 316 | 316 | 100.0% |
 | TD | 116 | 116 | 100.0% |
@@ -170,6 +170,7 @@
 | ba-30 | Longbottom Leaf | — | 8 | ☑ |
 | ba-31 | Rumours of Rings | — | 8 | ☑ |
 | ba-33 | To Fealty Sworn | — | 11 | ☑ |
+| ba-34 | Elven Rope | — | 11 | ☑ |
 | ba-35 | Cave Troll | — | 9 | ☑ |
 | ba-36 | Ancient Secrets | — | 13 | ☑ |
 | ba-37 | Going Ever Under Dark | — | 17 | ☑ |
