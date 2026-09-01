@@ -1306,11 +1306,33 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 11,
     "race": "dwarf",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Manifestation of minion Petty- dwarves. Playable at The Worthy Hills  if the influence check is greater than 10. Standard Modifications: Elves (-2), Dwarves (+2)."
+    "playableAt": [
+      {
+        "site": "The Worthy Hills"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "bearer.race": "elf"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "dwarf"
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of minion Petty- dwarves. Playable at The Worthy Hills  if the influence check is greater than 10. Standard Modifications: Elves (-2), Dwarves (+2).",
+    "certified": "2026-09-01"
   },
   {
     "cardType": "minion-resource-faction",
