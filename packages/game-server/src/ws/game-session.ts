@@ -1004,14 +1004,15 @@ export class GameSession {
     // verdict that disagrees with the deck editor.
     const deckList = join.deckList ?? joinToDeckList(join, name, this.cardPool);
     const errors = validateDeck(deckList, this.cardPool);
+    const messages = errors.map(e => `${e.section}: ${e.message}`);
     this.serverLog.log('deck-validation', {
       player: name,
       errors: errors.length,
-      messages: errors.map(e => `${e.section}: ${e.message}`),
+      messages,
     });
     this.broadcastToAll(errors.length === 0
       ? { type: 'info', message: `${name} deck is legal`, tone: 'success' }
-      : { type: 'info', message: `${name} deck is not legal`, tone: 'error' });
+      : { type: 'info', message: `${name} deck is not legal: ${messages.join('; ')}`, tone: 'error' });
   }
 
   private restoreGame(save: GameSave, p1: PendingPlayer, p2: PendingPlayer, name1: string, name2: string): void {
