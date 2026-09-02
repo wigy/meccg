@@ -88,10 +88,19 @@ function getBoardTargets(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(BOARD_TARGET_SELECTOR));
 }
 
-/** The enabled action buttons in the debug panel (may be empty in visual view). */
+/**
+ * The enabled action buttons in the debug panel (may be empty in visual
+ * view), excluding `concede`. `withConcedeAction` appends `concede` to every
+ * legal-action set as always-viable, so on a player's idle turns (already
+ * passed, waiting on the opponent) it is often the *only* viable action —
+ * making it the accidental target of the Enter/Backspace/Delete auto-fire
+ * shortcuts below, which fire whenever this list has exactly one/two/three
+ * buttons. Bug report 162fe192d90019b8: players hitting Enter out of habit
+ * while waiting on their opponent were silently conceding mid-game.
+ */
 function getActionButtons(): HTMLButtonElement[] {
   return Array.from(document.querySelectorAll<HTMLButtonElement>(
-    '#actions button:not([disabled])',
+    '#actions button:not([disabled]):not(.action-concede)',
   ));
 }
 
