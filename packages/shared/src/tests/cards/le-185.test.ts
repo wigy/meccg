@@ -33,6 +33,8 @@ const CARN_DUM = 'le-359' as CardDefinitionId;            // Darkhaven (haven, r
 const WHITE_TOWERS = 'le-412' as CardDefinitionId;        // R&L, nearestHaven Carn Dûm → reachable
 const DOL_GULDUR = 'le-367' as CardDefinitionId;          // Darkhaven, starter-connected to Carn Dûm
 const GOBLIN_GATE = 'le-378' as CardDefinitionId;         // shadow-hold (NOT a Darkhaven)
+const ORC_CAPTAIN = 'le-31' as CardDefinitionId;          // Orc, Leader
+const TROLL_CHIEF = 'le-45' as CardDefinitionId;          // Troll, Leader, Olog-hai
 
 /**
  * Build an M/H play-hazards state where PLAYER_1's (Ringwraith) company is
@@ -243,6 +245,60 @@ describe('le-185 — Forced March', () => {
     // The Witch-king has no mode card bound — The White Towers (a non-Darkhaven
     // reachable via starter movement) must NOT be offered, while Dol Guldur (a
     // Darkhaven reachable via starter movement) must still be offered.
+    expect(extraMoves.some(a => a.destinationSite === whiteTowersInst.instanceId)).toBe(false);
+    expect(extraMoves.some(a => a.destinationSite === dolGuldurInst.instanceId)).toBe(true);
+  });
+
+  // CoE rule 2.II.3.1.3 / glossary "leader": a company already holding more
+  // than one Leader may only move to a haven. Forced March's extra M/H phase
+  // grants another movement, not an exemption from that gate.
+  test('with two Leaders in the company, the extra move offer excludes non-haven destinations', () => {
+    // Regression for the "Troll-Chief" bug report (game mtk941gz-q5365m): a
+    // company holding both Troll-chief and Orc Captain (both Leader-keyword)
+    // was offered Mount Gram — a shadow-hold, not a haven — as an
+    // extra-mh-move destination after moving to the Darkhaven Carn Dûm.
+    let state: GameState = {
+      ...buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: ETTENMOORS, characters: [ORC_CAPTAIN, TROLL_CHIEF], destinationSite: CARN_DUM }],
+            hand: [FORCED_MARCH],
+            siteDeck: [WHITE_TOWERS, DOL_GULDUR],
+            playDeck: [],
+          },
+          {
+            id: PLAYER_2,
+            companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+            hand: [],
+            siteDeck: [],
+            playDeck: [],
+          },
+        ],
+      }),
+      phaseState: makeMHState({ activeCompanyIndex: 0 }),
+    };
+    const fmInst = state.players[0].hand.find(c => c.definitionId === FORCED_MARCH)!.instanceId;
+    state = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst }));
+    state = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    state = dispatch(state, { type: 'pass', player: PLAYER_2 });
+
+    const mh = state.phaseState as MovementHazardPhaseState;
+    expect(mh.step).toBe('extra-mh-move-offer');
+    expect(state.players[0].companies[0].currentSite?.definitionId).toBe(CARN_DUM);
+
+    const whiteTowersInst = state.players[0].siteDeck.find(s => s.definitionId === WHITE_TOWERS)!;
+    const dolGuldurInst = state.players[0].siteDeck.find(s => s.definitionId === DOL_GULDUR)!;
+    const extraMoves = viableFor(state, PLAYER_1)
+      .map(a => a.action)
+      .filter((a): a is ExtraMHMoveAction => a.type === 'extra-mh-move');
+
+    // The White Towers (a non-haven reachable via starter movement) must NOT
+    // be offered, while Dol Guldur (a Darkhaven reachable via starter
+    // movement) must still be offered.
     expect(extraMoves.some(a => a.destinationSite === whiteTowersInst.instanceId)).toBe(false);
     expect(extraMoves.some(a => a.destinationSite === dolGuldurInst.instanceId)).toBe(true);
   });
