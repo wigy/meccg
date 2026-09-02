@@ -5692,9 +5692,11 @@ export interface PlayTargetEffect extends EffectBase {
    */
   readonly requireTapped?: boolean;
   /**
-   * Maximum effective company size for the target's company. When set,
-   * the card is only playable if the candidate's company has effective
-   * size ≤ this value (hobbits count as half).
+   * Maximum sheer character count for the target's company. When set,
+   * the card is only playable if the candidate's company has character
+   * count ≤ this value. This is the company's literal size, not the
+   * Hobbit/Orc-scout-halved size used for the hazard limit (CoE rule
+   * 3.24 / 2.IV.iii), which is a distinct concept.
    */
   readonly maxCompanySize?: number;
   /**
@@ -9999,7 +10001,7 @@ export interface GrantAllyPlayEffect extends EffectBase {
    * When set, the grant is **player-scoped and company-size-keyed** rather
    * than tied to a bearer character or a Wizardhaven: the engine finds the
    * granting permanent-event in the player's `cardsInPlay` and extends
-   * {@link allowTappedSite} to any company whose {@link companyEffectiveSize}
+   * {@link allowTappedSite} to any company whose sheer character count
    * is at most this value, at **any** site (unlike
    * {@link atProtectedWizardhavens}, no site restriction applies). Unlike
    * `filter`, this does not relax *which* allies are playable — only the

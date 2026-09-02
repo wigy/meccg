@@ -20,7 +20,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, companyEffectiveSize, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -2282,13 +2282,14 @@ export function playResourcesActions(
 
       // Friend of Secret Things (wh-109): a player-scoped `grant-ally-play` with
       // `maxCompanySize` lifts the untapped-site requirement for ally plays by
-      // any company whose effective size is at most that value — at any site
-      // (no Wizardhaven restriction, and no relaxation of which allies are
-      // playable there).
+      // any company whose sheer character count is at most that value — at any
+      // site (no Wizardhaven restriction, and no relaxation of which allies are
+      // playable there). Sheer count, not the Hobbit/Orc-scout-halved size used
+      // for the hazard limit (CoE 2.IV.iii / 3.24) — a distinct concept.
       const companySizeGrant = findPlayerAllyPlayGrant(state, player, e => e.maxCompanySize !== undefined);
       const grantedByCompanySize = companySizeGrant !== undefined
         && companySizeGrant.effect.allowTappedSite === true
-        && companyEffectiveSize(state, company) <= companySizeGrant.effect.maxCompanySize!
+        && company.characters.length <= companySizeGrant.effect.maxCompanySize!
         && (!companySizeGrant.effect.filter || matchesCondition(companySizeGrant.effect.filter, { target: allyDef as unknown as Record<string, unknown> }));
 
       // The tapped-site block: an ally normally requires an untapped site. It is

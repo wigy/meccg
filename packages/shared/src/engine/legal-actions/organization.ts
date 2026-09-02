@@ -2812,7 +2812,9 @@ export function endOfOrgEligibility(
     if (matchesInCompany.length === 0) continue;
     foundMatchingCharacter = true;
     if (playTarget.maxCompanySize !== undefined) {
-      const size = companyEffectiveSize(state, company);
+      // Sheer character count, not the Hobbit/Orc-scout-halved size used
+      // for the hazard limit (CoE 2.IV.iii) — see eligiblePlayOptionTargets.
+      const size = company.characters.length;
       if (size > playTarget.maxCompanySize) continue;
     }
     eligibleTargets.push(...matchesInCompany);
@@ -3447,15 +3449,16 @@ function eligiblePlayOptionTargets(
       continue;
     }
     // Enforce the optional company-size cap (e.g. Sneakin' / Stealth:
-    // "company size less than 3" → maxCompanySize 2). Hobbits and Orc
-    // scouts count as half via companyEffectiveSize. This mirrors the
-    // end-of-org path so
-    // cards playable during the normal organization window respect the
-    // same size restriction.
+    // "company size less than 3" → maxCompanySize 2), using the company's
+    // sheer character count — not the Hobbit/Orc-scout-halved size used
+    // for the hazard limit (CoE 2.IV.iii / 3.24), which is a distinct
+    // concept scoped to the hazard limit and the organizing max-of-seven
+    // rule. This mirrors the end-of-org path so cards playable during the
+    // normal organization window respect the same size restriction.
     if (playTarget.maxCompanySize !== undefined) {
       const company = findCharacterCompany(player.companies, charId);
-      if (company && companyEffectiveSize(state, company) > playTarget.maxCompanySize) {
-        logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${companyEffectiveSize(state, company)} > max ${playTarget.maxCompanySize}`);
+      if (company && company.characters.length > playTarget.maxCompanySize) {
+        logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${company.characters.length} > max ${playTarget.maxCompanySize}`);
         continue;
       }
     }

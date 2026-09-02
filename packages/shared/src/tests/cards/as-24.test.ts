@@ -44,6 +44,7 @@ import {
   buildTestState, resetMint, Phase, reduce, Alignment,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI, ELROND, GLORFINDEL_II,
+  SAM_GAMGEE, FATTY_BOLGER, ANBORN, ADRAZAR,
   ALONE_AND_UNADVISED, MARVELS_TOLD,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, CardStatus, dispatch, dispatchResult, expectCharStatus, expectInDiscardPile,
@@ -162,12 +163,12 @@ describe('Alone and Unadvised (as-24)', () => {
     expect(playActions).toHaveLength(0);
   });
 
-  test('Orc scouts count as half toward the max-3 company size (CoE 3.24)', () => {
-    // Four characters but effective size 3: two full Orcs + two Orc scouts
-    // (each half) = 2 + ceil(2/2) = 3. Alone and Unadvised (maxCompanySize 3)
-    // must therefore be playable. Regression guard: a duplicated company-size
-    // helper previously omitted the Orc-scout half on this play-gate path,
-    // mis-sizing the company at 4 and wrongly blocking the play.
+  test('maxCompanySize counts sheer characters, not the Hobbit/Orc-scout-halved hazard-limit size (CoE 3.24)', () => {
+    // Four characters: two full Orcs + two Orc scouts. The hazard-limit
+    // notion of company size (CoE 3.24 / 2.IV.iii) would halve the two
+    // scouts to an effective size of 3 — but maxCompanySize on a card's
+    // play-target gate compares the company's literal character count (4),
+    // which exceeds Alone and Unadvised's maxCompanySize of 3. Not playable.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -184,9 +185,35 @@ describe('Alone and Unadvised (as-24)', () => {
     const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
       .filter(ea => ea.viable && ea.action.type === 'play-hazard');
 
-    // One viable play per character in the size-3 company (all Orcs pass the
-    // non-Wizard/non-Ringwraith filter). Before the fix this was 0.
-    expect(playActions).toHaveLength(4);
+    expect(playActions).toHaveLength(0);
+  });
+
+  test('not playable on a 4-character company even though 2 Hobbits reduce the hazard limit to 3 (bug report)', () => {
+    // Bug report: Sam Gamgee, Fatty Bolger, Anborn, and Adrazar (4
+    // characters, 2 Hobbits) moved with a hazard limit of 3 (Hobbits count
+    // as half toward the hazard limit — CoE 3.24 / 2.IV.iii). Alone and
+    // Unadvised was wrongly offered as playable because the engine reused
+    // that same Hobbit-halved size (also 3) for the card's own
+    // maxCompanySize:3 gate. Company size for the card gate is the sheer
+    // character count (4), which exceeds 3, so the card must not be
+    // offered — independent of the hazard limit.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [SAM_GAMGEE, FATTY_BOLGER, ANBORN, ADRAZAR] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [ALONE_AND_UNADVISED], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mhState = makeMHState({ activeCompanyIndex: 0, hazardLimitAtReveal: 3 });
+    const stateAtPlayHazards = { ...base, phaseState: mhState };
+
+    const playActions = computeLegalActions(stateAtPlayHazards, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard');
+
+    expect(playActions).toHaveLength(0);
   });
 
   test('cannot be duplicated on the same character', () => {
