@@ -11547,8 +11547,20 @@ export interface CombatTapCompanyBoostEffect extends EffectBase {
    * the modifier. When absent, every character in the company receives it.
    */
   readonly filter?: Condition;
-  /** Activation cost — always `{ tap: "self" }` (the ally taps itself). */
+  /**
+   * Activation cost — `{ tap: "self" }` (the ally taps itself, the default
+   * shape) or `{ tap: "bearer" }` (an in-play item or attached permanent-event
+   * grants the ability, but its *bearer* character taps instead of the source
+   * card itself — e.g. Lore of the Ages td-129: "bearer may tap to give +1
+   * prowess to all characters in his company against the attack").
+   */
   readonly cost: ActionCost;
+  /**
+   * When true (bearer-tap sources only), the bearer makes a corruption check
+   * immediately after the boost is applied — Lore of the Ages td-129: "Bearer
+   * makes a corruption check."
+   */
+  readonly enqueueCorruptionCheck?: boolean;
 }
 
 /**
