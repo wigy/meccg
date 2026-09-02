@@ -490,7 +490,7 @@ export function firstFactionInfluenceAttempt(
  * to identify which faction in the hand to use for the attempt.
  */
 export function buildInfluenceAttemptChainState(opts: {
-  characters: readonly CardDefinitionId[];
+  characters: CharacterEntry[];
   site: CardDefinitionId;
   hand: CardDefinitionId[];
   factionDefId: CardDefinitionId;
