@@ -43,7 +43,7 @@
 | as-19 | Saruman the Wise | — | 18 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-23 | A Lie in Your Eyes | — | 7 | ☑ |
-| as-24 | Alone and Unadvised | — | 16 | ☑ |
+| as-24 | Alone and Unadvised | — | 17 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
@@ -523,7 +523,7 @@
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 16 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
-| le-185 | Forced March | — | 8 | ☑ |
+| le-185 | Forced March | — | 9 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-190 | Heralded Lord | — | 10 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
@@ -1098,7 +1098,7 @@
 | tw-308 | Quickbeam | — | 7 | ☑ |
 | tw-310 | Rangers of Ithilien | — | 2 | ☑ |
 | tw-311 | Rangers of the North | — | 2 | ☑ |
-| tw-312 | Red Arrow | — | 7 | ☑ |
+| tw-312 | Red Arrow | — | 8 | ☑ |
 | tw-313 | Red Book of Westmarch | — | 18 | ☑ |
 | tw-314 | Reforging | — | 17 | ☑ |
 | tw-315 | Rescue Prisoners | — | 17 | ☑ |

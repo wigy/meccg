@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.141.0 — 2026-09-02
+
+Concede safeguard and company-rule fixes
+
+### Game Engine
+
+- Cards with a maxCompanySize play-gate (Alone and Unadvised, Stealth, Sneakin', Friend of Secret Things) now compare against the raw character count instead of the hazard-limit-halved size, so Hobbit-heavy companies can no longer play them into an immediately self-discarding state (#2967)
+- Red Arrow's automatic faction influence is now honored by the pending influence-roll action, which previously showed a roll requirement even though the resolver already succeeded automatically (#2969)
+- The extra movement/hazard phase granted by Forced March, Bridge and Leg It Double Quick now enforces the two-Leader company restriction, offering only haven destinations when a company holds more than one Leader; the le-202 fixture was corrected to a legal single-Leader company (#2971)
+
+### Web Client
+
+- Enter, Backspace and Delete no longer auto-fire the always-present concede action when it is the only viable button while waiting on the opponent, fixing silent mid-game concessions (#2968)
+
+### AI
+
+- The AI-Modular combat module no longer drops cancel-by-tap once strikes are assigned, so it takes cancel opportunities against multi-strike attackers such as Assassin instead of tapping a companion to support the strike (#2970)
+
 ## 0.140.0 — 2026-09-02
 
 Lore items and site-untap rituals
