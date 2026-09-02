@@ -210,6 +210,35 @@ describe('kill marshalling points', () => {
   });
 });
 
+describe('cancelling a strike after assignment', () => {
+  // Bug report: facing Assassin (tw-8), which assigns all 3 of its strikes to
+  // one character up front, the AI never used cancel-by-tap across three
+  // separate opportunities and instead tapped a companion to support the
+  // final strike — which still left the struck character exposed to a wound.
+  // Root cause: the module only routed cancel-by-tap, cancel-attack and
+  // halve-strikes through `evaluateAttackWindow` while `!hasCurrentStrike`,
+  // but a multi-attack creature that pre-assigns every strike makes
+  // `hasCurrentStrike` true for the whole cancel-by-tap sub-phase, so those
+  // candidates fell through to the switch, where they are unowned and
+  // silently dropped from the ranking (CRF 22 explicitly allows cancelling
+  // by tap even after strikes are assigned and after facing another attack).
+  const evaluations = rank('combat/assassin-cancel-by-tap-after-assignment');
+  const isCancelByTap = (characterId: string) => (action: GameAction): boolean =>
+    action.type === 'cancel-by-tap'
+    && (action as unknown as { characterId?: string }).characterId === characterId;
+
+  test('claims cancel-by-tap once strikes are already assigned to a target', () => {
+    const cancel = find(evaluations, isCancelByTap('p2-103'));
+    expect(cancel).toBeDefined();
+  });
+
+  test('prefers cancelling the strike over declining, since it removes the risk entirely', () => {
+    const cancel = find(evaluations, isCancelByTap('p2-103'))!;
+    const declined = find(evaluations, a => a.type === 'pass')!;
+    expect(cancel.utility).toBeGreaterThan(declined.utility);
+  });
+});
+
 describe('choosing which strike resolves next', () => {
   test('every candidate is scored — the decision is claimed, not just owned', () => {
     // At this step there is deliberately no *current* strike: picking one is
