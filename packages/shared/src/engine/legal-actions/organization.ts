@@ -2479,6 +2479,17 @@ export function enumerateGrantActionTargets(
     }
   }
 
+  if (targets.scope === 'bearer-items') {
+    const bearer = player.characters[charId as string];
+    if (!bearer) return [];
+    for (const item of bearer.items) {
+      const itemDef = defById(state, item.definitionId);
+      if (!itemDef) continue;
+      if (targets.filter && !matchesDefinition(itemDef, targets.filter)) continue;
+      matches.push(toCardInstance(item));
+    }
+  }
+
   if (targets.scope === 'characters-at-site') {
     // Find the bearer's current site
     const bearerCompany = findCharacterCompany(player.companies, charId);

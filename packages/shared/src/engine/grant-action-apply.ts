@@ -364,8 +364,25 @@ function runGrantApply(
     if (!target) {
       return { error: `add-constraint: cannot resolve target "${apply.target ?? ''}" on ${ctx.sourceName}` };
     }
-    const sourceId = ctx.action.sourceCardId;
-    const sourceDefId = ctx.sourceCardDefinitionId;
+    // `sourceFrom: 'action-target'` (Magic Ring of Lore tw-272): the
+    // constraint is sourced from the activation's chosen `targetCardId` (a
+    // Palantír the bearer holds) rather than the granting card itself, so a
+    // `can-use-palantir` check gated on that Palantír's own instance id
+    // matches (see `buildGrantActionContext`).
+    let sourceId = ctx.action.sourceCardId;
+    let sourceDefId = ctx.sourceCardDefinitionId;
+    if (apply.sourceFrom === 'action-target') {
+      const targetId = ctx.action.targetCardId;
+      if (!targetId) {
+        return { error: `add-constraint: sourceFrom "action-target" but action has no targetCardId on ${ctx.sourceName}` };
+      }
+      const targetDefId = resolveInstanceId(state, targetId);
+      if (!targetDefId) {
+        return { error: `add-constraint: sourceFrom "action-target" cannot resolve targetCardId ${targetId as string} on ${ctx.sourceName}` };
+      }
+      sourceId = targetId;
+      sourceDefId = targetDefId;
+    }
     // METD §5: hazard-limit-modifier additions during the site phase
     // have no effect — the limit is locked at site reveal.
     if (kind.type === 'hazard-limit-modifier' && state.phaseState.phase === Phase.Site) {
