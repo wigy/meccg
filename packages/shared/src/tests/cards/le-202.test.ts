@@ -27,7 +27,7 @@ import type { ExtraMHMoveAction } from '../../types/actions-movement-hazard.js';
 
 const LEG_IT = 'le-202' as CardDefinitionId;
 const GORBAG = 'le-11' as CardDefinitionId;               // minion character (mind 6)
-const SHAGRAT = 'le-39' as CardDefinitionId;               // minion character (mind 6)
+const LAGDUF = 'le-18' as CardDefinitionId;                // minion character (mind 3, no Leader keyword)
 const ETTENMOORS = 'le-373' as CardDefinitionId;          // origin (R&L, nearestHaven Carn Dûm)
 const CARN_DUM = 'le-359' as CardDefinitionId;             // Darkhaven (haven, ringwraith)
 const WHITE_TOWERS = 'le-412' as CardDefinitionId;         // R&L, nearestHaven Carn Dûm → reachable
@@ -36,8 +36,13 @@ const GOBLIN_GATE = 'le-378' as CardDefinitionId;          // shadow-hold (NOT a
 /**
  * Build an M/H play-hazards state where PLAYER_1's (Ringwraith) company is
  * moving from Ettenmoors to `destination`, with Leg It Double Quick in hand,
- * an untapped Gorbag and an already-tapped Shagrat in the company, and one
+ * an untapped Gorbag and an already-tapped Lagduf in the company, and one
  * further site (The White Towers) reachable from Carn Dûm in the site deck.
+ *
+ * Lagduf carries no Leader keyword on purpose: Gorbag is already a Leader,
+ * and a second one would make this a two-Leader company, which rule 3.26
+ * (glossary "leader") confines to haven destinations — including on the
+ * extra movement this card grants.
  */
 function movingTo(destination: CardDefinitionId) {
   return buildTestState({
@@ -49,7 +54,7 @@ function movingTo(destination: CardDefinitionId) {
         alignment: Alignment.Ringwraith,
         companies: [{
           site: ETTENMOORS,
-          characters: [GORBAG, { defId: SHAGRAT, status: CardStatus.Tapped }],
+          characters: [GORBAG, { defId: LAGDUF, status: CardStatus.Tapped }],
           destinationSite: destination,
         }],
         hand: [LEG_IT],
@@ -99,7 +104,7 @@ describe('le-202 — Leg It Double Quick', () => {
     const after = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: inst }));
 
     expectCharStatus(after, 0, GORBAG, CardStatus.Tapped);
-    expectCharStatus(after, 0, SHAGRAT, CardStatus.Tapped);
+    expectCharStatus(after, 0, LAGDUF, CardStatus.Tapped);
     expect(after.players[0].companies[0].extraMHPhasePending).toBe(true);
     expect(after.players[0].hand.some(c => c.instanceId === inst)).toBe(false);
     expect(after.players[0].discardPile.some(c => c.instanceId === inst)).toBe(true);
