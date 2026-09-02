@@ -1756,7 +1756,7 @@ function countCompanyCardEffect(state: GameState, companyId: CompanyId, effectTy
  * `extra-leader-slot` (e.g. *Orders from the Great Demon*, ba-70), which
  * allows one additional Leader of any race per copy in play.
  */
-function wouldViolateLeaderRestriction(
+export function wouldViolateLeaderRestriction(
   state: GameState,
   charInstIds: readonly CardInstanceId[],
   companyId?: CompanyId,

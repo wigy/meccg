@@ -48,7 +48,7 @@ import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } 
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, characterPossessions, enqueueResolution, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed, markNazgulBoostUsed } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
-import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard, wouldViolateLeaderRestriction } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { computeCandidateRegionPaths } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
@@ -3159,6 +3159,17 @@ export function extraMHMoveDestinations(
     if (reachable.length !== beforeRegion) {
       logDetail(`Extra M/H phase: company ${company.id as string} filtered out ${beforeRegion - reachable.length} Region-movement destination(s) — Ringwraith companies may only use Starter or Under-deeps movement`);
     }
+  }
+
+  // CoE rule 2.II.3.1.3 / glossary "leader": a company already holding more
+  // than one Leader may only move to a haven — a `grant-extra-mh-phase` extra
+  // movement (Forced March le-185, Bridge tw-202, Leg It Double Quick le-202)
+  // does not exempt it, mirroring the same gate applied to the org-phase
+  // plan-movement offer in `planMovementActions`.
+  if (wouldViolateLeaderRestriction(state, company.characters, company.id)) {
+    const beforeLeaderFilter = reachable.length;
+    reachable = reachable.filter(r => isHavenForPlayer(r.site, player.alignment, { state, siteDefinitionId: r.site.id, playerId: player.id }));
+    logDetail(`Extra M/H phase: company ${company.id as string} has more than one leader — restricted to haven destinations (${beforeLeaderFilter} → ${reachable.length})`);
   }
 
   const reachableNames = new Set(reachable.map(r => r.site.name));
