@@ -17,11 +17,17 @@
  * loses characters it did not have to lose. A card is only spent when the TSD
  * it saves beats its shadow price.
  *
+ * It also owns the attack-level decisions — cancelling the attack,
+ * cancel-by-tap, halving strikes, assigning a strike to a target — for as
+ * long as `assignmentPhase` has not reached `'done'`. That window can
+ * reopen after a strike already has a target (a multi-attack creature such
+ * as Assassin, tw-8, assigns every strike up front, and CRF 22 lets it be
+ * cancelled by tap even after facing an earlier strike), so this is not the
+ * same split as "is there a current strike" — see the `evaluate` dispatch.
+ *
  * What is *not* modelled is recorded on every evaluation: the attacker is
- * assumed to play nothing into the defence (the `hand-cards` belief refinement
- * of §8 relaxes that), and the attack-level decisions taken before assignment
- * — cancelling the attack, cancel-by-tap, halving strikes — belong to a
- * whole-attack model that is not this one.
+ * assumed to play nothing into the defence (the `hand-cards` belief
+ * refinement of §8 relaxes that).
  */
 
 import type { CardDefinition, CardInstanceId, CombatState, GameAction, PlayerView } from '@meccg/shared';
@@ -744,6 +750,21 @@ export const combatModule: H2Module = {
     // Ordering is decided when no strike is current yet, so it is dispatched
     // ahead of that split rather than inside the strike window.
     if (action.type === 'choose-strike-order') return evaluateStrikeOrder(action, ctx);
+
+    // The attack-level window (cancel the attack, cancel one strike by
+    // tapping a companion, halve the strike count, or assign a strike to a
+    // target) stays open until `assignmentPhase` reaches `'done'` — it does
+    // not close the moment a strike gets a target. A multi-attack creature
+    // that assigns every strike up front (e.g. Assassin, tw-8, which the
+    // engine forces onto a single target) leaves `hasCurrentStrike` true
+    // for the whole cancel-by-tap sub-phase, even though CRF 22 explicitly
+    // allows tapping to cancel "even after a strike is assigned and after
+    // facing another attack." Gating on `hasCurrentStrike` alone made every
+    // such `cancel-by-tap` candidate fall through to the switch below,
+    // where it is unowned and silently dropped — so the AI never weighed
+    // cancelling against `support-strike`, which stays cheaper only because
+    // the strike it leaves standing can still wound.
+    if (ctx.combat.assignmentPhase !== 'done') return evaluateAttackWindow(action, ctx);
     if (!ctx.hasCurrentStrike) return evaluateAttackWindow(action, ctx);
 
     switch (action.type) {
