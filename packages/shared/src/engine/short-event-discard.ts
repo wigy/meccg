@@ -28,7 +28,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
-import type { RegionTransformEffect } from '../types/effects.js';
+import type { RegionTransformEffect, SiteUntapEffect } from '../types/effects.js';
 
 /**
  * Re-resolves a live attack's `all-attacks` strikes/prowess bonuses after a
@@ -348,6 +348,82 @@ export function applyShortEventRegionTransform(
         scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
         characterId: costTapCharacterId,
         modifier: regionTransform.corruptionCheck?.modifier ?? 0,
+        reason: def.name,
+        // CoE 7.1.1: any corruption check declared but not yet resolved may
+        // be supported by tapping untapped company mates for +1 each.
+        allowSupport: true,
+      });
+    }
+  }
+
+  return { state: newState };
+}
+
+/**
+ * Resolve the "untap a chosen site" mode of a resource short event (Look
+ * More Closely Later, td-128): flip the target site instance's status back
+ * to `Untapped` and enqueue the sage's follow-up corruption check.
+ *
+ * Unlike `region-transform`'s permanent constraint, untapping is a direct,
+ * one-shot state change with nothing left behind — the site's `currentSite`
+ * entry (found by scanning every company of every player, since either
+ * side's site may qualify) is simply rewritten.
+ *
+ * @param state - Game state at the moment the short event's chain entry resolves.
+ * @param def - Definition of the short event being resolved.
+ * @param sourceInstanceId - Instance of the short event (the corruption check's source).
+ * @param actor - Player who declared the short event.
+ * @param siteInstanceId - The site instance chosen at declaration time to untap.
+ * @param costTapCharacterId - The character (or ally) tapped as the play cost, if any.
+ *   Per rule 7.4 an ally that satisfied the skill requirement makes no
+ *   corruption check, so the check is skipped in that case.
+ */
+export function applyShortEventSiteUntap(
+  state: GameState,
+  def: CardDefinition,
+  sourceInstanceId: CardInstanceId,
+  actor: PlayerId,
+  siteInstanceId: CardInstanceId,
+  costTapCharacterId: CardInstanceId | undefined,
+): ReducerResult {
+  const siteUntap = getCardEffects(def).find(
+    (e): e is SiteUntapEffect => e.type === 'site-untap',
+  );
+  if (!siteUntap) return { state, error: `${def.name}: no site-untap effect` };
+
+  const playerIndex = getPlayerIndex(state, actor);
+  let found = false;
+  const players = state.players.map(p => ({
+    ...p,
+    companies: p.companies.map(c => {
+      if (found || c.currentSite?.instanceId !== siteInstanceId) return c;
+      found = true;
+      return { ...c, currentSite: { ...c.currentSite, status: CardStatus.Untapped } };
+    }),
+  })) as unknown as typeof state.players;
+  if (!found) return { state, error: `${def.name}: target site ${siteInstanceId as string} is not any company's current site` };
+
+  const siteDef = defById(state, state.players
+    .flatMap(p => p.companies)
+    .find(c => c.currentSite?.instanceId === siteInstanceId)!.currentSite!.definitionId);
+  logDetail(`${def.name}: untapping site ${siteDef?.name ?? '?'}`);
+  let newState: GameState = { ...state, players };
+
+  if (costTapCharacterId) {
+    // Rule 7.4: allies never make corruption checks, but may still fulfill
+    // the skill-only active condition that let them tap (e.g. a sage ally
+    // tapping for Marvels Told).
+    const sageIsAlly = !newState.players[playerIndex].characters[costTapCharacterId]
+      && findAttachment(newState.players[playerIndex], 'allies', costTapCharacterId) != null;
+    if (sageIsAlly) {
+      logDetail(`${def.name}: sage ${costTapCharacterId as string} is an ally — corruption check skipped (rule 7.4)`);
+    } else {
+      newState = enqueueCorruptionCheck(newState, {
+        source: sourceInstanceId,
+        actor,
+        scope: { kind: 'phase' as const, phase: newState.phaseState.phase },
+        characterId: costTapCharacterId,
+        modifier: siteUntap.corruptionCheck?.modifier ?? 0,
         reason: def.name,
         // CoE 7.1.1: any corruption check declared but not yet resolved may
         // be supported by tapping untapped company mates for +1 each.

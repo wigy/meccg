@@ -1164,6 +1164,13 @@ export type ChainEntryPayload =
       readonly regionTransformName?: string;
       /** The {@link RegionType} the named region becomes on resolution. */
       readonly regionTransformType?: import('./common.js').RegionType;
+      /**
+       * For a {@link SiteUntapEffect} card (Look More Closely Later, td-128),
+       * the site instance chosen at declaration time to untap on resolution.
+       * Resolved by the chain resolver — not at play time — so the opponent
+       * gets the response window every action is owed (CoE 9.4/9.5).
+       */
+      readonly siteUntapInstanceId?: CardInstanceId;
     }
   | {
       readonly type: 'creature';
