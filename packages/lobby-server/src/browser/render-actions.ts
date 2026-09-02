@@ -3,7 +3,9 @@
  *
  * Renders the action button panel in the debug view.
  * Viable actions appear as clickable buttons; non-viable actions are
- * shown disabled with their rejection reason.
+ * shown disabled with their rejection reason. The always-present `concede`
+ * meta-action (see `withConcedeAction`) is tagged `.action-concede` so
+ * keyboard-shortcuts.ts can exclude it from its auto-fire button set.
  */
 
 import type { EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
@@ -34,6 +36,7 @@ export function renderActions(
     const btn = document.createElement('button');
     const isRegress = 'regress' in ea.action && ea.action.regress;
     if (isRegress) btn.classList.add('action-regress');
+    if (ea.action.type === 'concede') btn.classList.add('action-concede');
     btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames, playerNames));
     tagCardImages(btn, cardPool);
     addJsonToggle(btn, ea.action);
