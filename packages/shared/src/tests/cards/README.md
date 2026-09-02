@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1290 | 1290 | 0 | 100.0% |
+| 1296 | 1296 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 115 | 115 | 100.0% |
+| AS | 116 | 116 | 100.0% |
 | BA | 100 | 100 | 100.0% |
 | DM | 133 | 133 | 100.0% |
 | LE | 316 | 316 | 100.0% |
-| TD | 116 | 116 | 100.0% |
-| TW | 416 | 416 | 100.0% |
+| TD | 120 | 120 | 100.0% |
+| TW | 417 | 417 | 100.0% |
 | WH | 94 | 94 | 100.0% |
 
 ## Detailed Test Matrix
@@ -64,6 +64,7 @@
 | as-58 | Angmarim | — | 5 | ☑ |
 | as-59 | Haradrim | — | 6 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
+| as-61 | Petty-dwarves | — | 7 | ☑ |
 | as-63 | Haradrim | — | 9 | ☑ |
 | as-66 | Wain-easterlings | — | 8 | ☑ |
 | as-67 | Woses of the Eryn Vorn | — | 6 | ☑ |
@@ -758,10 +759,13 @@
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
 | td-116 | Flatter a Foe | — | 23 | ☑ |
+| td-118 | Gift of Comprehension | — | 6 | ☑ |
 | td-119 | Gold Belt of Lórien  | — | 5 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-126 | King under the Mountain | — | 13 | ☑ |
+| td-128 | Look More Closely Later | — | 18 | ☑ |
+| td-129 | Lore of the Ages | — | 11 | ☑ |
 | td-130 | Magical Harp | — | 12 | ☑ |
 | td-131 | Many Foes He Fought | — | 9 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
@@ -784,6 +788,7 @@
 | td-157 | Three Golden Hairs | — | 11 | ☑ |
 | td-158 | Thrór’s Map | — | 6 | ☑ |
 | td-159 | Trickery | — | 6 | ☑ |
+| td-160 | Twice-baked Cakes | — | 9 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
 | td-163 | Warm Now Be Heart and Limb | — | 9 | ☑ |
 | td-165 | Waybread | — | 14 | ☑ |
@@ -1061,6 +1066,7 @@
 | tw-269 | Lucky Search | — | 13 | ☑ |
 | tw-270 | Lucky Strike | — | 9 | ☑ |
 | tw-271 | Magic Ring of Courage | — | 8 | ☑ |
+| tw-272 | Magic Ring of Lore | — | 14 | ☑ |
 | tw-273 | Magic Ring of Nature | — | 9 | ☑ |
 | tw-274 | Magic Ring of Stealth | — | 8 | ☑ |
 | tw-275 | Magic Ring of Words | — | 8 | ☑ |

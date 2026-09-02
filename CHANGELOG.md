@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.140.0 — 2026-09-02
+
+Lore items and site-untap rituals
+
+### Game Engine
+
+- Certified Look More Closely Later (td-128): new site-untap DSL primitive lets a sage untap a tapped site in play, wired through the short-event and chain-of-effects paths with the follow-up corruption check (#2961)
+- Certified Petty-dwarves (as-61): faction playable at The Worthy Hills with the Elf/Dwarf influence-check modifiers (#2962)
+- Certified Gift of Comprehension (td-118): taps an untapped Dúnadan at a Haven and grants the sage skill (#2963)
+- Certified Lore of the Ages (td-129): bearer-tap variant of the combat company boost, with a bearer corruption check, generalizing the Great Lord of Goblin-gate mechanism (#2964)
+- Certified Magic Ring of Lore (tw-272): grants sage skill and lets the bearer tap to use a Palantír they hold, via a new bearer-items grant-action scope; also restores the missing magic-ring keyword (#2965)
+- Certified Twice-baked Cakes (td-160): playable at Free-holds and Border-holds even when tapped, and discardable for +2 region movement during organization (#2966)
+
+### Documentation
+
+- Card-effects DSL and certification-support docs updated for the new site-untap, bearer-tap boost and bearer-items scope primitives (#2961, #2964, #2965)
+
 ## 0.139.0 — 2026-09-01
 
 Client safeguards and Elven Rope certification
