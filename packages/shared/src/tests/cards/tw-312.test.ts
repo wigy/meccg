@@ -31,9 +31,9 @@ import {
   ARAGORN, THEODEN, LEGOLAS,
   EDORAS, LORIEN, MORIA, MINAS_TIRITH, RIDERS_OF_ROHAN,
   buildSitePhaseState, buildTestState, resetMint, mint,
-  findCharInstanceId,
+  findCharInstanceId, buildInfluenceAttemptChainState, resolveChain,
 } from '../test-helpers.js';
-import type { CardDefinitionId, CardInstance, CharacterCard, InfluenceAttemptAction } from '../../index.js';
+import type { CardDefinitionId, CardInstance, CharacterCard, FactionInfluenceRollAction, InfluenceAttemptAction } from '../../index.js';
 import { computeLegalActions, Phase } from '../../index.js';
 import { availableDI } from '../../engine/legal-actions/organization.js';
 import { resolveInfluenceAttemptRoll } from '../../engine/reducer-site.js';
@@ -65,6 +65,30 @@ describe('Red Arrow (tw-312)', () => {
     const attempt = riderAttempt(state, aragornId as string);
     expect(attempt).toBeDefined();
     expect(attempt!.need).toBe(0);
+  });
+
+  test('the pending faction-influence-roll offered after the chain window is also automatic (need 0)', () => {
+    // Regression: the declare-time `influence-attempt` need (above) already
+    // came back automatic, but the chain always enqueues a `faction-influence-roll`
+    // pending resolution afterwards (see chain-reducer.ts) — the player picks
+    // that action to actually resolve the attempt. Its `need`/explanation used
+    // to be recomputed from scratch without checking the Red Arrow grant, so a
+    // bearer of Red Arrow was shown "need roll >= N" despite the attempt being
+    // guaranteed to succeed with no dice consumed.
+    const state = buildInfluenceAttemptChainState({
+      characters: [{ defId: ARAGORN, items: [RED_ARROW] }],
+      site: EDORAS,
+      hand: [RIDERS_OF_ROHAN],
+      factionDefId: RIDERS_OF_ROHAN,
+    });
+    const resolved = resolveChain(state);
+
+    const rollActions = computeLegalActions(resolved, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'faction-influence-roll')
+      .map(ea => ea.action as FactionInfluenceRollAction);
+    expect(rollActions.length).toBeGreaterThan(0);
+    expect(rollActions[0].need).toBe(0);
+    expect(rollActions[0].explanation).toMatch(/automatic/i);
   });
 
   test('without Red Arrow the same attempt needs a real roll', () => {

@@ -40,7 +40,7 @@ import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffec
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { characterPossessions, constraintFromCard } from '../pending.js';
-import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, getEffectiveSkills } from '../effects/index.js';
+import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, resolveAutoInfluenceFaction, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { playResourcesActions } from './site.js';
@@ -529,6 +529,12 @@ export function factionInfluenceRollActions(
   // attempt is reduced to zero (see `influenceModificationsNullified`).
   const nullifyMods = influenceModificationsNullified(state);
 
+  // Red Arrow (tw-312): an `auto-influence-faction` grant on the influencer (or
+  // an item they bear) skips the 2d6 check entirely — mirrors the declare-time
+  // computation (legal-actions/site.ts) and the resolution (reducer-site.ts),
+  // both of which already special-case this.
+  let autoInfluence = false;
+
   if (charInPlay && charDef && isCharacterCard(charDef)) {
     const resolverCtx: ResolverContext = {
       ...buildFactionCheckContext(state, def),
@@ -587,6 +593,9 @@ export function factionInfluenceRollActions(
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);
     }
 
+    autoInfluence = resolveAutoInfluenceFaction(charEffects, factionName);
+    if (autoInfluence) parts.push('automatic');
+
     // One-shot check-modifier constraints for influence (e.g. Muster): must match the pending roll
     for (const constraint of nullifyMods ? [] : state.activeConstraints) {
       if (constraint.kind.type !== 'check-modifier') continue;
@@ -637,9 +646,9 @@ export function factionInfluenceRollActions(
   if (nullifyMods) parts.push('all other modifications nullified');
 
   const influenceNumber = def.influenceNumber;
-  const need = influenceNumber - modifier;
+  const need = autoInfluence ? 0 : influenceNumber - modifier;
   const modStr = parts.length > 0 ? ` (${parts.join(', ')})` : '';
-  logDetail(`Pending faction-influence-roll for ${factionName} by ${charName}: need 2d6 >= ${need}${modStr}`);
+  logDetail(`Pending faction-influence-roll for ${factionName} by ${charName}: ${autoInfluence ? 'automatic' : `need 2d6 >= ${need}`}${modStr}`);
 
   return [{
     action: {
@@ -648,7 +657,9 @@ export function factionInfluenceRollActions(
       factionInstanceId,
       influencingCharacterId,
       need,
-      explanation: `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${formatSignedNumber(modifier)}${modStr})`,
+      explanation: autoInfluence
+        ? `${charName} influences ${factionName} automatically (influence # ${influenceNumber}${modStr})`
+        : `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${formatSignedNumber(modifier)}${modStr})`,
     },
     viable: true,
   }];
