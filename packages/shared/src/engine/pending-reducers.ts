@@ -2731,7 +2731,7 @@ export function applySeizedByTerrorRollResolution(
   let postRoll = dequeueResolution(rolled.state, top.id);
 
   if (!passed) {
-    postRoll = splitCharacterToOrigin(postRoll, actorIndex, targetCharacterId, originSiteInstanceId);
+    postRoll = splitCharacterToOrigin(postRoll, actorIndex, targetCharacterId, originSiteInstanceId, top.source, kind.hazardDefinitionId);
   }
 
   return resolveChainEntryAndContinue(
@@ -2994,6 +2994,8 @@ function splitCharacterToOrigin(
   playerIndex: number,
   characterId: import('../index.js').CardInstanceId,
   originSiteInstanceId: import('../index.js').CardInstanceId,
+  hazardSource: import('../index.js').CardInstanceId | null,
+  hazardDefinitionId: import('../index.js').CardDefinitionId,
 ): GameState {
   const initialPlayer = state.players[playerIndex];
   const initialCompanyIndex = initialPlayer.companies.findIndex(c =>
@@ -3031,33 +3033,58 @@ function splitCharacterToOrigin(
 
   const updatedCompanies = [...player.companies];
 
-  {
-    // Remove character from source company
-    updatedCompanies[sourceCompanyIndex] = {
-      ...sourceCompany,
-      characters: sourceCompany.characters.filter(id => id !== characterId),
-    };
+  // Remove character from source company
+  updatedCompanies[sourceCompanyIndex] = {
+    ...sourceCompany,
+    characters: sourceCompany.characters.filter(id => id !== characterId),
+  };
 
-    // Create new solo company at the site of origin
-    const newCompany: import('../index.js').Company = {
-      id: nextCompanyId(player),
-      characters: [characterId],
-      currentSite: originSite ?? null,
-      siteCardOwned: false,
-      destinationSite: null,
-      movementPath: [],
-      moved: false,
-      siteOfOrigin: null,
-      onGuardCards: [],
-      hazards: [],
-    };
-    updatedCompanies.push(newCompany);
-    logDetail(`Seized by Terror: ${characterId as string} splits off into new company ${newCompany.id as string} at origin site`);
-  }
+  // Create new solo company at the site of origin
+  const newCompany: import('../index.js').Company = {
+    id: nextCompanyId(player),
+    characters: [characterId],
+    currentSite: originSite ?? null,
+    siteCardOwned: false,
+    destinationSite: null,
+    movementPath: [],
+    moved: false,
+    siteOfOrigin: null,
+    onGuardCards: [],
+    hazards: [],
+  };
+  updatedCompanies.push(newCompany);
+  logDetail(`Seized by Terror: ${characterId as string} splits off into new company ${newCompany.id as string} at origin site`);
 
   newPlayers[playerIndex] = { ...player, companies: updatedCompanies, siteDeck: newSiteDeck };
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
+
+  // Rule 2.IV.4: a company "returned to its site of origin" during the
+  // movement/hazard phase has its M/H phase end immediately — no more
+  // actions (including hazards) can be taken against it — and its player
+  // "cannot initiate any actions during that company's site phase" either.
+  // The split-off company is born already in that state (ICE Rules Digest
+  // #86: its M/H phase never starts), so mark it handled before
+  // `select-company` can ever offer it this phase, and block its upcoming
+  // site phase the same way `company-return-to-origin` cards do.
+  if (result.phaseState.phase === Phase.MovementHazard) {
+    result = {
+      ...result,
+      phaseState: {
+        ...result.phaseState,
+        handledCompanyIds: [...result.phaseState.handledCompanyIds, newCompany.id],
+      },
+    };
+  }
+  if (hazardSource) {
+    result = addConstraint(result, {
+      source: hazardSource,
+      sourceDefinitionId: hazardDefinitionId,
+      scope: { kind: 'company-site-phase', companyId: newCompany.id },
+      target: { kind: 'company', companyId: newCompany.id },
+      kind: { type: 'site-phase-do-nothing' },
+    });
+  }
   return result;
 }
 
