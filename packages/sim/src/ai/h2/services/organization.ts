@@ -40,8 +40,8 @@
  * falls out as arithmetic, with no counting rule to tune.
  */
 
-import { CardStatus, GENERAL_INFLUENCE, isCharacterCard } from '@meccg/shared';
-import type { CardDefinition, CardInstanceId, PlayerView } from '@meccg/shared';
+import { CardStatus, GENERAL_INFLUENCE, isCharacterCard, isFactionCard, matchesContext } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, FactionCard, PlayerView } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 import type { Outcome, Rationale, Standing } from '../core/types.js';
 import type { Commitment } from '../core/plan.js';
@@ -59,6 +59,61 @@ import { rosterOf } from './strike/prowess.js';
  * stand-in for missing card data `factions` uses, not a tunable.
  */
 const DEFAULT_INFLUENCE_TARGET = 8;
+
+/**
+ * Faction context fields a character's own conditional direct-influence
+ * effects gate on — the same shape `buildFactionCheckContext` builds in
+ * `reducer-utils.ts`, minus the state-dependent `playableRegions`, which the
+ * sim's `PlayerView` has no `GameState` to resolve.
+ */
+interface FactionCheckContext {
+  readonly name: string;
+  readonly race: string;
+  readonly playableAt: readonly string[];
+}
+
+/**
+ * Flattens a faction's `playableAt` entries the same way
+ * `buildFactionPlayableAt` does, duplicated here because the sim only
+ * imports the public `@meccg/shared` surface and that helper is an internal
+ * engine function.
+ */
+function factionCheckContextOf(def: FactionCard): FactionCheckContext {
+  return {
+    name: def.name,
+    race: def.race,
+    playableAt: def.playableAt.map(entry =>
+      ('region' in entry ? `region:${entry.region}`
+        : 'any' in entry ? 'any'
+          : 'site' in entry ? entry.site
+            : entry.siteType)),
+  };
+}
+
+/**
+ * A character's own conditional direct-influence bonus against a specific
+ * faction — Beorn (tw-126) "+2 direct influence against the Beornings
+ * faction", Legolas (tw-168) the same against the Wood-elves.
+ * `effectiveStats.directInfluence` never carries this: the engine resolves it
+ * only once the faction being checked is known
+ * (`legal-actions/site.ts`'s `dslDI`), so without asking for it separately
+ * two DI-2 characters look interchangeable to the matching even when only
+ * one of them actually fits the faction on offer — which is how a split can
+ * send the wrong character to the wrong faction's site. Only the bearer's own
+ * `stat-modifier` effects are read; ally- and player-scoped influence bonuses
+ * are out of scope here, as they already are for `freeDirectInfluence`, and a
+ * non-numeric (MathJS expression) value is skipped rather than evaluated.
+ */
+function factionDirectInfluenceBonus(charDef: CardDefinition, faction: FactionCheckContext): number {
+  if (!isCharacterCard(charDef)) return 0;
+  let bonus = 0;
+  for (const effect of charDef.effects ?? []) {
+    if (effect.type !== 'stat-modifier' || effect.stat !== 'direct-influence' || !effect.when) continue;
+    if (typeof effect.value !== 'number') continue;
+    if (matchesContext(effect.when, { reason: 'faction-influence-check', faction })) bonus += effect.value;
+  }
+  return bonus;
+}
 
 /** One MP-bearing thing the arrangement could be serving. */
 export interface OrganizationGoal {
@@ -85,6 +140,13 @@ export interface OrganizationGoal {
   readonly faction: boolean;
   /** Printed influence target, when the goal is a faction. */
   readonly influenceTarget?: number;
+  /**
+   * The faction's own name/race/playableAt, when the goal is a faction —
+   * what a bearer's conditional direct-influence bonus is matched against.
+   * Undefined when the card is not a faction or its definition could not be
+   * resolved.
+   */
+  readonly factionContext?: FactionCheckContext;
   /** `payoffTsd`, discounted unless committed — the matching's currency. */
   readonly discountedPayoffTsd: number;
 }
@@ -219,6 +281,7 @@ function goalList(
       committed: true,
       faction: plan.goal.source === 'faction',
       influenceTarget,
+      factionContext: def && isFactionCard(def) ? factionCheckContextOf(def) : undefined,
       discountedPayoffTsd: plan.payoffTsd,
     });
   }
@@ -242,6 +305,7 @@ function goalList(
     if (better) bestByCard.set(candidate.cardInstanceId as string, candidate);
   }
   for (const candidate of bestByCard.values()) {
+    const def = cardPool[candidate.cardDefinitionId];
     goals.push({
       id: `opportunity/${candidate.cardInstanceId as string}@${candidate.siteDefinitionId}`,
       label: `play ${candidate.cardName} at ${candidate.siteName}`,
@@ -251,6 +315,7 @@ function goalList(
       committed: false,
       faction: candidate.source === 'faction',
       influenceTarget: candidate.influenceTarget,
+      factionContext: def && isFactionCard(def) ? factionCheckContextOf(def) : undefined,
       // Unbanked and uncommitted, in exactly the §2.3 sense.
       discountedPayoffTsd: candidate.grossPayoffTsd * tunables.potentialDiscount,
     });
@@ -395,12 +460,33 @@ function buildComputeOrganization(
       return character.effectiveStats.directInfluence - (heldMind.get(id) ?? 0);
     };
 
-    // The best untapped influencer's free direct influence, per company —
-    // what `checkP` for a faction goal is recomputed from. This is what makes
-    // the follower assignment part of the potential.
-    const bestFreeDi = companies.map(company => Math.max(0, ...company.characterIds
-      .filter(id => view.self.characters[id as CardInstanceId]?.status === CardStatus.Untapped)
-      .map(freeDirectInfluence)));
+    // The best untapped influencer's free direct influence against a
+    // specific faction, per (roster, faction) — what `checkP` for a faction
+    // goal is recomputed from. This has to be asked per goal rather than
+    // once per company: a character's conditional stat-modifier bonus
+    // (Beorn tw-126 v. the Beornings, Legolas tw-168 v. the Wood-elves) only
+    // fires against the matching faction, so two DI-2 characters are not
+    // interchangeable the way a company-wide constant would treat them.
+    // Cached by roster + faction name, since the search below revisits the
+    // same (company, goal) pairs across branches.
+    const factionFreeDiCache = new Map<string, number>();
+    const bestFreeDiFor = (characterIds: readonly string[], faction: FactionCheckContext | undefined): number => {
+      const untapped = characterIds.filter(
+        id => view.self.characters[id as CardInstanceId]?.status === CardStatus.Untapped,
+      );
+      if (!faction) return Math.max(0, ...untapped.map(freeDirectInfluence));
+      const key = `${characterIds.join('|')}@${faction.name}`;
+      const cached = factionFreeDiCache.get(key);
+      if (cached !== undefined) return cached;
+      const best = Math.max(0, ...untapped.map(id => {
+        const definitionId = view.self.characters[id as CardInstanceId]?.definitionId;
+        const charDef = definitionId ? cardPool[definitionId] : undefined;
+        const bonus = charDef ? factionDirectInfluenceBonus(charDef, faction) : 0;
+        return freeDirectInfluence(id) + bonus;
+      }));
+      factionFreeDiCache.set(key, best);
+      return best;
+    };
 
     const harmPerCompany = companies.map(company => harmOf(company.characterIds));
     const harmTsd = harmPerCompany.reduce((sum, harm) => sum + harm, 0);
@@ -435,7 +521,8 @@ function buildComputeOrganization(
           goal.siteDefinitionId, reach, tunables,
         );
       const checkP = goal.faction
-        ? pAtLeast(Math.max(2, (goal.influenceTarget ?? DEFAULT_INFLUENCE_TARGET) - bestFreeDi[companyIndex]))
+        ? pAtLeast(Math.max(2, (goal.influenceTarget ?? DEFAULT_INFLUENCE_TARGET)
+          - bestFreeDiFor(company.characterIds, goal.factionContext)))
         : 1;
       const p = route.routeProbability * checkP;
       const valueTsd = netPayoffTsd * (goal.committed ? 1 : tunables.potentialDiscount);
