@@ -417,7 +417,7 @@ def main():
              "w = (median_freq / freq)^alpha, clipped to [1/8, 8]. 0 disables. "
              "Counters collapse onto the easy majority types — measured on the human "
              "corpus, an unweighted clone predicted plan-movement (mean 64 candidates) "
-             "on 0.1% of decisions against the human's 3.3%")
+             "on 0.1%% of decisions against the human's 3.3%%")
     parser.add_argument(
         "--contested-only", action="store_true",
         help="train only on decisions with >=2 viable candidates (the pre-2026-07-26 "
