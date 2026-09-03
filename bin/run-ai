@@ -38,11 +38,7 @@ queue moves on to the next eligible request.
 run-ai handles requests only. Open-PR maintenance (fixing conflicts, failing
 CI and review comments on open PRs) and the finalize sweep that resolves
 'processed' messages from their PR's merge/close outcome live in bin/pr-check,
-a separate worker that can run alongside this one. The two share the working
-tree through an exclusive lock on ~/.meccg/repo.lock: run-ai holds it for the
-whole of a request (from the top of an iteration until handle-mail returns),
-pr-check takes it per PR fix and defers a PR while run-ai has the tree. If
-pr-check is mid-fix when an iteration starts, run-ai waits for it.
+a separate worker that can run alongside this one.
 
 On startup it preflight-checks the headless claude OAuth token: it resolves
 the token (env or secrets.json) and validates it with a tiny test prompt, so a
@@ -123,33 +119,6 @@ BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
 BASE_URL="${BASE_URL%/}"
 
 mkdir -p "$LOG_DIR"
-
-# ---------------------------------------------------------------------------
-# Repository lock
-# ---------------------------------------------------------------------------
-# bin/pr-check (the open-PR maintenance worker) shares this working tree: its
-# fixer checks out PR branches and runs a headless claude in the same checkout
-# that handle-mail's skills branch and commit in. Two workers switching branches
-# under each other would corrupt both jobs, so every stretch that touches the
-# tree runs under an exclusive flock on $REPO_LOCK. run-ai holds it from the
-# top of an iteration (before the dirty-tree check and `git checkout master`)
-# until the request is finished or the tick idles out; pr-check takes it per
-# PR fix and defers the PR when we have it. A pr-check fix runs for at most 30
-# minutes, so when one is in flight we wait for it rather than skipping a tick.
-#
-# The lock lives on fd 9. flock locks belong to the open file description, so
-# the children we spawn (handle-mail, claude) share it: an explicit `flock -u`
-# releases it at once, but if we die without releasing, it stays held until the
-# last child still holding fd 9 is gone too — right for "the tree is in use".
-REPO_LOCK="$HOME/.meccg/repo.lock"
-exec 9>>"$REPO_LOCK"
-repo_lock() {
-  if ! flock -n 9; then
-    echo "[run-ai] Working tree in use by another worker (pr-check fixing a PR?); waiting for it." | tee -a "$LOG_FILE"
-    flock 9
-  fi
-}
-repo_unlock() { flock -u 9; }
 
 # Bound every curl so an unresponsive (as opposed to down) lobby can't wedge
 # the loop.
@@ -567,7 +536,6 @@ ONESHOT_LIMIT_RETRIES=3
 
 if [ "${#REQUEST_IDS[@]}" -gt 0 ]; then
   cd "$SCRIPT_DIR/.."
-  repo_lock
 
   # Same reasoning as the loop's dirty-tree guard: leftovers from an earlier
   # skill would contaminate this request's branch. A human is at the keyboard
@@ -602,10 +570,7 @@ if [ "${#REQUEST_IDS[@]}" -gt 0 ]; then
     # re-run.
     attempt=1
     while [ "$handle_rc" -eq 5 ] && [ "$attempt" -lt "$ONESHOT_LIMIT_RETRIES" ]; do
-      # Give the tree back while we wait; pr-check may have a PR to fix.
-      repo_unlock
       idle_backoff "API capacity/usage limit hit; $MSG_ID reset to 'new', retrying"
-      repo_lock
       attempt=$((attempt + 1))
       handle_rc=0
       run_request "$MSG_ID" || handle_rc=$?
@@ -646,11 +611,6 @@ if [ "${#REQUEST_IDS[@]}" -gt 0 ]; then
 fi
 
 while true; do
-  # Own the working tree for the whole iteration: the dirty check, the
-  # checkout/pull and the request all act on it. Released again before any
-  # idle backoff and once the request is done, so pr-check gets its turn.
-  repo_lock
-
   # Refuse to keep looping on a dirty tree. A previous skill that
   # ended without committing would otherwise contaminate the next
   # run's branch. Stashing hides the problem — bail instead so the
@@ -667,7 +627,6 @@ while true; do
     echo "=== Working tree dirty at $(date -Iseconds). Pausing until it is clean. ===" | tee -a "$LOG_FILE"
     git status --porcelain | sed 's/^/[run-ai]   /' | tee -a "$LOG_FILE"
     echo "[run-ai] Turn these files into a PR or revert them; run-ai will resume on its own." | tee -a "$LOG_FILE"
-    repo_unlock
     idle_backoff "Working tree still dirty"
     continue
   fi
@@ -682,7 +641,6 @@ while true; do
   # `timeout` because a stalled remote must fail the pull (and back off) rather
   # than hang the loop indefinitely.
   if ! timeout 300 git pull 2>&1 | tee -a "$LOG_FILE"; then
-    repo_unlock
     idle_backoff "git pull failed (remote unreachable?)"
     continue
   fi
@@ -692,13 +650,11 @@ while true; do
   # idle tick: back off and retry, rather than letting `set -e` abort the loop
   # with no message.
   if ! MSG_ID=$(next_request_id); then
-    repo_unlock
     idle_backoff "Lobby unreachable"
     continue
   fi
 
   if [ -z "$MSG_ID" ]; then
-    repo_unlock
     idle_backoff "No pending requests"
     continue
   fi
@@ -718,7 +674,6 @@ while true; do
   if [ "$handle_rc" -eq 5 ]; then
     # Don't let a capacity-blocked retry consume the --max-iterations budget.
     iterations=$((iterations - 1))
-    repo_unlock
     idle_backoff "API capacity/usage limit hit; $MSG_ID reset to 'new', retrying later"
     continue
   elif [ "$handle_rc" -ne 0 ]; then
@@ -729,12 +684,10 @@ while true; do
     # terminal here, then carry on with the rest of the queue.
     echo "=== handle-mail failed for $MSG_ID (exit $handle_rc) at $(date -Iseconds). Marking it failed and continuing. ===" | tee -a "$LOG_FILE"
     force_failed_if_unresolved "$MSG_ID"
-    repo_unlock
     idle_backoff "Recovering from handle-mail failure on $MSG_ID"
     continue
   fi
   echo "=== Finished $MSG_ID at $(date -Iseconds) ===" | tee -a "$LOG_FILE"
-  repo_unlock
   echo
   echo
   echo
@@ -743,7 +696,6 @@ while true; do
     # exiting here would strand the repo on the last skill's feature branch.
     # Return to master so the tree is left in the same known state an idle
     # loop would leave it (clean, on master).
-    repo_lock
     git checkout master 2>&1 | tee -a "$LOG_FILE"
     echo "=== Reached max iterations ($MAX_ITERATIONS) at $(date -Iseconds). Stopping run-ai. ===" | tee -a "$LOG_FILE"
     exit 0
