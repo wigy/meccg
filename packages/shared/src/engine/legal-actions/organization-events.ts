@@ -23,6 +23,7 @@ import type {
 } from '../../index.js';
 import type { ConvertCreatureToAllyEffect, RecruitmentVehicleEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
+import { cardsAttachedToCharacter } from '../../character-attachments.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { isCharacterCard, isAvatarCharacter, isSiteCard, isFactionCard } from '../../types/cards.js';
 import { CardStatus, Race } from '../../types/common.js';
@@ -916,6 +917,14 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           if (playTarget.filter) {
             const itemKeywords = itemKeywordsOf(state, charData.items);
             const itemNames = defNamesOf(state, charData.items);
+            // Names of permanent/short events attached to this character via
+            // `CardInPlay.attachedTo` (distinct from `items`/`itemNames` —
+            // e.g. Sacrifice of Form tw-321 reattaches this way once its
+            // Wizard returns to play; see `sacrifice-of-form.ts`). Lets a
+            // play-target filter gate on "a Wizard with Sacrifice of Form"
+            // (The White Wizard wh-36) via
+            // `{ "target.attachedEventNames": { "$includes": "Sacrifice of Form" } }`.
+            const attachedEventNames = defNamesOf(state, cardsAttachedToCharacter(player.cardsInPlay, charId));
             const ctx = {
               target: {
                 race: charDef.race,
@@ -929,6 +938,7 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
                 keywords: (charDef as { keywords?: readonly string[] }).keywords ?? [],
                 itemKeywords,
                 itemNames,
+                attachedEventNames,
                 isAvatar: isAvatarCharacter(charDef),
                 isRevealedAvatar: revealedAvatarId === charId,
                 // Printed site types of the character's home sites, so a filter
