@@ -314,6 +314,13 @@ const SITE_DANGER: Record<string, number> = {
  */
 const MINION_DETAINMENT_SITE_TYPES: ReadonlySet<string> = new Set(['shadow-hold', 'dark-hold']);
 
+/**
+ * What a minion company pays at a free-hold, where the automatic-attacks are
+ * the Men and Elves that attack it in earnest — the hero side's dark-hold,
+ * near enough.
+ */
+const MINION_FREE_HOLD_DANGER = 6;
+
 /** Whether the site's own text turns its attacks back into normal ones. */
 function siteAttacksNormally(site: AnySiteCard): boolean {
   const effects = (site as { effects?: readonly { type?: string; rule?: string }[] }).effects ?? [];
@@ -323,13 +330,16 @@ function siteAttacksNormally(site: AnySiteCard): boolean {
 /**
  * {@link SITE_DANGER} for the seat that would travel there: a minion company
  * is charged nothing at a Shadow-hold or Dark-hold whose attacks only detain
- * it; every other site, and a hero company everywhere, pays the table weight.
- * An unknown site type counts 2.
+ * it and {@link MINION_FREE_HOLD_DANGER} at a free-hold; every other site,
+ * and a hero company everywhere, pays the table weight. An unknown site type
+ * counts 2.
  */
 export function siteDangerFor(site: AnySiteCard, alignment: Alignment | `${Alignment}` | undefined): number {
   const base = SITE_DANGER[site.siteType] ?? 2;
   const minion = alignment === Alignment.Ringwraith || alignment === Alignment.Balrog;
-  if (minion && MINION_DETAINMENT_SITE_TYPES.has(site.siteType) && !siteAttacksNormally(site)) return 0;
+  if (!minion) return base;
+  if (site.siteType === 'free-hold') return MINION_FREE_HOLD_DANGER;
+  if (MINION_DETAINMENT_SITE_TYPES.has(site.siteType) && !siteAttacksNormally(site)) return 0;
   return base;
 }
 

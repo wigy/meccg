@@ -126,10 +126,11 @@ describe('siteDangerFor', () => {
 
   // An automatic-attack at a Shadow-hold or Dark-hold is detainment against a
   // minion company (CoE §3.II.2.R1/B1): it taps, never wounds.
-  test.each([Alignment.Ringwraith, Alignment.Balrog])('%s: shadow-holds and dark-holds hold no danger', alignment => {
+  test.each([Alignment.Ringwraith, Alignment.Balrog])('%s: shadow-holds and dark-holds hold no danger, a free-hold plenty', alignment => {
     expect(siteDangerFor(mockSite('shadow-hold'), alignment)).toBe(0);
     expect(siteDangerFor(mockSite('dark-hold'), alignment)).toBe(0);
-    expect(siteDangerFor(mockSite('free-hold'), alignment)).toBe(1);
+    expect(siteDangerFor(mockSite('free-hold'), alignment)).toBe(6);
+    expect(siteDangerFor(mockSite('border-hold'), alignment)).toBe(1);
     expect(siteDangerFor(mockSite('ruins-and-lairs'), alignment)).toBe(3);
   });
 
