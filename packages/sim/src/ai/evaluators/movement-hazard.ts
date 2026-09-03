@@ -13,7 +13,7 @@
  * corruption hazards, and a small baseline for events.
  */
 
-import { RegionType } from '@meccg/shared';
+import { Alignment, RegionType } from '@meccg/shared';
 import type { GameAction, CreatureCard, CardDefinition, OpponentCompanyView } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
@@ -31,28 +31,78 @@ import {
 } from './common.js';
 
 /**
- * Extra hazard-keying exposure a region type adds to a declared region-move
- * path, relative to a plain Wilderness region (0). Border-land regions key
- * additional creatures (e.g. Ambusher, Abductor, Cave Worm) on top of
- * whatever the destination's own site path already keys, so crossing one
- * gratuitously — without shortening the path or avoiding a worse region —
- * is a pure downside for the resource player.
+ * Hazard-keying exposure each region in a declared region-move path adds for
+ * a hero (Wizard or Fallen-wizard) company. The order follows how many
+ * creatures the card pool keys to each type and how hard they hit: nothing
+ * much keys to a Free-domain, a handful of Men to a Border-land or sea
+ * creatures to a Coastal Sea, while Wilderness keys more creatures than any
+ * other type and Shadow-lands and Dark-domains key the strongest ones.
+ * Coastal Seas sit next to Border-lands: only a few drakes and Corsairs key to
+ * them, and those are played against either alignment alike.
  */
-const REGION_PATH_DANGER: Partial<Record<RegionType, number>> = {
+const HERO_REGION_PATH_DANGER: Readonly<Record<RegionType, number>> = {
   [RegionType.Free]: 0,
-  [RegionType.Wilderness]: 0,
+  [RegionType.Border]: 1,
   [RegionType.Coastal]: 1,
-  [RegionType.Border]: 3,
-  [RegionType.Shadow]: 5,
-  [RegionType.Dark]: 7,
+  [RegionType.Wilderness]: 2,
+  [RegionType.Shadow]: 4,
+  [RegionType.Dark]: 5,
 };
 
-/** Sum of {@link REGION_PATH_DANGER} over a declared region-movement path. */
-function regionPathDanger(regionPath: readonly string[], pool: Readonly<Record<string, CardDefinition>>): number {
+/**
+ * The same exposure for a minion (Ringwraith or Balrog) company, which runs
+ * the other way round: an attack keyed to a Dark-domain, or by a shadow race
+ * to a Shadow-land, is detainment against a minion company (CoE §3.II.2.R1-2 /
+ * B1-2) and so taps rather than wounds, while the Men, Elves and Maiar that
+ * key to Free-domains and Border-lands attack minions in earnest. Wilderness
+ * and Coastal Sea keyings are not detainment for anyone, so those two keep
+ * their hero weights.
+ */
+const MINION_REGION_PATH_DANGER: Readonly<Record<RegionType, number>> = {
+  [RegionType.Free]: 5,
+  [RegionType.Border]: 4,
+  [RegionType.Coastal]: 1,
+  [RegionType.Wilderness]: 2,
+  [RegionType.Shadow]: 1,
+  [RegionType.Dark]: 0,
+};
+
+/**
+ * The most copies of one region type any creature's keying asks for
+ * (`{w}{w}{w}`: Cave Worm and the like; no card needs a fourth). A second and
+ * a third Wilderness each open more creatures to the hazard player, so each
+ * costs again — but a fourth opens nothing, so a longer all-Wilderness route
+ * is not charged for it.
+ */
+const MAX_SAME_REGION_KEYING = 3;
+
+/** Danger a path entry that does not resolve to a region card counts as. */
+const UNKNOWN_REGION_DANGER = 1;
+
+/**
+ * Hazard-keying exposure of a declared region-movement path for a company of
+ * the given alignment: per region type, the danger weight times the number of
+ * copies in the path, capped at {@link MAX_SAME_REGION_KEYING}.
+ */
+function regionPathDanger(
+  regionPath: readonly string[],
+  pool: Readonly<Record<string, CardDefinition>>,
+  alignment: Alignment | undefined,
+): number {
+  const table = alignment === Alignment.Ringwraith || alignment === Alignment.Balrog
+    ? MINION_REGION_PATH_DANGER
+    : HERO_REGION_PATH_DANGER;
+  const copies = new Map<RegionType, number>();
   let danger = 0;
   for (const regionId of regionPath) {
     const def = lookupDef(pool, regionId);
-    danger += def?.cardType === 'region' ? REGION_PATH_DANGER[def.regionType] ?? 1 : 1;
+    if (def?.cardType !== 'region') {
+      danger += UNKNOWN_REGION_DANGER;
+      continue;
+    }
+    const seen = (copies.get(def.regionType) ?? 0) + 1;
+    copies.set(def.regionType, seen);
+    if (seen <= MAX_SAME_REGION_KEYING) danger += table[def.regionType] ?? UNKNOWN_REGION_DANGER;
   }
   return danger;
 }
@@ -167,9 +217,13 @@ export const movementHazardEvaluator: ActionEvaluator = {
           // border-land on top) with no offsetting benefit (bug report: Rivendell
           // to Lórien via Rhudaur → High Pass → Anduin Vales → Wold & Foothills,
           // instead of the equally-long, all-wilderness Rhudaur → Hollin →
-          // Redhorn Gate → Wold & Foothills). Discount by the extra exposure
-          // each crossed region adds so safer equal-length paths score higher.
-          return Math.max(1, 8 - regionPathDanger(action.regionPath, pool));
+          // Redhorn Gate → Wold & Foothills). Discount by the exposure each
+          // crossed region adds for this seat's alignment, so a safer route
+          // wins and a needlessly long one loses. The decay keeps every path
+          // below the starter-movement 12, stays positive, and never floors —
+          // a floor would tie every route past it and hand the pick back to
+          // chance.
+          return 8 / (1 + regionPathDanger(action.regionPath, pool, view.self.alignment) / 2);
         }
         return 8;
 
