@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import type { CardDefinition } from '@meccg/shared';
-import { loadCardPool } from '@meccg/shared';
-import { resourcePlayableAt } from './common.js';
+import { Alignment, loadCardPool } from '@meccg/shared';
+import { resourcePlayableAt, siteDangerFor } from './common.js';
 import type { AnySiteCard } from './common.js';
 
 // Minimal mock for a site card used in scoring tests.
@@ -108,5 +108,43 @@ describe('resourcePlayableAt', () => {
     test('without a player alignment the printed playable line alone decides', () => {
       expect(resourcePlayableAt(durinsAxe, zarakDum)).toBe(true);
     });
+  });
+});
+
+describe('siteDangerFor', () => {
+  const attacksNormally = (site: AnySiteCard): AnySiteCard =>
+    ({ ...site, effects: [{ type: 'site-rule', rule: 'attacks-not-detainment', filter: { 'enemy.race': { $ne: 'ringwraith' } } }] }) as unknown as AnySiteCard;
+
+  test('a haven is the only site a hero company pays nothing for', () => {
+    expect(siteDangerFor(mockSite('haven'), Alignment.Wizard)).toBe(0);
+    expect(siteDangerFor(mockSite('free-hold'), Alignment.Wizard)).toBe(1);
+    expect(siteDangerFor(mockSite('border-hold'), Alignment.Wizard)).toBe(1);
+    expect(siteDangerFor(mockSite('ruins-and-lairs'), Alignment.Wizard)).toBe(3);
+    expect(siteDangerFor(mockSite('shadow-hold'), Alignment.Wizard)).toBe(5);
+    expect(siteDangerFor(mockSite('dark-hold'), Alignment.Wizard)).toBe(7);
+  });
+
+  // An automatic-attack at a Shadow-hold or Dark-hold is detainment against a
+  // minion company (CoE §3.II.2.R1/B1): it taps, never wounds.
+  test.each([Alignment.Ringwraith, Alignment.Balrog])('%s: shadow-holds and dark-holds hold no danger, a free-hold plenty', alignment => {
+    expect(siteDangerFor(mockSite('shadow-hold'), alignment)).toBe(0);
+    expect(siteDangerFor(mockSite('dark-hold'), alignment)).toBe(0);
+    expect(siteDangerFor(mockSite('free-hold'), alignment)).toBe(6);
+    expect(siteDangerFor(mockSite('border-hold'), alignment)).toBe(1);
+    expect(siteDangerFor(mockSite('ruins-and-lairs'), alignment)).toBe(3);
+  });
+
+  test('a site whose text makes its attacks normal charges a minion the hero weight (Moria)', () => {
+    expect(siteDangerFor(attacksNormally(mockSite('shadow-hold', 'Moria')), Alignment.Ringwraith)).toBe(5);
+    expect(siteDangerFor(attacksNormally(mockSite('dark-hold')), Alignment.Balrog)).toBe(7);
+  });
+
+  test('a fallen-wizard company is a hero company for detainment', () => {
+    expect(siteDangerFor(mockSite('dark-hold'), Alignment.FallenWizard)).toBe(7);
+  });
+
+  test('an unknown site type counts 2 for anyone', () => {
+    expect(siteDangerFor(mockSite('somewhere-new'), Alignment.Ringwraith)).toBe(2);
+    expect(siteDangerFor(mockSite('somewhere-new'), undefined)).toBe(2);
   });
 });

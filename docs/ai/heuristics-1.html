@@ -164,11 +164,13 @@
 <h2>8. Movement/Hazard evaluator</h2>
 <p>Phase <code>movement-hazard</code>. Both seats decide here: the resource player selects companies, declares paths and draws; the hazard player plays creatures, events and corruption, and places on-guard cards.</p>
 <h3>Region danger on declared paths</h3>
-<p><code>REGION_PATH_DANGER</code> is the extra hazard-keying exposure a region type adds relative to Wilderness. A path's danger is the sum over its regions; a path entry that is not a region card counts 1.</p>
+<p>The hazard-keying exposure a declared region-move path adds, summed over its regions with one table per alignment class. A hero (Wizard or Fallen-wizard) company is charged by how many creatures the pool keys to each type and how hard they hit; a minion (Ringwraith or Balrog) company sees the order reversed, because an attack keyed to a Dark-domain, or by a shadow race to a Shadow-land, is detainment against it (CoE §3.II.2.R1-2 / B1-2) while the Men, Elves and Maiar keyed to Free-domains and Border-lands attack it in earnest. Wilderness and Coastal Sea keyings are detainment for nobody, so those two weights are shared.</p>
 <table class="small">
-<tr><th>region type</th><th>free-domain</th><th>wilderness</th><th>coastal-sea</th><th>border-land</th><th>shadow-land</th><th>dark-domain</th></tr>
-<tr><td>danger</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">5</td><td class="num">7</td></tr>
+<tr><th>region type</th><th>free-domain</th><th>border-land</th><th>coastal-sea</th><th>wilderness</th><th>shadow-land</th><th>dark-domain</th></tr>
+<tr><td>hero danger</td><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="num">2</td><td class="num">4</td><td class="num">5</td></tr>
+<tr><td>minion danger</td><td class="num">5</td><td class="num">4</td><td class="num">1</td><td class="num">2</td><td class="num">1</td><td class="num">0</td></tr>
 </table>
+<p>A second and a third region of the same type each cost again (a double Wilderness keys more creatures than a single, a triple more than a double), but no creature keys to more than three of one type, so the fourth and later copies cost nothing. A path entry that is not a region card counts 1.</p>
 <h3>Creature threat</h3>
 <pre>creatureThreat(def, defenderProwess) = max(1, prowess × strikes − ⌊defenderProwess / 2⌋)
 defenderProwess = Σ effective prowess of the targeted opponent company
@@ -179,7 +181,7 @@ creatureActionWeight = max(1, creatureThreat / keyingVariants)</pre>
 <tr><th>action</th><th>weight</th><th>notes</th></tr>
 <tr><td class="k"><code>draw-cards</code></td><td>100</td><td>always take every draw</td></tr>
 <tr><td class="k"><code>select-company</code></td><td>10</td><td></td></tr>
-<tr><td class="k"><code>declare-path</code></td><td>12 / <code>max(1, 8 − pathDanger)</code> / 8</td><td>12 for starter movement (printed path); region movement is 8 minus the declared path's danger, so equal-length safer routes win (bug report: Rivendell→Lórien via a gratuitous border-land); any other movement type 8</td></tr>
+<tr><td class="k"><code>declare-path</code></td><td>12 / <code>8 / (1 + pathDanger / 2)</code> / 8</td><td>12 for starter movement (printed path); region movement decays from 8 with the declared path's danger for this seat's alignment, so safer routes win and needlessly long ones lose (bug report: Rivendell→Lórien via a gratuitous border-land) — the decay never floors, so two routes of different danger never tie; any other movement type 8</td></tr>
 <tr><td class="k"><code>order-effects</code></td><td>10</td><td></td></tr>
 <tr><td class="k"><code>play-hazard</code> (creature)</td><td><code>creatureActionWeight</code>, plus a lift for detainment</td><td>if the attack would be a detainment attack (§13), add <code>normalCreatureCeiling</code>: the best weight of any <em>normal</em> creature in hand against the same company. Detainment therefore always precedes wounding attacks, and stays ordered among detainment creatures</td></tr>
 <tr><td class="k"><code>play-hazard</code> (corruption)</td><td>8, or <code>8 + freeDi(target)</code></td><td>the bonus applies to Foolish Words (<code>td-25</code>) only: aim at the character with the most free DI so a corruption loss hurts most</td></tr>
@@ -268,7 +270,7 @@ creatureActionWeight = max(1, creatureThreat / keyingVariants)</pre>
 <h3>scoreDestinationSite(view, pool, site)</h3>
 <p>The movement-planning score for a destination. Non-negative integer; 0 means "do not move here".</p>
 <pre>playableScore = Σ over hand cards playable at site of  max(10, MP × 20)
-siteDanger    = SITE_DANGER[site.siteType]          (unknown type → 2)
+siteDanger    = SITE_DANGER[site.siteType]          (unknown type → 2; a minion seat pays 6 at a free-hold and 0 at a shadow-hold or dark-hold, unless the site's text makes its attacks normal)
 regionDanger  = Σ over the site's printed sitePath of REGION_DANGER[region]   (unknown → 1)
 draws         = site.resourceDraws
 
@@ -284,9 +286,11 @@ else:
 </table>
 <table class="small">
 <tr><th>SITE_DANGER</th><th>haven</th><th>free-hold</th><th>border-hold</th><th>ruins-and-lairs</th><th>shadow-hold</th><th>dark-hold</th></tr>
-<tr><td>danger</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">5</td><td class="num">7</td></tr>
+<tr><td>hero danger</td><td class="num">0</td><td class="num">1</td><td class="num">1</td><td class="num">3</td><td class="num">5</td><td class="num">7</td></tr>
+<tr><td>minion danger</td><td class="num">0</td><td class="num">6</td><td class="num">1</td><td class="num">3</td><td class="num">0 (5)</td><td class="num">0 (7)</td></tr>
 </table>
-<p>Coefficients were chosen against the organization pass weight of 5: a single 2-MP item (40) clearly dominates it, a 0-MP minor item still contributes 10, and a two-card draw at a safe site (10) beats sitting still while a dangerous site's penalty wins out. The draw-only branch exists because a hand of combat-only events once left every destination at 0 and the AI camped at Rivendell for three turns. Note that <code>REGION_DANGER</code> here (used for a site's printed path) differs from <code>REGION_PATH_DANGER</code> in the movement-hazard evaluator (used for a declared region path); they were tuned separately.</p>
+<p>A haven is the one site nothing can be keyed to and a company may heal at, so a free-hold sits one above it. For a minion (Ringwraith or Balrog) seat an automatic-attack at a Shadow-hold or Dark-hold is detainment (CoE §3.II.2.R1/B1) and taps rather than wounds, so those two cost nothing — unless the site's own text makes its attacks normal, encoded as a <code>site-rule</code> of <code>attacks-not-detainment</code> (Moria, Goblin-gate, Dead Marshes and the like), in which case the hero weight in parentheses applies. A free-hold's Men and Elves attack a minion company in earnest, so it pays 6 there, near the hero side's dark-hold. A Fallen-wizard company is a hero company for detainment.</p>
+<p>Coefficients were chosen against the organization pass weight of 5: a single 2-MP item (40) clearly dominates it, a 0-MP minor item still contributes 10, and a two-card draw at a safe site (10) beats sitting still while a dangerous site's penalty wins out. The draw-only branch exists because a hand of combat-only events once left every destination at 0 and the AI camped at Rivendell for three turns. Note that <code>REGION_DANGER</code> here (used for a site's printed path) is the hero-side table of the movement-hazard evaluator's declared-path danger (§8), but with no minion counterpart and no cap on repeated regions.</p>
 
 <h3>resourcePlayableAt(def, site, playerAlignment)</h3>
 <p>Whether a hand resource can be played at a site. It errs on "not playable", which costs a candidate destination but never a wasted trip.</p>
@@ -456,7 +460,9 @@ REPRODUCE         (the command line that regenerates this explanation)</pre>
 <tr><td><code>GREAT_SHIP_ID</code></td><td><code>tw-248</code></td><td>organization.ts</td></tr>
 <tr><td>GI budget in <code>play-character</code></td><td>20</td><td>organization.ts</td></tr>
 <tr><td>organization <code>pass</code></td><td>5</td><td>organization.ts</td></tr>
-<tr><td><code>REGION_PATH_DANGER</code></td><td>free 0, wilderness 0, coastal 1, border 3, shadow 5, dark 7</td><td>movement-hazard.ts</td></tr>
+<tr><td><code>HERO_REGION_PATH_DANGER</code></td><td>free 0, border 1, coastal 1, wilderness 2, shadow 4, dark 5</td><td>movement-hazard.ts</td></tr>
+<tr><td><code>MINION_REGION_PATH_DANGER</code></td><td>free 5, border 4, coastal 1, wilderness 2, shadow 1, dark 0</td><td>movement-hazard.ts</td></tr>
+<tr><td><code>MAX_SAME_REGION_KEYING</code></td><td>3</td><td>movement-hazard.ts</td></tr>
 <tr><td>on-guard total (movement-hazard)</td><td>4, split across options</td><td>movement-hazard.ts</td></tr>
 <tr><td>Foolish Words id</td><td><code>td-25</code></td><td>movement-hazard.ts</td></tr>
 <tr><td>hard-need threshold</td><td>8</td><td>combat.ts, site-phase.ts</td></tr>
@@ -464,7 +470,7 @@ REPRODUCE         (the command line that regenerates this explanation)</pre>
 <tr><td>free-council curve</td><td>0 / 0.05 / linear to 1.0 between leads 4 and 20</td><td>end-of-turn.ts</td></tr>
 <tr><td>discard-first mind threshold</td><td>6</td><td>end-of-turn.ts</td></tr>
 <tr><td><code>REGION_DANGER</code></td><td>free-domain 0, border 1, wilderness 2, shadow-land 4, dark-domain 5</td><td>common.ts</td></tr>
-<tr><td><code>SITE_DANGER</code></td><td>haven 0, free-hold 0, border-hold 1, ruins-and-lairs 3, shadow-hold 5, dark-hold 7</td><td>common.ts</td></tr>
+<tr><td><code>SITE_DANGER</code></td><td>haven 0, free-hold 1, border-hold 1, ruins-and-lairs 3, shadow-hold 5, dark-hold 7; minion seats pay 6 at a free-hold and 0 at a shadow-hold/dark-hold unless its attacks are normal</td><td>common.ts</td></tr>
 <tr><td>destination coefficients</td><td>playable <code>max(10, MP × 20)</code>; draws ×2 (with plays) or ×5 (draw-only); haven staging 15</td><td>common.ts</td></tr>
 <tr><td>dice table</td><td>§5</td><td>common.ts</td></tr>
 </table>

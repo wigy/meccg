@@ -1,4 +1,5 @@
 import { describe, test, expect } from 'vitest';
+import { Alignment } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import { movementHazardEvaluator } from './movement-hazard.js';
 import type { AiContext } from '../strategy.js';
@@ -92,6 +93,11 @@ const ANDUIN_VALES: CardDefinition = { cardType: 'region', id: 'tw-442', name: '
 const WOLD_AND_FOOTHILLS: CardDefinition = { cardType: 'region', id: 'tw-490', name: 'Wold & Foothills', regionType: 'wilderness' } as unknown as CardDefinition;
 const HOLLIN: CardDefinition = { cardType: 'region', id: 'tw-466', name: 'Hollin', regionType: 'wilderness' } as unknown as CardDefinition;
 const REDHORN_GATE: CardDefinition = { cardType: 'region', id: 'tw-481', name: 'Redhorn Gate', regionType: 'wilderness' } as unknown as CardDefinition;
+// One region of each remaining type, for the alignment-dependent danger order.
+const THE_SHIRE: CardDefinition = { cardType: 'region', id: 'tw-486', name: 'The Shire', regionType: 'free' } as unknown as CardDefinition;
+const LINDON: CardDefinition = { cardType: 'region', id: 'tw-474', name: 'Lindon', regionType: 'free' } as unknown as CardDefinition;
+const ANGMAR: CardDefinition = { cardType: 'region', id: 'tw-444', name: 'Angmar', regionType: 'shadow' } as unknown as CardDefinition;
+const GUNDABAD: CardDefinition = { cardType: 'region', id: 'tw-462', name: 'Gundabad', regionType: 'dark' } as unknown as CardDefinition;
 
 // Wandering Eldar (le-97): a creature whose own text makes its attack
 // detainment against a hero company — it taps rather than wounds, and awards
@@ -121,6 +127,10 @@ const POOL: Record<string, CardDefinition> = {
   'tw-490': WOLD_AND_FOOTHILLS,
   'tw-466': HOLLIN,
   'tw-481': REDHORN_GATE,
+  'tw-486': THE_SHIRE,
+  'tw-474': LINDON,
+  'tw-444': ANGMAR,
+  'tw-462': GUNDABAD,
 };
 
 function makeContext(handDefIds: readonly string[]): AiContext {
@@ -414,6 +424,18 @@ function declarePath(regionPath: readonly string[]): GameAction {
   return { type: 'declare-path', player: 'p2', movementType: 'region', regionPath } as unknown as GameAction;
 }
 
+function pathContext(alignment?: Alignment): AiContext {
+  const base = makeContext([]);
+  const view = { ...base.view, self: { ...base.view.self, alignment } } as unknown as PlayerView;
+  return { ...base, view, legalActions: [] };
+}
+
+function pathScore(regionPath: readonly string[], alignment?: Alignment): number {
+  return movementHazardEvaluator.score(declarePath(regionPath), pathContext(alignment))!;
+}
+
+const path = (...regions: readonly CardDefinition[]): string[] => regions.map(r => r.id);
+
 describe('movementHazardEvaluator declare-path region danger scoring', () => {
   // Bug report: Saruman travelled Rivendell to Lórien via Region Movement and
   // declared Rhudaur -> High Pass -> Anduin Vales -> Wold & Foothills — the
@@ -421,23 +443,63 @@ describe('movementHazardEvaluator declare-path region danger scoring', () => {
   // Wold & Foothills alternative, but with a gratuitous Anduin Vales
   // border-land added on top, for no offsetting benefit. Both paths
   // previously scored the same flat 8, so the AI picked between them
-  // uniformly at random.
+  // uniformly at random. No creature keys to more than three Wilderness
+  // regions, so the fourth Wilderness of the safe route costs nothing while
+  // the Border-land opens Men creatures the other route never faces.
   test('prefers an all-wilderness path over an equal-length path with a border-land', () => {
-    const context = { ...makeContext([]), legalActions: [] };
-
-    const viaAnduinVales = declarePath(['tw-482', 'tw-465', 'tw-442', 'tw-490']);
-    const viaRedhornGate = declarePath(['tw-482', 'tw-466', 'tw-481', 'tw-490']);
-
-    const anduinValesScore = movementHazardEvaluator.score(viaAnduinVales, context)!;
-    const redhornGateScore = movementHazardEvaluator.score(viaRedhornGate, context)!;
-
-    expect(redhornGateScore).toBeGreaterThan(anduinValesScore);
+    const viaAnduinVales = pathScore(path(RHUDAUR, HIGH_PASS, ANDUIN_VALES, WOLD_AND_FOOTHILLS));
+    const viaRedhornGate = pathScore(path(RHUDAUR, HOLLIN, REDHORN_GATE, WOLD_AND_FOOTHILLS));
+    expect(viaRedhornGate).toBeGreaterThan(viaAnduinVales);
   });
 
-  test('falls back to the flat baseline for a path with unresolvable regions', () => {
-    const context = { ...makeContext([]), legalActions: [] };
-    const score = movementHazardEvaluator.score(declarePath(['unknown-region']), context);
-    expect(score).toBe(7);
+  test('a wilderness costs a hero company more than a free-domain', () => {
+    expect(pathScore(path(THE_SHIRE))).toBeGreaterThan(pathScore(path(RHUDAUR)));
+  });
+
+  test('each extra wilderness up to the third costs more, the fourth nothing', () => {
+    const one = pathScore(path(RHUDAUR));
+    const two = pathScore(path(RHUDAUR, HOLLIN));
+    const three = pathScore(path(RHUDAUR, HOLLIN, REDHORN_GATE));
+    const four = pathScore(path(RHUDAUR, HOLLIN, REDHORN_GATE, WOLD_AND_FOOTHILLS));
+    expect(one).toBeGreaterThan(two);
+    expect(two).toBeGreaterThan(three);
+    expect(four).toBe(three);
+  });
+
+  test('shadow-lands and dark-domains cost a hero company more than wilderness', () => {
+    expect(pathScore(path(RHUDAUR))).toBeGreaterThan(pathScore(path(ANGMAR)));
+    expect(pathScore(path(ANGMAR))).toBeGreaterThan(pathScore(path(GUNDABAD)));
+  });
+
+  test('a free-domain-only path scores the full baseline for a hero company', () => {
+    expect(pathScore(path(THE_SHIRE, LINDON))).toBe(8);
+  });
+
+  test('never ties two paths of different danger, however dangerous', () => {
+    const grim = pathScore(path(GUNDABAD, GUNDABAD, GUNDABAD, ANGMAR));
+    const grimmer = pathScore(path(GUNDABAD, GUNDABAD, GUNDABAD, ANGMAR, ANGMAR));
+    expect(grim).toBeGreaterThan(grimmer);
+    expect(grimmer).toBeGreaterThan(0);
+  });
+
+  // The order runs the other way for a minion company: an attack keyed to a
+  // Dark-domain is detainment against it (CoE §3.II.2.R1/B1), while the Men
+  // and Elves of a Free-domain attack it for real.
+  test.each([Alignment.Ringwraith, Alignment.Balrog])('%s: a dark-domain is safer than a free-domain', alignment => {
+    expect(pathScore(path(GUNDABAD), alignment)).toBeGreaterThan(pathScore(path(ANGMAR), alignment));
+    expect(pathScore(path(ANGMAR), alignment)).toBeGreaterThan(pathScore(path(RHUDAUR), alignment));
+    expect(pathScore(path(RHUDAUR), alignment)).toBeGreaterThan(pathScore(path(ANDUIN_VALES), alignment));
+    expect(pathScore(path(ANDUIN_VALES), alignment)).toBeGreaterThan(pathScore(path(THE_SHIRE), alignment));
+    expect(pathScore(path(GUNDABAD, GUNDABAD), alignment)).toBe(8);
+  });
+
+  test.each([Alignment.Wizard, Alignment.FallenWizard])('%s: a free-domain is safer than a dark-domain', alignment => {
+    expect(pathScore(path(THE_SHIRE), alignment)).toBeGreaterThan(pathScore(path(GUNDABAD), alignment));
+  });
+
+  test('charges a path entry that resolves to no region card as a mild unknown', () => {
+    expect(pathScore(['unknown-region'])).toBeLessThan(8);
+    expect(pathScore(['unknown-region'])).toBeGreaterThan(pathScore(path(RHUDAUR)));
   });
 });
 

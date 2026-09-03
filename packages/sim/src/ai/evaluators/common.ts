@@ -10,7 +10,7 @@
  */
 
 import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HazardEventCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
-import type { Alignment } from '@meccg/shared';
+import { Alignment } from '@meccg/shared';
 import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition, hasPlayFlag, siteMatchesEntry } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
@@ -291,15 +291,57 @@ const REGION_DANGER: Record<string, number> = {
   'dark-domain': 5,
 };
 
-/** Site-type danger weight (higher = more dangerous). */
+/**
+ * Site-type danger weight (higher = more dangerous) for a hero company. A
+ * haven is the one place nothing can be keyed to and a company may heal, so a
+ * free-hold — safe as it is — still sits one above it.
+ */
 const SITE_DANGER: Record<string, number> = {
   haven: 0,
-  'free-hold': 0,
+  'free-hold': 1,
   'border-hold': 1,
   'ruins-and-lairs': 3,
   'shadow-hold': 5,
   'dark-hold': 7,
 };
+
+/**
+ * Site types whose automatic-attacks are detainment against a minion
+ * (Ringwraith or Balrog) company (CoE §3.II.2.R1/B1): they tap rather than
+ * wound, so the site holds no danger for a minion — unless its own text says
+ * its attacks are normal, which the card data encodes as a `site-rule` of
+ * `attacks-not-detainment` (Moria, Goblin-gate, Dead Marshes and the like).
+ */
+const MINION_DETAINMENT_SITE_TYPES: ReadonlySet<string> = new Set(['shadow-hold', 'dark-hold']);
+
+/**
+ * What a minion company pays at a free-hold, where the automatic-attacks are
+ * the Men and Elves that attack it in earnest — the hero side's dark-hold,
+ * near enough.
+ */
+const MINION_FREE_HOLD_DANGER = 6;
+
+/** Whether the site's own text turns its attacks back into normal ones. */
+function siteAttacksNormally(site: AnySiteCard): boolean {
+  const effects = (site as { effects?: readonly { type?: string; rule?: string }[] }).effects ?? [];
+  return effects.some(e => e.type === 'site-rule' && e.rule === 'attacks-not-detainment');
+}
+
+/**
+ * {@link SITE_DANGER} for the seat that would travel there: a minion company
+ * is charged nothing at a Shadow-hold or Dark-hold whose attacks only detain
+ * it and {@link MINION_FREE_HOLD_DANGER} at a free-hold; every other site,
+ * and a hero company everywhere, pays the table weight. An unknown site type
+ * counts 2.
+ */
+export function siteDangerFor(site: AnySiteCard, alignment: Alignment | `${Alignment}` | undefined): number {
+  const base = SITE_DANGER[site.siteType] ?? 2;
+  const minion = alignment === Alignment.Ringwraith || alignment === Alignment.Balrog;
+  if (!minion) return base;
+  if (site.siteType === 'free-hold') return MINION_FREE_HOLD_DANGER;
+  if (MINION_DETAINMENT_SITE_TYPES.has(site.siteType) && !siteAttacksNormally(site)) return 0;
+  return base;
+}
 
 /**
  * Whether a hand resource card can be played at the given site.
@@ -477,7 +519,7 @@ export function scoreDestinationSite(
   }
 
   const resourceDraws = 'resourceDraws' in destSite ? destSite.resourceDraws : 0;
-  const siteDanger = SITE_DANGER[destSite.siteType] ?? 2;
+  const siteDanger = siteDangerFor(destSite, view.self.alignment);
   let regionDanger = 0;
   if ('sitePath' in destSite && Array.isArray(destSite.sitePath)) {
     for (const region of destSite.sitePath as readonly RegionType[]) {
