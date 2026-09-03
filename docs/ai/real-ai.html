@@ -41,9 +41,10 @@
 <p>Real-AI (registry name <code>bc</code>, lobby seat <code>AI-Real</code>) is a small neural network that plays MECCG from the same projected view every other agent sees. <strong>It is not a language model.</strong> It is an action-conditioned policy/value network of about 48 000 parameters: given the state and the list of candidate actions, it produces one probability per candidate and one estimate of the game's outcome. The network is trained offline in Python (PyTorch) and played in pure TypeScript, with no runtime dependency, by mirroring the forward pass over weights exported as JSON.</p>
 <p>Two kinds of training produce a weights file:</p>
 <ul>
-<li><strong>Behavioural cloning (BC).</strong> The policy imitates a teacher: either Heuristics 1 playing itself (soft targets from its weighted candidate list) or humans in recorded lobby games (one-hot targets on the move they made). The value head is fitted to the game's final outcome.</li>
+<li><strong>Behavioural cloning (BC).</strong> The policy imitates a teacher. <strong>The teacher is recorded human play</strong>: the moves humans made in lobby games, exported as one-hot targets (§15). The code also accepts an AI agent's self-play as teacher (soft targets from its weighted candidate list), and the first models were bootstrapped that way from Heuristics 1 before the human exporter existed, but that is now forbidden as imitation data (see the policy note below). The value head is fitted to the game's final outcome.</li>
 <li><strong>Self-play reinforcement learning (RL).</strong> Starting from a BC model, the policy plays games at sampling temperature 1 against itself and against a frozen league, and is updated by PPO (or REINFORCE) on the outcomes. A candidate becomes champion only if it beats the previous champion and does not regress against any league member.</li>
 </ul>
+<div class="warn"><strong>Policy (CLAUDE.md, "AI Training Policy").</strong> Only recorded human games may teach the trained AI. No AI seat, Heuristics 1 included, has ever won a game against a human (the corpus stands 107–0 across 21 players), so cloning an AI agent can only reproduce a losing policy. <code>export-training</code> output is for opponents, league members, gate baselines and RL rollouts, never for <code>--mode bc</code>; and warm-starting a human clone from an AI-cloned base, as the shipped <code>human-passw-0813</code> did, is teaching from that AI too. The sections below describe the self-play exporter and the AI-cloned models because they exist and are measured, not because they should be repeated.</div>
 <p>The design is deliberately pinned to a versioned <em>feature specification</em> and a hashed <em>card vocabulary</em>; a weights file that disagrees with the running code on either is refused rather than played badly. What a model is worth is decided only by paired, side-swapped games with confidence intervals; the results section records what has been measured, including the things that did not work.</p>
 
 <h2>2. Vocabulary</h2>
@@ -282,7 +283,7 @@
 
 <h2>14. Training data: self-play export</h2>
 <p><code>npm run export-training -w @meccg/sim -- [--games N] [--seed S] [--agents a,b] [--decks d1,d2] [--out training.jsonl] [--max-decisions N] [--jobs N]</code></p>
-<p>Plays headless games and wraps each teacher agent so that every decision is featurized from the exact context the agent saw. Defaults: 10 games from seed 1, teacher <code>heuristic:sample</code> on both seats (an argmax teacher walks one trajectory per seed; the student needs the states either side of that line), 25 000-decision cap. <code>--jobs N</code> (or <code>SIM_JOBS</code>) fans out over child processes on contiguous seed slices and merges shards in seed order; the result is bit-identical to a serial run. Only the approved challenge decks (a, b, c) may be used for training; <code>resolveDecks</code> warns otherwise.</p>
+<p>Plays headless games and wraps each agent so that every decision is featurized from the exact context the agent saw. Defaults: 10 games from seed 1, <code>heuristic:sample</code> on both seats (a sampling agent walks a wider set of trajectories per seed than an argmax one), 25 000-decision cap. Under the training policy this exporter produces RL rollouts (the self-play loop calls it with <code>bc:…@1</code>) and evaluation material; it is <em>not</em> a source of imitation targets, whatever agent it is pointed at. <code>--jobs N</code> (or <code>SIM_JOBS</code>) fans out over child processes on contiguous seed slices and merges shards in seed order; the result is bit-identical to a serial run. Only the approved challenge decks (a, b, c) may be used for training; <code>resolveDecks</code> warns otherwise.</p>
 <h3>Record formats</h3>
 <table class="small">
 <tr><th>line</th><th>fields</th></tr>
@@ -456,15 +457,14 @@
 <tr><td><code>packages/sim/src/features.test.ts</code>, <code>bc-agent.test.ts</code>, <code>test-fixtures/bc-mini-weights.json</code></td><td>coverage and completeness tests for the action-type list; forward-pass and agent tests over the mini fixture</td></tr>
 </table>
 <h3>CLI cheat sheet</h3>
-<pre># 1. teacher trajectories (approved decks, parallel)
-npm run export-training -w @meccg/sim -- --games 400 --seed 30000 --jobs 12 --out train.jsonl
-
-# 2. human trajectories from the lobby corpus
+<pre># 1. the teacher: human trajectories from the lobby corpus
 npm run export-human -w @meccg/sim -- --dir ~/backup/ai-meccg.com --out human.jsonl --jobs 8
 
-# 3. clone (CPU is fine), then fine-tune on humans with pass down-weighted
-python3 packages/sim/train/train_bc.py --data train.jsonl --out base.json --epochs 3 --stride 2
-python3 packages/sim/train/train_bc.py --data human.jsonl --init base.json --out human.json --epochs 5 --action-weight pass=0.4
+# 2. clone from scratch (CPU is fine) with pass down-weighted
+python3 packages/sim/train/train_bc.py --data human.jsonl --out human.json --epochs 5 --action-weight pass=0.4
+
+# 3. self-play rollouts are for RL and evaluation only, never imitation targets
+npm run export-training -w @meccg/sim -- --agents bc:human.json@1,bc:human.json@1 --games 60 --jobs 12 --out rollout.jsonl
 
 # 4. play, explain, gate
 npm run play    -w @meccg/sim -- --agents bc:human.json@1,heuristic --seed 7

@@ -85,3 +85,9 @@ Do NOT run `npm test` or `npm run test:nightly` before pushing — full suites r
 ### Mail System API
 
 - When calling `/api/system/mail`, the `recipients` field **must** be a JSON array of strings (e.g. `["wigy"]`), never a plain string. Passing a string causes it to be split into individual characters, sending mail to wrong users.
+
+## AI Training Policy
+
+- **Only recorded human games may teach the trained AI.** Behavioural-cloning targets come from `export-human` (human seats in lobby logs) and nothing else. Never export Heuristics 1 (or any other AI agent) self-play as imitation data: no AI seat has ever won a game against a human, so cloning one only reproduces a losing policy.
+- Self-play/RL updates learn from game outcomes, not from another agent's choices; AI agents may still serve as opponents, league members and gate baselines.
+- Judge every training change by head-to-head win rate, never by agreement with a heuristic.
