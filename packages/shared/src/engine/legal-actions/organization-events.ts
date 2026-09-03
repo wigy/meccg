@@ -32,7 +32,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -1057,9 +1057,12 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           return sum + (ch ? ch.allies.length : 0);
         }, 0);
         const memberCount = company.characters.length + allyCount;
-        // Company duplication limit: check cardsInPlay bound to this company
+        // Company duplication limit: check cardsInPlay bound to this company,
+        // plus any not-yet-resolved copy still sitting on the chain (see
+        // countCompanyBoundCopiesDeclaredInChain doc comment).
         if (companyDupLimit) {
-          const existingCopies = countCompanyBoundCopies(state, def.name, company.id);
+          const existingCopies = countCompanyBoundCopies(state, def.name, company.id)
+            + countCompanyBoundCopiesDeclaredInChain(state, def.name, company.id);
           if (existingCopies >= companyDupLimit.max) {
             logDetail(`Permanent event ${def.name}: company duplication limit reached on ${company.id as string} (${existingCopies}/${companyDupLimit.max})`);
             continue;

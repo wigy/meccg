@@ -39,7 +39,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, recomputeDerived, resetMint, viableActions, runActions, Phase, Alignment,
+  buildTestState, recomputeDerived, resetMint, viableActions, runActions, dispatch, Phase, Alignment,
   addCardInPlay, companyIdAt, getCharacter, findCharInstanceId,
   attachAllyToChar, playPermanentEventAndResolve,
   pool, MINION_RESOURCES_30, HAZARD_CREATURES_12,
@@ -246,6 +246,34 @@ describe('Fell Rider (le-183)', () => {
     const plays = viableActions(state, PLAYER_1, 'play-permanent-event')
       .map(ea => ea.action as PlayPermanentEventAction)
       .filter(a => a.cardInstanceId === state.players[0].hand[0].instanceId);
+
+    expect(plays).toHaveLength(0);
+  });
+
+  test('a second copy cannot be played on the same company while the first is still pending on the chain', () => {
+    // Regression: game mtlqs2ps-ma99ex, seq 173-177 — with priority merely
+    // passing between the two plays, the first copy was declared on the chain
+    // but not yet resolved into cardsInPlay when the second copy's legality
+    // was checked, so countCompanyBoundCopies (which only scans cardsInPlay)
+    // missed it and both landed in play together once the chain resolved.
+    const state = ringwraithAtDolGuldur({ phase: Phase.Organization, hand: [FELL_RIDER, FELL_RIDER] });
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const [first, second] = state.players[RESOURCE_PLAYER].hand.map(c => c.instanceId);
+
+    // Declare the first copy on the chain; the opponent passes their response
+    // window (as in the game log), but the entry is deliberately left
+    // unresolved — still sitting on the chain, not yet in cardsInPlay — when
+    // priority returns to the Ringwraith player to check the second copy.
+    const afterFirst = dispatch(
+      dispatch(state, {
+        type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: first, targetCompanyId: companyId,
+      }),
+      { type: 'pass-chain-priority', player: PLAYER_2 },
+    );
+
+    const plays = viableActions(afterFirst, PLAYER_1, 'play-permanent-event')
+      .map(ea => ea.action as PlayPermanentEventAction)
+      .filter(a => a.cardInstanceId === second);
 
     expect(plays).toHaveLength(0);
   });
