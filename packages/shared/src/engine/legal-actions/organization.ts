@@ -3321,6 +3321,12 @@ export function buildPlayerStateContext(
   playerId: PlayerId,
 ): Record<string, unknown> {
   const opponent = state.players.find(p => p.id !== playerId);
+  // The opponent's revealed avatar name, if any — lets a `discard-self-when`
+  // (or other player-state condition) gate on the *opposing* player's avatar
+  // identity, e.g. The White Wizard (wh-36): "Discard if Saruman is in play
+  // as an opposing Wizard" reads `{ "opponent.avatarName": "Saruman" }`.
+  const opponentAvatar = opponent ? findPlayerAvatar(state, opponent) : undefined;
+  const opponentAvatarName = opponentAvatar ? defById(state, opponentAvatar.definitionId)?.name : undefined;
   let hasRingwraithInPlay = false;
   for (const char of Object.values(player.characters)) {
     const def = defById(state, char.definitionId);
@@ -3381,7 +3387,7 @@ export function buildPlayerStateContext(
       playsAsSauron: playerPlaysAsSauron(state, player),
       sameLocationDeckTypeAsOpponent: opponent !== undefined && isMinionOrBalrog(player) === isMinionOrBalrog(opponent),
     },
-    opponent: { alignment: opponent?.alignment },
+    opponent: { alignment: opponent?.alignment, avatarName: opponentAvatarName },
     inPlay: buildControllerInPlayNames(state, playerId),
     inPlayAnywhere: buildInPlayNames(state),
     charactersInPlayAnywhere: charactersInPlayNames(state),

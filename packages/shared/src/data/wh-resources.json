@@ -444,10 +444,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/TheWhiteWizard.jpg",
     "unique": true,
     "eventType": "permanent",
-    "marshallingPoints": 0,
+    "marshallingPoints": 2,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Unique. Playable on a Wizard with Sacrifice of Form. +2 to his direct influence, +1 to all of his corruption checks. Discard if Saruman is in play as an opposing Wizard."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": "wizard" },
+            { "target.attachedEventNames": { "$includes": "Sacrifice of Form" } }
+          ]
+        }
+      },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 2 },
+      { "type": "check-modifier", "check": "corruption", "value": 1 },
+      {
+        "type": "discard-self-when",
+        "condition": { "opponent.avatarName": "Saruman" }
+      }
+    ],
+    "text": "Unique. Playable on a Wizard with Sacrifice of Form. +2 to his direct influence, +1 to all of his corruption checks. Discard if Saruman is in play as an opposing Wizard.",
+    "certified": "2026-09-03"
   },
   {
     "cardType": "hero-resource-faction",

@@ -18341,3 +18341,48 @@ creature's card with Elven Rope. Discard the creature if Elven Rope's bearer
 becomes wounded. If stored with a creature, the creature stays with Elven
 Rope and you receive three miscellaneous marshalling points. Otherwise, the
 creature has no effect on play."
+
+**`target.attachedEventNames` on the character play-target filter, and
+`opponent.avatarName` on the player-state context** — Used by The White
+Wizard (wh-36): "Unique. Playable on a Wizard with Sacrifice of Form. +2 to
+his direct influence, +1 to all of his corruption checks. Discard if Saruman
+is in play as an opposing Wizard."
+
+```json
+{
+  "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.race": "wizard" },
+    { "target.attachedEventNames": { "$includes": "Sacrifice of Form" } }
+  ] }
+},
+{ "type": "stat-modifier", "stat": "direct-influence", "value": 2 },
+{ "type": "check-modifier", "check": "corruption", "value": 1 },
+{ "type": "discard-self-when", "condition": { "opponent.avatarName": "Saruman" } }
+```
+
+- `target.attachedEventNames` (`legal-actions/organization-events.ts`, the
+  character-target play-option context) lists the names of permanent/
+  short-events currently bound to the candidate character via
+  `CardInPlay.attachedTo` — e.g. Sacrifice of Form (tw-321), which reattaches
+  itself to its Wizard this way the moment he is put back into play
+  (`sacrifice-of-form.ts` `reattachSacrificeOfForm`). Distinct from
+  `itemNames`/`itemKeywords` (items borne in `CharacterInPlay.items`) — a
+  character-attached permanent-event lives in the player's `cardsInPlay`
+  with `attachedTo` pointing at the character, not in `items`. Computed via
+  the existing `cardsAttachedToCharacter` helper (`character-attachments.ts`)
+  plus `defNamesOf`, so any future card can gate on "bearer of an attached
+  \<named permanent-event\>" with no new engine work.
+- `opponent.avatarName` (`buildPlayerStateContext`,
+  `legal-actions/organization.ts`) is the name of the *opposing* player's
+  revealed avatar (via `findPlayerAvatar`), or `undefined` if none is in
+  play. Lets a player-state condition — including `discard-self-when` — gate
+  on the opponent's specific avatar identity.
+- `discard-self-when` is a `postReduce` sweep (`discard-self-when.ts`); The
+  White Wizard is the first user whose carrier is a **character-borne item**
+  rather than a bare `cardsInPlay` entry (it attaches to its Wizard as a
+  resource permanent-event, `inPlayOnCharacterSlot` routing it into
+  `items`). `sweepDiscardSelfWhen` now also runs a
+  `sweepDiscardSelfWhenItems` pass over every character's `items`, matching
+  the same effect and context and discarding via the generic
+  `removeAttachment`/`toCardInstance` primitives.
