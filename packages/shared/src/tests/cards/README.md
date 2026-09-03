@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1296 | 1296 | 0 | 100.0% |
+| 1297 | 1297 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -18,7 +18,7 @@
 | LE | 316 | 316 | 100.0% |
 | TD | 120 | 120 | 100.0% |
 | TW | 417 | 417 | 100.0% |
-| WH | 94 | 94 | 100.0% |
+| WH | 95 | 95 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -311,7 +311,7 @@
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
 | dm-86 | Scimitars of Steel | — | 6 | ☑ |
-| dm-88 | Seized by Terror | — | 10 | ☑ |
+| dm-88 | Seized by Terror | — | 11 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-96 | Twisted Tales | — | 15 | ☑ |
@@ -1252,6 +1252,7 @@
 | wh-31 | Whole Villages Roused | — | 17 | ☑ |
 | wh-33 | Noble Steed | — | 11 | ☑ |
 | wh-34 | Promptings of Wisdom | — | 9 | ☑ |
+| wh-36 | The White Wizard | — | 8 | ☑ |
 | wh-37 | A Panoply of Wings | — | 11 | ☑ |
 | wh-38 | Beasts of the Wood | — | 16 | ☑ |
 | wh-39 | Wild Horses | — | 13 | ☑ |

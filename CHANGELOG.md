@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.143.0 — 2026-09-03
+
+Alignment-aware danger scoring and movement fixes
+
+### Game Engine
+
+- Certified The White Wizard (wh-36): playable on a Wizard carrying Sacrifice of Form, +2 direct influence and +1 to corruption checks, discarded when Saruman is revealed as the opposing Wizard. New DSL support: `attachedEventNames` on character play-target gates, `opponent.avatarName` in the player-state context, and `sweepDiscardSelfWhen` now also sweeps character-borne items (#2973)
+- Declaring movement is no longer blocked while the sideboard fetch sub-flow (CoE 2.II.6) is open; rule 2.II.7 allows it "either before or after organizing", matching the precedent for granted-action activations (#2974)
+- A character split off by Seized by Terror into a solo company at its site of origin no longer receives its own movement/hazard and site phases later in the same turn (#2975)
+
+### AI
+
+- Heuristics 1 region and site danger now follow the moving seat's alignment: hero seats pay most for Shadow and Dark regions, minion seats the reverse, since those attacks are detainment against minions; repeated regions of the same type each cost again up to the third, and a free-hold now costs a minion seat as much as a dark-hold costs a hero (#2976, direct commit)
+- Escaped the percent signs in the `--balance-alpha` help of `train_bc.py`; Python 3.14 validates help strings at argument registration, so every invocation failed before reading a record (#2977)
+
+### Documentation
+
+- Heuristics 1 and Real-AI each get a full reference PDF under `docs/ai`, covering every evaluator rule, the feature spec, the network, training, gates and measured strength
+- Training policy stated in CLAUDE.md and the Real-AI document: only recorded human games may teach the trained AI; AI self-play is never an imitation target
+- Dropped an obsolete document and the repository lock file
+
 ## 0.142.0 — 2026-09-03
 
 Two-Leader companies grounded
