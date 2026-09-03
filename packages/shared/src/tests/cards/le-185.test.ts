@@ -250,13 +250,18 @@ describe('le-185 — Forced March', () => {
   });
 
   // CoE rule 2.II.3.1.3 / glossary "leader": a company already holding more
-  // than one Leader may only move to a haven. Forced March's extra M/H phase
-  // grants another movement, not an exemption from that gate.
-  test('with two Leaders in the company, the extra move offer excludes non-haven destinations', () => {
-    // Regression for the "Troll-Chief" bug report (game mtk941gz-q5365m): a
+  // than one Leader can never legally complete a move — rule 2.IV.5 means it
+  // is not "at" any site for the entire movement/hazard phase, so Forced
+  // March's extra M/H phase cannot offer it any destination, haven or not
+  // (confirmed CoE ruling, forum topic 5356).
+  test('with two Leaders in the company, the extra move offer excludes every destination, including havens', () => {
+    // Regression for the "Troll-Chief" bug reports (game mtk941gz-q5365m): a
     // company holding both Troll-chief and Orc Captain (both Leader-keyword)
     // was offered Mount Gram — a shadow-hold, not a haven — as an
-    // extra-mh-move destination after moving to the Darkhaven Carn Dûm.
+    // extra-mh-move destination after moving to the Darkhaven Carn Dûm. A
+    // follow-up CoE ruling then clarified that even a haven destination like
+    // Dol Guldur must not be offered, since the company is never "at" a
+    // haven while its movement is being resolved.
     let state: GameState = {
       ...buildTestState({
         activePlayer: PLAYER_1,
@@ -296,10 +301,11 @@ describe('le-185 — Forced March', () => {
       .map(a => a.action)
       .filter((a): a is ExtraMHMoveAction => a.type === 'extra-mh-move');
 
-    // The White Towers (a non-haven reachable via starter movement) must NOT
-    // be offered, while Dol Guldur (a Darkhaven reachable via starter
-    // movement) must still be offered.
+    // Neither The White Towers (non-haven) nor Dol Guldur (a Darkhaven) may
+    // be offered — the company cannot declare movement at all while over
+    // the one-Leader limit.
     expect(extraMoves.some(a => a.destinationSite === whiteTowersInst.instanceId)).toBe(false);
-    expect(extraMoves.some(a => a.destinationSite === dolGuldurInst.instanceId)).toBe(true);
+    expect(extraMoves.some(a => a.destinationSite === dolGuldurInst.instanceId)).toBe(false);
+    expect(extraMoves).toHaveLength(0);
   });
 });

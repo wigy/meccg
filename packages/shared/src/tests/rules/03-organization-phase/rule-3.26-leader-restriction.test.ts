@@ -126,13 +126,16 @@ describe('Rule 3.26 — Leader Restriction', () => {
     expect(mergesOneLeader.length).toBeGreaterThan(0);
   });
 
-  test('The leader restriction also applies to moving companies: a company with two leaders cannot declare movement away from a haven', () => {
+  test('The leader restriction also applies to moving companies: a company with two leaders cannot declare movement at all, not even haven to haven', () => {
     // A company with two Leaders (Orc Captain + Troll-chief), formed at Minas
     // Morgul (a Darkhaven — legal per the haven exemption), must not be
-    // offered Barad-dûr (a dark-hold, not a haven) as a movement destination:
-    // per the glossary "leader" definition, the one-leader-per-company limit
-    // "also applies to moving companies", so the two-leader company can only
-    // move to another haven.
+    // offered Barad-dûr (a dark-hold, not a haven) as a movement destination.
+    // Per rule 2.IV.5, a company is not considered "at" any site from the
+    // moment its new site is revealed until immediately before the site
+    // phase, so the company also cannot be offered Carn Dûm — another
+    // Darkhaven — because declaring that movement would pass it through that
+    // "moving state" while still over the one-Leader limit (confirmed CoE
+    // ruling, forum topic 5356). The company cannot declare movement at all.
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -142,15 +145,18 @@ describe('Rule 3.26 — Leader Restriction', () => {
           alignment: Alignment.Ringwraith,
           companies: [{ site: MINAS_MORGUL, characters: [ORC_CAPTAIN, TROLL_CHIEF] }],
           hand: [],
-          siteDeck: [BARAD_DUR],
+          siteDeck: [BARAD_DUR, CARN_DUM],
         },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
 
     const baradDurInst = state.players[0].siteDeck.find(s => s.definitionId === BARAD_DUR)!.instanceId;
+    const carnDumInst = state.players[0].siteDeck.find(s => s.definitionId === CARN_DUM)!.instanceId;
     const plans = viableActions(state, PLAYER_1, 'plan-movement');
     expect(plans.every(ea => (ea.action as PlanMovementAction).destinationSite !== baradDurInst)).toBe(true);
+    expect(plans.every(ea => (ea.action as PlanMovementAction).destinationSite !== carnDumInst)).toBe(true);
+    expect(plans).toHaveLength(0);
 
     // Control: a company with only one Leader (Orc Captain alone) at the same
     // site CAN declare movement to Barad-dûr — confirming the site is normally
