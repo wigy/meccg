@@ -16,9 +16,10 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import type { CardDefinitionId } from '../../../index.js';
 import {
-  buildTestState, resetMint, viableFor, Phase,
+  buildTestState, resetMint, viableFor, viableActions, dispatch, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, GANDALF, LEGOLAS,
+  SCROLL_OF_ISILDUR,
   RIVENDELL, BREE, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import type { PlanMovementAction } from '../../../types/actions-organization.js';
@@ -89,5 +90,46 @@ describe('Rule 3.37 — Declaring Movement', () => {
     });
     expect(hasBreePlan).toBe(false);
     void breeDef; // suppress unused-var
+  });
+
+  // Bug report: a player tapped their avatar to fetch cards to their discard
+  // pile (CoE 2.II.6), and while that fetch sub-flow was open, plan-movement
+  // for an unrelated company was no longer offered at all. Rule 2.II.7
+  // ("Declaring Movement") is worded "either before or after organizing" —
+  // the same phrasing 2.II.6 itself uses — so it is independent of
+  // "organizing" (2.II.1) and must stay available while the sideboard fetch
+  // sub-flow is still open, exactly like 2.II.6's own granted-action
+  // activations already do.
+  test('plan-movement stays available for a company while a sideboard-to-discard fetch sub-flow is open', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: RIVENDELL, characters: [GANDALF] },
+            { site: RIVENDELL, characters: [ARAGORN] },
+          ],
+          hand: [],
+          siteDeck: [BREE, MORIA],
+          sideboard: [SCROLL_OF_ISILDUR],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    const startAction = viableActions(state, PLAYER_1, 'start-sideboard-to-discard')[0].action;
+    const midFlow = dispatch(state, startAction);
+
+    const movements = viableFor(midFlow, PLAYER_1)
+      .filter(a => a.action.type === 'plan-movement') as { action: PlanMovementAction }[];
+    const breeSiteInstId = midFlow.players[0].siteDeck.find(s => s.definitionId === BREE)!.instanceId;
+    expect(movements.some(a => a.action.destinationSite === breeSiteInstId)).toBe(true);
   });
 });

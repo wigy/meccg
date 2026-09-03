@@ -759,6 +759,28 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
   return actions;
 }
 
+/**
+ * `cancel-movement` actions undoing a `plan-movement` declared earlier this
+ * organization phase, one per company that currently has a destination site.
+ * Rule 2.II.7 (Declaring Movement) is independent of "organizing" (2.II.1),
+ * so this must stay available even while a sideboard fetch sub-flow (2.II.6)
+ * is open — see the sub-flow branch in {@link organizationActions}.
+ */
+function cancelMovementActions(state: GameState, playerId: PlayerId, player: PlayerState): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  for (const company of player.companies) {
+    if (company.destinationSite !== null) {
+      logDetail(`Company ${company.id as string} has planned movement → can cancel`);
+      actions.push(regressable(state, {
+        type: 'cancel-movement',
+        player: playerId,
+        companyId: company.id,
+      }));
+    }
+  }
+  return actions;
+}
+
 export function organizationActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -779,15 +801,25 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // When the sideboard sub-flow (CoE 2.II.6) is active, only fetch actions
   // (+ pass for discard) are legal for *organizing* — but the sub-flow only
   // suspends "organizing" (2.II.1: play/discard a character, set company
-  // composition), not independent character abilities. CoE 2.II.6 carries no
-  // "no other actions" clause — unlike 2.II.1, which explicitly says so — so
-  // granted-action activations (e.g. a character's tap-to-remove-corruption
-  // action, gold-ring tests, or Gandalf's "may untap at the end of your
-  // organization phase") remain available while the sideboard access is
-  // still being resolved, and must still be offered here.
+  // composition), not independent character abilities or independent
+  // organization-phase actions. CoE 2.II.6 carries no "no other actions"
+  // clause — unlike 2.II.1, which explicitly says so — so granted-action
+  // activations (e.g. a character's tap-to-remove-corruption action, gold-ring
+  // tests, or Gandalf's "may untap at the end of your organization phase")
+  // remain available while the sideboard access is still being resolved.
+  // Declaring Movement (2.II.7) is likewise worded "either before or after
+  // organizing", the same phrasing used for 2.II.6 itself, so a company's
+  // movement plan (and undoing one via cancel-movement) must stay available
+  // too — a player fetching cards to their discard pile must still be able
+  // to plan movement for a company that hasn't declared yet.
   if (orgState.sideboardFetchDestination !== null) {
     logHeading(`Sideboard sub-flow active (destination: ${orgState.sideboardFetchDestination})`);
-    return [...fetchFromSideboardActions(state, playerId), ...grantedActionActivations(state, playerId)];
+    return [
+      ...fetchFromSideboardActions(state, playerId),
+      ...grantedActionActivations(state, playerId),
+      ...cancelMovementActions(state, playerId, player),
+      ...planMovementActions(state, playerId),
+    ];
   }
 
   // Note: "end of the organization phase" cards (e.g. Stealth) do not open a
@@ -801,16 +833,7 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   const actions: EvaluatedAction[] = [];
 
   // Cancel movement for companies with planned destinations
-  for (const company of player.companies) {
-    if (company.destinationSite !== null) {
-      logDetail(`Company ${company.id as string} has planned movement → can cancel`);
-      actions.push(regressable(state, {
-        type: 'cancel-movement',
-        player: playerId,
-        companyId: company.id,
-      }));
-    }
-  }
+  actions.push(...cancelMovementActions(state, playerId, player));
 
   logDetail(`Organization: ${player.companies.length} company/companies, ${Object.keys(player.characters).length} character(s) in play`);
 
