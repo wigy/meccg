@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.142.0 — 2026-09-03
+
+Two-Leader companies grounded
+
+### Game Engine
+
+- A company holding more than one Leader can no longer declare any movement, not even haven to haven; per CoE rule 2.IV.5 a moving company is not "at" a haven, so it cannot satisfy the one-Leader restriction while its move resolves. The fix applies both to the organization-phase movement offer and to extra movement/hazard phases granted by cards such as Forced March (#2972)
+
 ## 0.141.0 — 2026-09-02
 
 Concede safeguard and company-rule fixes
