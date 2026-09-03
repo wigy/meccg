@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Real-AI — the trained MECCG player</title>
+<link rel="stylesheet" href="doc.css">
+</head>
+<body>
+
+<h1>Real-AI</h1>
+<p class="subtitle">The trained MECCG player: vocabulary, the feature specification, the network, how a decision is read out, the weights file, the training and self-play pipeline, evaluation, shipped models, and results</p>
+<p class="meta">Source of truth: <code>packages/sim/src/features/</code>, <code>packages/sim/src/agents/{bc-agent,from-weights,route-agent}.ts</code>, <code>packages/sim/src/cli/{export,export-human,gate}.ts</code>, <code>packages/sim/train/</code>, and <code>docs/ai-training-system.md</code> on master, 2026-09-03. Every layout, constant and formula is transcribed from that code; measured numbers cite their run. Companion documents: <code>heuristics-1.pdf</code> (the teacher and delegate) and <code>h2-architecture.pdf</code>.</p>
+
+<div class="toc"><ol>
+<li>What Real-AI is</li>
+<li>Vocabulary</li>
+<li>The pipeline at a glance</li>
+<li>Feature specification v1: the global vector</li>
+<li>Feature specification v1: entity rows</li>
+<li>Feature specification v1: candidate vectors and the mask</li>
+<li>The card vocabulary and the action-type list</li>
+<li>The network</li>
+<li>The forward pass in TypeScript</li>
+<li>Reading a decision: argmax, class-mass, temperature</li>
+<li>Guards: self-test, hashes, cycle guard</li>
+<li>The weights file</li>
+<li>Routing: the hybrid</li>
+<li>Training data: self-play export</li>
+<li>Training data: recorded human games</li>
+<li>Behavioural cloning in train_bc.py</li>
+<li>Reinforcement learning: REINFORCE and PPO</li>
+<li>The self-play loop</li>
+<li>Evaluation: gates and the value diagnostic</li>
+<li>Shipped models</li>
+<li>Results, negative results, and what is known</li>
+<li>Lobby integration</li>
+<li>Appendix: file map, CLI reference, flag tables</li>
+</ol></div>
+
+<h2>1. What Real-AI is</h2>
+<p>Real-AI (registry name <code>bc</code>, lobby seat <code>AI-Real</code>) is a small neural network that plays MECCG from the same projected view every other agent sees. <strong>It is not a language model.</strong> It is an action-conditioned policy/value network of about 48 000 parameters: given the state and the list of candidate actions, it produces one probability per candidate and one estimate of the game's outcome. The network is trained offline in Python (PyTorch) and played in pure TypeScript, with no runtime dependency, by mirroring the forward pass over weights exported as JSON.</p>
+<p>Two kinds of training produce a weights file:</p>
+<ul>
+<li><strong>Behavioural cloning (BC).</strong> The policy imitates a teacher: either Heuristics 1 playing itself (soft targets from its weighted candidate list) or humans in recorded lobby games (one-hot targets on the move they made). The value head is fitted to the game's final outcome.</li>
+<li><strong>Self-play reinforcement learning (RL).</strong> Starting from a BC model, the policy plays games at sampling temperature 1 against itself and against a frozen league, and is updated by PPO (or REINFORCE) on the outcomes. A candidate becomes champion only if it beats the previous champion and does not regress against any league member.</li>
+</ul>
+<p>The design is deliberately pinned to a versioned <em>feature specification</em> and a hashed <em>card vocabulary</em>; a weights file that disagrees with the running code on either is refused rather than played badly. What a model is worth is decided only by paired, side-swapped games with confidence intervals; the results section records what has been measured, including the things that did not work.</p>
+
+<h2>2. Vocabulary</h2>
+<dl class="gloss">
+<dt>PlayerView (view)</dt><dd>The per-player projection of the game state, with hidden information redacted. The featurizer consumes only this, never the full <code>GameState</code>, so the hidden-information boundary holds by construction.</dd>
+<dt>Candidate</dt><dd>One entry of <code>view.legalActions</code>: <code>{ action, viable, reason? }</code>. The network scores every candidate, viable or not, so indices line up with the engine's list; only viable ones can be chosen.</dd>
+<dt>Viability mask</dt><dd>A 0/1 vector over candidates, 1 where viable. Applied inside the softmax, so a non-viable candidate gets probability 0.</dd>
+<dt>Forced decision / contested decision</dt><dd>A decision with exactly one viable candidate, versus two or more. About 52% of decisions are forced; they carry outcome signal but no policy gradient.</dd>
+<dt>Feature specification (feature spec)</dt><dd>The exact numeric layout of the global vector, entity rows and candidate vectors, versioned by <code>FEATURE_SPEC_VERSION</code> (currently 1). Any change to widths, zone ids, action-type order or scaling must bump it; exports and weights files record it and mismatches are refused.</dd>
+<dt>Global vector</dt><dd>A fixed-width vector (54 columns) summarising the whole view: turn, phase, pile sizes, influence, marshalling points, scores, flags.</dd>
+<dt>Entity row</dt><dd>One 13-column row per visible card in a structured zone (hand, characters, items, allies, attached hazards, sites, permanents, on-guard cards, agents, own site deck).</dd>
+<dt>Zone</dt><dd>The integer id of the structured zone an entity row comes from (<code>ENTITY_ZONES</code>, 1–12).</dd>
+<dt>Candidate vector</dt><dd>A 9-column encoding of one candidate action: type index, viable flag, reference count, up to four referenced cards, up to two numeric parameters.</dd>
+<dt>Card vocabulary (vocab)</dt><dd>The mapping from card definition id to an embedding index (1-based, sorted ids; 0 = unknown / hidden / absent). Its FNV-1a hash travels with every dataset and weights file.</dd>
+<dt>Action-type index</dt><dd>The 1-based position of an action's <code>type</code> in the append-only <code>ACTION_TYPES</code> list (0 = unknown).</dd>
+<dt>Embedding</dt><dd>A learned table row looked up by an integer id (card, action type, zone).</dd>
+<dt>Set encoder / mean pooling</dt><dd>The entity rows are encoded independently and averaged, so the state encoding does not depend on their order or number (a Deep Sets construction).</dd>
+<dt>Torso / state vector</dt><dd>The 64-wide hidden vector combining the encoded global vector and the pooled entities.</dd>
+<dt>Policy head / logits</dt><dd>The per-candidate scorer: state vector and encoded candidate → one logit; the masked softmax over logits is the policy.</dd>
+<dt>Value head / z</dt><dd>A tanh output in [−1, 1] estimating the final outcome from the acting player's side: z = +1 win, −1 loss, 0 draw or unknown.</dd>
+<dt>Teacher</dt><dd>Whoever produced the decisions being cloned: <code>heuristic:sample</code> self-play by default, or human seats in recorded games.</dd>
+<dt>Soft target / one-hot target</dt><dd>The policy target for one decision: the teacher's normalised candidate weights (soft), or probability 1 on the chosen index (one-hot) when the teacher left no weights.</dd>
+<dt>Trajectory / export</dt><dd>A JSONL file of featurized decisions and per-game results produced by <code>export-training</code> or <code>export-human</code>.</dd>
+<dt>Holdout</dt><dd>The last fraction of <em>games</em> (default 20%), used only to report top-1 accuracy and value MSE.</dd>
+<dt>Top-1 agreement</dt><dd>Fraction of decisions where the network's argmax equals the teacher's choice; reported on contested decisions and overall (forced ones count as correct).</dd>
+<dt>Decode / readout</dt><dd>How one action is chosen from the probability vector: <code>argmax</code>, <code>class-mass</code>, or <code>sample</code> at a temperature. Declared in the weights file because the right choice depends on the teacher.</dd>
+<dt>Temperature</dt><dd>Sampling sharpness: probabilities are raised to 1/T before drawing. T = 1 samples the policy as is (rollout mode); smaller T approaches the argmax.</dd>
+<dt>Class-mass</dt><dd>Readout that first picks the action <em>type</em> holding the most total probability and then the best candidate of that type.</dd>
+<dt>Route</dt><dd>A weights-file declaration handing decisions that offer certain action types to a delegate agent (only <code>heuristic</code> is allowed).</dd>
+<dt>Self-test</dt><dd>A real example's inputs and the trainer's outputs embedded in the weights file; replayed at load, with a 2×10<sup>−4</sup> tolerance, to prove the TypeScript forward pass matches PyTorch.</dd>
+<dt>Warm start (<code>--init</code>)</dt><dd>Starting training from an existing weights file; the network shape is taken from it and the decode declaration is inherited.</dd>
+<dt>Behaviour policy / old log-prob / ratio / clip</dt><dd>PPO terms: the probability the rollout policy assigned to the chosen action, and the ratio of the current policy's probability to it, clipped to [1 − ε, 1 + ε].</dd>
+<dt>Advantage</dt><dd>Outcome minus the value head's estimate, z − V. In PPO it is fixed once before the update epochs and normalised per rollout file.</dd>
+<dt>Value pre-fit</dt><dd>Epochs of value-head-only training on the new rollouts before advantages are computed.</dd>
+<dt>Entropy bonus / KL early-stop</dt><dd>RL stabilisers: a small reward for keeping the policy spread, and an update that stops when the mean approximate KL from the behaviour policy exceeds a target.</dd>
+<dt>Rollout</dt><dd>A batch of games played by the learning policy at temperature 1, exported as training data.</dd>
+<dt>League</dt><dd>Frozen opponents (by default Heuristics 1) that share the rollouts and gate every promotion.</dd>
+<dt>Champion / candidate / promotion</dt><dd>The recorded best model, the model produced by one iteration, and the act of making the candidate the new champion after it passes every gate.</dd>
+<dt>Gate</dt><dd>A paired-seed, side-swapped match whose pass criterion is the 95% lower bound of the challenger's Elo difference ≥ a threshold, with every game completing.</dd>
+<dt>Paired seeds / side swap</dt><dd>Each scheduled seed is played twice with the seats exchanged, cancelling seat, deck and shuffle luck.</dd>
+<dt>Accumulate</dt><dd>Continue learning from the latest candidate whether or not it was promoted; gates only decide what is recorded as champion.</dd>
+<dt>Drift valve / league blowout</dt><dd>Reset the learning line to the champion when a candidate fails a league gate by more than twice the tolerance on the point estimate.</dd>
+<dt>State signature / cycle guard</dt><dd>A coarse fingerprint of a view and a per-game record of actions already taken from it, so an argmax policy cannot ride a costless no-op loop forever.</dd>
+<dt>Determinizer / PUCT / search</dt><dd>The experimental search layer (<code>search:</code>) that samples full states consistent with the view and runs a tree search guided by the network. Measured not to beat the bare policy; not shipped to the lobby.</dd>
+<dt>Agent spec</dt><dd>The string that names an agent to the CLIs: <code>bc:weights.json</code>, <code>bc:weights.json@1</code>, <code>bc:weights.json@class</code>, <code>route:plan-movement+discard-card|bc:w.json|heuristic</code>, <code>search:weights.json@192</code>.</dd>
+</dl>
+
+<h2>3. The pipeline at a glance</h2>
+<div class="fig"><img src="bc-pipeline.svg" style="width:64%" alt="Real-AI pipeline"><div class="cap">Figure 1. Data is featurized in TypeScript, weights are fitted in Python, and the same TypeScript featurizer plus a mirrored forward pass plays the result.</div></div>
+<ol>
+<li><strong>Data.</strong> <code>export-training</code> plays headless games with a teacher and records every decision the teacher made, featurized from the exact context the teacher saw. <code>export-human</code> does the same for recorded lobby games, recovering each human move from the game log. Both write the same JSONL format.</li>
+<li><strong>Learning.</strong> <code>train_bc.py</code> fits the network by behavioural cloning (or updates an existing one by PPO/REINFORCE on rollouts) and writes a weights file that carries everything needed to verify it: feature spec version, vocab hash, dims, decode declaration, a self-test, and a training summary.</li>
+<li><strong>Play.</strong> <code>createBcAgent</code> loads the file, replays the self-test, checks the vocab hash against the live card pool at the first decision, and then answers each decision with one forward pass and the declared readout. Gates measure it; the lobby serves it.</li>
+<li><strong>Loop.</strong> <code>selfplay_loop.sh</code> chains rollouts, updates and gates into iterations, promoting when the gates allow.</li>
+</ol>
+
+<h2>4. Feature specification v1: the global vector</h2>
+<p><code>featurizeState</code> emits 54 columns in the order of <code>GLOBAL_FEATURE_NAMES</code>. Counts are divided by a constant to keep values roughly in [0, 1]; flags are 0/1. The nine phase columns are a one-hot over the <code>Phase</code> enum in declaration order.</p>
+<table class="small">
+<tr><th>#</th><th>column</th><th>value</th></tr>
+<tr><td class="num">0</td><td><code>turn</code></td><td>turn number / 100</td></tr>
+<tr><td class="num">1–9</td><td><code>phase:setup</code>, <code>phase:untap</code>, <code>phase:organization</code>, <code>phase:long-event</code>, <code>phase:movement-hazard</code>, <code>phase:site</code>, <code>phase:end-of-turn</code>, <code>phase:free-council</code>, <code>phase:game-over</code></td><td>one-hot of the current phase</td></tr>
+<tr><td class="num">10</td><td><code>is-active-player</code></td><td>1 if the viewing player is the active player</td></tr>
+<tr><td class="num">11</td><td><code>self-index</code></td><td>seat index, 0 or 1 (unscaled)</td></tr>
+<tr><td class="num">12–13</td><td><code>self-hand-size</code>, <code>opp-hand-size</code></td><td>/ 10</td></tr>
+<tr><td class="num">14–15</td><td><code>self-play-deck-size</code>, <code>opp-play-deck-size</code></td><td>/ 100</td></tr>
+<tr><td class="num">16–17</td><td><code>self-discard-size</code>, <code>opp-discard-size</code></td><td>/ 100</td></tr>
+<tr><td class="num">18–19</td><td><code>self-sideboard-size</code>, <code>opp-sideboard-size</code></td><td>/ 100</td></tr>
+<tr><td class="num">20–23</td><td><code>self-gi-used</code>, <code>self-gi-total</code>, <code>opp-gi-used</code>, <code>opp-gi-total</code></td><td>general influence / 20</td></tr>
+<tr><td class="num">24–25</td><td><code>self-stage-points</code>, <code>opp-stage-points</code></td><td>/ 10</td></tr>
+<tr><td class="num">26–27</td><td><code>self-deck-exhaustions</code>, <code>opp-deck-exhaustions</code></td><td>count (unscaled)</td></tr>
+<tr><td class="num">28–33</td><td><code>self-mp-character</code>, <code>-item</code>, <code>-faction</code>, <code>-ally</code>, <code>-kill</code>, <code>-misc</code></td><td>raw marshalling points by source / 10</td></tr>
+<tr><td class="num">34–39</td><td><code>opp-mp-character</code> … <code>opp-mp-misc</code></td><td>same for the opponent</td></tr>
+<tr><td class="num">40–41</td><td><code>self-score</code>, <code>opp-score</code></td><td>tournament score (doubling rule and diversity cap applied) / 10</td></tr>
+<tr><td class="num">42–43</td><td><code>combat-active</code>, <code>chain-active</code></td><td>1 if <code>view.combat</code> / <code>view.chain</code> is non-null</td></tr>
+<tr><td class="num">44–45</td><td><code>pending-effects</code>, <code>active-constraints</code></td><td>list lengths / 5</td></tr>
+<tr><td class="num">46–47</td><td><code>self-companies</code>, <code>opp-companies</code></td><td>/ 5</td></tr>
+<tr><td class="num">48–49</td><td><code>self-characters</code>, <code>opp-characters</code></td><td>characters in play / 10</td></tr>
+<tr><td class="num">50–51</td><td><code>self-kill-pile</code>, <code>opp-kill-pile</code></td><td>/ 10</td></tr>
+<tr><td class="num">52–53</td><td><code>self-agents</code>, <code>opp-agents</code></td><td>/ 5</td></tr>
+</table>
+<p>The opponent's hand and deck sizes are public in the view, so they are included; their contents are not, and nothing here leaks them.</p>
+
+<h2>5. Feature specification v1: entity rows</h2>
+<p>One row per visible entity, 13 columns in the order of <code>ENTITY_FEATURE_NAMES</code>. Integer identity columns (zone, card, bearer, status) are embedded or read as codes on the learning side; the rest are scaled numerics.</p>
+<table class="small">
+<tr><th>#</th><th>column</th><th>value</th></tr>
+<tr><td class="num">0</td><td><code>zone</code></td><td><code>ENTITY_ZONES</code> id (table below)</td></tr>
+<tr><td class="num">1</td><td><code>owner</code></td><td>0 self, 1 opponent</td></tr>
+<tr><td class="num">2</td><td><code>card</code></td><td>card-vocabulary index; 0 for a hidden or unknown card</td></tr>
+<tr><td class="num">3</td><td><code>status</code></td><td>0 untapped, 1 tapped, 2 inverted (wounded)</td></tr>
+<tr><td class="num">4</td><td><code>company</code></td><td>1-based company index within its side (0 = none); self and opponent numbered independently</td></tr>
+<tr><td class="num">5</td><td><code>bearer-card</code></td><td>vocab index of the character bearing this item/ally/hazard (0 = none)</td></tr>
+<tr><td class="num">6</td><td><code>prowess</code></td><td>definition prowess / 10; for characters in play, effective prowess / 10</td></tr>
+<tr><td class="num">7</td><td><code>body</code></td><td>definition body / 10; for characters in play, effective body / 10</td></tr>
+<tr><td class="num">8</td><td><code>mind</code></td><td>definition mind / 10</td></tr>
+<tr><td class="num">9</td><td><code>influence</code></td><td>definition direct influence / 10; for characters in play, effective DI / 10</td></tr>
+<tr><td class="num">10</td><td><code>mp</code></td><td>reads a top-level <code>mp</code> field / 5. Card definitions store marshalling points under <code>marshallingPoints</code>, so this column is 0 for every row in practice (see the note below)</td></tr>
+<tr><td class="num">11</td><td><code>corruption</code></td><td>reads a top-level <code>corruption</code> field / 10 (definitions use <code>corruptionPoints</code>, so 0); for characters in play, effective corruption points / 10</td></tr>
+<tr><td class="num">12</td><td><code>flag</code></td><td>zone-specific: company site → company has moved this turn; on-guard (own) → revealed; opponent agent → face-down</td></tr>
+</table>
+<div class="note"><strong>A quirk to know before changing anything.</strong> Columns 10 and 11 read definition fields named <code>mp</code> and <code>corruption</code>, which card definitions do not carry (they use <code>marshallingPoints</code> and <code>corruptionPoints</code>). The columns are therefore constant 0 except for the corruption override on character rows. Every shipped model was trained on exactly this layout, so fixing the field names is a feature-spec change: it must bump <code>FEATURE_SPEC_VERSION</code> and retrain, not be patched in place.</div>
+<h3>Zones and row order</h3>
+<p>Rows follow the view's own iteration order, so the same view always yields the same rows. Character rows use live effective stats; items, allies and attached hazards under a character carry that character's vocab index as bearer.</p>
+<table class="small">
+<tr><th>id</th><th>zone</th><th>rows emitted</th></tr>
+<tr><td class="num">1</td><td><code>selfHand</code></td><td>every card in our hand</td></tr>
+<tr><td class="num">2</td><td><code>selfCharacter</code></td><td>our characters, company by company in company order</td></tr>
+<tr><td class="num">3</td><td><code>oppCharacter</code></td><td>the opponent's characters, likewise</td></tr>
+<tr><td class="num">4</td><td><code>item</code></td><td>each character's items, immediately after the character (both sides)</td></tr>
+<tr><td class="num">5</td><td><code>ally</code></td><td>each character's allies</td></tr>
+<tr><td class="num">6</td><td><code>attachedHazard</code></td><td>hazards attached to each character</td></tr>
+<tr><td class="num">7</td><td><code>companySite</code></td><td>each company's current site (flag = moved)</td></tr>
+<tr><td class="num">8</td><td><code>destinationSite</code></td><td>our companies' destination sites; the opponent's only when revealed</td></tr>
+<tr><td class="num">9</td><td><code>cardInPlay</code></td><td>permanents in play on both sides</td></tr>
+<tr><td class="num">10</td><td><code>onGuard</code></td><td>on-guard cards per company; ours with the revealed flag, the opponent's as the view shows them (hidden ones are card 0)</td></tr>
+<tr><td class="num">11</td><td><code>agent</code></td><td>our agents in full (character rows); the opponent's by revealed definition, flag = face-down</td></tr>
+<tr><td class="num">12</td><td><code>selfSiteDeck</code></td><td>every site left in our site deck (movement-planning signal)</td></tr>
+</table>
+<p>There is no discard zone; both discard piles enter only as sizes in the global vector. An experimental zone 13 (opponent hazards seen so far this game) exists in <code>export-human --hazard-memory</code> only; it widens the entity list past the committed featurizer and was measured not to help (§21).</p>
+
+<h2>6. Feature specification v1: candidate vectors and the mask</h2>
+<p><code>featurizeActions</code> encodes every entry of <code>view.legalActions</code> as 9 columns and returns the viability mask alongside. The parameter encoding is generic: the action object is walked with sorted keys (skipping <code>type</code>), to a depth of 4; every string that resolves through the view's instance lookup to a card definition becomes a reference, and every finite number becomes a numeric parameter. Identical actions therefore encode identically regardless of how they were constructed.</p>
+<table class="small">
+<tr><th>#</th><th>column</th><th>value</th></tr>
+<tr><td class="num">0</td><td><code>action-type</code></td><td>1-based index in <code>ACTION_TYPES</code>; 0 = unknown type</td></tr>
+<tr><td class="num">1</td><td><code>viable</code></td><td>1 if the engine allows the action</td></tr>
+<tr><td class="num">2</td><td><code>ref-count</code></td><td>number of card references found / 5</td></tr>
+<tr><td class="num">3–6</td><td><code>ref-card-1</code> … <code>ref-card-4</code></td><td>vocab indices of the first four referenced cards (0 when fewer)</td></tr>
+<tr><td class="num">7–8</td><td><code>num-1</code>, <code>num-2</code></td><td>the first two numeric parameters / 10 (e.g. a strike's <code>need</code>)</td></tr>
+</table>
+<p>This encoding is what makes the ~200-type, variable-branching action space tractable: the policy scores each candidate against the state rather than choosing from a fixed-width output, so branching is a runtime set size (1 to over 1 300; mean about 8.9) rather than an architecture constant.</p>
+
+<h2>7. The card vocabulary and the action-type list</h2>
+<h3>Card vocabulary</h3>
+<p><code>buildCardVocab(cardPool)</code> sorts the card-pool keys and assigns indices from 1; the FNV-1a 32-bit hash of the sorted ids joined by newlines is the vocabulary's identity. The current pool has 1 683 definitions and hash <code>6518afc0</code>. Two rules keep the hash stable against harmless pool changes:</p>
+<ul>
+<li>Synthesised <code>acts-as-site</code> companions (Wondrous Maps <code>td-171</code> → <code>td-171-site</code>) get no index of their own; they alias to the source card, so a company standing on one embeds as the card it is, and certifying such a card does not renumber everything.</li>
+<li>Index 0 is reserved for unknown: hidden cards (<code>UNKNOWN_CARD</code>, <code>UNKNOWN_SITE</code>), absent references, and any id not in the pool.</li>
+</ul>
+<p>Adding or removing a real card changes the hash and invalidates every weights file; the agent refuses to play on a mismatch rather than embed cards with the wrong rows.</p>
+<h3>Action types</h3>
+<p><code>ACTION_TYPES</code> is the ordered list of every <code>GameAction.type</code>; a candidate's type column is its position + 1. The list currently has 196 entries: the original 158 sorted names, followed by types appended as cards were certified or rules added. <strong>Indices are permanent and a new type goes at the end</strong>, because the list is a serialisation format shared with every checkpoint: certifying <code>tw-282</code> once inserted <code>choose-peek-deck</code> alphabetically at index 31, shifting 127 of 158 types, and the champion went from 10–9 against Heuristics 1 to 0–18. A completeness test now diffs the list against every discriminant in <code>packages/shared/src/types/actions-*.ts</code>, after a drift of 25 types had featurized distinct decisions (a dodge offer, a burglary attempt, a riddling guess) as the unknown row.</p>
+<p>A model trained before a type was appended has a shorter type-embedding table (158 or 162 rows plus the unknown row in the shipped files). At inference any type index beyond the table maps to row 0, "unknown", rather than being clamped to whatever type sits last; on warm start the trainer grows the table and initialises the new rows as never-seen types.</p>
+
+<h2>8. The network</h2>
+<div class="fig"><img src="bc-net.svg" alt="network architecture"><div class="cap">Figure 2. The action-conditioned policy/value network at the <code>full</code> preset. Widths are for <code>full</code>; ‖ is concatenation.</div></div>
+<p><code>BcNet</code> in <code>train_bc.py</code> is defined by eight widths, chosen by a preset:</p>
+<table class="small">
+<tr><th>preset</th><th class="num">d_card</th><th class="num">d_type</th><th class="num">d_zone</th><th class="num">d_entity</th><th class="num">d_global</th><th class="num">d_state</th><th class="num">d_cand</th><th class="num">d_score</th><th>parameters (158 types)</th></tr>
+<tr><td><code>large</code></td><td class="num">24</td><td class="num">24</td><td class="num">12</td><td class="num">64</td><td class="num">64</td><td class="num">128</td><td class="num">64</td><td class="num">128</td><td>≈109 k</td></tr>
+<tr><td><code>full</code> (default, all shipped models)</td><td class="num">16</td><td class="num">16</td><td class="num">8</td><td class="num">32</td><td class="num">32</td><td class="num">64</td><td class="num">32</td><td class="num">64</td><td>48 466</td></tr>
+<tr><td><code>mini</code> (test fixture)</td><td class="num">4</td><td class="num">4</td><td class="num">2</td><td class="num">8</td><td class="num">8</td><td class="num">16</td><td class="num">8</td><td class="num">16</td><td>8 950</td></tr>
+</table>
+<p>Layer by layer at <code>full</code>, with the exact tensor shapes the weights file carries (PyTorch <code>Linear</code>: weight [out, in], bias [out]):</p>
+<table class="small">
+<tr><th>tensor</th><th>shape</th><th class="num">params</th><th>role</th></tr>
+<tr><td><code>emb_card.weight</code></td><td>[1684, 16]</td><td class="num">26 944</td><td>card embedding, row 0 = unknown; shared by entity cards, bearers, and candidate references</td></tr>
+<tr><td><code>emb_type.weight</code></td><td>[159, 16]</td><td class="num">2 544</td><td>action-type embedding (rows = types at training time + 1)</td></tr>
+<tr><td><code>emb_zone.weight</code></td><td>[16, 8]</td><td class="num">128</td><td>zone embedding; 16 rows leave headroom over the 12 zones</td></tr>
+<tr><td><code>ent_lin</code></td><td>[32, 50] + [32]</td><td class="num">1 632</td><td>entity encoder over [zone 8 ‖ card 16 ‖ bearer 16 ‖ 10 numerics]</td></tr>
+<tr><td><code>glob_lin</code></td><td>[32, 54] + [32]</td><td class="num">1 760</td><td>global-vector encoder</td></tr>
+<tr><td><code>torso</code></td><td>[64, 64] + [64]</td><td class="num">4 160</td><td>state vector from [encoded global 32 ‖ pooled entities 32]</td></tr>
+<tr><td><code>cand_lin</code></td><td>[32, 36] + [32]</td><td class="num">1 184</td><td>candidate encoder over [type 16 ‖ mean of ref embeddings 16 ‖ 4 numerics]</td></tr>
+<tr><td><code>score1</code></td><td>[64, 96] + [64]</td><td class="num">6 208</td><td>scorer hidden layer over [state 64 ‖ candidate 32]</td></tr>
+<tr><td><code>score2</code></td><td>[1, 64] + [1]</td><td class="num">65</td><td>logit</td></tr>
+<tr><td><code>value1</code></td><td>[32, 118] + [32]</td><td class="num">3 808</td><td>value hidden layer over [state 64 ‖ global 54] (skip connection); older files are [32, 64]</td></tr>
+<tr><td><code>value2</code></td><td>[1, 32] + [1]</td><td class="num">33</td><td>value, then tanh</td></tr>
+<tr><td colspan="2"><strong>total</strong></td><td class="num"><strong>48 466</strong></td><td>more than half is the card table; the reasoning part is about 21 500</td></tr>
+</table>
+<p>The entity numerics fed to <code>ent_lin</code> are columns 1, 3, 4, 6–12 of the row (owner, status, company, six stats, flag); the candidate numerics fed to <code>cand_lin</code> are columns 1, 2, 7, 8 (viable, ref-count, num-1, num-2). Every hidden activation is ReLU.</p>
+<p><strong>Why the skip connection.</strong> The shared torso is optimised almost entirely by the policy loss (about 1.5 versus 0.2 for the value loss), so a value head reading only the torso scored 0.48 mid-game sign accuracy, worse than the raw tournament-score differential it nominally already had as an input. Since 2026-07-26 the value head also reads the global vector directly. Both runtimes detect which variant a file is by the input width of <code>value1</code>, so older files still load.</p>
+<p><strong>Capacity is not the lever.</strong> Tripling the reasoning capacity (<code>large</code>) on the same 2 000 games gave identical top-1 (0.433 vs 0.431), slightly worse holdout value MSE, and heavier overfitting at every data scale (2026-07-27).</p>
+
+<h2>9. The forward pass in TypeScript</h2>
+<p><code>bcForward(model, state, actions)</code> in <code>bc-agent.ts</code> mirrors <code>BcNet.forward</code> exactly, in float64 over the file's float32-rounded values:</p>
+<ol>
+<li><strong>Entities.</strong> For each row: concatenate the zone embedding, the card embedding, the bearer embedding and the ten numerics; apply <code>ent_lin</code> and ReLU; accumulate. Divide by <code>max(rows, 1)</code>. A view with no rows at all (a player who lost every character with an empty hand) pools to zeros; the collate on the Python side handles the same case.</li>
+<li><strong>State.</strong> <code>glob_lin</code> + ReLU over the global vector; <code>torso</code> + ReLU over the concatenation.</li>
+<li><strong>Candidates.</strong> For each candidate: the type embedding (row 0 if the index is past this model's table), the mean of the four reference embeddings, the four numerics; <code>cand_lin</code> + ReLU; <code>score1</code> + ReLU over [state ‖ candidate]; <code>score2</code> → logit.</li>
+<li><strong>Policy.</strong> Masked softmax: subtract the maximum viable logit for stability, exponentiate viable logits only, normalise (a zero total is guarded to 1).</li>
+<li><strong>Value.</strong> <code>value1</code> + ReLU over [state ‖ global] or over the state alone depending on the file, then <code>value2</code> and tanh.</li>
+</ol>
+<p>Embedding lookups clamp indices into range except for the type table, where an out-of-range index is sent to the unknown row deliberately (§7). The whole pass is a few hundred microseconds to about a millisecond per decision; a policy-only agent cannot wedge a lobby game, which is one reason search is not shipped.</p>
+
+<h2>10. Reading a decision: argmax, class-mass, temperature</h2>
+<p>The probability vector is one thing; the action chosen from it is a separate choice, and the right choice depends on who taught the weights.</p>
+<table>
+<tr><th>readout</th><th>rule</th><th>suits</th><th>spec</th></tr>
+<tr><td><code>argmax</code></td><td>the viable candidate with the highest probability</td><td>weights cloned from an agent's <em>soft</em> targets (the teacher scored every candidate, so probability concentrates)</td><td><code>bc:w.json</code>, or file <code>decode.mode: "argmax"</code>, or absent</td></tr>
+<tr><td><code>class-mass</code></td><td>sum probability by action <em>type</em>; take the type with the most mass; within it, the highest candidate. Ties resolve to the type that appears first in the engine's list</td><td>weights cloned from human one-hots</td><td><code>bc:w.json@class</code>, or file <code>decode.mode: "class-mass"</code></td></tr>
+<tr><td><code>sample</code> at T</td><td>draw from <code>p<sup>1/T</sup></code> over viable candidates, from the agent's seeded stream</td><td>human-cloned weights (T = 1); RL rollouts (T = 1, so the recorded probabilities are the behaviour distribution)</td><td><code>bc:w.json@1</code>, or file <code>decode: { mode: "sample", temperature }</code></td></tr>
+</table>
+<p><strong>Why argmax misreads human clones.</strong> Argmax assumes every option is one candidate. It is not: <code>plan-movement</code> offers a mean of 20 candidates and up to 286, while <code>pass</code> is always one. A policy that puts 41% on movement spread over twenty plans and 15% on passing has said "move", and argmax reads it as "pass". A human demonstration is a one-hot over the plan they took, so many similar positions with different chosen plans train a deliberately flat distribution across those plans. Measured on human-trained weights: argmax played movement at 1.6% of the decisions where the human moved and scored 3.5% against Heuristics 1, where sampling the same weights scored 40.6–43%, over 320 paired games each.</p>
+<p><strong>Precedence.</strong> An explicit option on <code>createBcAgent</code> (from the <code>@</code> suffix) always wins; otherwise the file's declaration decides; a file without one is read at the argmax so that every weights file trained before the field existed keeps the behaviour it was measured with. <code>class-mass</code> and a temperature are alternatives, not a pair; asking for both is an error. The agent names itself <code>bc</code>, <code>bc@class</code> or <code>bc@T</code> so replays say which readout played.</p>
+<p>Every decision reports the full probability vector over viable candidates as <code>considered</code> and the value estimate as its note (<code>value 0.312</code>); the explainer renders these as relative preferences, because probabilities are comparable within a decision but not across them.</p>
+
+<h2>11. Guards: self-test, hashes, cycle guard</h2>
+<ul>
+<li><strong>Load-time structure.</strong> <code>loadBcWeights</code> rejects a file whose <code>kind</code> is not <code>meccg-bc-weights</code> or <code>formatVersion</code> is not 1, whose <code>featureSpecVersion</code> differs from the build's, whose <code>value1</code> input width is neither the torso width nor torso + global (an architecture this build does not implement), whose decode mode is unknown or whose sampling temperature is not positive, or where any tensor's data length disagrees with its shape.</li>
+<li><strong>Self-test.</strong> The file's embedded example is run through <code>bcForward</code>; the largest deviation across the probability vector and the value must be at most 2×10<sup>−4</sup> (float32 versus float64 rounding), and a non-finite output counts as infinite deviation so NaN cannot pass a <code>&gt;</code> comparison. Failure throws; the agent never plays with drifted arithmetic. This caught an architecture-compatibility bug during development.</li>
+<li><strong>Vocabulary hash.</strong> At the first decision (and whenever the card pool object changes) the vocabulary is rebuilt from the live pool and its hash compared with the file's; a mismatch throws.</li>
+<li><strong>Cycle guard.</strong> Some cards make a costless loop legal: I'll Report You (<code>le-196</code>) may be returned to hand during any organization phase for nothing, and two argmax agents once burned the full 25 000-decision budget inside turn 1. The agent keeps, per game, the set of action keys (the engine's <code>actionId</code>, else <code>type#index</code>) already taken from each state signature and excludes them from the readout; if that excludes everything, the unguarded readout applies. <code>startGame</code> clears the record, because the signature is coarse and one game's history must never narrow another's choices.</li>
+<li><strong>First-legal fallback.</strong> If no viable candidate received probability at all, the first legal action is taken with a note saying so.</li>
+</ul>
+
+<h2>12. The weights file</h2>
+<p>A single JSON document, about 550 KB at <code>full</code>. The trainer writes it; the agent, the lobby's model picker and <code>eval_value.py</code> read it.</p>
+<table class="small">
+<tr><th>field</th><th>type</th><th>meaning</th></tr>
+<tr><td><code>kind</code></td><td><code>"meccg-bc-weights"</code></td><td>file identity</td></tr>
+<tr><td><code>formatVersion</code></td><td>1</td><td>file-format version</td></tr>
+<tr><td><code>featureSpecVersion</code></td><td>1</td><td>feature layout the weights expect; must equal the build's</td></tr>
+<tr><td><code>vocabSize</code>, <code>vocabHash</code></td><td>1683, <code>"6518afc0"</code></td><td>card vocabulary the embeddings index; checked against the live pool</td></tr>
+<tr><td><code>actionTypeCount</code></td><td>158 / 162 / …</td><td>types known at training time (rows of <code>emb_type</code> minus one)</td></tr>
+<tr><td><code>globalWidth</code></td><td>54</td><td>global vector width</td></tr>
+<tr><td><code>dims</code></td><td><code>{ preset, values[8] }</code></td><td>the eight widths of §8</td></tr>
+<tr><td><code>decode</code></td><td><code>{ mode, temperature? }</code></td><td>how the policy should be read (§10); absent means argmax</td></tr>
+<tr><td><code>route</code></td><td><code>{ types[], to }</code></td><td>action types delegated, and to whom (§13); absent means the policy answers everything</td></tr>
+<tr><td><code>training</code></td><td>object</td><td>provenance: <code>mode</code> (bc/ppo/reinforce), <code>init</code>, <code>actionWeight</code>, <code>balanceAlpha</code>, <code>earlyStop</code>, <code>data</code> (paths, with <code>@seat</code> suffixes), <code>examples</code>, <code>games</code>, <code>epochs</code>, <code>holdoutTop1Contested</code>, <code>holdoutTop1Overall</code>, <code>holdoutValueMse</code></td></tr>
+<tr><td><code>weights</code></td><td><code>{ name: { shape, data } }</code></td><td>every tensor of <code>BcNet.state_dict()</code>, row-major, values rounded to 7 decimals</td></tr>
+<tr><td><code>selfTest</code></td><td><code>{ global, entities, candidates, mask, expectedProbs, expectedValue }</code></td><td>one real contested example (from the holdout when there is one) and the trainer's outputs, probabilities rounded to 6 decimals</td></tr>
+</table>
+
+<h2>13. Routing: the hybrid</h2>
+<p>A cloned policy is not uniformly weak; its competence tracks branching factor, because a one-hot demonstration splits its teaching signal across every candidate it did not name. Measured on 21 808 contested holdout decisions of the human corpus, the deployed weights put 99.7% of their probability on the human's actual <code>draw-cards</code> move and 3.3% on their actual <code>plan-movement</code>, against about 5% for guessing uniformly among the mean 20 plans offered. The action <em>mix</em> was calibrated (it planned movement on 3.3% of decisions, the human's rate), so the policy moved as often as a human and to the wrong places.</p>
+<p><code>createRouteAgent(types, primary, secondary)</code> sends a decision to the secondary agent whenever <em>any</em> viable candidate carries a routed type; the secondary then answers the whole decision, including the option to pass. Routing on what the engine offers, rather than on a guess at the decision's kind, keeps the rule checkable against the legal-action list. Against Heuristics 1 over 240 paired games each (2026-08-14):</p>
+<table class="small">
+<tr><th>agent</th><th class="num">score</th><th>paired Elo (95% CI)</th></tr>
+<tr><td>plain <code>bc</code> (human-cloned, sampled)</td><td class="num">38.3%</td><td>−83 [−129, −39]</td></tr>
+<tr><td><code>route(plan-movement)</code></td><td class="num">47.5%</td><td>−19 [−60, +21]</td></tr>
+<tr><td><code>route(plan-movement + discard-card)</code></td><td class="num">53.1%</td><td>+23 [−20, +68]</td></tr>
+</table>
+<p>Routing the two worst types is worth about 106 Elo (≈64 from movement, ≈42 from discarding) and reaches parity. Head to head against its parent the hybrid measured +9 [−29, +46], not significant, because the two share weights on about 89% of decisions.</p>
+<p>The lobby's Real-AI seat can name a bare file and nothing else, so the composition lives in the file: <code>route: { types: ["plan-movement", "discard-card"], to: "heuristic" }</code>. <code>createAgentFromWeights</code> builds <code>bc</code> (with the file's decode) and wraps it when <code>route</code> is present; the delegate is looked up in a local table that contains only <code>heuristic</code>, so a dropped-in file can never put a multi-second search into every lobby game. The wrapped agent is named <code>bc@1+heuristic</code>. The same composition is reachable from the CLIs as <code>route:plan-movement+discard-card|bc:w.json@1|heuristic</code> (the separator is <code>|</code> because <code>,</code> splits agent lists and <code>/</code> appears in every path).</p>
+
+<h2>14. Training data: self-play export</h2>
+<p><code>npm run export-training -w @meccg/sim -- [--games N] [--seed S] [--agents a,b] [--decks d1,d2] [--out training.jsonl] [--max-decisions N] [--jobs N]</code></p>
+<p>Plays headless games and wraps each teacher agent so that every decision is featurized from the exact context the agent saw. Defaults: 10 games from seed 1, teacher <code>heuristic:sample</code> on both seats (an argmax teacher walks one trajectory per seed; the student needs the states either side of that line), 25 000-decision cap. <code>--jobs N</code> (or <code>SIM_JOBS</code>) fans out over child processes on contiguous seed slices and merges shards in seed order; the result is bit-identical to a serial run. Only the approved challenge decks (a, b, c) may be used for training; <code>resolveDecks</code> warns otherwise.</p>
+<h3>Record formats</h3>
+<table class="small">
+<tr><th>line</th><th>fields</th></tr>
+<tr><td><code>k: "h"</code> (header, once)</td><td><code>formatVersion</code> 1, <code>featureSpecVersion</code>, <code>vocabSize</code>, <code>vocabHash</code>, <code>actionTypeCount</code>, <code>actionTypes</code> (the names behind the indices, so the trainer can address a type by name), <code>globalWidth</code> 54, <code>entityWidth</code> 13, <code>actionWidth</code> 9, <code>agents</code>, <code>decks</code>, <code>games</code>, <code>baseSeed</code>, <code>maxDecisions</code>, <code>createdAt</code></td></tr>
+<tr><td><code>k: "d"</code> (decision)</td><td><code>game</code>, <code>seq</code> (0-based within the game), <code>player</code> (seat index 0/1), <code>phase</code>, <code>global[54]</code>, <code>entities[N][13]</code>, <code>candidates[C][9]</code>, <code>mask[C]</code>, <code>chosen</code> (index into the candidate list), <code>weights</code> (list of <code>[index, weight]</code> pairs from the teacher's considered list; empty when the teacher reports none)</td></tr>
+<tr><td><code>k: "r"</code> (result, per game)</td><td><code>game</code>, <code>seed</code>, <code>outcome</code> (<code>completed</code> / <code>decision-limit</code> / <code>deadlock</code> / <code>engine-error</code>), <code>winnerIndex</code> (null for a draw), <code>winReason</code>, <code>error</code>, <code>finalScores</code>, <code>decisions</code>, <code>turns</code></td></tr>
+</table>
+<p>Throughput is about 630 examples per second serially, roughly 2 KB per decision. Self-play is also an engine test: any deadlock or engine-error outcome is an engine bug, and this discipline has found 19 distinct defects, mostly offer/validate asymmetries where the legal-action generator offers an action the reducer rejects.</p>
+
+<h2>15. Training data: recorded human games</h2>
+<p><code>npm run export-human -w @meccg/sim -- --dir ~/backup/ai-meccg.com --out human.jsonl [--jobs 8]</code></p>
+<p>Every model cloned from self-play inherits its teacher's ceiling; the recorded corpus is the other side of that scoreboard (humans against the AI seats are undefeated). This exporter reads the game server's JSONL logs and writes the identical record format, so human data can be mixed with self-play data or used to fine-tune from it via <code>--init</code>.</p>
+<ul>
+<li><strong>Which seat is the teacher.</strong> Every seat that is not a bot. Bot seats are <code>AI-Heuristic</code>, <code>AI-MC</code>, <code>AI-Modular</code>, <code>AI-Real</code>, <code>Mentor</code>, plus any name starting <code>AI-</code> (the corpus contains 16 games against an <code>AI-Pseudo</code> no list mentioned; a bot mistaken for a human would feed the model exactly the policy the data is meant to replace). <code>--players</code> restricts to named humans; <code>--exclude-bots</code> skips games against named opponents.</li>
+<li><strong>Recovering the move.</strong> The log records the action that produced each state, so the choice at record N is <code>records[N+1].action</code>. It is matched structurally (sorted keys, <code>actionId</code> ignored) against the projected view's candidates (<em>direct</em>). If that fails, each same-type candidate is applied through the reducer and the resulting state hash compared with the logged next state (<em>replayed</em>; exact, because the engine's RNG lives in the state). Anything less certain is dropped and counted as <em>unmatched</em>. A move matching a candidate the current engine marks non-viable is refused, since its target index would sit at −10<sup>9</sup> in the masked softmax (5 of 138 000 decisions).</li>
+<li><strong>Undo moves</strong> (engine-flagged regressive) are dropped: a human backing out of a move is not demonstrating how to play.</li>
+<li><strong>Unfinished games.</strong> 494 of 631 logs stop mid-game. By default (<code>--unfinished neutral</code>) they are exported with <code>outcome: "completed"</code>, <code>winnerIndex: null</code> and <code>unfinished: true</code>: the policy learns from every decision and the value head gets z = 0, the honest value of an unknown outcome. <code>--unfinished skip</code> keeps only decided games. The winner is read from the log's terminal <code>game-over</code> state, not from summaries (only 125 logs have one).</li>
+<li><strong>Targets.</strong> <code>weights: []</code>, always: a human leaves no distribution over the moves not taken, and the trainer falls back to a one-hot on <code>chosen</code>.</li>
+<li><strong>Tally.</strong> The run reports exported / direct / replayed / duplicate (several structurally equal candidates encode identically) / bot / undo / unmatched / non-viable / forced / failed, so a silently falling attribution rate is visible.</li>
+</ul>
+
+<h2>16. Behavioural cloning in train_bc.py</h2>
+<p><code>python3 packages/sim/train/train_bc.py --data train.jsonl [more.jsonl@seat …] --out weights.json [--epochs 3] [--batch 64] [--lr 1e-3] [--holdout 0.2] [--seed 0] [--dims full] [--value-weight 0.5] [--stride N] [--init parent.json] [--decode auto] [--action-weight pass=0.4] [--balance-alpha α] [--contested-only]</code></p>
+<h3>Loading</h3>
+<ul>
+<li>Several files may be given; all headers must agree on feature spec and vocab hash. A <code>path@0</code> / <code>path@1</code> suffix keeps only that seat's decisions (league rollouts: the opponent's recorded probabilities belong to a different policy and must not enter the gradient). Game ids are namespaced per file (<code>fileIndex × 10<sup>6</sup> + game</code>).</li>
+<li><code>--stride N</code> keeps every Nth decision by sequence number and skips the JSON parse for the rest. Decisions within a game share one outcome, so for value learning the binding sample size is games, not decisions; striding buys many more games per gigabyte. Sizing rule from experience: 1 286 games at stride 4 ≈ 25 minutes and 3.4 GB; 3 000 games at stride 2 ≈ over an hour and 41 GB.</li>
+<li>Only decisions from games whose result is <code>completed</code> are used; z is +1 / −1 / 0 from <code>winnerIndex</code> relative to the decision's seat.</li>
+<li>The holdout is the last <code>--holdout</code> fraction of games (by id), never a random slice of decisions.</li>
+</ul>
+<h3>Targets and loss</h3>
+<ul>
+<li>Policy target: the teacher's weights, filtered to positive entries and normalised; one-hot on <code>chosen</code> when none. Only decisions with two or more viable candidates contribute a policy gradient, but <strong>all</strong> decisions are trained by default, because forced decisions carry outcome signal and the value head starved without them (holdout value MSE sat near 1.0 when they were excluded; <code>--contested-only</code> restores that for comparison).</li>
+<li>Loss = policy cross-entropy against the target (masked log-softmax) + <code>value_weight</code> (0.5) × MSE(value, z). Optimiser Adam at <code>--lr</code>.</li>
+<li><code>--action-weight NAME=W,…</code> scales the policy loss of decisions whose <em>chosen</em> action has that type (weighted mean, so the loss scale and the learning rate carry over). Cloning a corpus reproduces its action mix, including parts that are artefacts of how the teacher won; the shipped human models use <code>pass=0.4</code>.</li>
+<li><code>--balance-alpha α</code> flattens the chosen-type distribution by inverse frequency: <code>w = clip((median / count)<sup>α</sup>, 1/8, 8)</code>. Without it an unweighted human clone predicted <code>plan-movement</code> on 0.1% of decisions against the human's 3.3%.</li>
+</ul>
+<h3>The decode declaration</h3>
+<p>Derived from what taught the file unless forced: with <code>--decode auto</code>, if at least half the training decisions carry soft weights the file declares <code>argmax</code>, otherwise <code>sample</code> at <code>--decode-temperature</code> (1.0). A fine-tune with <code>--init</code> inherits its parent's declaration instead, because self-play rollouts always carry the behaviour policy's soft weights and deriving from them would stamp <code>argmax</code> on a human-cloned lineage and gate it at the readout that scores 3.5% instead of 43%.</p>
+<h3>Warm start</h3>
+<p><code>--init</code> takes dims and the value-skip variant from the parent, refuses a vocab-hash mismatch, and grows a shorter <code>emb_type</code> table to the current type count with the new rows at their default initialisation. Every other shape must match.</p>
+<h3>Reporting</h3>
+<p>Each epoch prints policy loss, value loss, and on the holdout: top-1 on contested decisions, top-1 overall (forced decisions count as correct), and value MSE. The final numbers go into the file's <code>training</code> block. Reference points: the first 400-game heuristic clone reached 72.1% overall and 42.2% contested against a ceiling of 47.0% (the mean of the teacher's maximum normalised weight, since the teacher samples), so it captured about 92% of what imitation can capture; strength kept improving with data long after top-1 saturated (35.8% → 50.0% against the teacher from 40 to 400 games).</p>
+
+<h2>17. Reinforcement learning: REINFORCE and PPO</h2>
+<p>Both modes require <code>--init</code> (the policy that generated the rollouts) and rollouts played at temperature 1, so that the recorded candidate weights <em>are</em> the behaviour distribution and the chosen action's behaviour log-probability comes free from the export.</p>
+<h3><code>--mode reinforce</code></h3>
+<p>One on-policy epoch: <code>loss = −(z − V)·log π(chosen) + value_weight · MSE − entropy · H(π)</code>, with the advantage detached. Kept as the sanity reference; more than one epoch without importance correction biases the gradient and the trainer warns.</p>
+<h3><code>--mode ppo</code> (the loop default)</h3>
+<ol>
+<li><strong>Value pre-fit</strong> (<code>--value-prefit 1</code>): epochs of training only <code>value1</code>/<code>value2</code> on the new rollouts, torso and policy frozen. The warm-started head is mis-calibrated on states shaped by unfamiliar opponents, and biased advantages blanket-suppress every action from those games regardless of merit; measured 2026-07-25, heuristic-dominant rollouts lost about 113 Elo on every axis from this alone.</li>
+<li><strong>Advantages fixed once</strong>: <code>A = z − V</code> over the whole set, then normalised to zero mean and unit variance <em>per rollout file</em> (per opponent family), so games against one opponent can never blanket-suppress what was learned against another. Without normalisation, same-sign batches collapsed the policy into a distinctive draw-spike failure.</li>
+<li><strong>Clipped surrogate</strong> over <code>--epochs</code> (4) passes: <code>ratio = π(chosen) / π_old(chosen)</code>, <code>loss = −min(ratio·A, clip(ratio, 1−ε, 1+ε)·A) + value_weight · MSE − entropy · H</code>, ε = <code>--clip</code> 0.2, entropy 0.01.</li>
+<li><strong>KL early-stop</strong>: after each epoch the mean k3 estimator <code>(ratio − 1) − log ratio</code> is compared with <code>--kl-target</code> (0.02); exceeding it ends the update and marks <code>earlyStop: true</code> in the file.</li>
+</ol>
+<p>The loop's learning rate is 3×10<sup>−5</sup>: 10<sup>−4</sup> over 4 epochs produced candidate swings from −141 to +47 Elo with repeated collapses. The advantage is the crudest possible (terminal outcome minus value); generalised advantage estimation is the obvious upgrade not yet taken.</p>
+
+<h2>18. The self-play loop</h2>
+<p><code>packages/sim/train/selfplay_loop.sh &lt;champion.json&gt; &lt;workdir&gt; [iterations]</code>, run from anywhere; it changes into <code>packages/sim</code>.</p>
+<p>Each iteration, from the current learning line <code>CURRENT</code>:</p>
+<ol>
+<li><strong>Self-play rollout:</strong> <code>GAMES</code> games of <code>bc:CURRENT@TEMP</code> against itself.</li>
+<li><strong>League rollouts:</strong> for each league member, <code>GAMES_OPP</code> games with the learner in seat 0 (exported as <code>file@0</code>) and <code>GAMES_OPP</code> with the learner in seat 1 (<code>file@1</code>), so only the learner's decisions train.</li>
+<li><strong>Update:</strong> <code>train_bc.py --mode MODE --init CURRENT --holdout 0</code> over all rollout files → <code>candidate-i.json</code>.</li>
+<li><strong>Gates:</strong> candidate (read at its file's declared decode) versus the champion at <code>GATE_MIN_ELO</code>, then versus every league member at <code>GATE_LEAGUE_MIN_ELO</code>. League gates always run because they also detect drift.</li>
+<li><strong>Outcome:</strong> all gates pass → promoted (champion and learning line move to the candidate). Otherwise with <code>ACCUMULATE=1</code> the learning line still advances to the candidate unless a league gate's point estimate fell below <code>2 × GATE_LEAGUE_MIN_ELO</code> (blowout → reset to the champion). With <code>ACCUMULATE=0</code> any rejection resets.</li>
+</ol>
+<table class="small">
+<tr><th>variable</th><th>default</th><th>meaning</th></tr>
+<tr><td><code>LEAGUE</code></td><td><code>heuristic</code></td><td>comma-separated frozen opponents, e.g. <code>heuristic,bc:/path/frozen.json</code></td></tr>
+<tr><td><code>MODE</code></td><td><code>ppo</code></td><td><code>ppo</code> or <code>reinforce</code></td></tr>
+<tr><td><code>EPOCHS</code></td><td>4 (ppo) / 1 (reinforce)</td><td>update passes over the rollouts</td></tr>
+<tr><td><code>GAMES</code>, <code>GAMES_OPP</code></td><td>60, 30</td><td>self-play games per iteration; games per league member per seat</td></tr>
+<tr><td><code>LR</code>, <code>CLIP</code>, <code>KL_TARGET</code>, <code>ENTROPY</code></td><td>3e-5, 0.2, 0.02, 0.01</td><td>trainer settings</td></tr>
+<tr><td><code>TEMP</code></td><td>1</td><td>rollout sampling temperature; raising it widens exploration (strategies needing several coordinated low-probability moves, such as travelling to a faction and influencing it, were unreachable, and the measured models never scored a faction point), and PPO stays correct because the ratio is taken against recorded probabilities</td></tr>
+<tr><td><code>GATE_PAIRS</code>, <code>GATE_ROUNDS</code></td><td>15, 2</td><td>60 games per gate</td></tr>
+<tr><td><code>GATE_MIN_ELO</code>, <code>GATE_LEAGUE_MIN_ELO</code></td><td>0, −25</td><td>promotion threshold; no-regression tolerance</td></tr>
+<tr><td><code>SEED0</code></td><td>50000</td><td>seed base; each iteration advances by 10 000</td></tr>
+<tr><td><code>ACCUMULATE</code></td><td>1</td><td>continue from rejected candidates</td></tr>
+<tr><td><code>SIM_JOBS</code></td><td>1</td><td>parallelism inherited by every export and gate call</td></tr>
+</table>
+<p>Why the league exists: pure self-play measurably overfits to its own family; an early candidate gained about +26 Elo over its BC parent while losing about −77 to Heuristics 1, and a later one beat its champion by +47 while regressing −47 against the heuristic, which the league gate correctly rejected. Why accumulation exists: per-iteration candidates were stable (about −25 to +33 Elo, no collapses) but a strict 200-game gate can almost never confirm a true +30 edge, and resetting on every rejection threw the gains away. Rollout files are deleted after each iteration; candidates stay on disk.</p>
+
+<h2>19. Evaluation: gates and the value diagnostic</h2>
+<h3>The gate</h3>
+<p><code>npm run gate -w @meccg/sim -- --challenger &lt;spec&gt; [--champion heuristic] [--pairs 25] [--rounds 8] [--seed 1] [--min-elo −75] [--decks a,b] [--jobs N]</code></p>
+<p>Plays <code>rounds × pairs</code> seeds, each twice with seats swapped, and passes only when the 95% lower bound of the challenger's score-rate Elo difference is at least <code>--min-elo</code> <em>and</em> every game completes; it exits non-zero otherwise, so CI can block a promotion. <code>--min-elo 0</code> is the strict "must demonstrably beat the champion" form. Glicko-2 ratings (verified against Glickman's worked example) are reported alongside. The harness records and verifies which git tree it measured, after a period in which failed checkouts produced plausible numbers for the wrong tree (2026-08-16); do not chain pairwise Elo across models, strength here is non-transitive, and measure on at least two deck pairs.</p>
+<h3>The value diagnostic</h3>
+<p><code>python3 packages/sim/train/eval_value.py --weights w.json --data holdout.jsonl [--stride N]</code> scores a value head in minutes instead of the hour a search gate costs. Per game-stage bucket (by fraction of the game elapsed: early &lt; 0.25, mid-early &lt; 0.5, mid-late &lt; 0.75, late) and overall it reports MSE against the outcome, sign accuracy on decided games (0.5 = coin flip), and mean |value| (a head that hedges near 0 can have a decent MSE while being useless as a discriminator). Late-game sign accuracy above 0.65 is the threshold it calls "usable as a search evaluator".</p>
+
+<h2>20. Shipped models</h2>
+<p>Files in <code>~/.meccg/models</code> on the development machine (the lobby lists this directory, newest first). All are <code>full</code> dims, feature spec 1, vocab <code>6518afc0</code>.</p>
+<table class="small">
+<tr><th style="width:22%">field</th><th>value</th></tr>
+<tr><td colspan="2"><strong><code>approved-base-0727.json</code></strong> — the base clone</td></tr>
+<tr><td>lineage</td><td>behavioural cloning from scratch, 3 epochs, <code>full</code> dims, 158 action types, no decode declaration (argmax)</td></tr>
+<tr><td>data</td><td>2 473 games / 2.20 M decisions of <code>heuristic:sample</code> self-play on the three approved pairings (a/b, a/c, b/c), stride 2</td></tr>
+<tr><td>holdout</td><td>top-1 43.4% contested, 71.9% overall; value MSE 1.12</td></tr>
+<tr><td>measured</td><td>61.3%, +80 [+32, +130] vs Heuristics 1 over 200 games on a/b; +19 [−61, +102] on a/c (2026-07-27). The first model to beat the teacher's point estimate</td></tr>
+<tr><td colspan="2"><strong><code>rebased-g2it6-0727.json</code></strong> — the RL line of record</td></tr>
+<tr><td>lineage</td><td>PPO, generation 2 iteration 6 of the loop re-based on <code>approved-base</code>; 4 epochs; no decode declaration (argmax)</td></tr>
+<tr><td>data</td><td>160 rollout games: 60 self-play plus league games against two members in both seats (learner's decisions only)</td></tr>
+<tr><td>holdout</td><td>none (<code>--holdout 0</code>)</td></tr>
+<tr><td>measured</td><td>its iteration-4 sibling promoted at +63 [+16, +112] vs champion and +51 [+4, +100] vs Heuristics 1 (2026-07-27). A later 60-game gate on the fixed action vocabulary put "trained policy vs heuristic" at 48.8%, −9 [−119, +100] (2026-07-28)</td></tr>
+<tr><td colspan="2"><strong><code>human-passw-0813.json</code></strong> — the human clone</td></tr>
+<tr><td>lineage</td><td>behavioural-cloning fine-tune from <code>approved-base</code>, 5 epochs, <code>--action-weight pass=0.4</code>, 162 action types; decode <code>sample</code> @ 1.0</td></tr>
+<tr><td>data</td><td>537 recorded human games / 138 305 decisions from <code>export-human</code>, unfinished games neutral</td></tr>
+<tr><td>holdout</td><td>top-1 54.4% contested, 73.0% overall; value MSE 1.17</td></tr>
+<tr><td>measured</td><td>38.3%, −83 [−129, −39] vs Heuristics 1 over 240 games</td></tr>
+<tr><td colspan="2"><strong><code>human-hybrid-0813.json</code></strong> — the recommended lobby model</td></tr>
+<tr><td>lineage</td><td>the same weights as <code>human-passw</code>, plus <code>route: { types: ["plan-movement", "discard-card"], to: "heuristic" }</code></td></tr>
+<tr><td>measured</td><td>53.1%, +23 [−20, +68] vs Heuristics 1 over 240 games: parity</td></tr>
+<tr><td colspan="2"><strong><code>packages/sim/test-fixtures/bc-mini-weights.json</code></strong> — test fixture</td></tr>
+<tr><td>lineage</td><td><code>mini</code> dims, 2 games, 2 epochs, 8 950 parameters; regenerate with <code>--dims mini</code> on a 2-game smoke export when the feature spec or network shape changes</td></tr>
+</table>
+<p>The two older files know 158 action types and the two human files 162; the current list has 196, so any of the 34–38 newer types is embedded as "unknown" by these models (§7).</p>
+
+<h2>21. Results, negative results, and what is known</h2>
+<h3>What worked</h3>
+<ul>
+<li><strong>Imitation reaches the teacher.</strong> 400 games of heuristic self-play gave a clone at parity with Heuristics 1 (50.0% over 200 games, +0 [−47, +47]); 2 473 approved-deck games gave one ahead of it on a/b (+80 [+32, +130]).</li>
+<li><strong>Gated RL compounded twice</strong> on the earlier line: <code>bc-400g → runA-it5 (+74) → gen2-it3 (+72)</code>; the champion scored 71.1% (+157 [+122, +194]) against the imitation baseline and 55.1% (+36 [+2, +70]) against Heuristics 1 over 400 games each (2026-07-25). The re-based line promoted again at its first generation (+51 [+4, +100] vs Heuristics 1).</li>
+<li><strong>The value head was fixed</strong> by training on all decisions, the skip connection, and many more games: mid-game sign accuracy went from 0.49 / 0.48 to 0.84 / 0.76 and overall MSE from 1.09 to 0.56 on 190 held-out games; 1 286 games dropped holdout MSE from about 1.04 to 0.41.</li>
+<li><strong>Human cloning plus routing</strong> turned a −83 policy into a +23 hybrid against Heuristics 1.</li>
+</ul>
+<h3>What did not</h3>
+<ul>
+<li><strong>Determinized search does not beat the policy.</strong> PUCT at 192 simulations: 50.5%, +3 [−61, +69] over 100 games. After the value fix and a horizon fix: every configuration's interval still spans zero, 2.7× the budget made it slightly worse, swapping the evaluator for the observable MP spread changed nothing, and 16 worlds hung the process (one 1 200-candidate node costs about 19 000 forward passes). Verdict 2026-07-27: do not ship search; the failure points at strategy fusion in the determinization itself. A flat Monte-Carlo agent with no network, rolling out through the real engine, beats both the policy (+149) and Heuristics 1 (+152 at 8 rollouts, +352 at 16) and scales with budget.</li>
+<li><strong>The RL recipe plateaued</strong> against a three-member league: two generations (8 and 12 iterations) produced no promotion. Candidates repeatedly gained against their own lineage while losing to the heuristic; the anti-BC gradient is the easier direction.</li>
+<li><strong>Strength is non-transitive.</strong> A model beat gen2-it3 by +102 and gen2-it3 beat the heuristic by +36, yet that model was −10 against the heuristic on a/b and −78 on i/j, a pair in its own training set. An honest 288-game round-robin on a/b (2026-07-26) put every model within noise of Heuristics 1: gen2-it3 1539 ± 65, heuristic 1521 ± 66, value-skip 1504 ± 65, runA-it5 1436 ± 67.</li>
+<li><strong>More imitation data does not beat RL, and more capacity does not help.</strong> A 1 520-game multi-deck clone lost −81 to the RL champion; <code>large</code> dims matched <code>full</code> on top-1 and overfit harder.</li>
+<li><strong>Blending the score differential into search leaf values is harmful</strong> (2 wins in 12 at weight 0.5); the fitted Heuristics-2 win-probability model as leaf value was inconclusive at 32 games (+22 [−101, +151]).</li>
+<li><strong>Hazard memory does not help the human clone.</strong> Appending rows for opponent hazards seen this game moved <code>plan-movement</code> from 3.3% to 3.6% probability on the human's actual move, still chance. Corpus growth of 18% moved the pure policy from −83 to −47 but the hybrid built on it measured −1 against the deployed hybrid's +23: the extra data improved exactly the decisions routing already delegates.</li>
+<li><strong>Costless loops</strong> hung argmax agents until the state-signature guard (§11).</li>
+</ul>
+<h3>Limits</h3>
+<ul>
+<li>Trained and evaluated almost entirely on hero-versus-hero challenge decks; minion, Fallen-wizard and Balrog play are untested by training.</li>
+<li>The feature spec is a pure function of the current view: no memory of cards the opponent has spent, no discard-pile contents, no bluffing model for on-guard cards or hidden agents.</li>
+<li>Ratings are relative to a small pool (Heuristics 1, prior champions). The recorded human corpus is undefeated against every AI seat.</li>
+</ul>
+
+<h2>22. Lobby integration</h2>
+<ul>
+<li><strong>Model discovery.</strong> <code>GET /api/models</code> lists the <code>.json</code> files in <code>~/.meccg/models</code>, newest first, by bare file name. A <code>play-real-ai</code> message carries a deck id and one of those names; <code>resolveModelFile</code> rejects anything that is not exactly a listed basename (no separators, no <code>..</code>), so a lobby message can never smuggle a path.</li>
+<li><strong>Launch.</strong> The lobby spawns a game server and the headless AI client (<code>packages/text-client/src/ai-client.ts</code>) with <code>--model &lt;path&gt;</code>; the seat is named <code>AI-Real</code>. The client builds the agent with <code>createAgentFromWeights</code>, so the file's decode and route declarations apply; without <code>--model</code> or <code>--agent</code> it plays Heuristics 1. Only approved decks are offered to the AI.</li>
+<li><strong>Per-decision log.</strong> The client logs the ranked candidate list for every decision with the same renderer the sim's <code>explain</code> uses, so a browser "Ask AI" answer and a log line read alike.</li>
+<li><strong>Ask AI.</strong> The game screen's observer can ask any registry agent, including <code>bc:&lt;file&gt;</code>, what it would do at the current position or about the player's own last move; the explanation is derived from the projected view only.</li>
+<li><strong>Freshness.</strong> A model file goes stale whenever the card pool changes (vocab hash) and silently degrades whenever action types are appended; the weights-free <code>mc</code> agent has neither problem, which is why it is the recommended dev-server opponent when cards are moving.</li>
+</ul>
+
+<h2>23. Appendix: file map, CLI reference, flag tables</h2>
+<table class="small">
+<tr><th>file</th><th>contents</th></tr>
+<tr><td><code>packages/sim/src/features/index.ts</code></td><td><code>FEATURE_SPEC_VERSION</code> and re-exports</td></tr>
+<tr><td><code>packages/sim/src/features/vocab.ts</code></td><td>card vocabulary, FNV-1a hash, acts-as-site aliasing</td></tr>
+<tr><td><code>packages/sim/src/features/action-types.ts</code></td><td>the append-only <code>ACTION_TYPES</code> list and <code>actionTypeIndex</code></td></tr>
+<tr><td><code>packages/sim/src/features/state.ts</code></td><td>global vector and entity rows</td></tr>
+<tr><td><code>packages/sim/src/features/action.ts</code></td><td>candidate vectors and mask</td></tr>
+<tr><td><code>packages/sim/src/agents/bc-agent.ts</code></td><td>weights loading and validation, forward pass, self-test, readouts, cycle guard</td></tr>
+<tr><td><code>packages/sim/src/agents/from-weights.ts</code></td><td><code>createAgentFromWeights</code>: decode and route from the file</td></tr>
+<tr><td><code>packages/sim/src/agents/route-agent.ts</code></td><td>type-routed composition</td></tr>
+<tr><td><code>packages/sim/src/agents/search-agent.ts</code>, <code>src/search/*</code></td><td>determinizer and PUCT (experimental, not shipped)</td></tr>
+<tr><td><code>packages/sim/src/cli/export.ts</code>, <code>export-human.ts</code></td><td>the two exporters</td></tr>
+<tr><td><code>packages/sim/src/cli/gate.ts</code>, <code>tournament.ts</code>, <code>src/glicko2.ts</code></td><td>evaluation</td></tr>
+<tr><td><code>packages/sim/train/train_bc.py</code></td><td>network, BC, REINFORCE, PPO, weights export</td></tr>
+<tr><td><code>packages/sim/train/eval_value.py</code></td><td>value-head diagnostic</td></tr>
+<tr><td><code>packages/sim/train/selfplay_loop.sh</code></td><td>the RL loop</td></tr>
+<tr><td><code>packages/sim/train/README.md</code>, <code>docs/ai-training-system.md</code></td><td>workflow notes; the 2026-07-26 system paper with background reading</td></tr>
+<tr><td><code>packages/lobby-server/src/games/models.ts</code>, <code>packages/text-client/src/ai-client.ts</code></td><td>lobby model listing and the headless AI client</td></tr>
+<tr><td><code>packages/sim/src/features.test.ts</code>, <code>bc-agent.test.ts</code>, <code>test-fixtures/bc-mini-weights.json</code></td><td>coverage and completeness tests for the action-type list; forward-pass and agent tests over the mini fixture</td></tr>
+</table>
+<h3>CLI cheat sheet</h3>
+<pre># 1. teacher trajectories (approved decks, parallel)
+npm run export-training -w @meccg/sim -- --games 400 --seed 30000 --jobs 12 --out train.jsonl
+
+# 2. human trajectories from the lobby corpus
+npm run export-human -w @meccg/sim -- --dir ~/backup/ai-meccg.com --out human.jsonl --jobs 8
+
+# 3. clone (CPU is fine), then fine-tune on humans with pass down-weighted
+python3 packages/sim/train/train_bc.py --data train.jsonl --out base.json --epochs 3 --stride 2
+python3 packages/sim/train/train_bc.py --data human.jsonl --init base.json --out human.json --epochs 5 --action-weight pass=0.4
+
+# 4. play, explain, gate
+npm run play    -w @meccg/sim -- --agents bc:human.json@1,heuristic --seed 7
+npm run explain -w @meccg/sim -- --game &lt;id&gt; --seq &lt;n&gt; --player p1 --agent bc:human.json@class
+npm run gate    -w @meccg/sim -- --challenger 'route:plan-movement+discard-card|bc:human.json@1|heuristic' --champion heuristic --pairs 60 --rounds 2 --jobs 12
+
+# 5. value diagnostic and the RL loop
+python3 packages/sim/train/eval_value.py --weights base.json --data holdout.jsonl --stride 4
+LEAGUE="heuristic,bc:frozen.json" SIM_JOBS=12 packages/sim/train/selfplay_loop.sh base.json ~/selfplay/run1 8</pre>
+<h3>train_bc.py flags</h3>
+<table class="small">
+<tr><th>flag</th><th>default</th><th>meaning</th></tr>
+<tr><td><code>--data</code></td><td>required, 1+</td><td>export files, optional <code>@0</code>/<code>@1</code> seat filter</td></tr>
+<tr><td><code>--out</code></td><td>required</td><td>weights file to write</td></tr>
+<tr><td><code>--epochs</code>, <code>--batch</code>, <code>--lr</code></td><td>3, 64, 1e-3</td><td>optimisation</td></tr>
+<tr><td><code>--holdout</code></td><td>0.2</td><td>fraction of games held out (by id, last ones)</td></tr>
+<tr><td><code>--seed</code></td><td>0</td><td>torch and python seeds</td></tr>
+<tr><td><code>--dims</code></td><td><code>full</code></td><td>preset; ignored with <code>--init</code></td></tr>
+<tr><td><code>--value-weight</code></td><td>0.5</td><td>weight of the value MSE in the loss</td></tr>
+<tr><td><code>--limit</code>, <code>--stride</code></td><td>0, 1</td><td>cap parsed decisions; keep every Nth decision</td></tr>
+<tr><td><code>--mode</code></td><td><code>bc</code></td><td><code>bc</code> / <code>reinforce</code> / <code>ppo</code></td></tr>
+<tr><td><code>--init</code></td><td>—</td><td>warm start; required for RL modes</td></tr>
+<tr><td><code>--entropy</code>, <code>--clip</code>, <code>--kl-target</code></td><td>0.01, 0.2, 0.02</td><td>RL stabilisers</td></tr>
+<tr><td><code>--value-prefit</code></td><td>1</td><td>PPO value-only epochs before advantages</td></tr>
+<tr><td><code>--decode</code>, <code>--decode-temperature</code></td><td><code>auto</code>, 1.0</td><td>readout declaration stamped in the file</td></tr>
+<tr><td><code>--action-weight</code></td><td>—</td><td><code>NAME=W,…</code> policy-loss multipliers by chosen type</td></tr>
+<tr><td><code>--balance-alpha</code></td><td>0</td><td>inverse-frequency exponent over chosen types</td></tr>
+<tr><td><code>--contested-only</code></td><td>off</td><td>train only on decisions with ≥ 2 viable candidates</td></tr>
+</table>
+<h3>export-human flags</h3>
+<table class="small">
+<tr><th>flag</th><th>meaning</th></tr>
+<tr><td><code>--dir</code> / <code>--game</code></td><td>corpus root holding <code>logs/games/</code>, or a single log</td></tr>
+<tr><td><code>--out</code></td><td>output (default <code>human-training.jsonl</code>)</td></tr>
+<tr><td><code>--games</code>, <code>--max-decisions</code></td><td>caps</td></tr>
+<tr><td><code>--players</code>, <code>--bots</code>, <code>--exclude-bots</code></td><td>seat selection</td></tr>
+<tr><td><code>--unfinished neutral|skip</code></td><td>undecided games as z = 0, or dropped</td></tr>
+<tr><td><code>--contested-only</code></td><td>omit forced decisions</td></tr>
+<tr><td><code>--hazard-memory</code></td><td>experimental zone-13 rows; data trains only against itself</td></tr>
+<tr><td><code>--jobs</code></td><td>shard the file list over child processes</td></tr>
+</table>
+
+</body>
+</html>

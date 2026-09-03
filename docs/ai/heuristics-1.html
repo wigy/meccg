@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heuristics 1 — the rule-based MECCG player</title>
+<link rel="stylesheet" href="doc.css">
+</head>
+<body>
+
+<h1>Heuristics 1</h1>
+<p class="subtitle">The rule-based MECCG player: vocabulary, dispatcher, every evaluator rule, shared valuations, safety nets, and how to read its decisions</p>
+<p class="meta">Source of truth: <code>packages/sim/src/ai/</code> and <code>packages/sim/src/agents/heuristic-agent.ts</code> on master, 2026-09-03. Every constant and formula below is transcribed from that code; where a number was measured rather than written, the measurement is cited. Companion documents: <code>h2-architecture.pdf</code> (Heuristics 2) and <code>real-ai.pdf</code> (the trained policy).</p>
+
+<div class="toc"><ol>
+<li>What Heuristics 1 is</li>
+<li>Vocabulary</li>
+<li>One decision, end to end</li>
+<li>The dispatcher</li>
+<li>The dice table</li>
+<li>Setup evaluator</li>
+<li>Organization evaluator</li>
+<li>Movement/Hazard evaluator</li>
+<li>Site-phase evaluator</li>
+<li>Combat evaluator</li>
+<li>End-of-turn evaluator</li>
+<li>Shared valuations</li>
+<li>Predicting detainment</li>
+<li>Safety nets: regress flags and the cycle guard</li>
+<li>Reading a decision: argmax, sampling, explain</li>
+<li>Variants, specs, and where H1 is used</li>
+<li>Strength and known limits</li>
+<li>Appendix: file map and constants</li>
+</ol></div>
+
+<h2>1. What Heuristics 1 is</h2>
+<p>Heuristics 1 (H1, registry name <code>heuristic</code>, lobby seat <code>AI-Heuristic</code>, historically the "Smart-AI") is a hand-written, one-ply, rule-based player. It has no lookahead, no model of the opponent, no learned parameters, and no memory beyond the current turn except a loop detector. At every decision it asks one <em>evaluator</em>, chosen by the current phase, to put a numeric weight on each legal action, and then plays the highest-weighted one.</p>
+<p>It was written first (April 2026, <code>specs/2026-04-06-ai-opponent-plan.md</code>) as the text client's opponent and later moved into the simulation package so that self-play, gates, the trained policy's teacher, and the lobby all run the same code. It remains the reference bar every other agent is measured against: Heuristics 2 was built to remove its two structural defects (weights in incomparable units, and no explanation), the Monte-Carlo agent beats it, and the trained policy reaches roughly parity with it (see §17).</p>
+<p>Three properties define its behaviour:</p>
+<ul>
+<li><strong>Weights are a ranking, not a probability.</strong> Each evaluator returns numbers on its own scale. A creature threat of 14 and a site-entry score of 50 are not in the same unit and cannot be compared across decisions; only the order within one decision matters.</li>
+<li><strong>It plays the argmax.</strong> Since 2026-08-17 (PR #2442) the agent plays the highest-weighted action and breaks exact ties uniformly at random from its seeded stream. Sampling from the weights, the original behaviour, cost about 47 Elo and survives only as <code>heuristic:sample</code> for generating training data.</li>
+<li><strong>It never throws on partial information.</strong> Every lookup tolerates missing cards, missing companies, or an unknown phase; a card it cannot resolve scores 1, an unknown phase routes to the organization evaluator, and an empty weight list falls back to the first legal action.</li>
+</ul>
+
+<h2>2. Vocabulary</h2>
+<dl class="gloss">
+<dt>PlayerView (view)</dt><dd>The per-player projection of the game state, with hidden information redacted. H1 reads only this. It carries <code>self</code>, <code>opponent</code>, <code>phaseState</code>, <code>combat</code>, <code>chain</code>, <code>pendingEffects</code>, <code>legalActions</code> and more.</dd>
+<dt>Legal action / viable action / candidate</dt><dd>An <code>EvaluatedAction</code> is <code>{ action, viable, reason? }</code>. The engine offers every candidate it can construct; only <em>viable</em> ones may be chosen. The agent receives viable actions as <code>legalActions</code> and the full list as <code>evaluated</code>.</dd>
+<dt>Action type</dt><dd>The <code>type</code> discriminant of a <code>GameAction</code> (<code>plan-movement</code>, <code>play-hazard</code>, <code>pass</code>, …). Evaluators switch on it.</dd>
+<dt>AiContext</dt><dd>What an evaluator sees: <code>view</code>, <code>cardPool</code> (definition id → card definition), <code>legalActions</code>, and an optional seeded <code>random</code> in [0, 1).</dd>
+<dt>Evaluator</dt><dd>An object with <code>phases</code> (the phase names it handles) and <code>score(action, context) → number | null</code>. Six exist: setup, organization, movement-hazard, site-phase, combat, end-of-turn.</dd>
+<dt>Weight / score</dt><dd>The number an evaluator returns for one action. Zero means "never play this"; <code>null</code> means "no opinion". Negative scores are clamped to 0 by the dispatcher.</dd>
+<dt>Default weight</dt><dd>The value the dispatcher substitutes for <code>null</code>: 1, or 0 for a pass that would idle a decision with real alternatives (§4).</dd>
+<dt>Pass actions</dt><dd><code>pass</code> and <code>draft-stop</code>: the two action types that mean "do nothing here".</dd>
+<dt>Optional actions</dt><dd><code>place-character</code>, <code>add-character-to-deck</code>, <code>select-starting-site</code>: setup actions a player may legitimately decline, so a pass alongside them is not suppressed.</dd>
+<dt>Substantive action</dt><dd>Any candidate that is not a pass action.</dd>
+<dt>Phase table</dt><dd>The map from phase name to evaluator, built once from each evaluator's <code>phases</code> list (§4).</dd>
+<dt>need</dt><dd>The 2d6 total a dice-driven action must reach (strike, corruption check, influence attempt). The engine publishes it on the action; H1 converts it to a success percentage with the dice table (§5).</dd>
+<dt>diceSuccessPct</dt><dd>Probability, as an integer percentage, that 2d6 ≥ need.</dd>
+<dt>MP / mpValue</dt><dd>A card definition's printed marshalling points (0 when absent or non-scoring).</dd>
+<dt>Tournament score</dt><dd>Marshalling points after the CoE §10.3 adjustments: doubling a source (character, item, faction, ally) when the opponent has none, and capping any single source at half the total. Used by the free-council rule (§11).</dd>
+<dt>Effective stats</dt><dd>A character in play carries <code>effectiveStats</code> (prowess, body, direct influence, corruption points) with items and attached effects already applied. H1 reads these, not the printed values, for characters in play.</dd>
+<dt>Direct influence (DI), free DI</dt><dd>A character's influence over followers. Free DI is DI minus the mind of the characters it already controls.</dd>
+<dt>General influence (GI)</dt><dd>The player-wide pool (20) that characters not under direct influence consume by their mind.</dd>
+<dt>Wounded / tapped / untapped</dt><dd>Card status <code>inverted</code> / <code>tapped</code> / <code>untapped</code>. "Restore source" means a hand card or carried item whose effect can bring a character from one of those states back to untapped.</dd>
+<dt>Healing site</dt><dd>A haven, or a site carrying the <code>heal-during-untap</code> site rule.</dd>
+<dt>Keying variant</dt><dd>A creature keyed to more than one region or site type appears as one legal action per keying justification, all playing the same card.</dd>
+<dt>Detainment attack</dt><dd>An attack that taps instead of wounding, awards no kill MP when defeated, and skips the body check (CoE §3.II). H1 predicts whether a hazard it is considering would be one (§13).</dd>
+<dt>Regressive action</dt><dd>A candidate the engine stamped <code>regress: true</code> because it undoes progress made earlier in this organization phase (e.g. cancelling a just-planned movement). H1 drops these before scoring.</dd>
+<dt>forwardActions</dt><dd>The filter that removes regressive candidates (keeping the full list when everything is regressive).</dd>
+<dt>State signature</dt><dd>A coarse string fingerprint of a view (turn, phase, zone sizes, tap count, MP…) used to detect revisited positions.</dd>
+<dt>Cycle guard</dt><dd>A per-game record of visits per signature; after 8 visits it narrows the candidate list to action types not yet tried from that position (§14).</dd>
+<dt>pickBest / argmax</dt><dd>Play the highest weight; candidates within a relative tolerance of 10<sup>−9</sup> of the best are tied and one is drawn uniformly.</dd>
+<dt>sampleWeighted</dt><dd>Draw one candidate with probability proportional to weight; uniform when every weight is 0.</dd>
+<dt>Considered list</dt><dd>The full weighted candidate list the agent reports with its decision. It is recorded in replays, printed by <code>explain</code>, and used as soft targets when H1 is the teacher for the trained policy.</dd>
+<dt>Seeded stream</dt><dd>Every source of randomness (tie-breaks, sampling, the free-council roll) comes from a per-agent, per-game seeded generator, so a game is reproducible from its seed.</dd>
+<dt>Agent spec</dt><dd>The string the CLIs and lobby use to name an agent: <code>heuristic</code>, <code>heuristic:sample</code>, <code>noisy-heuristic:0.25</code>, <code>route:…|bc:…|heuristic</code>.</dd>
+</dl>
+
+<h2>3. One decision, end to end</h2>
+<div class="fig"><img src="h1-decision.svg" alt="H1 decision pipeline"><div class="cap">Figure 1. One H1 decision. Solid arrows are the default path; the sampling path is dashed.</div></div>
+<ol>
+<li><strong>Fingerprint the position.</strong> <code>viewSignature(view)</code> joins the quantities any real progress changes (§14).</li>
+<li><strong>Narrow for loops.</strong> <code>cycleGuard.allow</code> returns the candidates unchanged unless this signature has already been decided at eight or more times in this game.</li>
+<li><strong>Drop regressions.</strong> <code>forwardActions</code> removes engine-flagged undo candidates.</li>
+<li><strong>Classify the decision.</strong> Two booleans are computed over the surviving list: whether every candidate is a pass or an optional setup action (<code>allOptional</code>), and whether any candidate is substantive (<code>hasSubstantive</code>).</li>
+<li><strong>Score every candidate.</strong> For each action, pick the evaluator (combat action types always go to the combat evaluator; otherwise the phase table; otherwise organization), call <code>score</code>, and turn the result into a weight: <code>max(0, score)</code>, or the default weight if the evaluator returned <code>null</code>.</li>
+<li><strong>Choose.</strong> <code>pickBest</code> by default; <code>sampleWeighted</code> for <code>heuristic:sample</code>. If the weighted list is empty, the first legal action is taken with the note "no weighted actions — took first legal action".</li>
+<li><strong>Record.</strong> The guard is told what was taken at this signature, and the decision returns the action plus the whole weighted list as <code>considered</code>.</li>
+</ol>
+
+<h2>4. The dispatcher</h2>
+<p><code>ai/heuristic.ts</code> holds the routing constants and the default-weight rule. Nothing here knows anything about cards.</p>
+<table>
+<tr><th>constant</th><th>value</th><th>role</th></tr>
+<tr><td class="k"><code>PASS_ACTIONS</code></td><td><code>pass</code>, <code>draft-stop</code></td><td>the "do nothing" types; suppressed by the default rule when alternatives exist</td></tr>
+<tr><td class="k"><code>OPTIONAL_ACTIONS</code></td><td><code>place-character</code>, <code>add-character-to-deck</code>, <code>select-starting-site</code></td><td>setup actions a pass may accompany without penalty</td></tr>
+<tr><td class="k"><code>PASS_OK_PHASES</code></td><td><code>organization</code></td><td>phase where an unscored pass keeps weight 1 regardless of alternatives</td></tr>
+<tr><td class="k"><code>COMBAT_ACTION_TYPES</code></td><td><code>assign-strike</code>, <code>choose-strike-order</code>, <code>resolve-strike</code>, <code>play-strike-event</code>, <code>support-strike</code>, <code>cancel-attack</code>, <code>cancel-by-tap</code>, <code>halve-strikes</code>, <code>body-check-roll</code>, <code>convert-creature-to-ally</code>, <code>tap-item-for-strike</code></td><td>always routed to the combat evaluator, whatever the phase</td></tr>
+</table>
+<div class="fig"><img src="h1-evaluators.svg" alt="phase to evaluator routing"><div class="cap">Figure 2. Phase-to-evaluator routing. The combat evaluator is not in the phase table at all; it is reached only through the action-type list above.</div></div>
+<table>
+<tr><th>phase of the view</th><th>evaluator</th></tr>
+<tr><td><code>setup</code></td><td>setup</td></tr>
+<tr><td><code>organization</code>, <code>untap</code></td><td>organization</td></tr>
+<tr><td><code>movement-hazard</code></td><td>movement-hazard</td></tr>
+<tr><td><code>site</code></td><td>site-phase</td></tr>
+<tr><td><code>end-of-turn</code>, <code>long-event</code>, <code>free-council</code>, <code>game-over</code></td><td>end-of-turn</td></tr>
+<tr><td>any other phase name</td><td>organization (fallback)</td></tr>
+</table>
+<h3>The default weight</h3>
+<p>When an evaluator returns <code>null</code>:</p>
+<ul>
+<li>A pass action gets <strong>0</strong> if all three hold: some candidate is substantive, the decision is not all-optional, and the phase is not <code>organization</code>. Otherwise it gets 1.</li>
+<li>Every other action gets <strong>1</strong>.</li>
+<li>If the weight is positive and the action carries a numeric <code>need</code>, it is multiplied by <code>diceSuccessPct(need) / 100</code>, so an unscored roll with need 10 weighs 0.17 against an unscored alternative's 1.</li>
+</ul>
+<p>The consequence is that H1 never idles when it has been given nothing to say about a decision with substance: unscored substantive candidates tie at 1 and one of them is played. This is the rule that made H1 "eager": measured against recorded human games, its acting where a human passes was the single largest source of divergence (README, "the AI acts when humans do nothing").</p>
+
+<h2>5. The dice table</h2>
+<p>Every roll in MECCG is 2d6 against a need. <code>diceSuccessPct</code> is the exact success probability, rounded to an integer percentage. Needs of 2 or less are 100; needs of 13 or more are 0.</p>
+<table class="small">
+<tr><th>need</th><th class="num">2</th><th class="num">3</th><th class="num">4</th><th class="num">5</th><th class="num">6</th><th class="num">7</th><th class="num">8</th><th class="num">9</th><th class="num">10</th><th class="num">11</th><th class="num">12</th></tr>
+<tr><td>P(2d6 ≥ need), %</td><td class="num">100</td><td class="num">97</td><td class="num">92</td><td class="num">83</td><td class="num">72</td><td class="num">58</td><td class="num">42</td><td class="num">28</td><td class="num">17</td><td class="num">8</td><td class="num">3</td></tr>
+</table>
+<p>The table is used in four places: the default-weight scaling above, influence rolls (÷5), strike-event and item-tap scoring (as is), and the marginal value of supporting a corruption check (difference between need and need − 1).</p>
+
+<h2>6. Setup evaluator</h2>
+<p>Phase <code>setup</code>: character draft, starting items, character-deck draft, starting site, company placement, shuffle, initiative. The draft priority formula is shared by three actions:</p>
+<pre>characterDraftScore = MP × 3 + prowess + body + DI × 2   (+ 50 if the character is an avatar)</pre>
+<table class="rules">
+<tr><th>action</th><th>weight</th><th>notes</th></tr>
+<tr><td class="k"><code>draft-pick</code></td><td><code>max(1, characterDraftScore)</code></td><td>1 when not in the character-draft step or the card is not a character</td></tr>
+<tr><td class="k"><code>draft-stop</code></td><td>0 / 1 / 5</td><td>0 until at least 4 characters including an avatar are drafted; 1 at 4–5 with an avatar; 5 at 6 or more with an avatar</td></tr>
+<tr><td class="k"><code>assign-starting-item</code></td><td><code>max(1, target effective prowess + item prowessModifier − penalty)</code></td><td>penalty 50 if the item's non-hand <code>modify-attack</code> effect has a <code>when</code> gate the bearer's race/skills fail (dead weight); penalty 10 if its <code>discardIfBearerNot</code> race list excludes the bearer (Black Arrow on a non-Man)</td></tr>
+<tr><td class="k"><code>add-character-to-deck</code></td><td><code>max(1, characterDraftScore)</code></td><td>same formula over the remaining pool in the character-deck-draft step</td></tr>
+<tr><td class="k"><code>select-starting-site</code></td><td>100 / 5</td><td>100 for a haven, 5 for anything else</td></tr>
+<tr><td class="k"><code>place-character</code></td><td><code>max(1, prowess + mind + MP)</code></td><td>printed stats; puts avatars and heavy hitters into the first company</td></tr>
+<tr><td class="k"><code>shuffle-play-deck</code>, <code>roll-initiative</code></td><td>100</td><td>always proceed</td></tr>
+<tr><td>anything else</td><td><code>null</code></td><td>default weight</td></tr>
+</table>
+
+<h2>7. Organization evaluator</h2>
+<p>Phases <code>organization</code> and <code>untap</code>: untapping, recruiting, company management, movement planning, permanent events. Two named constants: <code>REBUILD_BONUS = 100</code> and Great Ship's definition id <code>tw-248</code>.</p>
+<table class="rules">
+<tr><th>action</th><th>weight</th><th>notes</th></tr>
+<tr><td class="k"><code>untap</code></td><td>100</td><td></td></tr>
+<tr><td class="k"><code>play-character</code></td><td><code>base = max(1, MP × 5 + prowess + DI × 2 − penalty)</code>; <code>+100</code> when no character is in play</td><td><code>headroom = 20 − generalInfluenceUsed − mind</code>; penalty 50 if headroom &lt; 0, 5 if headroom &lt; 3, else 0. The rebuild bonus exists because a company-less player who passes forfeits every later phase: Anborn (0 MP, prowess 2) scored 2 against pass's 5 and the player passed for the rest of the game (h1-vs-h2 seed 32 stalemate)</td></tr>
+<tr><td class="k"><code>play-permanent-event</code></td><td>30</td><td>treated as free MP / utility</td></tr>
+<tr><td class="k"><code>play-short-event</code></td><td>15 / 0 / <code>null</code></td><td>only Great Ship is scored: 15 if the target company's current or destination site path contains a Coastal Sea region, 0 otherwise (its cancel only fires on coastal paths); every other short event is unscored</td></tr>
+<tr><td class="k"><code>plan-movement</code></td><td><code>base = scoreDestinationSite</code> (§12), then adjusted</td><td>destination unknown → 1. Wounded company with no healing available: healing destination → <code>max(base, 30) + 20 × wounded</code>; other destination → <code>max(1, ⌊base / 2⌋)</code>. Tapped character(s) with no untap source → <code>max(1, ⌊base / 2⌋)</code>, because a tapped defender meets the destination's automatic attack at −1</td></tr>
+<tr><td class="k"><code>cancel-movement</code></td><td>1</td><td></td></tr>
+<tr><td class="k"><code>merge-companies</code></td><td>8 / 2</td><td>8 when the source is a singleton and the target has at most 2 characters; otherwise 2 (bigger companies raise the hazard limit)</td></tr>
+<tr><td class="k"><code>split-company</code></td><td>0 / 10 / 15</td><td>0 unless the company mixes wounded and healthy characters and has no in-company healing; then 15 if the character being moved out is wounded, 10 if healthy; 0 if nobody would stay behind</td></tr>
+<tr><td class="k"><code>discard-character</code></td><td>0</td><td>no model of when giving up a character pays; the flat default once discarded healthy characters at random</td></tr>
+<tr><td class="k"><code>move-to-company</code>, <code>move-to-influence</code></td><td>2</td><td></td></tr>
+<tr><td class="k"><code>store-item</code></td><td><code>gain × 10</code>, or 0</td><td><code>gain = storeItemMpGain</code> (§12); company-bound storables without a bearer are looked up in <code>cardsInPlay</code></td></tr>
+<tr><td class="k"><code>transfer-item</code></td><td>0</td><td>never shuffles items</td></tr>
+<tr><td class="k"><code>activate-granted-action</code></td><td>8, or 0</td><td><code>extra-region-movement</code> (Cram and the like): 0 if the character's company already has a legal <code>plan-movement</code>, 8 only when the discard is the difference between moving and not moving; every other granted action 8</td></tr>
+<tr><td class="k"><code>pass</code></td><td>0 / 0 / 5</td><td>0 if any offered movement reaches a site where a hand resource is directly playable (<code>hasDirectlyPlayableMovement</code>); 0 if a <code>play-character</code> is offered and nothing is in play; otherwise 5, which beats busy-work but loses to any good play (20+)</td></tr>
+<tr><td>anything else</td><td><code>null</code></td><td></td></tr>
+</table>
+
+<h2>8. Movement/Hazard evaluator</h2>
+<p>Phase <code>movement-hazard</code>. Both seats decide here: the resource player selects companies, declares paths and draws; the hazard player plays creatures, events and corruption, and places on-guard cards.</p>
+<h3>Region danger on declared paths</h3>
+<p><code>REGION_PATH_DANGER</code> is the extra hazard-keying exposure a region type adds relative to Wilderness. A path's danger is the sum over its regions; a path entry that is not a region card counts 1.</p>
+<table class="small">
+<tr><th>region type</th><th>free-domain</th><th>wilderness</th><th>coastal-sea</th><th>border-land</th><th>shadow-land</th><th>dark-domain</th></tr>
+<tr><td>danger</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">5</td><td class="num">7</td></tr>
+</table>
+<h3>Creature threat</h3>
+<pre>creatureThreat(def, defenderProwess) = max(1, prowess × strikes − ⌊defenderProwess / 2⌋)
+defenderProwess = Σ effective prowess of the targeted opponent company
+creatureActionWeight = max(1, creatureThreat / keyingVariants)</pre>
+<p>Splitting by keying variants keeps a doubly-keyed Orc-warband from counting twice; the split total equals one decision's worth, the same idiom the on-guard rule uses. The loop detector that keeps the argmax from riding a costless card loop was wired into this agent on 2026-08-22 (§14).</p>
+<h3>Rules</h3>
+<table class="rules">
+<tr><th>action</th><th>weight</th><th>notes</th></tr>
+<tr><td class="k"><code>draw-cards</code></td><td>100</td><td>always take every draw</td></tr>
+<tr><td class="k"><code>select-company</code></td><td>10</td><td></td></tr>
+<tr><td class="k"><code>declare-path</code></td><td>12 / <code>max(1, 8 − pathDanger)</code> / 8</td><td>12 for starter movement (printed path); region movement is 8 minus the declared path's danger, so equal-length safer routes win (bug report: Rivendell→Lórien via a gratuitous border-land); any other movement type 8</td></tr>
+<tr><td class="k"><code>order-effects</code></td><td>10</td><td></td></tr>
+<tr><td class="k"><code>play-hazard</code> (creature)</td><td><code>creatureActionWeight</code>, plus a lift for detainment</td><td>if the attack would be a detainment attack (§13), add <code>normalCreatureCeiling</code>: the best weight of any <em>normal</em> creature in hand against the same company. Detainment therefore always precedes wounding attacks, and stays ordered among detainment creatures</td></tr>
+<tr><td class="k"><code>play-hazard</code> (corruption)</td><td>8, or <code>8 + freeDi(target)</code></td><td>the bonus applies to Foolish Words (<code>td-25</code>) only: aim at the character with the most free DI so a corruption loss hurts most</td></tr>
+<tr><td class="k"><code>play-hazard</code> (hazard event)</td><td><code>boosted + 1</code> / 6 / <code>5 + corruption</code> / 5</td><td>in priority order: (1) a board-wide attack boost that would strengthen a creature still in hand scores one above that creature's threat (Full of Froth and Rage before the spider); (2) an enabler another hand hazard's bonus is gated on (<code>{ inPlay: name }</code>, Doors of Night before An Unexpected Outpost) scores 6; (3) a corruption-keyword event with a character target scores 5 plus the target's effective corruption points (Alone and Unadvised on Théoden, not on a follower); (4) otherwise 5</td></tr>
+<tr><td class="k"><code>play-hazard</code> (other)</td><td>3</td><td>1 if the card cannot be resolved</td></tr>
+<tr><td class="k"><code>play-short-event</code></td><td>20 / 0 / <code>null</code></td><td>only when the action names a <code>discardTargetInstanceId</code> (Marvels Told): 20 if discarding that card helps the viewing player, 0 if it would un-hinder the opponent (<code>discardBenefitsSelf</code>, §12)</td></tr>
+<tr><td class="k"><code>support-corruption-check</code></td><td><code>max(1, pct(need − 1) − pct(need))</code>; 0 if the check cannot fail; 3 if no paired roll is found</td><td>each tap is worth exactly the probability it adds; stops the AI tapping three company mates into a check one support already made unfailable</td></tr>
+<tr><td class="k"><code>place-on-guard</code></td><td><code>4 / guardOptions</code></td><td>one action per hand card, so the fixed total 4 is split across them: a ten-card hand does not out-vote pass ten times over</td></tr>
+<tr><td class="k"><code>pass</code></td><td>0 / 1</td><td>0 while <code>draw-cards</code> is on offer; else 1</td></tr>
+<tr><td>anything else</td><td><code>null</code></td><td></td></tr>
+</table>
+
+<h2>9. Site-phase evaluator</h2>
+<p>Phase <code>site</code>: entering sites, playing items, factions, allies and events, influence attempts, minor items, on-guard reveals.</p>
+<h3>Entering a site</h3>
+<p><code>enter-site</code> scores 50 unless one of three gates zeroes it. All three exist because entering exposes the company to on-guard cards and automatic attacks, so it must pay:</p>
+<ol>
+<li><strong>Nothing to play.</strong> <code>bestPlayableMp</code> is the highest MP among hand cards playable at the current site (<code>resourcePlayableAt</code>, §12). If no card is playable, 0.</li>
+<li><strong>Nobody can tap.</strong> If every character in the company is tapped, the company has no untap source, and the hand holds no no-tap play for this site (<code>handHasNoTapPlayableAt</code>), 0.</li>
+<li><strong>The automatic attack forces a tap for a trivial payoff.</strong> If <code>bestPlayableMp ≤ 1</code> and <code>automaticAttackForcesTap</code>, 0.</li>
+</ol>
+<pre>automaticAttackForcesTap:
+  bestProwess          = max effective prowess in the company
+  bestUntappedProwess  = bestProwess − 3            (CoE 3.iv.3: staying untapped costs −3)
+  forces a tap  ⇔  some automatic attack has  attack.prowess − bestUntappedProwess + 1 ≥ 8</pre>
+<p>The 8 is the same threshold the combat evaluator uses to prefer tapping (§10). The bug report behind it: Théoden's company entered Glittering Caves against a 9-prowess automatic attack, Fatty Bolger was wounded, and the 1-MP item was never played.</p>
+<p>If the company has no current site, or the site definition cannot be resolved, the score is 50.</p>
+<h3>Rules</h3>
+<table class="rules">
+<tr><th>action</th><th>weight</th><th>notes</th></tr>
+<tr><td class="k"><code>enter-site</code></td><td>50, or 0 by the gates above</td><td></td></tr>
+<tr><td class="k"><code>play-hero-resource</code></td><td><code>max(1, MP × 10 + adjustments)</code></td><td>item: <code>+ prowessModifier × 2 − corruptionPoints × 3</code>, and −10 when attaching to one of our own characters for whom the item's capped stat bonus is already maxed (Hauberk of Bright Mail on a body-9 Glorfindel); faction: +5; ally: +5. Despite the name, this action type carries minion items and allies too</td></tr>
+<tr><td class="k"><code>play-short-event</code></td><td>0 / <code>null</code></td><td>A Malady Without Healing (<code>malady-without-healing</code> orchestrator) targeting our own character scores 0; everything else unscored</td></tr>
+<tr><td class="k"><code>play-minor-item</code></td><td><code>max(1, MP × 5 + prowessModifier)</code></td><td>5 if the card is not an item</td></tr>
+<tr><td class="k"><code>influence-attempt</code>, <code>faction-influence-roll</code></td><td><code>max(1, diceSuccessPct(need) / 5)</code></td><td>a need of 7 scores 11.6, a need of 10 scores 3.4</td></tr>
+<tr><td class="k"><code>opponent-influence-attempt</code></td><td>6</td><td></td></tr>
+<tr><td class="k"><code>opponent-influence-defend</code></td><td>100</td><td></td></tr>
+<tr><td class="k"><code>reveal-on-guard</code></td><td>20</td><td></td></tr>
+<tr><td class="k"><code>declare-agent-attack</code></td><td>8</td><td></td></tr>
+<tr><td class="k"><code>place-on-guard</code></td><td>4</td><td>not split here, unlike the movement-hazard phase</td></tr>
+<tr><td class="k"><code>pass</code></td><td>1</td><td></td></tr>
+<tr><td>anything else</td><td><code>null</code></td><td></td></tr>
+</table>
+
+<h2>10. Combat evaluator</h2>
+<p>Reached for the eleven combat action types in any phase. The strategy: absorb strikes with strong characters when defending and aim leftover strikes at weak ones when attacking; tap to fight when the need is hard; never Dodge on a character who is already wounded or tapped; support a struggling defender; always roll body checks; convert a creature to an ally rather than fight it.</p>
+<table class="rules">
+<tr><th>action</th><th>weight</th><th>notes</th></tr>
+<tr><td class="k"><code>assign-strike</code></td><td>own character: <code>max(1, prowess + 5)</code>; opponent's character: <code>max(1, 25 − prowess)</code></td><td>the engine also asks the attacker to assign leftover strikes among the defender's characters, so the scale inverts for opponent targets; 1 if the character is not found</td></tr>
+<tr><td class="k"><code>choose-strike-order</code></td><td><code>max(1, prowess + 3)</code>, else 5</td><td>resolve strong strikes first</td></tr>
+<tr><td class="k"><code>resolve-strike</code></td><td>20 / 8 / 5 / 1</td><td>if a company mate has already resolved its strike and is still untapped, tapping scores 20 and staying untapped 1 (the untapped member requirement is already met). Otherwise: tap with need ≥ 8 → 20; stay untapped with need ≤ 7 → 20; any other tap → 5; any other untapped → 8</td></tr>
+<tr><td class="k"><code>tap-item-for-strike</code></td><td><code>max(1, diceSuccessPct(need))</code></td><td>tapping an item costs no character tap and only improves the need, so it outscores the fixed 5/8/20 of <code>resolve-strike</code> whenever the boost helps (Shield of Iron-bound Ash fix, 2026-08-19)</td></tr>
+<tr><td class="k"><code>play-strike-event</code></td><td>0 / 30 / <code>max(1, diceSuccessPct(need))</code></td><td>a Dodge-style effect (<code>strike-modifier</code> with <code>dodge</code>) on a struck character who is already wounded or tapped → 0 (only the body penalty is left); a cancelling effect → 30; anything else scores its resulting success chance</td></tr>
+<tr><td class="k"><code>support-strike</code></td><td>6 / 1</td><td>6 when the supporter is our own character in play, else 1</td></tr>
+<tr><td class="k"><code>cancel-attack</code></td><td>12</td><td></td></tr>
+<tr><td class="k"><code>convert-creature-to-ally</code></td><td>25</td><td>cancels the attack and gains an ally (Ready to His Will); must beat the live-attack alternatives</td></tr>
+<tr><td class="k"><code>halve-strikes</code></td><td>8</td><td></td></tr>
+<tr><td class="k"><code>cancel-by-tap</code></td><td>6</td><td></td></tr>
+<tr><td class="k"><code>body-check-roll</code></td><td>100</td><td></td></tr>
+<tr><td>anything else</td><td><code>null</code></td><td></td></tr>
+</table>
+
+<h2>11. End-of-turn evaluator</h2>
+<p>Phases <code>end-of-turn</code>, <code>long-event</code>, <code>free-council</code>, <code>game-over</code>: drawing back to hand size, discarding, calling the Free Council, deck exhaustion, sideboard exchange.</p>
+<table class="rules">
+<tr><th>action</th><th>weight</th><th>notes</th></tr>
+<tr><td class="k"><code>draw-cards</code></td><td>100</td><td></td></tr>
+<tr><td class="k"><code>discard-card</code></td><td>8 / 6 / 3</td><td>a character with mind ≥ 6 → 8 (unaffordable); a hazard creature, hazard event or hazard corruption → 6; anything else 3; unknown card 1. Higher means "drop first"</td></tr>
+<tr><td class="k"><code>call-free-council</code></td><td>1 000 000 or 0</td><td>a probabilistic gate, see below</td></tr>
+<tr><td class="k"><code>store-item</code></td><td><code>gain × 10</code>, or 0</td><td>as in the organization phase</td></tr>
+<tr><td class="k"><code>deck-exhaust</code>, <code>finished</code></td><td>100</td><td></td></tr>
+<tr><td class="k"><code>pass</code></td><td>0 / 1</td><td>0 while a draw is on offer</td></tr>
+<tr><td>anything else</td><td><code>null</code></td><td></td></tr>
+</table>
+<h3>Calling the Free Council</h3>
+<p>Both marshalling-point totals are public, so the tournament scores are computed from the view and the lead is <code>selfScore − oppScore</code>. The lead is turned into a probability, one random draw decides, and the weight is either huge or zero so that <code>pass</code> wins whenever the roll says "not yet":</p>
+<table class="small">
+<tr><th>lead</th><th>≤ 0</th><th>1–4</th><th>5–19</th><th>≥ 20</th></tr>
+<tr><td>P(call)</td><td>0</td><td>0.05</td><td><code>0.05 + (lead − 4) × 0.95 / 16</code> (linear, 0.11 at 5 up to 0.94 at 19)</td><td>1.0</td></tr>
+</table>
+<p>This is the only place an evaluator consumes randomness, and it takes it from <code>context.random</code> so the choice is reproducible under a seed.</p>
+
+<h2>12. Shared valuations</h2>
+<p><code>ai/evaluators/common.ts</code> holds the lookups and valuations more than one evaluator needs. They are listed with their exact rules because most H1 behaviour that looks like judgement is one of these.</p>
+
+<h3>scoreDestinationSite(view, pool, site)</h3>
+<p>The movement-planning score for a destination. Non-negative integer; 0 means "do not move here".</p>
+<pre>playableScore = Σ over hand cards playable at site of  max(10, MP × 20)
+siteDanger    = SITE_DANGER[site.siteType]          (unknown type → 2)
+regionDanger  = Σ over the site's printed sitePath of REGION_DANGER[region]   (unknown → 1)
+draws         = site.resourceDraws
+
+if playableScore = 0:
+    havenStaging = 15 if site is a haven and some hand card is playable at some site still in our site deck, else 0
+    drawOnly     = max(0, draws × 5 − siteDanger − regionDanger)
+    return max(havenStaging, drawOnly)
+else:
+    return max(0, playableScore + draws × 2 − siteDanger − regionDanger)</pre>
+<table class="small">
+<tr><th>REGION_DANGER</th><th>free-domain</th><th>border</th><th>wilderness</th><th>shadow-land</th><th>dark-domain</th></tr>
+<tr><td>danger</td><td class="num">0</td><td class="num">1</td><td class="num">2</td><td class="num">4</td><td class="num">5</td></tr>
+</table>
+<table class="small">
+<tr><th>SITE_DANGER</th><th>haven</th><th>free-hold</th><th>border-hold</th><th>ruins-and-lairs</th><th>shadow-hold</th><th>dark-hold</th></tr>
+<tr><td>danger</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="num">3</td><td class="num">5</td><td class="num">7</td></tr>
+</table>
+<p>Coefficients were chosen against the organization pass weight of 5: a single 2-MP item (40) clearly dominates it, a 0-MP minor item still contributes 10, and a two-card draw at a safe site (10) beats sitting still while a dangerous site's penalty wins out. The draw-only branch exists because a hand of combat-only events once left every destination at 0 and the AI camped at Rivendell for three turns. Note that <code>REGION_DANGER</code> here (used for a site's printed path) differs from <code>REGION_PATH_DANGER</code> in the movement-hazard evaluator (used for a declared region path); they were tuned separately.</p>
+
+<h3>resourcePlayableAt(def, site, playerAlignment)</h3>
+<p>Whether a hand resource can be played at a site. It errs on "not playable", which costs a candidate destination but never a wasted trip.</p>
+<ul>
+<li><strong>Fallen-wizard cross-alignment gate (MEWH §10).</strong> For a Fallen-wizard player, a tap-to-play resource (item, ally, faction) of wizard alignment is unplayable at a ringwraith site and vice versa; fallen-wizard, stage and dual resources and fallen-wizard sites pass.</li>
+<li><strong>Items.</strong> If the item carries an <code>item-play-site</code> effect, that decides: the site's name must be listed, or the effect's filter must match the site. Otherwise the site's printed <code>playableResources</code> must include the item's subtype (minor / major / greater …). The item's own <code>playableAt</code> is deliberately not consulted, because the engine does not consult it either (Scroll of Isildur at Isle of the Ulond).</li>
+<li><strong>Factions and allies.</strong> Delegated to the engine's <code>siteMatchesEntry</code> over the card's <code>playableAt</code> entries, so <code>when</code> gates hold (War-wolf only at Ruins &amp; Lairs with a Wolf automatic attack). The site's region type is the last leg of its printed site path.</li>
+<li><strong>Resource events</strong> with a <code>play-target: site</code> filter are playable where the filter matches.</li>
+<li>Everything else (characters, other events): not site-specific, returns false.</li>
+</ul>
+<p><code>anyCardPlayableAt</code> applies this over the hand; <code>handHasPlayableSiteInDeck</code> applies it over every site in the player's site deck; <code>hasDirectlyPlayableMovement</code> applies it to the destination of every offered <code>plan-movement</code>.</p>
+
+<h3>Healing, untapping, and restore sources</h3>
+<p>A <em>restore option</em> on a card's effects is either an effect (possibly wrapped in <code>play-option</code> / <code>grant-action</code>) whose <code>apply</code> is <code>set-character-status → untapped</code> and whose <code>when</code> does not require a different <code>target.status</code> / <code>bearer.status</code> than the one being restored, or a <code>grant-action → heal-company-character</code> (heals wounded only). Halfling Strength's untap option is gated on <code>tapped</code> and its heal option on <code>inverted</code>; only the matching one counts.</p>
+<ul>
+<li><code>characterHasRestoreSource</code>: a carried item with a matching option, or a hand card with a matching option whose character <code>play-target</code> filter accepts this character (a hobbit-only card is no help to a Man).</li>
+<li><code>hasHealingAvailable</code>: <em>every</em> wounded character in the company has a restore source (a card that heals one of three wounded does not cancel the haven trip).</li>
+<li><code>hasUntapSource</code>: <em>at least one</em> tapped character has a restore source.</li>
+<li><code>isHealingSite</code>: a haven, or a site with the <code>heal-during-untap</code> site rule.</li>
+</ul>
+
+<h3>handHasNoTapPlayableAt(view, pool, site, siteTapped)</h3>
+<p>True if the hand holds a permanent resource event that can be played at the site without tapping a character: not character-targeted (those bind an untapped character like an item), respecting <code>tapped-site-only</code> and <code>untapped-site-required</code> play flags, and passing any <code>play-target: site</code> filter. The flags matter: Rescue Prisoners is playable only at an already-tapped Dark-hold or Shadow-hold, and ignoring that sent a fully tapped company into Mount Gundabad's Orc attack for nothing.</p>
+
+<h3>Other helpers</h3>
+<table>
+<tr><th>helper</th><th>rule</th></tr>
+<tr><td class="k"><code>mpValue(def)</code></td><td>printed <code>marshallingPoints</code>, else 0</td></tr>
+<tr><td class="k"><code>freeDi(view, pool, char)</code></td><td>effective DI − Σ mind of the character's followers</td></tr>
+<tr><td class="k"><code>storeItemMpGain(pool, itemDefId)</code></td><td>no <code>storable-at</code> effect → <code>−MP</code> (stored items earn nothing); with the effect → <code>(override MP ?? MP) − MP</code>. Positive only when storing scores more than carrying</td></tr>
+<tr><td class="k"><code>discardBenefitsSelf(view, instanceId)</code></td><td>a hazard attached to one of our characters → true; attached to an opponent's → false; in our own <code>cardsInPlay</code> → false; in the opponent's → true; not found → true</td></tr>
+<tr><td class="k"><code>boostsCreatureAttack(event, creature)</code></td><td>the event has a <code>stat-modifier</code> with <code>target: all-attacks</code> on prowess or strikes whose <code>when</code> (if any) matches <code>{ enemy: { race } }</code></td></tr>
+<tr><td class="k"><code>enablesHandCardBonus(event, view, pool)</code></td><td>some other hand card has an effect gated <code>when.inPlay === event.name</code></td></tr>
+<tr><td class="k"><code>itemStatBenefitWasted(item, target, targetDef)</code></td><td>the item has a body/prowess <code>stat-modifier</code> with a numeric <code>max</code>, its <code>when</code> (if any) accepts the bearer's skills, and the target's effective stat is already at or above that max; non-numeric maxima are treated as not wasted</td></tr>
+<tr><td class="k"><code>strikeModifierEffect(def)</code></td><td>the card's <code>strike-modifier</code> effect, if any (Dodge, Risky Blow, cancels)</td></tr>
+<tr><td class="k"><code>findSiteDef</code>, <code>defOfInstance</code>, <code>findCharacterInPlay</code>, <code>findCompanyOf</code></td><td>instance-to-definition lookups over the site deck, companies, hand, characters, items, allies, hazards and permanents of both sides; all return <code>undefined</code>/<code>null</code> rather than throwing</td></tr>
+</table>
+
+<h2>13. Predicting detainment</h2>
+<p>The defending seat can read <code>combat.detainment</code> off the live combat. The attacking seat has no combat yet: it is choosing which creature to play. <code>ai/detainment.ts</code> therefore rebuilds the engine's own inputs from the view and calls the engine's <code>isDetainmentAttack</code> (CoE §3.II), so a card that changes the rule changes both seats at once. It is not a second model.</p>
+<ul>
+<li><strong>Inputs rebuilt from the view:</strong> the creature's effects, race and <code>keyedTo</code>; the names of every card in play on either side (for <code>when</code> clauses on keying entries such as Doors of Night alternatives); the opponent's alignment; and the defending site, which is the company's revealed destination while it is moving, else where it stands (the engine's <code>resolveDefendingSiteDef</code>).</li>
+<li><strong>The declared keying is threaded through.</strong> A creature with several keying alternatives is keyed only to the one the play actually used, and §3.II.2.R1/B1 turns on exactly that, so the action's <code>keyedBy</code> (site type or region type) is passed rather than the union; without one, the engine's own union fallback applies.</li>
+<li><strong>Why the hazard side cares:</strong> a detainment attack taps rather than wounds, awards no kill MP when defeated, and suppresses the body check, so it is a free way to tap the roster and the natural opener before a wounding creature (§8).</li>
+<li><strong>Blind spots:</strong> two overrides live in server-only state the view does not publish: Alatar (<code>wh-1</code>) above 7 stage points converting every detainment attack to normal, and a company's turn-scoped <code>keyed-attacks-normal</code> constraint (World Gnawed by the Nameless, <code>as-110</code>). Against those boards the prediction under-states the attack.</li>
+</ul>
+
+<h2>14. Safety nets: regress flags and the cycle guard</h2>
+<h3>Regressive candidates</h3>
+<p><code>engine/reverse-actions.ts</code> computes, for every action taken during the organization phase, the action that would undo it, and stamps <code>regress: true</code> on any later candidate that matches. H1 has filtered on this flag from the start; an agent that ignores it will split a company, merge it back, and split again forever, which is exactly what Heuristics 2 and the Monte-Carlo agent did before they adopted the same filter. <code>forwardActions</code> returns the original list only when every candidate is regressive, so the agent is never handed an empty decision.</p>
+<h3>The cycle guard</h3>
+<p>Even with regressions removed, a deterministic argmax over static weights can walk a legal no-op loop: with the Demon fána swap, Great Shadow's (<code>ba-62</code>) free return-to-hand scored 8 against pass's 5 and replaying it scored 30, and heuristic self-play burned the full 25 000-decision budget inside one organization phase (0 of 10 Balrog/Fallen-wizard games finished). The guard is the one Heuristics 2 carries, reset at <code>startGame</code>:</p>
+<ol>
+<li>The position's signature is the join of: turn, phase, setup step, active player; our hand, play deck, discard, cards-in-play, site deck, kill pile and out-of-play sizes; our company count, character count, count of non-untapped characters, GI used, MP total; the opponent's hand, play deck, discard, cards-in-play sizes, company count, character count, MP total; combat and chain presence flags; pending-effect count. Card identities are deliberately absent so that legitimate repeats (drawing one card at a time, playing several items) always move a quantity and never collide.</li>
+<li>Below 8 visits to a signature (<code>DEFAULT_VISITS_BEFORE_GUARDING</code>), nothing changes; a decision with one candidate is never narrowed.</li>
+<li>At 8 or more visits, action types already chosen from this signature are dropped. If nothing is left, <code>pass</code> alone is offered (it ends the phase, so the position cannot recur); if the engine does not offer pass, the full list is returned.</li>
+</ol>
+<p>The threshold is above the longest legitimate run of same-signature decisions, because a long attack can assign several strikes without moving any watched quantity. The guard only ever narrows, it terminates (finitely many types, then pass), and it is not a fix: a model that scores a move and its undo as both profitable is wrong about the position, and the guard merely converts the hang into a finished game.</p>
+
+<h2>15. Reading a decision: argmax, sampling, explain</h2>
+<h3>Why the argmax</h3>
+<p>The evaluators were written to rank candidates. Read as a distribution, a move scored half as good was played about a third of the time. Over 6 games and 10 341 decisions, sampling chose from outside its own top-weighted set on 26.4% of the 5 085 contested decisions, at a mean weight of 0.858× the best available. Ten paired, side-swapped gates of 400 games each, argmax against sampling:</p>
+<table class="small">
+<tr><th>seed block</th><th class="num">1</th><th class="num">500</th><th class="num">1000</th><th class="num">1500</th><th class="num">2000</th><th class="num">2500</th><th class="num">3000</th><th class="num">3500</th><th class="num">4000</th><th class="num">4500</th><th class="num">pooled (3 997 games)</th></tr>
+<tr><td>score</td><td class="num">59.5%</td><td class="num">54.4%</td><td class="num">51.9%</td><td class="num">55.0%</td><td class="num">54.3%</td><td class="num">56.9%</td><td class="num">60.0%</td><td class="num">59.0%</td><td class="num">62.2%</td><td class="num">54.9%</td><td class="num"><strong>56.8%</strong></td></tr>
+<tr><td>paired Elo</td><td class="num">+67</td><td class="num">+30</td><td class="num">+14</td><td class="num">+35</td><td class="num">+30</td><td class="num">+49</td><td class="num">+70</td><td class="num">+63</td><td class="num">+86</td><td class="num">+34</td><td class="num"><strong>+47 [+37, +58]</strong></td></tr>
+</table>
+<p>All ten blocks favour the argmax; a single 400-game block carries a ±30 interval, which is why five of them fail a strict gate on their own.</p>
+<h3>What the reported weights mean</h3>
+<p>The decision's <code>considered</code> list carries every candidate with its weight. H1 publishes no <code>weightUnit</code>, which the explainer renders as "weights are relative preference — the ordering is meaningful, the differences are not". Only the Monte-Carlo agent publishes a quantity (tournament-score differential). Consumers that subtract H1 weights are misreading them.</p>
+<h3>The explain instrument</h3>
+<p><code>npm run explain -w @meccg/sim -- --game &lt;id&gt; --seq &lt;n&gt; --player &lt;p&gt; --agent heuristic</code> projects the logged state to the player's view (never reading the omniscient state, so the same renderer can answer the browser's "Ask AI" panel without leaking information) and prints the sections below. The layout is the renderer's; the values are illustrative.</p>
+<pre>ASK AI — heuristic
+Agent:    heuristic
+Seat:     Alice (p1) — turn 7, organization
+Score:    Alice 12 MP / Bob 9 MP, hand 6, opponent hand 5
+Choices:  9 viable of 11 candidates (1 regressive, dropped)
+
+Asked:    plan-movement ×5, move-to-company ×2, pass, store-item
+Position: game abc123#412
+
+PICK  Move Aragorn's company to Rivendell
+
+RANKING  9 candidates — weights are relative preference — the ordering is meaningful, the differences are not
+  →  1. 44.000  Move Aragorn's company to Rivendell
+      2. 30.000  Move Aragorn's company to Bree
+      3. 5.000   Pass (end your actions this phase)
+      …
+
+GAP   14.000 between the pick and "Move Aragorn's company to Bree" in preference
+
+NOT AVAILABLE  2 candidates the engine refused:
+  Play Gimli — mind 6 would exceed limit
+  …
+ACTUALLY PLAYED   (when explaining a recorded move: agreement verdict)
+REPRODUCE         (the command line that regenerates this explanation)</pre>
+<p>The same renderer produces the per-decision lines in the lobby AI client's log, so a ranking read in the browser and one read in the log are identical.</p>
+
+<h2>16. Variants, specs, and where H1 is used</h2>
+<table>
+<tr><th>spec</th><th>agent</th><th>behaviour</th></tr>
+<tr><td class="k"><code>heuristic</code></td><td><code>heuristic</code></td><td>argmax with random tie-break; the default AI opponent in the lobby (<code>AI-Heuristic</code>) and the default champion in <code>gate</code></td></tr>
+<tr><td class="k"><code>heuristic:greedy</code></td><td><code>heuristic</code></td><td>accepted no-op alias so older gate logs still run</td></tr>
+<tr><td class="k"><code>heuristic:sample</code></td><td><code>heuristic:sample</code></td><td>samples the weights; the default teacher of <code>export-training</code> and <code>fit-winprob</code>, because an argmax teacher walks one trajectory per seed and the student needs the states either side of it</td></tr>
+<tr><td class="k"><code>noisy-heuristic:ε</code></td><td><code>noisy-heuristic:ε</code></td><td>with probability ε (default 0.5, must be in [0, 1]) picks a uniformly random legal action, otherwise plays <code>heuristic</code>. Exists to calibrate the Elo ladder and to prove the gate blocks a weaker agent (ε = 0.75 scored 14.4%, −310 Elo, and was blocked)</td></tr>
+<tr><td class="k"><code>route:&lt;types&gt;|&lt;primary&gt;|&lt;secondary&gt;</code></td><td>route</td><td>hands any decision that offers one of the named action types to the secondary agent; the trained policy's shipped hybrid routes <code>plan-movement</code> and <code>discard-card</code> to <code>heuristic</code> (see <code>real-ai.pdf</code>)</td></tr>
+</table>
+<p>Other places H1 appears:</p>
+<ul>
+<li><strong>Lobby:</strong> "Play vs Heuristic-AI" launches <code>ai-client</code> without <code>--model</code> or <code>--agent</code>, which resolves <code>heuristic</code> from the same registry the sim uses, so the lobby cannot drift from self-play (the client once had its own <code>sampleWeighted</code> call and did).</li>
+<li><strong>Training teacher:</strong> the shipped base policy <code>approved-base-0727</code> is a clone of 2.2 million decisions of <code>heuristic:sample</code> self-play; H1's weighted candidate list is what makes soft targets possible.</li>
+<li><strong>Delegate for the trained policy:</strong> a weights file's <code>route.to</code> may name <code>heuristic</code> and nothing else.</li>
+<li><strong>Historical fallback for Heuristics 2:</strong> H2 used to hand decisions it could not rank to H1, which turned out to be 41.2% of every real choice; the fallback was removed, and the explainer still reports H1's weights for any decision no H2 module claims.</li>
+<li><strong>Monte-Carlo fallback:</strong> <code>mc</code> delegates views it cannot determinize (in combat, mid-chain, pending effects) to a fallback agent, by default H1.</li>
+</ul>
+
+<h2>17. Strength and known limits</h2>
+<div class="warn"><strong>On the Elo numbers.</strong> The gate harness could, until 2026-08-16, silently measure the wrong git tree, and every H2-versus-H1 figure quoted before that date is suspect (README, "The Elo figures below are unreliable"). The numbers below are the ones taken with the tree verified, or measured in-process without a gate.</div>
+<table>
+<tr><th>measurement</th><th>result</th><th>when / where</th></tr>
+<tr><td>heuristic vs random, 50 games</td><td>38–10 (79%)</td><td>P1 gate, 2026-07-22</td></tr>
+<tr><td>Elo ladder rating (random / noisy / heuristic)</td><td>heuristic 1795 ± 181 and 1841 ± 181 across two seed sets</td><td>P2, 2026-07-23</td></tr>
+<tr><td>argmax vs sampling</td><td>+47 Elo [+37, +58], 3 997 games</td><td>PR #2442, 2026-08-17</td></tr>
+<tr><td>Heuristics 2 vs H1, tree verified</td><td>H2 56.6%, +46 [+14, +80] (seed 1); 53.8%, +26 [−5, +58] (seed 500)</td><td>master v0.109.0, 2026-08-16</td></tr>
+<tr><td>flat Monte-Carlo vs H1, 60-game gates</td><td>8 rollouts 70.6%, +152 [+59, +273]; 16 rollouts 88.4%, +352 [+228, +672]</td><td>2026-07-28, decks a/b</td></tr>
+<tr><td>trained policy vs H1</td><td>base clone +80 [+32, +130] over 200 games (2026-07-27); an honest 288-game round-robin the day before put every model within noise of H1</td><td>see <code>real-ai.pdf</code></td></tr>
+<tr><td>human-cloned hybrid vs H1</td><td>53.1%, +23 [−20, +68], 240 games (parity)</td><td>2026-08-14</td></tr>
+<tr><td>recorded human games vs any AI seat</td><td>humans 107–0 across 21 players, median 42 MP to the AI's 2</td><td>lobby corpus, README</td></tr>
+</table>
+<h3>Structural limits</h3>
+<ul>
+<li><strong>No lookahead.</strong> Every rule prices the immediate action; a two-step plan (travel to a faction's site, then influence it) is only reached because the destination score happens to include the faction's MP.</li>
+<li><strong>Weights are not comparable across evaluators</strong>, so no number can be checked against another and nothing can be swept as a tunable. This is the defect Heuristics 2 was built to remove.</li>
+<li><strong>Unmodelled decisions are coin flips.</strong> Any action type that returns <code>null</code> ties at the default weight with its siblings and is chosen at random among them; several of the rules above (Marvels Told targets, Alone and Unadvised targets, Malady on own characters, support taps) are bug reports about exactly that.</li>
+<li><strong>Deliberate zeros.</strong> <code>discard-character</code> and <code>transfer-item</code> are never played; <code>split-company</code> only for the heal-split.</li>
+<li><strong>No opponent model, no bluffing.</strong> On-guard placement is a flat 4 split across the hand; hazard choice never reasons about what the opponent still holds.</li>
+<li><strong>Conservative playability.</strong> <code>resourcePlayableAt</code> ignores in-state unlocks (Double-dealing <code>wh-66</code>, wizardhaven conversion <code>wh-97</code>), so some legal destinations score 0.</li>
+<li><strong>Detainment blind spots</strong> for Alatar above 7 stage points and <code>keyed-attacks-normal</code> constraints (§13).</li>
+<li><strong>It cannot explain itself</strong> beyond the ranking: there is no rationale tree naming which rule produced a number.</li>
+</ul>
+
+<h2>18. Appendix: file map and constants</h2>
+<table>
+<tr><th>file</th><th>contents</th></tr>
+<tr><td><code>packages/sim/src/agents/heuristic-agent.ts</code></td><td><code>createHeuristicAgent({ sample })</code>: cycle guard, argmax/sample, considered list</td></tr>
+<tr><td><code>packages/sim/src/agents/noisy-heuristic-agent.ts</code></td><td>ε-blundering wrapper</td></tr>
+<tr><td><code>packages/sim/src/agents/route-agent.ts</code></td><td>type-routed composition of two agents</td></tr>
+<tr><td><code>packages/sim/src/ai/heuristic.ts</code></td><td>dispatcher: phase table, combat routing, default weight</td></tr>
+<tr><td><code>packages/sim/src/ai/strategy.ts</code></td><td><code>AiStrategy</code>, <code>AiContext</code>, <code>WeightedAction</code>, <code>pickBest</code>, <code>sampleWeighted</code></td></tr>
+<tr><td><code>packages/sim/src/ai/regress.ts</code></td><td><code>isRegressive</code>, <code>forwardActions</code></td></tr>
+<tr><td><code>packages/sim/src/ai/detainment.ts</code></td><td><code>attackIsDetainment</code></td></tr>
+<tr><td><code>packages/sim/src/ai/evaluators/{setup,organization,movement-hazard,site-phase,combat,end-of-turn}.ts</code></td><td>the six evaluators</td></tr>
+<tr><td><code>packages/sim/src/ai/evaluators/common.ts</code></td><td>shared valuations and lookups</td></tr>
+<tr><td><code>packages/sim/src/ai/evaluators/types.ts</code></td><td><code>ActionEvaluator</code> interface</td></tr>
+<tr><td><code>packages/sim/src/ai/explain-decision.ts</code></td><td>the explanation renderer used by <code>explain</code>, the AI client log, and Ask AI</td></tr>
+<tr><td><code>packages/sim/src/cycle-guard.ts</code>, <code>state-signature.ts</code></td><td>loop detection</td></tr>
+<tr><td><code>packages/sim/src/cli/common.ts</code></td><td><code>resolveAgent</code>: the spec grammar</td></tr>
+<tr><td><code>packages/text-client/src/ai-client.ts</code></td><td>the lobby's headless AI player, which resolves <code>heuristic</code> from the registry</td></tr>
+<tr><td><code>packages/sim/src/ai/evaluators/*.test.ts</code>, <code>heuristic-agent.test.ts</code>, <code>detainment.test.ts</code></td><td>the rules' regression tests</td></tr>
+</table>
+<h3>Every named constant</h3>
+<table class="small">
+<tr><th>name</th><th>value</th><th>where</th></tr>
+<tr><td><code>TIE_TOLERANCE</code></td><td>1e-9 (relative)</td><td>strategy.ts, <code>pickBest</code></td></tr>
+<tr><td><code>DEFAULT_VISITS_BEFORE_GUARDING</code></td><td>8</td><td>cycle-guard.ts</td></tr>
+<tr><td><code>REBUILD_BONUS</code></td><td>100</td><td>organization.ts</td></tr>
+<tr><td><code>GREAT_SHIP_ID</code></td><td><code>tw-248</code></td><td>organization.ts</td></tr>
+<tr><td>GI budget in <code>play-character</code></td><td>20</td><td>organization.ts</td></tr>
+<tr><td>organization <code>pass</code></td><td>5</td><td>organization.ts</td></tr>
+<tr><td><code>REGION_PATH_DANGER</code></td><td>free 0, wilderness 0, coastal 1, border 3, shadow 5, dark 7</td><td>movement-hazard.ts</td></tr>
+<tr><td>on-guard total (movement-hazard)</td><td>4, split across options</td><td>movement-hazard.ts</td></tr>
+<tr><td>Foolish Words id</td><td><code>td-25</code></td><td>movement-hazard.ts</td></tr>
+<tr><td>hard-need threshold</td><td>8</td><td>combat.ts, site-phase.ts</td></tr>
+<tr><td>untapped-defender penalty</td><td>3</td><td>site-phase.ts (<code>automaticAttackForcesTap</code>)</td></tr>
+<tr><td>free-council curve</td><td>0 / 0.05 / linear to 1.0 between leads 4 and 20</td><td>end-of-turn.ts</td></tr>
+<tr><td>discard-first mind threshold</td><td>6</td><td>end-of-turn.ts</td></tr>
+<tr><td><code>REGION_DANGER</code></td><td>free-domain 0, border 1, wilderness 2, shadow-land 4, dark-domain 5</td><td>common.ts</td></tr>
+<tr><td><code>SITE_DANGER</code></td><td>haven 0, free-hold 0, border-hold 1, ruins-and-lairs 3, shadow-hold 5, dark-hold 7</td><td>common.ts</td></tr>
+<tr><td>destination coefficients</td><td>playable <code>max(10, MP × 20)</code>; draws ×2 (with plays) or ×5 (draw-only); haven staging 15</td><td>common.ts</td></tr>
+<tr><td>dice table</td><td>§5</td><td>common.ts</td></tr>
+</table>
+
+</body>
+</html>

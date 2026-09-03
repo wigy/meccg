@@ -1,0 +1,28 @@
+digraph h1evaluators {
+  rankdir=LR;
+  graph [fontname="Helvetica", nodesep=0.18, ranksep=0.6, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.12,0.07"];
+  edge  [fontname="Helvetica", fontsize=9, color="#666666", arrowsize=0.7, penwidth=1.0];
+
+  subgraph cluster_phases {
+    label="phase of the view"; fontname="Helvetica"; fontsize=10; color="#cccccc";
+    p_setup [label="setup"];
+    p_org   [label="organization\luntap\l"];
+    p_mh    [label="movement-hazard"];
+    p_site  [label="site"];
+    p_eot   [label="end-of-turn\llong-event\lfree-council\lgame-over\l"];
+    p_any   [label="any phase,\lcombat action type\l", fillcolor="#fbe9e7", color="#c0705a"];
+    p_unk   [label="unknown phase", fillcolor="#f6f6f6", fontcolor="#777777"];
+  }
+  subgraph cluster_ev {
+    label="evaluator"; fontname="Helvetica"; fontsize=10; color="#cccccc";
+    e_setup [label="setupEvaluator", fillcolor="#fdf3e3", color="#c9a227"];
+    e_org   [label="organizationEvaluator", fillcolor="#fdf3e3", color="#c9a227"];
+    e_mh    [label="movementHazardEvaluator", fillcolor="#fdf3e3", color="#c9a227"];
+    e_site  [label="sitePhaseEvaluator", fillcolor="#fdf3e3", color="#c9a227"];
+    e_eot   [label="endOfTurnEvaluator", fillcolor="#fdf3e3", color="#c9a227"];
+    e_cbt   [label="combatEvaluator", fillcolor="#fbe9e7", color="#c0705a"];
+  }
+  p_setup -> e_setup; p_org -> e_org; p_mh -> e_mh; p_site -> e_site; p_eot -> e_eot;
+  p_any -> e_cbt; p_unk -> e_org [style=dashed];
+}

@@ -1,0 +1,46 @@
+digraph bcnet {
+  rankdir=TB;
+  newrank=true;
+  graph [fontname="Helvetica", nodesep=0.22, ranksep=0.3, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=10.5, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.12,0.07"];
+  edge  [fontname="Helvetica", fontsize=9, color="#666666", arrowsize=0.7, penwidth=1.0];
+
+  subgraph cluster_state {
+    label="state encoder (once per decision)"; fontname="Helvetica"; fontsize=10.5; color="#cccccc";
+    ent  [label="entity row [13]\lzone, owner, card, status, company, bearer, 6 stats, flag\l", fillcolor="#e8eef7", color="#5b7fb5"];
+    embz [label="emb_zone[zone] → 8"];
+    embc [label="emb_card[card] → 16\lemb_card[bearer] → 16\l"];
+    nums [label="10 numeric columns\l(owner, status, company, stats, flag)\l"];
+    entl [label="ent_lin: 50 → 32, ReLU", fillcolor="#fdf3e3", color="#c9a227"];
+    pool [label="mean over all entity rows → 32", fillcolor="#fdf3e3", color="#c9a227"];
+    glob [label="global vector [54]", fillcolor="#e8eef7", color="#5b7fb5"];
+    globl[label="glob_lin: 54 → 32, ReLU", fillcolor="#fdf3e3", color="#c9a227"];
+    torso[label="torso: [32 ‖ 32] = 64 → 64, ReLU  =  state vector", fillcolor="#fdf3e3", color="#c9a227"];
+  }
+  subgraph cluster_cand {
+    label="candidate scorer (once per candidate)"; fontname="Helvetica"; fontsize=10.5; color="#cccccc";
+    cand [label="candidate vector [9]\ltype, viable, ref-count, 4 refs, 2 nums\l", fillcolor="#e8eef7", color="#5b7fb5"];
+    embt [label="emb_type[type] → 16\l(index ≥ table size → row 0, unknown)\l"];
+    embr [label="mean of emb_card[ref1..4] → 16"];
+    cnum [label="4 numeric columns\l(viable, ref-count, num1, num2)\l"];
+    candl[label="cand_lin: 36 → 32, ReLU", fillcolor="#fdf3e3", color="#c9a227"];
+    s1   [label="score1: [64 ‖ 32] = 96 → 64, ReLU", fillcolor="#fdf3e3", color="#c9a227"];
+    s2   [label="score2: 64 → 1 = logit", fillcolor="#fdf3e3", color="#c9a227"];
+    sm   [label="masked softmax over viable candidates\l→ probability per candidate\l", fillcolor="#eef7ef", color="#5a8f5f"];
+  }
+  subgraph cluster_value {
+    label="value head"; fontname="Helvetica"; fontsize=10.5; color="#cccccc";
+    v1   [label="value1: [64 ‖ 54] = 118 → 32, ReLU\l(skip connection from the global vector)\l", fillcolor="#fdf3e3", color="#c9a227"];
+    v2   [label="value2: 32 → 1, tanh\l→ outcome estimate in [−1, 1]\l", fillcolor="#eef7ef", color="#5a8f5f"];
+  }
+  { rank=same; ent; glob; }
+  { rank=same; cand; v1; }
+  ent -> embz; ent -> embc; ent -> nums;
+  embz -> entl; embc -> entl; nums -> entl; entl -> pool;
+  glob -> globl; globl -> torso; pool -> torso;
+  torso -> cand [style=invis];
+  cand -> embt; cand -> embr; cand -> cnum;
+  embt -> candl; embr -> candl; cnum -> candl;
+  torso -> s1; candl -> s1; s1 -> s2 -> sm;
+  torso -> v1; glob -> v1 [style=dashed]; v1 -> v2;
+}

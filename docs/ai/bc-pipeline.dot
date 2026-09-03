@@ -1,0 +1,35 @@
+digraph bcpipeline {
+  rankdir=TB;
+  newrank=true;
+  graph [fontname="Helvetica", nodesep=0.3, ranksep=0.4, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.14,0.08"];
+  edge  [fontname="Helvetica", fontsize=9.5, color="#666666", arrowsize=0.8, penwidth=1.1];
+
+  subgraph cluster_data {
+    label="1. data (TypeScript)"; fontname="Helvetica"; fontsize=11; color="#cccccc";
+    exp  [label="export-training\lplays headless games with a teacher\l(default heuristic:sample)\l", fillcolor="#e8eef7", color="#5b7fb5"];
+    exph [label="export-human\lreplays recorded lobby logs,\lrecovers each human move\l", fillcolor="#e8eef7", color="#5b7fb5"];
+    feat [label="featurize\lglobal[54] + entities[N×13]\lcandidates[C×9] + mask[C]\l", fillcolor="#fdf3e3", color="#c9a227"];
+    jsonl[label="JSONL\lh (header) / d (decision) / r (result)\l"];
+  }
+  subgraph cluster_train {
+    label="2. learning (Python / PyTorch)"; fontname="Helvetica"; fontsize=11; color="#cccccc";
+    bc   [label="train_bc.py --mode bc\lsoft-target cross-entropy + value MSE\l", fillcolor="#f2eaf7", color="#8e6bab"];
+    rl   [label="train_bc.py --mode ppo | reinforce\l--init parent, temperature-1 rollouts\l", fillcolor="#f2eaf7", color="#8e6bab"];
+    w    [label="weights.json\lshapes + flat data, selfTest, vocabHash,\ldecode, route, training\l", fillcolor="#f2eaf7", color="#8e6bab"];
+  }
+  subgraph cluster_play {
+    label="3. play (TypeScript)"; fontname="Helvetica"; fontsize=11; color="#cccccc";
+    agent[label="bc agent\lload → self-test → vocab hash →\lforward pass → decode → cycle guard\l", fillcolor="#eef7ef", color="#5a8f5f"];
+    gate [label="gate / tournament\lpaired seeds, side-swapped,\lElo diff with 95% CI\l", fillcolor="#eef7ef", color="#5a8f5f"];
+    lobby[label="lobby AI-Real seat\l~/.meccg/models → ai-client --model\l", fillcolor="#eef7ef", color="#5a8f5f"];
+  }
+  { rank=same; exp; exph; }
+  { rank=same; bc; rl; }
+  { rank=same; gate; lobby; }
+  exp -> feat; exph -> feat; feat -> jsonl;
+  jsonl -> bc; jsonl -> rl; bc -> w; rl -> w;
+  w -> agent; agent -> gate; agent -> lobby;
+  agent -> exp [style=dashed, label=" bc:weights@1 rollouts (selfplay_loop.sh)", constraint=false];
+  gate -> w [style=dashed, label=" promote champion", constraint=false];
+}

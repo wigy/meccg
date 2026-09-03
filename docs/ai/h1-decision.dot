@@ -1,0 +1,25 @@
+digraph h1decision {
+  rankdir=TB;
+  graph [fontname="Helvetica", nodesep=0.25, ranksep=0.35, bgcolor="white"];
+  node  [fontname="Helvetica", fontsize=10.5, shape=box, style="rounded,filled", fillcolor="#f4f4f4", color="#999999", penwidth=1.0, margin="0.14,0.08"];
+  edge  [fontname="Helvetica", fontsize=9, color="#666666", arrowsize=0.8, penwidth=1.1];
+
+  ctx  [label="AgentContext\lview (PlayerView), cardPool, legalActions (viable only),\levaluated (all candidates), random (seeded stream)\l", fillcolor="#e8eef7", color="#5b7fb5"];
+  sig  [label="viewSignature(view)\lcoarse fingerprint: turn, phase, zone sizes,\ltap count, MP, combat/chain flags\l"];
+  cg   [label="cycleGuard.allow(signature, legalActions)\lbelow 8 visits: unchanged\lat 8+: drop action types already tried here;\lif none left, [pass]\l", fillcolor="#fbe9e7", color="#c0705a"];
+  fwd  [label="forwardActions\ldrop candidates the engine stamped regress: true\l(keep all if every candidate is regressive)\l", fillcolor="#fbe9e7", color="#c0705a"];
+  cls  [label="classify the decision\lallOptional = every candidate is pass/draft-stop or an optional setup action\lhasSubstantive = some candidate is not pass/draft-stop\l"];
+  ev   [label="evaluatorFor(action, phase)\lcombat action type? → combat evaluator\lelse PHASE_TABLE[phase], else organization\l", fillcolor="#fdf3e3", color="#c9a227"];
+  sc   [label="evaluator.score(action, context)\lnumber → weight = max(0, score)\l", fillcolor="#fdf3e3", color="#c9a227"];
+  def  [label="null → defaultWeight\lpass/draft-stop: 0 when a substantive alternative exists,\lthe decision is not all-optional, and phase ≠ organization; else 1\lany other action: 1\lthen × diceSuccessPct(need)/100 if the action carries a need\l", fillcolor="#f4f4f4"];
+  pick [label="pickBest (default)\lhighest weight; ties within 1e-9 relative\lbroken uniformly from the seeded stream\l", fillcolor="#eef7ef", color="#5a8f5f"];
+  samp [label="sampleWeighted (heuristic:sample)\ldraw proportionally to weight;\luniform if every weight is 0\l", fillcolor="#f6f6f6", color="#bbbbbb", fontcolor="#777777"];
+  out  [label="AgentDecision\laction + considered (every candidate with its weight)\l", fillcolor="#e8eef7", color="#5b7fb5"];
+
+  ctx -> sig -> cg -> fwd -> cls -> ev -> sc -> pick -> out;
+  sc -> def [style=dashed, label=" no opinion"];
+  def -> pick [style=dashed];
+  sc -> samp [style=dashed, color="#aaaaaa"];
+  samp -> out [style=dashed, color="#aaaaaa"];
+  pick -> cg [style=dotted, label=" cycleGuard.taken(signature, action)", constraint=false];
+}
