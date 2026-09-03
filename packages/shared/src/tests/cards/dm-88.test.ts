@@ -36,7 +36,7 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, RegionType, Alignment } from '../../index.js';
-import type { GameState, CardDefinitionId, PlayHazardAction, SeizedByTerrorRollAction } from '../../index.js';
+import type { GameState, CardDefinitionId, PlayHazardAction, SeizedByTerrorRollAction, MovementHazardPhaseState } from '../../index.js';
 
 const SEIZED_BY_TERROR = 'dm-88' as CardDefinitionId;
 const ALATAR_FW = 'wh-1' as CardDefinitionId; // Fallen-wizard avatar (race fallen-wizard, mind null)
@@ -272,6 +272,66 @@ describe('Seized by Terror (dm-88)', () => {
 
     // Aragorn is still in play (not discarded)
     expect(s.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
+  });
+
+  test('split-off company never gets its own movement/hazard phase (rule 2.IV.4)', () => {
+    // Regression: Annalena (bug report, game mtla0kn7-tut36w) split off into
+    // a new solo company at the site of origin, but the new company was then
+    // still offered a full select-company turn later in the same
+    // movement/hazard phase — reveal-new-site, hazard plays, the works. Rule
+    // 2.IV.4 (ICE Rules Digest #86): a company returned to its site of
+    // origin has its M/H phase end immediately — it must never start one.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [SEIZED_BY_TERROR], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const aragornId = charIdAt(state, RESOURCE_PLAYER);
+    const mhState: GameState = { ...state, phaseState: makeShadowMHState() };
+    const cardId = handCardId(mhState, HAZARD_PLAYER);
+
+    let s = dispatch(mhState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: cardId,
+      targetCompanyId: P1_COMPANY,
+      targetCharacterId: aragornId,
+    });
+
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_1 });
+    s = dispatch(s, { type: 'pass-chain-priority', player: PLAYER_2 });
+
+    // Force a roll of 2: 2 + 9 = 11 < 12 → fails, character splits off
+    s = { ...s, cheatRollTotal: 2 };
+    const rollActions = computeLegalActions(s, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'seized-by-terror-roll');
+    s = dispatch(s, rollActions[0].action);
+
+    const newCompany = s.players[RESOURCE_PLAYER].companies.find(c => c.id !== P1_COMPANY);
+    expect(newCompany).toBeDefined();
+
+    // The new company is already marked handled for this M/H phase — it
+    // never gets a select-company turn of its own.
+    expect(s.phaseState.phase).toBe(Phase.MovementHazard);
+    const mhAfter = s.phaseState as MovementHazardPhaseState;
+    expect(mhAfter.handledCompanyIds).toContain(newCompany!.id);
+
+    const selectActions = computeLegalActions(s, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'select-company');
+    expect(selectActions.some(a => (a.action as { companyId: string }).companyId === newCompany!.id)).toBe(false);
+
+    // It also can't act during its own (blocked) site phase.
+    const blocked = s.activeConstraints.find(c =>
+      c.kind.type === 'site-phase-do-nothing'
+      && c.target.kind === 'company'
+      && c.target.companyId === newCompany!.id,
+    );
+    expect(blocked).toBeDefined();
   });
 
   test('single-character company returns to origin (no split) on roll failure', () => {
