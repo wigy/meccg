@@ -4660,6 +4660,18 @@ function cancelByTapActions(
 
   const actions: EvaluatedAction[] = [];
 
+  // Per CRF 22: "Allies count as characters for the purposes of combat,
+  // including performing actions in combat that characters do (getting
+  // assigned strikes, tapping for +1 to prowess)" — the same applies to
+  // tapping to cancel an attack, so allies are eligible tap-to-cancel actors
+  // alongside the company's characters.
+  const tapCandidates: { id: CardInstanceId; status: CardStatus }[] = [
+    ...company.characters.map(charId => ({ id: charId, status: player.characters[charId]?.status })).filter(
+      (c): c is { id: CardInstanceId; status: CardStatus } => c.status !== undefined,
+    ),
+    ...findCompanyAllies(player, company.characters).map(({ ally }) => ({ id: ally.instanceId, status: ally.status })),
+  ];
+
   // Carrion Feeders (ba-11): "Each untapped character in the company may tap to
   // cancel a strike against a wounded character." Each strike is pre-assigned
   // to a distinct wounded character; the defender taps an untapped company
@@ -4668,16 +4680,15 @@ function cancelByTapActions(
     const remainingStrikeChars = Array.from(new Set(
       combat.strikeAssignments.filter(a => !a.resolved).map(a => a.characterId as string),
     ));
-    for (const charId of company.characters) {
-      const charData = player.characters[charId];
-      if (!charData || charData.status !== CardStatus.Untapped) continue;
+    for (const candidate of tapCandidates) {
+      if (candidate.status !== CardStatus.Untapped) continue;
       for (const woundedId of remainingStrikeChars) {
-        logDetail(`Cancel-strike-vs-wounded available: tap ${charId as string} to cancel the strike against ${woundedId}`);
+        logDetail(`Cancel-strike-vs-wounded available: tap ${candidate.id as string} to cancel the strike against ${woundedId}`);
         actions.push({
           action: {
             type: 'cancel-by-tap',
             player: playerId,
-            characterId: charId,
+            characterId: candidate.id,
             strikeCharacterId: woundedId as CardInstanceId,
           },
           viable: true,
@@ -4693,16 +4704,16 @@ function cancelByTapActions(
   const targetCharId = combat.strikeAssignments[0]?.characterId;
   if (!targetCharId) return [];
 
-  for (const charId of company.characters) {
+  for (const candidate of tapCandidates) {
     // By default the target character cannot tap to cancel (Assassin: "not the defending character").
     // When allowTargetToCancel is set (Slayer: "any one character"), the target may also tap.
-    if (!combat.cancelByTapAllowTarget && charId === targetCharId) continue;
-    const charData = player.characters[charId];
-    if (!charData || charData.status !== CardStatus.Untapped) continue;
+    // (Allies are never the strike target, so this only ever excludes a character.)
+    if (!combat.cancelByTapAllowTarget && candidate.id === targetCharId) continue;
+    if (candidate.status !== CardStatus.Untapped) continue;
 
-    logDetail(`Cancel-by-tap available: tap ${charId as string} to cancel one attack`);
+    logDetail(`Cancel-by-tap available: tap ${candidate.id as string} to cancel one attack`);
     actions.push({
-      action: { type: 'cancel-by-tap', player: playerId, characterId: charId },
+      action: { type: 'cancel-by-tap', player: playerId, characterId: candidate.id },
       viable: true,
     });
   }
