@@ -297,6 +297,27 @@ export interface Tunables {
    */
   readonly handedAssignmentPessimism: number;
   /**
+   * What handing the strike assignment to the attacker costs beyond the
+   * projection, in TSD.
+   *
+   * A tie-break rather than a price. Whatever the attacker would do with the
+   * assignment, the defender could have done to himself — the choice set a
+   * `pass` gives away is a subset of the one it keeps — so keeping it cannot
+   * come out worse, and the two candidates tie exactly whenever the attacker's
+   * pick and the defence's best parrier name the same character. That is most
+   * of the time: on the corpus every remaining `assign-strike` → `pass`
+   * disagreement was such a tie, and the agent's uniform tie-break then handed
+   * half of them to the opponent for nothing.
+   *
+   * An order of magnitude under the sequence enumeration's own bucket width
+   * (`BUCKET_WIDTH`, 0.25), so it can never overturn a difference the model
+   * actually resolved, and strictly positive so a tie goes to the seat that
+   * keeps the choice. Charged in proportion to `handedAssignmentPessimism`: at
+   * zero the model asserts the attacker makes no use of the assignment, and
+   * there is then nothing conceded to charge for.
+   */
+  readonly concededAssignmentTsd: number;
+  /**
    * The chance an on-guard card is ever revealed and pays, in [0, 1].
    *
    * Placement itself is free: an on-guard card that is never revealed returns
@@ -523,6 +544,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   abilityLossDenialTsd: 0.5,
   attackerChoiceSearchLambda: 0,
   handedAssignmentPessimism: 1,
+  concededAssignmentTsd: 0.01,
   onGuardDiscount: 0.5,
   planSwitchMarginTsd: 1,
   planAbandonProbability: 0.05,

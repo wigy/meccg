@@ -385,6 +385,10 @@ const KEPT_ASSUMPTIONS: readonly string[] = [
 const HANDED_OVER_ASSUMPTIONS: readonly string[] = [
   'passing is priced as the attacker assigning every unallocated strike as well as he can, which '
   + 'is the strongest play open to him rather than the one he will necessarily find',
+  'the attacker\'s pick is priced in the defending seat\'s own ledger, so conceding the '
+  + 'assignment on purpose — to have him spare the one character the company still needs '
+  + 'untapped, and take a more vulnerable one instead — is a reason to pass this model cannot '
+  + 'produce',
 ];
 
 /** Human-readable label for a joint outcome. */
@@ -671,9 +675,29 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
         // given, not a dial for making the number come out.
         const pessimism = Math.min(1, Math.max(0, tunables.handedAssignmentPessimism));
         const handed = facing(remaining, 'let the attacker assign the rest', settled, true);
+        // Pricing alone still leaves the decision to a coin flip, because the
+        // two candidates *tie* whenever the attacker's pick and the defence's
+        // best parrier name the same character — which they do whenever one
+        // character is left unassigned, and which was every remaining
+        // disagreement of this shape on the corpus. They are not really equal:
+        // whatever the attacker would do with the assignment the defender could
+        // have done to himself, so the choice set a pass gives away is a subset
+        // of the one it keeps and keeping it cannot come out worse. That
+        // dominance is what this margin writes down — small enough never to
+        // overturn a difference the enumeration resolved, strictly positive so
+        // the tie goes to the seat that keeps the choice.
+        const conceded = tunables.concededAssignmentTsd * pessimism;
+        const concession = leaf('conceded the choice', conceded, {
+          unit: 'tsd',
+          tunable: 'concededAssignmentTsd',
+          note: 'the defence could have made the attacker\'s assignment itself, so a tie keeps it',
+        });
+        /** The projection, with the concession charged against every outcome. */
+        const charged = (outcomes: readonly Outcome[]): Outcome[] =>
+          outcomes.map(o => ({ ...o, dtsd: o.dtsd - conceded }));
         if (pessimism >= 1) {
           return evaluationFrom(context, action, 'hand the assignment to the attacker',
-            handed.outcomes, handed.detail,
+            charged(handed.outcomes), [...handed.detail, concession],
             [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS, ...HANDED_OVER_ASSUMPTIONS]);
         }
         const kept = facing(remaining, 'face the attack', settled);
@@ -682,11 +706,11 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
           ...handed.outcomes.map(o => ({ ...o, p: o.p * pessimism })),
         ].filter(o => o.p > 0);
         return evaluationFrom(context, action, 'hand the assignment to the attacker',
-          mixed,
+          charged(mixed),
           [leaf('attacker uses the assignment', pessimism, {
             tunable: 'handedAssignmentPessimism',
             note: 'weight on the attacker\'s own choice of targets',
-          }), ...kept.detail, ...handed.detail],
+          }), ...kept.detail, ...handed.detail, concession],
           [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS, ...HANDED_OVER_ASSUMPTIONS]);
       }
       // Declining to cancel means taking the attack as it stands.

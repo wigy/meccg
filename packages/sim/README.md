@@ -2990,32 +2990,69 @@ Twelve recorded human games, both trees verified before and after the run:
 | `assign-strike` → `pass` | **97** | **63** |
 | `pass` | 70.5% | 70.4% |
 
-#### What is left is a tie, and that is a different question
+#### What was left was a tie, and a tie here is not a coin flip
 
-The 63 remaining passes are not the model preferring to hand the assignment
-over. Sampled across a game's worth of them, **23 of 23 are exact ties** — the
+The remaining passes were not the model preferring to hand the assignment over.
+Sampled across a game's worth of them, **23 of 23 are exact ties** — the
 attacker's greedy pick and the defence's best parrier name the same character,
 usually because only one is left unassigned — and the uniform tie-break
-(§*Not acting is a move, and a bad one*) takes half of them. After this change
-`pass` is never scored strictly above the best assignment anywhere in the
+(§*Not acting is a move, and a bad one*) takes half of them. After the pricing
+fix `pass` is never scored strictly above the best assignment anywhere in the
 corpus.
 
-Whether it should *lose* those ties is a dominance argument rather than a
-pricing one — the defender's choice set contains whatever the attacker would
-have done, so keeping the assignment cannot be worse — and it belongs with the
-tie policy, which was settled by its own gate, not here.
+It cannot be. The defender's choice set *contains* whatever the attacker would
+have done with the assignment, so keeping it cannot come out worse: handing it
+over is weakly dominated, and a candidate that can at best match the alternative
+should not be winning half the flips. That is a dominance argument rather than a
+pricing one, and the projection has no way to express it — the two distributions
+really are equal — so it is written down as a margin instead.
+`concededAssignmentTsd` is an order of magnitude under the enumeration's own
+bucket width (0.25 TSD), so it can never overturn a difference the model
+resolved, and it is charged in proportion to `handedAssignmentPessimism`, so the
+off-switch below still reverts one whole reading rather than half of one.
 
-Not gated. `handedAssignmentPessimism` exists so that it can be, in one binary:
+Measured with `concededAssignmentTsd` at zero against the shipped value, one
+binary either side of the margin and nothing else changed. The sample is the
+tool's own twelve-game draw re-attributed on the corpus as it stands now — 3533
+decisions rather than the 4892 above, so the two tables are each internally
+comparable and not comparable to each other:
+
+| | margin off | margin on |
+| --- | --- | --- |
+| overall agreement | 57.34% | **57.66%** (+11 decisions) |
+| `assign-strike` | 21.3% | **41.8%** |
+| `assign-strike` → `pass` | **44** | **6** |
+| `pass` | 65.8% | 64.9% |
+
+`pass` agreement falls by fourteen decisions and `assign-strike` rises by
+twenty-five, which is the trade the §*Not acting is a move* result predicts: the
+agent passes less, so it disagrees more often with a human who passed. The six
+that remain are in windows this branch does not claim — CvCC assigns in three
+phases under different rules (CoE 8.38) and is left to the branch that models
+it — or above the margin on the pricing; neither is explained here.
+
+The one reason to hand the assignment over on purpose is real and this model
+cannot produce it: letting the attacker take a more vulnerable character so that
+he spares the one the company still needs untapped, for an influence attempt or
+a faction. The attacker's pick is priced in the defending seat's *own* ledger —
+the worst target for the defence is by construction the best one for him — so a
+concession that trades the strike for tempo elsewhere would need the two seats
+valuing the same character differently. It is recorded on the evaluation as an
+assumption rather than approximated with a number.
+
+Not gated. Both readings are one binary away:
 
 ```sh
 npm run gate -w @meccg/sim -- --challenger h2 \
   --champion 'h2:all/handedAssignmentPessimism=0' --pairs 25 --rounds 4 --jobs 16
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/concededAssignmentTsd=0' --pairs 25 --rounds 4 --jobs 16
 ```
 
 What the corpus can say it has said, and the rule the fix reads off
 `handleCombatPass` is not a valuation this document needs a win rate to settle.
-Whether it is worth Elo is a separate question, and the switch above is how it
-gets asked.
+Whether it is worth Elo is a separate question, and the switches above are how
+it gets asked.
 
 ### Why H2 scores two points: it is wounded, not slow
 

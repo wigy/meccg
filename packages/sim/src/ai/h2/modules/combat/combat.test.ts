@@ -14,6 +14,7 @@ import { describe, test, expect } from 'vitest';
 import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
 import type { Evaluation, ModuleContext, Rationale } from '../../core/types.js';
+import type { Tunables } from '../../core/tunables.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { collectTunables } from '../../core/rationale.js';
 import { computeStanding } from '../../services/standing.js';
@@ -404,5 +405,67 @@ describe('the handed-assignment off-switch', () => {
   test('a mixture is still a distribution', () => {
     const pass = find(rankWith(SCENARIO, 0.5), a => a.type === 'pass')!;
     expect(pass.outcomes.reduce((sum, o) => sum + o.p, 0)).toBeCloseTo(1, 9);
+  });
+});
+
+describe('a tie in the defender\'s assignment window', () => {
+  // assign-two-strikes: a two-strike attack the defender still holds the
+  // assignment for, and the shape the corpus is actually made of — the
+  // attacker's pick and the defence's best parrier name the same character, so
+  // the two projections agree to the last decimal. Priced on the projection
+  // alone the decision is a coin flip, and half of those flips hand the
+  // opponent a choice the defender could have made himself.
+  const SCENARIO = 'combat/assign-two-strikes';
+
+  /** The module's ranking with tunables overridden. */
+  function rankWith(scenarioId: string, overrides: Partial<Tunables>): readonly Evaluation[] {
+    const context = contextFor(scenarioId);
+    return evaluateDecision([combatModule], {
+      ...context,
+      tunables: { ...DEFAULT_TUNABLES, ...overrides },
+    }).evaluations;
+  }
+
+  test('the two projections really do coincide here', () => {
+    const evaluations = rankWith(SCENARIO, { concededAssignmentTsd: 0 });
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(pass.utility).toBeCloseTo(assign.utility, 9);
+  });
+
+  test('and the tie goes to the seat that keeps the choice', () => {
+    // Not a preference invented to make the number come out: whatever the
+    // attacker would do with the assignment the defence could have done to
+    // itself, so the choice set passing gives away is a subset of the one it
+    // keeps, and keeping it cannot come out worse.
+    const evaluations = rank(SCENARIO);
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(assign.utility).toBeGreaterThan(pass.utility);
+    // The whole gap is the margin and nothing else — the two are the same
+    // attack, so anything wider would be a difference the model invented.
+    expect(assign.expectedTsd - pass.expectedTsd)
+      .toBeCloseTo(DEFAULT_TUNABLES.concededAssignmentTsd, 9);
+    expect(collectTunables(pass.rationale).has('concededAssignmentTsd')).toBe(true);
+  });
+
+  test('nothing is conceded in a window the defender is not assigning in', () => {
+    // Assassin (tw-8) assigned every strike itself; what reopens is the
+    // cancel-by-tap window, where passing declines to spend a tap and hands
+    // over nothing.
+    const ASSASSIN = 'combat/assassin-cancel-by-tap-after-assignment';
+    const charged = find(rank(ASSASSIN), a => a.type === 'pass')!;
+    const free = find(rankWith(ASSASSIN, { concededAssignmentTsd: 0 }), a => a.type === 'pass')!;
+    expect(charged.expectedTsd).toBe(free.expectedTsd);
+  });
+
+  test('the off-switch takes the margin with the reading it belongs to', () => {
+    // At `handedAssignmentPessimism=0` the model says the attacker makes no use
+    // of what he was handed, so there is nothing conceded to charge for and the
+    // gate compares two whole readings rather than one and a half.
+    const evaluations = rankWith(SCENARIO, { handedAssignmentPessimism: 0 });
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(pass.utility).toBeCloseTo(assign.utility, 9);
   });
 });
