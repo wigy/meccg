@@ -748,13 +748,15 @@ export function hasEliminatedAvatar(state: GameState, playerIndex: number): bool
  * True if a character counts as only half a character for company-size
  * purposes (CoE rule 3.24): every Hobbit and every Orc scout.
  *
- * Centralises the half-size predicate so the hazard-limit and max-of-seven
- * call sites (organization grant-action checks, company formation, the
- * hazard limit computation, and the `company.size` DSL context) stay in
- * agreement. Note this halving is scoped to CoE rule 3.24 / 2.IV.iii
- * (hazard limit, organizing max-of-seven) — it does NOT apply to cards'
- * own `maxCompanySize` play-gates (e.g. Alone and Unadvised as-24, Stealth
- * tw-332), which compare against the company's sheer character count.
+ * Centralises the half-size predicate so every "company size" call site
+ * (organization grant-action checks, company formation, the hazard limit
+ * computation, the `company.size` DSL context, and card-level
+ * `maxCompanySize` play-gates whose text uses the glossary term "size", e.g.
+ * Stealth tw-332 and Sneakin' le-231) stays in agreement. Cards phrased in
+ * terms of raw "characters" instead of "size" (e.g. Alone and Unadvised
+ * as-24, whose own DSL uses `company.characterCount` for its discard trigger
+ * and corruption modifier) compare against the company's sheer character
+ * count instead, for internal consistency with their own effects.
  */
 function countsAsHalfCharacter(def: CardDefinition): boolean {
   if (!isCharacterCard(def)) return false;
@@ -769,10 +771,10 @@ function countsAsHalfCharacter(def: CardDefinition): boolean {
  * is rounded up. Non-character or unresolved instances count as a full
  * character (defensive — companies should only hold characters).
  *
- * This is the single source of truth for the hazard-limit/max-of-seven
- * notion of company size. Card-level `maxCompanySize` play-gates are a
- * distinct concept (sheer character count, no halving) — see
- * {@link countsAsHalfCharacter}.
+ * This is the single source of truth for "company size" wherever the CoE
+ * glossary term applies — the hazard limit, the organizing max-of-seven, and
+ * card-level `maxCompanySize` play-gates phrased in terms of "size" (see
+ * {@link countsAsHalfCharacter}).
  */
 export function companyEffectiveSize(state: GameState, company: Company): number {
   return companyEffectiveSizeOf(state, company.characters);

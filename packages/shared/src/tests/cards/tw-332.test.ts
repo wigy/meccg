@@ -198,6 +198,33 @@ describe('Stealth (tw-332)', () => {
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
   });
 
+  test('Stealth is playable when company has 3 characters but effective size 2 (two Hobbits)', () => {
+    // Bug report (game mtm4mp5t-ti5gjr): a company of Aragorn, Bilbo, and
+    // Frodo was rejected for Stealth because the engine compared the raw
+    // character count (3) against maxCompanySize. Per the CoE glossary,
+    // "company size" counts each Hobbit as half a character (rounded up):
+    // Aragorn (full=1) + Bilbo (hobbit=0.5) + Frodo (hobbit=0.5) = effective
+    // size 2, which satisfies Stealth's "company size is less than three".
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, BILBO, FRODO] }],
+          hand: [STEALTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
+
+    const playActions = viableActions(base, PLAYER_1, 'play-short-event')
+      .map(ea => ea.action as { cardInstanceId: string });
+    expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeDefined();
+  });
+
   test('Stealth is not playable when company has no scout', () => {
     // Legolas has no scout skill, so Stealth cannot be played even in a
     // small company.
