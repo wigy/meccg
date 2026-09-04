@@ -7668,6 +7668,19 @@ body.all-companies-mode:has(#debug-view.hidden) {
   border-top: 2px solid rgba(196, 163, 90, 0.3);
 }
 
+.go-reveals {
+  width: 90%;
+  max-width: 900px;
+  margin: 0.6rem auto 0 auto;
+  font-family: 'MedievalSharp', serif;
+  font-size: 0.9rem;
+  color: rgba(220, 220, 220, 0.7);
+}
+
+.go-reveal-note {
+  padding: 0.2rem 0.8rem;
+}
+
 /* ---- Pseudo-AI Action Panel ---- */
 
 #pseudo-ai-panel {

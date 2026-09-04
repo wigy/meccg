@@ -197,6 +197,25 @@ export function renderGameOverView(
   table.appendChild(tfoot);
 
   board.appendChild(table);
+
+  // CoE rule 10.3.v "Revealing Duplicates" — each match is already folded
+  // into the Total row above (via finalScores), but with no explanation the
+  // Total silently diverges from the sum of the category rows. List the
+  // matches so players can see why.
+  if (goState.uniqueCardReveals.length > 0) {
+    const notes = document.createElement('div');
+    notes.className = 'go-reveals';
+    for (const reveal of goState.uniqueCardReveals) {
+      const revealerName = reveal.revealedBy === view.self.id ? view.self.name : view.opponent.name;
+      const penalizedName = reveal.penalizedPlayer === view.self.id ? view.self.name : view.opponent.name;
+      const cardName = cardPool[reveal.cardId as string]?.name ?? (reveal.cardId as string);
+      const note = document.createElement('div');
+      note.className = 'go-reveal-note';
+      note.textContent = `Unique card reveal: ${revealerName} held "${cardName}" matching ${penalizedName}'s in-play copy — ${penalizedName} -1`;
+      notes.appendChild(note);
+    }
+    board.appendChild(notes);
+  }
 }
 
 /** Build a table cell showing the score and mini card images for one MP category. */

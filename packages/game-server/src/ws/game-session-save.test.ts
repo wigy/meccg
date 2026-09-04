@@ -107,6 +107,7 @@ function finishedState(finishedPlayers: string[]): GameState {
       finalScores: { [ALICE]: 13, [BOB]: 4 },
       finishedPlayers,
       winReason: { kind: 'marshalling-points' },
+      uniqueCardReveals: [],
     },
   };
 }

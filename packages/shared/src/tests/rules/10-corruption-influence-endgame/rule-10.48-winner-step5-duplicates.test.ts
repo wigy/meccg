@@ -64,6 +64,12 @@ describe('Rule 10.48 — Step 5: Revealing Duplicates', () => {
     expect(gameOver.finalScores[PLAYER_2]).toBe(-1);
     // P1 has no match in P2's hand → no reduction
     expect(gameOver.finalScores[PLAYER_1]).toBe(0);
+    // Regression: the -1 was applied to finalScores but never recorded
+    // anywhere a player could see why — uniqueCardReveals must list the match
+    // so the result screen can explain the deduction.
+    expect(gameOver.uniqueCardReveals).toEqual([
+      { revealedBy: PLAYER_1, penalizedPlayer: PLAYER_2, cardId: RANGERS_OF_THE_NORTH },
+    ]);
   });
 
   test('Hand card matching opponent unique in-play character reduces opponent final score by 1', () => {
