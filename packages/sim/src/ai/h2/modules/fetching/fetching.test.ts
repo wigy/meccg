@@ -352,3 +352,71 @@ describe('swapping a card between the discard pile and the sideboard', () => {
     } as never, context)).toBeNull();
   });
 });
+
+describe('the character deck draft, where declining destroys the card', () => {
+  // `handleCharacterDeckDraftPass`: "passes — n undrafted pool character(s)
+  // removed from the game". Every other acquisition in this module can be
+  // declined and revisited; this one cannot, and the module has to say so.
+  const DECK_DRAFT = 'setup/character-deck-draft';
+
+  test('every candidate quoted exactly zero before the floor reached them', () => {
+    // Two independent reasons, both of them true and neither of them "this
+    // character is worthless": a mind that cannot fit the free general
+    // influence of a player who has just spent all 20 of it, and a character
+    // marshalling point worth 0.0 at 0–0 under the diversity cap.
+    const { context, legalActions } = position(DECK_DRAFT);
+    const prices = computeCardPrices(
+      context.view, context.cardPool, context.standing, context.tunables);
+    const adds = legalActions.filter(a => a.type === 'add-character-to-deck');
+    expect(adds.length).toBeGreaterThan(1);
+    const pool = (context.view.phaseState as unknown as {
+      setupStep?: { deckDraftState?: readonly { remainingPool?: readonly { definitionId: string }[] }[] };
+    }).setupStep?.deckDraftState?.[0]?.remainingPool ?? [];
+    expect(pool.length).toBe(adds.length);
+    for (const card of pool) expect(prices.quote(card.definitionId).tsd).toBe(0);
+  });
+
+  test('taking a character is worth strictly more than doing nothing', () => {
+    // Which is the whole decision: at a flat zero the agent's tie clause
+    // passes, and passing here is not "decline to act" — it is "remove the
+    // rest of the pool from the game".
+    const { context, legalActions } = position(DECK_DRAFT);
+    for (const action of legalActions.filter(a => a.type === 'add-character-to-deck')) {
+      const evaluation = fetchingModule.evaluate(action, context)!;
+      expect(evaluation).not.toBeNull();
+      expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    }
+  });
+
+  test('the price it uses is the floor, and it says which one and why', () => {
+    const { context, legalActions } = position(DECK_DRAFT);
+    const prices = computeCardPrices(
+      context.view, context.cardPool, context.standing, context.tunables);
+    const evaluation = fetchingModule.evaluate(
+      legalActions.find(a => a.type === 'add-character-to-deck')!, context)!;
+    expect(evaluation.expectedTsd).toBeCloseTo(prices.floor, 9);
+    expect(JSON.stringify(evaluation.rationale)).toMatch(/removes it from the game/);
+  });
+
+  test('it reaches no other acquisition: a draft pick keeps its own price', () => {
+    // The opening draft's leftovers become this pool, so nothing is destroyed
+    // there and the floor has no business in it — the favourite mark is what
+    // separates those candidates, and it still is.
+    const { context, legalActions } = position(DRAFT);
+    const prices = computeCardPrices(
+      context.view, context.cardPool, context.standing, context.tunables);
+    for (const action of legalActions.filter(a => a.type === 'draft-pick')) {
+      const evaluation = fetchingModule.evaluate(action, context)!;
+      const named = (action as unknown as { characterInstanceId?: string }).characterInstanceId;
+      const pool = (context.view.phaseState as unknown as {
+        setupStep?: { draftState?: readonly { pool?: readonly { instanceId: string; definitionId: string }[] }[] };
+      }).setupStep?.draftState?.flatMap(r => r.pool ?? []) ?? [];
+      const card = pool.find(c => c.instanceId === named);
+      if (!card) continue;
+      const quote = prices.quote(card.definitionId).tsd;
+      // Whatever the mark and the mind priority add, none of it is the floor.
+      expect(evaluation.expectedTsd).toBeGreaterThanOrEqual(quote);
+      if (evaluation.expectedTsd === quote) expect(quote).toBeLessThan(prices.floor);
+    }
+  });
+});
