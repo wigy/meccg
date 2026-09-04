@@ -100,8 +100,17 @@ export type SequencePricer = (
 export interface SequenceOptions {
   /** Ceiling on live states; beyond it, states are merged. */
   readonly maxStates: number;
-  /** A character forced to take the first strike (an `assign-strike` candidate). */
-  readonly forcedFirst?: StrikeTarget;
+  /**
+   * Characters whose strikes are already settled, in the order they were
+   * assigned — the head of the sequence that nobody is still choosing.
+   *
+   * An `assign-strike` candidate appends itself to what the defender has
+   * assigned so far; a `pass` during that window leaves the list where it is.
+   * Without it, a strike already given to a named character would be re-offered
+   * to whoever the target rule happens to pick, and the two candidates would be
+   * compared over an attack neither of them describes.
+   */
+  readonly forced?: readonly StrikeTarget[];
   /** TSD gained if the whole attack is defeated, or 0. */
   readonly killTsd?: number;
   /** Description of the kill-MP payoff, for outcome labels. */
@@ -124,6 +133,16 @@ export interface SequenceOptions {
    * the numbers, so the caller states it. Defaults to `'attacker'`.
    */
   readonly ledger?: PriceLedger;
+  /**
+   * Overrides the attack's own "attacker chooses defending characters" rule.
+   *
+   * Whether the attacker picks the targets is normally a property of the
+   * creature, but it is also what a defender *gives away* by passing in their
+   * own assignment step: `handleCombatPass` hands every unallocated strike to
+   * the attacking player. Priced without this, passing is the attack the
+   * defence would have arranged for itself — which is not what it buys.
+   */
+  readonly attackerChooses?: boolean;
 }
 
 /**
@@ -331,7 +350,7 @@ export function resolveSequentially(
     // Published by the engine rather than read off the card, because by this
     // point the rule may have been granted to the attack by an event rather
     // than printed on the creature.
-    attackerChooses: combat.attackerChoosesDefenders ?? false,
+    attackerChooses: options.attackerChooses ?? combat.attackerChoosesDefenders ?? false,
   };
   // This entry point resolves the attack from the *defending* seat — the roster
   // is `view.self` — so its pricer counts harm suffered as a negative number.
@@ -362,11 +381,14 @@ export function resolveAttacks(
   price: SequencePricer,
   options: SequenceOptions,
 ): SequenceResult {
-  const forced = options.forcedFirst;
-  const start: RosterEntry[] = (forced
-    ? [forced, ...roster.filter(t => t.instanceId !== forced.instanceId)]
-    : roster
-  ).map(target => ({ target, struck: 0 }));
+  const forced = options.forced ?? [];
+  const forcedIds = new Set(forced.map(t => t.instanceId as string));
+  const start: RosterEntry[] = [
+    // A character can hold more than one settled strike (`excessStrikes`), so
+    // the roster takes each of them once while the sequence takes the list.
+    ...forced.filter((t, i) => forced.findIndex(o => o.instanceId === t.instanceId) === i),
+    ...roster.filter(t => !forcedIds.has(t.instanceId as string)),
+  ].map(target => ({ target, struck: 0 }));
 
   const situationFor = (target: StrikeTarget, profile: AttackProfile): StrikeSituation => ({
     creatureBody: profile.creatureBody,
@@ -612,17 +634,16 @@ export function resolveAttacks(
     for (let i = 0; i < profile.strikes; i++) {
       const next: SequenceState[] = [];
       for (const state of states) {
-        // The first strike may be forced onto a named character; after that the
-        // company answers with whoever is best placed *now*.
-        // Who answers this strike: a named character the caller forced, else the
-        // attacker's own pick when the attack carries that rule, else the
-        // defence's best remaining parrier.
-        const answering = profile.attackerChooses
+        // Who answers this strike: a named character whose strike the caller
+        // has already settled, else the attacker's own pick when the attack
+        // carries that rule, else the defence's best remaining parrier.
+        const answering = (): RosterEntry | undefined => (profile.attackerChooses
           ? chooseAttackerTarget(state.roster, profile, profile.strikes - i)
-          : pickTarget(state.roster, cardPool, profile.strikeProwess);
-        const entry = first && i === 0 && forced
-          ? state.roster.find(e => e.target.instanceId === forced.instanceId) ?? answering
-          : answering;
+          : pickTarget(state.roster, cardPool, profile.strikeProwess));
+        const settled = first && i < forced.length ? forced[i] : undefined;
+        const entry = settled
+          ? state.roster.find(e => e.target.instanceId === settled.instanceId) ?? answering()
+          : answering();
         if (!entry) {
           // Nobody left to face it. The strike cannot be resolved against this
           // company, so the sequence stops here rather than inventing a victim.

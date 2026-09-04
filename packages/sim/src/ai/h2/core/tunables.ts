@@ -280,6 +280,23 @@ export interface Tunables {
    */
   readonly attackerChoiceSearchLambda: number;
   /**
+   * How much of the attacker's own choice to credit when the defending player
+   * hands him the strike assignment, in [0, 1].
+   *
+   * A defender who passes in their own assignment step does not decline the
+   * attack — `handleCombatPass` gives every unallocated strike to the attacking
+   * player, who then picks the targets. One at the shipped value, because that
+   * is what the rule says; at zero the projection reverts to the defence
+   * answering with its best remaining parrier, which is what the module used to
+   * assume and which made passing weakly dominant by construction.
+   *
+   * A magnitude rather than a switch, because between the two there is a real
+   * model: an attacker who takes the assignment does not always find the best
+   * use of it. Its main job is the one `planContributionWeight` has — the
+   * change has to be answerable in a gate without a second tree.
+   */
+  readonly handedAssignmentPessimism: number;
+  /**
    * The chance an on-guard card is ever revealed and pays, in [0, 1].
    *
    * Placement itself is free: an on-guard card that is never revealed returns
@@ -505,6 +522,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   abilityTapDenialTsd: 1,
   abilityLossDenialTsd: 0.5,
   attackerChoiceSearchLambda: 0,
+  handedAssignmentPessimism: 1,
   onGuardDiscount: 0.5,
   planSwitchMarginTsd: 1,
   planAbandonProbability: 0.05,
