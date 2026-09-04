@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1297 | 1297 | 0 | 100.0% |
+| 1299 | 1299 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -15,9 +15,9 @@
 | AS | 116 | 116 | 100.0% |
 | BA | 100 | 100 | 100.0% |
 | DM | 133 | 133 | 100.0% |
-| LE | 316 | 316 | 100.0% |
+| LE | 317 | 317 | 100.0% |
 | TD | 120 | 120 | 100.0% |
-| TW | 417 | 417 | 100.0% |
+| TW | 418 | 418 | 100.0% |
 | WH | 95 | 95 | 100.0% |
 
 ## Detailed Test Matrix
@@ -444,13 +444,14 @@
 | le-75 | Giant Spiders | — | 8 | ☑ |
 | le-77 | Hobgoblins | — | 4 | ☑ |
 | le-78 | Horse-lords | — | 6 | ☑ |
+| le-79 | Huorn | — | 10 | ☑ |
 | le-81 | Landroval | — | 5 | ☑ |
 | le-82 | Lawless Men | — | 6 | ☑ |
 | le-83 | Lesser Spiders | — | 9 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
 | le-88 | Pirates | — | 7 | ☑ |
 | le-89 | Sellswords Between Charters | — | 4 | ☑ |
-| le-90 | Slayer | — | 9 | ☑ |
+| le-90 | Slayer | — | 10 | ☑ |
 | le-91 | Sons of Kings | — | 5 | ☑ |
 | le-92 | Stirring Bones | — | 8 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |
@@ -521,7 +522,7 @@
 | le-179 | Deeper Shadow | — | 14 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
-| le-183 | Fell Rider | — | 16 | ☑ |
+| le-183 | Fell Rider | — | 17 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-185 | Forced March | — | 9 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
@@ -1045,7 +1046,7 @@
 | tw-247 | Gollum’s Fate | — | 4 | ☑ |
 | tw-248 | Great Ship | — | 12 | ☑ |
 | tw-249 | Great-road | — | 8 | ☑ |
-| tw-250 | Great-shield of Rohan | — | 12 | ☑ |
+| tw-250 | Great-shield of Rohan | — | 13 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-252 | Halfling Stealth | — | 4 | ☑ |
 | tw-253 | Halfling Strength | — | 14 | ☑ |
@@ -1115,13 +1116,14 @@
 | tw-328 | Skinbark | — | 5 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 15 | ☑ |
-| tw-332 | Stealth | — | 12 | ☑ |
+| tw-332 | Stealth | — | 13 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
 | tw-334 | Stone of Erech | — | 7 | ☑ |
 | tw-335 | Sun | — | 7 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
 | tw-338 | Test of Form | — | 16 | ☑ |
+| tw-339 | Test of Form | — | 16 | ☑ |
 | tw-340 | Test of Lore | — | 10 | ☑ |
 | tw-341 | The Arkenstone | — | 12 | ☑ |
 | tw-342 | The Cock Crows | — | 10 | ☑ |

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.144.0 — 2026-09-04
+
+Ally-cancelled attacks and duplication-chain fixes
+
+### Game Engine
+
+- Certified Huorn (le-79), the LE printing of the already-certified tw-45: wilderness keying plus the named-site, Mirkwood region-name, and region-scoped site-type `keyedTo` entries (#2981)
+- Certified Test of Form (tw-339), the alternate-art reprint of tw-338: organization-phase sage-only gold ring test with roll modifier 0 (#2986)
+- An untapped ally may now be tapped to cancel a Slayer/Assassin-style attack (and Carrion Feeders' wounded-strike cancel), per CRF 22's ruling that allies count as characters for combat actions (#2980)
+- Company-scope `duplication-limit` checks (Fell Rider and siblings) now also count copies still pending on the chain, closing a race where two copies could be declared back-to-back on the same company (#2979)
+- Stealth and Sneakin' `maxCompanySize` gates once again halve Hobbits and Orc scouts per the CoE "company size" glossary entry, while Alone and Unadvised keeps its raw character count (#2983)
+- Great-shield of Rohan's tap-to-remain-untapped strike option now names the shield in its roll explanation instead of a generic "Dodge" label (#2982)
+
+### Web Client
+
+- The Game Over screen now lists the CoE 10.3.v unique-card reveal deductions (which cards, against which in-play copies), so the total no longer silently differs from the sum of the category rows (#2984)
+- The auto-pass timer no longer counts `concede` as a viable action, fixing games that ended with a silent concede a few actions into the first movement/hazard phase (#2985)
+
+### AI
+
+- The H2 AI now resolves each character's conditional per-faction direct-influence bonus when matching characters to faction sites, so Beorn goes to the Beornings and Legolas to the Wood-elves rather than the reverse (#2978)
+
 ## 0.143.0 — 2026-09-03
 
 Alignment-aware danger scoring and movement fixes
