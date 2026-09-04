@@ -3772,6 +3772,27 @@ export function countCompanyBoundCopies(state: GameState, name: string, companyI
 }
 
 /**
+ * Count copies of `name` declared on the chain, targeting `companyId`, but not
+ * yet resolved into `cardsInPlay` (the company-scoped counterpart of
+ * {@link countCopiesDeclaredInChain} — see its doc comment for why declared-but-
+ * unresolved chain entries must be counted). Without this, two copies of a
+ * company-scoped `duplication-limit` card (e.g. Fell Rider le-183, "Cannot be
+ * duplicated on a given company") could be declared back-to-back on the same
+ * company — priority merely passing between them — because the first was
+ * still sitting on the chain, not yet in `cardsInPlay`, when the second one's
+ * legality was checked. Add this count to {@link countCompanyBoundCopies} in
+ * every company-scope duplication-limit check so a pending chain entry
+ * targeting the same company is visible immediately.
+ */
+export function countCompanyBoundCopiesDeclaredInChain(state: GameState, name: string, companyId: CompanyId): number {
+  return pendingChainCards(state).filter(({ entry, def }) =>
+    entry.payload.type === 'permanent-event'
+    && (entry.payload as { targetCompanyId?: CompanyId }).targetCompanyId === companyId
+    && def?.name === name,
+  ).length;
+}
+
+/**
  * Count copies of the permanent event named `name` currently bound to the
  * site identified by `siteDefId`. A copy counts when it is borne as an item
  * whose `playedAtSiteDefId` names that site (recorded when a

@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -3964,9 +3964,11 @@ function playHazardsActions(
               break;
             }
           } else if (effect.scope === 'company') {
-            // One copy per company: check if this card is already in cardsInPlay bound to the target company
+            // One copy per company: check cardsInPlay bound to the target company,
+            // plus any not-yet-resolved copy still sitting on the chain.
             const targetCompanyId = targetCompany.id;
-            const copiesOnCompany = countCompanyBoundCopies(state, def.name, targetCompanyId);
+            const copiesOnCompany = countCompanyBoundCopies(state, def.name, targetCompanyId)
+              + countCompanyBoundCopiesDeclaredInChain(state, def.name, targetCompanyId);
             if (copiesOnCompany >= effect.max) {
               logDetail(`Hazard event "${def.name}" cannot be duplicated on company ${targetCompanyId as string} (${copiesOnCompany}/${effect.max} in play)`);
               actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
@@ -4408,10 +4410,12 @@ function playHazardsActions(
 
         // Company-targeting permanent events (e.g. Nothing to Eat or Drink).
 
-        // Company-scope duplication-limit: one copy per target company.
+        // Company-scope duplication-limit: one copy per target company, plus
+        // any not-yet-resolved copy still sitting on the chain.
         const companyDupLimit = findDuplicationLimitEffect(def, 'company');
         if (companyDupLimit) {
-          const existingCopies = countCompanyBoundCopies(state, def.name, targetCompany.id);
+          const existingCopies = countCompanyBoundCopies(state, def.name, targetCompany.id)
+            + countCompanyBoundCopiesDeclaredInChain(state, def.name, targetCompany.id);
           if (existingCopies >= companyDupLimit.max) {
             logDetail(`Hazard event "${def.name}" already bound to target company (${existingCopies}/${companyDupLimit.max})`);
             actions.push({ action, viable: false, reason: `${def.name} cannot be duplicated on this company` });
