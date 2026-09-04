@@ -215,6 +215,28 @@ describe('Great-shield of Rohan (tw-250)', () => {
     expect(actionAs<DodgeStrikeAction>(dodgeActions[0].action).need).toBe((tapAction.action as { need: number }).need);
   });
 
+  test('dodge-strike explanation names Great-shield of Rohan, not a bare "Dodge:" label', () => {
+    // Bug report: the roll-preview banner showed a generic "Dodge: need N+..."
+    // line for this action with no indication it came from the shield, which
+    // left the reporting player unable to connect it to their equipped item
+    // (whose own card text never uses the word "dodge").
+    const afterChain = buildDrakeAttackOnGimli();
+    const gimliId = findCharInstanceId(afterChain, RESOURCE_PLAYER, GIMLI);
+
+    const r2 = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_1,
+      characterId: gimliId,
+      tapped: false,
+    });
+
+    const dodgeAction = computeLegalActions(r2, PLAYER_1)
+      .find(a => a.viable && a.action.type === 'dodge-strike')!;
+
+    expect(actionAs<DodgeStrikeAction>(dodgeAction.action).explanation)
+      .toMatch(/^Great-shield of Rohan: need \d+\+/);
+  });
+
   test('successful dodge: shield taps, bearer stays untapped, strike still rolled (not outright canceled)', () => {
     const afterChain = buildDrakeAttackOnGimli();
     const gimliId = findCharInstanceId(afterChain, RESOURCE_PLAYER, GIMLI);

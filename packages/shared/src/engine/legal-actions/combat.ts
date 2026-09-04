@@ -1323,8 +1323,13 @@ function selfCancelStrikeActions(
  * effects with `dodge: true` and `cost: { tap: "self" }` — an item/ally that
  * taps itself to dodge the current strike for its own bearer (e.g.
  * Great-shield of Rohan tw-250). Emits one `dodge-strike` action per eligible
- * match. `need`/`explanation` reflect the bearer's full (tap) prowess, since
- * dodge mode resolves at full prowess without tapping unless wounded.
+ * match. `need` reflects the bearer's full (tap) prowess, since dodge mode
+ * resolves at full prowess without tapping unless wounded. `explanation` is
+ * built per-candidate and led by the granting card's own name (rather than
+ * the generic "Dodge" mechanic name) — the roll-preview banner in the browser
+ * client renders this string standalone, and Great-shield of Rohan's card
+ * text never uses the word "dodge", so a bare "Dodge: need N+..." line left
+ * players unable to tell which of their cards it referred to.
  */
 function selfDodgeStrikeActions(
   state: GameState,
@@ -1334,7 +1339,7 @@ function selfDodgeStrikeActions(
   candidates: ReadonlyArray<{ readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status: CardStatus }>,
   buildCtx: () => Record<string, unknown>,
   need: number,
-  explanation: string,
+  needDetail: string,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   for (const c of candidates) {
@@ -1359,7 +1364,7 @@ function selfDodgeStrikeActions(
           cardInstanceId: c.instanceId,
           characterInstanceId: targetCharacterId,
           need,
-          explanation,
+          explanation: `${name}: ${needDetail}`,
         },
         viable: true,
       });
@@ -1844,7 +1849,7 @@ function resolveStrikeActions(
     actions.push(...selfDodgeStrikeActions(
       state, playerId, currentStrike.characterId, charName,
       [...charData.items, ...charData.allies], buildCancelCtx,
-      tapNeed, `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap unless wounded)`,
+      tapNeed, `need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap unless wounded)`,
     ));
   }
 
