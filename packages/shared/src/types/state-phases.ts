@@ -1250,6 +1250,20 @@ export interface FreeCouncilPhaseState {
 }
 
 /**
+ * One CoE rule 10.3.v "Revealing Duplicates" match: a unique card sitting in
+ * `revealedBy`'s hand matches an MP-giving unique card `penalizedPlayer` has
+ * in play, so `penalizedPlayer`'s final score is reduced by one point.
+ */
+export interface UniqueCardReveal {
+  /** Player whose hand held the matching unique card. */
+  readonly revealedBy: PlayerId;
+  /** Player whose final score is reduced by 1 for this match. */
+  readonly penalizedPlayer: PlayerId;
+  /** Definition ID of the matched unique card, for name/image lookup. */
+  readonly cardId: CardDefinitionId;
+}
+
+/**
  * Terminal state after the game has ended.
  * Contains the final scores and the winner (or null for a draw).
  */
@@ -1268,6 +1282,12 @@ export interface GameOverPhaseState {
    * for the result screen. See {@link WinReason}.
    */
   readonly winReason: WinReason;
+  /**
+   * CoE rule 10.3.v "Revealing Duplicates" matches applied while computing
+   * `finalScores`, so the result screen can explain each -1 adjustment
+   * instead of leaving the total silently lower than the category breakdown.
+   */
+  readonly uniqueCardReveals: readonly UniqueCardReveal[];
 }
 
 /**

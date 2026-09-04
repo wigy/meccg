@@ -10,7 +10,7 @@
  * `pendingCheck`) → tap supporters → pass to resolve.
  */
 
-import type { GameState, CardInstance, CardInstanceId, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId } from '../index.js';
+import type { GameState, CardInstance, CardInstanceId, FreeCouncilPhaseState, PlayerId, GameAction, WinReason, CardDefinitionId, UniqueCardReveal } from '../index.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, computeTournamentScore, requirePhaseState } from '../state-utils.js';
 import { CardStatus, Alignment } from '../types/common.js';
@@ -557,10 +557,12 @@ function qualifiesForUniqueReveal(state: GameState, definitionId: CardDefinition
  *
  * Applies steps 2-4 (via computeTournamentScore), step 6 (avatar elimination
  * penalty), and step 5 (unique card reveal). Returns the per-player adjusted
- * scores keyed by index. The winner determination (step 7) is left to
- * {@link endGame}, which may force a winner on a One Ring win.
+ * scores keyed by index, plus the list of step-5 matches applied (so the
+ * result screen can explain each -1 adjustment). The winner determination
+ * (step 7) is left to {@link endGame}, which may force a winner on a One
+ * Ring win.
  */
-function computeFinalScores(state: GameState): { score0: number; score1: number } {
+function computeFinalScores(state: GameState): { score0: number; score1: number; uniqueCardReveals: UniqueCardReveal[] } {
   const p0 = state.players[0];
   const p1 = state.players[1];
 
@@ -577,6 +579,7 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
   // MELE §6 step 5: Unique card reveal — scan each player's hand for unique
   // resource cards whose name matches a unique card the *opponent* has in play.
   // Each match reduces the opponent's final total by 1 (automatic, non-interactive).
+  const uniqueCardReveals: UniqueCardReveal[] = [];
   const uniqueNamesInPlay0 = collectUniqueNamesInPlay(state, p0);
   const uniqueNamesInPlay1 = collectUniqueNamesInPlay(state, p1);
   for (const handCard of p0.hand) {
@@ -584,6 +587,7 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
     if (name !== undefined && uniqueNamesInPlay1.has(name)) {
       logDetail(`Unique card reveal: ${p0.name} has unplayed "${name}" matching opponent's MP-giving in-play copy — opponent -1 MP`);
       score1 -= 1;
+      uniqueCardReveals.push({ revealedBy: p0.id, penalizedPlayer: p1.id, cardId: handCard.definitionId });
     }
   }
   for (const handCard of p1.hand) {
@@ -591,12 +595,13 @@ function computeFinalScores(state: GameState): { score0: number; score1: number 
     if (name !== undefined && uniqueNamesInPlay0.has(name)) {
       logDetail(`Unique card reveal: ${p1.name} has unplayed "${name}" matching opponent's MP-giving in-play copy — opponent -1 MP`);
       score0 -= 1;
+      uniqueCardReveals.push({ revealedBy: p1.id, penalizedPlayer: p0.id, cardId: handCard.definitionId });
     }
   }
 
   logHeading(`Final scores: ${p0.name} = ${score0}, ${p1.name} = ${score1}`);
 
-  return { score0, score1 };
+  return { score0, score1, uniqueCardReveals };
 }
 
 /**
@@ -624,7 +629,7 @@ export function endGame(
 ): GameState {
   const p0 = state.players[0];
   const p1 = state.players[1];
-  const { score0, score1 } = computeFinalScores(state);
+  const { score0, score1, uniqueCardReveals } = computeFinalScores(state);
 
   let winner: PlayerId | null;
   if (forcedWinner !== undefined) {
@@ -668,6 +673,7 @@ export function endGame(
       },
       finishedPlayers: [],
       winReason: reason,
+      uniqueCardReveals,
     },
   };
 }

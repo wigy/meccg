@@ -93,6 +93,7 @@ const view = {
     finalScores: { p1: 43, p2: 14 },
     finishedPlayers: ['p2', 'p1'],
     winReason: { kind: 'marshalling-points' },
+    uniqueCardReveals: [],
   },
 } as unknown as PlayerView;
 

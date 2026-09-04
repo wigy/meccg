@@ -67,6 +67,7 @@ describe('buildCompletedGameRecord', () => {
       finalScores: { [ALICE]: 13, [BOB]: 4 },
       finishedPlayers: [],
       winReason: { kind: 'marshalling-points' },
+      uniqueCardReveals: [],
     });
     const endedAt = new Date(START_MS + 90 * 60 * 1000);
     const record = buildCompletedGameRecord(state, DECKS, new Set(['bob']), endedAt);
@@ -119,6 +120,7 @@ describe('buildCompletedGameRecord', () => {
       finalScores: { [ALICE]: 0, [BOB]: 25 },
       finishedPlayers: [],
       winReason: { kind: 'one-ring', alignment: Alignment.Ringwraith, card: THE_ONE_RING },
+      uniqueCardReveals: [],
     });
     const record = buildCompletedGameRecord(state, {}, new Set(), new Date(START_MS + 1000));
 
@@ -132,6 +134,7 @@ describe('buildCompletedGameRecord', () => {
     const state = gameOverState({
       winner: null, finalScores: { [ALICE]: 0, [BOB]: 0 }, finishedPlayers: [],
       winReason: { kind: 'marshalling-points' },
+      uniqueCardReveals: [],
     });
     const running = { ...state, phaseState: { phase: Phase.Setup } } as unknown as GameState;
     expect(() => buildCompletedGameRecord(running, {}, new Set(), new Date())).toThrow('not over');
@@ -150,6 +153,7 @@ describe('writeCompletedGameRecord', () => {
       finalScores: { [ALICE]: 1, [BOB]: 0 },
       finishedPlayers: [],
       winReason: { kind: 'marshalling-points' },
+      uniqueCardReveals: [],
     });
     const record = fresh.buildCompletedGameRecord(state, {}, new Set(), new Date());
     const filePath = fresh.writeCompletedGameRecord(record);
