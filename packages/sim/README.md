@@ -3422,6 +3422,59 @@ rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
 
+### A card nobody prices is a card that cannot be played
+
+`stage` owns `play-permanent-event` because a stage resource is one, and it
+declined every permanent event it did not recognise — described in its own
+docstring as *"leaving the decision exactly as covered as it was before"*. That
+is not what declining does. The registry drops a candidate whose owner returns
+null, so an unrecognised permanent event was not merely unpriced: it was **not
+in the ranking at all**, and H2 could not take it however good it was.
+
+`explain` says so plainly, and it is easy to read as a low score rather than an
+absent one:
+
+```text
+RANKED (module travel, partial — play-permanent-event unscored)
+  1. Enter site with Aragorn II's company
+```
+
+The card in that hand is Return of the King — three misc marshalling points,
+and an effect list of `play-target`s and `play-condition`s the effect reader has
+no family for.
+
+Two things follow, and only the second is a valuation.
+
+**The reading was duplicated.** A permanent event is an event: same zone, same
+effect DSL, the same shadow price for the card it spends. `events` already reads
+all of that through `event-value`, which was extracted for exactly this reason —
+*"a second consumer needs the same number and a second copy would be a second
+opinion"*. So the whole of what `events` does with a card is now `event-value`'s
+`declaredEventEvaluation`, and `stage` calls it for the permanent events it does
+not recognise. `events` is a two-line module again.
+
+**A permanent event's printed points are on the table.** It stays in play, so
+its marshalling points are scored the moment it lands — like an item or a
+faction, and unlike a short event, which is in the discard pile before anything
+is counted. That is a reading of *where the card goes*, so it is offered only to
+the caller whose card goes there: `creditPoints` is set by `stage` and by
+nothing else, and a short event with the same points is still declined.
+
+Over 163 permanent-event offers in twelve recorded games:
+
+| | before | after |
+| --- | --- | --- |
+| offers the module prices | 88 (54.0%) | **101 (62.0%)** |
+| `play-permanent-event` agreement | 11.8% | **26.5%** |
+| overall agreement | 52.70% | 52.78% |
+
+Net **+4 decisions of 4892**, which is the honest size of it. The remaining 62
+unpriced offers are cards like Gates of Morning and Fellowship — no points, and
+an effect the reader has no family for — and they are still declined, which is
+still the right answer for them and still means H2 cannot play them.
+
+Not gated.
+
 ### The opening draft: built, gated, and rejected
 
 The draft has scored **flat** since P0 — every candidate at exactly 0.0% — and

@@ -13,10 +13,12 @@
  */
 
 import { describe, expect, test } from 'vitest';
+import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext, Rationale } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
+import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { stageModule } from './stage.js';
 
@@ -26,6 +28,8 @@ const PLAIN_STAGE = 'st-plain';
 const RICH_STAGE = 'st-rich';
 /** A non-stage permanent event sharing the same action type. */
 const NON_STAGE = 'ev-fellowship';
+/** A non-stage permanent event that carries marshalling points of its own. */
+const POINTED_EVENT = 'ev-white-tree';
 
 const POOL = {
   [PLAIN_STAGE]: {
@@ -50,6 +54,14 @@ const POOL = {
     eventType: 'permanent',
     effects: [{ type: 'stat-modifier', stat: 'prowess', value: 1 }],
   },
+  [POINTED_EVENT]: {
+    cardType: 'hero-resource-event',
+    name: 'The White Tree',
+    eventType: 'permanent',
+    marshallingPoints: 5,
+    marshallingCategory: 'misc',
+    effects: [{ type: 'stat-modifier', stat: 'prowess', value: 1 }],
+  },
 } as unknown as ModuleContext['cardPool'];
 
 /** A Fallen-wizard mid-game: both stage cards in hand, one on the table. */
@@ -63,6 +75,7 @@ function context(): ModuleContext {
         { instanceId: 'c-plain', definitionId: PLAIN_STAGE },
         { instanceId: 'c-rich', definitionId: RICH_STAGE },
         { instanceId: 'c-fellowship', definitionId: NON_STAGE },
+        { instanceId: 'c-rich-plain', definitionId: POINTED_EVENT },
       ],
       playDeck: [],
       sideboard: [],
@@ -136,11 +149,34 @@ describe('stage: playing a stage resource', () => {
   });
 });
 
-describe('stage: ownership is the alignment, not the action type', () => {
-  test('a non-stage permanent event is declined, not scored', () => {
-    // Declining leaves the action exactly as uncovered as it was before this
-    // module existed; scoring it would be an invented number.
+describe('stage: a permanent event it does not recognise', () => {
+  test('is still declined when neither its points nor its effects say anything', () => {
+    // Fellowship carries no marshalling points and a `stat-modifier` the effect
+    // reader does not price, so there is nothing to say about it and saying
+    // nothing is the honest answer.
     expect(stageModule.evaluate(play('c-fellowship'), context())).toBeNull();
+  });
+
+  test('but its printed points are scored, because the card stays in play', () => {
+    // Declining used to be described as leaving the action "exactly as
+    // uncovered as it was before this module existed", and that reading cost
+    // the decision: the registry drops a candidate its owner returns null for,
+    // so a permanent event nobody could price could not be *played*. A
+    // permanent event is on the table the moment it lands, so its printed
+    // points are a number read off the card rather than out of its text.
+    const evaluation = stageModule.evaluate(play('c-rich-plain'), context())!;
+    expect(evaluation).not.toBeNull();
+    expect(evaluation.module).toBe('stage');
+    expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toMatch(/points it puts on the table/);
+  });
+
+  test('a short event with the same points is not credited them', () => {
+    // The points are scored because a *permanent* event stays in play; a short
+    // event is in the discard pile before anything is counted, and `events`
+    // asks for no such credit.
+    const short = ({ type: 'play-short-event', player: 'p1', cardInstanceId: 'c-rich-plain' } as unknown as GameAction);
+    expect(stageModule.evaluate(short, context())).toBeNull();
   });
 
   test('an unknown card instance is declined', () => {
@@ -156,5 +192,34 @@ describe('stage: voluntary discard', () => {
     const evaluation = stageModule.evaluate(discard('c-played'), context());
     expect(evaluation).not.toBeNull();
     expect(evaluation!.utility).toBeLessThan(0);
+  });
+});
+
+describe('stage: on a recorded position', () => {
+  const SCENARIO = 'events/permanent-event-with-points';
+
+  test('a permanent event the effect reader cannot price is scored, not dropped', () => {
+    // Return of the King: three misc marshalling points, and an effect list of
+    // play-targets and play-conditions the reader has no family for. `explain`
+    // used to print this decision as "partial — play-permanent-event unscored",
+    // which is not a low ranking: the candidate is gone, and H2 cannot take it.
+    const scenario = loadScenario(SCENARIO);
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const moduleContext: ModuleContext = {
+      view,
+      cardPool,
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const permanent = legalActions.filter(a => a.type === 'play-permanent-event');
+    expect(permanent.length).toBeGreaterThan(0);
+    for (const action of permanent) {
+      expect(stageModule.evaluate(action, moduleContext)).not.toBeNull();
+    }
   });
 });
