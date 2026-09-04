@@ -7,7 +7,7 @@
  * dies and the lobby relaunches it.
  */
 
-import type { CardDefinitionId, CardInstanceId, ClientMessage, GameAction, ServerMessage, StateMessage } from '@meccg/shared';
+import type { CardDefinitionId, CardInstanceId, ClientMessage, EvaluatedAction, GameAction, ServerMessage, StateMessage } from '@meccg/shared';
 import { buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
 import {
   appState, cardPool, LOBBY_MODE, buildJoinFromDeck,
@@ -390,6 +390,28 @@ function describeOpponentAction(
   return describeAction(action, pool, lookup, companyNames, playerNames);
 }
 
+/** True for roll-type actions, which auto-pass must never fire (see {@link getAutoPassAction}). */
+function isRollAction(t: string): boolean {
+  return t === 'roll-initiative' || t.endsWith('-roll');
+}
+
+/**
+ * The action auto-pass should fire, or `null` if it should stay idle.
+ *
+ * `legalActions` always includes an always-viable `concede` entry
+ * (`withConcedeAction` in `@meccg/shared`), so on a player's idle turns —
+ * already passed, waiting on the opponent — `concede` is often the *only*
+ * viable-looking entry. Counting it as "the one thing to auto-fire" silently
+ * conceded the game out from under waiting players; it must be excluded from
+ * the "nothing else to do" tally the same way `keyboard-shortcuts.ts` already
+ * excludes it from its own auto-fire button list.
+ */
+export function getAutoPassAction(legalActions: readonly EvaluatedAction[]): GameAction | null {
+  const viable = legalActions.filter(a => a.viable && a.action.type !== 'concede');
+  if (viable.length === 1 && !isRollAction(viable[0].action.type)) return viable[0].action;
+  return null;
+}
+
 /**
  * Render a full state message onto the board: toasts and log lines for the
  * action that produced it, then every board renderer, then the follow-up
@@ -562,19 +584,18 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   } else {
     clearSelectionState();
   }
-  // Auto-pass: if exactly one viable action, send it after a delay.
+  // Auto-pass: if exactly one real viable action, send it after a delay.
   // Roll actions are excluded — the player must press Roll themselves
   // so the dice-roll moment is a deliberate choice.
   if (appState.autoPassTimer) { clearTimeout(appState.autoPassTimer); appState.autoPassTimer = null; }
   // A replay has no socket to act on, and its own transport drives the
   // frames — an auto-pass timer here would only fight the playback clock.
   if (!appState.replaying && localStorage.getItem(AUTO_PASS_KEY) === 'true') {
-    const viable = msg.view.legalActions.filter(a => a.viable);
-    const isRoll = (t: string) => t === 'roll-initiative' || t.endsWith('-roll');
-    if (viable.length === 1 && !isRoll(viable[0].action.type)) {
+    const autoPassAction = getAutoPassAction(msg.view.legalActions);
+    if (autoPassAction) {
       appState.autoPassTimer = setTimeout(() => {
         appState.autoPassTimer = null;
-        sendAction(viable[0].action);
+        sendAction(autoPassAction);
         // A click already in flight toward the button auto-pass just
         // pressed on the player's behalf would otherwise land on the
         // freshly re-rendered next-phase button in the same screen
