@@ -24,7 +24,11 @@ import { pAtLeast, pAtMost, pBestOfTwoAtLeast, pBestOfTwoExactly, pBodyCheckFail
 export type TapMode =
   /** Tap to fight: taps on a defeat or a tie (`resolve-strike` with `tapToFight`). */
   | 'always'
-  /** Stay untapped: taps only on a tie (CoE 3.iv, the −3 option). */
+  /**
+   * Stay untapped: the −3 option of CoE 3.iv.3. Never taps — the −3 covers a
+   * tie as well (3.iv.7). Kept distinct from `never` because it is the
+   * engine's `resolve-strike` without `tapToFight`, not a dodge card.
+   */
   | 'tie-only'
   /** Dodge: never taps, at the price of a card and a body penalty. */
   | 'never';
@@ -121,9 +125,12 @@ export function strikeOutcomes(option: StrikeOption, situation: StrikeSituation)
   const outcomes: StrikeOutcome[] = [
     { p: win * pAttackDefeated, character: parriedFate, strike: 'defeated' },
     { p: win * (1 - pAttackDefeated), character: parriedFate, strike: 'survived' },
-    // A tie taps the character whatever the mode — staying untapped does not
-    // survive an ineffectual exchange (CoE 3.iv.7), and only a dodge avoids it.
-    { p: tie, character: option.tapMode === 'never' ? 'untapped' : 'tapped', strike: 'tie' },
+    // A tie taps the character only when it fought at full prowess: CoE 3.iv.7
+    // taps the character facing an ineffectual strike "unless a -3
+    // modification was applied in Step 3", and the engine's `tapOnNonWounded`
+    // (`combat-strike.ts`) never taps in untap or dodge mode. Verified against
+    // the reducer by the combat oracle (`oracle.test.ts`).
+    { p: tie, character: parriedFate, strike: 'tie' },
     { p: lose * (1 - pEliminatedGivenStruck), character: struckFate, strike: 'struck' },
     { p: lose * pEliminatedGivenStruck, character: 'eliminated', strike: 'struck' },
   ];

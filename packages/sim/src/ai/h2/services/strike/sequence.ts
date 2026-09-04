@@ -62,7 +62,11 @@ import { cancelProtects } from './ability.js';
 /** A strike target together with how many strikes it has already faced. */
 interface RosterEntry {
   readonly target: StrikeTarget;
-  /** Strikes already faced this attack — each further one costs −1 prowess. */
+  /**
+   * Strikes already faced this attack. A character is assigned at most one
+   * strike per attack (CoE 3.ii–3.iii), so an entry with `struck > 0` is out
+   * of the pool until the next attack of a bundle resets the counter.
+   */
   readonly struck: number;
 }
 
@@ -114,6 +118,12 @@ export interface SequenceOptions {
    * that costs nothing.
    */
   readonly attackerChoice?: AttackerChoice;
+  /**
+   * Let the attacker pick every target regardless of what the attack prints
+   * — the situation after the defence declines to assign (CoE 3.iii).
+   * Defaults to the engine's `attackerChoosesDefenders` for the combat.
+   */
+  readonly attackerChooses?: boolean;
   /**
    * Whose ledger `price` is written in.
    *
@@ -212,6 +222,22 @@ export interface AttackProfile {
   readonly attackerChooses?: boolean;
 }
 
+/**
+ * The −1 modifiers a strike carries when the attack has more strikes than
+ * characters to face them.
+ *
+ * CoE 3.iii / 3.iv.2: excess strikes are never resolved and need not be
+ * defeated; the attacker allocates each as a temporary −1 to a character
+ * facing a strike, and any still unallocated must all land on the last
+ * strike resolved. The model lets the attacker hold them for that last
+ * strike — which, with the defence answering best parrier first, is the
+ * weakest character's. `pool` is the number of characters still unassigned
+ * and `strikesLeft` counts the current strike.
+ */
+function excessFor(pool: number, strikesLeft: number): number {
+  return pool === 1 ? Math.max(0, strikesLeft - 1) : 0;
+}
+
 /** What the enumeration produced. */
 export interface SequenceResult {
   /** The distribution over the whole attack. */
@@ -240,8 +266,12 @@ function signatureOf(roster: readonly RosterEntry[]): string {
  * "tap the one who matters" is a thing he can do once, not every strike.
  */
 function candidatesOf(roster: readonly RosterEntry[]): readonly RosterEntry[] {
-  const untapped = roster.filter(e => e.target.status === CardStatus.Untapped);
-  return untapped.length > 0 ? untapped : roster;
+  // One strike per character per attack (CoE 3.iii): whoever has already
+  // been assigned one is out of the pool, and once the pool is empty the
+  // remaining strikes are excess.
+  const unassigned = roster.filter(e => e.struck === 0);
+  const untapped = unassigned.filter(e => e.target.status === CardStatus.Untapped);
+  return untapped.length > 0 ? untapped : unassigned;
 }
 
 /** The next target to be struck: the best available parrier in its current state. */
@@ -252,8 +282,8 @@ function pickTarget(
 ): RosterEntry | undefined {
   if (roster.length === 0) return undefined;
   return [...candidatesOf(roster)].sort((a, b) =>
-    needAgainst(a.target, cardPool, strikeProwess, { excessStrikes: a.struck })
-    - needAgainst(b.target, cardPool, strikeProwess, { excessStrikes: b.struck }))[0];
+    needAgainst(a.target, cardPool, strikeProwess)
+    - needAgainst(b.target, cardPool, strikeProwess))[0];
 }
 
 /** The roster after a strike outcome has been applied to one of its members. */
@@ -331,7 +361,7 @@ export function resolveSequentially(
     // Published by the engine rather than read off the card, because by this
     // point the rule may have been granted to the attack by an event rather
     // than printed on the creature.
-    attackerChooses: combat.attackerChoosesDefenders ?? false,
+    attackerChooses: options.attackerChooses ?? combat.attackerChoosesDefenders ?? false,
   };
   // This entry point resolves the attack from the *defending* seat — the roster
   // is `view.self` — so its pricer counts harm suffered as a negative number.
@@ -345,10 +375,12 @@ export function resolveSequentially(
  *
  * This is the form §3.4 needs and the reason the enumeration was written as a
  * forward walk over roster states rather than a convolution. Between attacks
- * the excess-strike counter resets — piling strikes on one character is a
- * within-attack penalty — but the *condition* carries: a character tapped by
- * the first creature meets the second at −1, a wounded one at −2, and an
- * eliminated one is not there at all.
+ * the assignment counter resets — every character is available to the next
+ * creature — but the *condition* carries: a character tapped by the first
+ * creature meets the second at −1, a wounded one at −2, and an eliminated
+ * one is not there at all. Within one attack each character faces at most one
+ * strike; strikes beyond the company's size are −1 modifiers, not extra
+ * strikes (see {@link excessFor}).
  *
  * That carry-over is the entire supermodularity. Two creatures played into the
  * same company are worth more than the same two played a turn apart, and the
@@ -387,17 +419,42 @@ export function resolveAttacks(
   const untappedIn = (entries: readonly RosterEntry[]): number =>
     entries.filter(e => !e.target.isAlly && e.target.status === CardStatus.Untapped).length;
 
-  /** The outcome distribution of aiming one strike of `profile` at one entry. */
-  const outcomesAgainst = (entry: RosterEntry, profile: AttackProfile): StrikeOutcome[] =>
-    strikeOutcomes(
+  /**
+   * The outcome distribution of aiming one strike of `profile` at one entry,
+   * faced the way the defence would face it.
+   *
+   * An untapped character may tap to fight at full prowess or stay untapped
+   * at −3 (CoE 3.iv.3); the defence takes whichever hands the attacker less
+   * by its own pricer — the same comparison `wouldCancel` makes for a
+   * cancel. A tapped or wounded character has no such choice. `excessStrikes`
+   * is the −1 per excess strike allocated to this strike.
+   */
+  const outcomesAgainst = (entry: RosterEntry, profile: AttackProfile, excessStrikes = 0, untappedBefore = 0): StrikeOutcome[] => {
+    const situation = situationFor(entry.target, profile);
+    const tapping = strikeOutcomes(
       {
-        need: needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes: entry.struck }),
+        need: needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes }),
         tapMode: 'always',
         bestOfTwo: false,
         bodyPenalty: 0,
       },
-      situationFor(entry.target, profile),
+      situation,
     );
+    if (entry.target.isAlly || entry.target.status !== CardStatus.Untapped) return tapping;
+    const staying = strikeOutcomes(
+      {
+        need: needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes, stayUntapped: true }),
+        tapMode: 'tie-only',
+        bestOfTwo: false,
+        bodyPenalty: 0,
+      },
+      situation,
+    );
+    const context = { untappedBefore };
+    const attackerGain = (outcomes: readonly StrikeOutcome[]): number =>
+      outcomes.reduce((sum, outcome) => sum + outcome.p * gainOf(outcome, entry.target, context), 0);
+    return attackerGain(staying) < attackerGain(tapping) ? staying : tapping;
+  };
 
   /**
    * What a cancel costs, priced as the tap it is.
@@ -466,12 +523,13 @@ export function resolveAttacks(
     profile: AttackProfile,
     untappedBefore: number,
     allDefeated: boolean,
+    excessStrikes = 0,
   ): boolean => {
     const context = { untappedBefore };
     const cancelGain = gainOf(CANCEL_OUTCOME, canceller.target, context);
     let faceGain = 0;
     let pDefeated = 0;
-    for (const outcome of outcomesAgainst(entry, profile)) {
+    for (const outcome of outcomesAgainst(entry, profile, excessStrikes, untappedBefore)) {
       faceGain += outcome.p * gainOf(outcome, entry.target, context);
       if (outcome.strike === 'defeated') pDefeated += outcome.p;
     }
@@ -500,16 +558,18 @@ export function resolveAttacks(
     entries: readonly RosterEntry[],
     entry: RosterEntry,
     profile: AttackProfile,
+    strikesLeft: number,
     continuation: (next: RosterEntry[]) => number,
   ): number => {
     const untappedBefore = untappedIn(entries);
+    const excess = excessFor(candidatesOf(entries).length, strikesLeft);
     const canceller = cancellerFor(entries, entry, profile);
-    if (canceller && wouldCancel(entry, canceller, profile, untappedBefore, false)) {
+    if (canceller && wouldCancel(entry, canceller, profile, untappedBefore, false, excess)) {
       return gainOf(CANCEL_OUTCOME, canceller.target, { untappedBefore })
         + continuation(tapCanceller(entries, canceller));
     }
     let value = 0;
-    for (const outcome of outcomesAgainst(entry, profile)) {
+    for (const outcome of outcomesAgainst(entry, profile, excess, untappedBefore)) {
       value += outcome.p * (
         gainOf(outcome, entry.target, { untappedBefore })
         + continuation(applyOutcome(entries, entry, outcome))
@@ -560,7 +620,7 @@ export function resolveAttacks(
 
     let best = -Infinity;
     for (const entry of pool) {
-      const value = aimedValue(entries, entry, profile,
+      const value = aimedValue(entries, entry, profile, strikesLeft,
         next => lookahead(next, profile, strikesLeft - 1, memo, budget));
       if (value > best) best = value;
     }
@@ -593,7 +653,7 @@ export function resolveAttacks(
     let best: RosterEntry | undefined;
     let bestValue = -Infinity;
     for (const entry of pool) {
-      const value = aimedValue(entries, entry, profile,
+      const value = aimedValue(entries, entry, profile, strikesLeft,
         deep ? next => lookahead(next, profile, strikesLeft - 1, memo, budget) : () => 0);
       if (value > bestValue) {
         bestValue = value;
@@ -624,15 +684,15 @@ export function resolveAttacks(
           ? state.roster.find(e => e.target.instanceId === forced.instanceId) ?? answering
           : answering;
         if (!entry) {
-          // Nobody left to face it. The strike cannot be resolved against this
-          // company, so the sequence stops here rather than inventing a victim.
+          // Nobody left to be assigned it: this strike is excess, already
+          // applied as −1 modifiers to the last character assigned (see
+          // `excessFor`), and does not need defeating (CoE 3.iii).
           next.push(state);
           continue;
         }
-        const need = needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes: entry.struck });
-        const untappedBefore = state.roster.filter(
-          e => !e.target.isAlly && e.target.status === CardStatus.Untapped,
-        ).length;
+        const excess = excessFor(candidatesOf(state.roster).length, profile.strikes - i);
+        const need = needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes: excess });
+        const untappedBefore = untappedIn(state.roster);
         if (first && state === states[0] && opening.length === i) opening.push({ target: entry.target, need });
 
         // Before any dice, the defence may tap a company-mate to cancel the
@@ -642,7 +702,7 @@ export function resolveAttacks(
         // strike is never `'defeated'` (`combat-finalize.ts`), so its kill MP
         // is off the table for good.
         const canceller = cancellerFor(state.roster, entry, profile);
-        if (canceller && wouldCancel(entry, canceller, profile, untappedBefore, state.allDefeated)) {
+        if (canceller && wouldCancel(entry, canceller, profile, untappedBefore, state.allDefeated, excess)) {
           const note = `${canceller.target.name} taps to cancel the strike on ${entry.target.name}`;
           next.push({
             roster: tapCanceller(state.roster, canceller),
@@ -654,10 +714,7 @@ export function resolveAttacks(
           continue;
         }
 
-        for (const outcome of strikeOutcomes(
-          { need, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
-          situationFor(entry.target, profile),
-        )) {
+        for (const outcome of outcomesAgainst(entry, profile, excess, untappedBefore)) {
           next.push({
             roster: applyOutcome(state.roster, entry, outcome),
             p: state.p * outcome.p,

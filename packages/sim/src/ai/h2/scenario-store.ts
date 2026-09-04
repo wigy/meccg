@@ -43,6 +43,17 @@ export type ScenarioSource =
     readonly agents: readonly [string, string];
     /** Decision index the snapshot was taken before. */
     readonly decisionSeq: number;
+  }
+  | {
+    /**
+     * Built from test fixtures rather than captured from play — a minimal,
+     * fully specified position (e.g. one hero against one creature with a
+     * chosen hand) whose whole decision tree is small enough to solve
+     * exactly. Used by the combat oracle (`ai/h2/oracle.ts`).
+     */
+    readonly kind: 'synthetic';
+    /** How the position was built, for a reader who wants to rebuild it. */
+    readonly builder: string;
   };
 
 /** A named position, with everything needed to explain and re-verify it. */

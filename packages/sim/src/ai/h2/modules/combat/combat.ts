@@ -262,6 +262,23 @@ function priceProjectedOutcome(
   return netTsdDelta({ realized, tempo }, tunables);
 }
 
+/** Ways a candidate changes how the rest of the attack is faced. */
+interface FacingOverrides {
+  /**
+   * Whether the attack can still be wholly defeated. False once a strike is
+   * cancelled rather than defeated: `combat-finalize.ts` awards the kill only
+   * when every assigned strike carries `result: 'success'`, so a cancel-by-tap
+   * takes the kill MP off the table for good.
+   */
+  readonly defeatable?: boolean;
+  /**
+   * Let the attacker pick every target, whatever the attack prints. This is
+   * what declining to assign does: CoE 3.iii hands the remaining strikes to
+   * the opponent, who assigns them to the characters not yet assigned one.
+   */
+  readonly attackerChooses?: boolean;
+}
+
 /**
  * The distribution of facing `strikeCount` more strikes of this attack,
  * resolved in sequence so the company's condition carries between them.
@@ -270,7 +287,9 @@ function facingOutcomes(
   context: StrikeContext,
   strikeCount: number,
   forcedFirst?: StrikeTarget,
+  overrides: FacingOverrides = {},
 ): { outcomes: Outcome[]; merged: boolean; opening: readonly { target: StrikeTarget; need: number }[] } {
+  const defeatable = context.stillDefeatable && (overrides.defeatable ?? true);
   const result = resolveSequentially(
     context.view,
     context.cardPool,
@@ -280,6 +299,7 @@ function facingOutcomes(
     {
       maxStates: context.tunables.attackStateCap,
       forcedFirst,
+      attackerChooses: overrides.attackerChooses,
       // The attacker's posture is the mirror of ours: `lambda` is `1 − 2W` for
       // whoever it is computed for, so the seat facing us reads `−lambda`.
       // Predicting a lazier opponent than the one `hazards` actually runs would
@@ -289,7 +309,7 @@ function facingOutcomes(
       ),
       // Exact rather than convolved: a sequence knows whether every strike was
       // defeated, which is the all-or-nothing condition the points depend on.
-      killTsd: context.stillDefeatable ? context.killTsd : 0,
+      killTsd: defeatable ? context.killTsd : 0,
       killLabel: context.killMp > 0 ? `attack beaten, ${context.killMp} kill MP` : undefined,
     },
   );
@@ -542,8 +562,13 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
   const remaining = remainingStrikes(combat);
 
   /** The distribution of facing `count` strikes, with its rationale. */
-  const facing = (count: number, label: string, forcedFirst?: StrikeTarget): { outcomes: Outcome[]; detail: Rationale[] } => {
-    const { outcomes, merged, opening } = facingOutcomes(context, count, forcedFirst);
+  const facing = (
+    count: number,
+    label: string,
+    forcedFirst?: StrikeTarget,
+    overrides: FacingOverrides = {},
+  ): { outcomes: Outcome[]; detail: Rationale[] } => {
+    const { outcomes, merged, opening } = facingOutcomes(context, count, forcedFirst, overrides);
     const detail: Rationale[] = [
       leaf('strikes faced', count, { note: `${combat.strikesTotal} in the attack, ${remaining} still to come` }),
       leaf('resolved in sequence', 1, {
@@ -572,9 +597,23 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
 
   switch (action.type) {
     case 'pass': {
-      // Declining to cancel means taking the attack as it stands.
-      const { outcomes, detail } = facing(remaining, 'face the attack');
-      return evaluationFrom(context, action, 'take the attack', outcomes, detail,
+      // In the cancel window, declining means taking the attack as it stands.
+      // In the defender's own assignment window it does not: CoE 3.iii gives
+      // the remaining strikes to the opponent to assign, so a pass there is
+      // priced with the attacker choosing every target.
+      const attackerAssigns = combat.assignmentPhase === 'defender';
+      const { outcomes, detail } = facing(
+        remaining,
+        attackerAssigns ? 'let the attacker assign' : 'face the attack',
+        undefined,
+        attackerAssigns ? { attackerChooses: true } : {},
+      );
+      return evaluationFrom(context, action,
+        attackerAssigns ? 'decline to assign' : 'take the attack',
+        outcomes,
+        attackerAssigns
+          ? [...detail, leaf('assignment', 'the opponent assigns every strike (CoE 3.iii)')]
+          : detail,
         [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS]);
     }
 
@@ -589,13 +628,22 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
     }
 
     case 'cancel-by-tap': {
-      // One attack of a multi-attack creature, at the cost of a tap.
+      // One attack of a multi-attack creature, at the cost of a tap. A
+      // cancelled strike is never defeated, so the attack can no longer be
+      // beaten and its kill MP goes with the tap.
       const cancelled = combat.strikesPerAttack ?? 1;
-      const { outcomes, detail } = facing(Math.max(0, remaining - cancelled), 'face what is left');
+      const { outcomes, detail } = facing(Math.max(0, remaining - cancelled), 'face what is left',
+        undefined, { defeatable: false });
       return evaluationFrom(context, action,
         `tap to cancel ${cancelled} strike(s)`,
         outcomes.map(o => ({ ...o, dtsd: o.dtsd - tunables.tapTempoCost })),
-        [...detail, leaf('tap tempo', tunables.tapTempoCost, { unit: 'tsd', tunable: 'tapTempoCost' })],
+        [
+          ...detail,
+          leaf('tap tempo', tunables.tapTempoCost, { unit: 'tsd', tunable: 'tapTempoCost' }),
+          ...(context.killMp > 0 && context.stillDefeatable
+            ? [leaf('kill MP forfeited', context.killTsd, { unit: 'tsd', note: 'a cancelled strike is never defeated, so the attack cannot be beaten' })]
+            : []),
+        ],
         [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS]);
     }
 
@@ -779,7 +827,7 @@ export const combatModule: H2Module = {
           { need, tapMode, bestOfTwo: false, bodyPenalty: 0 },
           tapToFight ? 'tap to fight' : 'stay untapped',
           0,
-          [leaf('tap mode', tapToFight ? 'taps on any non-wounding result' : 'stays untapped unless the exchange ties')],
+          [leaf('tap mode', tapToFight ? 'taps on any non-wounding result' : 'stays untapped, at −3 prowess (CoE 3.iv.3)')],
         );
       }
 

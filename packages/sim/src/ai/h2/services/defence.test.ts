@@ -105,14 +105,18 @@ describe('what a shape invites', () => {
     expect(fragmented).toBeGreaterThan(united);
   });
 
-  test('a bigger roster answers the same attack better, per slot', () => {
+  test('a bigger roster spreads the same attack thinner, per character', () => {
     // Not per company: a bigger company also invites more slots, which is the
-    // whole tension the shape decision sits in. Held at one slot, the extra
-    // parriers can only help.
+    // whole tension the shape decision sits in. Nor per slot in absolute
+    // terms — a lone character is assigned only one strike of a multi-strike
+    // attack and takes the rest as −1 modifiers (CoE 3.iii), while a roster
+    // is assigned one strike each, so a roster can be harmed in more places.
+    // What the extra parriers buy is that each of them faces less.
     const { defence, roster } = position();
     expect(roster.length).toBeGreaterThan(2);
     const small = roster.slice(0, 1);
-    expect(defence.expectedHarm(roster, 1)).toBeLessThanOrEqual(defence.expectedHarm(small, 1));
+    expect(defence.expectedHarm(roster, 1) / roster.length)
+      .toBeLessThan(defence.expectedHarm(small, 1));
   });
 });
 

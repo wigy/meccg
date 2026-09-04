@@ -138,7 +138,9 @@ function commandList(): void {
     if (moduleFilter && scenario.module !== moduleFilter) continue;
     const source = scenario.source.kind === 'game'
       ? `${scenario.source.gameId}#${scenario.source.stateSeq}`
-      : `seed ${scenario.source.seed} @${scenario.source.decisionSeq}`;
+      : scenario.source.kind === 'selfplay'
+        ? `seed ${scenario.source.seed} @${scenario.source.decisionSeq}`
+        : `synthetic: ${scenario.source.builder}`;
     console.log(`${id.padEnd(36)} ${(scenario.module ?? '-').padEnd(10)} ${source}`);
     console.log(`  ${scenario.description}`);
     if (scenario.expectation) console.log(`  expect: ${scenario.expectation}`);

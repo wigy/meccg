@@ -19,8 +19,8 @@ import { testWinProbModel } from '../test-support.js';
 const SCENARIO = 'movement/hazard-bundle-choice';
 
 /** The plan at that position. */
-function position() {
-  const scenario = loadScenario(SCENARIO);
+function position(id: string = SCENARIO) {
+  const scenario = loadScenario(id);
   const view = scenarioView(scenario);
   const cardPool = loadCardPool();
   const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
@@ -48,7 +48,11 @@ describe('what each hazard is for', () => {
   });
 
   test('an assigned card names the company it is for', () => {
-    const { plan } = position();
+    // At the default position every creature is a gift — five untapped
+    // characters parry the orcs without tapping and bank the kill MP — so the
+    // plan aims nothing; two defenders against Wargs and Spiders is where
+    // cards get assigned.
+    const { plan } = position('hazards/order-two-defenders');
     const used = plan.assignments.filter(a => a.targetCompanyId !== null);
     expect(used.length).toBeGreaterThan(0);
     for (const assignment of used) {
@@ -95,9 +99,11 @@ describe('the order the attacks are played in', () => {
   test('leads with the attack that softens the company for the one behind it', () => {
     // Two defenders. Wargs is worth less alone than the four-strike Lesser
     // Spiders, so a greedy plan led with the Spiders — but taking a defender out
-    // first and following with four strikes into the gap is worth more than the
+    // first and following with the Spiders into the gap is worth more than the
     // reverse, and the `hazards` module's own bundle search says so too. The
-    // plan used to inherit the order it happened to pick cards in.
+    // plan used to inherit the order it happened to pick cards in. (Against
+    // two characters the Spiders are assigned two strikes and carry the other
+    // two as −2 on the second, CoE 3.iii; the order still holds.)
     const { orderOf } = planAt('hazards/order-two-defenders');
     const wargs = orderOf('Wargs');
     const spiders = orderOf('Lesser Spiders');
@@ -106,17 +112,19 @@ describe('the order the attacks are played in', () => {
     expect(wargs!.order).toBeLessThan(spiders!.order);
   });
 
-  test('but leads with the many-strike attack against a lone wounded defender', () => {
-    // The same reasoning, reversed by the position: one already-wounded
-    // character, where the near-certain kill ends the company and leaves the
-    // follow-up nothing to hit. "Highest chance of wounding first" is a
-    // consequence of the numbers, not a rule above them.
+  test('does not waste a many-strike attack on a lone wounded defender', () => {
+    // One already-wounded character. He is assigned a single strike of the
+    // four-strike Lesser Spiders, at −3 for the excess, and beating that one
+    // strike banks the Spiders' kill MP — so the attack hands over more than
+    // it threatens once the Cave Worm's near-certain wound has done its work.
+    // The plan leads with the Worm and leaves the Spiders unplayed.
     const { orderOf } = planAt('hazards/order-lone-wounded-defender');
     const spiders = orderOf('Lesser Spiders');
     const worm = orderOf('Cave Worm');
-    expect(spiders?.targetCompanyId).not.toBeNull();
-    expect(worm?.targetCompanyId).toBe(spiders?.targetCompanyId);
-    expect(spiders!.order).toBeLessThan(worm!.order);
+    expect(worm?.targetCompanyId).not.toBeNull();
+    expect(worm!.order).toBe(1);
+    expect(spiders?.targetCompanyId).toBeNull();
+    expect(spiders?.marginal).toBe(0);
   });
 
   test('credits each attack for what it adds in the order it will be played', () => {

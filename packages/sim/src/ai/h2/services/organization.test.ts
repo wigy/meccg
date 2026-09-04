@@ -74,10 +74,13 @@ describe('whole-board invariance', () => {
 });
 
 describe('resources to play for all', () => {
-  test('a spun-off company with no distinct goal adds zero opportunity', () => {
+  test('a spun-off company with no distinct goal adds no goal', () => {
     // One playable item in hand: the matching is injective over distinct
-    // cards, so the second company can serve nothing the first could not,
-    // and only the harm term moves.
+    // cards, so the second company can serve nothing the first could not.
+    // The one goal is still served once; what moves is the harm term and,
+    // with it, the goal's own site-harm discount — a lone character is
+    // assigned one strike of the site's attack and takes the rest as −1s
+    // (CoE 3.iii), so the company serving the goal prices it differently.
     const { organization } = organizationFor('organization/trailing-split-no-second-goal');
     const current = organization.current();
     const big = [...current.companies].sort(
@@ -92,7 +95,8 @@ describe('resources to play for all', () => {
     };
     const before = organization.valueOf(current);
     const after = organization.valueOf(split);
-    expect(after.opportunityTsd).toBeCloseTo(before.opportunityTsd, 9);
+    expect(after.assignments.map(a => a.goal)).toEqual(before.assignments.map(a => a.goal));
+    expect(after.assignments).toHaveLength(1);
     expect(after.harmTsd).not.toBeCloseTo(before.harmTsd, 3);
   });
 

@@ -14,6 +14,7 @@
 import { describe, test, expect } from 'vitest';
 import { CardStatus } from '@meccg/shared';
 import type { CardDefinition, CombatState, PlayerView } from '@meccg/shared';
+import { pAtLeast } from '../../core/dice.js';
 import { resolveSequentially } from './sequence.js';
 import type { SequencePricer } from './sequence.js';
 
@@ -122,16 +123,27 @@ describe('the enumeration', () => {
 });
 
 describe('degradation between strikes', () => {
-  test('a second strike on the same character is harder than the first', () => {
-    // One defender, two strikes: the first taps him, and he meets the second
-    // at −1 for being tapped and −1 more as an excess strike. Independent
-    // pricing would have squared the first strike's survival rate.
+  test('strikes beyond the company are −1 modifiers, not extra strikes (CoE 3.iii)', () => {
+    // One defender, two strikes: he is assigned one strike and the other is
+    // excess — never resolved, applied as −1 to the strike he does face, and
+    // not needed for the attack to be defeated. Prowess 5 against 8 needs a
+    // 4 alone and a 5 with the excess strike; he is unharmed on a parry or a
+    // tie, so one roll below the need still leaves him standing.
     const single = resolveSequentially(viewWith([5]), POOL, attack(1, 8), 1, HARM, { maxStates: 192 });
     const double = resolveSequentially(viewWith([5]), POOL, attack(2, 8), 2, HARM, { maxStates: 192 });
 
-    const unharmedOnce = chance(single.outcomes, o => o.dtsd === 0);
-    const unharmedTwice = chance(double.outcomes, o => o.dtsd === 0);
-    expect(unharmedTwice).toBeLessThan(unharmedOnce ** 2);
+    expect(single.opening[0].need).toBe(4);
+    expect(double.opening).toHaveLength(1);
+    expect(double.opening[0].need).toBe(5);
+    expect(chance(single.outcomes, o => o.dtsd === 0)).toBeCloseTo(pAtLeast(3), 12);
+    expect(chance(double.outcomes, o => o.dtsd === 0)).toBeCloseTo(pAtLeast(4), 12);
+  });
+
+  test('the excess lands on the last character assigned, who is the weakest parrier', () => {
+    // Two defenders, three strikes: the better parrier answers first at full
+    // prowess, the other faces the second strike with the excess −1 on it.
+    const result = resolveSequentially(viewWith([6, 3]), POOL, attack(3, 8), 3, HARM, { maxStates: 192 });
+    expect(result.opening.map(o => o.need)).toEqual([3, 7]);
   });
 
   test('a bigger company absorbs an attack better than a small one', () => {

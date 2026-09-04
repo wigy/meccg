@@ -232,10 +232,16 @@ describe('cancelling a strike after assignment', () => {
     expect(cancel).toBeDefined();
   });
 
-  test('prefers cancelling the strike over declining, since it removes the risk entirely', () => {
+  test('a cancelled strike forfeits the kill: the cancel never banks the attack', () => {
+    // A cancelled strike is not a defeated one (`combat-finalize.ts` awards
+    // the kill only when every assigned strike succeeded), so the branches
+    // after a cancel-by-tap must not carry the "attack beaten" credit that
+    // facing the strikes could earn. The exact-lookahead oracle
+    // (`oracle.test.ts`) is what decides whether cancelling is *preferred*.
     const cancel = find(evaluations, isCancelByTap('p2-103'))!;
+    expect(cancel.outcomes.some(o => o.label.includes('attack beaten'))).toBe(false);
     const declined = find(evaluations, a => a.type === 'pass')!;
-    expect(cancel.utility).toBeGreaterThan(declined.utility);
+    expect(declined).toBeDefined();
   });
 });
 

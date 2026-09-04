@@ -10,7 +10,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-380"
       },
-      "payoffTsd": 4.118530228543254,
+      "payoffTsd": 3.9905092592592597,
       "deadline": 8,
       "requirements": [
         {
@@ -94,7 +94,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 4.118530228543254,
+      "payoffTsd": 3.9905092592592597,
       "deadline": 8,
       "requirements": [
         {
@@ -220,7 +220,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-380"
       },
-      "payoffTsd": 4.118530228543254,
+      "payoffTsd": 3.9905092592592597,
       "deadline": 8,
       "requirements": [
         {
@@ -262,7 +262,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 4.733832733196159,
+      "payoffTsd": 4.396064814814815,
       "deadline": 8,
       "requirements": [
         {
@@ -346,7 +346,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 4.118530228543254,
+      "payoffTsd": 3.9905092592592597,
       "deadline": 8,
       "requirements": [
         {
@@ -388,7 +388,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-415"
       },
-      "payoffTsd": 4.965277777777778,
+      "payoffTsd": 4.745138888888889,
       "deadline": 8,
       "requirements": [
         {
@@ -514,7 +514,7 @@
         "cardInstanceId": "p2-3",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 2.1185302285432543,
+      "payoffTsd": 1.9905092592592597,
       "deadline": 8,
       "requirements": [
         {
@@ -558,7 +558,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-398"
       },
-      "payoffTsd": 1.1,
+      "payoffTsd": 1.4743055555555555,
       "deadline": 7,
       "requirements": [
         {
@@ -600,7 +600,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 0.7090277777777778,
+      "payoffTsd": 1.1020833333333333,
       "deadline": 7,
       "requirements": [
         {
@@ -642,7 +642,7 @@
         "cardInstanceId": "p2-3",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 0.7090277777777778,
+      "payoffTsd": 1.1020833333333333,
       "deadline": 7,
       "requirements": [
         {
@@ -686,7 +686,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-398"
       },
-      "payoffTsd": 1.1,
+      "payoffTsd": 1.1722222222222223,
       "deadline": 7,
       "requirements": [
         {
@@ -728,7 +728,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 0.6610146604938272,
+      "payoffTsd": 0.661111111111111,
       "deadline": 7,
       "requirements": [
         {
@@ -770,7 +770,7 @@
         "cardInstanceId": "p2-3",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 0.6610146604938272,
+      "payoffTsd": 0.661111111111111,
       "deadline": 7,
       "requirements": [
         {
@@ -814,7 +814,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-380"
       },
-      "payoffTsd": 2.4172010517568814,
+      "payoffTsd": 2.243981481481481,
       "deadline": 7,
       "requirements": [
         {
@@ -856,7 +856,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-409"
       },
-      "payoffTsd": 3.1131944444444444,
+      "payoffTsd": 2.9611111111111112,
       "deadline": 7,
       "requirements": [
         {
@@ -898,7 +898,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 2.4172010517568814,
+      "payoffTsd": 2.243981481481481,
       "deadline": 7,
       "requirements": [
         {
@@ -940,7 +940,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-416"
       },
-      "payoffTsd": 3.1131944444444444,
+      "payoffTsd": 2.9611111111111112,
       "deadline": 7,
       "requirements": [
         {
@@ -1077,7 +1077,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-380"
       },
-      "payoffTsd": 10.749305555555555,
+      "payoffTsd": 11.154861111111112,
       "deadline": 7,
       "requirements": [
         {
@@ -1119,7 +1119,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-409"
       },
-      "payoffTsd": 11.4,
+      "payoffTsd": 11.5625,
       "deadline": 7,
       "requirements": [
         {
@@ -1161,7 +1161,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 10.749305555555555,
+      "payoffTsd": 11.154861111111112,
       "deadline": 7,
       "requirements": [
         {
@@ -1203,7 +1203,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-416"
       },
-      "payoffTsd": 11.4,
+      "payoffTsd": 11.5625,
       "deadline": 7,
       "requirements": [
         {
@@ -1338,7 +1338,7 @@
         "cardInstanceId": "p1-13",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 9.59189814814815,
+      "payoffTsd": 9.891898148148147,
       "deadline": 8,
       "requirements": [
         {
@@ -1380,7 +1380,7 @@
         "cardInstanceId": "p1-13",
         "siteDefinitionId": "tw-433"
       },
-      "payoffTsd": 10.652314814814815,
+      "payoffTsd": 10.952314814814816,
       "deadline": 8,
       "requirements": [
         {
@@ -1464,7 +1464,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-397"
       },
-      "payoffTsd": 7.7,
+      "payoffTsd": 7.854166666666667,
       "deadline": 8,
       "requirements": [
         {
@@ -1506,7 +1506,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 6.652314814814814,
+      "payoffTsd": 6.952314814814815,
       "deadline": 8,
       "requirements": [
         {
@@ -1548,7 +1548,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 5.59189814814815,
+      "payoffTsd": 5.891898148148148,
       "deadline": 8,
       "requirements": [
         {
@@ -1590,7 +1590,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-433"
       },
-      "payoffTsd": 6.652314814814814,
+      "payoffTsd": 6.952314814814815,
       "deadline": 8,
       "requirements": [
         {
@@ -1824,7 +1824,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 2.3069444444444445,
+      "payoffTsd": 2.6069444444444443,
       "deadline": 8,
       "requirements": [
         {
@@ -1866,7 +1866,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-397"
       },
-      "payoffTsd": 3.7,
+      "payoffTsd": 3.8541666666666665,
       "deadline": 8,
       "requirements": [
         {
@@ -1908,7 +1908,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 2.876388888888889,
+      "payoffTsd": 3.176388888888889,
       "deadline": 8,
       "requirements": [
         {
@@ -1992,7 +1992,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-433"
       },
-      "payoffTsd": 2.876388888888889,
+      "payoffTsd": 3.176388888888889,
       "deadline": 8,
       "requirements": [
         {
@@ -2076,7 +2076,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 6.3069444444444445,
+      "payoffTsd": 6.606944444444444,
       "deadline": 8,
       "requirements": [
         {
@@ -2118,7 +2118,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-397"
       },
-      "payoffTsd": 7.7,
+      "payoffTsd": 7.854166666666667,
       "deadline": 8,
       "requirements": [
         {
@@ -2160,7 +2160,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 6.876388888888889,
+      "payoffTsd": 7.176388888888889,
       "deadline": 8,
       "requirements": [
         {
@@ -2244,7 +2244,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-433"
       },
-      "payoffTsd": 6.876388888888889,
+      "payoffTsd": 7.176388888888889,
       "deadline": 8,
       "requirements": [
         {
@@ -2372,7 +2372,7 @@
         "cardInstanceId": "p2-18",
         "siteDefinitionId": "tw-380"
       },
-      "payoffTsd": 8.8,
+      "payoffTsd": 9.254166666666666,
       "deadline": 7,
       "requirements": [
         {
@@ -2414,7 +2414,7 @@
         "cardInstanceId": "p2-18",
         "siteDefinitionId": "tw-409"
       },
-      "payoffTsd": 9.4,
+      "payoffTsd": 9.708333333333334,
       "deadline": 7,
       "requirements": [
         {
@@ -2456,7 +2456,7 @@
         "cardInstanceId": "p2-18",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 8.8,
+      "payoffTsd": 9.254166666666666,
       "deadline": 7,
       "requirements": [
         {
@@ -2498,7 +2498,7 @@
         "cardInstanceId": "p2-18",
         "siteDefinitionId": "tw-416"
       },
-      "payoffTsd": 9.4,
+      "payoffTsd": 9.708333333333334,
       "deadline": 7,
       "requirements": [
         {
@@ -2626,7 +2626,7 @@
         "cardInstanceId": "p1-3",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 3.1,
+      "payoffTsd": 3.7,
       "deadline": 20,
       "requirements": [
         {
@@ -2710,7 +2710,7 @@
         "cardInstanceId": "p1-3",
         "siteDefinitionId": "tw-433"
       },
-      "payoffTsd": 3.1,
+      "payoffTsd": 3.7,
       "deadline": 20,
       "requirements": [
         {
@@ -2752,7 +2752,7 @@
         "cardInstanceId": "p1-3",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 2.3915517197581666,
+      "payoffTsd": 3.5791666666666666,
       "deadline": 20,
       "requirements": [
         {
@@ -2889,7 +2889,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-380"
       },
-      "payoffTsd": 3.902651686518923,
+      "payoffTsd": 4.052777777777777,
       "deadline": 9,
       "requirements": [
         {
@@ -2973,7 +2973,7 @@
         "cardInstanceId": "p2-27",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 3.902651686518923,
+      "payoffTsd": 4.052777777777777,
       "deadline": 9,
       "requirements": [
         {
@@ -3099,7 +3099,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-380"
       },
-      "payoffTsd": 3.902651686518923,
+      "payoffTsd": 4.052777777777777,
       "deadline": 9,
       "requirements": [
         {
@@ -3141,7 +3141,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 4.539448302469136,
+      "payoffTsd": 4.30625,
       "deadline": 9,
       "requirements": [
         {
@@ -3225,7 +3225,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 3.902651686518923,
+      "payoffTsd": 4.052777777777777,
       "deadline": 9,
       "requirements": [
         {
@@ -3267,7 +3267,7 @@
         "cardInstanceId": "p2-28",
         "siteDefinitionId": "tw-415"
       },
-      "payoffTsd": 4.869076324588478,
+      "payoffTsd": 4.700231481481482,
       "deadline": 9,
       "requirements": [
         {
@@ -3393,7 +3393,7 @@
         "cardInstanceId": "p2-3",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 1.9026516865189231,
+      "payoffTsd": 2.052777777777777,
       "deadline": 9,
       "requirements": [
         {
@@ -3563,6 +3563,48 @@
       ]
     },
     {
+      "id": "resources/p2-12@tw-404",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Isengard",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-12",
+        "siteDefinitionId": "tw-404"
+      },
+      "payoffTsd": 0.2847222222222223,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-3",
+          "siteDefinitionId": "tw-404",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Isengard",
+          "p": 1,
+          "owner": "travel",
+          "tag": "route",
+          "source": "already there or already headed there"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
       "id": "resources/p2-12@tw-397",
       "module": "resources",
       "goal": {
@@ -3627,6 +3669,90 @@
       "steps": [
         {
           "label": "route to Isle of the Ulond",
+          "p": 0.015625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "4 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-12@tw-433",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Tolfalas",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-12",
+        "siteDefinitionId": "tw-433"
+      },
+      "payoffTsd": 0.2847222222222223,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-3",
+          "siteDefinitionId": "tw-433",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Tolfalas",
+          "p": 0.00390625,
+          "owner": "travel",
+          "tag": "route",
+          "source": "5 region(s) away, at planUnroutedReachProbability per region"
+        },
+        {
+          "label": "still hold Sapling of the White Tree",
+          "p": 1,
+          "owner": "hand",
+          "tag": "card-in-hand"
+        },
+        {
+          "label": "someone left untapped to play it",
+          "p": 1,
+          "owner": "characters",
+          "tag": "carrier"
+        }
+      ]
+    },
+    {
+      "id": "resources/p2-12@tw-413",
+      "module": "resources",
+      "goal": {
+        "label": "play Sapling of the White Tree at Moria",
+        "source": "item",
+        "mp": 1,
+        "cardInstanceId": "p2-12",
+        "siteDefinitionId": "tw-413"
+      },
+      "payoffTsd": 0.031250000000000444,
+      "deadline": 9,
+      "requirements": [
+        {
+          "kind": "company-at-site",
+          "companyId": "company-p2-3",
+          "siteDefinitionId": "tw-413",
+          "byTurn": 9
+        }
+      ],
+      "steps": [
+        {
+          "label": "route to Moria",
           "p": 0.015625,
           "owner": "travel",
           "tag": "route",
@@ -3752,7 +3878,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-398"
       },
-      "payoffTsd": 4.1,
+      "payoffTsd": 4.7,
       "deadline": 12,
       "requirements": [
         {
@@ -4241,7 +4367,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-398"
       },
-      "payoffTsd": 4.1,
+      "payoffTsd": 4.951388888888889,
       "deadline": 20,
       "requirements": [
         {
@@ -4283,7 +4409,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 3.8,
+      "payoffTsd": 4.638888888888888,
       "deadline": 20,
       "requirements": [
         {
@@ -4328,7 +4454,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-398"
       },
-      "payoffTsd": 1.1,
+      "payoffTsd": 1.0493055555555557,
       "deadline": 7,
       "requirements": [
         {
@@ -4370,7 +4496,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 0.483883060058514,
+      "payoffTsd": 0.6770833333333337,
       "deadline": 7,
       "requirements": [
         {
@@ -4412,7 +4538,7 @@
         "cardInstanceId": "p2-3",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 0.483883060058514,
+      "payoffTsd": 0.6770833333333337,
       "deadline": 7,
       "requirements": [
         {
@@ -4591,7 +4717,7 @@
         "cardInstanceId": "p1-10",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 4.1,
+      "payoffTsd": 4.798611111111111,
       "deadline": 17,
       "requirements": [
         {
@@ -4633,7 +4759,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 4.1,
+      "payoffTsd": 4.798611111111111,
       "deadline": 17,
       "requirements": [
         {
@@ -4675,7 +4801,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-397"
       },
-      "payoffTsd": 4.7,
+      "payoffTsd": 4.798611111111111,
       "deadline": 17,
       "requirements": [
         {
@@ -4759,7 +4885,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 3.741203703703704,
+      "payoffTsd": 4.7,
       "deadline": 17,
       "requirements": [
         {
@@ -4801,7 +4927,7 @@
         "cardInstanceId": "p1-5",
         "siteDefinitionId": "tw-433"
       },
-      "payoffTsd": 4.1,
+      "payoffTsd": 4.798611111111111,
       "deadline": 17,
       "requirements": [
         {
@@ -4843,7 +4969,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-404"
       },
-      "payoffTsd": 2.1,
+      "payoffTsd": 2.798611111111111,
       "deadline": 17,
       "requirements": [
         {
@@ -4885,7 +5011,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-397"
       },
-      "payoffTsd": 2.7,
+      "payoffTsd": 2.798611111111111,
       "deadline": 17,
       "requirements": [
         {
@@ -4969,7 +5095,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 1.7412037037037038,
+      "payoffTsd": 2.7,
       "deadline": 17,
       "requirements": [
         {
@@ -5011,7 +5137,7 @@
         "cardInstanceId": "p1-12",
         "siteDefinitionId": "tw-433"
       },
-      "payoffTsd": 2.1,
+      "payoffTsd": 2.798611111111111,
       "deadline": 17,
       "requirements": [
         {
@@ -5104,7 +5230,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-398"
       },
-      "payoffTsd": 7.1,
+      "payoffTsd": 7.854166666666667,
       "deadline": 16,
       "requirements": [
         {
@@ -5146,7 +5272,7 @@
         "cardInstanceId": "p2-13",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 6.637397119341564,
+      "payoffTsd": 7.659722222222222,
       "deadline": 16,
       "requirements": [
         {
@@ -5281,7 +5407,7 @@
         "cardInstanceId": "p2-32",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 8.8,
+      "payoffTsd": 8.393287037037037,
       "deadline": 10,
       "requirements": [
         {
@@ -5365,7 +5491,7 @@
         "cardInstanceId": "p2-32",
         "siteDefinitionId": "tw-384"
       },
-      "payoffTsd": 9.355092592592593,
+      "payoffTsd": 9.342361111111112,
       "deadline": 10,
       "requirements": [
         {
@@ -5449,7 +5575,7 @@
         "cardInstanceId": "p2-15",
         "siteDefinitionId": "tw-413"
       },
-      "payoffTsd": 4.8,
+      "payoffTsd": 4.393287037037037,
       "deadline": 10,
       "requirements": [
         {
@@ -5491,7 +5617,7 @@
         "cardInstanceId": "p2-15",
         "siteDefinitionId": "tw-398"
       },
-      "payoffTsd": 5.1,
+      "payoffTsd": 5.240277777777778,
       "deadline": 10,
       "requirements": [
         {
