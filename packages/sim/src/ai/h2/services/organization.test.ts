@@ -8,13 +8,14 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { loadCardPool } from '@meccg/shared';
-import type { CardInstanceId } from '@meccg/shared';
+import { CardStatus, loadCardPool } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, PlayerView } from '@meccg/shared';
 import { DEFAULT_TUNABLES, withTunable } from '../core/tunables.js';
 import type { Commitment } from '../core/plan.js';
 import { computeStanding } from './standing.js';
 import { loadWinProbModel } from '../core/winprob.js';
 import { loadScenario, scenarioView } from '../scenario-store.js';
+import { testMarshallingPoints } from '../test-support.js';
 import type { Arrangement } from './organization.js';
 import { computeOrganization } from './organization.js';
 
@@ -161,5 +162,134 @@ describe('the goal list', () => {
     expect(organization.capBound).toBe(true);
     const value = organization.valueOf(organization.current());
     expect(JSON.stringify(value.rationale)).toContain('organizationGoalCap');
+  });
+});
+
+// Bug report (game mtliimtw-yp56n5, turn 1, site phase): the AI sent Beorn to
+// Thranduil's Halls to influence the Wood-elves and Legolas to Beorn's House
+// to influence the Beornings — each losing the +2 direct-influence bonus his
+// own card grants against the *other* faction. `bestFreeDi` was computed once
+// per company from `effectiveStats.directInfluence` alone, which is identical
+// for both DI-2 characters — the matching that decides `split-company` /
+// `move-to-company` therefore could not tell the correctly-matched pairing
+// from the swapped one and had no reason to prefer it.
+describe('a company\'s free direct influence against a specific faction', () => {
+  // Both sides already have a few points in every source, so a further
+  // faction point still prices positive (at 0-0 the win-prob model reads flat
+  // and every marginal is zero) without either faction being anywhere near
+  // the CoE 10.3 diversity cap.
+  const BALANCED = { character: 3, item: 3, faction: 3, ally: 3 };
+
+  const BEORNINGS = 'test-beornings';
+  const WOOD_ELVES = 'test-wood-elves';
+  const BEORN = 'test-beorn';
+  const LEGOLAS = 'test-legolas';
+  const BEORNS_HOUSE = 'test-beorns-house';
+  const THRANDUILS_HALLS = 'test-thranduils-halls';
+
+  const POOL = {
+    [BEORNINGS]: {
+      name: 'Beornings', cardType: 'hero-resource-faction', marshallingPoints: 2,
+      marshallingCategory: 'faction', influenceTarget: 9, playableAt: [{ site: 'Beorn’s House' }],
+    },
+    [WOOD_ELVES]: {
+      name: 'Wood-elves', cardType: 'hero-resource-faction', marshallingPoints: 2,
+      marshallingCategory: 'faction', influenceTarget: 9, playableAt: [{ site: 'Thranduil’s Halls' }],
+    },
+    [BEORN]: {
+      name: 'Beorn', cardType: 'hero-character', marshallingPoints: 2, marshallingCategory: 'character',
+      mind: 7, directInfluence: 2,
+      effects: [{
+        type: 'stat-modifier', stat: 'direct-influence', value: 2,
+        when: { reason: 'faction-influence-check', 'faction.name': 'Beornings' },
+      }],
+    },
+    [LEGOLAS]: {
+      name: 'Legolas', cardType: 'hero-character', marshallingPoints: 2, marshallingCategory: 'character',
+      mind: 6, directInfluence: 2,
+      effects: [{
+        type: 'stat-modifier', stat: 'direct-influence', value: 2,
+        when: { reason: 'faction-influence-check', 'faction.name': 'Wood-elves' },
+      }],
+    },
+    [BEORNS_HOUSE]: { name: 'Beorn’s House', cardType: 'hero-site', siteType: 'border-hold', playableResources: [] },
+    [THRANDUILS_HALLS]: {
+      name: 'Thranduil’s Halls', cardType: 'hero-site', siteType: 'border-hold', playableResources: [],
+    },
+  } as unknown as Readonly<Record<string, CardDefinition>>;
+
+  /** A minimal untapped character in play, DI-2 either way — only the
+   * bearer's own conditional effect (above) tells them apart. */
+  function characterOf(instanceId: string, definitionId: string) {
+    return {
+      instanceId, definitionId, status: CardStatus.Untapped,
+      items: [], allies: [], hazards: [], followers: [],
+      effectiveStats: { prowess: 5, body: 8, directInfluence: 2, corruptionPoints: 0 },
+    };
+  }
+
+  /** One character standing at Beorn's House, the other at Thranduil's Halls. */
+  function viewWith(atBeornsHouse: 'beorn' | 'legolas'): PlayerView {
+    const [houseCharacter, hallsCharacter] = atBeornsHouse === 'beorn'
+      ? [{ id: 'beorn', def: BEORN }, { id: 'legolas', def: LEGOLAS }]
+      : [{ id: 'legolas', def: LEGOLAS }, { id: 'beorn', def: BEORN }];
+    return {
+      self: {
+        id: 'p1',
+        alignment: 'wizard',
+        marshallingPoints: testMarshallingPoints(BALANCED),
+        hand: [
+          { instanceId: 'card-beornings', definitionId: BEORNINGS },
+          { instanceId: 'card-wood-elves', definitionId: WOOD_ELVES },
+        ],
+        characters: {
+          [houseCharacter.id]: characterOf(houseCharacter.id, houseCharacter.def),
+          [hallsCharacter.id]: characterOf(hallsCharacter.id, hallsCharacter.def),
+        },
+        companies: [
+          {
+            id: 'company-house', characters: [houseCharacter.id],
+            currentSite: { instanceId: 'site-house', definitionId: BEORNS_HOUSE },
+          },
+          {
+            id: 'company-halls', characters: [hallsCharacter.id],
+            currentSite: { instanceId: 'site-halls', definitionId: THRANDUILS_HALLS },
+          },
+        ],
+        cardsInPlay: [],
+        siteDeck: [],
+        generalInfluence: 20,
+        generalInfluenceUsed: 0,
+      },
+      opponent: {
+        marshallingPoints: testMarshallingPoints(BALANCED),
+        characters: {}, cardsInPlay: [], discardPile: [], killPile: [], outOfPlayPile: [],
+      },
+      turnNumber: 1,
+    } as unknown as PlayerView;
+  }
+
+  test('the matched pairing (each bearer at the faction he boosts) outscores the swapped one', () => {
+    const model = loadWinProbModel();
+    const matched = viewWith('beorn'); // Beorn at Beorn's House, Legolas at Thranduil's Halls
+    const swapped = viewWith('legolas'); // Legolas at Beorn's House, Beorn at Thranduil's Halls
+
+    const matchedOrg = computeOrganization(
+      matched, POOL, computeStanding(matched, model, DEFAULT_TUNABLES), DEFAULT_TUNABLES, undefined);
+    const swappedOrg = computeOrganization(
+      swapped, POOL, computeStanding(swapped, model, DEFAULT_TUNABLES), DEFAULT_TUNABLES, undefined);
+
+    const matchedValue = matchedOrg.valueOf(matchedOrg.current());
+    const swappedValue = swappedOrg.valueOf(swappedOrg.current());
+
+    // Pre-fix, `bestFreeDi` read only `effectiveStats.directInfluence` — 2 for
+    // either character — so the two arrangements priced identically and the
+    // matching had no way to prefer the one that actually lands the bonus.
+    expect(matchedValue.opportunityTsd).toBeGreaterThan(swappedValue.opportunityTsd);
+
+    const checkPOf = (value: typeof matchedValue, label: string): number =>
+      value.assignments.find(a => a.goal.label.includes(label))!.p;
+    expect(checkPOf(matchedValue, 'Beornings')).toBeGreaterThan(checkPOf(swappedValue, 'Beornings'));
+    expect(checkPOf(matchedValue, 'Wood-elves')).toBeGreaterThan(checkPOf(swappedValue, 'Wood-elves'));
   });
 });
