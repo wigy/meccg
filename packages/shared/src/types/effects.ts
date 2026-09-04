@@ -5692,11 +5692,11 @@ export interface PlayTargetEffect extends EffectBase {
    */
   readonly requireTapped?: boolean;
   /**
-   * Maximum sheer character count for the target's company. When set,
-   * the card is only playable if the candidate's company has character
-   * count ≤ this value. This is the company's literal size, not the
-   * Hobbit/Orc-scout-halved size used for the hazard limit (CoE rule
-   * 3.24 / 2.IV.iii), which is a distinct concept.
+   * Maximum company size for the target's company (e.g. Stealth,
+   * Sneakin': "company size less than three"). When set, the card is only
+   * playable if the candidate's company's effective size — per the CoE
+   * glossary "size" (each Hobbit or Orc scout counts as half a character,
+   * rounded up; CoE rule 3.24 / 2.IV.iii) — is ≤ this value.
    */
   readonly maxCompanySize?: number;
   /**

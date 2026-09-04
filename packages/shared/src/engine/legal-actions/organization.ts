@@ -2835,9 +2835,12 @@ export function endOfOrgEligibility(
     if (matchesInCompany.length === 0) continue;
     foundMatchingCharacter = true;
     if (playTarget.maxCompanySize !== undefined) {
-      // Sheer character count, not the Hobbit/Orc-scout-halved size used
-      // for the hazard limit (CoE 2.IV.iii) — see eligiblePlayOptionTargets.
-      const size = company.characters.length;
+      // Card text like Stealth's "company size is less than three" invokes
+      // the CoE glossary term "size" (Hobbit/Orc-scout halved, rounded up) —
+      // see eligiblePlayOptionTargets. This differs from cards phrased in
+      // terms of raw "characters" (e.g. Alone and Unadvised, as-24), which
+      // compare against company.characters.length instead.
+      const size = companyEffectiveSize(state, company);
       if (size > playTarget.maxCompanySize) continue;
     }
     eligibleTargets.push(...matchesInCompany);
@@ -3478,17 +3481,20 @@ function eligiblePlayOptionTargets(
       continue;
     }
     // Enforce the optional company-size cap (e.g. Sneakin' / Stealth:
-    // "company size less than 3" → maxCompanySize 2), using the company's
-    // sheer character count — not the Hobbit/Orc-scout-halved size used
-    // for the hazard limit (CoE 2.IV.iii / 3.24), which is a distinct
-    // concept scoped to the hazard limit and the organizing max-of-seven
-    // rule. This mirrors the end-of-org path so cards playable during the
-    // normal organization window respect the same size restriction.
+    // "company size less than 3" → maxCompanySize 2). Both cards' text uses
+    // the CoE glossary term "size", which counts each Hobbit or Orc scout as
+    // half a character (rounded up) — the same rule that governs the hazard
+    // limit and the organizing max-of-seven (CoE 2.IV.iii / 3.24). This
+    // mirrors the end-of-org path so cards playable during the normal
+    // organization window respect the same size restriction.
     if (playTarget.maxCompanySize !== undefined) {
       const company = findCharacterCompany(player.companies, charId);
-      if (company && company.characters.length > playTarget.maxCompanySize) {
-        logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${company.characters.length} > max ${playTarget.maxCompanySize}`);
-        continue;
+      if (company) {
+        const size = companyEffectiveSize(state, company);
+        if (size > playTarget.maxCompanySize) {
+          logDetail(`Play-target rejects ${charDef.name} (${charId}): company size ${size} > max ${playTarget.maxCompanySize}`);
+          continue;
+        }
       }
     }
     out.push(charId);
