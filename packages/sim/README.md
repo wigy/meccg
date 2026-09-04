@@ -2907,13 +2907,115 @@ piled another strike onto a character already carrying one
 ```
 
 **Identical.** The two sides agree on the defender only 33.9% of the time, and
-agree exactly on the pattern. So the combat disagreement is about *which*
-character, decision by decision — not about the shape of the attack.
+agree exactly on the pattern. So the combat disagreement is not about the shape
+of the attack.
+
+It was not wholly about *which* character either, which the section below
+corrects: on a third of those decisions H2 named no character at all.
 
 That is worth recording as a boundary on the method. The route worked because it
 spans turns, is invisible to the state, and H2 had no representation of it at
 all. A sequence resolved inside one window, where both sides already behave the
 same way, has nothing for a sequence instrument to find.
+
+### The AI does not assign its own strikes
+
+`assign-strike` is the fourth most common decision the corpus offers a human —
+297 of 4892 attributed decisions across twelve games — and H2 agreed on 22.6% of
+them. What it did instead was mostly not a different character:
+
+```text
+97  assign-strike → pass
+97  assign-strike → assign-strike
+19  assign-strike → cancel-attack
+13  assign-strike → play-short-event
+```
+
+**A third of the time the AI declined to assign at all**, and `handleCombatPass`
+says what that buys: *"Defender passed — n strike(s) remaining, attacker
+assigns"*. Passing in the defender's own assignment step is not a way of
+declining to act on the attack. It is a way of letting the opponent choose who
+takes what is left of it.
+
+Two defects, both in the attack window of `combat`, and the second explains the
+count above.
+
+**A six-strike attack priced as a one-strike attack.** `remainingStrikes`
+counted unresolved *assignments*, which is right during resolution and wrong
+during assignment: nothing has resolved yet, and the strikes nobody has handed
+out — the ones the decision is actually about — are not in that count.
+
+**Passing priced as the assignment the defence would have made for itself.**
+Both candidates went through the same sequence enumeration, and it answers every
+strike with the company's best remaining parrier. So `pass` was scored as the
+attack the defender arranges, and `assign-strike X` as that same attack with the
+first strike forced onto X. The first is the **maximum of the second over X**,
+so passing could never score below the best assignment available. On a recorded
+position — six strikes, one already assigned, the defender holding the rest, now
+checked in as `combat/mid-assignment-window` — the two agreed to the last
+decimal, and the documented uniform tie-break took it from there:
+
+```text
+RANKED (module combat)
+  1. Assign strike to Aragorn II
+     U = -0.56% win   E[Δtsd] -0.5  σ 0.5  (integrated)
+  2. Pass (end your actions this phase)
+     U = -0.56% win   E[Δtsd] -0.5  σ 0.5  (integrated)
+  ├─ strikes faced: 1  [6 in the attack, 1 still to come]
+```
+
+Passing is now priced with the attacker choosing the targets, which is what the
+rule gives him — reusing the attacker-chooses search already written for
+Cave-drake rather than a second model of the same thing. The strikes already
+assigned open the projected sequence for *every* candidate, so `forcedFirst`
+becomes a `forced` list; `cancel-by-tap` and `halve-strikes` read it from the
+same place, which is what keeps cancelling a pre-assigned Assassin (tw-8) attack
+ranked above taking it. Same position:
+
+```text
+RANKED (module combat)
+  1. Assign strike to Aragorn II
+     U = -8.60% win   E[Δtsd] -7.0  σ 2.1  (integrated)
+  2. Pass (end your actions this phase)
+     U = -9.98% win   E[Δtsd] -8.2  σ 1.7  (integrated)
+  ├─ strikes faced: 6  [6 in the attack, 6 still to come]
+```
+
+Twelve recorded human games, both trees verified before and after the run:
+
+| | before | after |
+| --- | --- | --- |
+| overall agreement | 52.70% | **53.11%** (+20 decisions) |
+| `assign-strike` | 22.6% | **29.6%** |
+| `assign-strike` → `pass` | **97** | **63** |
+| `pass` | 70.5% | 70.4% |
+
+#### What is left is a tie, and that is a different question
+
+The 63 remaining passes are not the model preferring to hand the assignment
+over. Sampled across a game's worth of them, **23 of 23 are exact ties** — the
+attacker's greedy pick and the defence's best parrier name the same character,
+usually because only one is left unassigned — and the uniform tie-break
+(§*Not acting is a move, and a bad one*) takes half of them. After this change
+`pass` is never scored strictly above the best assignment anywhere in the
+corpus.
+
+Whether it should *lose* those ties is a dominance argument rather than a
+pricing one — the defender's choice set contains whatever the attacker would
+have done, so keeping the assignment cannot be worse — and it belongs with the
+tie policy, which was settled by its own gate, not here.
+
+Not gated. `handedAssignmentPessimism` exists so that it can be, in one binary:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/handedAssignmentPessimism=0' --pairs 25 --rounds 4 --jobs 16
+```
+
+What the corpus can say it has said, and the rule the fix reads off
+`handleCombatPass` is not a valuation this document needs a win rate to settle.
+Whether it is worth Elo is a separate question, and the switch above is how it
+gets asked.
 
 ### Why H2 scores two points: it is wounded, not slow
 
