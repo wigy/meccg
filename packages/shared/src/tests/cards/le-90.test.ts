@@ -34,13 +34,14 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH, BREE,
   DARK_QUARRELS, GATES_OF_MORNING,
   buildTestState, resetMint, makeMHState,
-  resolveChain,
+  resolveChain, attachAllyToChar, findCharInstanceId,
   handCardId, companyIdAt, charIdAt, dispatch, viableActions, expectInDiscardPile, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType, CardStatus } from '../../index.js';
 import type { CardDefinitionId, CardInPlay, CardInstanceId } from '../../index.js';
 
 const SLAYER = 'le-90' as CardDefinitionId;
+const NOBLE_STEED = 'wh-33' as CardDefinitionId;
 
 describe('Slayer (le-90)', () => {
   beforeEach(() => resetMint());
@@ -235,6 +236,87 @@ describe('Slayer (le-90)', () => {
     expect(r3.combat!.cancelByTapRemaining).toBeUndefined();
     expect(r3.combat!.assignmentPhase).toBe('done');
     expect(r3.combat!.phase).toBe('resolve-strike');
+  });
+
+  test('defender can tap an ally to cancel one attack (CRF 22: allies count as characters in combat)', () => {
+    // Regression test for bug report: an untapped ally in the defending company
+    // must be offered — and accepted — as a cancel-by-tap actor, same as any
+    // character. CRF 22: "Allies count as characters for the purposes of
+    // combat, including performing actions in combat that characters do
+    // (getting assigned strikes, tapping for +1 to prowess)."
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [SLAYER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, LEGOLAS, NOBLE_STEED);
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...withAlly, phaseState: mhState };
+
+    const slayerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: slayerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER, 0, 0);
+    const legolasCharId = findCharInstanceId(afterPass, RESOURCE_PLAYER, LEGOLAS);
+    const allyId = afterPass.players[RESOURCE_PLAYER].characters[legolasCharId].allies[0].instanceId;
+
+    const r2 = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // The ally is offered as a cancel-by-tap actor alongside the characters.
+    const cancelActions = computeLegalActions(r2, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'cancel-by-tap',
+    );
+    const allyOffered = cancelActions.some(
+      a => 'characterId' in a.action && a.action.characterId === allyId,
+    );
+    expect(allyOffered).toBe(true);
+
+    // Tapping the ally cancels one attack and leaves the ally (not Legolas) tapped.
+    const r3 = dispatch(r2, {
+      type: 'cancel-by-tap',
+      player: PLAYER_1,
+      characterId: allyId,
+    });
+    expect(r3.combat!.strikeAssignments).toHaveLength(1);
+    expect(r3.combat!.strikesTotal).toBe(1);
+    expect(r3.players[RESOURCE_PLAYER].characters[legolasCharId].status).toBe(CardStatus.Untapped);
+    expect(r3.players[RESOURCE_PLAYER].characters[legolasCharId].allies[0].status).toBe(CardStatus.Tapped);
   });
 
   test('cancel-by-tap window reopens after facing the first attack (CRF 22: "even after facing another attack")', () => {

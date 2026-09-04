@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction, PlayerState, PlayerId, CompanyId } from '../index.js';
+import type { GameState, CombatState, GameAction, PlayerState, PlayerId, CompanyId, CardInstanceId } from '../index.js';
 import type { ReducerResult } from './reducer-utils.js';
 import type { StrikeModifierEffect } from '../types/effects.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -943,9 +943,58 @@ export function resolveChainStrikeModifier(state: GameState, effect: StrikeModif
 }
 
 /**
- * Cancel one strike by tapping a non-target character in the defending
- * company. Used by the `cancel-attack-by-tap` combat rule (e.g. Assassin).
- * Removes one strike assignment and decrements cancelByTapRemaining.
+ * Resolve a cancel-by-tap actor (Assassin/Slayer "tap any character in the
+ * company", Carrion Feeders "each untapped character in the company") that
+ * may be either a real character or an ally attached to one. Per CRF 22:
+ * "Allies count as characters for the purposes of combat, including
+ * performing actions in combat that characters do (getting assigned
+ * strikes, tapping for +1 to prowess)". Returns the actor's current tap
+ * status, plus the host character ID when the actor is an ally (needed to
+ * locate it for tapping), or undefined if it is not in the company at all.
+ */
+function resolveCancelByTapActor(
+  defPlayer: PlayerState,
+  company: { characters: readonly CardInstanceId[] },
+  actorId: CardInstanceId,
+): { status: CardStatus; hostCharId?: CardInstanceId } | undefined {
+  if (company.characters.includes(actorId)) {
+    const charData = defPlayer.characters[actorId];
+    return charData ? { status: charData.status } : undefined;
+  }
+  const allyMatch = findAllyInCompany(defPlayer, company.characters, actorId);
+  return allyMatch ? { status: allyMatch.ally.status, hostCharId: allyMatch.hostCharId } : undefined;
+}
+
+/**
+ * Tap the cancel-by-tap actor identified by `actorId` in place: a plain
+ * character update, or — when `hostCharId` is set — an update to that
+ * ally's entry within its host character's `allies` array. Mutates
+ * `players` in place, mirroring the other cancel-attack handlers above.
+ */
+function tapCancelByTapActor(
+  players: PlayerState[],
+  defPlayerIndex: number,
+  actorId: CardInstanceId,
+  hostCharId: CardInstanceId | undefined,
+): void {
+  const defPlayer = players[defPlayerIndex];
+  if (hostCharId) {
+    players[defPlayerIndex] = updateCharacter(defPlayer, hostCharId, c => ({
+      ...c,
+      allies: c.allies.map(a => (a.instanceId === actorId ? { ...a, status: CardStatus.Tapped } : a)),
+    }));
+    return;
+  }
+  const newCharacters = { ...defPlayer.characters };
+  newCharacters[actorId] = { ...defPlayer.characters[actorId], status: CardStatus.Tapped };
+  players[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+}
+
+/**
+ * Cancel one strike by tapping a non-target character (or ally) in the
+ * defending company. Used by the `cancel-attack-by-tap` combat rule (e.g.
+ * Assassin, Slayer). Removes one strike assignment and decrements
+ * cancelByTapRemaining.
  */
 export function handleCancelByTap(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-by-tap') return wrongActionType(state, action, 'cancel-by-tap');
@@ -962,15 +1011,15 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
   const defPlayerIndex = getPlayerIndex(state, action.player);
   const defPlayer = state.players[defPlayerIndex];
   const company = companyById(defPlayer.companies, combat.companyId);
-  if (!company || !company.characters.includes(action.characterId)) {
+  const actor = company ? resolveCancelByTapActor(defPlayer, company, action.characterId) : undefined;
+  if (!company || !actor) {
     return { state, error: 'Character not in defending company' };
   }
 
-  // Carrion Feeders (ba-11): tap an untapped company character to cancel the
-  // pre-assigned strike against a chosen wounded character.
+  // Carrion Feeders (ba-11): tap an untapped company character (or ally) to
+  // cancel the pre-assigned strike against a chosen wounded character.
   if (combat.cancelStrikeAgainstWounded) {
-    const canceler = defPlayer.characters[action.characterId];
-    if (!canceler || canceler.status !== CardStatus.Untapped) {
+    if (actor.status !== CardStatus.Untapped) {
       return { state, error: 'Character must be untapped to cancel a strike' };
     }
     const strikeCharId = action.strikeCharacterId;
@@ -980,9 +1029,7 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     if (idx < 0) return { state, error: 'No unresolved strike against that character to cancel' };
 
     const newPlayersW = clonePlayers(state);
-    const newCharsW = { ...defPlayer.characters };
-    newCharsW[action.characterId] = { ...canceler, status: CardStatus.Tapped };
-    newPlayersW[defPlayerIndex] = { ...defPlayer, characters: newCharsW };
+    tapCancelByTapActor(newPlayersW, defPlayerIndex, action.characterId, actor.hostCharId);
 
     logDetail(`Cancel-strike-vs-wounded: ${action.characterId as string} tapped to cancel the strike against ${strikeCharId as string}`);
 
@@ -1017,23 +1064,21 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
 
   // By default the target character cannot tap to cancel (Assassin: "not the defending character").
   // When cancelByTapAllowTarget is set (Slayer: "any one character"), the target may also tap.
+  // (Allies are never the strike target, so this only ever rejects a character.)
   const targetCharId = combat.strikeAssignments[0]?.characterId;
   if (!combat.cancelByTapAllowTarget && action.characterId === targetCharId) {
     return { state, error: 'Cannot tap the defending character to cancel' };
   }
 
-  const charData = defPlayer.characters[action.characterId];
-  if (!charData || charData.status !== CardStatus.Untapped) {
+  if (actor.status !== CardStatus.Untapped) {
     return { state, error: 'Character must be untapped' };
   }
 
   logDetail(`Cancel-by-tap: ${action.characterId as string} tapped to cancel one attack against ${targetCharId as string}`);
 
-  // Tap the character
+  // Tap the character or ally
   const newPlayers = clonePlayers(state);
-  const newCharacters = { ...defPlayer.characters };
-  newCharacters[action.characterId] = { ...charData, status: CardStatus.Tapped };
-  newPlayers[defPlayerIndex] = { ...defPlayer, characters: newCharacters };
+  tapCancelByTapActor(newPlayers, defPlayerIndex, action.characterId, actor.hostCharId);
 
   // Remove one full attack's worth of strike assignments.
   // For multi-attack creatures (e.g. Nameless Thing: 3 attacks × 2 strikes),
