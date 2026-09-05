@@ -1039,12 +1039,33 @@ export function buildTargetCompanyConditionContext(
  */
 export function siteRegionTypeOf(state: GameState, siteDef: CardDefinition | undefined): RegionType | undefined {
   if (!siteDef || !isSiteCard(siteDef) || !siteDef.region) return undefined;
-  for (const card of Object.values(state.cardPool)) {
-    if (card.cardType === 'region' && card.name === siteDef.region) {
-      return (card as { regionType?: RegionType }).regionType;
+  return regionTypesByName(state.cardPool).get(siteDef.region);
+}
+
+/**
+ * Region name → region type, built once per card pool.
+ *
+ * The card pool is loaded once per game and never mutated, so the join is
+ * memoized on the pool object itself. Before this cache the lookup scanned
+ * every card in the pool on each call, and because it is reached from the
+ * effect-resolution context of nearly every reducer step it accounted for
+ * about 69% of all engine CPU time in a profiled self-play game (2.7 ms per
+ * `reduce`, 0.2 ms with the cache). The first region card of a given name
+ * wins, matching the original linear scan.
+ */
+const regionTypesByNameCache = new WeakMap<object, Map<string, RegionType | undefined>>();
+
+function regionTypesByName(cardPool: GameState['cardPool']): Map<string, RegionType | undefined> {
+  const cached = regionTypesByNameCache.get(cardPool);
+  if (cached) return cached;
+  const byName = new Map<string, RegionType | undefined>();
+  for (const card of Object.values(cardPool)) {
+    if (card.cardType === 'region' && !byName.has(card.name)) {
+      byName.set(card.name, (card as { regionType?: RegionType }).regionType);
     }
   }
-  return undefined;
+  regionTypesByNameCache.set(cardPool, byName);
+  return byName;
 }
 
 /**
