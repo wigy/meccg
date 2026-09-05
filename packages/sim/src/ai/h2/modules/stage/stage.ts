@@ -45,6 +45,7 @@ import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { scoredEvaluation } from '../../core/evaluation.js';
+import { declaredEventEvaluation } from '../../services/event-value.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = ['play-permanent-event', 'discard-stage-resource'] as const;
@@ -124,9 +125,18 @@ export const stageModule: H2Module = {
       const instanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
       if (!instanceId) return null;
       const card = stageCardOf(context, instanceId, 'hand');
-      // Not a stage resource: someone else's permanent event, honestly
-      // declined rather than scored — see the module docstring.
-      if (!card) return null;
+      // Not a stage resource, and declining it was not the neutral act the
+      // docstring claimed. The registry drops a candidate whose owner returns
+      // null, so a permanent event this module did not recognise could not be
+      // ranked *or played* — `explain` printed it as "partial —
+      // play-permanent-event unscored", and over six recorded human games it
+      // was offered 38 times, taken by the human 13 of them and by H2 none.
+      //
+      // A permanent event is otherwise an event like any other: same zone, the
+      // same effect DSL, the same shadow price for the card it spends. So it
+      // is priced the way `events` prices one, through the service they share,
+      // and only a family neither of them can read is still declined.
+      if (!card) return declaredEventEvaluation(action, context, 'stage', { creditPoints: true });
 
       // What the printed points are worth *here* — 2, 1, or 0 at the CoE 10.3
       // half-total cap — from the tournament scorer, not a constant per MP.

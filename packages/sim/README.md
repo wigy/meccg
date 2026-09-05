@@ -2084,6 +2084,93 @@ everywhere else in the game, and pricing it as a benefit anywhere but the draft
 would be wrong. It is right here only because the budget is a knapsack and the
 draft is where it gets spent.
 
+### H2 plays every game with no character deck
+
+`add-character-to-deck` is the character deck draft: the characters left over
+from the opening draft, each of which may go into the play deck to be drawn and
+recruited later. Over twelve recorded human games the agreement on it was
+**0.0%**, and there was only ever one thing H2 did instead:
+
+```text
+51  add-character-to-deck → pass
+```
+
+Fifty-one of fifty-one. `handleCharacterDeckDraftPass` says what that buys, in
+its own log line:
+
+```text
+Character deck draft: player N passes — K undrafted pool character(s)
+removed from the game
+```
+
+They go to the out-of-play pile. So this is not an agreement statistic about
+which character to prefer — it is the agent throwing its entire reserve of
+characters out of the game before turn one, every game, and then playing on with
+whatever its starting company survives with. Eight self-play seeds on `master`,
+counted at the first decision after setup:
+
+```text
+mean per seat — in the play deck 0.00, removed from the game 5.50
+```
+
+#### Zero is not a price
+
+Every candidate quotes exactly zero, for two independent reasons and neither of
+them is "this character is worthless":
+
+- **The influence gate.** `card-price` prices a character at a hard zero when
+  its mind exceeds the *currently free* general influence, on the argument that
+  "a mind that does not fit the free general influence is a card that cannot be
+  used". That is a statement about now, and it is measured at the one moment in
+  the game when the pool is guaranteed to be fully committed: a player who has
+  just built a legal starting company has spent all 20. Both seats read
+  `influence 20, used 20, free 0` at this step in every game checked.
+- **The degenerate standing.** A character marshalling point is worth `+0.0` at
+  0–0, because CoE 10.3's half-total diversity cap has nothing to halve on an
+  empty board. This is the same reason the opening draft had to be given the
+  favourite mark, recorded above under *The draft is decided by a coin flip*.
+
+A flat ranking is then handed to the agent's tie clause, which passes whenever a
+`pass` is on offer — correctly, for the busywork it was written for, and
+catastrophically here, where `pass` is the destructive option.
+
+`quote` deliberately does not floor, and says why: it answers what a card is
+worth *if it arrives*, "which is a question about acquisition rather than
+retention, and no measurement here speaks to it". One does now. The floor stands
+for the residual — option value, a play the plan has not found, a future
+standing where a capped source is no longer capped — and removal from the game
+forfeits that residual with certainty. So at this one step, and only this one, a
+character is worth at least the floor.
+
+`card-price`'s own note on what is left at a modelled zero already listed the
+culprit: *"a creature the plan cannot use, **a character whose mind does not
+fit**, and an event that declares no effect."*
+
+#### Measured
+
+Twelve recorded human games, both trees verified before and after:
+
+| | before | after |
+| --- | --- | --- |
+| `add-character-to-deck` | **0.0%** | **43.1%** |
+| overall agreement | 52.70% | 52.92% |
+| `pass` | 70.5% | 69.9% |
+| characters in the play deck, per seat | **0.00** | **5.00** |
+| characters removed from the game, per seat | **5.50** | **0.00** |
+
+The 51 passes become 22 exact agreements and 29 disagreements about *which*
+character — which is a real question this change does not answer, and the same
+one the opening draft needed the favourite mark for. Nothing else the module
+owns moves: `draft-pick`, `fetch-from-pile`, `fetch-from-sideboard`,
+`assign-starting-item` and `exchange-sideboard` are unchanged to the decision.
+
+The cost is on `pass`, and it is the honest one: humans stop with one to three
+characters still in the pool and H2 now empties it, because deck dilution is not
+modelled here and the engine's ten-character cap is the only limit it respects.
+Ten decisions where the human passed and H2 takes; net **+11**.
+
+Not gated.
+
 ### The discard is a tie-break on the placeholder
 
 With the draft settled, the largest remaining disagreement is `discard-card`,
@@ -2918,13 +3005,152 @@ piled another strike onto a character already carrying one
 ```
 
 **Identical.** The two sides agree on the defender only 33.9% of the time, and
-agree exactly on the pattern. So the combat disagreement is about *which*
-character, decision by decision — not about the shape of the attack.
+agree exactly on the pattern. So the combat disagreement is not about the shape
+of the attack.
+
+It was not wholly about *which* character either, which the section below
+corrects: on a third of those decisions H2 named no character at all.
 
 That is worth recording as a boundary on the method. The route worked because it
 spans turns, is invisible to the state, and H2 had no representation of it at
 all. A sequence resolved inside one window, where both sides already behave the
 same way, has nothing for a sequence instrument to find.
+
+### The AI does not assign its own strikes
+
+`assign-strike` is the fourth most common decision the corpus offers a human —
+297 of 4892 attributed decisions across twelve games — and H2 agreed on 22.6% of
+them. What it did instead was mostly not a different character:
+
+```text
+97  assign-strike → pass
+97  assign-strike → assign-strike
+19  assign-strike → cancel-attack
+13  assign-strike → play-short-event
+```
+
+**A third of the time the AI declined to assign at all**, and `handleCombatPass`
+says what that buys: *"Defender passed — n strike(s) remaining, attacker
+assigns"*. Passing in the defender's own assignment step is not a way of
+declining to act on the attack. It is a way of letting the opponent choose who
+takes what is left of it.
+
+Two defects, both in the attack window of `combat`, and the second explains the
+count above.
+
+**A six-strike attack priced as a one-strike attack.** `remainingStrikes`
+counted unresolved *assignments*, which is right during resolution and wrong
+during assignment: nothing has resolved yet, and the strikes nobody has handed
+out — the ones the decision is actually about — are not in that count.
+
+**Passing priced as the assignment the defence would have made for itself.**
+Both candidates went through the same sequence enumeration, and it answers every
+strike with the company's best remaining parrier. So `pass` was scored as the
+attack the defender arranges, and `assign-strike X` as that same attack with the
+first strike forced onto X. The first is the **maximum of the second over X**,
+so passing could never score below the best assignment available. On a recorded
+position — six strikes, one already assigned, the defender holding the rest, now
+checked in as `combat/mid-assignment-window` — the two agreed to the last
+decimal, and the documented uniform tie-break took it from there:
+
+```text
+RANKED (module combat)
+  1. Assign strike to Aragorn II
+     U = -0.56% win   E[Δtsd] -0.5  σ 0.5  (integrated)
+  2. Pass (end your actions this phase)
+     U = -0.56% win   E[Δtsd] -0.5  σ 0.5  (integrated)
+  ├─ strikes faced: 1  [6 in the attack, 1 still to come]
+```
+
+Passing is now priced with the attacker choosing the targets, which is what the
+rule gives him — reusing the attacker-chooses search already written for
+Cave-drake rather than a second model of the same thing. The strikes already
+assigned open the projected sequence for *every* candidate, so `forcedFirst`
+becomes a `forced` list; `cancel-by-tap` and `halve-strikes` read it from the
+same place, which is what keeps cancelling a pre-assigned Assassin (tw-8) attack
+ranked above taking it. Same position:
+
+```text
+RANKED (module combat)
+  1. Assign strike to Aragorn II
+     U = -8.60% win   E[Δtsd] -7.0  σ 2.1  (integrated)
+  2. Pass (end your actions this phase)
+     U = -9.98% win   E[Δtsd] -8.2  σ 1.7  (integrated)
+  ├─ strikes faced: 6  [6 in the attack, 6 still to come]
+```
+
+Twelve recorded human games, both trees verified before and after the run:
+
+| | before | after |
+| --- | --- | --- |
+| overall agreement | 52.70% | **53.11%** (+20 decisions) |
+| `assign-strike` | 22.6% | **29.6%** |
+| `assign-strike` → `pass` | **97** | **63** |
+| `pass` | 70.5% | 70.4% |
+
+#### What was left was a tie, and a tie here is not a coin flip
+
+The remaining passes were not the model preferring to hand the assignment over.
+Sampled across a game's worth of them, **23 of 23 are exact ties** — the
+attacker's greedy pick and the defence's best parrier name the same character,
+usually because only one is left unassigned — and the uniform tie-break
+(§*Not acting is a move, and a bad one*) takes half of them. After the pricing
+fix `pass` is never scored strictly above the best assignment anywhere in the
+corpus.
+
+It cannot be. The defender's choice set *contains* whatever the attacker would
+have done with the assignment, so keeping it cannot come out worse: handing it
+over is weakly dominated, and a candidate that can at best match the alternative
+should not be winning half the flips. That is a dominance argument rather than a
+pricing one, and the projection has no way to express it — the two distributions
+really are equal — so it is written down as a margin instead.
+`concededAssignmentTsd` is an order of magnitude under the enumeration's own
+bucket width (0.25 TSD), so it can never overturn a difference the model
+resolved, and it is charged in proportion to `handedAssignmentPessimism`, so the
+off-switch below still reverts one whole reading rather than half of one.
+
+Measured with `concededAssignmentTsd` at zero against the shipped value, one
+binary either side of the margin and nothing else changed. The sample is the
+tool's own twelve-game draw re-attributed on the corpus as it stands now — 3533
+decisions rather than the 4892 above, so the two tables are each internally
+comparable and not comparable to each other:
+
+| | margin off | margin on |
+| --- | --- | --- |
+| overall agreement | 57.34% | **57.66%** (+11 decisions) |
+| `assign-strike` | 21.3% | **41.8%** |
+| `assign-strike` → `pass` | **44** | **6** |
+| `pass` | 65.8% | 64.9% |
+
+`pass` agreement falls by fourteen decisions and `assign-strike` rises by
+twenty-five, which is the trade the §*Not acting is a move* result predicts: the
+agent passes less, so it disagrees more often with a human who passed. The six
+that remain are in windows this branch does not claim — CvCC assigns in three
+phases under different rules (CoE 8.38) and is left to the branch that models
+it — or above the margin on the pricing; neither is explained here.
+
+The one reason to hand the assignment over on purpose is real and this model
+cannot produce it: letting the attacker take a more vulnerable character so that
+he spares the one the company still needs untapped, for an influence attempt or
+a faction. The attacker's pick is priced in the defending seat's *own* ledger —
+the worst target for the defence is by construction the best one for him — so a
+concession that trades the strike for tempo elsewhere would need the two seats
+valuing the same character differently. It is recorded on the evaluation as an
+assumption rather than approximated with a number.
+
+Not gated. Both readings are one binary away:
+
+```sh
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/handedAssignmentPessimism=0' --pairs 25 --rounds 4 --jobs 16
+npm run gate -w @meccg/sim -- --challenger h2 \
+  --champion 'h2:all/concededAssignmentTsd=0' --pairs 25 --rounds 4 --jobs 16
+```
+
+What the corpus can say it has said, and the rule the fix reads off
+`handleCombatPass` is not a valuation this document needs a win rate to settle.
+Whether it is worth Elo is a separate question, and the switches above are how
+it gets asked.
 
 ### Why H2 scores two points: it is wounded, not slow
 
@@ -3432,6 +3658,59 @@ declines at 43. All three need a card's *effect* priced against the opponent
 rather than against a card in play, which is where the family approach runs
 out — knowing an event moves a card tells you the mechanism, not what the target
 is worth.
+
+### A card nobody prices is a card that cannot be played
+
+`stage` owns `play-permanent-event` because a stage resource is one, and it
+declined every permanent event it did not recognise — described in its own
+docstring as *"leaving the decision exactly as covered as it was before"*. That
+is not what declining does. The registry drops a candidate whose owner returns
+null, so an unrecognised permanent event was not merely unpriced: it was **not
+in the ranking at all**, and H2 could not take it however good it was.
+
+`explain` says so plainly, and it is easy to read as a low score rather than an
+absent one:
+
+```text
+RANKED (module travel, partial — play-permanent-event unscored)
+  1. Enter site with Aragorn II's company
+```
+
+The card in that hand is Return of the King — three misc marshalling points,
+and an effect list of `play-target`s and `play-condition`s the effect reader has
+no family for.
+
+Two things follow, and only the second is a valuation.
+
+**The reading was duplicated.** A permanent event is an event: same zone, same
+effect DSL, the same shadow price for the card it spends. `events` already reads
+all of that through `event-value`, which was extracted for exactly this reason —
+*"a second consumer needs the same number and a second copy would be a second
+opinion"*. So the whole of what `events` does with a card is now `event-value`'s
+`declaredEventEvaluation`, and `stage` calls it for the permanent events it does
+not recognise. `events` is a two-line module again.
+
+**A permanent event's printed points are on the table.** It stays in play, so
+its marshalling points are scored the moment it lands — like an item or a
+faction, and unlike a short event, which is in the discard pile before anything
+is counted. That is a reading of *where the card goes*, so it is offered only to
+the caller whose card goes there: `creditPoints` is set by `stage` and by
+nothing else, and a short event with the same points is still declined.
+
+Over 163 permanent-event offers in twelve recorded games:
+
+| | before | after |
+| --- | --- | --- |
+| offers the module prices | 88 (54.0%) | **101 (62.0%)** |
+| `play-permanent-event` agreement | 11.8% | **26.5%** |
+| overall agreement | 52.70% | 52.78% |
+
+Net **+4 decisions of 4892**, which is the honest size of it. The remaining 62
+unpriced offers are cards like Gates of Morning and Fellowship — no points, and
+an effect the reader has no family for — and they are still declined, which is
+still the right answer for them and still means H2 cannot play them.
+
+Not gated.
 
 ### The opening draft: built, gated, and rejected
 

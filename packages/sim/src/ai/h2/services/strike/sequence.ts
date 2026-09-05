@@ -104,8 +104,17 @@ export type SequencePricer = (
 export interface SequenceOptions {
   /** Ceiling on live states; beyond it, states are merged. */
   readonly maxStates: number;
-  /** A character forced to take the first strike (an `assign-strike` candidate). */
-  readonly forcedFirst?: StrikeTarget;
+  /**
+   * Characters whose strikes are already settled, in the order they were
+   * assigned — the head of the sequence that nobody is still choosing.
+   *
+   * An `assign-strike` candidate appends itself to what the defender has
+   * assigned so far; a `pass` during that window leaves the list where it is.
+   * Without it, a strike already given to a named character would be re-offered
+   * to whoever the target rule happens to pick, and the two candidates would be
+   * compared over an attack neither of them describes.
+   */
+  readonly forced?: readonly StrikeTarget[];
   /** TSD gained if the whole attack is defeated, or 0. */
   readonly killTsd?: number;
   /** Description of the kill-MP payoff, for outcome labels. */
@@ -394,11 +403,14 @@ export function resolveAttacks(
   price: SequencePricer,
   options: SequenceOptions,
 ): SequenceResult {
-  const forced = options.forcedFirst;
-  const start: RosterEntry[] = (forced
-    ? [forced, ...roster.filter(t => t.instanceId !== forced.instanceId)]
-    : roster
-  ).map(target => ({ target, struck: 0 }));
+  const forced = options.forced ?? [];
+  const forcedIds = new Set(forced.map(t => t.instanceId as string));
+  const start: RosterEntry[] = [
+    // A character can hold more than one settled strike (`excessStrikes`), so
+    // the roster takes each of them once while the sequence takes the list.
+    ...forced.filter((t, i) => forced.findIndex(o => o.instanceId === t.instanceId) === i),
+    ...roster.filter(t => !forcedIds.has(t.instanceId as string)),
+  ].map(target => ({ target, struck: 0 }));
 
   const situationFor = (target: StrikeTarget, profile: AttackProfile): StrikeSituation => ({
     creatureBody: profile.creatureBody,
@@ -671,18 +683,26 @@ export function resolveAttacks(
   for (const profile of profiles) {
     for (let i = 0; i < profile.strikes; i++) {
       const next: SequenceState[] = [];
+      let openingRecorded = false;
       for (const state of states) {
-        // The first strike may be forced onto a named character; after that the
-        // company answers with whoever is best placed *now*.
-        // Who answers this strike: a named character the caller forced, else the
-        // attacker's own pick when the attack carries that rule, else the
-        // defence's best remaining parrier.
-        const answering = profile.attackerChooses
+        // Who answers this strike: a named character whose strike the caller
+        // has already settled, else the attacker's own pick when the attack
+        // carries that rule, else the defence's best remaining parrier.
+        const answering = (): RosterEntry | undefined => (profile.attackerChooses
           ? chooseAttackerTarget(state.roster, profile, profile.strikes - i)
-          : pickTarget(state.roster, cardPool, profile.strikeProwess);
-        const entry = first && i === 0 && forced
-          ? state.roster.find(e => e.target.instanceId === forced.instanceId) ?? answering
-          : answering;
+          : pickTarget(state.roster, cardPool, profile.strikeProwess));
+        const settled = first && i < forced.length ? forced[i] : undefined;
+        const settledEntry = settled
+          ? state.roster.find(e => e.target.instanceId === settled.instanceId)
+          : undefined;
+        if (settledEntry && settledEntry.struck > 0) {
+          // The engine records a second strike settled on one character as
+          // `excessStrikes`: it is never resolved on its own (CoE 3.iii), only
+          // felt as the −1 `excessFor` already charges, so it is not faced.
+          next.push(state);
+          continue;
+        }
+        const entry = settledEntry ?? answering();
         if (!entry) {
           // Nobody left to be assigned it: this strike is excess, already
           // applied as −1 modifiers to the last character assigned (see
@@ -693,7 +713,10 @@ export function resolveAttacks(
         const excess = excessFor(candidatesOf(state.roster).length, profile.strikes - i);
         const need = needAgainst(entry.target, cardPool, profile.strikeProwess, { excessStrikes: excess });
         const untappedBefore = untappedIn(state.roster);
-        if (first && state === states[0] && opening.length === i) opening.push({ target: entry.target, need });
+        if (first && state === states[0] && !openingRecorded) {
+          opening.push({ target: entry.target, need });
+          openingRecorded = true;
+        }
 
         // Before any dice, the defence may tap a company-mate to cancel the
         // strike outright (Fatty Bolger tw-495). One deterministic branch: the

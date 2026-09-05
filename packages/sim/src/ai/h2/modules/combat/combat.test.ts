@@ -13,7 +13,8 @@
 import { describe, test, expect } from 'vitest';
 import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
-import type { Evaluation, ModuleContext } from '../../core/types.js';
+import type { Evaluation, ModuleContext, Rationale } from '../../core/types.js';
+import type { Tunables } from '../../core/tunables.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { collectTunables } from '../../core/rationale.js';
 import { computeStanding } from '../../services/standing.js';
@@ -42,6 +43,17 @@ function contextFor(scenarioId: string): ModuleContext {
 /** Evaluations for a scenario, ranked best first. */
 function rank(scenarioId: string): readonly Evaluation[] {
   return evaluateDecision([combatModule], contextFor(scenarioId)).evaluations;
+}
+
+/** Every leaf of an evaluation's rationale tree, flattened. */
+function leavesOf(evaluation: Evaluation): { label: string; value: unknown }[] {
+  const out: { label: string; value: unknown }[] = [];
+  const walk = (node: Rationale): void => {
+    out.push({ label: node.label, value: node.value });
+    for (const child of node.children ?? []) walk(child);
+  };
+  walk(evaluation.rationale);
+  return out;
 }
 
 /** The evaluation of the first action matching a predicate. */
@@ -294,5 +306,172 @@ describe('choosing which strike resolves next', () => {
     // The action's own `characterId` is documented as informational and the
     // engine may omit it; the authority is `strikeIndex` into the assignments.
     expect(evaluation.outcomes[0].label).not.toMatch(/^p\d+-\d+/);
+  });
+});
+
+describe('the defender\'s own assignment window', () => {
+  // A six-strike attack on a two-character company, one strike already
+  // assigned, the defender still holding the assignment for the other five.
+  const SCENARIO = 'combat/mid-assignment-window';
+
+  test('prices the whole attack, not just the strikes handed out so far', () => {
+    // Nothing has resolved while the attack is still being assigned, so all six
+    // strikes are still to come. Counting the assignments made instead read
+    // this as a one-strike attack — and the decision is precisely about the
+    // five strikes that are *not* in that count.
+    const context = contextFor(SCENARIO);
+    const combat = context.view.combat!;
+    expect(combat.strikesTotal).toBe(6);
+    expect(combat.strikeAssignments).toHaveLength(1);
+    const evaluation = combatModule.evaluate(
+      context.legalActions.find(a => a.type === 'assign-strike')!, context)!;
+    expect(leavesOf(evaluation).find(l => l.label === 'strikes faced')?.value).toBe(6);
+  });
+
+  test('the strikes already assigned stay on the characters they were given to', () => {
+    const context = contextFor(SCENARIO);
+    const assigned = context.view.combat!.strikeAssignments[0].characterId;
+    const evaluation = combatModule.evaluate(
+      context.legalActions.find(a => a.type === 'assign-strike')!, context)!;
+    const opening = leavesOf(evaluation).filter(l => l.label.startsWith('strike 1 →'));
+    expect(opening).toHaveLength(1);
+    // The projection names the character, so the settled strike is identified
+    // by not being the one this candidate is assigning.
+    const target = (context.legalActions.find(a => a.type === 'assign-strike') as unknown as
+      { characterId: string }).characterId;
+    expect(target).not.toBe(assigned);
+    expect(opening[0].label).not.toContain(target);
+  });
+
+  test('passing is worse than assigning, because the attacker assigns what is left', () => {
+    // `handleCombatPass`: "Defender passed — n strike(s) remaining, attacker
+    // assigns". Pricing that as the attack the defence would have arranged for
+    // itself made passing weakly dominant by construction — the sequence
+    // answers every strike with the best remaining parrier either way, so
+    // forcing one onto a named character could only score lower. On this
+    // position the two came out equal to five decimal places, and across ten
+    // recorded human games the AI passed 33 of the 86 assignment decisions the
+    // human answered by assigning.
+    const evaluations = rank(SCENARIO);
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(assign.utility).toBeGreaterThan(pass.utility);
+    expect(evaluations[0].action.type).toBe('assign-strike');
+  });
+
+  test('says out loud what it assumes the attacker would do with the assignment', () => {
+    const pass = find(rank(SCENARIO), a => a.type === 'pass')!;
+    expect(pass.assumptions.join(' ')).toMatch(/attacker assigning every unallocated strike/);
+  });
+
+  test('leaves the pre-assignment cancel window alone', () => {
+    // Passing *there* really is "take the attack as it stands": the defender
+    // keeps the assignment, so the best-parrier projection is the right one and
+    // this change must not reach it.
+    const context = contextFor('combat/two-strike-attack');
+    const combat = context.view.combat!;
+    expect(combat.assignmentPhase).not.toBe('defender');
+    const pass = context.legalActions.find(a => a.type === 'pass');
+    if (pass) {
+      expect(combatModule.evaluate(pass, context)!.assumptions.join(' '))
+        .not.toMatch(/attacker assigning every unallocated strike/);
+    }
+  });
+});
+
+describe('the handed-assignment off-switch', () => {
+  const SCENARIO = 'combat/mid-assignment-window';
+
+  /** The module's ranking with one tunable overridden. */
+  function rankWith(scenarioId: string, pessimism: number): readonly Evaluation[] {
+    const context = contextFor(scenarioId);
+    return evaluateDecision([combatModule], {
+      ...context,
+      tunables: { ...DEFAULT_TUNABLES, handedAssignmentPessimism: pessimism },
+    }).evaluations;
+  }
+
+  test('at zero it is the projection the module used to make', () => {
+    // Which is what makes "was this worth anything" a gate question rather than
+    // an argument: `--champion h2:all/handedAssignmentPessimism=0` is the same
+    // binary with only this reading changed.
+    const evaluations = rankWith(SCENARIO, 0);
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(pass.utility).toBeCloseTo(assign.utility, 9);
+  });
+
+  test('it is monotone: the more the attacker uses it, the less passing is worth', () => {
+    const utilityAt = (pessimism: number): number =>
+      find(rankWith(SCENARIO, pessimism), a => a.type === 'pass')!.utility;
+    expect(utilityAt(0.5)).toBeLessThan(utilityAt(0));
+    expect(utilityAt(1)).toBeLessThan(utilityAt(0.5));
+  });
+
+  test('a mixture is still a distribution', () => {
+    const pass = find(rankWith(SCENARIO, 0.5), a => a.type === 'pass')!;
+    expect(pass.outcomes.reduce((sum, o) => sum + o.p, 0)).toBeCloseTo(1, 9);
+  });
+});
+
+describe('a tie in the defender\'s assignment window', () => {
+  // assign-two-strikes: a two-strike attack the defender still holds the
+  // assignment for, and the shape the corpus is actually made of — the
+  // attacker's pick and the defence's best parrier name the same character, so
+  // the two projections agree to the last decimal. Priced on the projection
+  // alone the decision is a coin flip, and half of those flips hand the
+  // opponent a choice the defender could have made himself.
+  const SCENARIO = 'combat/assign-two-strikes';
+
+  /** The module's ranking with tunables overridden. */
+  function rankWith(scenarioId: string, overrides: Partial<Tunables>): readonly Evaluation[] {
+    const context = contextFor(scenarioId);
+    return evaluateDecision([combatModule], {
+      ...context,
+      tunables: { ...DEFAULT_TUNABLES, ...overrides },
+    }).evaluations;
+  }
+
+  test('the two projections really do coincide here', () => {
+    const evaluations = rankWith(SCENARIO, { concededAssignmentTsd: 0 });
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(pass.utility).toBeCloseTo(assign.utility, 9);
+  });
+
+  test('and the tie goes to the seat that keeps the choice', () => {
+    // Not a preference invented to make the number come out: whatever the
+    // attacker would do with the assignment the defence could have done to
+    // itself, so the choice set passing gives away is a subset of the one it
+    // keeps, and keeping it cannot come out worse.
+    const evaluations = rank(SCENARIO);
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(assign.utility).toBeGreaterThan(pass.utility);
+    // The whole gap is the margin and nothing else — the two are the same
+    // attack, so anything wider would be a difference the model invented.
+    expect(assign.expectedTsd - pass.expectedTsd)
+      .toBeCloseTo(DEFAULT_TUNABLES.concededAssignmentTsd, 9);
+    expect(collectTunables(pass.rationale).has('concededAssignmentTsd')).toBe(true);
+  });
+
+  test('nothing is conceded in a window the defender is not assigning in', () => {
+    // Assassin (tw-8) assigned every strike itself; what reopens is the
+    // cancel-by-tap window, where passing declines to spend a tap and hands
+    // over nothing.
+    const ASSASSIN = 'combat/assassin-cancel-by-tap-after-assignment';
+    const charged = find(rank(ASSASSIN), a => a.type === 'pass')!;
+    const free = find(rankWith(ASSASSIN, { concededAssignmentTsd: 0 }), a => a.type === 'pass')!;
+    expect(charged.expectedTsd).toBe(free.expectedTsd);
+  });
+
+  test('the off-switch takes the margin with the reading it belongs to', () => {
+    // At `handedAssignmentPessimism=0` the model says the attacker makes no use
+    // of what he was handed, so there is nothing conceded to charge for and the
+    // gate compares two whole readings rather than one and a half.
+    const evaluations = rankWith(SCENARIO, { handedAssignmentPessimism: 0 });
+    const pass = find(evaluations, a => a.type === 'pass')!;
+    const assign = find(evaluations, a => a.type === 'assign-strike')!;
+    expect(pass.utility).toBeCloseTo(assign.utility, 9);
   });
 });

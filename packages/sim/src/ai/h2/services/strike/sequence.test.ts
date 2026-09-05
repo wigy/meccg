@@ -238,13 +238,13 @@ describe('when the attacker chooses the defending characters', () => {
     }
   });
 
-  test('still respects a forced first strike', () => {
-    // `forcedFirst` is the engine having already assigned one; the attacker's
-    // preference does not get to overrule an assignment that exists.
+  test('still respects a settled first strike', () => {
+    // `forced` is the strikes already assigned; the attacker's preference does
+    // not get to overrule an assignment that exists.
     const view = viewWith([6, 3]);
-    const forced = { instanceId: 'c0' } as never;
+    const forced = [{ instanceId: 'c0' }] as never;
     const result = resolveSequentially(
-      view, POOL, attack(1, 8, true), 1, HARM, { maxStates: 192, forcedFirst: forced });
+      view, POOL, attack(1, 8, true), 1, HARM, { maxStates: 192, forced });
     expect(result.opening[0].target.instanceId).toBe('c0');
   });
 
@@ -357,5 +357,48 @@ describe('a company-mate who can tap to cancel a strike', () => {
         expect(chance(result.outcomes, () => true)).toBeCloseTo(1, 9);
       }
     }
+  });
+});
+
+describe('an assignment the defender gave away', () => {
+  test('the option makes the attacker choose on an attack that does not print the rule', () => {
+    // A plain creature does not choose its targets — unless the defending
+    // player passes in their own assignment step, which hands every strike it
+    // has left to the attacking player. That is a property of the decision, not
+    // of the card, so the caller states it.
+    const given = resolveSequentially(
+      viewWith([6, 3]), POOL, attack(1, 8), 1, HARM, { maxStates: 192, attackerChooses: true });
+    const kept = resolveSequentially(
+      viewWith([6, 3]), POOL, attack(1, 8), 1, HARM, { maxStates: 192 });
+    expect(kept.opening[0].target.instanceId).toBe('c0');
+    expect(given.opening[0].target.instanceId).toBe('c1');
+    // `HARM` is the defender's ledger, so more harm is a smaller number.
+    const mean = (r: { outcomes: readonly { p: number; dtsd: number }[] }): number =>
+      r.outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);
+    expect(mean(given)).toBeLessThan(mean(kept));
+  });
+
+  test('the strikes already settled open the sequence, whoever assigns the rest', () => {
+    // Two strikes already given to the weaker character, and the attacker
+    // holding the rest: the settled one still lands where it was put. The
+    // second settled strike on the same character is an excess strike (CoE
+    // 3.iii) — a −1 on the one he faces, never resolved on its own — so the
+    // attacker's pick answers the third against the only character left.
+    const forced = [{ instanceId: 'c1' }, { instanceId: 'c1' }] as never;
+    const result = resolveSequentially(
+      viewWith([6, 3]), POOL, attack(3, 8), 3, HARM, { maxStates: 192, forced, attackerChooses: true });
+    expect(result.opening.map(o => o.target.instanceId)).toEqual(['c1', 'c0']);
+    expect(chance(result.outcomes, () => true)).toBeCloseTo(1, 9);
+  });
+
+  test('a settled character who is eliminated on the way does not take his later strikes', () => {
+    // The roster is walked state by state, so a forced target that is no longer
+    // there falls through to whoever the rule would have picked anyway rather
+    // than being struck in absentia.
+    const forced = [{ instanceId: 'c0' }, { instanceId: 'c0' }, { instanceId: 'c0' }] as never;
+    const result = resolveSequentially(
+      viewWith([6, 5]), POOL, attack(3, 9), 3, HARM, { maxStates: 192, forced });
+    expect(chance(result.outcomes, () => true)).toBeCloseTo(1, 9);
+    expect(result.outcomes.some(o => o.label.includes('c1'))).toBe(true);
   });
 });

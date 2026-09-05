@@ -27,7 +27,11 @@
  */
 
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
-import type { ModuleContext } from '../core/types.js';
+import type { Evaluation, ModuleContext, Outcome, Rationale } from '../core/types.js';
+import type { MpSource } from '../core/tsd.js';
+import { netTsdDelta } from '../core/tsd.js';
+import { leaf, node } from '../core/rationale.js';
+import { scoredEvaluation } from '../core/evaluation.js';
 import { namedCharacter, namedDiscardTarget } from '../core/action-fields.js';
 import { computeBeliefs } from './beliefs.js';
 import { computeDefence, hazardSlots } from './defence.js';
@@ -470,4 +474,132 @@ export function heldGain(
     ? undefined
     : ({ companyId: biggest.id, characterInstanceId: biggest.characters[0] } as unknown as GameAction);
   return stand === undefined ? null : gainOf(effects, context, stand);
+}
+
+
+/** What every event evaluation assumes, whatever module signs it. */
+const EVENT_ASSUMPTIONS: readonly string[] = [
+  'an event is priced by the *family* of effect it declares, not by its text: a card that '
+  + 'also restricts, cancels or enables something is under-valued here',
+  'the play is assumed to cost only the card; a tap or discard the event also demands is not '
+  + 'charged',
+  'a card whose declared effects only say how it may be played is scored as doing nothing — '
+  + 'true of this engine, and wrong about the printed card whenever the DSL is behind the text',
+  'whether a removal has a target is decided by the filter keys this module reads (card type, '
+  + 'event type, keywords); a filter it cannot read is assumed to have one, so the card is '
+  + 'declined rather than called useless',
+  'a long or permanent event is credited only for what it achieves *this* turn; one whose effect '
+  + 'would pay again on a later turn is under-valued, and one played before the movement plan is '
+  + 'declared is priced against a plan that may still change',
+  'a card that swaps the whole hand for a fresh one (Favor of the Valar, `new-hand`) is '
+  + 'declined rather than priced: it draws no *net* cards, and what the swap is worth is the '
+  + 'difference between this hand and an average one — which is `card-price`\'s question, and '
+  + 'asking it from here would be a cycle',
+];
+
+/** What crediting a permanent event's printed points assumes. */
+const PERMANENT_ASSUMPTIONS: readonly string[] = [
+  'a permanent event\'s printed points are scored as though the card simply stays in play; a '
+  + 'card that can be discarded, cancelled or removed later is over-valued by exactly that risk',
+];
+
+/**
+ * Score playing one event from hand, by what its declared effects achieve.
+ *
+ * The whole of what `events` does with a card, made callable, because a second
+ * module needs the same answer about the same kind of card. `stage` owns
+ * `play-permanent-event` for the stage resources it can recognise, and a
+ * permanent event is otherwise an event like any other: same zone, same DSL,
+ * same shadow price for the card it spends. Declining those left them
+ * **unrankable** rather than merely unpriced — the registry drops a candidate
+ * its owner returns null for, so H2 could not play a non-stage permanent event
+ * at all. Over six recorded human games it was offered 38 times, taken by the
+ * human 13 of them and by H2 none.
+ *
+ * Returns null for a family this cannot read, which is the honest outcome and
+ * the one the caller must pass on: charging for the card and crediting nothing
+ * would make H2 refuse every event in the game.
+ */
+export function declaredEventEvaluation(
+  action: GameAction,
+  context: ModuleContext,
+  module: string,
+  options: { readonly creditPoints?: boolean } = {},
+): Evaluation | null {
+  const instanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+  if (!instanceId) return null;
+  const card = context.view.self.hand.find(c => c.instanceId === instanceId);
+  if (!card) return null;
+
+  const def = context.cardPool[card.definitionId];
+  const effects = (def as unknown as { effects?: readonly Effect[] } | undefined)?.effects ?? [];
+  // A card whose whole effect list declares how it may be played, and nothing
+  // that happens when it resolves, does nothing when it resolves. That is a
+  // reading of the DSL rather than a judgement about the card, and it is the
+  // one case where charging for the card is an opinion rather than a guess.
+  const gain = declaresAnEffect(effects)
+    ? gainOf(effects, context, action)
+    : {
+      tsd: 0,
+      reason: 'the card declares no effect this engine will execute — only how it may be played',
+    };
+  const { standing, tunables } = context;
+
+  // A permanent event stays in play, so its printed marshalling points are
+  // scored the moment it lands — like an item or a faction, and unlike a short
+  // event, which is in the discard pile before anything is counted. That is a
+  // reading of where the card goes, so it is offered only to the callers whose
+  // card goes there.
+  const printed = def as unknown as { marshallingPoints?: number; marshallingCategory?: string } | undefined;
+  const mp = options.creditPoints === true ? printed?.marshallingPoints ?? 0 : 0;
+  const source = (printed?.marshallingCategory ?? 'misc') as MpSource;
+  const points = mp > 0 ? standing.tsdAfter({ [source]: mp }) - standing.tsd : 0;
+
+  // A family this cannot read is declined, not charged. Charging for the card
+  // and crediting nothing would make H2 refuse every event in the game, which
+  // is worse than having no opinion about them — unless the card carries
+  // points, which is something read off the card rather than out of its text,
+  // and enough to rank it.
+  if (!gain && mp === 0) return null;
+  // The card is charged at the *spending* price, not at what it is worth to
+  // hold. Those became the same number when `card-price` learned to value
+  // events, and for a single-use event they must not be: the reservation
+  // value of keeping this card is the value of playing it, so charging it
+  // against its own gain cancels — the whole reason moving `hazards` onto
+  // the held price achieved nothing measurable. A shadow price is an
+  // opportunity cost only when it prices the *next-best* use.
+  const spent = tunables.provisionalCardPrice;
+  const name = (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string);
+
+  const does = gain?.tsd ?? 0;
+  const reason = gain?.reason ?? `${mp} ${source} MP, and an effect family this cannot read`;
+  const dtsd = netTsdDelta({ realized: does + points, tempo: spent }, tunables);
+  const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${reason}`, dtsd }];
+
+  const detail: Rationale[] = [
+    leaf('event', name),
+    leaf('what it does', does, { unit: 'tsd', note: reason }),
+  ];
+  if (mp > 0) {
+    detail.push(leaf('points it puts on the table', points, {
+      unit: 'tsd',
+      note: `${mp} ${source} MP, at the standing this play would create — a permanent event `
+        + 'stays in play, so they are scored now',
+    }));
+  }
+  detail.push(leaf('the card it spends', spent, {
+    unit: 'tsd',
+    tunable: 'provisionalCardPrice',
+    note: 'the spending price — what it is worth to hold is a different question',
+  }));
+
+  return scoredEvaluation({
+    action,
+    module,
+    outcomes,
+    standing,
+    headline: `play ${name}`,
+    detail: [node('the event', does + points - spent, detail, { unit: 'tsd' })],
+    assumptions: mp > 0 ? [...EVENT_ASSUMPTIONS, ...PERMANENT_ASSUMPTIONS] : EVENT_ASSUMPTIONS,
+  });
 }
