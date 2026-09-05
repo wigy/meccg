@@ -269,7 +269,8 @@ function priceProjectedOutcome(
 function facingOutcomes(
   context: StrikeContext,
   strikeCount: number,
-  forcedFirst?: StrikeTarget,
+  forced?: readonly StrikeTarget[],
+  attackerChooses?: boolean,
 ): { outcomes: Outcome[]; merged: boolean; opening: readonly { target: StrikeTarget; need: number }[] } {
   const result = resolveSequentially(
     context.view,
@@ -279,7 +280,8 @@ function facingOutcomes(
     (outcome, target) => priceProjectedOutcome(context, outcome, target),
     {
       maxStates: context.tunables.attackStateCap,
-      forcedFirst,
+      forced,
+      attackerChooses,
       // The attacker's posture is the mirror of ours: `lambda` is `1 − 2W` for
       // whoever it is computed for, so the seat facing us reads `−lambda`.
       // Predicting a lazier opponent than the one `hazards` actually runs would
@@ -296,10 +298,70 @@ function facingOutcomes(
   return { outcomes: [...result.outcomes], merged: result.merged, opening: result.opening };
 }
 
-/** How many strikes of this attack are still to come. */
+/**
+ * How many strikes of this attack are still to come.
+ *
+ * While the attack is still being *assigned* nothing has resolved yet, so the
+ * whole attack is still to come — the strikes neither player has allocated
+ * included. Counting only the assignments made so far read a six-strike attack
+ * as a one-strike one the moment the defender assigned their first character,
+ * which is the shape every one of these decisions has: the assignment window
+ * stays open, and the strikes that have not been handed out are exactly what
+ * the decision is about.
+ */
 function remainingStrikes(combat: CombatState): number {
-  if (combat.strikeAssignments.length === 0) return combat.strikesTotal;
+  if (combat.phase === 'assign-strikes' || combat.strikeAssignments.length === 0) {
+    return combat.strikesTotal;
+  }
   return combat.strikeAssignments.filter(a => !a.resolved).length;
+}
+
+/**
+ * Strikes of this attack that neither player has allocated to a character.
+ *
+ * `excessStrikes` counts the strikes piled onto an already-assigned character
+ * beyond the first, so one assignment accounts for `1 + excessStrikes` of the
+ * attack's total.
+ */
+function unallocatedStrikes(combat: CombatState): number {
+  const allocated = combat.strikeAssignments.reduce((sum, a) => sum + 1 + a.excessStrikes, 0);
+  return Math.max(0, combat.strikesTotal - allocated);
+}
+
+/**
+ * The targets of the strikes already assigned, in assignment order.
+ *
+ * These are settled: whatever is decided now, those strikes land on those
+ * characters. They open the projected sequence so that the strikes still being
+ * argued over are priced against the attack as it actually stands, rather than
+ * against one where every strike is still up for grabs.
+ */
+function assignedTargets(context: StrikeContext): StrikeTarget[] {
+  const targets = strikeTargets(context.view, context.cardPool, context.combat);
+  const settled: StrikeTarget[] = [];
+  for (const assignment of context.combat.strikeAssignments) {
+    if (assignment.resolved) continue;
+    const target = targets.find(t => t.instanceId === assignment.characterId);
+    if (!target) continue;
+    for (let i = 0; i < 1 + assignment.excessStrikes; i++) settled.push(target);
+  }
+  return settled;
+}
+
+/**
+ * Whether we are the seat still holding this attack's strike assignment.
+ *
+ * `handleCombatPass` reads a defender's `pass` here as "Defender passed — n
+ * strike(s) remaining, attacker assigns". So in this one window passing is not
+ * a way of declining to act on the attack: it is a way of letting the opponent
+ * choose who takes what is left of it. CvCC assigns in three phases with
+ * different rules (CoE 8.38) and is left to the branch that already models it.
+ */
+function defenderIsAssigning(combat: CombatState): boolean {
+  return combat.phase === 'assign-strikes'
+    && combat.assignmentPhase === 'defender'
+    && combat.isCvCC !== true
+    && unallocatedStrikes(combat) > 0;
 }
 
 /** Assumptions the projected-attack evaluations add to the module's own. */
@@ -311,6 +373,22 @@ const ATTACK_ASSUMPTIONS: readonly string[] = [
   + 'carries "attacker chooses defending characters", in which case the attacker picks the '
   + 'target worth most to him — greedily when he is ahead, searching the rest of the attack '
   + 'when he is behind',
+];
+
+/** What keeping the assignment assumes about the strikes still unallocated. */
+const KEPT_ASSUMPTIONS: readonly string[] = [
+  'the strikes still unallocated are priced as if the defence assigns those too, which overstates '
+  + 'an attack with more strikes than the company has characters — those spill back to the attacker',
+];
+
+/** What handing the assignment over assumes about the attacker. */
+const HANDED_OVER_ASSUMPTIONS: readonly string[] = [
+  'passing is priced as the attacker assigning every unallocated strike as well as he can, which '
+  + 'is the strongest play open to him rather than the one he will necessarily find',
+  'the attacker\'s pick is priced in the defending seat\'s own ledger, so conceding the '
+  + 'assignment on purpose — to have him spare the one character the company still needs '
+  + 'untapped, and take a more vulnerable one instead — is a reason to pass this model cannot '
+  + 'produce',
 ];
 
 /** Human-readable label for a joint outcome. */
@@ -542,8 +620,13 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
   const remaining = remainingStrikes(combat);
 
   /** The distribution of facing `count` strikes, with its rationale. */
-  const facing = (count: number, label: string, forcedFirst?: StrikeTarget): { outcomes: Outcome[]; detail: Rationale[] } => {
-    const { outcomes, merged, opening } = facingOutcomes(context, count, forcedFirst);
+  const facing = (
+    count: number,
+    label: string,
+    forced?: readonly StrikeTarget[],
+    attackerChooses?: boolean,
+  ): { outcomes: Outcome[]; detail: Rationale[] } => {
+    const { outcomes, merged, opening } = facingOutcomes(context, count, forced, attackerChooses);
     const detail: Rationale[] = [
       leaf('strikes faced', count, { note: `${combat.strikesTotal} in the attack, ${remaining} still to come` }),
       leaf('resolved in sequence', 1, {
@@ -572,8 +655,66 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
 
   switch (action.type) {
     case 'pass': {
+      // Two different decisions wear this action type in the attack window, and
+      // only one of them is "decline to act". In the defender's own assignment
+      // step, passing hands every unallocated strike to the attacker — who then
+      // picks the targets, exactly as an attacker-chooses creature does. Priced
+      // as the attack the defence would have arranged for itself, it came out
+      // at or above every `assign-strike` by construction: the sequence answers
+      // each strike with the best remaining parrier either way, so forcing one
+      // onto a named character could only ever score lower. Over ten recorded
+      // human games the AI answered 33 of the 86 assignment decisions the human
+      // answered by assigning with a pass instead.
+      if (defenderIsAssigning(combat)) {
+        const settled = assignedTargets(context);
+        // How much of that choice the attacker is credited with is a tunable,
+        // so the change is answerable in a gate without a second tree. At one
+        // he assigns as well as he can; at zero the projection is the old one,
+        // and in between the two distributions are mixed — which is a model of
+        // an attacker who does not always find the best use of what he was
+        // given, not a dial for making the number come out.
+        const pessimism = Math.min(1, Math.max(0, tunables.handedAssignmentPessimism));
+        const handed = facing(remaining, 'let the attacker assign the rest', settled, true);
+        // Pricing alone still leaves the decision to a coin flip, because the
+        // two candidates *tie* whenever the attacker's pick and the defence's
+        // best parrier name the same character — which they do whenever one
+        // character is left unassigned, and which was every remaining
+        // disagreement of this shape on the corpus. They are not really equal:
+        // whatever the attacker would do with the assignment the defender could
+        // have done to himself, so the choice set a pass gives away is a subset
+        // of the one it keeps and keeping it cannot come out worse. That
+        // dominance is what this margin writes down — small enough never to
+        // overturn a difference the enumeration resolved, strictly positive so
+        // the tie goes to the seat that keeps the choice.
+        const conceded = tunables.concededAssignmentTsd * pessimism;
+        const concession = leaf('conceded the choice', conceded, {
+          unit: 'tsd',
+          tunable: 'concededAssignmentTsd',
+          note: 'the defence could have made the attacker\'s assignment itself, so a tie keeps it',
+        });
+        /** The projection, with the concession charged against every outcome. */
+        const charged = (outcomes: readonly Outcome[]): Outcome[] =>
+          outcomes.map(o => ({ ...o, dtsd: o.dtsd - conceded }));
+        if (pessimism >= 1) {
+          return evaluationFrom(context, action, 'hand the assignment to the attacker',
+            charged(handed.outcomes), [...handed.detail, concession],
+            [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS, ...HANDED_OVER_ASSUMPTIONS]);
+        }
+        const kept = facing(remaining, 'face the attack', settled);
+        const mixed = [
+          ...kept.outcomes.map(o => ({ ...o, p: o.p * (1 - pessimism) })),
+          ...handed.outcomes.map(o => ({ ...o, p: o.p * pessimism })),
+        ].filter(o => o.p > 0);
+        return evaluationFrom(context, action, 'hand the assignment to the attacker',
+          charged(mixed),
+          [leaf('attacker uses the assignment', pessimism, {
+            tunable: 'handedAssignmentPessimism',
+            note: 'weight on the attacker\'s own choice of targets',
+          }), ...kept.detail, ...handed.detail, concession],
+          [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS, ...HANDED_OVER_ASSUMPTIONS]);
+      }
       // Declining to cancel means taking the attack as it stands.
-      const { outcomes, detail } = facing(remaining, 'face the attack');
+      const { outcomes, detail } = facing(remaining, 'face the attack', assignedTargets(context));
       return evaluationFrom(context, action, 'take the attack', outcomes, detail,
         [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS]);
     }
@@ -589,9 +730,16 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
     }
 
     case 'cancel-by-tap': {
-      // One attack of a multi-attack creature, at the cost of a tap.
+      // One attack of a multi-attack creature, at the cost of a tap. What is
+      // left is what is left *of the assignment* — a creature that pre-assigns
+      // every strike to one character (Assassin, tw-8) is still pointed at that
+      // character after one of them is cancelled, and pricing the remainder as
+      // though the company could answer it with fresh parriers would make
+      // cancelling look worse than taking the whole attack.
       const cancelled = combat.strikesPerAttack ?? 1;
-      const { outcomes, detail } = facing(Math.max(0, remaining - cancelled), 'face what is left');
+      const { outcomes, detail } = facing(
+        Math.max(0, remaining - cancelled), 'face what is left',
+        assignedTargets(context).slice(cancelled));
       return evaluationFrom(context, action,
         `tap to cancel ${cancelled} strike(s)`,
         outcomes.map(o => ({ ...o, dtsd: o.dtsd - tunables.tapTempoCost })),
@@ -602,7 +750,11 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
     case 'halve-strikes': {
       const reduced = reducedStrikeCount(context, action);
       if (reduced === null) return null;
-      const { outcomes, detail } = facing(reduced, 'face the reduced attack');
+      // The engine offers this only before any strike is assigned, so the
+      // settled opening is empty; taking it from the same place as every other
+      // branch is what keeps that true rather than assumed.
+      const { outcomes, detail } = facing(
+        reduced, 'face the reduced attack', assignedTargets(context).slice(0, reduced));
       const price = tunables.provisionalCardPrice;
       return evaluationFrom(context, action,
         `reduce the attack to ${reduced} strike(s)`,
@@ -617,9 +769,12 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
       // would make assigning look good for no reason but its smaller scope.
       const target = targetOfAction(context, action);
       if (!target) return null;
-      const { outcomes, detail } = facing(remaining, 'face the attack', target);
+      const { outcomes, detail } = facing(
+        remaining, 'face the attack', [...assignedTargets(context), target]);
       return evaluationFrom(context, action, `give this strike to ${target.name}`,
-        outcomes, detail, [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS]);
+        outcomes, detail,
+        [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS,
+          ...(defenderIsAssigning(combat) ? KEPT_ASSUMPTIONS : [])]);
     }
 
     default:
