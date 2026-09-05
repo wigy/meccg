@@ -78,6 +78,8 @@ const ASSUMPTIONS: readonly string[] = [
   'a favourite mark is taken at face value: the deck author is assumed to have meant it, and no '
   + 'check is made that the marked characters can actually form a legal starting company together '
   + '(the mind limit is enforced by the engine, not weighed here)',
+  'the character deck draft takes every character the pool still holds, because the alternative is '
+  + 'removal from the game and nothing here prices deck dilution against that',
   'a deck-exhaust exchange is priced as though both cards were equally likely to be drawn again; '
   + 'the discard pile becomes the whole new play deck, so that is close, but a five-card swap is '
   + 'scored one pair at a time and the fifth is priced against the same standing as the first',
@@ -292,12 +294,33 @@ export const fetchingModule: H2Module = {
     if (!chosen) return null;
 
     const { standing, view, cardPool, tunables } = context;
-    const quote = computeCardPrices(view, cardPool, standing, tunables).quote(chosen.definitionId);
+    const prices = computeCardPrices(view, cardPool, standing, tunables);
+    const quote = prices.quote(chosen.definitionId);
     const favourite = isFavouritePick(action, context) ? tunables.favouriteCharacterTsd : 0;
     // Only the starting draft is a mind knapsack; every other action here takes
     // a card into hand or deck, where mind is a cost rather than a deadline.
     const priority = action.type === 'draft-pick' ? mindPriorityTsd(chosen.definitionId, context) : 0;
-    const total = quote.tsd + favourite + priority;
+    // The character deck draft is the one acquisition here whose alternative is
+    // not "later". `handleCharacterDeckDraftPass` says so in as many words —
+    // *"passes — n undrafted pool character(s) removed from the game"* — and
+    // puts them in the out-of-play pile. So a quote of zero is not "worth
+    // nothing to take": it is the model failing to price a card that is about
+    // to be destroyed, and the floor is exactly the residual that destruction
+    // forfeits — option value, a play the plan has not found, a future standing
+    // where a capped source is no longer capped.
+    //
+    // `quote` deliberately does not floor, because it answers what a card is
+    // worth *if it arrives* and no measurement spoke to that. One does now: at
+    // this step every candidate quoted exactly zero — a character's mind cannot
+    // fit the free general influence of a player who has just spent all 20 of
+    // it on a starting company, and a character marshalling point is worth 0.0
+    // at 0–0 under CoE 10.3's diversity cap — so the ranking was flat, the
+    // agent's tie clause passed, and H2 threw its whole reserve of characters
+    // out of the game before turn one. 51 of 51 recorded human decisions.
+    const floored = action.type === 'add-character-to-deck'
+      && quote.tsd < prices.floor;
+    const worth = floored ? prices.floor : quote.tsd;
+    const total = worth + favourite + priority;
 
     const outcomes: Outcome[] = [{
       p: 1,
@@ -309,10 +332,12 @@ export const fetchingModule: H2Module = {
     const detail: Rationale[] = [
       leaf('card', quote.name),
       leaf('from', chosen.where),
-      leaf('what it is worth here', quote.tsd, {
+      leaf('what it is worth here', worth, {
         unit: 'tsd',
-        tunable: 'potentialDiscount',
-        note: quote.reason,
+        tunable: floored ? 'heldCardFloor' : 'potentialDiscount',
+        note: floored
+          ? `${quote.reason}; at the floor, because passing removes it from the game`
+          : quote.reason,
       }),
     ];
     if (favourite > 0) {

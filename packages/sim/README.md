@@ -2073,6 +2073,93 @@ everywhere else in the game, and pricing it as a benefit anywhere but the draft
 would be wrong. It is right here only because the budget is a knapsack and the
 draft is where it gets spent.
 
+### H2 plays every game with no character deck
+
+`add-character-to-deck` is the character deck draft: the characters left over
+from the opening draft, each of which may go into the play deck to be drawn and
+recruited later. Over twelve recorded human games the agreement on it was
+**0.0%**, and there was only ever one thing H2 did instead:
+
+```text
+51  add-character-to-deck → pass
+```
+
+Fifty-one of fifty-one. `handleCharacterDeckDraftPass` says what that buys, in
+its own log line:
+
+```text
+Character deck draft: player N passes — K undrafted pool character(s)
+removed from the game
+```
+
+They go to the out-of-play pile. So this is not an agreement statistic about
+which character to prefer — it is the agent throwing its entire reserve of
+characters out of the game before turn one, every game, and then playing on with
+whatever its starting company survives with. Eight self-play seeds on `master`,
+counted at the first decision after setup:
+
+```text
+mean per seat — in the play deck 0.00, removed from the game 5.50
+```
+
+#### Zero is not a price
+
+Every candidate quotes exactly zero, for two independent reasons and neither of
+them is "this character is worthless":
+
+- **The influence gate.** `card-price` prices a character at a hard zero when
+  its mind exceeds the *currently free* general influence, on the argument that
+  "a mind that does not fit the free general influence is a card that cannot be
+  used". That is a statement about now, and it is measured at the one moment in
+  the game when the pool is guaranteed to be fully committed: a player who has
+  just built a legal starting company has spent all 20. Both seats read
+  `influence 20, used 20, free 0` at this step in every game checked.
+- **The degenerate standing.** A character marshalling point is worth `+0.0` at
+  0–0, because CoE 10.3's half-total diversity cap has nothing to halve on an
+  empty board. This is the same reason the opening draft had to be given the
+  favourite mark, recorded above under *The draft is decided by a coin flip*.
+
+A flat ranking is then handed to the agent's tie clause, which passes whenever a
+`pass` is on offer — correctly, for the busywork it was written for, and
+catastrophically here, where `pass` is the destructive option.
+
+`quote` deliberately does not floor, and says why: it answers what a card is
+worth *if it arrives*, "which is a question about acquisition rather than
+retention, and no measurement here speaks to it". One does now. The floor stands
+for the residual — option value, a play the plan has not found, a future
+standing where a capped source is no longer capped — and removal from the game
+forfeits that residual with certainty. So at this one step, and only this one, a
+character is worth at least the floor.
+
+`card-price`'s own note on what is left at a modelled zero already listed the
+culprit: *"a creature the plan cannot use, **a character whose mind does not
+fit**, and an event that declares no effect."*
+
+#### Measured
+
+Twelve recorded human games, both trees verified before and after:
+
+| | before | after |
+| --- | --- | --- |
+| `add-character-to-deck` | **0.0%** | **43.1%** |
+| overall agreement | 52.70% | 52.92% |
+| `pass` | 70.5% | 69.9% |
+| characters in the play deck, per seat | **0.00** | **5.00** |
+| characters removed from the game, per seat | **5.50** | **0.00** |
+
+The 51 passes become 22 exact agreements and 29 disagreements about *which*
+character — which is a real question this change does not answer, and the same
+one the opening draft needed the favourite mark for. Nothing else the module
+owns moves: `draft-pick`, `fetch-from-pile`, `fetch-from-sideboard`,
+`assign-starting-item` and `exchange-sideboard` are unchanged to the decision.
+
+The cost is on `pass`, and it is the honest one: humans stop with one to three
+characters still in the pool and H2 now empties it, because deck dilution is not
+modelled here and the engine's ten-character cap is the only limit it respects.
+Ten decisions where the human passed and H2 takes; net **+11**.
+
+Not gated.
+
 ### The discard is a tie-break on the placeholder
 
 With the draft settled, the largest remaining disagreement is `discard-card`,
