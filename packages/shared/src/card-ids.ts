@@ -112,6 +112,8 @@ export const SAPLING_OF_THE_WHITE_TREE = did('tw-322');
 export const GWAIHIR = did('tw-251');
 /** Treebeard — ent ally, prowess 8/body 9, playable at Wellinghall, discards if company leaves Ent regions. */
 export const TREEBEARD = did('tw-353');
+/** Gollum — unique scout ally, prowess 2/body 9/mind 4, playable at Goblin-gate or Moria. */
+export const GOLLUM = did('tw-246');
 
 // ---- Factions ----
 
