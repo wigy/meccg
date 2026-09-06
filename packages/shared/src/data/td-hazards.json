@@ -1233,8 +1233,63 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ParsimonyofSeclusion.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Return any unique Dragon manifestation to your hand from your discard pile.Alternatively, return any manifestation of Agburanar to your hand from your discard pile and increase the hazard limit by two."
+    "effects": [
+      {
+        "type": "play-option",
+        "id": "return-dragon-manifestation",
+        "untargeted": true,
+        "candidates": "own-discard",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "count": 1,
+          "filter": {
+            "$or": [
+              {
+                "race": "dragon",
+                "unique": true
+              },
+              {
+                "keywords": {
+                  "$includes": "dragon-manifestation"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "return-agburanar-and-boost-limit",
+        "untargeted": true,
+        "candidates": "own-discard",
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "move",
+              "select": "target",
+              "from": "discard",
+              "to": "hand",
+              "count": 1,
+              "filter": {
+                "manifestId": "tw-3"
+              }
+            },
+            {
+              "type": "add-constraint",
+              "constraint": "hazard-limit-modifier",
+              "scope": "company-mh-phase",
+              "value": 2
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Return any unique Dragon manifestation to your hand from your discard pile.Alternatively, return any manifestation of Agburanar to your hand from your discard pile and increase the hazard limit by two.",
+    "certified": "2026-09-06"
   },
   {
     "cardType": "hazard-event",
