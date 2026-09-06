@@ -230,6 +230,31 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(after.phaseState.phase).toBe(Phase.MovementHazard);
   });
 
+  // Regression: rule 2.IV.5 — a company is not considered "at" its site card
+  // from the moment its new site is revealed until immediately prior to its
+  // site phase. A company with a pending `destinationSite` (mid-movement in
+  // its own movement/hazard phase) must not qualify for this recruit even
+  // though `currentSite` still names a qualifying Free-hold/Border-hold/
+  // Ruins & Lairs site — the engine previously ignored `destinationSite` and
+  // allowed the recruit while the company was still in transit.
+  test('the recruit action is NOT offered while the company is mid-movement (pending destinationSite)', () => {
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BAG_END, characters: [ELROND], destinationSite: MORIA }], hand: [A_CHANCE_MEETING, EOWYN], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FILLER] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const state: GameState = { ...base, phaseState: makeMHState({ step: 'play-hazards', activeCompanyIndex: 0 }) };
+    const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+
+    const recruit = viableActions(state, PLAYER_1, 'play-character')
+      .find(a => (a.action as { viaEventInstanceId?: CardInstanceId }).viaEventInstanceId === eventId);
+    expect(recruit).toBeUndefined();
+  });
+
   test('the recruit action is offered during the site phase', () => {
     const state = buildSitePhaseState({ characters: [ELROND], site: BAG_END, hand: [A_CHANCE_MEETING, EOWYN] });
     const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
