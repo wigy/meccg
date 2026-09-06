@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.145.0 — 2026-09-06
+
+Rules-exact H2 combat model and a 5x engine speedup
+
+### Game Engine
+
+- The cancel-attack window now closes when the defender passes strike assignment: CoE 3.iii forbids actions during the opponent's assignment step, but cancel-attack was still offered while no strike had been recorded, and the sim runner's active-player priority then forced the defender to play the cancel it had just declined. Rule 8.10 test added (#2991)
+- Site region-type lookup is memoized once per card pool instead of scanning the whole pool on every call. It accounted for 69% of non-idle CPU in a random-vs-random bench; reducer steps on a combat state drop from 2.7 ms to about 0.25 ms and bench throughput rises from 124 to 686 decisions per second, with identical results (#2988)
+
+### AI
+
+- H2's strike model now follows the rules: a tie while staying untapped no longer taps (CoE 3.iv.7), excess strikes are −1 modifiers on the last strike rather than extra strikes against already-struck characters (CoE 3.iii), cancel-by-tap forfeits the kill MP, a refused attack is charged for the card alone, and each projected strike chooses tap-to-fight or stay-untapped as the engine offers. An exact expectimax oracle over the real reducer is checked in as a regression test on 19 new `combat-oracle/*` scenarios, and the tests that pinned the old model are re-stated against the rules (#2991)
+- A defender's pass during its own strike assignment is now priced as the attacker choosing every remaining target, with the strikes already assigned opening the projected sequence. `remainingStrikes` counts the whole attack while it is still being assigned instead of only the assignments made so far, and a small `concededAssignmentTsd` margin keeps the assignment on a tie; a `handedAssignmentPessimism` tunable weights how well the attacker is credited with using it. On the human corpus H2 had answered a third of the 297 assign-strike decisions with a pass (#2987)
+- The character deck draft no longer removes the whole undrafted character pool from the game: a character whose mind does not fit the currently free general influence is priced at the residual floor rather than zero, so `add-character-to-deck` is preferred to the destructive pass. Agreement on the human corpus rises from 0.0% to 43.1% and the mean characters removed per seat drops from 5.5 to 0 (#2989)
+- Permanent events the `stage` module does not recognise (Return of the King and the like) are now priced through the shared `event-value` service instead of being dropped from the ranking entirely (#2990)
+- The sim README records that H2's +46 Elo baseline against Heuristics 1 no longer holds: re-measured on v0.144.0 over 400 challenge-deck games, H2 is about 270 Elo behind, so the ablation tables in that section remain valid only as differences (#2991)
+
 ## 0.144.0 — 2026-09-04
 
 Ally-cancelled attacks and duplication-chain fixes
