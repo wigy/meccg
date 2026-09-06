@@ -5450,29 +5450,61 @@ via `evaluateExpr` (`engine/effects/expression-eval.ts`) when
 `prowessModifierExpr` is set, rounding the result, in place of reading
 `prowessModifier` directly.
 
+**`trackAttackPlays` + `sameCardPlaysOnAttack` (stacking bonus across
+multiple copies played on one attack).** A `fromHand` effect may set
+`trackAttackPlays: true` to opt into the same attack-scoped
+`attack-card-played` marker a `duplication-limit` scope `"attack"` effect
+installs (`scope: { kind: "attack" }`, swept when the attack finalizes) —
+without actually limiting duplication. `handleModifyAttack` reads the
+**prior** count of markers sourced from this exact card definition on this
+attack (`countConstraintsFromDefinition`, before adding this play's own
+marker) and exposes it to `prowessModifierExpr` as `sameCardPlaysOnAttack`,
+alongside `nazgulPermanentEventsInPlay`. This lets a card's bonus scale
+non-linearly with how many of its own copies have already been played on
+the same attack, rather than just summing a flat per-copy amount.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "prowessModifierExpr": "2 * sameCardPlaysOnAttack + 1",
+  "trackAttackPlays": true,
+  "when": { "enemy.race": { "$in": ["dragon", "drake"] } } }
+```
+
+Used by Prowess of Age (td-55) Mode B: "gives a prowess bonus to a Dragon or
+Drake attack ... dictated by the number of Prowess of Age cards played on
+the attack: +1 prowess if 1 played; +4 if 2 played; +9 if 3 played" — the
+running total after N copies is N² (1, 4, 9), so each individual play's
+marginal delta is `2 * priorCount + 1` (0 prior → 1, 1 prior → 3, 2 prior →
+5).
+
 ### 10f-bis. `counter-cancel-attack-roll`
 
 A hazard short-event the **attacking** (hazard) player plays during a combat
 chain to *counter* an opponent-declared chain entry that would cancel a creature
-attack of a matching race. Unlike a plain cancel, the counter is roll-gated.
+attack of a matching race. When `threshold` is set, the counter is roll-gated;
+when `threshold` is absent, the counter is **instant and unconditional** (no
+roll — see the Prowess of Age variant below).
 
 Offered by `counterCancelRollChainActions` (`engine/legal-actions/chain.ts`)
 while a chain is active, `state.combat` exists, the acting player is the
 attacker, the attack's `combat.creatureRace` is one of the effect's `race`
-values, and at least one unresolved opponent chain entry carries a
-`cancel-attack` effect. Sources are the attacker's hand **plus** any unrevealed
-on-guard cards on the defending company (the "may be revealed as an on-guard
-card" clause). Emits one `counter-cancel-roll` action per (source, target
-cancel entry) pair.
+values, at least one unresolved opponent chain entry carries a `cancel-attack`
+effect, and (when `uniqueOnly` is set) `combat.creatureUnique` is `true`.
+Sources are the attacker's hand **plus** any unrevealed on-guard cards on the
+defending company (the "may be revealed as an on-guard card" clause). Emits one
+`counter-cancel-roll` action per (source, target cancel entry) pair.
 
 On play (`handleCounterCancelRoll`, `engine/chain-reducer.ts`) the card is moved
 hand/on-guard → discard and pushed onto the chain as a short-event entry carrying
 `counterCancelTargetInstanceId` (a dedicated payload field — *not*
 `targetInstanceId`, which would trigger the Twilight-style environment-cancel
 path). Sitting above the cancel entry (LIFO), it resolves first: `resolveEntry`
-enqueues a generic `dice-check` (roll 2d6 + the attack's current
-`combat.strikeProwess`, `comparison: "gt"`, `threshold` from the effect). On
-success the `counter-cancel-attack` dice-check onPass verb (`applyDiceCheckBranch`,
+either enqueues a generic `dice-check` (roll 2d6 + the attack's current
+`combat.strikeProwess`, `comparison: "gt"`, `threshold` from the effect), or —
+when `threshold` is absent — negates the target immediately inline (same logic
+as the roll's onPass verb, just not gated behind a roll) and falls through to
+the ordinary "mark entry resolved" step. On a roll-gated success the
+`counter-cancel-attack` dice-check onPass verb (`applyDiceCheckBranch`,
 `engine/pending-reducers.ts`) negates the targeted cancel entry (the attack
 survives) and adds `prowessBonus` to `combat.strikeProwess`; on failure the cancel
 resolves and ends the attack. The check's `continuation` marks the counter entry
@@ -5492,6 +5524,24 @@ the attack receives +1 prowess." Its second mode ("+1 prowess to a Spider
 attack") is a plain `modify-attack` (`fromHand`, `player: "attacker"`,
 `when: { "enemy.race": { "$in": ["spider"] } }`), which also carries
 the on-guard-reveal behaviour for that mode.
+
+**Instant, unique-gated variant (no roll).** Omitting `threshold` (and
+`prowessBonus`, which then defaults to 0) makes the counter unconditional; a
+`uniqueOnly: true` field additionally requires the attacking creature's card
+definition to be `unique` (`CombatState.creatureUnique`, populated from
+`CreatureCard.unique` wherever `initiateCreatureCombat` builds the combat
+state for a played hazard-creature attack — covers both `'creature'` and
+`'on-guard-creature'` attack sources).
+
+```json
+{ "type": "counter-cancel-attack-roll", "race": ["dragon"], "uniqueOnly": true }
+```
+
+Example: Prowess of Age (td-55) Mode A — "Targets and cancels any effect
+(declared earlier in the same chain of effects) that would cancel an attack
+from a unique Dragon manifestation." Its second mode (a stacking prowess
+bonus to a Dragon or Drake attack) is `modify-attack` `trackAttackPlays` +
+`prowessModifierExpr` — see §10e-quinquies.
 
 ### 10f. `face-strike-on-tap`
 

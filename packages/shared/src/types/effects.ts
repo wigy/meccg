@@ -6320,19 +6320,26 @@ export interface BurglaryAttemptEffect extends EffectBase {
 }
 
 /**
- * Roll-gated counter-cancel (Black Vapour ba-14): a hazard short-event the
- * *attacking* (hazard) player plays during a combat chain to negate an
- * opponent-declared chain entry that would cancel a creature attack of a
- * matching {@link race}. Unlike a plain cancel, the negation is not automatic:
- * on resolution the card enqueues a `dice-check` (roll 2d6 + the attack's
- * current prowess). If the total is greater than {@link threshold} the target
- * cancel entry is negated (the attack survives) and the attack receives
- * {@link prowessBonus} extra prowess; otherwise the cancel resolves normally.
+ * Counter-cancel (Black Vapour ba-14): a hazard short-event the *attacking*
+ * (hazard) player plays during a combat chain to negate an opponent-declared
+ * chain entry that would cancel a creature attack of a matching {@link race}.
+ *
+ * When {@link threshold} is set, the negation is roll-gated: on resolution
+ * the card enqueues a `dice-check` (roll 2d6 + the attack's current
+ * prowess); if the total is greater than {@link threshold} the target cancel
+ * entry is negated (the attack survives) and the attack receives
+ * {@link prowessBonus} extra prowess, otherwise the cancel resolves
+ * normally. When {@link threshold} is absent, the counter is an **instant,
+ * unconditional negation** — no roll, no bonus (unless {@link prowessBonus}
+ * is also set) — used by Prowess of Age (td-55) Mode A: "Targets and cancels
+ * any effect... that would cancel an attack from a unique Dragon
+ * manifestation," gated by {@link uniqueOnly} rather than a roll.
  *
  * Distinct from a marker-only counter-cancel because of the roll: the card is
  * pushed onto the chain as a short-event entry and, when it resolves un-negated
- * (flattery pattern), enqueues the check (`chain-reducer.ts`). The onPass verb
- * is the `counter-cancel-attack` {@link TriggeredAction}.
+ * (flattery pattern), either enqueues the check or applies the negation
+ * directly (`chain-reducer.ts`). The onPass verb (roll-gated path) is the
+ * `counter-cancel-attack` {@link TriggeredAction}.
  *
  * Black Vapour's other mode ("+1 prowess to a Spider attack") is a plain
  * {@link ModifyAttackEffect} (`fromHand`, `player: "attacker"`), which also
@@ -6342,10 +6349,20 @@ export interface CounterCancelAttackRollEffect extends EffectBase {
   readonly type: 'counter-cancel-attack-roll';
   /** Creature races whose cancellation this card may counter (e.g. `"spider"`). */
   readonly race: ReadonlyArray<Race>;
-  /** The modified roll total must exceed this for the counter to succeed. */
-  readonly threshold: number;
-  /** Prowess added to the surviving attack on a successful counter. */
-  readonly prowessBonus: number;
+  /**
+   * The modified roll total must exceed this for the counter to succeed.
+   * Absent means the counter is instant and unconditional (no roll).
+   */
+  readonly threshold?: number;
+  /** Prowess added to the surviving attack on a successful counter. Defaults to 0. */
+  readonly prowessBonus?: number;
+  /**
+   * When true, restricts the counter to an attack whose creature card
+   * definition is itself `unique` (e.g. a named Dragon manifestation like
+   * Smaug) — {@link CombatState.creatureUnique}. Used by Prowess of Age
+   * (td-55): "an attack from a unique Dragon manifestation."
+   */
+  readonly uniqueOnly?: true;
 }
 
 /**
@@ -6819,6 +6836,21 @@ export interface ModifyAttackEffect extends EffectBase {
    * wounded status, and the normal abilities of the attack)."
    */
   readonly grantsDefenderFreeStrikeAssignment?: true;
+  /**
+   * When true (`fromHand` path, `prowessModifierExpr` only), the engine adds
+   * an attack-scoped marker constraint after this play — the same
+   * `attack-card-played` marker a `duplication-limit` scope `"attack"`
+   * effect installs — even though the card carries no duplication limit of
+   * its own. The number of prior markers sourced from this exact card
+   * definition (before this play's own marker is added) is exposed to
+   * `prowessModifierExpr` as `sameCardPlaysOnAttack`, letting the bonus
+   * scale non-linearly with how many copies have been played on the same
+   * attack. Used by Prowess of Age (td-55): "+1 prowess if 1 played; +4 if
+   * 2 played; +9 if 3 played" is the running total after N copies (N²), so
+   * each individual play's marginal delta is `2 * sameCardPlaysOnAttack +
+   * 1` (`"2 * sameCardPlaysOnAttack + 1"`).
+   */
+  readonly trackAttackPlays?: true;
 }
 
 /**

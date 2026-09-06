@@ -410,6 +410,16 @@ export interface CombatState {
    */
   readonly creatureRaces?: readonly Race[];
   /**
+   * Whether the attacking creature's card definition is itself `unique`
+   * (e.g. a named Dragon manifestation like Smaug) — copied from
+   * {@link CreatureCard.unique} when a played hazard-creature attack is
+   * initiated (`initiateCreatureCombat`). Absent for attacks with no single
+   * creature card definition (site automatic-attacks, CvCC, etc). Consulted
+   * by `counter-cancel-attack-roll`'s `uniqueOnly` gate — Prowess of Age
+   * (td-55): "an attack from a unique Dragon manifestation."
+   */
+  readonly creatureUnique?: boolean;
+  /**
    * The region type this attack is keyed to. When the creature was played
    * with a declared `keyedBy` match (see {@link ChainEntryPayload}), this
    * reflects only that specific match — e.g. a creature whose `keyedTo`

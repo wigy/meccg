@@ -777,3 +777,41 @@ Magic Ring of Lore (tw-272): "Gives the bearer sage skill. If the bearer is alre
 Card data: `grant-skill` (`sage`) + `grant-action` (`cost: { "tap": "bearer" }`, `when: { "bearer.skills": { "$includes": "sage" } }` — `bearer.skills` in the grant-action context is already `charDef.skills`, the printed/natural list only, never merged with the ring's own grant, so no `naturalSkills` distinction is needed here unlike the `stat-modifier`-based siblings tw-271/tw-273/tw-275; `targets: { "scope": "bearer-items", "filter": { "keywords": { "$includes": "palantir" } } }`; `apply: { "type": "add-constraint", "constraint": "can-use-palantir", "scope": "turn", "target": "bearer", "sourceFrom": "action-target" }`) + `duplication-limit` (`scope: character`, `max: 1`). Also added the missing `magic-ring` keyword (the card only carried `ring`, so the gold-ring test's `ring-play-offer` path could never have offered it — the same gap fixed on tw-271).
 
 - **`target.attachedEventNames`** on the character-target play-option context (`buildPlayOptionContext`'s `charPlayTarget` block, `legal-actions/organization-events.ts`) + **`opponent.avatarName`** on `buildPlayerStateContext` (`legal-actions/organization.ts`) + **`discard-self-when` now also sweeps character-borne items**, not just bare `cardsInPlay` (The White Wizard wh-36). `target.attachedEventNames` lists the names of permanent/short-events bound to the candidate character via `CardInPlay.attachedTo` (via the existing `cardsAttachedToCharacter` helper, `character-attachments.ts`, plus `defNamesOf`) — distinct from `itemNames` (items in `CharacterInPlay.items`). It backs "Playable on a Wizard with Sacrifice of Form": Sacrifice of Form (tw-321) reattaches itself to its Wizard via `attachedTo` the moment he returns to play (`sacrifice-of-form.ts` `reattachSacrificeOfForm`), so the filter is `{ "$and": [{ "target.race": "wizard" }, { "target.attachedEventNames": { "$includes": "Sacrifice of Form" } }] }`. `opponent.avatarName` is the *opposing* player's revealed avatar name (via `findPlayerAvatar`), letting a player-state condition gate on the opponent's specific avatar identity — used by wh-36's `discard-self-when` `{ "opponent.avatarName": "Saruman" }`. Finally, wh-36 is the first `discard-self-when` carrier that lives as a **character-borne item** (a resource permanent-event with a character play-target attaches via `inPlayOnCharacterSlot` into `items`, not bare `cardsInPlay`), so `sweepDiscardSelfWhen` (`discard-self-when.ts`) now runs a second pass, `sweepDiscardSelfWhenItems`, over every character's `items`, matching the same effect/condition and discarding via `removeAttachment`/`toCardInstance`. Used by The White Wizard (wh-36): "Unique. Playable on a Wizard with Sacrifice of Form. +2 to his direct influence, +1 to all of his corruption checks. Discard if Saruman is in play as an opposing Wizard." — `play-target` character filter above, `stat-modifier direct-influence +2`, `check-modifier corruption +1`, `discard-self-when { "opponent.avatarName": "Saruman" }`.
+
+- `counter-cancel-attack-roll` gains an **instant (no-roll) mode** and a
+  `uniqueOnly` gate, and `modify-attack` gains a `trackAttackPlays` +
+  `sameCardPlaysOnAttack` stacking primitive (Prowess of Age td-55) —
+  `threshold` and `prowessBonus` on `CounterCancelAttackRollEffect` are now
+  optional: when `threshold` is absent, `counterCancelRollChainActions`
+  (`legal-actions/chain.ts`) and `handleCounterCancelRoll`
+  (`chain-reducer.ts`) still offer/validate the play exactly as before, but
+  `resolveEntry`'s counter-cancel branch (`chain-reducer.ts`) applies the
+  negation immediately — no `dice-check` enqueued — using the same
+  negate-target + add-`prowessBonus` logic as the roll-gated `onPass` verb,
+  then falls through to the ordinary "mark entry resolved" step (no
+  `needsInput`). A new `uniqueOnly: true` field additionally requires the
+  attacking creature's card definition to be `unique`, checked against a new
+  `CombatState.creatureUnique` field (`state-combat.ts`) populated from
+  `creatureDef.unique` wherever `initiateCreatureCombat`
+  (`chain-reducer.ts`) builds the combat state for a played hazard-creature
+  attack (covers both `'creature'` and `'on-guard-creature'` attack
+  sources — the same single function backs both). Separately,
+  `ModifyAttackEffect` gains `trackAttackPlays: true`: when set on a
+  `fromHand` effect, `handleModifyAttack` (`combat-actions.ts`) always adds
+  the attack-scoped `attack-card-played` marker constraint after the play
+  (previously only added when the card also carried a `duplication-limit`
+  scope `"attack"`), and exposes the **prior** count of markers sourced from
+  this exact card definition on this attack to `prowessModifierExpr` as
+  `sameCardPlaysOnAttack` (via `countConstraintsFromDefinition`, read before
+  this play's own marker is added). Card: "Targets and cancels any effect
+  (declared earlier in the same chain of effects) that would cancel an
+  attack from a unique Dragon manifestation. Alternatively, gives a prowess
+  bonus to a Dragon or Drake attack (must be played before its strikes are
+  assigned) dictated by the number of Prowess of Age cards played on the
+  attack: +1 prowess if 1 played; +4 if 2 played; +9 if 3 played." — Mode A:
+  `counter-cancel-attack-roll` (`race: ["dragon"]`, `uniqueOnly: true`, no
+  `threshold`/`prowessBonus`); Mode B: `modify-attack` (`fromHand`,
+  `player: "attacker"`, `prowessModifierExpr: "2 * sameCardPlaysOnAttack +
+  1"`, `trackAttackPlays: true`, `when: enemy.race $in [dragon, drake]`) —
+  the running total after N copies is N² (1, 4, 9), so each individual
+  play's marginal delta is `2 * priorCount + 1`.

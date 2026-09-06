@@ -673,7 +673,11 @@ function resourceEventChainActions(state: GameState, playerId: PlayerId): Evalua
  * defending company (the hazard player owns them) that carry a
  * `counter-cancel-attack-roll` effect — the "may be revealed as an on-guard
  * card" clause. Only offered while the attack's race is one the card can
- * counter and at least one opponent cancel-attack entry is unresolved.
+ * counter and at least one opponent cancel-attack entry is unresolved. When
+ * the effect sets `uniqueOnly`, the attacking creature's card definition
+ * must also be `unique` (`combat.creatureUnique`) — used by Prowess of Age
+ * (td-55) Mode A, an instant (no-roll) counter restricted to "a unique
+ * Dragon manifestation".
  */
 function counterCancelRollChainActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const chain = state.chain;
@@ -710,6 +714,10 @@ function counterCancelRollChainActions(state: GameState, playerId: PlayerId): Ev
     if (!rollEffect) continue;
     if (attackRace === undefined || !rollEffect.race.includes(attackRace)) {
       logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} cannot counter a "${attackRace ?? 'raceless'}" attack`);
+      continue;
+    }
+    if (rollEffect.uniqueOnly && combat.creatureUnique !== true) {
+      logDetail(`counter-cancel-roll: ${(def as { name?: string }).name ?? (c.definitionId as string)} requires a unique manifestation attack — this attack is not unique`);
       continue;
     }
     for (const targetInstanceId of cancelEntries) {
