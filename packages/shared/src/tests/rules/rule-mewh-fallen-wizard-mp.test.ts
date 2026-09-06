@@ -23,6 +23,10 @@ import {
 } from '../test-helpers.js';
 
 const STAGE_MP = 'test-stage-mp-2' as CardDefinitionId;
+// Misty Mountain Wargs (le-272): a leader-control faction whose group bonus
+// ("three or more factions controlled by the same leader give 2 extra
+// marshalling points") is the fixture for CoE 10.F3 below.
+const MISTY_MOUNTAIN_WARGS = 'le-272' as CardDefinitionId;
 
 /** Build an Organization-phase state with `cards` in play for the given alignment. */
 function withCards(alignment: Alignment, cards: CardInPlay[]) {
@@ -90,5 +94,22 @@ describe('MEWH §4 — Fallen-wizard marshalling points', () => {
   test('a stage resource scores its printed marshalling points for a Fallen-wizard', () => {
     const state = withCards(Alignment.FallenWizard, [inPlay(STAGE_MP, 'p1-1000')]);
     expect(state.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(2);
+  });
+
+  // CoE 10.F3: "A Fallen-wizard player may receive the extra faction
+  // marshalling points for a group of faction cards that may be played on a
+  // leader, but they receive only one extra faction point for the group of
+  // factions instead of two."
+  test('a leader-control group bonus is only +1 (not +2) for a Fallen-wizard', () => {
+    const leaderId = 'p1-leader' as CardInstanceId;
+    const factions: CardInPlay[] = [0, 1, 2].map(i => ({
+      instanceId: `mmw-${i}` as CardInstanceId,
+      definitionId: MISTY_MOUNTAIN_WARGS,
+      status: CardStatus.Untapped,
+      controlledBy: leaderId,
+    }));
+    const state = withCards(Alignment.FallenWizard, factions);
+    // 3 factions clamped to 1 MP each (MEWH §4) + reduced group bonus (1) = 4.
+    expect(state.players[RESOURCE_PLAYER].marshallingPoints.faction).toBe(4);
   });
 });
