@@ -3031,6 +3031,12 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *    contains at least one character with the `diplomat` skill.
  *    Enables cards like New Friendship to offer a corruption-check boost
  *    to any character in a diplomat's company, not just the diplomat.
+ *  - `company.allyNames` — the names of every ally borne by any character in
+ *    the company (not just the candidate target's own allies). Lets a
+ *    `play-target` filter gate on a specific companion ally being present
+ *    anywhere in the company via `$includes`, e.g. Lindion the Oronín
+ *    (dm-177) waiving Eagle-mounts' (tw-220) diplomat/site requirement:
+ *    `{ "company.allyNames": { "$includes": "Lindion the Oronín" } }`.
  *  - `company.siteUntapped` — `true`/`false` (null with no current site)
  *    for whether the character's company's current site is untapped, and
  *    `company.siteIsUnderDeeps` — whether that site carries the
@@ -3087,6 +3093,7 @@ export function buildPlayOptionContext(
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
+  let companyAllyNames: string[] = [];
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
@@ -3148,6 +3155,15 @@ export function buildPlayOptionContext(
         if (!isCharacterCard(memberDef)) return false;
         return getEffectiveSkills(state, memberChar, memberDef).includes('diplomat');
       });
+      // Aggregate ally names borne by every character in the company (not just
+      // the candidate target's own allies) — lets a play-target filter gate on
+      // a specific companion ally being anywhere in the company, e.g. Lindion
+      // the Oronín (dm-177) waiving Eagle-mounts' diplomat/site requirement.
+      for (const memberId of charCompany.characters) {
+        const memberChar = player.characters[memberId];
+        if (!memberChar) continue;
+        companyAllyNames.push(...defNamesOf(state, memberChar.allies));
+      }
     }
     // A character is "moving" when it belongs to the active company during the
     // M/H phase and that company is actually moving to a new site. Use
@@ -3215,6 +3231,7 @@ export function buildPlayOptionContext(
       siteUntapped: companySiteUntapped,
       siteIsUnderDeeps: companySiteIsUnderDeeps,
       containsDiplomat,
+      allyNames: companyAllyNames,
       moving: companyMoving,
       destinationSiteType,
       destinationRegionTypes,
