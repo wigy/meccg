@@ -37,11 +37,13 @@ import {
   buildTestState, resetMint, makeMHState,
   resolveChain,
   handCardId, companyIdAt, charIdAt, dispatch, RESOURCE_PLAYER, HAZARD_PLAYER,
+  attachAllyToChar, actionAs, CardStatus,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, SiteType } from '../../index.js';
-import type { CardDefinitionId } from '../../index.js';
+import type { CardDefinitionId, CancelStrikeAction } from '../../index.js';
 
 const SLAYER = 'tw-89' as CardDefinitionId;
+const NOBLE_STEED = 'wh-33' as CardDefinitionId;
 
 describe('Slayer (tw-89)', () => {
   beforeEach(() => resetMint());
@@ -487,5 +489,105 @@ describe('Slayer (tw-89)', () => {
     expect(r3.combat!.strikesTotal).toBe(1);
     expect(r3.players[0].characters[aragornCharId].status).toBe('tapped');
     expect(r3.combat!.phase).toBe('resolve-strike');
+  });
+
+  // Bug report: solo character company where the target's own ally (Noble
+  // Steed wh-33, "tap to cancel a strike against its bearer or itself") could
+  // not be used during the cancel-by-tap window — only the generic
+  // tap-any-character mechanic was offered, forcing the target itself to tap
+  // even though a self-cancel ally was untapped and available.
+  test('cancel-by-tap window also offers the target ally\'s own cancel-strike (Noble Steed)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [SLAYER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const withSteed = attachAllyToChar(state, RESOURCE_PLAYER, ARAGORN, NOBLE_STEED);
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...withSteed, phaseState: mhState };
+
+    const slayerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: slayerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+    const afterPass = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+
+    const aragornCharId = charIdAt(afterPass, RESOURCE_PLAYER);
+    const steedInstId = afterPass.players[RESOURCE_PLAYER].characters[aragornCharId]?.allies[0]?.instanceId;
+    expect(steedInstId).toBeDefined();
+
+    const r2 = dispatch(afterPass, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+    expect(r2.combat!.assignmentPhase).toBe('cancel-by-tap');
+
+    // Both the generic Slayer tap-any-character cancel AND Noble Steed's own
+    // self-cancel must be offered here — not just the former.
+    const defActions = computeLegalActions(r2, PLAYER_1);
+    const cancelByTapActs = defActions.filter(a => a.viable && a.action.type === 'cancel-by-tap');
+    expect(cancelByTapActs.length).toBeGreaterThanOrEqual(1);
+    const cancelStrikeActs = defActions.filter(a => a.viable && a.action.type === 'cancel-strike');
+    const steedCancel = cancelStrikeActs.find(
+      a => actionAs<CancelStrikeAction>(a.action).cancellerInstanceId === steedInstId,
+    );
+    expect(steedCancel).toBeDefined();
+    expect(actionAs<CancelStrikeAction>(steedCancel!.action).targetCharacterId).toBe(aragornCharId);
+
+    // Use Noble Steed instead of the generic tap-any-character cancel.
+    const r3 = dispatch(r2, steedCancel!.action);
+    expect(r3.players[RESOURCE_PLAYER].characters[aragornCharId].allies[0].status).toBe(CardStatus.Tapped);
+
+    // Exactly one of the two strikes was canceled — not the wrong one, not both.
+    const resolved = r3.combat!.strikeAssignments.filter(a => a.resolved);
+    const unresolved = r3.combat!.strikeAssignments.filter(a => !a.resolved);
+    expect(resolved).toHaveLength(1);
+    expect(resolved[0].result).toBe('canceled');
+    expect(unresolved).toHaveLength(1);
+
+    // Slayer's own cancel-by-tap allowance is untouched (Noble Steed paid its
+    // own cost), so the window reopens for the second attack (CRF 22: "you may
+    // decide to cancel one of the attacks after facing another attack").
+    expect(r3.combat!.cancelByTapRemaining).toBe(1);
+    expect(r3.combat!.assignmentPhase).toBe('cancel-by-tap');
+    expect(r3.combat!.phase).toBe('assign-strikes');
+
+    // Declining further cancellation resolves the correct remaining strike —
+    // not a stale/already-canceled one (regression for `currentStrikeIndex`
+    // going stale once a strike is canceled outside the normal resolve-strike
+    // flow).
+    const r4 = dispatch(r3, { type: 'pass', player: PLAYER_1 });
+    expect(r4.combat!.phase).toBe('resolve-strike');
+    const remaining = r4.combat!.strikeAssignments[r4.combat!.currentStrikeIndex];
+    expect(remaining.resolved).toBe(false);
+    expect(remaining.characterId).toBe(aragornCharId);
   });
 });

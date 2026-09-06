@@ -206,7 +206,10 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   switch (combat.phase) {
     case 'assign-strikes':
       if (combat.assignmentPhase === 'cancel-by-tap') {
-        return cancelByTapActions(state, playerId, combat);
+        return [
+          ...cancelByTapActions(state, playerId, combat),
+          ...cancelByTapWindowSelfCancelActions(state, playerId, combat),
+        ];
       }
       // Cancel-window: defender's pre-assignment window to cancel the attack
       // before the attacker assigns strikes (attacker-chooses-defenders).
@@ -4644,6 +4647,71 @@ function tapAllyCombatBoostActions(
         viable: true,
       });
     }
+  }
+
+  return actions;
+}
+
+/**
+ * Self-protecting cancel-strike actions (Noble Steed, Enruned Shield, The One
+ * Ring) available to the defender during the cancel-by-tap sub-phase
+ * (Slayer/Assassin: "the defender may tap any one character in the company to
+ * cancel one of these attacks"). That generic tap-any-character mechanic is
+ * gated behind `cancelByTapActions` below, but per CRF 22 "A strike may be
+ * canceled up until the strike roll has been made" a card-specific self-tap
+ * cancel on the struck character (or on the struck ally itself, CoE 2.V.2.2)
+ * is available in this same window — without this, the only cancellation
+ * offered while the strike is freshly assigned is the generic tap, crowding
+ * out e.g. Noble Steed's own "tap to cancel a strike against its bearer or
+ * itself" until the window closes.
+ */
+function cancelByTapWindowSelfCancelActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  const targetCharacterId = combat.strikeAssignments[0]?.characterId;
+  if (!targetCharacterId) return [];
+
+  const player0 = playerById(state, playerId);
+  if (!player0) return [];
+  const charData = player0.characters[targetCharacterId];
+  const company0 = companyById(player0.companies, combat.companyId);
+  const allyMatch = !charData && company0
+    ? findAllyInCompany(player0, company0.characters, targetCharacterId)
+    : undefined;
+  const targetDefId = charData?.definitionId ?? allyMatch?.ally.definitionId;
+  const charDef = defById(state, targetDefId);
+  const charName = charDef?.name ?? (targetCharacterId as string);
+
+  const actions: EvaluatedAction[] = [];
+
+  if (charData && charDef && isCharacterCard(charDef)) {
+    const buildCancelCtx = (): Record<string, unknown> => {
+      const ctx: Record<string, unknown> = {
+        bearer: { skills: charDef.skills ?? [], race: charDef.race, name: charDef.name },
+        attack: buildAttackKeyingCtx(combat),
+      };
+      if (combat.creatureRace) ctx.enemy = enemyRaceContext(combat);
+      return ctx;
+    };
+    actions.push(...selfCancelStrikeActions(
+      state, playerId, targetCharacterId, charName,
+      [...charData.items, ...charData.allies], buildCancelCtx,
+    ));
+  }
+
+  if (allyMatch) {
+    const { ally } = allyMatch;
+    const cancelCtx = (): Record<string, unknown> => {
+      const ctx: Record<string, unknown> = { attack: buildAttackKeyingCtx(combat) };
+      if (combat.creatureRace) ctx.enemy = enemyRaceContext(combat);
+      return ctx;
+    };
+    actions.push(...selfCancelStrikeActions(
+      state, playerId, targetCharacterId, charName, [ally], cancelCtx,
+    ));
   }
 
   return actions;
