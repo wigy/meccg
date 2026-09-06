@@ -2449,8 +2449,16 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Shrel-Kain",
-    "effects": [],
-    "text": "Unique. +4 direct influence against the Easterlings faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": { "reason": "faction-influence-check", "faction.name": "Easterlings" }
+      }
+    ],
+    "text": "Unique. +4 direct influence against the Easterlings faction.",
+    "certified": "2026-09-07"
   },
   {
     "cardType": "hero-character",
