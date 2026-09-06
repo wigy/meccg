@@ -6098,6 +6098,47 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Rumor of Wealth (td-58) revealed from on-guard during the site phase: the
+  // on-guard-reveal effect's `add-constraint` apply installs the granted
+  // constraint on the active company exactly like a `company-arrives-at-site`
+  // mode would for a hand-played copy — reused here because a copy revealed
+  // on-guard resolves in the Site phase, where `applyShortEventArrivalTrigger`
+  // (M/H-only) never fires. The deferred resource play it responded to is not
+  // interfered with — it runs when the on-guard window closes.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.Site) {
+    const ogCardDef = defById(current, entry.card.definitionId);
+    const ogAddConstraintEffect = getCardEffects(ogCardDef).find(
+      (e): e is import('../index.js').OnGuardRevealEffect =>
+        e.type === 'on-guard-reveal'
+        && (e as { apply?: { type?: string } }).apply?.type === 'add-constraint',
+    );
+    if (ogAddConstraintEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const siteState = current.phaseState;
+      const company = current.players[activeIndex].companies[siteState.activeCompanyIndex];
+      const apply = ogAddConstraintEffect.apply as import('../types/effects.js').AddConstraintAction;
+      if (company && apply.constraint && apply.scope) {
+        const r = addDeclaredConstraint(
+          current,
+          entry.card,
+          ogAddConstraintEffect as unknown as import('../types/effects.js').OnEventEffect,
+          apply.constraint,
+          apply.scope,
+          company.id,
+        );
+        current = r.state;
+        if (r.added) {
+          logDetail(`on-guard add-constraint "${(ogCardDef as { name?: string })?.name ?? '?'}" resolves → added ${apply.constraint} constraint on company ${company.id as string}`);
+        }
+      }
+    }
+  }
+
   // Seized by Terror: hazard short event targeting a character. Enqueue a
   // pending resolution so the character's player rolls 2d6 + mind.
   if (entry.payload.type === 'short-event'

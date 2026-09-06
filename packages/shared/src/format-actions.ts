@@ -525,6 +525,8 @@ export function describeAction(
       return `Discard item ${instName(action.itemInstanceId)} (An Article Missing)`;
     case 'play-revealed-card':
       return `Play the revealed ${instName(action.cardInstanceId)} with the influencing character (CoE 10.13)`;
+    case 'play-dragon-ambush-creature':
+      return `Play ${instName(action.cardInstanceId)} as a Dragon ambush against the site (Rumor of Wealth)`;
     case 'force-discard-card':
       return `Discard ring ${instName(action.cardInstanceId)} (Rolled down to the Sea)`;
     case 'play-strike-event':

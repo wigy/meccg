@@ -54,6 +54,7 @@ import { findDiscardSubstitutes, substituteCovers } from '../discard-substitute.
 import { asViable as viable } from './evaluated.js';
 import { influenceOverflowAmount, influenceOverflowStep } from '../influence-overflow.js';
 import { grantedAction } from './granted-action-emit.js';
+import { sitePlayTargetContext } from '../recompute-derived.js';
 import { revealAgentActions } from './movement-hazard.js';
 import type { RevealAgentAction } from '../../types/actions-movement-hazard.js';
 import { findHuntCandidates } from '../hunt.js';
@@ -329,6 +330,26 @@ export function onGuardWindowActions(
             },
             viable: true,
           });
+        }
+      } else if (playTarget?.target === 'site') {
+        // Rumor of Wealth (td-58): "any card may be placed on-guard"
+        // (bluffing is allowed, `handlePlaceOnGuard`), but a reveal is still
+        // a play (rule 2.V.6) and must respect the card's own site keying —
+        // mirrors the site-entry reveal window's equivalent check
+        // (`revealOnGuardAttacksActions`).
+        const currentSiteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+        if (!currentSiteDef || !isSiteCard(currentSiteDef) || !playTarget.filter
+          || matchesContext(playTarget.filter, sitePlayTargetContext(state, currentSiteDef))) {
+          actions.push({
+            action: {
+              type: 'reveal-on-guard',
+              player: actor,
+              cardInstanceId: ogCard.instanceId,
+            },
+            viable: true,
+          });
+        } else {
+          logDetail(`On-guard window: "${def.name}" site play-target does not match company's current site — not revealable`);
         }
       } else {
         actions.push({
@@ -2040,6 +2061,11 @@ function applyOneConstraint(
       // to allow one gold ring regardless of its text restrictions (Hermit's
       // Hill le-382) — no broad legal-action filtering needed here.
       return base;
+    case 'dragon-ambush-window':
+      // Consulted directly by `fireDragonAmbushWindow` in `reducer-site.ts`
+      // when a major/greater item successfully attaches (Rumor of Wealth
+      // td-58) — no broad legal-action filtering needed here.
+      return base;
     case 'site-resource-unlocked':
       // Consulted directly by `playResourceShortEventActions` in
       // `legal-actions/organization.ts` (Records Unread: Information at any
@@ -3312,6 +3338,43 @@ export function ringPlayOfferActions(
         player: actor,
         ringInstanceId: card.instanceId,
         source: 'set-aside' as const,
+      },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Compute the legal actions for a queued `dragon-ambush-offer` resolution
+ * (Rumor of Wealth td-58): the hazard player may play one Dragon hazard
+ * creature from hand matching `top.kind.creatureFilter` (default: any hazard
+ * creature) directly against the ambushed company, or pass.
+ */
+export function dragonAmbushOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'dragon-ambush-offer') return [];
+
+  const { creatureFilter } = top.kind;
+  const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
+
+  const player = playerById(state, actor);
+  if (!player) return actions;
+
+  for (const card of player.hand) {
+    const def = defById(state, card.definitionId);
+    if (!def || def.cardType !== 'hazard-creature') continue;
+    if (creatureFilter && !matchesCondition(creatureFilter, def as unknown as Record<string, unknown>)) continue;
+    logDetail(`dragon-ambush-offer: offering ${def.name} (${card.instanceId as string})`);
+    actions.push({
+      action: {
+        type: 'play-dragon-ambush-creature',
+        player: actor,
+        cardInstanceId: card.instanceId,
       },
       viable: true,
     });

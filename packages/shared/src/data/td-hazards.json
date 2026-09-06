@@ -1290,8 +1290,56 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/RumorofWealth.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Ruins & Lairs [{R}] that is not a Dragon’s lair. Any one Dragon hazard creature (except Eärcaraxë) may be played (and does not count against the hazard limit) at the site during the site phase this turn after the successful play of a major or greater item. Can be revealed on-guard."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "siteType": "ruins-and-lairs" },
+            { "lairOf": { "$exists": false } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "dragon-ambush-window",
+          "scope": "company-site-phase",
+          "creatureFilter": {
+            "$and": [
+              { "race": "dragon" },
+              { "name": { "$ne": "Eärcaraxë" } }
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "resource-play",
+        "playedFilter": {
+          "$and": [
+            { "cardType": { "$in": ["hero-resource-item", "minion-resource-item"] } },
+            { "subtype": { "$in": ["major", "greater"] } }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "dragon-ambush-window",
+          "scope": "company-site-phase",
+          "creatureFilter": {
+            "$and": [
+              { "race": "dragon" },
+              { "name": { "$ne": "Eärcaraxë" } }
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Playable on a Ruins & Lairs [{R}] that is not a Dragon’s lair. Any one Dragon hazard creature (except Eärcaraxë) may be played (and does not count against the hazard limit) at the site during the site phase this turn after the successful play of a major or greater item. Can be revealed on-guard.",
+    "certified": "2026-09-06"
   },
   {
     "cardType": "hazard-event",

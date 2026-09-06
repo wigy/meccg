@@ -18386,3 +18386,83 @@ is in play as an opposing Wizard."
   `sweepDiscardSelfWhenItems` pass over every character's `items`, matching
   the same effect and context and discarding via the generic
   `removeAttachment`/`toCardInstance` primitives.
+
+### 84. `dragon-ambush-window` add-constraint + `dragon-ambush-offer` (Rumor of Wealth)
+
+Models a hazard short-event that grants a **delayed, site-phase** hazard
+creature play gated on an item successfully being played, rather than the
+usual immediate M/H hazard play. Used by *Rumor of Wealth* (td-58):
+"Playable on a Ruins & Lairs [{R}] that is not a Dragon's lair. Any one
+Dragon hazard creature (except Eärcaraxë) may be played (and does not count
+against the hazard limit) at the site during the site phase this turn after
+the successful play of a major or greater item. Can be revealed on-guard."
+
+The card is a normal site-keyed hazard short-event — `play-target` `target:
+"site"` with a `{ "lairOf": { "$exists": false } }` clause excludes Dragon's
+lairs — playable from hand during M/H (installing the constraint via the
+standard `on-event: company-arrives-at-site` → `add-constraint` path) **or**
+placed on-guard and revealed later, in response to the qualifying item play,
+via an `on-guard-reveal` effect (`trigger: "resource-play"`, `playedFilter`
+matching the item's `cardType`/`subtype`) whose `apply` is also an
+`add-constraint` — both paths install the identical constraint.
+
+```json
+{ "type": "play-target", "target": "site",
+  "filter": { "$and": [ { "siteType": "ruins-and-lairs" }, { "lairOf": { "$exists": false } } ] } }
+{ "type": "on-event", "event": "company-arrives-at-site",
+  "apply": { "type": "add-constraint", "constraint": "dragon-ambush-window",
+             "scope": "company-site-phase",
+             "creatureFilter": { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] } } }
+{ "type": "on-guard-reveal", "trigger": "resource-play",
+  "playedFilter": { "$and": [
+    { "cardType": { "$in": ["hero-resource-item", "minion-resource-item"] } },
+    { "subtype": { "$in": ["major", "greater"] } } ] },
+  "apply": { "type": "add-constraint", "constraint": "dragon-ambush-window",
+             "scope": "company-site-phase",
+             "creatureFilter": { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] } } }
+```
+
+**`on-guard-reveal`'s `apply` now also accepts `add-constraint`** (previously
+only `cancel-chain-entry` and `company-tap-characters` were wired up): a new
+branch in `chain-reducer.ts`, parallel to the existing `company-tap-characters`
+handling, fires whenever a revealed on-guard short-event resolves during the
+Site phase and installs the declared constraint on the active company via the
+shared `addDeclaredConstraint` helper (the same one `applyShortEventArrivalTrigger`
+uses for the M/H hand-play path, which explicitly skips outside M/H — the two
+paths are mutually exclusive by phase).
+
+**Site play-target validation on the `resource-play` on-guard-reveal window**:
+`onGuardWindowActions` (`legal-actions/pending.ts`) previously validated a
+revealed card's own `play-target` filter only for `target: "character"`; a
+`target: "site"` event was offered unconditionally. Fixed to check the filter
+against `sitePlayTargetContext` (the same helper the site-entry reveal window
+already used), mirroring `revealOnGuardAttacksActions`'s equivalent check —
+"any card may be placed on-guard" (bluffing, CoE 2.V.6) but a reveal is still a
+play and must respect the card's own keying.
+
+**The `dragon-ambush-window` {@link ActiveConstraint}** (scope
+`company-site-phase`, target the company) carries an optional `creatureFilter`
+{@link Condition}. `fireDragonAmbushWindow` (`reducer-site.ts`) runs
+immediately after any item successfully attaches during the site phase
+(alongside `fireItemPlayCorruptionChecks` et al.): if the item's `subtype` is
+`major`/`greater` and the active company carries the constraint, it enqueues a
+`dragon-ambush-offer` {@link PendingResolution} for the **hazard** player.
+
+| Field | Description |
+|-------|-------------|
+| `constraintId` | The `dragon-ambush-window` constraint this offer was raised from. |
+| `companyId` | The company being ambushed. |
+| `creatureFilter` | Carried over from the constraint (optional). |
+
+`dragonAmbushOfferActions` (`legal-actions/pending.ts`) offers one
+`play-dragon-ambush-creature` action per `hazard-creature` card in the hazard
+player's hand matching `creatureFilter`, plus `pass`.
+`applyDragonAmbushOfferResolution` (`pending-reducers.ts`) resolves it:
+declining (`pass`) dequeues the offer but **leaves the constraint in place**,
+so a later major/greater item play this same site phase re-offers it; playing
+a creature removes the constraint and calls the 4-argument form of
+`initiateChain` (`{ type: "creature" }`, no `countsAgainstHazardLimit` arg) —
+the same call a revealed on-guard creature uses to attack during the site
+phase (`reducer-site.ts`'s resolve-attacks step) — so the play never touches
+`hazardsPlayedThisCompany`, satisfying "does not count against the hazard
+limit" structurally rather than via a special-case check.

@@ -631,6 +631,24 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Rumor of Wealth (td-58): enqueued by `fireDragonAmbushWindow`
+         * (`reducer-site.ts`) once a major/greater item is successfully
+         * played at a site bound by a `dragon-ambush-window` constraint. The
+         * hazard player may play one matching Dragon hazard creature from
+         * hand directly against the active company (`play-dragon-ambush-creature`),
+         * or pass — declining leaves the constraint armed for a later
+         * qualifying item play this same site phase.
+         */
+        readonly type: 'dragon-ambush-offer';
+        /** The `dragon-ambush-window` constraint this offer was raised from. */
+        readonly constraintId: ConstraintId;
+        /** The company being ambushed. */
+        readonly companyId: CompanyId;
+        /** Card-definition filter carried over from the constraint (default: any hazard creature). */
+        readonly creatureFilter?: Condition;
+      }
+    | {
+        /**
          * The Windlord Found Me (dm-164): when stored at a Haven, if the
          * resource player's Wizard is not already in play, they may search
          * their play deck or discard pile for a Wizard and play him at that
@@ -2551,6 +2569,27 @@ export interface ActiveConstraint {
          * limits the unlock to one gold ring).
          */
         readonly type: 'gold-ring-item-unlocked';
+      }
+    | {
+        /**
+         * Rumor of Wealth (td-58): while active, the next major/greater item
+         * successfully played at the bound company's site (this site phase)
+         * offers the opposing (hazard) player the choice to play one matching
+         * Dragon hazard creature straight from hand against the company —
+         * bypassing the normal M/H keying pipeline and the hazard limit
+         * entirely (`initiateChain` is called directly, the same way a
+         * revealed on-guard creature is initiated during the site phase).
+         * Installed either from a `company-arrives-at-site` on-event (played
+         * from hand during M/H) or from an `on-guard-reveal` add-constraint
+         * apply (revealed on-guard in response to the qualifying item play).
+         * Scoped to `company-site-phase` so it clears when the company's
+         * site phase ends; consumed (removed) only when the hazard player
+         * actually plays a creature through it — a decline leaves it armed
+         * for the next qualifying item play this same site phase.
+         */
+        readonly type: 'dragon-ambush-window';
+        /** Optional card-definition filter restricting which hazard creatures qualify (default: any hazard creature). */
+        readonly creatureFilter?: Condition;
       }
     | {
         /**
