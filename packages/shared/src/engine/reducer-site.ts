@@ -3168,6 +3168,10 @@ export function handleSitePlayHeroResource(
     // item itself, distinct from fireItemPlayCorruptionChecks above (which
     // fires other characters' checks off a site-bound constraint like Greed).
     afterAttach = fireItemSelfPlayCorruptionCheck(afterAttach, playerIndex, targetCharId, action.cardInstanceId, def);
+    // Rumor of Wealth (td-58): a major/greater item successfully played at a
+    // site bound by a dragon-ambush-window constraint offers the hazard
+    // player a chance to ambush with a Dragon hazard creature.
+    afterAttach = fireDragonAmbushWindow(afterAttach, playerIndex, siteState.activeCompanyIndex, def);
   }
 
   // auto-test-gold-ring site-rule (Rule 9.21): playing a gold-ring item at a
@@ -3372,6 +3376,52 @@ function fireCharacterGainsItemChecks(
     }
   }
   return newState;
+}
+
+/**
+ * Rumor of Wealth (td-58): "Any one Dragon hazard creature (except
+ * Eärcaraxë) may be played (and does not count against the hazard limit) at
+ * the site during the site phase this turn after the successful play of a
+ * major or greater item." Checked immediately after any item successfully
+ * attaches during the site phase (both the direct play-resources path and the
+ * on-guard-window's deferred play resume through the same call site). If the
+ * item's subtype is major/greater and the active company carries a
+ * `dragon-ambush-window` constraint, enqueue a `dragon-ambush-offer`
+ * resolution for the hazard player. Declining leaves the constraint armed for
+ * a later qualifying item play this same site phase — only an actual play
+ * (`applyDragonAmbushOfferResolution`) consumes it.
+ */
+function fireDragonAmbushWindow(
+  state: GameState,
+  resourcePlayerIndex: number,
+  companyIndex: number,
+  itemDef: CardDefinition,
+): GameState {
+  const subtype = 'subtype' in itemDef ? (itemDef as { subtype?: string }).subtype : undefined;
+  if (subtype !== 'major' && subtype !== 'greater') return state;
+
+  const company = state.players[resourcePlayerIndex].companies[companyIndex];
+  if (!company) return state;
+
+  const constraint = state.activeConstraints.find(
+    c => c.kind.type === 'dragon-ambush-window'
+      && c.target.kind === 'company' && c.target.companyId === company.id,
+  );
+  if (!constraint || constraint.kind.type !== 'dragon-ambush-window') return state;
+
+  const hazardPlayerId = hazardPlayer(state).id;
+  logDetail(`Dragon-ambush window: "${itemDef.name}" successfully played at company ${company.id as string}'s site — offering ${hazardPlayerId as string} a Dragon hazard creature ambush`);
+  return enqueueResolution(state, {
+    source: constraint.source,
+    actor: hazardPlayerId,
+    scope: { kind: 'phase-step', phase: Phase.Site, step: 'play-resources' },
+    kind: {
+      type: 'dragon-ambush-offer',
+      constraintId: constraint.id,
+      companyId: company.id,
+      ...(constraint.kind.creatureFilter ? { creatureFilter: constraint.kind.creatureFilter } : {}),
+    },
+  });
 }
 
 /**

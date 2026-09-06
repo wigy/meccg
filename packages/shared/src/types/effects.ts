@@ -2723,6 +2723,8 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * consuming check succeeds.
    */
   readonly onSuccess?: 'draw-card';
+  /** Card-definition filter for `dragon-ambush-window` (Rumor of Wealth td-58): restricts which hazard creatures the granted play may use. */
+  readonly creatureFilter?: Condition;
   /**
    * For an influence `check-modifier` payload: replace the influencer's unused
    * direct influence with `min(effective prowess, max)` when the constraint is

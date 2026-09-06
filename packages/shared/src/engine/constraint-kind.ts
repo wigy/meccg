@@ -110,6 +110,10 @@ export function buildConstraintKind(
     }
     case 'deny-scout-resources':
       return { type: 'deny-scout-resources' };
+    case 'dragon-ambush-window': {
+      const creatureFilter = (onEvent.apply as { creatureFilter?: import('../types/effects.js').Condition }).creatureFilter;
+      return { type: 'dragon-ambush-window', ...(creatureFilter ? { creatureFilter } : {}) };
+    }
     case 'auto-attack-prowess-boost': {
       const value = (onEvent.apply as { value?: number }).value;
       const siteType = (onEvent.apply as { siteType?: import('../types/common.js').SiteType }).siteType;
