@@ -2641,9 +2641,13 @@
         "type": "play-target",
         "target": "character",
         "filter": {
-          "$and": [
-            { "target.skills": { "$includes": "diplomat" } },
-            { "company.siteName": "Eagles’ Eyrie" }
+          "$or": [
+            { "$and": [
+                { "target.skills": { "$includes": "diplomat" } },
+                { "company.siteName": "Eagles’ Eyrie" }
+              ]
+            },
+            { "company.allyNames": { "$includes": "Lindion the Oronín" } }
           ]
         }
       },
