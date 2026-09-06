@@ -2501,6 +2501,11 @@ function convertCreatureToAllyActions(
  */
 function inCancelWindow(combat: CombatState): boolean {
   if (combat.phase === 'assign-strikes') {
+    // CoE 3.iii: once the defender has finished assigning (or declined to),
+    // the opponent assigns the remaining strikes and "actions cannot be taken
+    // during this step" — the cancel window closed with the defender's pass,
+    // even though no strike has been recorded yet.
+    if (combat.assignmentPhase === 'attacker') return false;
     return combat.strikeAssignments.length === 0;
   }
   if (combat.eachCharacterFacesOneStrike

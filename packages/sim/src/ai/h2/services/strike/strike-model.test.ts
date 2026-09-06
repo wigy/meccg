@@ -80,9 +80,14 @@ describe('what happens to the character', () => {
       .find(o => o.strike === 'defeated')?.character).toBe('untapped');
   });
 
-  test('a tie taps whatever the mode — only a dodge escapes it', () => {
-    expect(strikeOutcomes({ ...tapAt(4), tapMode: 'tie-only' }, NO_BODY)
+  test('a tie taps only a character who fought at full prowess (CoE 3.iv.7)', () => {
+    // The -3 paid to stay untapped covers the tie as well: the rule taps the
+    // character "unless a -3 modification was applied in Step 3", and the
+    // engine never taps in untap or dodge mode.
+    expect(strikeOutcomes(tapAt(4), NO_BODY)
       .find(o => o.strike === 'tie')?.character).toBe('tapped');
+    expect(strikeOutcomes({ ...tapAt(4), tapMode: 'tie-only' }, NO_BODY)
+      .find(o => o.strike === 'tie')?.character).toBe('untapped');
     expect(strikeOutcomes({ ...tapAt(4), tapMode: 'never' }, NO_BODY)
       .find(o => o.strike === 'tie')?.character).toBe('untapped');
   });

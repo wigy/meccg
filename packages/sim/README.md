@@ -104,6 +104,17 @@ coverage either side of it. `heuristic:greedy` is accepted as a no-op alias.
 > and the wounded/tapped/untapped splits. Those were computed in-process from a
 > single tree and are unaffected.
 >
+> #### The +46 does not hold any more (re-measured at v0.144.0)
+>
+> Gated again on `master` @ `ec6a4def8` — challenge decks, seed 1, 400 games,
+> 4 jobs, the tree printed on each run — H2 scores 17.8% for a paired
+> **−266 [−315, −225]** against Heuristics 1. The v0.109.0 rows above record
+> what was true then; they are not a current baseline. **H2 is about 270 Elo
+> behind H1 today**, which also means every ablation in this section is
+> anchored to a `+46` that the agent no longer earns: the *differences* remain
+> the honest part of those tables, the level does not. When the regression
+> entered, and to which change, is unmeasured.
+>
 > #### Re-measured: what four of the merged changes are actually worth
 >
 > Each isolated by zeroing its own constant through the agent spec

@@ -84,13 +84,18 @@ export const killModule: H2Module = {
     if (killMp <= 0) return null;
 
     const killTsd = standing.tsdAfter({ kill: killMp }) - standing.tsd;
-    // Refusing the attack forfeits the points it was offering, and costs the
-    // card or tap that refused it. Both are certain; what is uncertain is
-    // whether the company would have won the fight, and that is `combat`'s
-    // question, not this one's.
+    // Refusing the attack costs the card or tap that refused it, and nothing
+    // else is certain. The points it was offering are *not* charged here: the
+    // candidates that face the attack are credited with them on the branches
+    // that beat it (`combat`'s question), so a refusal priced at "the card
+    // plus the kill given up" counted the same points twice — once as the
+    // fight's upside and once as the refusal's loss — and made the module
+    // fight attacks the exact lookahead (`oracle.test.ts`) says to refuse.
+    // What is left on the table is reported, so the reader can see why the
+    // fight looks attractive, but the price of refusing is the price alone.
     const price = action.type === 'cancel-by-tap' ? tunables.tapTempoCost : tunables.provisionalCardPrice;
     const forfeited = action.type === 'halve-strikes' ? killTsd / 2 : killTsd;
-    const dtsd = netTsdDelta({ realized: -forfeited, tempo: price }, tunables);
+    const dtsd = netTsdDelta({ realized: 0, tempo: price }, tunables);
 
     const outcomes: Outcome[] = [{
       p: 1,
@@ -107,7 +112,10 @@ export const killModule: H2Module = {
           ? 'zero — the kill source is capped, so the attack is not income at all'
           : 'CoE 10.3, after doubling and the diversity cap',
       }),
-      leaf('given up by refusing', -forfeited, { unit: 'tsd' }),
+      leaf('left on the table by refusing', -forfeited, {
+        unit: 'tsd',
+        note: 'not charged here — the candidates that face the attack carry it on the branches that beat it',
+      }),
       leaf('price of refusing', price, {
         unit: 'tsd',
         tunable: action.type === 'cancel-by-tap' ? 'tapTempoCost' : 'provisionalCardPrice',

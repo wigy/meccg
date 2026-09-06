@@ -498,8 +498,8 @@ describe('a support event that boosts every attack', () => {
   const BOOST = 'movement/support-event-boost';
 
   /** The scenario, its view, and the action that plays the named card. */
-  function boostPosition(options: { inPlay?: string; playing?: string } = {}) {
-    const { inPlay, playing = 'Minions Stir' } = options;
+  function boostPosition(options: { inPlay?: string; playing?: string; opponentProwess?: number } = {}) {
+    const { inPlay, playing = 'Minions Stir', opponentProwess } = options;
     const scenario = loadScenario(BOOST);
     const view = scenarioView(scenario);
     const cardPool = loadCardPool();
@@ -516,6 +516,15 @@ describe('a support event that boosts every attack', () => {
     const nameOf = (id: string) => (cardPool[id] as unknown as { name?: string }).name;
     if (!view.self.hand.some(c => nameOf(c.definitionId) === playing)) {
       (view.self.hand as unknown as { definitionId: string }[])[0].definitionId = definitionOf(playing);
+    }
+    if (opponentProwess !== undefined) {
+      // Weaken the defenders so an orc is worth playing at all. Against four
+      // prowess-5 heroes who can stay untapped at −3 the orcs in this hand
+      // are gifts of kill MP, so a boost has nothing to improve — which is
+      // correct, and not the case these tests are about.
+      for (const character of Object.values(view.opponent.characters)) {
+        (character.effectiveStats as { prowess: number }).prowess = opponentProwess;
+      }
     }
     const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
     const legalActions = viableActions(scenario);
@@ -538,7 +547,7 @@ describe('a support event that boosts every attack', () => {
     // Its whole value is "it makes my other hazards better", and that is not a
     // guess: the modifier is declared against the same two numbers the strike
     // enumeration runs on, so the plan is built twice and the difference taken.
-    const { play, context } = boostPosition();
+    const { play, context } = boostPosition({ opponentProwess: 2 });
     const evaluation = hazardsModule.evaluate(play, context)!;
     expect(evaluation).not.toBeNull();
     expect(evaluation.expectedTsd).toBeGreaterThan(0);
@@ -573,7 +582,7 @@ describe('a support event that boosts every attack', () => {
     expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
   });
 
-  test('outscores playing the creature it would boost unboosted, so it is played first', () => {
+  test('is priced by the whole boosted plan it unlocks, less its card, not by the sliver', () => {
     // The bug this guards: the event was priced by the marginal sliver a
     // second beam search found (the boosted bundle minus the unboosted one),
     // while the creature it boosts was priced by that unboosted bundle's
@@ -582,7 +591,7 @@ describe('a support event that boosts every attack', () => {
     // its attack resolved and only then did the boost arrive, too late to
     // reach it. The event now has to be worth at least what the plan it
     // unlocks is worth, same as any creature that opens it.
-    const { play, context } = boostPosition();
+    const { play, context } = boostPosition({ opponentProwess: 2 });
     const creatureCard = context.view.self.hand.find(c => {
       const def = context.cardPool[c.definitionId] as unknown as { cardType?: string };
       return def.cardType === 'hazard-creature';
@@ -592,6 +601,19 @@ describe('a support event that boosts every attack', () => {
 
     const eventEvaluation = hazardsModule.evaluate(play, context)!;
     const creatureEvaluation = hazardsModule.evaluate(playCreature, context)!;
+    const reported = /goes from ([\d.]+) to ([\d.]+)/.exec(JSON.stringify(eventEvaluation.rationale));
+    expect(reported).not.toBeNull();
+    const before = Number(reported![1]);
+    const after = Number(reported![2]);
+    expect(after).toBeGreaterThan(before);
+    // The event is worth the boosted plan minus its own card — never the
+    // sliver `after − before`, which is what always lost to the creature.
+    expect(eventEvaluation.expectedTsd).toBeCloseTo(after - DEFAULT_TUNABLES.provisionalCardPrice, 1);
+    expect(eventEvaluation.expectedTsd).toBeGreaterThan(after - before - DEFAULT_TUNABLES.provisionalCardPrice);
+    // Whether that beats the creature is then a question of how much the
+    // boost adds: +1 prowess on five strikes against four weak characters is
+    // worth more than the card, so the event leads.
+    expect(creatureEvaluation.expectedTsd).toBeCloseTo(before, 1);
     expect(eventEvaluation.expectedTsd).toBeGreaterThanOrEqual(creatureEvaluation.expectedTsd);
   });
 });

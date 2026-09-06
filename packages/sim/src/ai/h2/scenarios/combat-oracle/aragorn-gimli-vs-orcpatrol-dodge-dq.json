@@ -1,0 +1,303 @@
+{
+  "id": "combat-oracle/aragorn-gimli-vs-orcpatrol-dodge-dq",
+  "description": "Aragorn II and Gimli with Dodge and Dark Quarrels in hand face Orc-patrol: cancel or fight.",
+  "module": "combat",
+  "actingPlayer": "p1",
+  "expectation": "H2 picks a candidate whose exact-lookahead utility is the best on offer (see oracle.test.ts)",
+  "source": {
+    "kind": "synthetic",
+    "builder": "packages/shared test helpers: buildTestState (M/H phase, wilderness or shadow path) then playCreatureHazardAndResolve; hero fixtures, Orc-patrol tw-074 / Cave-drake tw-020 / Orc-warband tw-076; seed 7"
+  },
+  "hash": "a02797596cf9e187",
+  "state": {
+    "gameId": "test-game",
+    "players": [
+      {
+        "id": "p1",
+        "name": "Alice",
+        "alignment": "wizard",
+        "wizard": null,
+        "hand": [
+          {
+            "instanceId": "inst-1",
+            "definitionId": "tw-209"
+          },
+          {
+            "instanceId": "inst-2",
+            "definitionId": "tw-207"
+          }
+        ],
+        "playDeck": [],
+        "discardPile": [],
+        "siteDeck": [
+          {
+            "instanceId": "inst-3",
+            "definitionId": "tw-412"
+          }
+        ],
+        "siteDiscardPile": [],
+        "sideboard": [],
+        "killPile": [],
+        "outOfPlayPile": [],
+        "companies": [
+          {
+            "id": "company-p1-0",
+            "characters": [
+              "inst-5",
+              "inst-6"
+            ],
+            "currentSite": {
+              "instanceId": "inst-4",
+              "definitionId": "tw-413",
+              "status": "untapped"
+            },
+            "siteCardOwned": true,
+            "destinationSite": null,
+            "movementPath": [],
+            "moved": false,
+            "siteOfOrigin": null,
+            "onGuardCards": [],
+            "hazards": []
+          }
+        ],
+        "agents": [],
+        "characters": {
+          "inst-5": {
+            "instanceId": "inst-5",
+            "definitionId": "tw-120",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 6,
+              "body": 9,
+              "directInfluence": 3,
+              "corruptionPoints": 0
+            }
+          },
+          "inst-6": {
+            "instanceId": "inst-6",
+            "definitionId": "tw-159",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 5,
+              "body": 8,
+              "directInfluence": 2,
+              "corruptionPoints": 0
+            }
+          }
+        },
+        "cardsInPlay": [],
+        "marshallingPoints": {
+          "character": 5,
+          "item": 0,
+          "faction": 0,
+          "ally": 0,
+          "kill": 0,
+          "misc": 0
+        },
+        "callableMarshallingPoints": {
+          "character": 5,
+          "item": 0,
+          "faction": 0,
+          "ally": 0,
+          "kill": 0,
+          "misc": 0
+        },
+        "stagePoints": 0,
+        "generalInfluenceUsed": 15,
+        "generalInfluenceBonus": 0,
+        "deckExhaustionCount": 0,
+        "freeCouncilCalled": false,
+        "lastDiceRoll": null,
+        "sideboardAccessedDuringUntap": false,
+        "deckExhaustPending": false,
+        "deckExhaustExchangeCount": 0,
+        "reservedCreatures": [],
+        "generalInfluenceControlPenalty": 0
+      },
+      {
+        "id": "p2",
+        "name": "Bob",
+        "alignment": "wizard",
+        "wizard": null,
+        "hand": [],
+        "playDeck": [],
+        "discardPile": [],
+        "siteDeck": [
+          {
+            "instanceId": "inst-8",
+            "definitionId": "tw-421"
+          }
+        ],
+        "siteDiscardPile": [],
+        "sideboard": [],
+        "killPile": [],
+        "outOfPlayPile": [],
+        "companies": [
+          {
+            "id": "company-p2-0",
+            "characters": [
+              "inst-10"
+            ],
+            "currentSite": {
+              "instanceId": "inst-9",
+              "definitionId": "tw-408",
+              "status": "untapped"
+            },
+            "siteCardOwned": true,
+            "destinationSite": null,
+            "movementPath": [],
+            "moved": false,
+            "siteOfOrigin": null,
+            "onGuardCards": [],
+            "hazards": []
+          }
+        ],
+        "agents": [],
+        "characters": {
+          "inst-10": {
+            "instanceId": "inst-10",
+            "definitionId": "tw-168",
+            "status": "untapped",
+            "items": [],
+            "allies": [],
+            "hazards": [],
+            "followers": [],
+            "controlledBy": "general",
+            "effectiveStats": {
+              "prowess": 5,
+              "body": 8,
+              "directInfluence": 2,
+              "corruptionPoints": 0
+            }
+          }
+        },
+        "cardsInPlay": [
+          {
+            "instanceId": "inst-7",
+            "definitionId": "tw-074",
+            "status": "untapped"
+          }
+        ],
+        "marshallingPoints": {
+          "character": 2,
+          "item": 0,
+          "faction": 0,
+          "ally": 0,
+          "kill": 0,
+          "misc": 0
+        },
+        "callableMarshallingPoints": {
+          "character": 2,
+          "item": 0,
+          "faction": 0,
+          "ally": 0,
+          "kill": 0,
+          "misc": 0
+        },
+        "stagePoints": 0,
+        "generalInfluenceUsed": 6,
+        "generalInfluenceBonus": 0,
+        "deckExhaustionCount": 0,
+        "freeCouncilCalled": false,
+        "lastDiceRoll": null,
+        "sideboardAccessedDuringUntap": false,
+        "deckExhaustPending": false,
+        "deckExhaustExchangeCount": 0,
+        "reservedCreatures": [],
+        "generalInfluenceControlPenalty": 0
+      }
+    ],
+    "activePlayer": "p1",
+    "phaseState": {
+      "phase": "movement-hazard",
+      "step": "play-hazards",
+      "activeCompanyIndex": 0,
+      "handledCompanyIds": [],
+      "movementType": null,
+      "declaredRegionPath": [],
+      "maxRegionDistance": 4,
+      "hazardsPlayedThisCompany": 1,
+      "hazardLimitAtReveal": 4,
+      "preRevealHazardLimitConstraintIds": [],
+      "resolvedSitePath": [
+        "wilderness"
+      ],
+      "resolvedSitePathNames": [
+        "Rhudaur"
+      ],
+      "destinationSiteType": "ruins-and-lairs",
+      "destinationSiteName": "Moria",
+      "resourceDrawMax": 0,
+      "hazardDrawMax": 0,
+      "resourceDrawCount": 0,
+      "hazardDrawCount": 0,
+      "resourcePlayerPassed": false,
+      "hazardPlayerPassed": false,
+      "onGuardPlacedThisCompany": false,
+      "siteRevealed": false,
+      "returnedToOrigin": false,
+      "hazardsEncountered": [],
+      "ahuntAttacksResolved": 0,
+      "corruptionCardsPlayedPerChar": {},
+      "nazgulSideboardDestination": null,
+      "nazgulSideboardFetched": 0
+    },
+    "combat": {
+      "strikeAssignments": [],
+      "currentStrikeIndex": 0,
+      "phase": "assign-strikes",
+      "bodyCheckTarget": null,
+      "attackSource": {
+        "type": "creature",
+        "instanceId": "inst-7"
+      },
+      "companyId": "company-p1-0",
+      "defendingPlayerId": "p1",
+      "attackingPlayerId": "p2",
+      "strikesTotal": 3,
+      "strikeProwess": 6,
+      "creatureBody": null,
+      "creatureRace": "orc",
+      "attackKeying": [
+        "wilderness"
+      ],
+      "assignmentPhase": "defender",
+      "detainment": false
+    },
+    "chain": null,
+    "turnNumber": 1,
+    "startingPlayer": null,
+    "pendingEffects": [],
+    "pendingResolutions": [],
+    "activeConstraints": [],
+    "hazardHosts": [],
+    "rng": {
+      "seed": 7,
+      "counter": 0
+    },
+    "stateSeq": 3,
+    "reverseActions": [],
+    "lastTurnFor": null,
+    "cheatRollTotal": null,
+    "cheated": false,
+    "revealedInstances": {
+      "inst-5": "tw-120",
+      "inst-6": "tw-159",
+      "inst-4": "tw-413",
+      "inst-10": "tw-168",
+      "inst-9": "tw-408",
+      "inst-7": "tw-074"
+    },
+    "handRevealedInstances": {}
+  }
+}

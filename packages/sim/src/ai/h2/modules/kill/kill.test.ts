@@ -60,11 +60,19 @@ describe('when the attack is income', () => {
     expect(killModule.evaluate(CANCEL, context)!.expectedTsd).toBeLessThan(0);
   });
 
-  test('halving gives up less than cancelling outright', () => {
+  test('refusing costs the card alone — the points on offer are priced by facing, not charged twice', () => {
+    // The fight candidates are credited with the kill MP on the branches
+    // that beat the attack, so charging the refusal with the same points
+    // would count them twice and make every refusal look worse than it is.
+    // Halving and cancelling therefore cost the same card; what differs is
+    // what remains to be faced, which is the combat module's question.
     const context = contextWith(BALANCED, { character: 3, item: 3, faction: 3, ally: 3 });
     const halve = { type: 'halve-strikes', cardInstanceId: 'c1' } as unknown as GameAction;
+    expect(killModule.evaluate(CANCEL, context)!.expectedTsd)
+      .toBeCloseTo(-DEFAULT_TUNABLES.provisionalCardPrice, 9);
     expect(killModule.evaluate(halve, context)!.expectedTsd)
-      .toBeGreaterThan(killModule.evaluate(CANCEL, context)!.expectedTsd);
+      .toBeCloseTo(-DEFAULT_TUNABLES.provisionalCardPrice, 9);
+    expect(JSON.stringify(killModule.evaluate(CANCEL, context)!.rationale)).toContain('left on the table');
   });
 });
 

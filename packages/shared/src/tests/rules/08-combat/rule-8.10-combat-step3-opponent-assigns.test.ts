@@ -17,7 +17,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, GIMLI,
-  ORC_PATROL,
+  ORC_PATROL, DARK_QUARRELS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint,
   dispatch, resolveChain,
@@ -164,5 +164,39 @@ describe('Rule 8.10 — Step 3: Opponent Assigns Remaining Strikes', () => {
     const aragornAssignment = s.combat!.strikeAssignments.find(a => a.characterId === aragornId);
     expect(aragornAssignment).toBeDefined();
     expect(aragornAssignment!.excessStrikes).toBe(2);
+  });
+
+  test('Actions cannot be taken during this step — a cancel card in hand offers nothing once the defender has passed assignment', () => {
+    // ARAGORN alone, DARK QUARRELS in hand, faces ORC_PATROL. The defender may
+    // cancel before assigning; once it passes, the opponent assigns "immediately"
+    // and the defender has no window — not even to play the cancel it declined
+    // to use a moment earlier. (Left open, the harness's active-player priority
+    // handed the defender a menu of exactly one action, cancel-attack, and it
+    // was forced to play it.)
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [DARK_QUARRELS], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const gameState = { ...state, phaseState: makeWildernessMHState() };
+    const orcId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterChain = resolveChain(dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: orcId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'region-type' as const, value: 'wilderness' },
+    }));
+    expect(afterChain.combat!.assignmentPhase).toBe('defender');
+    expect(viableActions(afterChain, PLAYER_1, 'cancel-attack').length).toBeGreaterThan(0);
+
+    const passed = dispatch(afterChain, { type: 'pass', player: PLAYER_1 });
+    expect(passed.combat!.assignmentPhase).toBe('attacker');
+    expect(viableFor(passed, PLAYER_1)).toEqual([]);
+    expect(viableActions(passed, PLAYER_2, 'assign-strike').length).toBeGreaterThan(0);
   });
 });
