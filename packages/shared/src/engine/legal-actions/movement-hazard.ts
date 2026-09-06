@@ -3938,6 +3938,26 @@ function playHazardsActions(
       }
 
       // --- Long/permanent event checks ---
+      // A permanent/long hazard-event whose only movement/hazard-relevant
+      // effect is a from-hand `modify-attack` is a combat modifier (e.g.
+      // Morgul-knife tw-64, The Pale Sword tw-97, Icy Touch td-33): it buffs
+      // a Nazgûl attack the company is facing and attaches to the wounded
+      // character, so it has no open movement/hazard play — during M/H
+      // there is no active attack to modify, and resolving it here would
+      // silently drop the buff and strand the card in the hazard player's
+      // own play area doing nothing (bug report: Morgul-knife played openly
+      // in M/H, after strike resolution, never affected the attack). Mirrors
+      // the short-event suppression above; such a card must be played on
+      // the attack itself via the combat modify-attack action.
+      const fromHandModifyAttackLong = getCardEffects(def).some(
+        (e): boolean => e.type === 'modify-attack' && !!(e as { fromHand?: boolean }).fromHand,
+      );
+      if (fromHandModifyAttackLong) {
+        logDetail(`Hazard event "${def.name}": from-hand modify-attack is a combat modifier — not playable openly in M/H (play it on the attack)`);
+        actions.push({ action, viable: false, reason: `${def.name} must be played on the attack it modifies` });
+        continue;
+      }
+
       // Uniqueness: non-viable if already in play
       if (def.unique) {
         const alreadyInPlay = state.players.some(p =>
