@@ -1171,6 +1171,49 @@ function applyShortEventSelfEntersPlayConstraints(state: GameState, entry: Chain
   const targetCharId = entry.payload.type === 'short-event' ? entry.payload.targetCharacterId : undefined;
   for (const onEvent of onEvents) {
     if (onEvent.apply.type === 'add-constraint'
+      && onEvent.apply.constraint === 'character-stat-modifier'
+      && onEvent.apply.target === 'all-matching-characters') {
+      // Broadcast mode (The Evenstar tw-343): "the prowess of each Elf is
+      // modified by +1" — install one turn-scoped character-stat-modifier
+      // per currently-in-play character (either player's) matching `filter`,
+      // instead of the single targetCharId the ordinary mode below installs.
+      // A short event never sits in `cardsInPlay`, so this cannot be read
+      // later like a long/permanent event's plain `stat-modifier` — it must
+      // be baked into individual constraints at resolution time.
+      if (onEvent.when) {
+        const ctx = { inPlay: buildInPlayNames(newState) };
+        if (!matchesCondition(onEvent.when, ctx as unknown as Record<string, unknown>)) {
+          logDetail(`"${cardName}": character-stat-modifier (all-matching-characters) self-enters-play — when gate not met, skip`);
+          continue;
+        }
+      }
+      const stat = onEvent.apply.stat;
+      const value = onEvent.apply.value;
+      if ((stat !== 'prowess' && stat !== 'body' && stat !== 'direct-influence') || typeof value !== 'number') {
+        logDetail(`"${cardName}": character-stat-modifier (all-matching-characters) self-enters-play — missing/invalid stat or value, fizzle`);
+        continue;
+      }
+      let matched = 0;
+      for (const p of newState.players) {
+        for (const charId of Object.keys(p.characters) as CardInstanceId[]) {
+          const char = p.characters[charId];
+          const cDef = defById(newState, char.definitionId);
+          if (!cDef || !isCharacterCard(cDef)) continue;
+          if (onEvent.apply.filter && !matchesCondition(onEvent.apply.filter, { target: { race: cDef.race } })) continue;
+          matched++;
+          newState = addConstraint(newState, {
+            source: card.instanceId,
+            sourceDefinitionId: card.definitionId,
+            scope: { kind: 'turn' },
+            target: { kind: 'character', characterId: charId },
+            kind: { type: 'character-stat-modifier', stat, value, characterId: charId },
+          });
+        }
+      }
+      logDetail(`"${cardName}" resolved — character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} broadcast to ${matched} matching character(s) (scope turn)`);
+      continue;
+    }
+    if (onEvent.apply.type === 'add-constraint'
       && onEvent.apply.constraint === 'character-stat-modifier') {
       if (!targetCharId) {
         logDetail(`"${cardName}": character-stat-modifier self-enters-play — no target character, fizzle`);

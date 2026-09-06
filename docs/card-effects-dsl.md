@@ -1808,6 +1808,43 @@ gated `requiresCardInPlay: "Strangling Coils"`.
              "requiresCardInPlay": "Strangling Coils" } }
 ```
 
+**`target: "all-matching-characters"` — a broadcast mode for "each X" on a
+short event.** A long/permanent event's plain `stat-modifier` with
+`target: "all-characters"` (Sun tw-335, Star of High Hope td-154) works
+because `collectGlobalEffects` reads the card's own `effects` straight out of
+`cardsInPlay` every time stats are recomputed. A **short** event never sits in
+`cardsInPlay` — it resolves once and goes straight to discard — so "the
+prowess of **each** Elf" cannot be expressed that way. Instead, this mode
+installs one ordinary `character-stat-modifier` constraint (as above) per
+currently-in-play character (either player's) matching `filter`, baked in at
+resolution time instead of read live:
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "when": { "inPlay": "Gates of Morning" },
+  "apply": { "type": "add-constraint", "constraint": "character-stat-modifier",
+             "target": "all-matching-characters",
+             "filter": { "target.race": "elf" },
+             "stat": "prowess", "value": 1, "scope": "turn" } }
+```
+
+- `filter` — a {@link Condition} evaluated per candidate character against
+  `{ target: { race } }`. Omit to reach every character in play.
+- The ordinary `characterId`/`action.targetCharacterId` targeting above still
+  applies whenever `target` is absent — this mode is opt-in.
+
+Implemented in both places a short event's self-enters-play effects resolve:
+the inline apply used by an ordinary character-targeted short event
+(`applyShortEventOnEntersPlay`, `reducer-events.ts`) and the chain resolver
+used when the same card's other effects force it onto the chain
+(`applyShortEventSelfEntersPlayConstraints`, `chain-reducer.ts` — e.g. when
+combined with a `region-transform` choice, § `region-transform`).
+
+Used by: *The Evenstar* (tw-343) — "if Gates of Morning is in play, the
+prowess of each Elf is modified by +1" — stacked on top of the card's own
+single-target `+1` on the chosen Elf (so that Elf reaches +2 while every other
+Elf reaches +1).
+
 ### 6b. `draw-modifier`
 
 Modifies the number of cards drawn during the movement/hazard draw step
@@ -13240,6 +13277,56 @@ Used by: *Master of Wood, Water, or Hill* (td-136) — "Sage only. Ritual. Tap a
 sage to change one Wilderness [{w}] to a Border-land [{b}] or Shadow-land
 [{s}] or one Shadow-land [{s}] to a Wilderness [{w}] or one Border-land [{b}]
 to a Wilderness [{w}]. Sage makes a corruption check."
+
+**Optional `when` gate and `duration: "turn"`.** Two fields extend the
+primitive for a card whose region choice is conditional and temporary rather
+than always-available and permanent:
+
+```json
+{ "type": "region-transform",
+  "when": { "inPlay": "Gates of Morning" },
+  "duration": "turn",
+  "options": [
+    { "from": "wilderness", "to": "border" },
+    { "from": "border", "to": "free" }
+  ] }
+```
+
+- `when` *(optional)* — evaluated against `{ inPlay }`; when absent the
+  choice is always offered (Master of Wood, Water, or Hill's behaviour).
+  Checked in the legal-action emitter before `collectRegionTransformTargets`
+  runs at all — an unmet gate is treated as "no targets", not an error.
+- `duration` *(optional)* — `"turn"` installs the `region.type` `override`
+  constraint with `scope: { kind: "turn" }` (swept at end of turn) instead of
+  the default `until-cleared` (permanent).
+
+**Combining with a cost-less character target — an *optional* layer, not the
+card's sole mode.** Master of Wood, Water, or Hill's `play-target` pays a
+**tap cost** (`cost.tap`), so the region choice is mandatory: no matching
+region anywhere on the map means the whole card is unplayable. A card whose
+`play-target` is instead a plain, cost-less, filter-only character target
+(e.g. "the prowess of one Elf...") uses the region-transform as an
+*additional*, skippable choice layered on top of that character target — the
+legal-action emitter (`legal-actions/organization.ts`) detects this shape
+(`playTarget.target === 'character' && !playTarget.cost?.tap &&
+playTarget.filter`) and, instead of blocking the card on an unmet gate or
+empty target list, offers the plain character-only action **and**, when the
+gate holds, one additional (character × region) variant per matching region —
+carrying both `targetCharacterId` and `targetRegionName`/`newRegionType` on
+the same action. The reducer (`reducer-events.ts`) forwards `targetCharacterId`
+onto the region-transform chain-entry payload alongside
+`regionTransformName`/`regionTransformType` so the generic self-enters-play
+dispatcher (`applyShortEventSelfEntersPlayConstraints`, chain-reducer.ts)
+still fires the character-targeted effects on chain resolution. The plain
+(no-region) variant never rides the chain at all — it resolves inline via
+`applyShortEventOnEntersPlay`, same as any other cost-less character-targeted
+short event.
+
+Used by: *The Evenstar* (tw-343) — "you may choose: one Wilderness [{w}] to
+treat as a Border-land [{b}] or one Border-land [{b}] to treat as a
+Free-domain [{f}]" — offered only while Gates of Morning is in play, and only
+until the end of the turn, alongside the card's mandatory "prowess of one Elf"
+character target.
 
 ### 43d. `site-untap`
 

@@ -4409,8 +4409,40 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Environment. The prowess of one Elf is modified by +1 until the end of the turn.Additionally, if Gates of Morning is in play: the prowess of each Elf is modified by +1 (until the end of the turn); and, you may choose: one Wilderness [{w}] to treat as a Border-land [{b}] or one Border-land [{b}] to treat as a Free-domain [{f}].Cannot be duplicated."
+    "effects": [
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "play-target", "target": "character", "filter": { "target.race": "elf" } },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": 1, "scope": "turn" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "inPlay": "Gates of Morning" },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "character-stat-modifier",
+          "target": "all-matching-characters",
+          "filter": { "target.race": "elf" },
+          "stat": "prowess",
+          "value": 1,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "region-transform",
+        "when": { "inPlay": "Gates of Morning" },
+        "duration": "turn",
+        "options": [
+          { "from": "wilderness", "to": "border" },
+          { "from": "border", "to": "free" }
+        ]
+      }
+    ],
+    "text": "Environment. The prowess of one Elf is modified by +1 until the end of the turn.Additionally, if Gates of Morning is in play: the prowess of each Elf is modified by +1 (until the end of the turn); and, you may choose: one Wilderness [{w}] to treat as a Border-land [{b}] or one Border-land [{b}] to treat as a Free-domain [{f}].Cannot be duplicated.",
+    "certified": "2026-09-07"
   },
   {
     "cardType": "hero-resource-faction",

@@ -4307,10 +4307,28 @@ export function playResourceShortEventActions(
     const regionTransformEffect = def.effects?.find(
       (e): e is RegionTransformEffect => e.type === 'region-transform',
     );
+    // A card that also carries a cost-less, filter-only character `play-target`
+    // (The Evenstar tw-343: "the prowess of one Elf ...") offers the region
+    // choice as an *additional*, optional layer on top of that character
+    // target rather than as the card's sole mode (Master of Wood, Water, or
+    // Hill td-136, whose only other effect is a tap-cost sage target). For
+    // that combinable shape, an unmet `when` gate or an empty target list
+    // must not block the card — it just means no region-choice variant is
+    // offered this time, and the plain character-only action still is.
+    const regionTransformCombinable = !!playTarget
+      && playTarget.target === 'character'
+      && !playTarget.cost?.tap
+      && !!playTarget.filter;
     let regionTransformTargets: { regionName: string; newRegionType: RegionType }[] | null = null;
     if (regionTransformEffect) {
-      regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
-      if (regionTransformTargets.length === 0) {
+      const regionTransformGateMet = !regionTransformEffect.when
+        || matchesCondition(regionTransformEffect.when, { inPlay: inPlayNames });
+      if (regionTransformGateMet) {
+        regionTransformTargets = collectRegionTransformTargets(state, regionTransformEffect);
+      } else {
+        logDetail(`${def.name}: region-transform "when" gate not met`);
+      }
+      if (!regionTransformCombinable && (!regionTransformGateMet || regionTransformTargets?.length === 0)) {
         logDetail(`${def.name}: no region currently matches a region-transform option — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} has no eligible region to transform`));
         continue;
@@ -4601,6 +4619,27 @@ export function playResourceShortEventActions(
             },
             viable: true,
           });
+          // The Evenstar (tw-343): "you may choose: one Wilderness ... or
+          // one Border-land ..." — an optional region-transform layered on
+          // top of the mandatory character target, offered as additional
+          // action variants (one per matching region) alongside the plain
+          // one above, never replacing it.
+          if (regionTransformTargets && regionTransformTargets.length > 0) {
+            for (const { regionName, newRegionType } of regionTransformTargets) {
+              logDetail(`Resource short-event playable (filter-target ${String(targetId)}, region ${regionName} → ${newRegionType}): ${def.name}`);
+              actions.push({
+                action: {
+                  type: 'play-short-event',
+                  player: playerId,
+                  cardInstanceId: handCard.instanceId,
+                  targetCharacterId: targetId,
+                  targetRegionName: regionName,
+                  newRegionType,
+                },
+                viable: true,
+              });
+            }
+          }
         }
       }
     } else {
