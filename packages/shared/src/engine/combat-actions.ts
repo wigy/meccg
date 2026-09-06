@@ -39,7 +39,7 @@ import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySu
 import { evaluateExpr } from './effects/expression-eval.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { enqueueCorruptionCheck, addConstraint, sweepExpired } from './pending.js';
+import { enqueueCorruptionCheck, addConstraint, sweepExpired, countConstraintsFromDefinition } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
 import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, completeCombat } from './combat-finalize.js';
@@ -2225,8 +2225,18 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       if ('error' in charge) return { state, error: charge.error };
     }
 
+    // Prior copies of this exact card definition already played on this
+    // attack (attack-scoped `attack-card-played` markers) — exposed to
+    // `prowessModifierExpr` as `sameCardPlaysOnAttack` for cards whose bonus
+    // scales with the running count (Prowess of Age td-55: this play's own
+    // marker is added further below via `effect.trackAttackPlays`, after this
+    // count is read, so it reflects prior plays only).
+    const sameCardPlaysOnAttack = countConstraintsFromDefinition(state, handCard.definitionId, 'attack');
     const prowessModifier = effect.prowessModifierExpr !== undefined
-      ? Math.round(evaluateExpr(effect.prowessModifierExpr, { nazgulPermanentEventsInPlay: countNazgulPermanentEventsInPlay(state) }))
+      ? Math.round(evaluateExpr(effect.prowessModifierExpr, {
+          nazgulPermanentEventsInPlay: countNazgulPermanentEventsInPlay(state),
+          sameCardPlaysOnAttack,
+        }))
       : effect.prowessModifier ?? 0;
     const bodyModifier = effect.bodyModifier ?? 0;
     const strikesModifier = effect.strikesModifier ?? 0;
@@ -2367,7 +2377,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       (e): e is import('../types/effects.js').DuplicationLimitEffect =>
         e.type === 'duplication-limit' && (e as { scope: string }).scope === 'attack',
     );
-    if (attackDupLimit) {
+    if (attackDupLimit || effect.trackAttackPlays) {
       newState = addConstraint(newState, {
         source: handCard.instanceId,
         sourceDefinitionId: handCard.definitionId,
@@ -2375,7 +2385,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         target: { kind: 'player', playerId: action.player },
         kind: { type: 'attack-card-played' },
       });
-      logDetail(`${cardLabel}: added attack-card-played marker (duplication-limit scope attack)`);
+      logDetail(`${cardLabel}: added attack-card-played marker (${attackDupLimit ? 'duplication-limit scope attack' : 'trackAttackPlays'})`);
     }
 
     return { state: newState };

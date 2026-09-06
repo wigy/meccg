@@ -1031,6 +1031,7 @@ export function makeCancelWindowCombat(
   opts: {
     creatureDefId?: CardDefinitionId;
     creatureRace?: Race;
+    creatureUnique?: boolean;
     attackKeying?: readonly RegionType[];
     attackSiteKeyingTypes?: readonly SiteType[];
     attackKeyingRegionNames?: readonly string[];
@@ -1078,6 +1079,7 @@ export function makeCancelWindowCombat(
     strikeProwess: opts.strikeProwess ?? 6,
     creatureBody: null,
     creatureRace,
+    creatureUnique: opts.creatureUnique,
     attackKeying: opts.attackKeying && opts.attackKeying.length > 0 ? opts.attackKeying : undefined,
     attackSiteKeyingTypes: opts.attackSiteKeyingTypes && opts.attackSiteKeyingTypes.length > 0 ? opts.attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: opts.attackKeyingRegionNames && opts.attackKeyingRegionNames.length > 0 ? opts.attackKeyingRegionNames : undefined,
