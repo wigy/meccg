@@ -3093,7 +3093,7 @@ export function buildPlayOptionContext(
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
-  let companyAllyNames: string[] = [];
+  const companyAllyNames: string[] = [];
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
