@@ -6354,6 +6354,50 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           current = moved.state;
         }
       }
+    } else if (opt?.apply.type === 'sequence') {
+      // An untargeted option whose apply sequences a `move` on one declared
+      // card instance with a company-scoped `add-constraint` (Parsimony of
+      // Seclusion td-52: "return any manifestation of Agburanar to your hand
+      // from your discard pile and increase the hazard limit by two"). The
+      // move sub-apply resolves exactly like the plain-`move` branch above;
+      // the add-constraint sub-apply (hazard-limit-modifier) targets the
+      // hazard play's own `targetCompanyId`, which every hazard short-event's
+      // chain payload carries regardless of its actual target kind.
+      const optTargetId = entry.payload.optionTargetInstanceId;
+      const targetCompanyId = entry.payload.targetCompanyId;
+      const declaringIdx = getPlayerIndex(current, entry.declaredBy);
+      for (const sub of opt.apply.apps ?? []) {
+        if (sub.type === 'move') {
+          if (!optTargetId) {
+            logDetail(`${cardNm} option "${opt.id}": no target instance declared — fizzle`);
+            continue;
+          }
+          const moved = applyMove(current, sub, {
+            sourceCardId: entry.card.instanceId,
+            sourcePlayerIndex: declaringIdx,
+            targetCardId: optTargetId,
+          });
+          if ('error' in moved) {
+            logDetail(`${cardNm} option "${opt.id}": move failed (${moved.error}) — fizzle`);
+          } else {
+            logDetail(`${cardNm} option "${opt.id}": moved ${optTargetId as string} → ${sub.to}`);
+            current = moved.state;
+          }
+        } else if (sub.type === 'add-constraint' && sub.constraint === 'hazard-limit-modifier') {
+          if (typeof sub.value !== 'number' || !targetCompanyId) {
+            logDetail(`${cardNm} option "${opt.id}": hazard-limit-modifier — missing value or target company, fizzle`);
+            continue;
+          }
+          logDetail(`${cardNm} option "${opt.id}": hazard-limit-modifier ${sub.value >= 0 ? '+' : ''}${sub.value} against company ${targetCompanyId as string}`);
+          current = addConstraint(current, {
+            source: entry.card.instanceId,
+            sourceDefinitionId: entry.card.definitionId,
+            target: { kind: 'company', companyId: targetCompanyId },
+            kind: { type: 'hazard-limit-modifier', value: sub.value },
+            scope: { kind: 'company-mh-phase', companyId: targetCompanyId },
+          });
+        }
+      }
     }
   }
 

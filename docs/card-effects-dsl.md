@@ -17172,6 +17172,44 @@ character to be played".
 
 Used by: *Returned Beyond All Hope* (as-35).
 
+#### `sequence` apply on an instance-targeted untargeted `play-option`
+
+Parsimony of Seclusion (td-52): "Return any unique Dragon manifestation to
+your hand from your discard pile. Alternatively, return any manifestation of
+Agburanar to your hand from your discard pile and increase the hazard limit
+by two." The second mode needs to do *two* things — move a card **and** boost
+the hazard limit — so its `apply` is a `sequence` instead of a bare `move`.
+
+`untargetedOptionCandidates` (`legal-actions/movement-hazard.ts`) derives the
+candidate filter for a `sequence` apply from its first nested `move`'s
+`filter` (the other sub-apply, `add-constraint`, targets the company, not a
+card instance). On resolution, the untargeted-option dispatch
+(`chain-reducer.ts`) walks `sequence.apps` in order:
+
+- a `move` sub-apply resolves exactly like the bare-`move` case above, using
+  `entry.payload.optionTargetInstanceId`;
+- an `add-constraint` sub-apply with `constraint: "hazard-limit-modifier"`
+  calls `addConstraint` directly, targeting
+  `{ kind: "company", companyId: entry.payload.targetCompanyId }` with
+  `scope: "company-mh-phase"`. `targetCompanyId` is always present on a
+  hazard short-event's chain payload — copied from `PlayHazardAction`, which
+  always carries it regardless of the card's actual target kind (see the
+  "Company-targeting mode" note above) — so this works even though the card
+  declares no `play-target` of its own.
+
+```json
+{ "type": "play-option", "id": "return-agburanar-and-boost-limit",
+  "untargeted": true, "candidates": "own-discard",
+  "apply": { "type": "sequence", "apps": [
+    { "type": "move", "select": "target", "from": "discard", "to": "hand",
+      "count": 1, "filter": { "manifestId": "tw-3" } },
+    { "type": "add-constraint", "constraint": "hazard-limit-modifier",
+      "scope": "company-mh-phase", "value": 2 }
+  ] } }
+```
+
+Used by: *Parsimony of Seclusion* (td-52).
+
 ### 73. `discard-bearer-corruption` + `company.siteCharacterNames`
 
 `{ "type": "on-event", "event": "self-enters-play", "apply": { "type":

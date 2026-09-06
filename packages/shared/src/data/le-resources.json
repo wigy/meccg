@@ -4933,6 +4933,7 @@
     "marshallingCategory": "faction",
     "influenceNumber": 13,
     "race": "dragon",
+    "manifestId": "tw-3",
     "playableAt": [
       {
         "site": "Caves"
