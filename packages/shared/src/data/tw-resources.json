@@ -1289,6 +1289,9 @@
     "prowess": 2,
     "body": 9,
     "mind": 4,
+    "skills": [
+      "scout"
+    ],
     "marshallingPoints": 2,
     "marshallingCategory": "ally",
     "certified": "2026-04-24",
