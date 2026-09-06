@@ -600,12 +600,13 @@
     "keyedTo": [
       {
         "regionTypes": [
-          "coastal-sea"
+          "coastal"
         ]
       }
     ],
     "effects": [],
-    "text": "Drake. Two strikes."
+    "text": "Drake. Two strikes.",
+    "certified": "2026-09-06"
   },
   {
     "cardType": "hazard-creature",
