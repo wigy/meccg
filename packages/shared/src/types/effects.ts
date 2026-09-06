@@ -2680,8 +2680,25 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly constraint?: string;
   /** The constraint scope, encoded as a string the on-event handler maps to {@link ConstraintScope}. */
   readonly scope?: string;
-  /** Selector for the constrained entity (e.g. `'action-target-character'`, `'bearer'`) on grant-action applies. */
+  /**
+   * Selector for the constrained entity (e.g. `'action-target-character'`,
+   * `'bearer'`) on grant-action applies. `'all-matching-characters'` is a
+   * `character-stat-modifier` broadcast mode (§6a): instead of the single
+   * `action.targetCharacterId`, install one turn-scoped modifier per
+   * currently-in-play character (either player's) matching {@link filter} —
+   * used for "the prowess of **each** Elf" clauses on a short event, which
+   * cannot rely on `collectGlobalEffects` scanning `cardsInPlay` the way a
+   * long/permanent event's plain `stat-modifier` would (the card is already
+   * in the discard pile by the time it would be read). Used by The Evenstar
+   * (tw-343): "if Gates of Morning is in play, the prowess of each Elf is
+   * modified by +1".
+   */
   readonly target?: string;
+  /**
+   * Per-character filter for the `'all-matching-characters'` broadcast mode,
+   * evaluated against `{ target: { race } }` per candidate character.
+   */
+  readonly filter?: Condition;
   /** Numeric payload (check-modifier, *-stat-modifier, hazard-limit-modifier, hand-size-modifier, …). */
   readonly value?: number;
   /**
@@ -5458,6 +5475,12 @@ export interface RegionTransformEffect extends EffectBase {
   readonly options: readonly RegionTransformOption[];
   /** Modifier applied to the sage's follow-up corruption check (default 0). */
   readonly corruptionCheck?: { readonly modifier: number };
+  /**
+   * `"turn"` — the region override is swept at end of turn (The Evenstar
+   * tw-343: "until the end of the turn"). Omit for a permanent retype
+   * (default; Master of Wood, Water, or Hill td-136).
+   */
+  readonly duration?: 'turn';
 }
 
 /**
