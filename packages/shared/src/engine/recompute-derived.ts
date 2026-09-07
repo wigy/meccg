@@ -1960,7 +1960,10 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   for (const { count, def } of factionsByLeader.values()) {
     const effect = getLeaderControlEffect(def);
     if (effect && count >= effect.groupBonus.count) {
-      mp = { ...mp, faction: mp.faction + effect.groupBonus.mp };
+      // CoE 10.F3: a Fallen-wizard player receives only one extra faction
+      // point for the group instead of the card's printed bonus (normally 2).
+      const bonus = player.alignment === 'fallen-wizard' ? 1 : effect.groupBonus.mp;
+      mp = { ...mp, faction: mp.faction + bonus };
     }
   }
 
