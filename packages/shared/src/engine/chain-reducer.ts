@@ -605,6 +605,9 @@ function handleCounterCancelRoll(
   if (attackRace === undefined || !rollEffect.race.includes(attackRace)) {
     return { state, error: `counter-cancel-roll: attack race "${attackRace}" not counterable by this card` };
   }
+  if (rollEffect.uniqueOnly && combat.creatureUnique !== true) {
+    return { state, error: 'counter-cancel-roll: attack is not from a unique creature manifestation' };
+  }
 
   // The target must be an unresolved, un-negated chain entry declared by the
   // opponent that carries a cancel-attack effect (the effect being countered).
@@ -4174,6 +4177,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     creatureBody: effectiveBody,
     creatureRace,
     creatureRaces,
+    creatureUnique: creatureDef.unique,
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
@@ -5307,39 +5311,62 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
-  // Counter-cancel-attack-roll (Black Vapour ba-14): when the countering short
-  // event resolves un-negated, enqueue a `dice-check` for the attacking (hazard)
-  // player: roll 2d6 + the attack's current prowess. On a total greater than the
-  // threshold, negate the targeted cancel entry and boost the attack (the onPass
-  // `counter-cancel-attack` verb); otherwise the cancel resolves normally. The
-  // check's `continuation` marks this entry resolved and resumes the chain, so
-  // the (now negated or intact) cancel entry is processed next.
+  // Counter-cancel-attack-roll (Black Vapour ba-14, Prowess of Age td-55 Mode
+  // A): when the countering short event resolves un-negated, either enqueue a
+  // `dice-check` (roll-gated variant) or negate the target immediately
+  // (instant variant, no `threshold` — Prowess of Age).
   if (entry.payload.type === 'short-event'
     && entry.payload.counterCancelTargetInstanceId
     && !entry.negated
     && entry.card
     && current.combat) {
     const cardDef = defById(current, entry.card.definitionId);
+    const cardLabel = (cardDef as { name?: string } | undefined)?.name ?? (entry.card.definitionId as string);
     const rollEffect = getCardEffects(cardDef).find(
       (e): e is import('../types/effects.js').CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
     );
-    if (rollEffect) {
+    const targetInstanceId = entry.payload.counterCancelTargetInstanceId;
+    // Instant variant: no roll, unconditional negation (Prowess of Age Mode
+    // A — "targets and cancels any effect... that would cancel an attack
+    // from a unique Dragon manifestation"). Applies the same negate +
+    // prowess-bonus logic as the roll-gated onPass verb
+    // (`pending-reducers.ts` `counter-cancel-attack` branch), but inline
+    // since there is no dice-check to enqueue.
+    if (rollEffect && rollEffect.threshold === undefined) {
+      const idx = current.chain!.entries.findIndex(
+        e => e.card?.instanceId === targetInstanceId && !e.resolved && !e.negated,
+      );
+      const bonus = rollEffect.prowessBonus ?? 0;
+      if (idx === -1) {
+        logDetail(`${cardLabel}: instant counter-cancel target ${targetInstanceId as string} not an unresolved chain entry — no-op`);
+      } else {
+        const newEntries = current.chain!.entries.map((e, i) => (i === idx ? { ...e, negated: true } : e));
+        logDetail(`${cardLabel}: instant counter-cancel negates entry ${targetInstanceId as string}; attack prowess ${current.combat.strikeProwess} → ${current.combat.strikeProwess + bonus}`);
+        current = {
+          ...current,
+          chain: { ...current.chain!, entries: newEntries },
+          combat: { ...current.combat, strikeProwess: current.combat.strikeProwess + bonus },
+        };
+      }
+      // Falls through to the generic "mark entry as resolved" step below
+      // (same pattern as the plain cancel-attack short-event branch) — no
+      // dice-check to enqueue, so there is nothing to wait on.
+    } else if (rollEffect && rollEffect.threshold !== undefined) {
       const attackProwess = current.combat.strikeProwess;
       const scope = companySubphaseScope(current.phaseState.phase, current.combat.companyId);
-      const targetInstanceId = entry.payload.counterCancelTargetInstanceId;
-      logDetail(`Counter-cancel-attack-roll: enqueuing dice-check (roll + attack prowess ${attackProwess} > ${rollEffect.threshold}) to counter "${targetInstanceId as string}"`);
+      logDetail(`${cardLabel}: enqueuing dice-check (roll + attack prowess ${attackProwess} > ${rollEffect.threshold}) to counter "${targetInstanceId as string}"`);
       current = enqueueResolution(current, {
         source: entry.card.instanceId,
         actor: entry.declaredBy,
         scope,
         kind: {
           type: 'dice-check',
-          label: 'Black Vapour counter-cancel',
+          label: `${cardLabel} counter-cancel`,
           roller: entry.declaredBy,
           modifiers: [{ kind: 'constant', value: attackProwess }],
           threshold: rollEffect.threshold,
           comparison: 'gt',
-          onPass: { type: 'counter-cancel-attack', prowessBonus: rollEffect.prowessBonus },
+          onPass: { type: 'counter-cancel-attack', prowessBonus: rollEffect.prowessBonus ?? 0 },
           continuation: { kind: 'chain-entry', match: 'source' },
           targetInstanceId,
         },
@@ -6098,6 +6125,47 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Rumor of Wealth (td-58) revealed from on-guard during the site phase: the
+  // on-guard-reveal effect's `add-constraint` apply installs the granted
+  // constraint on the active company exactly like a `company-arrives-at-site`
+  // mode would for a hand-played copy — reused here because a copy revealed
+  // on-guard resolves in the Site phase, where `applyShortEventArrivalTrigger`
+  // (M/H-only) never fires. The deferred resource play it responded to is not
+  // interfered with — it runs when the on-guard window closes.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.Site) {
+    const ogCardDef = defById(current, entry.card.definitionId);
+    const ogAddConstraintEffect = getCardEffects(ogCardDef).find(
+      (e): e is import('../index.js').OnGuardRevealEffect =>
+        e.type === 'on-guard-reveal'
+        && (e as { apply?: { type?: string } }).apply?.type === 'add-constraint',
+    );
+    if (ogAddConstraintEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const siteState = current.phaseState;
+      const company = current.players[activeIndex].companies[siteState.activeCompanyIndex];
+      const apply = ogAddConstraintEffect.apply as import('../types/effects.js').AddConstraintAction;
+      if (company && apply.constraint && apply.scope) {
+        const r = addDeclaredConstraint(
+          current,
+          entry.card,
+          ogAddConstraintEffect as unknown as import('../types/effects.js').OnEventEffect,
+          apply.constraint,
+          apply.scope,
+          company.id,
+        );
+        current = r.state;
+        if (r.added) {
+          logDetail(`on-guard add-constraint "${(ogCardDef as { name?: string })?.name ?? '?'}" resolves → added ${apply.constraint} constraint on company ${company.id as string}`);
+        }
+      }
+    }
+  }
+
   // Seized by Terror: hazard short event targeting a character. Enqueue a
   // pending resolution so the character's player rolls 2d6 + mind.
   if (entry.payload.type === 'short-event'
@@ -6352,6 +6420,50 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         } else {
           logDetail(`${cardNm} option "${opt.id}": moved ${optTargetId as string} → ${opt.apply.to}`);
           current = moved.state;
+        }
+      }
+    } else if (opt?.apply.type === 'sequence') {
+      // An untargeted option whose apply sequences a `move` on one declared
+      // card instance with a company-scoped `add-constraint` (Parsimony of
+      // Seclusion td-52: "return any manifestation of Agburanar to your hand
+      // from your discard pile and increase the hazard limit by two"). The
+      // move sub-apply resolves exactly like the plain-`move` branch above;
+      // the add-constraint sub-apply (hazard-limit-modifier) targets the
+      // hazard play's own `targetCompanyId`, which every hazard short-event's
+      // chain payload carries regardless of its actual target kind.
+      const optTargetId = entry.payload.optionTargetInstanceId;
+      const targetCompanyId = entry.payload.targetCompanyId;
+      const declaringIdx = getPlayerIndex(current, entry.declaredBy);
+      for (const sub of opt.apply.apps ?? []) {
+        if (sub.type === 'move') {
+          if (!optTargetId) {
+            logDetail(`${cardNm} option "${opt.id}": no target instance declared — fizzle`);
+            continue;
+          }
+          const moved = applyMove(current, sub, {
+            sourceCardId: entry.card.instanceId,
+            sourcePlayerIndex: declaringIdx,
+            targetCardId: optTargetId,
+          });
+          if ('error' in moved) {
+            logDetail(`${cardNm} option "${opt.id}": move failed (${moved.error}) — fizzle`);
+          } else {
+            logDetail(`${cardNm} option "${opt.id}": moved ${optTargetId as string} → ${sub.to}`);
+            current = moved.state;
+          }
+        } else if (sub.type === 'add-constraint' && sub.constraint === 'hazard-limit-modifier') {
+          if (typeof sub.value !== 'number' || !targetCompanyId) {
+            logDetail(`${cardNm} option "${opt.id}": hazard-limit-modifier — missing value or target company, fizzle`);
+            continue;
+          }
+          logDetail(`${cardNm} option "${opt.id}": hazard-limit-modifier ${sub.value >= 0 ? '+' : ''}${sub.value} against company ${targetCompanyId as string}`);
+          current = addConstraint(current, {
+            source: entry.card.instanceId,
+            sourceDefinitionId: entry.card.definitionId,
+            target: { kind: 'company', companyId: targetCompanyId },
+            kind: { type: 'hazard-limit-modifier', value: sub.value },
+            scope: { kind: 'company-mh-phase', companyId: targetCompanyId },
+          });
         }
       }
     }

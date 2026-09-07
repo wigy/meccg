@@ -232,6 +232,8 @@ export const ACTION_TYPES: readonly string[] = [
   'play-named-card-offer',
   // Added by certifying ba-34 (Elven Rope).
   'store-creature-in-item',
+  // Added by certifying td-58 (Rumor of Wealth).
+  'play-dragon-ambush-creature',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

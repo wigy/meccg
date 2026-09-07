@@ -36,17 +36,18 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, CAVE_DRAKE, GANDALF, BILBO, FRODO,
+  ARAGORN, LEGOLAS, CAVE_DRAKE, GANDALF, BILBO, FRODO, GOLLUM,
   STEALTH,
   RIVENDELL, BREE, LORIEN, MORIA, MINAS_TIRITH,
   mint,
   makeMHState,
   handCardId, charIdAt, companyIdAt, dispatch,
   viableActions, RESOURCE_PLAYER, HAZARD_PLAYER,
-  findHandCardId,
+  findHandCardId, actionAs,
+  attachAllyToChar, findAllyInstanceId,
 } from '../test-helpers.js';
 import type {
-  PlayHazardAction, CardInstanceId, CardDefinitionId,
+  PlayHazardAction, CardInstanceId, CardDefinitionId, PlayShortEventAction,
 } from '../../index.js';
 import { RegionType, SiteType } from '../../index.js';
 import { addConstraint, sweepExpired } from '../../engine/pending.js';
@@ -241,6 +242,30 @@ describe('Stealth (tw-332)', () => {
     const playActions = viableActions(base, PLAYER_1, 'play-short-event')
       .map(ea => ea.action as { cardInstanceId: string });
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeUndefined();
+  });
+
+  test('Stealth is playable on a scout ally (Gollum) even when its host has no scout skill', () => {
+    // Bug report (game mtnpi0g4-6syfuw, seq 538): Legolas (warrior/diplomat,
+    // no scout skill) has Gollum — a Scout ally per the CoE card database —
+    // attached. Per rule 2.V.2.2, allies are treated as characters for
+    // "skill only" cards, so Gollum must be offered as an eligible Stealth
+    // tapper even though his host cannot pay the cost himself.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [STEALTH], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = attachAllyToChar(base, RESOURCE_PLAYER, LEGOLAS, GOLLUM);
+    const gollumId = findAllyInstanceId(state, RESOURCE_PLAYER, LEGOLAS, GOLLUM)!;
+
+    const playActions = viableActions(state, PLAYER_1, 'play-short-event');
+    const gollumAction = playActions.find(
+      ea => actionAs<PlayShortEventAction>(ea.action).targetScoutInstanceId === gollumId,
+    );
+    expect(gollumAction).toBeDefined();
   });
 
   test('playing Stealth through the reducer adds no-creature-hazards-on-company constraint', () => {

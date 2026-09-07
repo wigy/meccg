@@ -5450,29 +5450,61 @@ via `evaluateExpr` (`engine/effects/expression-eval.ts`) when
 `prowessModifierExpr` is set, rounding the result, in place of reading
 `prowessModifier` directly.
 
+**`trackAttackPlays` + `sameCardPlaysOnAttack` (stacking bonus across
+multiple copies played on one attack).** A `fromHand` effect may set
+`trackAttackPlays: true` to opt into the same attack-scoped
+`attack-card-played` marker a `duplication-limit` scope `"attack"` effect
+installs (`scope: { kind: "attack" }`, swept when the attack finalizes) —
+without actually limiting duplication. `handleModifyAttack` reads the
+**prior** count of markers sourced from this exact card definition on this
+attack (`countConstraintsFromDefinition`, before adding this play's own
+marker) and exposes it to `prowessModifierExpr` as `sameCardPlaysOnAttack`,
+alongside `nazgulPermanentEventsInPlay`. This lets a card's bonus scale
+non-linearly with how many of its own copies have already been played on
+the same attack, rather than just summing a flat per-copy amount.
+
+```json
+{ "type": "modify-attack", "fromHand": true, "player": "attacker",
+  "prowessModifierExpr": "2 * sameCardPlaysOnAttack + 1",
+  "trackAttackPlays": true,
+  "when": { "enemy.race": { "$in": ["dragon", "drake"] } } }
+```
+
+Used by Prowess of Age (td-55) Mode B: "gives a prowess bonus to a Dragon or
+Drake attack ... dictated by the number of Prowess of Age cards played on
+the attack: +1 prowess if 1 played; +4 if 2 played; +9 if 3 played" — the
+running total after N copies is N² (1, 4, 9), so each individual play's
+marginal delta is `2 * priorCount + 1` (0 prior → 1, 1 prior → 3, 2 prior →
+5).
+
 ### 10f-bis. `counter-cancel-attack-roll`
 
 A hazard short-event the **attacking** (hazard) player plays during a combat
 chain to *counter* an opponent-declared chain entry that would cancel a creature
-attack of a matching race. Unlike a plain cancel, the counter is roll-gated.
+attack of a matching race. When `threshold` is set, the counter is roll-gated;
+when `threshold` is absent, the counter is **instant and unconditional** (no
+roll — see the Prowess of Age variant below).
 
 Offered by `counterCancelRollChainActions` (`engine/legal-actions/chain.ts`)
 while a chain is active, `state.combat` exists, the acting player is the
 attacker, the attack's `combat.creatureRace` is one of the effect's `race`
-values, and at least one unresolved opponent chain entry carries a
-`cancel-attack` effect. Sources are the attacker's hand **plus** any unrevealed
-on-guard cards on the defending company (the "may be revealed as an on-guard
-card" clause). Emits one `counter-cancel-roll` action per (source, target
-cancel entry) pair.
+values, at least one unresolved opponent chain entry carries a `cancel-attack`
+effect, and (when `uniqueOnly` is set) `combat.creatureUnique` is `true`.
+Sources are the attacker's hand **plus** any unrevealed on-guard cards on the
+defending company (the "may be revealed as an on-guard card" clause). Emits one
+`counter-cancel-roll` action per (source, target cancel entry) pair.
 
 On play (`handleCounterCancelRoll`, `engine/chain-reducer.ts`) the card is moved
 hand/on-guard → discard and pushed onto the chain as a short-event entry carrying
 `counterCancelTargetInstanceId` (a dedicated payload field — *not*
 `targetInstanceId`, which would trigger the Twilight-style environment-cancel
 path). Sitting above the cancel entry (LIFO), it resolves first: `resolveEntry`
-enqueues a generic `dice-check` (roll 2d6 + the attack's current
-`combat.strikeProwess`, `comparison: "gt"`, `threshold` from the effect). On
-success the `counter-cancel-attack` dice-check onPass verb (`applyDiceCheckBranch`,
+either enqueues a generic `dice-check` (roll 2d6 + the attack's current
+`combat.strikeProwess`, `comparison: "gt"`, `threshold` from the effect), or —
+when `threshold` is absent — negates the target immediately inline (same logic
+as the roll's onPass verb, just not gated behind a roll) and falls through to
+the ordinary "mark entry resolved" step. On a roll-gated success the
+`counter-cancel-attack` dice-check onPass verb (`applyDiceCheckBranch`,
 `engine/pending-reducers.ts`) negates the targeted cancel entry (the attack
 survives) and adds `prowessBonus` to `combat.strikeProwess`; on failure the cancel
 resolves and ends the attack. The check's `continuation` marks the counter entry
@@ -5492,6 +5524,24 @@ the attack receives +1 prowess." Its second mode ("+1 prowess to a Spider
 attack") is a plain `modify-attack` (`fromHand`, `player: "attacker"`,
 `when: { "enemy.race": { "$in": ["spider"] } }`), which also carries
 the on-guard-reveal behaviour for that mode.
+
+**Instant, unique-gated variant (no roll).** Omitting `threshold` (and
+`prowessBonus`, which then defaults to 0) makes the counter unconditional; a
+`uniqueOnly: true` field additionally requires the attacking creature's card
+definition to be `unique` (`CombatState.creatureUnique`, populated from
+`CreatureCard.unique` wherever `initiateCreatureCombat` builds the combat
+state for a played hazard-creature attack — covers both `'creature'` and
+`'on-guard-creature'` attack sources).
+
+```json
+{ "type": "counter-cancel-attack-roll", "race": ["dragon"], "uniqueOnly": true }
+```
+
+Example: Prowess of Age (td-55) Mode A — "Targets and cancels any effect
+(declared earlier in the same chain of effects) that would cancel an attack
+from a unique Dragon manifestation." Its second mode (a stacking prowess
+bonus to a Dragon or Drake attack) is `modify-attack` `trackAttackPlays` +
+`prowessModifierExpr` — see §10e-quinquies.
 
 ### 10f. `face-strike-on-tap`
 
@@ -17172,6 +17222,44 @@ character to be played".
 
 Used by: *Returned Beyond All Hope* (as-35).
 
+#### `sequence` apply on an instance-targeted untargeted `play-option`
+
+Parsimony of Seclusion (td-52): "Return any unique Dragon manifestation to
+your hand from your discard pile. Alternatively, return any manifestation of
+Agburanar to your hand from your discard pile and increase the hazard limit
+by two." The second mode needs to do *two* things — move a card **and** boost
+the hazard limit — so its `apply` is a `sequence` instead of a bare `move`.
+
+`untargetedOptionCandidates` (`legal-actions/movement-hazard.ts`) derives the
+candidate filter for a `sequence` apply from its first nested `move`'s
+`filter` (the other sub-apply, `add-constraint`, targets the company, not a
+card instance). On resolution, the untargeted-option dispatch
+(`chain-reducer.ts`) walks `sequence.apps` in order:
+
+- a `move` sub-apply resolves exactly like the bare-`move` case above, using
+  `entry.payload.optionTargetInstanceId`;
+- an `add-constraint` sub-apply with `constraint: "hazard-limit-modifier"`
+  calls `addConstraint` directly, targeting
+  `{ kind: "company", companyId: entry.payload.targetCompanyId }` with
+  `scope: "company-mh-phase"`. `targetCompanyId` is always present on a
+  hazard short-event's chain payload — copied from `PlayHazardAction`, which
+  always carries it regardless of the card's actual target kind (see the
+  "Company-targeting mode" note above) — so this works even though the card
+  declares no `play-target` of its own.
+
+```json
+{ "type": "play-option", "id": "return-agburanar-and-boost-limit",
+  "untargeted": true, "candidates": "own-discard",
+  "apply": { "type": "sequence", "apps": [
+    { "type": "move", "select": "target", "from": "discard", "to": "hand",
+      "count": 1, "filter": { "manifestId": "tw-3" } },
+    { "type": "add-constraint", "constraint": "hazard-limit-modifier",
+      "scope": "company-mh-phase", "value": 2 }
+  ] } }
+```
+
+Used by: *Parsimony of Seclusion* (td-52).
+
 ### 73. `discard-bearer-corruption` + `company.siteCharacterNames`
 
 `{ "type": "on-event", "event": "self-enters-play", "apply": { "type":
@@ -18386,3 +18474,83 @@ is in play as an opposing Wizard."
   `sweepDiscardSelfWhenItems` pass over every character's `items`, matching
   the same effect and context and discarding via the generic
   `removeAttachment`/`toCardInstance` primitives.
+
+### 84. `dragon-ambush-window` add-constraint + `dragon-ambush-offer` (Rumor of Wealth)
+
+Models a hazard short-event that grants a **delayed, site-phase** hazard
+creature play gated on an item successfully being played, rather than the
+usual immediate M/H hazard play. Used by *Rumor of Wealth* (td-58):
+"Playable on a Ruins & Lairs [{R}] that is not a Dragon's lair. Any one
+Dragon hazard creature (except Eärcaraxë) may be played (and does not count
+against the hazard limit) at the site during the site phase this turn after
+the successful play of a major or greater item. Can be revealed on-guard."
+
+The card is a normal site-keyed hazard short-event — `play-target` `target:
+"site"` with a `{ "lairOf": { "$exists": false } }` clause excludes Dragon's
+lairs — playable from hand during M/H (installing the constraint via the
+standard `on-event: company-arrives-at-site` → `add-constraint` path) **or**
+placed on-guard and revealed later, in response to the qualifying item play,
+via an `on-guard-reveal` effect (`trigger: "resource-play"`, `playedFilter`
+matching the item's `cardType`/`subtype`) whose `apply` is also an
+`add-constraint` — both paths install the identical constraint.
+
+```json
+{ "type": "play-target", "target": "site",
+  "filter": { "$and": [ { "siteType": "ruins-and-lairs" }, { "lairOf": { "$exists": false } } ] } }
+{ "type": "on-event", "event": "company-arrives-at-site",
+  "apply": { "type": "add-constraint", "constraint": "dragon-ambush-window",
+             "scope": "company-site-phase",
+             "creatureFilter": { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] } } }
+{ "type": "on-guard-reveal", "trigger": "resource-play",
+  "playedFilter": { "$and": [
+    { "cardType": { "$in": ["hero-resource-item", "minion-resource-item"] } },
+    { "subtype": { "$in": ["major", "greater"] } } ] },
+  "apply": { "type": "add-constraint", "constraint": "dragon-ambush-window",
+             "scope": "company-site-phase",
+             "creatureFilter": { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] } } }
+```
+
+**`on-guard-reveal`'s `apply` now also accepts `add-constraint`** (previously
+only `cancel-chain-entry` and `company-tap-characters` were wired up): a new
+branch in `chain-reducer.ts`, parallel to the existing `company-tap-characters`
+handling, fires whenever a revealed on-guard short-event resolves during the
+Site phase and installs the declared constraint on the active company via the
+shared `addDeclaredConstraint` helper (the same one `applyShortEventArrivalTrigger`
+uses for the M/H hand-play path, which explicitly skips outside M/H — the two
+paths are mutually exclusive by phase).
+
+**Site play-target validation on the `resource-play` on-guard-reveal window**:
+`onGuardWindowActions` (`legal-actions/pending.ts`) previously validated a
+revealed card's own `play-target` filter only for `target: "character"`; a
+`target: "site"` event was offered unconditionally. Fixed to check the filter
+against `sitePlayTargetContext` (the same helper the site-entry reveal window
+already used), mirroring `revealOnGuardAttacksActions`'s equivalent check —
+"any card may be placed on-guard" (bluffing, CoE 2.V.6) but a reveal is still a
+play and must respect the card's own keying.
+
+**The `dragon-ambush-window` {@link ActiveConstraint}** (scope
+`company-site-phase`, target the company) carries an optional `creatureFilter`
+{@link Condition}. `fireDragonAmbushWindow` (`reducer-site.ts`) runs
+immediately after any item successfully attaches during the site phase
+(alongside `fireItemPlayCorruptionChecks` et al.): if the item's `subtype` is
+`major`/`greater` and the active company carries the constraint, it enqueues a
+`dragon-ambush-offer` {@link PendingResolution} for the **hazard** player.
+
+| Field | Description |
+|-------|-------------|
+| `constraintId` | The `dragon-ambush-window` constraint this offer was raised from. |
+| `companyId` | The company being ambushed. |
+| `creatureFilter` | Carried over from the constraint (optional). |
+
+`dragonAmbushOfferActions` (`legal-actions/pending.ts`) offers one
+`play-dragon-ambush-creature` action per `hazard-creature` card in the hazard
+player's hand matching `creatureFilter`, plus `pass`.
+`applyDragonAmbushOfferResolution` (`pending-reducers.ts`) resolves it:
+declining (`pass`) dequeues the offer but **leaves the constraint in place**,
+so a later major/greater item play this same site phase re-offers it; playing
+a creature removes the constraint and calls the 4-argument form of
+`initiateChain` (`{ type: "creature" }`, no `countsAgainstHazardLimit` arg) —
+the same call a revealed on-guard creature uses to attack during the site
+phase (`reducer-site.ts`'s resolve-attacks step) — so the play never touches
+`hazardsPlayedThisCompany`, satisfying "does not count against the hazard
+limit" structurally rather than via a special-case check.

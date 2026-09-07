@@ -61,7 +61,7 @@ import {
   executeDeferredSiteAction,
   handleSitePlayHeroResource,
 } from './reducer-site.js';
-import { autoResolve } from './chain-reducer.js';
+import { autoResolve, initiateChain } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
 import { eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems } from './legal-actions/pending.js';
@@ -3519,6 +3519,51 @@ export function applyNamedCardPlayOfferResolution(
   }));
 
   return { state: dequeueResolution(stateAfterPlay, top.id) };
+}
+
+/**
+ * Resolve a queued `dragon-ambush-offer` resolution (Rumor of Wealth td-58).
+ *
+ * The hazard player either passes (generic `pass` action — the
+ * `dragon-ambush-window` constraint stays armed for a later qualifying item
+ * play this same site phase) or plays a Dragon hazard creature straight from
+ * hand (`play-dragon-ambush-creature`), which consumes the constraint and
+ * initiates a creature combat against the ambushed company directly —
+ * bypassing the normal M/H keying pipeline entirely, exactly the way a
+ * revealed on-guard creature is initiated during the site phase
+ * (`reducer-site.ts`'s resolve-attacks step). Because the combat is started
+ * with the 4-argument form of {@link initiateChain}, it never touches
+ * `hazardsPlayedThisCompany` — the play does not count against the hazard
+ * limit, per the card's text.
+ */
+export function applyDragonAmbushOfferResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolutionOrPass(state, rawAction, top, 'play-dragon-ambush-creature', 'dragon-ambush-offer',
+    'dragon-ambush-offer: hazard player passes — dragon-ambush-window stays armed');
+  if (!g.ok) return g.result;
+  const { action, kind, player, actorIndex } = g;
+
+  const creatureCard = findById(player.hand, action.cardInstanceId);
+  if (!creatureCard) {
+    return { state, error: `Dragon creature ${action.cardInstanceId as string} not found in hand` };
+  }
+  const def = defById(state, creatureCard.definitionId);
+  logDetail(`dragon-ambush-offer: playing "${def?.name ?? (creatureCard.definitionId as string)}" against company ${kind.companyId as string} — bypasses hazard limit`);
+
+  let newState = updatePlayer(state, actorIndex, p => ({
+    ...p,
+    hand: removeById(p.hand, creatureCard.instanceId),
+  }));
+  newState = removeConstraint(newState, kind.constraintId);
+  newState = dequeueResolution(newState, top.id);
+
+  const cardInstance = toCardInstance(creatureCard);
+  newState = initiateChain(newState, action.player, cardInstance, { type: 'creature' });
+
+  return { state: newState };
 }
 
 /**
