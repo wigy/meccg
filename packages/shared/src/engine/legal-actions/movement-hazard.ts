@@ -2234,7 +2234,12 @@ function untargetedOptionCandidates(
   const filter: import('../../types/effects.js').Condition | undefined =
     apply.type === 'move' ? apply.filter
       : apply.type === 'un-eliminate-creature' ? apply.filter
-        : undefined;
+        // A sequence apply (e.g. Parsimony of Seclusion td-52: move + a
+        // hazard-limit-modifier add-constraint) is candidate-filtered by its
+        // nested `move`'s own filter — the other sub-apply targets the
+        // company, not a card instance.
+        : apply.type === 'sequence' ? apply.apps?.find(a => a.type === 'move')?.filter
+          : undefined;
   const matches = (c: { instanceId: CardInstanceId; definitionId: CardDefinitionId }): boolean => {
     if (c.instanceId === sourceInstanceId) return false;
     const cDef = defById(state, c.definitionId);
