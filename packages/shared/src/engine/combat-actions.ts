@@ -35,7 +35,7 @@ import { findAllyInCompany, findItemInCompany, buildPlayedModifyAttackContext } 
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -128,7 +128,13 @@ export function handleHavenJoinAttack(state: GameState, action: GameAction, comb
     postAttackEffects: newPostAttack && newPostAttack.length > 0 ? newPostAttack : undefined,
   };
 
-  return { state: { ...state, players: newPlayers, combat: newCombat } };
+  // The joiner's origin company (his haven company) may now be left with no
+  // characters — a "company" is by definition one or more characters (CoE
+  // glossary), so an emptied haven company must dissolve immediately rather
+  // than linger in `player.companies` and get offered its own movement/hazard
+  // phase (with hazard draws) once its turn comes up. Mirrors every other
+  // handler that removes a character from a company.
+  return { state: cleanupEmptyCompanies({ ...state, players: newPlayers, combat: newCombat }) };
 }
 
 /**
