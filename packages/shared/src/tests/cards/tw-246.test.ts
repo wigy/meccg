@@ -39,7 +39,7 @@ import {
   expectInDiscardPile,
   makeSitePhase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, BILBO, FRODO, LEGOLAS,
+  ARAGORN, BILBO, FRODO, LEGOLAS, GOLLUM,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   companyIdAt, makeMHState,
   RIVENDELL, MORIA, MOUNT_DOOM,
@@ -57,7 +57,6 @@ import type {
   RegionType,
 } from '../../index.js';
 
-const GOLLUM = 'tw-246' as CardDefinitionId;
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
 const GOBLIN_GATE = 'tw-398' as CardDefinitionId;   // hero shadow-hold (name "Goblin-gate")
 const ORC_PATROL = 'tw-074' as CardDefinitionId;    // hazard creature for combat tests
