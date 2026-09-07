@@ -44,7 +44,7 @@ import { countExtraAgentActions } from '../mh-agents.js';
 import { extraMHMoveDestinations, extraMHUnderDeepsDestinations, gangwaysExtraDestinations } from '../mh-hazard-play.js';
 import { buildCompanyCompositionContext } from '../company-composition.js';
 import { currentHazardLimit } from '../hazard-limit.js';
-import { computeCandidateRegionPaths } from '../region-keying.js';
+import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
 import { notPlayable } from './action-builders.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
@@ -5041,6 +5041,14 @@ function findCreatureKeyingMatches(
         ...(boost.kind.keyingSiteTypes ? { siteTypes: boost.kind.keyingSiteTypes } : {}),
       });
     }
+  }
+  // Angmar Arises (dm-44) and its siblings (In Darkness Bind Them dm-65,
+  // Reaching Shadow dm-81): a global `region-name-keying-grant` environment
+  // grants any creature whose own printed keying matches the grant's
+  // `ifRegionTypes` an extra by-name keying alternative.
+  const regionNameKeyingGrants = collectRegionNameKeyingGrants(state);
+  if (regionNameKeyingGrants.length > 0) {
+    extraKeyedTo.push(...extraKeyedToFromRegionNameGrants(def.keyedTo, regionNameKeyingGrants, whenContext));
   }
   for (const key of [...def.keyedTo, ...extraKeyedTo]) {
     if (key.when && !matchesCondition(key.when, whenContext)) continue;

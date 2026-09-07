@@ -50,7 +50,7 @@ import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, 
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard, wouldViolateLeaderRestriction } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { computeCandidateRegionPaths } from './region-keying.js';
+import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
 
@@ -3494,6 +3494,14 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
         ...(boost.kind.keyingSiteTypes ? { siteTypes: boost.kind.keyingSiteTypes } : {}),
       });
     }
+  }
+  // Angmar Arises (dm-44) and siblings: mirror of the offering side
+  // (findCreatureKeyingMatches) — a global `region-name-keying-grant`
+  // environment grants an extra by-name keying alternative to any creature
+  // whose own printed keying matches the grant's `ifRegionTypes`.
+  const regionNameKeyingGrants = collectRegionNameKeyingGrants(state);
+  if (regionNameKeyingGrants.length > 0) {
+    extraKeyedTo.push(...extraKeyedToFromRegionNameGrants(def.keyedTo, regionNameKeyingGrants, whenCtxBase));
   }
 
   for (const key of [...def.keyedTo, ...extraKeyedTo]) {
