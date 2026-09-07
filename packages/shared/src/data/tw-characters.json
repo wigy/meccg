@@ -2472,8 +2472,16 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Lond Galen",
-    "effects": [],
-    "text": "Unique. +2 direct influence against the Men of Anfalas faction."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Men of Anfalas" }
+      }
+    ],
+    "text": "Unique. +2 direct influence against the Men of Anfalas faction.",
+    "certified": "2026-09-07"
   },
   {
     "cardType": "hero-character",
