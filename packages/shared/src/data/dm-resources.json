@@ -1730,8 +1730,21 @@
         "site": "Stone-circle"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Stone-circle. Tap Lindion the Oronín to cancel an Animal or Spider attack against his company. Eagle-mounts can be played on his company regardless of their site or the presence of a diplomat."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "enemy.race": {
+            "$in": ["animal", "spider"]
+          }
+        }
+      }
+    ],
+    "text": "Unique. Playable at Stone-circle. Tap Lindion the Oronín to cancel an Animal or Spider attack against his company. Eagle-mounts can be played on his company regardless of their site or the presence of a diplomat.",
+    "certified": "2026-09-06"
   },
   {
     "cardType": "hero-resource-ally",
