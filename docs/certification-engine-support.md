@@ -787,3 +787,77 @@ The Evenstar (tw-343): "Environment. The prowess of one Elf is modified by +1 un
 - **`character-stat-modifier` `target: "all-matching-characters"` broadcast mode** (+ `filter`) — "the prowess of **each** Elf" cannot use a plain `stat-modifier` with `target: "all-characters"` (Sun tw-335's shape) because that relies on `collectGlobalEffects` reading the card's `effects` live out of `cardsInPlay`, and a short event never sits there — it resolves once and is discarded immediately. This mode instead installs one ordinary turn-scoped `character-stat-modifier` constraint per currently-in-play character (either player's) matching `filter` (evaluated against `{ target: { race } }`), baked in at resolution time. Implemented identically in both places a short event's self-enters-play effects can resolve: the inline apply (`applyShortEventOnEntersPlay`, `reducer-events.ts`, for the plain no-region play) and the chain resolver (`applyShortEventSelfEntersPlayConstraints`, `chain-reducer.ts`, for the region-transform-combined play).
 
 Card data: `duplication-limit` (`scope: "turn"`, `max: 1` — a short event's "cannot be duplicated" convention, matching Vilya/Choking Shadows rather than a long-event's `scope: "game"`), `play-target` (character, `filter: { "target.race": "elf" }`), `on-event self-enters-play` → `add-constraint character-stat-modifier` (`stat: "prowess"`, `value: 1`, `scope: "turn"`, unconditional), a second `on-event self-enters-play` → `add-constraint character-stat-modifier` (`target: "all-matching-characters"`, `filter: { "target.race": "elf" }`, same stat/value, `when: { "inPlay": "Gates of Morning" }`), and `region-transform` (`when: { "inPlay": "Gates of Morning" }`, `duration: "turn"`, `options: [{ "from": "wilderness", "to": "border" }, { "from": "border", "to": "free" }]`). The CRF-22 ruling "Does not affect hazards" is a stock clarification also printed (in French) on Star of High Hope (td-154) — a card with no region clause at all — so it is not read as excluding the region-transform's ordinary creature-keying interaction; the *other* CRF ruling ("Can be played even if there are no Wildernesses [or Border-lands] in play") is what the combinable/optional design above satisfies.
+### `company.allyNames` on `buildPlayOptionContext` (a companion ally waives another card's own play-target filter, Lindion the Oronín dm-177)
+
+Lindion the Oronín (dm-177): "Tap Lindion the Oronín to cancel an Animal or Spider attack against his company. Eagle-mounts can be played on his company regardless of their site or the presence of a diplomat." The cancel ability is the pre-existing `cancel-attack` `cost: { "tap": "self" }` shape (The Warg-king le-158: `{ "type": "cancel-attack", "cost": { "tap": "self" }, "when": { "enemy.race": { "$in": [...] } } }`) — `enemy.race: { "$in": ["animal", "spider"] }` here, no new engine work. The second sentence relaxes a *different* card's (Eagle-mounts tw-220) own `play-target` character filter whenever Lindion is anywhere in the target's company — the same shape `company.containsDiplomat` already gives New Friendship for "any character in a diplomat's company," just keyed on a specific unique ally's *name* instead of a skill flag.
+
+- **`company.allyNames`** (new field in `buildPlayOptionContext`, `legal-actions/organization.ts`) — the aggregate names of every ally borne by *any* character in the candidate target's company (not just the target's own allies, which `target.allyNames` already covered). Computed in the same `if (charCompany)` block as `containsDiplomat`, looping `charCompany.characters` and collecting `defNamesOf(state, memberChar.allies)` for each. Exposed as `company.allyNames` alongside `company.containsDiplomat`.
+- Eagle-mounts' filter changed from a plain `$and` to `{ "$or": [ <original diplomat+site $and>, { "company.allyNames": { "$includes": "Lindion the Oronín" } } ] }` — the base requirement still applies to everyone else; Lindion's company additionally satisfies the filter regardless of site or diplomat presence, matching "regardless of their site or the presence of a diplomat" exactly. No new effect type or DSL primitive was needed: the relaxation is baked into Eagle-mounts' own filter (like `containsDiplomat`/New Friendship), reusing the generic `$or` + context-field mechanism rather than inventing a card-specific "exemption" effect — there is exactly one pair of cards with this interaction, so a reusable named context field (usable by any future "my ally widens another card's play-target" card) is the right generality without over-engineering a cross-card exemption verb.
+
+Used by *Lindion the Oronín* (dm-177) and *Eagle-mounts* (tw-220).
+### Untargeted `play-option` with a `sequence` apply (`move` + `add-constraint hazard-limit-modifier`) against the hazarded company (Parsimony of Seclusion td-52)
+
+Parsimony of Seclusion (td-52): "Return any unique Dragon manifestation to your hand from your discard pile. Alternatively, return any manifestation of Agburanar to your hand from your discard pile and increase the hazard limit by two." Two untargeted `play-option`s (`candidates: "own-discard"`, the as-35 shape), each a `move` (discard → hand) with a different filter — but the second must *also* boost the hazard limit, which the existing untargeted-option dispatch (`chain-reducer.ts`) couldn't do: it only recognized a bare `move` apply.
+
+- **`untargetedOptionCandidates`** (`legal-actions/movement-hazard.ts`) — the candidate-filter derivation now also unwraps a `sequence` apply, using its first nested `move`'s `filter` (the other sub-apply, `add-constraint`, targets the company, not a card instance).
+- **Untargeted-option dispatch** (`chain-reducer.ts`, the block keyed on `entry.payload.optionId` with no `targetCharacterId`) gained a `sequence` branch: it resolves each sub-apply in order — a `move` exactly like the existing bare-`move` branch (using `entry.payload.optionTargetInstanceId`), and an `add-constraint` with `constraint: "hazard-limit-modifier"` by calling `addConstraint` directly, targeting `{ kind: "company", companyId: entry.payload.targetCompanyId }` with `scope: "company-mh-phase"`. `targetCompanyId` is always present on a hazard short-event's chain payload (copied from `PlayHazardAction.targetCompanyId`, itself always populated regardless of the card's actual target kind — see the "Company-targeting mode" `play-option` note above), so this works for a purely untargeted card with no `play-target` of its own.
+
+Card data — mode 1 (any unique Dragon): per glossary rule g.man.3 ("Ahunt, At Home, Roused, or the creature manifestation of the Dragon"), the filter is `{ "$or": [{ "race": "dragon", "unique": true }, { "keywords": { "$includes": "dragon-manifestation" } }] }` — the first clause catches every Dragon's creature form and Roused faction card (both `race: "dragon", unique: true`), the second catches Ahunt/At Home permanent-events (tagged `keywords: ["dragon-manifestation"]`, no `race` field). Mode 2 (Agburanar specifically) filters on `{ "manifestId": "tw-3" }` — Agburanar's creature card (tw-3) self-tags `manifestId: "tw-3"`, and its Ahunt/At Home siblings (td-1/td-2) already carried the same tag; **Agburanar Roused (le-259) was missing it** (unlike its Scorba/Smaug Roused siblings, le-284/le-285, which already carry `manifestId`) and is fixed alongside this certification so all three of Agburanar's manifestations are recognized:
+
+```json
+{ "type": "play-option", "id": "return-dragon-manifestation", "untargeted": true, "candidates": "own-discard",
+  "apply": { "type": "move", "select": "target", "from": "discard", "to": "hand", "count": 1,
+             "filter": { "$or": [{ "race": "dragon", "unique": true }, { "keywords": { "$includes": "dragon-manifestation" } }] } } },
+{ "type": "play-option", "id": "return-agburanar-and-boost-limit", "untargeted": true, "candidates": "own-discard",
+  "apply": { "type": "sequence", "apps": [
+    { "type": "move", "select": "target", "from": "discard", "to": "hand", "count": 1, "filter": { "manifestId": "tw-3" } },
+    { "type": "add-constraint", "constraint": "hazard-limit-modifier", "scope": "company-mh-phase", "value": 2 }
+  ] } }
+```
+
+Used by *Parsimony of Seclusion* (td-52).
+### `dragon-ambush-window` add-constraint + `dragon-ambush-offer` (delayed site-phase hazard-creature play gated on an item play, Rumor of Wealth)
+
+Rumor of Wealth (td-58): "Playable on a Ruins & Lairs [{R}] that is not a Dragon's lair. Any one Dragon hazard creature (except Eärcaraxë) may be played (and does not count against the hazard limit) at the site during the site phase this turn after the successful play of a major or greater item. Can be revealed on-guard." A site-keyed hazard short-event (`play-target` site filter `{ "siteType": "ruins-and-lairs", "lairOf": { "$exists": false } }`) installs a new `dragon-ambush-window` {@link ActiveConstraint} (scope `company-site-phase`, target company, optional `creatureFilter` Condition) either from hand during M/H (the standard `on-event: company-arrives-at-site` → `add-constraint` path) or revealed on-guard during the site phase via `on-guard-reveal` (`trigger: "resource-play"`, `playedFilter` on the item's `cardType`/`subtype`) whose `apply` is now also allowed to be `add-constraint` — a new branch in `chain-reducer.ts`, parallel to the pre-existing `company-tap-characters` on-guard-reveal handling, installs the declared constraint via the shared `addDeclaredConstraint` helper when a revealed short-event resolves during the Site phase (the M/H `applyShortEventArrivalTrigger` path explicitly skips outside M/H, so the two are mutually exclusive by phase). Fixed a pre-existing gap alongside this: `onGuardWindowActions` (`legal-actions/pending.ts`) validated a revealed card's own `play-target` filter only for `target: "character"`; a `target: "site"` on-guard-reveal event is now checked against `sitePlayTargetContext` too (mirroring the site-entry reveal window's equivalent check) so a site-keyed card cannot be revealed against a site it isn't playable on.
+
+`fireDragonAmbushWindow` (`reducer-site.ts`) runs immediately after any item successfully attaches during the site phase: if the item's `subtype` is `major`/`greater` and the active company carries a `dragon-ambush-window` constraint, it enqueues a `dragon-ambush-offer` {@link PendingResolution} (`constraintId`, `companyId`, optional `creatureFilter`) for the hazard player. `dragonAmbushOfferActions` offers one `play-dragon-ambush-creature` action per hand `hazard-creature` matching `creatureFilter`, plus `pass`. `applyDragonAmbushOfferResolution` resolves it: passing dequeues the offer but leaves the constraint armed (a later qualifying item play this same site phase re-offers it); playing a creature removes the constraint and calls the 4-argument form of `initiateChain` (`{ type: "creature" }`) — the same call a revealed on-guard creature uses to attack during the site phase's resolve-attacks step — so the play never touches `hazardsPlayedThisCompany`, satisfying "does not count against the hazard limit" structurally.
+
+Used by Rumor of Wealth (td-58): `creatureFilter: { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] }`.
+- `counter-cancel-attack-roll` gains an **instant (no-roll) mode** and a
+  `uniqueOnly` gate, and `modify-attack` gains a `trackAttackPlays` +
+  `sameCardPlaysOnAttack` stacking primitive (Prowess of Age td-55) —
+  `threshold` and `prowessBonus` on `CounterCancelAttackRollEffect` are now
+  optional: when `threshold` is absent, `counterCancelRollChainActions`
+  (`legal-actions/chain.ts`) and `handleCounterCancelRoll`
+  (`chain-reducer.ts`) still offer/validate the play exactly as before, but
+  `resolveEntry`'s counter-cancel branch (`chain-reducer.ts`) applies the
+  negation immediately — no `dice-check` enqueued — using the same
+  negate-target + add-`prowessBonus` logic as the roll-gated `onPass` verb,
+  then falls through to the ordinary "mark entry resolved" step (no
+  `needsInput`). A new `uniqueOnly: true` field additionally requires the
+  attacking creature's card definition to be `unique`, checked against a new
+  `CombatState.creatureUnique` field (`state-combat.ts`) populated from
+  `creatureDef.unique` wherever `initiateCreatureCombat`
+  (`chain-reducer.ts`) builds the combat state for a played hazard-creature
+  attack (covers both `'creature'` and `'on-guard-creature'` attack
+  sources — the same single function backs both). Separately,
+  `ModifyAttackEffect` gains `trackAttackPlays: true`: when set on a
+  `fromHand` effect, `handleModifyAttack` (`combat-actions.ts`) always adds
+  the attack-scoped `attack-card-played` marker constraint after the play
+  (previously only added when the card also carried a `duplication-limit`
+  scope `"attack"`), and exposes the **prior** count of markers sourced from
+  this exact card definition on this attack to `prowessModifierExpr` as
+  `sameCardPlaysOnAttack` (via `countConstraintsFromDefinition`, read before
+  this play's own marker is added). Card: "Targets and cancels any effect
+  (declared earlier in the same chain of effects) that would cancel an
+  attack from a unique Dragon manifestation. Alternatively, gives a prowess
+  bonus to a Dragon or Drake attack (must be played before its strikes are
+  assigned) dictated by the number of Prowess of Age cards played on the
+  attack: +1 prowess if 1 played; +4 if 2 played; +9 if 3 played." — Mode A:
+  `counter-cancel-attack-roll` (`race: ["dragon"]`, `uniqueOnly: true`, no
+  `threshold`/`prowessBonus`); Mode B: `modify-attack` (`fromHand`,
+  `player: "attacker"`, `prowessModifierExpr: "2 * sameCardPlaysOnAttack +
+  1"`, `trackAttackPlays: true`, `when: enemy.race $in [dragon, drake]`) —
+  the running total after N copies is N² (1, 4, 9), so each individual
+  play's marginal delta is `2 * priorCount + 1`.
+- Pure composition, no new engine work (Scorba td-63) — third dragon in the Smaug-family "named-lair `siteNames` + Doors-of-Night-gated `regionNames`" shape (after Scatha td-60 and Eärcaraxë td-20): a `siteNames: ["Zarak Dûm"]` base entry (always allowed) plus a `regionNames` alt entry (Forochel/Angmar/Gundabad) gated `when: { inPlay: "Doors of Night" }`, whose "or at sites in these regions" half is covered by the same destination-site-region-name matching. Plus the plain printed `combat-attacker-chooses-defenders` (Dragon, 3 strikes at 12/8). No new engine code needed.

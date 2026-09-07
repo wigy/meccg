@@ -2826,11 +2826,17 @@ export function endOfOrgEligibility(
       if (!char) continue;
       const charDef = defById(state, char.definitionId);
       if (!charDef || !isCharacterCard(charDef)) continue;
-      if (playTarget.filter
-          && !matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
-        continue;
+      if (!playTarget.filter
+          || matchesCondition(playTarget.filter, buildTargetContext(state, char, player))) {
+        matchesInCompany.push(charInstId);
       }
-      matchesInCompany.push(charInstId);
+      // Per CoE rule 2.V.2.2, allies are treated as characters for
+      // "skill only" cards (e.g. Stealth's "Scout only" tap cost), so a
+      // scout ally borne by this character (e.g. Gollum) is also eligible
+      // even when the host character itself doesn't match the filter.
+      matchesInCompany.push(
+        ...eligibleSkillAllyTargetsForCharacter(state, player, char, playTarget, playTarget.cost?.tap === 'character'),
+      );
     }
     if (matchesInCompany.length === 0) continue;
     foundMatchingCharacter = true;
@@ -2856,6 +2862,82 @@ export function endOfOrgEligibility(
     };
   }
   return { eligible: true, reason: '', eligibleTargets };
+}
+
+/**
+ * Returns eligible *ally* target IDs borne by a single character for a
+ * skill-only play-target (CoE rule 2.V.2.2: allies are treated as
+ * characters only for "skill only" cards or effects, e.g. Stealth's
+ * "Scout only" tap cost, so a scout ally like Gollum is an eligible
+ * tapper). An ally is offered only when the play-target's filter actually
+ * constrains `target.skills` and the ally — evaluated in its host
+ * character's company context but with its own skills and status —
+ * satisfies the filter. When `requireUntapped` is true (a tap cost),
+ * tapped allies are excluded.
+ */
+export function eligibleSkillAllyTargetsForCharacter(
+  state: GameState,
+  player: PlayerState,
+  char: import('../../index.js').CharacterInPlay,
+  playTarget: PlayTargetEffect,
+  requireUntapped: boolean,
+): CardInstanceId[] {
+  if (playTarget.target !== 'character') return [];
+  if (!playTarget.filter || !filterReferencesSkills(playTarget.filter)) return [];
+  if (char.allies.length === 0) return [];
+  const out: CardInstanceId[] = [];
+  const hostCtx = buildPlayOptionContext(state, char, player);
+  for (const ally of char.allies) {
+    if (requireUntapped && ally.status !== CardStatus.Untapped) continue;
+    const allyDef = defById(state, ally.definitionId);
+    if (!allyDef || !isAllyCard(allyDef)) continue;
+    const ctx = buildAllyTargetContext(hostCtx, allyDef, ally.status);
+    if (!matchesCondition(playTarget.filter, ctx)) continue;
+    out.push(ally.instanceId);
+  }
+  return out;
+}
+
+/**
+ * Builds a play-target filter context for an ally, reusing its host
+ * character's company/player context but overriding the `target` fields
+ * with the ally's own skills and status (the only attributes a skill-only
+ * filter inspects). Items/allies borne by an ally are always empty.
+ */
+export function buildAllyTargetContext(
+  hostCtx: Record<string, unknown>,
+  allyDef: import('../../index.js').AllyCard,
+  status: CardStatus,
+): Record<string, unknown> {
+  const baseTarget = (hostCtx.target as Record<string, unknown> | undefined) ?? {};
+  return {
+    ...hostCtx,
+    target: {
+      ...baseTarget,
+      skills: [...(allyDef.skills ?? [])],
+      status: cardStatusToName(status),
+      name: allyDef.name,
+      mind: allyDef.mind,
+      itemNames: [],
+      allyNames: [],
+    },
+  };
+}
+
+/**
+ * True if a play-target filter constrains `target.skills` anywhere in its
+ * (possibly nested `$and`/`$or`) structure. Gates whether allies may be
+ * offered as targets — they count as characters only for skill-only cards.
+ */
+export function filterReferencesSkills(filter: unknown): boolean {
+  if (Array.isArray(filter)) return filter.some(filterReferencesSkills);
+  if (filter && typeof filter === 'object') {
+    for (const [key, value] of Object.entries(filter)) {
+      if (key === 'target.skills') return true;
+      if (filterReferencesSkills(value)) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -3031,6 +3113,12 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *    contains at least one character with the `diplomat` skill.
  *    Enables cards like New Friendship to offer a corruption-check boost
  *    to any character in a diplomat's company, not just the diplomat.
+ *  - `company.allyNames` — the names of every ally borne by any character in
+ *    the company (not just the candidate target's own allies). Lets a
+ *    `play-target` filter gate on a specific companion ally being present
+ *    anywhere in the company via `$includes`, e.g. Lindion the Oronín
+ *    (dm-177) waiving Eagle-mounts' (tw-220) diplomat/site requirement:
+ *    `{ "company.allyNames": { "$includes": "Lindion the Oronín" } }`.
  *  - `company.siteUntapped` — `true`/`false` (null with no current site)
  *    for whether the character's company's current site is untapped, and
  *    `company.siteIsUnderDeeps` — whether that site carries the
@@ -3087,6 +3175,7 @@ export function buildPlayOptionContext(
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
+  const companyAllyNames: string[] = [];
   if (player) {
     const avatar = findPlayerAvatar(state, player);
     if (avatar) {
@@ -3148,6 +3237,15 @@ export function buildPlayOptionContext(
         if (!isCharacterCard(memberDef)) return false;
         return getEffectiveSkills(state, memberChar, memberDef).includes('diplomat');
       });
+      // Aggregate ally names borne by every character in the company (not just
+      // the candidate target's own allies) — lets a play-target filter gate on
+      // a specific companion ally being anywhere in the company, e.g. Lindion
+      // the Oronín (dm-177) waiving Eagle-mounts' diplomat/site requirement.
+      for (const memberId of charCompany.characters) {
+        const memberChar = player.characters[memberId];
+        if (!memberChar) continue;
+        companyAllyNames.push(...defNamesOf(state, memberChar.allies));
+      }
     }
     // A character is "moving" when it belongs to the active company during the
     // M/H phase and that company is actually moving to a new site. Use
@@ -3215,6 +3313,7 @@ export function buildPlayOptionContext(
       siteUntapped: companySiteUntapped,
       siteIsUnderDeeps: companySiteIsUnderDeeps,
       containsDiplomat,
+      allyNames: companyAllyNames,
       moving: companyMoving,
       destinationSiteType,
       destinationRegionTypes,

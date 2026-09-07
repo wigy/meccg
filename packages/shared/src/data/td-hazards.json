@@ -1233,8 +1233,63 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ParsimonyofSeclusion.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Return any unique Dragon manifestation to your hand from your discard pile.Alternatively, return any manifestation of Agburanar to your hand from your discard pile and increase the hazard limit by two."
+    "effects": [
+      {
+        "type": "play-option",
+        "id": "return-dragon-manifestation",
+        "untargeted": true,
+        "candidates": "own-discard",
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "count": 1,
+          "filter": {
+            "$or": [
+              {
+                "race": "dragon",
+                "unique": true
+              },
+              {
+                "keywords": {
+                  "$includes": "dragon-manifestation"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "return-agburanar-and-boost-limit",
+        "untargeted": true,
+        "candidates": "own-discard",
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "move",
+              "select": "target",
+              "from": "discard",
+              "to": "hand",
+              "count": 1,
+              "filter": {
+                "manifestId": "tw-3"
+              }
+            },
+            {
+              "type": "add-constraint",
+              "constraint": "hazard-limit-modifier",
+              "scope": "company-mh-phase",
+              "value": 2
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Return any unique Dragon manifestation to your hand from your discard pile.Alternatively, return any manifestation of Agburanar to your hand from your discard pile and increase the hazard limit by two.",
+    "certified": "2026-09-06"
   },
   {
     "cardType": "hazard-event",
@@ -1270,7 +1325,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ProwessofAge.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-09-06",
+    "effects": [
+      {
+        "type": "counter-cancel-attack-roll",
+        "race": ["dragon"],
+        "uniqueOnly": true
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifierExpr": "2 * sameCardPlaysOnAttack + 1",
+        "trackAttackPlays": true,
+        "when": { "enemy.race": { "$in": ["dragon", "drake"] } }
+      }
+    ],
     "text": "Targets and cancels any effect (declared earlier in the same chain of effects) that would cancel an attack from a unique Dragon manifestation.Alternatively, gives a prowess bonus to a Dragon or Drake attack (must be played before its strikes are assigned) dictated by the number of Prowess of Age cards played on the attack: +1 prowess if 1 played; +4 if 2 played; +9 if 3 played."
   },
   {
@@ -1290,8 +1360,56 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/RumorofWealth.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a Ruins & Lairs [{R}] that is not a Dragon’s lair. Any one Dragon hazard creature (except Eärcaraxë) may be played (and does not count against the hazard limit) at the site during the site phase this turn after the successful play of a major or greater item. Can be revealed on-guard."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": {
+          "$and": [
+            { "siteType": "ruins-and-lairs" },
+            { "lairOf": { "$exists": false } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "company-arrives-at-site",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "dragon-ambush-window",
+          "scope": "company-site-phase",
+          "creatureFilter": {
+            "$and": [
+              { "race": "dragon" },
+              { "name": { "$ne": "Eärcaraxë" } }
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "resource-play",
+        "playedFilter": {
+          "$and": [
+            { "cardType": { "$in": ["hero-resource-item", "minion-resource-item"] } },
+            { "subtype": { "$in": ["major", "greater"] } }
+          ]
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "dragon-ambush-window",
+          "scope": "company-site-phase",
+          "creatureFilter": {
+            "$and": [
+              { "race": "dragon" },
+              { "name": { "$ne": "Eärcaraxë" } }
+            ]
+          }
+        }
+      }
+    ],
+    "text": "Playable on a Ruins & Lairs [{R}] that is not a Dragon’s lair. Any one Dragon hazard creature (except Eärcaraxë) may be played (and does not count against the hazard limit) at the site during the site phase this turn after the successful play of a major or greater item. Can be revealed on-guard.",
+    "certified": "2026-09-06"
   },
   {
     "cardType": "hazard-event",

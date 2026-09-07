@@ -315,15 +315,18 @@ describe('Alatar (tw-117)', () => {
     const state = combatWithHavenJumpOffer(baseTwoCompanyState());
     const havenComp = state.players[RESOURCE_PLAYER].companies[1];
     const alatarId = havenComp.characters[0];
+    const havenCompId: CompanyId = havenComp.id;
     const after = dispatch(state, {
       type: 'haven-join-attack',
       player: PLAYER_1,
       characterId: alatarId,
     });
     const attacked = after.players[RESOURCE_PLAYER].companies[0];
-    const haven = after.players[RESOURCE_PLAYER].companies[1];
     expect(attacked.characters).toContain(alatarId);
-    expect(haven.characters).not.toContain(alatarId);
+    // Alatar was the haven company's only character, so that company dissolves
+    // the moment he leaves (a company is one or more characters — CoE glossary)
+    // instead of lingering as an empty entry.
+    expect(after.players[RESOURCE_PLAYER].companies.some(c => c.id === havenCompId)).toBe(false);
   });
 
   test('accepting the offer discards allies attached to Alatar', () => {
@@ -472,10 +475,10 @@ describe('Alatar (tw-117)', () => {
 
     // Alatar stays in the company he joined — his card text says "join",
     // not "temporarily assist", and nothing sends him back to the haven.
-    const haven = s.players[RESOURCE_PLAYER].companies.find(c => c.id === havenCompId)!;
     const attacked = s.players[RESOURCE_PLAYER].companies[0];
     expect(attacked.characters).toContain(alatarId);
-    expect(haven.characters).not.toContain(alatarId);
+    // ...and the haven company he emptied by leaving stays dissolved.
+    expect(s.players[RESOURCE_PLAYER].companies.some(c => c.id === havenCompId)).toBe(false);
   });
 
   // ── Negative cases: offer is NOT raised ──
