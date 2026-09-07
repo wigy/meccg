@@ -35,7 +35,7 @@ import { findAllyInCompany, findItemInCompany, buildPlayedModifyAttackContext } 
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -128,7 +128,13 @@ export function handleHavenJoinAttack(state: GameState, action: GameAction, comb
     postAttackEffects: newPostAttack && newPostAttack.length > 0 ? newPostAttack : undefined,
   };
 
-  return { state: { ...state, players: newPlayers, combat: newCombat } };
+  // The joiner's origin company (his haven company) may now be left with no
+  // characters — a "company" is by definition one or more characters (CoE
+  // glossary), so an emptied haven company must dissolve immediately rather
+  // than linger in `player.companies` and get offered its own movement/hazard
+  // phase (with hazard draws) once its turn comes up. Mirrors every other
+  // handler that removes a character from a company.
+  return { state: cleanupEmptyCompanies({ ...state, players: newPlayers, combat: newCombat }) };
 }
 
 /**
@@ -212,8 +218,23 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
   const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
 
+  // Outside the resolve-strike phase (the Slayer/Assassin cancel-by-tap window
+  // offers this same action before the target's own strike sequence ever
+  // starts — see `cancelByTapWindowSelfCancelActions`), `currentStrikeIndex`
+  // is not guaranteed to point at the strike being canceled: it is left over
+  // from whichever strike last went through resolve-strike (which may already
+  // be resolved). Locate the target character's first unresolved assignment
+  // instead; in forceSingleTarget combats every assignment shares the same
+  // characterId, so any unresolved one is an equally valid cancellation.
+  const strikeIndex = combat.phase === 'resolve-strike'
+    ? combat.currentStrikeIndex
+    : combat.strikeAssignments.findIndex(a => !a.resolved && a.characterId === action.targetCharacterId);
+  const currentStrike = combat.strikeAssignments[strikeIndex];
+  if (!currentStrike || currentStrike.resolved) {
+    return { state, error: 'No unresolved strike against that character to cancel' };
+  }
+
   const cancellerChar = defPlayer.characters[action.cancellerInstanceId];
-  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
 
   let nextState: GameState;
   if (cancellerChar) {
@@ -268,7 +289,7 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
   }
 
   const newAssignments = [...combat.strikeAssignments];
-  newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
+  newAssignments[strikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
 
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
   return advanceStrikeOrFinalize(nextState, combatWithAssignments);
