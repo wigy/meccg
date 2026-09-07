@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1299 | 1299 | 0 | 100.0% |
+| 1308 | 1308 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 116 | 116 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 133 | 133 | 100.0% |
+| DM | 134 | 134 | 100.0% |
 | LE | 317 | 317 | 100.0% |
-| TD | 120 | 120 | 100.0% |
-| TW | 418 | 418 | 100.0% |
+| TD | 125 | 125 | 100.0% |
+| TW | 421 | 421 | 100.0% |
 | WH | 95 | 95 | 100.0% |
 
 ## Detailed Test Matrix
@@ -368,6 +368,7 @@
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-176 | Phial of Galadriel | — | 19 | ☑ |
+| dm-177 | Lindion the Oronín | — | 8 | ☑ |
 | dm-178 | Mistress Lobelia | — | 16 | ☑ |
 | dm-179 | Noble Hound | — | 13 | ☑ |
 | dm-180 | Folco Boffin | — | 11 | ☑ |
@@ -715,14 +716,19 @@
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-49 | Morgul-rats | — | 8 | ☑ |
+| td-52 | Parsimony of Seclusion | — | 11 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
+| td-55 | Prowess of Age | — | 10 | ☑ |
 | td-57 | Rain-drake | — | 14 | ☑ |
+| td-58 | Rumor of Wealth | — | 12 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
 | td-60 | Scatha | — | 8 | ☑ |
 | td-61 | Scatha Ahunt | — | 16 | ☑ |
 | td-62 | Scatha at Home | — | 11 | ☑ |
+| td-63 | Scorba | — | 8 | ☑ |
 | td-64 | Scorba Ahunt | — | 13 | ☑ |
 | td-65 | Scorba at Home | — | 10 | ☑ |
+| td-66 | Sea Serpent | — | 4 | ☑ |
 | td-67 | Searching Eye | — | 9 | ☑ |
 | td-70 | Smaug Ahunt | — | 17 | ☑ |
 | td-71 | Smaug at Home | — | 13 | ☑ |
@@ -873,7 +879,7 @@
 | tw-61 | Minions Stir | — | 9 | ☑ |
 | tw-62 | Morgul Night | — | 10 | ☑ |
 | tw-63 | Morgul-horse | — | 10 | ☑ |
-| tw-64 | Morgul-knife | — | 17 | ☑ |
+| tw-64 | Morgul-knife | — | 18 | ☑ |
 | tw-65 | Mouth of Sauron | — | 6 | ☑ |
 | tw-66 | Mûmak (Oliphant) | — | 11 | ☑ |
 | tw-067 | — | — | 7 | ☑ |
@@ -898,7 +904,7 @@
 | tw-86 | Shelob | — | 11 | ☑ |
 | tw-87 | Siege | — | 16 | ☑ |
 | tw-88 | Silent Watcher | — | 7 | ☑ |
-| tw-89 | Slayer | — | 7 | ☑ |
+| tw-89 | Slayer | — | 8 | ☑ |
 | tw-90 | Smaug | — | 9 | ☑ |
 | tw-91 | Snowstorm | — | 5 | ☑ |
 | tw-92 | Storms of Ossë | — | 5 | ☑ |
@@ -970,11 +976,13 @@
 | tw-160 | Glóin | — | 7 | ☑ |
 | tw-161 | Glorfindel II | — | 4 | ☑ |
 | tw-162 | Halbarad | — | 4 | ☑ |
+| tw-163 | Haldalam | — | 2 | ☑ |
 | tw-164 | Haldir | — | 3 | ☑ |
 | tw-165 | Háma | — | 3 | ☑ |
 | tw-166 | Imrahil | — | 2 | ☑ |
 | tw-167 | Kíli | — | 5 | ☑ |
 | tw-168 | Legolas | — | 2 | ☑ |
+| tw-169 | Mablung | — | 2 | ☑ |
 | tw-170 | Merry | — | 6 | ☑ |
 | tw-171 | Nori | — | 6 | ☑ |
 | tw-172 | Óin | — | 3 | ☑ |
@@ -993,7 +1001,7 @@
 | tw-185 | Vôteli | — | 9 | ☑ |
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
-| tw-188 | A Chance Meeting | — | 13 | ☑ |
+| tw-188 | A Chance Meeting | — | 14 | ☑ |
 | tw-189 | A Friend or Three | — | 13 | ☑ |
 | tw-190 | Align Palantír | — | 11 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |
@@ -1116,7 +1124,7 @@
 | tw-328 | Skinbark | — | 5 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 15 | ☑ |
-| tw-332 | Stealth | — | 13 | ☑ |
+| tw-332 | Stealth | — | 14 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
 | tw-334 | Stone of Erech | — | 7 | ☑ |
 | tw-335 | Sun | — | 7 | ☑ |
@@ -1127,6 +1135,7 @@
 | tw-340 | Test of Lore | — | 10 | ☑ |
 | tw-341 | The Arkenstone | — | 12 | ☑ |
 | tw-342 | The Cock Crows | — | 10 | ☑ |
+| tw-343 | The Evenstar | — | 13 | ☑ |
 | tw-344 | The Great Eagles | — | 5 | ☑ |
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
@@ -1228,7 +1237,7 @@
 | tw-497 | A Pack at the Door | — | 11 | ☑ |
 | tw-498 | Swordmaster | — | 17 | ☑ |
 | tw-499 | Dwarven Axe | — | 7 | ☑ |
-| wh-1 | Alatar | — | 12 | ☑ |
+| wh-1 | Alatar | — | 13 | ☑ |
 | wh-2 | Doeth (Durthak) | — | 5 | ☑ |
 | wh-3 | Euog (Ulzog) | — | 12 | ☑ |
 | wh-4 | Gandalf | — | 13 | ☑ |

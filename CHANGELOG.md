@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.146.0 — 2026-09-07
+
+Dragon-hazard certifications and combat-window fixes
+
+### Game Engine
+
+- Certified Prowess of Age (td-55): `counter-cancel-attack-roll` gains an instant no-roll mode and a `uniqueOnly` gate so the card negates an earlier cancel of a unique Dragon manifestation's attack, and `modify-attack` gains a `trackAttackPlays` counter so the prowess bonus climbs +1/+4/+9 across the copies played on one attack (#2999)
+- Certified Rumor of Wealth (td-58): a new `dragon-ambush-window` constraint, installed from hand or revealed on-guard, lets the hazard player play a Dragon creature outside the hazard limit at the site after a major or greater item is played there. `on-guard-reveal` now accepts an `add-constraint` apply, and a site-targeting on-guard reveal no longer skips its own site-filter validation (#3000)
+- Certified Parsimony of Seclusion (td-52): untargeted `play-option` now supports a `sequence` apply combining a discard-to-hand `move` with a company-scoped hazard-limit modifier. Agburanar Roused (le-259) gains the missing `manifestId` so it counts as one of Agburanar's manifestations (#3001)
+- Certified The Evenstar (tw-343): `region-transform` accepts a `when` gate and a turn-long duration and can be layered as a skippable extra mode on a character play-target, and `character-stat-modifier` gains an `all-matching-characters` broadcast so a short event can buff every Elf in play (#3004)
+- Certified Lindion the Oronín (dm-177): tap-to-cancel Animal or Spider attacks, plus a new `company.allyNames` play-option context field so Eagle-mounts can be played on his company without a diplomat or the usual site (#3003)
+- Certified Scorba (td-63), Sea Serpent (td-66), Mablung (tw-169), and Haldalam (tw-163). Sea Serpent's keying used a non-existent `coastal-sea` region type and could never be played; Mablung and Haldalam lacked their faction direct-influence bonuses (#2998, #3002, #3005, #3006)
+- Gollum (tw-246) now carries the Scout skill per the CoE database, and the end-of-organization short-event path treats a skill ally as an eligible tap target per CoE 2.V.2.2, so Stealth can be played on Gollum even when his host has no scout skill (#2992)
+- A Chance Meeting and We Have Come to Kill are no longer offered to a company that is mid-movement: per CoE 2.IV.5 a company with a revealed destination is not "at" any site (#2993)
+- During a Slayer or Assassin cancel-by-tap window the company's ally and item self-cancel options (Noble Steed, Enruned Shield, The One Ring) are now offered alongside the tap-a-character cancel, and `cancel-strike` locates the target's first unresolved strike instead of trusting a stale strike index (#2994)
+- When Alatar leaves his own haven company alone to join an attacked company, the empty origin company now dissolves immediately instead of being offered for movement with no characters in it (#2995)
+- Morgul-knife, The Pale Sword, and Icy Touch can no longer be played as a no-op open hazard play outside an active Nazgûl attack; the permanent-event branch now applies the same from-hand `modify-attack` suppression as short events (#2996)
+- A Fallen-wizard's group of three or more leader-control factions now yields only +1 bonus marshalling point instead of the printed +2, per CoE 10.F3 (#2997)
+
 ## 0.145.0 — 2026-09-06
 
 Rules-exact H2 combat model and a 5x engine speedup
