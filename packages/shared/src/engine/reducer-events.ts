@@ -817,6 +817,11 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       regionTransformName: action.targetRegionName,
       regionTransformType: action.newRegionType,
       ...(action.targetScoutInstanceId ? { costTapCharacterId: action.targetScoutInstanceId } : {}),
+      // The Evenstar (tw-343) combines region-transform with an ordinary
+      // filter-only character target (the Elf whose prowess is boosted) —
+      // carry it through so `applyShortEventSelfEntersPlayConstraints` still
+      // fires the character-stat-modifier for that character on resolution.
+      ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
     };
     return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
   }
@@ -2774,6 +2779,46 @@ function applyShortEventOnEntersPlay(
             persistent: true,
           },
         });
+        continue;
+      }
+
+      // character-stat-modifier broadcast mode (The Evenstar tw-343): "the
+      // prowess of each Elf is modified by +1" (only while Gates of Morning
+      // is in play). Installs one turn-scoped constraint per currently-in-play
+      // character (either player's) matching `filter`, instead of the single
+      // `action.targetCharacterId` the ordinary mode below uses. Mirrors the
+      // chain-resolution twin in `applyShortEventSelfEntersPlayConstraints`
+      // (chain-reducer.ts), used when this card's other effects force it onto
+      // the chain (e.g. combined with a region-transform choice).
+      if (constraintKind === 'character-stat-modifier' && onEvent.apply.target === 'all-matching-characters') {
+        if (onEvent.when && !matchesCondition(onEvent.when, { inPlay: buildInPlayNames(state) })) {
+          logDetail(`add-constraint(character-stat-modifier, all-matching-characters): when condition not met — skip`);
+          continue;
+        }
+        const stat = onEvent.apply.stat;
+        const value = onEvent.apply.value;
+        if (!stat || typeof value !== 'number') {
+          logDetail(`add-constraint(character-stat-modifier, all-matching-characters): missing stat or value — fizzle`);
+          continue;
+        }
+        let matched = 0;
+        for (const p of state.players) {
+          for (const charId of Object.keys(p.characters) as CardInstanceId[]) {
+            const char = p.characters[charId];
+            const cDef = defById(state, char.definitionId);
+            if (!cDef || !isCharacterCard(cDef)) continue;
+            if (onEvent.apply.filter && !matchesCondition(onEvent.apply.filter, { target: { race: cDef.race } })) continue;
+            matched++;
+            state = addConstraint(state, {
+              source: handCard.instanceId,
+              sourceDefinitionId: handCard.definitionId,
+              scope: { kind: 'turn' },
+              target: { kind: 'character', characterId: charId },
+              kind: { type: 'character-stat-modifier', stat, value, characterId: charId },
+            });
+          }
+        }
+        logDetail(`"${def.name}" played — character-stat-modifier ${stat} ${value > 0 ? '+' : ''}${value} broadcast to ${matched} matching character(s) (scope turn)`);
         continue;
       }
 

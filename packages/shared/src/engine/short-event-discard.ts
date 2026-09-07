@@ -317,11 +317,12 @@ export function applyShortEventRegionTransform(
   if (!regionTransform) return { state, error: `${def.name}: no region-transform effect` };
 
   const playerIndex = getPlayerIndex(state, actor);
-  logDetail(`${def.name}: region ${regionName} becomes ${newRegionType} (permanent)`);
+  const turnScoped = regionTransform.duration === 'turn';
+  logDetail(`${def.name}: region ${regionName} becomes ${newRegionType} (${turnScoped ? 'until end of turn' : 'permanent'})`);
   let newState = addConstraint(state, {
     source: sourceInstanceId,
     sourceDefinitionId: def.id,
-    scope: { kind: 'until-cleared' },
+    scope: turnScoped ? { kind: 'turn' } : { kind: 'until-cleared' },
     target: { kind: 'player', playerId: actor },
     kind: {
       type: 'attribute-modifier',
