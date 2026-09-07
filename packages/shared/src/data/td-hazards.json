@@ -1270,7 +1270,22 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ProwessofAge.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-09-06",
+    "effects": [
+      {
+        "type": "counter-cancel-attack-roll",
+        "race": ["dragon"],
+        "uniqueOnly": true
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "attacker",
+        "prowessModifierExpr": "2 * sameCardPlaysOnAttack + 1",
+        "trackAttackPlays": true,
+        "when": { "enemy.race": { "$in": ["dragon", "drake"] } }
+      }
+    ],
     "text": "Targets and cancels any effect (declared earlier in the same chain of effects) that would cancel an attack from a unique Dragon manifestation.Alternatively, gives a prowess bonus to a Dragon or Drake attack (must be played before its strikes are assigned) dictated by the number of Prowess of Age cards played on the attack: +1 prowess if 1 played; +4 if 2 played; +9 if 3 played."
   },
   {

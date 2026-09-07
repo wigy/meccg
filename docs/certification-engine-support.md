@@ -785,3 +785,41 @@ Rumor of Wealth (td-58): "Playable on a Ruins & Lairs [{R}] that is not a Dragon
 `fireDragonAmbushWindow` (`reducer-site.ts`) runs immediately after any item successfully attaches during the site phase: if the item's `subtype` is `major`/`greater` and the active company carries a `dragon-ambush-window` constraint, it enqueues a `dragon-ambush-offer` {@link PendingResolution} (`constraintId`, `companyId`, optional `creatureFilter`) for the hazard player. `dragonAmbushOfferActions` offers one `play-dragon-ambush-creature` action per hand `hazard-creature` matching `creatureFilter`, plus `pass`. `applyDragonAmbushOfferResolution` resolves it: passing dequeues the offer but leaves the constraint armed (a later qualifying item play this same site phase re-offers it); playing a creature removes the constraint and calls the 4-argument form of `initiateChain` (`{ type: "creature" }`) — the same call a revealed on-guard creature uses to attack during the site phase's resolve-attacks step — so the play never touches `hazardsPlayedThisCompany`, satisfying "does not count against the hazard limit" structurally.
 
 Used by Rumor of Wealth (td-58): `creatureFilter: { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] }`.
+- `counter-cancel-attack-roll` gains an **instant (no-roll) mode** and a
+  `uniqueOnly` gate, and `modify-attack` gains a `trackAttackPlays` +
+  `sameCardPlaysOnAttack` stacking primitive (Prowess of Age td-55) —
+  `threshold` and `prowessBonus` on `CounterCancelAttackRollEffect` are now
+  optional: when `threshold` is absent, `counterCancelRollChainActions`
+  (`legal-actions/chain.ts`) and `handleCounterCancelRoll`
+  (`chain-reducer.ts`) still offer/validate the play exactly as before, but
+  `resolveEntry`'s counter-cancel branch (`chain-reducer.ts`) applies the
+  negation immediately — no `dice-check` enqueued — using the same
+  negate-target + add-`prowessBonus` logic as the roll-gated `onPass` verb,
+  then falls through to the ordinary "mark entry resolved" step (no
+  `needsInput`). A new `uniqueOnly: true` field additionally requires the
+  attacking creature's card definition to be `unique`, checked against a new
+  `CombatState.creatureUnique` field (`state-combat.ts`) populated from
+  `creatureDef.unique` wherever `initiateCreatureCombat`
+  (`chain-reducer.ts`) builds the combat state for a played hazard-creature
+  attack (covers both `'creature'` and `'on-guard-creature'` attack
+  sources — the same single function backs both). Separately,
+  `ModifyAttackEffect` gains `trackAttackPlays: true`: when set on a
+  `fromHand` effect, `handleModifyAttack` (`combat-actions.ts`) always adds
+  the attack-scoped `attack-card-played` marker constraint after the play
+  (previously only added when the card also carried a `duplication-limit`
+  scope `"attack"`), and exposes the **prior** count of markers sourced from
+  this exact card definition on this attack to `prowessModifierExpr` as
+  `sameCardPlaysOnAttack` (via `countConstraintsFromDefinition`, read before
+  this play's own marker is added). Card: "Targets and cancels any effect
+  (declared earlier in the same chain of effects) that would cancel an
+  attack from a unique Dragon manifestation. Alternatively, gives a prowess
+  bonus to a Dragon or Drake attack (must be played before its strikes are
+  assigned) dictated by the number of Prowess of Age cards played on the
+  attack: +1 prowess if 1 played; +4 if 2 played; +9 if 3 played." — Mode A:
+  `counter-cancel-attack-roll` (`race: ["dragon"]`, `uniqueOnly: true`, no
+  `threshold`/`prowessBonus`); Mode B: `modify-attack` (`fromHand`,
+  `player: "attacker"`, `prowessModifierExpr: "2 * sameCardPlaysOnAttack +
+  1"`, `trackAttackPlays: true`, `when: enemy.race $in [dragon, drake]`) —
+  the running total after N copies is N² (1, 4, 9), so each individual
+  play's marginal delta is `2 * priorCount + 1`.
+- Pure composition, no new engine work (Scorba td-63) — third dragon in the Smaug-family "named-lair `siteNames` + Doors-of-Night-gated `regionNames`" shape (after Scatha td-60 and Eärcaraxë td-20): a `siteNames: ["Zarak Dûm"]` base entry (always allowed) plus a `regionNames` alt entry (Forochel/Angmar/Gundabad) gated `when: { inPlay: "Doors of Night" }`, whose "or at sites in these regions" half is covered by the same destination-site-region-name matching. Plus the plain printed `combat-attacker-chooses-defenders` (Dragon, 3 strikes at 12/8). No new engine code needed.
