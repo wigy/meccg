@@ -613,9 +613,68 @@ describe('Alatar (wh-1)', () => {
       player: PLAYER_1,
       characterId: alatarId,
     });
-    const attacked = after.players[RESOURCE_PLAYER].companies[0];
-    const haven = after.players[RESOURCE_PLAYER].companies[1];
-    expect(attacked.characters).toContain(alatarId);
-    expect(haven.characters).not.toContain(alatarId);
+    // Alatar was alone in his haven company, so it dissolves the instant he
+    // leaves (a "company" is one or more characters — CoE glossary) instead
+    // of lingering as a second, now-empty entry.
+    const companies = after.players[RESOURCE_PLAYER].companies;
+    expect(companies).toHaveLength(1);
+    expect(companies[0].characters).toContain(alatarId);
+  });
+
+  test('a haven company Alatar leaves alone dissolves instead of getting its own (empty) movement/hazard phase', () => {
+    // Regression for a bug report: Alatar haven-jumps out of a company where
+    // he was the lone member. Without cleanup, that now-empty company lingers
+    // in play and later gets *its own* movement/hazard phase — offering
+    // select-company/declare-path/draw-cards for a company with zero
+    // characters, when CoE's "company" glossary entry requires at least one.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: ISENGARD_FW, characters: [ALATAR_FW] },
+          ],
+          hand: [],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+          hand: [HORSE_LORDS],
+          siteDeck: [],
+        },
+      ],
+    });
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Rohan'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const stateAtMH = { ...base, phaseState: mhState };
+
+    const creatureId = handCardId(stateAtMH, HAZARD_PLAYER);
+    const targetCompanyId = companyIdAt(stateAtMH, RESOURCE_PLAYER);
+    const inCombat = playCreatureHazardAndResolve(
+      stateAtMH, PLAYER_2, creatureId, targetCompanyId,
+      { method: 'region-name', value: 'Rohan' },
+    );
+    const havenCompanyId = inCombat.players[RESOURCE_PLAYER].companies[1].id;
+    const alatarId = inCombat.players[RESOURCE_PLAYER].companies[1].characters[0];
+
+    const after = dispatch(inCombat, {
+      type: 'haven-join-attack',
+      player: PLAYER_1,
+      characterId: alatarId,
+    });
+
+    expect(after.players[RESOURCE_PLAYER].companies.some(c => c.id === havenCompanyId)).toBe(false);
   });
 });
