@@ -80,6 +80,7 @@
  * | 16 | The forgone untap also forgoes healing for a wounded bearer              | IMPLEMENTED |
  * | 17 | A companion in the same company still untaps/heals normally             | IMPLEMENTED |
  * | 18 | The removal attempt may only be made once per untap phase                | IMPLEMENTED |
+ * | 19 | NOT offered as an open movement/hazard play — no active attack to modify | IMPLEMENTED |
  *
  * Playable: YES — every rule is implemented in the engine and exercised by
  * assertions below.
@@ -95,7 +96,7 @@ import {
   findCharInstanceId, attachHazardToChar,
   expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
-import { Phase, Race, CardStatus } from '../../index.js';
+import { Phase, Race, CardStatus, computeLegalActions } from '../../index.js';
 import { makeCancelWindowCombat } from '../test-helpers-builders.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
 import type {
@@ -183,6 +184,18 @@ describe('Morgul-knife (tw-64)', () => {
       strikeProwess: 6,
     });
     expect(viableActions(combat, PLAYER_1, 'modify-attack')).toHaveLength(0);
+  });
+
+  test('NOT offered as an open movement/hazard play (no active attack to modify)', () => {
+    // Bug report: Morgul-knife was played via a generic `play-hazard` after
+    // a Nazgûl attack had already resolved, silently stranding the card in
+    // the hazard player's own play area with no attack to buff.
+    const base = { ...baseState([BILBO], [MORGUL_KNIFE]), phaseState: makeMHState() };
+    const actions = computeLegalActions(base, PLAYER_2)
+      .filter(ea => ea.action.type === 'play-hazard' && (ea.action as { cardInstanceId?: string }).cardInstanceId === base.players[HAZARD_PLAYER].hand[0].instanceId);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].viable).toBe(false);
+    expect(actions[0].reason).toBe('Morgul-knife must be played on the attack it modifies');
   });
 
   // ─── Rule 4: playing the card ───────────────────────────────────────────

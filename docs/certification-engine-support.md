@@ -815,3 +815,4 @@ Card data: `grant-skill` (`sage`) + `grant-action` (`cost: { "tap": "bearer" }`,
   1"`, `trackAttackPlays: true`, `when: enemy.race $in [dragon, drake]`) —
   the running total after N copies is N² (1, 4, 9), so each individual
   play's marginal delta is `2 * priorCount + 1`.
+- Pure composition, no new engine work (Scorba td-63) — third dragon in the Smaug-family "named-lair `siteNames` + Doors-of-Night-gated `regionNames`" shape (after Scatha td-60 and Eärcaraxë td-20): a `siteNames: ["Zarak Dûm"]` base entry (always allowed) plus a `regionNames` alt entry (Forochel/Angmar/Gundabad) gated `when: { inPlay: "Doors of Night" }`, whose "or at sites in these regions" half is covered by the same destination-site-region-name matching. Plus the plain printed `combat-attacker-chooses-defenders` (Dragon, 3 strikes at 12/8). No new engine code needed.
