@@ -8,7 +8,9 @@
  * - playable in the organization, movement/hazard, site, and end-of-turn phases
  *   (any phase a company is at a site), so this helper is invoked from each of
  *   those phase aggregators and self-gates on a company being present at a
- *   qualifying site;
+ *   qualifying site — a company with a pending `destinationSite` doesn't
+ *   qualify, since rule 2.IV.5 holds it is not "at" any site card while
+ *   mid-movement in its own movement/hazard phase;
  * - the recruit enters an existing company whose current site type is one of the
  *   effect's `siteTypes`, paid for by the influence the effect permits
  *   (`controlledBy`): a character in that company with enough unused direct
@@ -215,9 +217,14 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
   const remainingGI = generalInfluenceControlLimit(state, playerId) - player.generalInfluenceUsed;
 
   for (const event of events) {
-    // Companies whose current site type qualifies for this event.
+    // Companies whose current site type qualifies for this event. Rule 2.IV.5:
+    // a company is not considered "at" its site card from the moment its new
+    // site is revealed until immediately prior to its site phase, so a company
+    // with a pending `destinationSite` (mid-movement in its movement/hazard
+    // phase) does not qualify even though `currentSite` still names a site.
     const qualifyingCompanies = player.companies.filter(c => {
       if (!c.currentSite) return false;
+      if (c.destinationSite) return false;
       const siteDef = resolveDef(state, c.currentSite.instanceId);
       if (!isSiteCard(siteDef)) return false;
       const effType = getEffectiveSiteType(state, c.currentSite.definitionId, siteDef.siteType, c.currentSite.instanceId, true);

@@ -528,3 +528,19 @@ export interface PlayRevealedCardAction {
    */
   readonly controlledBy?: 'general' | CardInstanceId;
 }
+
+/**
+ * Resolve a `dragon-ambush-offer` pending resolution (Rumor of Wealth td-58):
+ * the hazard player plays one Dragon hazard creature straight from hand
+ * against the active company, bypassing the normal M/H keying pipeline and
+ * the hazard limit. Declining is a generic `pass`, which leaves the
+ * `dragon-ambush-window` constraint armed for a later qualifying item play.
+ */
+export interface PlayDragonAmbushCreatureAction {
+  /** Action discriminant. */
+  readonly type: 'play-dragon-ambush-creature';
+  /** The hazard player playing the creature. */
+  readonly player: PlayerId;
+  /** The Dragon hazard-creature card instance, played from hand. */
+  readonly cardInstanceId: CardInstanceId;
+}
