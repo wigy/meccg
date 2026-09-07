@@ -212,8 +212,23 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
   const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defPlayer = state.players[defPlayerIndex];
 
+  // Outside the resolve-strike phase (the Slayer/Assassin cancel-by-tap window
+  // offers this same action before the target's own strike sequence ever
+  // starts — see `cancelByTapWindowSelfCancelActions`), `currentStrikeIndex`
+  // is not guaranteed to point at the strike being canceled: it is left over
+  // from whichever strike last went through resolve-strike (which may already
+  // be resolved). Locate the target character's first unresolved assignment
+  // instead; in forceSingleTarget combats every assignment shares the same
+  // characterId, so any unresolved one is an equally valid cancellation.
+  const strikeIndex = combat.phase === 'resolve-strike'
+    ? combat.currentStrikeIndex
+    : combat.strikeAssignments.findIndex(a => !a.resolved && a.characterId === action.targetCharacterId);
+  const currentStrike = combat.strikeAssignments[strikeIndex];
+  if (!currentStrike || currentStrike.resolved) {
+    return { state, error: 'No unresolved strike against that character to cancel' };
+  }
+
   const cancellerChar = defPlayer.characters[action.cancellerInstanceId];
-  const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
 
   let nextState: GameState;
   if (cancellerChar) {
@@ -268,7 +283,7 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
   }
 
   const newAssignments = [...combat.strikeAssignments];
-  newAssignments[combat.currentStrikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
+  newAssignments[strikeIndex] = { ...currentStrike, resolved: true, result: 'canceled' };
 
   const combatWithAssignments = { ...combat, strikeAssignments: newAssignments };
   return advanceStrikeOrFinalize(nextState, combatWithAssignments);
