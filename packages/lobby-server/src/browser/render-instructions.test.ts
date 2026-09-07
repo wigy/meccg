@@ -421,6 +421,56 @@ describe('renderPassButton — choose-hunt-target (The Hunt)', () => {
 });
 
 /**
+ * Regression test for bug report 83d850ee4f0f258d (game mtrpvojh-cfw2na, seq
+ * 98): "revealed a dragon (Bairanax) I should be able to play, but clicking
+ * on it (or any other card) does nothing. The game appears locked." Playing
+ * Long Dark Reach (dm-70) enqueues a `reveal-deck-choose-attacker` pending
+ * resolution offering one viable `choose-long-dark-reach-attacker` action per
+ * eligible creature revealed from the card-player's own play deck.
+ * `choose-long-dark-reach-attacker` was not in {@link renderPassButton}'s
+ * pass-like whitelist and had no dedicated branch — same class of bug as
+ * `choose-hunt-target` above (its mechanical twin: mandatory, no safe
+ * default, `definitionId`-carrying action) — so the pass button hid and, since
+ * a viable action did exist, the "Waiting…" indicator was suppressed too: no
+ * control on screen let the player name the attacker.
+ */
+const chooseLongDarkReachAttacker = (cardInstanceId: CardInstanceId, definitionId: CardDefinitionId): EvaluatedAction => ({
+  action: {
+    type: 'choose-long-dark-reach-attacker',
+    player: 'p1',
+    cardInstanceId,
+    definitionId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — choose-long-dark-reach-attacker (Long Dark Reach)', () => {
+  // td-3 (Bairanax) and tw-020 (Cave-drake) are real hazard-creature card ids
+  // — the button label is resolved from `cardPool` by the definitionId the
+  // action itself carries, no instance lookup needed.
+  const bairanax = chooseLongDarkReachAttacker('p1-40' as CardInstanceId, 'td-3' as CardDefinitionId);
+  const caveDrake = chooseLongDarkReachAttacker('p1-53' as CardInstanceId, 'tw-020' as CardDefinitionId);
+
+  test('renders one button per eligible candidate instead of hiding the panel', () => {
+    renderPassButton(viewWith([bairanax, caveDrake]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children).toHaveLength(2);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(['Attack with Bairanax', 'Attack with Cave-drake']);
+  });
+
+  test('clicking a choice button sends that creature\'s action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([bairanax, caveDrake]), action => { sent = action; });
+
+    tierInPhasePass.children[1].onclick?.();
+
+    expect(sent).toEqual(caveDrake.action);
+  });
+});
+
+/**
  * Regression test for bug report underlying feature request "change 'pass'
  * button name and place": Movement/Hazard's `draw-cards` and `play-hazards`
  * steps are two separate engine steps with independent pass semantics, but
