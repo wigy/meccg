@@ -89,6 +89,18 @@ export interface CreatureKeyingMatch {
   readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-in-region' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
   /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs", "The Lonely Mountain", "Rivendell to Lórien"). */
   readonly value: string;
+  /**
+   * Set only when a `keying-bypass` match was justified by a
+   * `grant-creature-keying` effect's `siteFilter.regionNames` branch — the
+   * specific named region on the company's path that satisfied the grant
+   * (e.g. "Woodland Realm" for Reaching Shadow dm-81). Threaded into
+   * `CombatState.attackKeyingRegionNames` (`chain-reducer.ts`) so an
+   * `on-event: attack-defeated` trigger can distinguish a creature keyed by
+   * this named-region grant from one keyed by its own printed region-type
+   * symbol — Reaching Shadow discards itself only for the former ("not to
+   * the region symbol" per CRF 22).
+   */
+  readonly grantedRegionName?: string;
 }
 
 export interface PlayHazardAction {

@@ -4069,7 +4069,17 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
         creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
       ));
   const attackKeyingRegionNames = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value] : [])
+    ? (declaredKeyedBy.method === 'region-name'
+        ? [declaredKeyedBy.value]
+        // A `grant-creature-keying` regionNames branch (e.g. Reaching Shadow
+        // dm-81) keys the creature via `method: 'keying-bypass'` (so the
+        // reducer's normal keying re-check is skipped) but still carries the
+        // matched named region — surface it here exactly like a natural
+        // `region-name` match so `on-event: attack-defeated` triggers gated
+        // on `attack.keyingRegionNames` can see it.
+        : declaredKeyedBy.method === 'keying-bypass' && declaredKeyedBy.grantedRegionName
+          ? [declaredKeyedBy.grantedRegionName]
+          : [])
     : Array.from(new Set(
         creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
       ));

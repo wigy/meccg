@@ -1143,6 +1143,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         isolated: combat.isolated ?? false,
         isAutomaticAttack,
         attackerChoosesDefenders: combat.attackerChoosesDefenders ?? false,
+        // Named regions the defeated attack was keyed to — a creature's own
+        // printed `keyedTo.regionNames` match, or (via `keyedBy.grantedRegionName`)
+        // a `grant-creature-keying` regionNames branch. Used by Reaching
+        // Shadow (dm-81) to discard itself only when the defeated creature
+        // was keyed to one of *its* granted named regions.
+        keyingRegionNames: combat.attackKeyingRegionNames ?? [],
       },
       inPlay: buildInPlayNames(stateAfterCombat),
     };
