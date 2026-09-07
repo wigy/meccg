@@ -25,7 +25,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect, WoundAdditionalBodyCheckEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
@@ -651,8 +651,8 @@ function pendingWoundAdditionalBodyCheckModifiers(state: GameState, combat: Comb
       for (const effect of getCardEffects(def)) {
         if (effect.type !== 'wound-additional-body-check') continue;
         if (!matchesCondition(effect.when, ctx)) continue;
-        logDetail(`Wound-additional-body-check queued: ${formatSignedNumber((effect as WoundAdditionalBodyCheckEffect).modifier)} from ${(def as { name?: string }).name ?? (card.definitionId as string)}`);
-        modifiers.push((effect as WoundAdditionalBodyCheckEffect).modifier);
+        logDetail(`Wound-additional-body-check queued: ${formatSignedNumber(effect.modifier)} from ${(def as { name?: string }).name ?? (card.definitionId as string)}`);
+        modifiers.push(effect.modifier);
       }
     }
   }

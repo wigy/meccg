@@ -28,7 +28,7 @@ import {
   ARAGORN, ORC_GUARD, CAVE_DRAKE,
   RIVENDELL, LORIEN, MORIA,
   buildTestState, resetMint, makeMHState,
-  companyIdAt, resolveChain, phaseStateAs,
+  companyIdAt, phaseStateAs,
   findHandCardId, viableActions, viableActionsForHandCard,
   dispatch, findCharInstanceId,
   CardStatus,
@@ -36,7 +36,7 @@ import {
 import type { PlayerSetup } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, Race } from '../../index.js';
 import type {
-  CardDefinitionId, CardInstanceId, CombatState, GameState, MovementHazardPhaseState, PlayHazardAction,
+  CardDefinitionId, CardInstanceId, CombatState, GameState, MovementHazardPhaseState,
 } from '../../index.js';
 
 const HOST_OF_BATS = 'td-31' as CardDefinitionId;
@@ -394,7 +394,7 @@ describe('Host of Bats (td-31)', () => {
       const gameState: GameState = { ...base, phaseState: makeMHState() };
       const actions = computeLegalActions(gameState, PLAYER_2).filter(
         ea => ea.viable && ea.action.type === 'play-hazard'
-          && (ea.action as PlayHazardAction).cardInstanceId === findHandCardId(gameState, HAZARD_PLAYER, HOST_OF_BATS),
+          && ea.action.cardInstanceId === findHandCardId(gameState, HAZARD_PLAYER, HOST_OF_BATS),
       );
       expect(actions).toHaveLength(0);
     });
