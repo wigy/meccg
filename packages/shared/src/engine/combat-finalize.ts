@@ -1143,6 +1143,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         isolated: combat.isolated ?? false,
         isAutomaticAttack,
         attackerChoosesDefenders: combat.attackerChoosesDefenders ?? false,
+        keyingRegionNames: combat.attackKeyingRegionNames ?? [],
       },
       inPlay: buildInPlayNames(stateAfterCombat),
     };

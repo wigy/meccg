@@ -864,3 +864,42 @@ Rumor of Wealth (td-58): "Playable on a Ruins & Lairs [{R}] that is not a Dragon
 `fireDragonAmbushWindow` (`reducer-site.ts`) runs immediately after any item successfully attaches during the site phase: if the item's `subtype` is `major`/`greater` and the active company carries a `dragon-ambush-window` constraint, it enqueues a `dragon-ambush-offer` {@link PendingResolution} (`constraintId`, `companyId`, optional `creatureFilter`) for the hazard player. `dragonAmbushOfferActions` offers one `play-dragon-ambush-creature` action per hand `hazard-creature` matching `creatureFilter`, plus `pass`. `applyDragonAmbushOfferResolution` resolves it: passing dequeues the offer but leaves the constraint armed (a later qualifying item play this same site phase re-offers it); playing a creature removes the constraint and calls the 4-argument form of `initiateChain` (`{ type: "creature" }`) — the same call a revealed on-guard creature uses to attack during the site phase's resolve-attacks step — so the play never touches `hazardsPlayedThisCompany`, satisfying "does not count against the hazard limit" structurally.
 
 Used by Rumor of Wealth (td-58): `creatureFilter: { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] }`.
+
+### `grant-creature-keying` named-region branch (`siteFilter.regionNames`) + `requiresKeyedToRegionType` gate (In Darkness Bind Them dm-65)
+
+In Darkness Bind Them (dm-65): "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains, Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated." The named regions here are typed `wilderness` (Ithilien, Harondor) or `shadow`/`dark` in a way that doesn't already satisfy the base keying, so the grant is meaningful rather than redundant — confirmed against `tw-regions.json`.
+
+Two extensions to the existing in-play creature-keying grant, both in `legal-actions/movement-hazard.ts`:
+
+- **`siteFilter.regionNames`** — a third OR branch (alongside site-type and region-type): matches when the moving company's `resolvedSitePathNames` includes one of the listed exact region names, mirroring the check a creature's own native `keyedTo.regionNames` already performs. `grantsCreatureKeying` now returns `{ granted, regionName? }` instead of a bare boolean so the matched name can be threaded through — the three call sites (`play-reserved-creature`, `play-creature-from-discard`, and the main hand-play offer) all now capture this and attach it as `keyedBy: { method: "keying-bypass", value: <race>, grantedRegionName: <name> }` (new optional field on `CreatureKeyingMatch`). `keying-bypass` still short-circuits `checkCreatureKeying` in the reducer exactly as before — the new field is purely informational, read back out in `chain-reducer.ts`'s `attackKeyingRegionNames` derivation (`declaredKeyedBy.method === 'keying-bypass' && declaredKeyedBy.grantedRegionName`) so a grant-sourced play populates `attack.keyingRegionNames` identically to a native `region-name` match — letting name-gated `cancel-attack`/`on-event` effects (the existing `attack.keyingRegionNames` context field, e.g. Beasts of the Wood wh-38's `cancel-attack`) see it the same way.
+- **`requiresKeyedToRegionType: { regionType, exactCount? }`** — gates the grant on the creature's *own* printed `keyedTo` already requiring the given region type (the keying the grant widens, not the granted region). New helper `creatureKeyedToRegionType(def, regionType, exactCount?)` scans each `keyedTo` entry's `regionTypes` array and counts occurrences of `regionType` (repeated entries of the same type mean "N required," per `satisfiedRegionTypes`); `exactCount` (when given) requires that count to match exactly, so `{ regionType: "shadow", exactCount: 1 }` accepts a single-Shadow-land entry but rejects a double-Shadow-land one (`["shadow","shadow"]`). Omitting `exactCount` accepts any occurrence count ≥ 1 (used for the Dark-domain clause, which carries no "single" qualifier).
+
+Also extended `on-event: attack-defeated`'s context (`combat-finalize.ts`) with `attack.keyingRegionNames: combat.attackKeyingRegionNames ?? []`, previously only exposed to `cancel-attack`/`cancel-strike` — needed for dm-65's own discard clause, gated on the defeated attack's keying regardless of how it was keyed (native or grant).
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+  "siteFilter": {
+    "regionNames": ["Ithilien", "Harondor", "Horse Plains", "Khand",
+      "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
+},
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "dark" },
+  "siteFilter": { "regionNames": ["Khand", "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"] }
+},
+{
+  "type": "on-event", "event": "attack-defeated",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+  "when": { "$or": [
+    { "attack.keyingRegionNames": { "$includes": "Ithilien" } },
+    { "attack.keyingRegionNames": { "$includes": "Dagorlad" } }
+  ] }
+}
+```
+
+Used by In Darkness Bind Them (dm-65).
