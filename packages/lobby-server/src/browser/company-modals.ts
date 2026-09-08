@@ -636,19 +636,12 @@ export function addOpponentInfluenceTargets(
     });
   };
 
-  // Walk all card images with instance IDs
-  const allImages = block.querySelectorAll<HTMLImageElement>('[data-instance-id]');
+  // Character columns carry the same `data-instance-id` as the character
+  // image nested inside them — resolve those to the actual card image
+  // FIRST, so the generic walk below (which would otherwise match the
+  // column div itself, since it comes first in document order) doesn't
+  // claim the instance id and leave the real image unhighlighted/unclickable.
   const handled = new Set<string>();
-  for (const img of allImages) {
-    const instId = img.dataset.instanceId;
-    if (!instId || handled.has(instId)) continue;
-    const acts = targetActions.get(instId);
-    if (!acts) continue;
-    handled.add(instId);
-    attachHandler(img, acts);
-  }
-
-  // Character columns have their own data-instance-id — check those too
   const cols = block.querySelectorAll<HTMLElement>('.character-column[data-instance-id]');
   for (const col of cols) {
     const instId = col.dataset.instanceId;
@@ -658,6 +651,25 @@ export function addOpponentInfluenceTargets(
     handled.add(instId);
     const charImg = col.querySelector<HTMLImageElement>('.company-card[data-instance-id="' + instId + '"]');
     if (charImg) attachHandler(charImg, acts);
+  }
+
+  // Walk all remaining card images with instance IDs (attached allies/items,
+  // followers, on-guard reveals, …). Character columns are excluded — they
+  // were already resolved to their nested image above, and matching the
+  // column div here would (re-)claim the instance id on the wrong element.
+  const allImages = block.querySelectorAll<HTMLImageElement>('[data-instance-id]');
+  for (const img of allImages) {
+    // Character columns are plain `<div>`s (not images); this selector's
+    // type parameter is a lie the DOM doesn't enforce — skip anything that
+    // isn't actually an `<img>` so a column div can't shadow the real card
+    // image nested inside it (see the column-resolution loop above).
+    if (img.tagName.toUpperCase() !== 'IMG') continue;
+    const instId = img.dataset.instanceId;
+    if (!instId || handled.has(instId)) continue;
+    const acts = targetActions.get(instId);
+    if (!acts) continue;
+    handled.add(instId);
+    attachHandler(img, acts);
   }
 }
 
