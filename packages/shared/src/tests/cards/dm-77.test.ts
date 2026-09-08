@@ -240,7 +240,7 @@ describe('Out of the Black Sky (dm-77)', () => {
     expect(resolveActions.length).toBeGreaterThan(0);
     const tapAction = resolveActions.find(a => 'tapToFight' in a.action && (a.action as { tapToFight: boolean }).tapToFight)?.action
       ?? resolveActions[0].action;
-    let result = reduce({ ...s, cheatRollTotal: 12 } as GameState, tapAction);
+    const result = reduce({ ...s, cheatRollTotal: 12 } as GameState, tapAction);
     expect(result.error).toBeUndefined();
 
     // Creature body check: roll 12 > Khamûl's body 8 → body check fails → strike defeated.
@@ -280,7 +280,7 @@ describe('Out of the Black Sky (dm-77)', () => {
     const resolveActions = viableActions(s, PLAYER_1, 'resolve-strike');
     const notTapAction = resolveActions.find(a => 'tapToFight' in a.action && !(a.action as { tapToFight: boolean }).tapToFight)?.action;
     expect(notTapAction).toBeDefined();
-    let result = reduce(s, notTapAction!);
+    const result = reduce(s, notTapAction!);
     expect(result.error).toBeUndefined();
 
     // Aragorn's own body check (a generous roll keeps him wounded, not eliminated).
