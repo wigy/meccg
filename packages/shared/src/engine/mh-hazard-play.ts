@@ -171,6 +171,9 @@ export function handlePlayHazards(
   // --- Play a creature from the discard pile (Exhalation of Decay, dm-55) ---
   if (action.type === 'play-creature-from-discard') return handlePlayCreatureFromDiscard(state, action, mhState);
 
+  // --- Trigger an in-play Nazgûl permanent-event into an attack (Out of the Black Sky, dm-77) ---
+  if (action.type === 'attack-nazgul-permanent-event') return handleAttackNazgulPermanentEvent(state, action, mhState);
+
   // --- Replay a Wolf/Animal creature that already attacked (Monstrosity of
   //     Diverse Shape, ba-21) ---
   if (action.type === 'spawn-replay-creature') return handleSpawnReplayCreature(state, action, mhState);
@@ -4236,6 +4239,92 @@ export function handlePlayCreatureFromDiscard(
     ...(bodyModifier !== 0 ? { bodyBonus: bodyModifier } : {}),
   };
   newState = initiateChain(newState, action.player, creatureCard, payload);
+
+  return { state: newState };
+}
+
+/**
+ * Handle attack-nazgul-permanent-event: the hazard player triggers an
+ * already in-play Nazgûl permanent-event (either player's own `cardsInPlay`)
+ * into an immediate creature attack, driven by a hazard permanent-event
+ * carrying a `nazgul-permanent-event-attack` effect (Out of the Black Sky,
+ * dm-77).
+ *
+ * Does NOT count against the hazard limit. Unlike
+ * {@link handlePlayCreatureFromDiscard}, the targeted Nazgûl is never
+ * removed from its owner's `cardsInPlay` — it attacks "in place," exactly
+ * like a `creature-alt-event` `attacksAsCreature` attack (Shelob tw-86), so
+ * its own passive effects (if any) still apply once the chain resolves into
+ * combat. The driving event card is discarded from hand immediately; its
+ * final resting place (discard pile, or the defending player's kill pile on
+ * defeat) is decided in `combat-finalize.ts`.
+ */
+export function handleAttackNazgulPermanentEvent(
+  state: GameState,
+  action: import('../types/actions-movement-hazard.js').AttackNazgulPermanentEventAction,
+  mhState: MovementHazardPhaseState,
+): ReducerResult {
+  const hazardIdx = getPlayerIndex(state, action.player);
+  const hazardPlayerState = state.players[hazardIdx];
+
+  // Validate the driving permanent-event card is in hand and carries the effect.
+  const eventCard = findById(hazardPlayerState.hand, action.cardInstanceId);
+  if (!eventCard) {
+    return { state, error: `attack-nazgul-permanent-event: event card ${action.cardInstanceId as string} not found in hand` };
+  }
+  const eventDef = defById(state, eventCard.definitionId);
+  const hasEffect = eventDef
+    ? getCardEffects(eventDef).some(e => e.type === 'nazgul-permanent-event-attack')
+    : false;
+  if (!hasEffect) {
+    return { state, error: `attack-nazgul-permanent-event: ${eventCard.definitionId as string} has no nazgul-permanent-event-attack effect` };
+  }
+
+  // Validate the targeted Nazgûl permanent-event is in its declared owner's cardsInPlay.
+  const ownerIdx = getPlayerIndex(state, action.targetNazgulOwnerId);
+  const nazgulCard = findById(state.players[ownerIdx].cardsInPlay, action.targetNazgulInstanceId);
+  if (!nazgulCard) {
+    return { state, error: `attack-nazgul-permanent-event: Nazgûl ${action.targetNazgulInstanceId as string} not found in ${action.targetNazgulOwnerId as string}'s cardsInPlay` };
+  }
+  const nazgulDef = defById(state, nazgulCard.definitionId);
+  if (!isNazgulPermanentEvent(nazgulDef)) {
+    return { state, error: `attack-nazgul-permanent-event: ${nazgulCard.definitionId as string} is not a Nazgûl permanent-event` };
+  }
+
+  // Creatures must initiate a new chain.
+  if (state.chain !== null) {
+    return { state, error: 'attack-nazgul-permanent-event: creatures must initiate a new chain' };
+  }
+
+  const nazgulName = (nazgulDef as { name?: string } | undefined)?.name ?? (nazgulCard.definitionId as string);
+  const eventName = (eventDef as { name?: string } | undefined)?.name ?? (eventCard.definitionId as string);
+  logDetail(
+    `${eventName}: triggering "${nazgulName}" (owner ${action.targetNazgulOwnerId as string}) to attack from its permanent-event state `
+    + `against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
+  );
+
+  // Discard the event card from hand. Its final resting place is decided by
+  // combat-finalize.ts once the attack resolves.
+  let newState = updatePlayer(state, hazardIdx, p => ({
+    ...p,
+    hand: removeById(p.hand, eventCard.instanceId),
+    discardPile: [...p.discardPile, toCardInstance(eventCard)],
+  }));
+
+  // Resume the resource player's window after this hazard play (rule 5.27).
+  newState = {
+    ...newState,
+    phaseState: { ...mhState, resourcePlayerPassed: false },
+  };
+
+  // Initiate the creature chain with the Nazgûl's own CardInstance — it is
+  // NOT removed from cardsInPlay here (see initiateCreatureCombat).
+  const payload: ChainEntryPayload = {
+    type: 'nazgul-permanent-event-attack',
+    nazgulOwnerId: action.targetNazgulOwnerId,
+    triggerInstanceId: eventCard.instanceId,
+  };
+  newState = initiateChain(newState, action.player, toCardInstance(nazgulCard), payload);
 
   return { state: newState };
 }

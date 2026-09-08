@@ -13234,6 +13234,78 @@ rules.
 
 Used by: *Monstrosity of Diverse Shape* (ba-21).
 
+### 42b. `nazgul-permanent-event-attack`
+
+Marks a hazard permanent-event that triggers an already in-play Nazgûl
+permanent-event — **either player's own** — into an immediate creature
+attack against the active company, from its permanent-event state, without
+counting against the hazard limit. Models Out of the Black Sky (dm-77):
+"Playable if Doors of Night is in play on a Nazgûl permanent-event that
+could immediately attack as if it were in your hand as a creature. The
+Nazgûl immediately attacks as a creature from its permanent-event state (not
+counting against the hazard limit) and chooses defending characters. If the
+Nazgûl is defeated, place this card in opponent's marshalling point pile and
+remove the Nazgûl from play. Otherwise, discard this card. This can be used
+on an opponent's Nazgûl permanent-event as well as on your own."
+
+No fields beyond `type`; pair with a `play-condition` `requires:
+"card-in-play"` `cardName: "Doors of Night"` for the printed play condition.
+
+```json
+{ "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" },
+{ "type": "nazgul-permanent-event-attack" }
+```
+
+Unlike the `nazgul-permanent-event` `play-target` (§ below, Helms of Iron
+dm-64) — which only ever scans the hazard player's *own* `cardsInPlay` and
+simply discards the chosen card — this effect's candidate pool is every
+Nazgûl permanent-event (`isNazgulPermanentEvent`) in **either** player's
+`cardsInPlay`, and resolution is a full creature attack, not a discard.
+
+Legal actions (`nazgulPermanentEventAttackActions`,
+`engine/legal-actions/movement-hazard.ts`): during the M/H play-hazards
+window, checks `state.chain === null`, the card's own `card-in-play`
+play-condition, and the `cancelAttacksSiteName` site-rule gate, then walks
+both players' `cardsInPlay` for `isNazgulPermanentEvent` entries, running the
+standard creature-keying check ("could immediately attack") against each
+candidate. Emits one `attack-nazgul-permanent-event` action per (candidate,
+keying-match), carrying `targetNazgulInstanceId` + `targetNazgulOwnerId`. The
+generic long/permanent-event offering loop skips any card carrying this
+effect (mirroring how the short-event loop skips `play-creature-from-discard`
+cards) — it is offered only through this dedicated emitter. Hazard-limit
+exempt: the reducer never charges the hazard limit for this play.
+
+Reducer (`handleAttackNazgulPermanentEvent`,
+`engine/mh-hazard-play.ts`): discards the driving event card from hand to its
+own owner's discard pile (final routing is decided at combat finalize), and
+initiates the chain with `entry.card` set to the **Nazgûl's own
+`CardInstance`** — left exactly where it sits, never removed from
+`cardsInPlay` — and payload `{ type: "nazgul-permanent-event-attack",
+nazgulOwnerId, triggerInstanceId }`.
+
+Combat initiation (`initiateCreatureCombat`, `engine/chain-reducer.ts`,
+generalized to accept this payload type alongside `"creature"`): builds a new
+`AttackSource` variant `{ type: "nazgul-permanent-event-attack",
+nazgulInstanceId, nazgulOwnerId, triggerInstanceId }` and unconditionally
+forces attacker-chooses-defenders for the attack. The "place the creature
+into the hazard player's `cardsInPlay`" step is generalized to check *both*
+players' `cardsInPlay` for the existing instance (rather than only the acting
+player's own), so a targeted Nazgûl sitting in the *opponent's* pile is
+correctly recognized as already in play and never duplicated.
+
+Disposal (`combat-finalize.ts`, a block keyed on `combat.attackSource.type
+=== 'nazgul-permanent-event-attack'`, independent of the generic creature
+disposal — `attackSourceCreatureInstanceId` returns `null` for this source
+type): on full defeat, the Nazgûl moves from `nazgulOwnerId`'s `cardsInPlay`
+to that owner's `outOfPlayPile` ("removed from play" — not a kill pile, so
+its own printed `killMarshallingPoints` is never paid out), and the
+triggering card moves from its own discard pile to the *defending* player's
+`killPile`, scoring the triggering card's **own** `killMarshallingPoints`
+(decoupled from whichever Nazgûl was actually used). An undefeated attack
+leaves both cards exactly where they already are.
+
+Used by: *Out of the Black Sky* (dm-77).
+
 ### 43. `region-keying-boost`
 
 A turn-scoped environment effect that softens creature **keying** by letting one

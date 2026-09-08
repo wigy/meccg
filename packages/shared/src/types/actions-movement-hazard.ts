@@ -1736,6 +1736,35 @@ export interface PlayCreatureFromDiscardAction {
 }
 
 /**
+ * Trigger an already in-play Nazgûl permanent-event (either player's own)
+ * into an immediate creature attack against the active company, driven by a
+ * hazard permanent-event carrying a `nazgul-permanent-event-attack` effect
+ * (Out of the Black Sky, dm-77).
+ *
+ * Does NOT count against the hazard limit. Unlike
+ * {@link PlayCreatureFromDiscardAction}, the targeted creature is never
+ * removed from `targetNazgulOwnerId`'s `cardsInPlay` — it attacks "in
+ * place," and `targetNazgulOwnerId` may be either player (own Nazgûl or the
+ * opponent's).
+ */
+export interface AttackNazgulPermanentEventAction {
+  /** Action discriminant. */
+  readonly type: 'attack-nazgul-permanent-event';
+  /** The hazard player playing Out of the Black Sky. */
+  readonly player: PlayerId;
+  /** Out of the Black Sky's own card instance (in hand). */
+  readonly cardInstanceId: CardInstanceId;
+  /** The Nazgûl permanent-event instance being triggered into an attack. */
+  readonly targetNazgulInstanceId: CardInstanceId;
+  /** Whichever player's `cardsInPlay` currently holds the targeted Nazgûl. */
+  readonly targetNazgulOwnerId: PlayerId;
+  /** The company the creature is targeting. */
+  readonly targetCompanyId: CompanyId;
+  /** Keying match (same as a play-hazard creature). */
+  readonly keyedBy?: CreatureKeyingMatch;
+}
+
+/**
  * Replay a hazard creature from the hazard player's own discard pile as an
  * immediate attack, granted by an in-play permanent-event carrying a
  * `grant-replay-attacked-creature` effect (Monstrosity of Diverse Shape,

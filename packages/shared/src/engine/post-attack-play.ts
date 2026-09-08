@@ -221,6 +221,7 @@ function attackIdentity(c: CombatState): string {
     case 'site-entry-attack': return s.eventInstanceId as string;
     case 'region-shortcut-attack': return s.eventInstanceId as string;
     case 'traitor-attack': return s.eventInstanceId as string;
+    case 'nazgul-permanent-event-attack': return s.nazgulInstanceId as string;
   }
 }
 
