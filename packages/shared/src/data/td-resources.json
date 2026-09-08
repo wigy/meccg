@@ -549,8 +549,19 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a Dragon or Drake attack. If one is available, opponent must discard a hazard creature from his hand; this reduces the company’s hazard limit by one. Otherwise, the attack is canceled and the opponent must reveal his hand."
+    "effects": [
+      {
+        "type": "force-opponent-discard",
+        "match": "hazard-creature",
+        "sources": ["hand"],
+        "hazardLimitReduction": 1,
+        "fallbackRevealHand": true,
+        "fallbackCancelAttack": true,
+        "when": { "enemy.race": { "$in": ["dragon", "drake"] } }
+      }
+    ],
+    "text": "Playable on a Dragon or Drake attack. If one is available, opponent must discard a hazard creature from his hand; this reduces the company’s hazard limit by one. Otherwise, the attack is canceled and the opponent must reveal his hand.",
+    "certified": "2026-09-08"
   },
   {
     "cardType": "hero-resource-event",

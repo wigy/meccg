@@ -1444,6 +1444,16 @@ export interface NewHandEffect extends EffectBase {
  * tapped it "becomes a short-event and forces opponent to discard one card of
  * his choice for every Nazgûl permanent-event in play (including this one) at
  * the time of declaration." (match `'any'`, dynamic `count`.)
+ *
+ * Used by *Dragon's Hunger* (td-106): a combat-window resource short event
+ * ("Playable on a Dragon or Drake attack") with match `'hazard-creature'`
+ * (any `hazard-creature`-typed hand card), `sources: ['hand']`,
+ * `hazardLimitReduction: 1`, `fallbackRevealHand: true`, and
+ * `fallbackCancelAttack: true`. See {@link hazardLimitReduction} and
+ * {@link fallbackCancelAttack} below — unlike the M/H-phase-only cards
+ * above, this variant is offered and resolved from `combat.ts` /
+ * `reducer-events.ts`'s combat short-event path (mirroring
+ * `company-combat-boost`), not the hazard-phase chain path.
  */
 export interface ForceOpponentDiscardEffect extends EffectBase {
   readonly type: 'force-opponent-discard';
@@ -1452,8 +1462,11 @@ export interface ForceOpponentDiscardEffect extends EffectBase {
    * - `'ring'` — cards carrying the `ring` keyword or the `gold-ring` subtype.
    * - `'any'` — any card (used when the discard count, not the category, is the
    *   point). Only the `'hand'` source is supported for `'any'`.
+   * - `'hazard-creature'` — any card whose `cardType` is `'hazard-creature'`.
+   *   Only the `'hand'` source is meaningful (a hazard creature is never
+   *   "carried").
    */
-  readonly match: 'ring' | 'any';
+  readonly match: 'ring' | 'any' | 'hazard-creature';
   /**
    * Where to look for candidate cards to discard:
    * - `'hand'` — the opponent's hand.
@@ -1462,6 +1475,26 @@ export interface ForceOpponentDiscardEffect extends EffectBase {
   readonly sources: readonly ('hand' | 'carried')[];
   /** When true and no candidate exists, reveal the opponent's hand instead. */
   readonly fallbackRevealHand?: boolean;
+  /**
+   * When true and no candidate exists, also cancels the current combat's
+   * attack (in addition to any {@link fallbackRevealHand}). Combat-only —
+   * a no-op unless played while `state.combat` is active. Used by *Dragon's
+   * Hunger* (td-106): "Otherwise, the attack is canceled and the opponent
+   * must reveal his hand."
+   */
+  readonly fallbackCancelAttack?: boolean;
+  /**
+   * When set and at least one candidate exists (so the forced discard fires
+   * instead of the fallback), reduces the hazard limit against the
+   * defending company by this amount for the rest of its Movement/Hazard
+   * phase (`add-constraint` `hazard-limit-modifier`, scope
+   * `company-mh-phase`) — applied immediately alongside the enqueued
+   * `force-discard-card` pending resolution, since the reduction follows
+   * from the discard being forced, independent of which card is chosen.
+   * Used by *Dragon's Hunger* (td-106): "this reduces the company's hazard
+   * limit by one."
+   */
+  readonly hazardLimitReduction?: number;
   /**
    * How many cards the opponent must discard. Absent = one card (the `'ring'`
    * case). A `countCardsInPlay` descriptor makes the number equal to the count

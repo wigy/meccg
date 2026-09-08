@@ -214,7 +214,7 @@ export function heroResourceShortEventActions(
   // carry `play-window: { crossTurn: true }` — playable during the opponent's
   // matching phase too. isOwnTurn distinguishes the two below.
   const isOwnTurn = state.activePlayer === playerId;
-  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack', 'goodwill-cancel-attack', 'riddling-attempt', 'join-combat-force-strike']);
+  const combatOnlyTypes = new Set(['cancel-attack', 'cancel-chain-attack-cancel', 'cancel-strike', 'halve-strikes', 'strike-modifier', 'flattery-cancel-attack', 'goodwill-cancel-attack', 'riddling-attempt', 'join-combat-force-strike', 'force-opponent-discard']);
   const inPlayNames = buildInPlayNames(state);
 
   for (const handCard of player.hand) {
