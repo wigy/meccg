@@ -9180,6 +9180,17 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
      * branch — a match on either grants the keying.
      */
     readonly regionTypes?: readonly RegionType[];
+    /**
+     * The moving company's resolved site path must include a region printed
+     * with one of these exact names (omit = no named-region branch). OR'd
+     * with the site-type / region-type branches. Checked against
+     * `MovementHazardPhaseState.resolvedSitePathNames` — the same field a
+     * creature's own native `keyedTo.regionNames` checks — so this opens
+     * keying to *specific* named regions rather than a region type. Used by
+     * In Darkness Bind Them (dm-65): "may be keyed to Ithilien, Harondor,
+     * Horse Plains, Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad."
+     */
+    readonly regionNames?: readonly string[];
   };
   /**
    * DSL condition evaluated against the target company's condition context
@@ -9195,6 +9206,24 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
    * Excludes Coastal-Sea-only creatures (e.g. tw-34) from the broadened keying.
    */
   readonly requiresNonCoastalKeying?: boolean;
+  /**
+   * Restricts the grant to creatures whose own `keyedTo` already contains an
+   * entry requiring the given region type — the printed keying the grant
+   * widens, not the granted region itself. `exactCount` (default: any count
+   * ≥ 1) requires the matching entry's region-type list to contain exactly
+   * that many occurrences of `regionType` — e.g.
+   * `{ regionType: "shadow", exactCount: 1 }` matches only a *single*
+   * Shadow-land [{s}] requirement, excluding a double Shadow-land keying
+   * (two `"shadow"` entries in the same `regionTypes` array). Used by In
+   * Darkness Bind Them (dm-65): "Any creature that can be keyed to one
+   * single Shadow-land [{s}] may be keyed to …" (`exactCount: 1`) vs. "Any
+   * creature that can be keyed to a Dark-domain [{d}] may be keyed to …"
+   * (no count qualifier — `exactCount` omitted).
+   */
+  readonly requiresKeyedToRegionType?: {
+    readonly regionType: RegionType;
+    readonly exactCount?: number;
+  };
   /**
    * Where the grant lives — i.e. what makes it active against the company
    * currently being attacked. Defaults to `'in-play'`.

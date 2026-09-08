@@ -11523,6 +11523,62 @@ in a Shadow-land [{s}] or Shadow-hold [{S}]."
 }
 ```
 
+`siteFilter.regionNames` opens a third branch, OR'd with the site-type and
+region-type branches: the grant matches when the moving company's resolved
+site path includes a region printed with one of these exact names (checked
+against `MovementHazardPhaseState.resolvedSitePathNames` — the same field a
+creature's own native `keyedTo.regionNames` checks). This is for widening
+keying to *specific named regions* rather than a whole region type. The
+optional `requiresKeyedToRegionType` gates the grant on the creature's own
+printed `keyedTo` already requiring a given region type — `exactCount`
+(default: any count ≥ 1) restricts the match to entries whose occurrence
+count of that type is exactly `exactCount`, e.g. `{ regionType: "shadow",
+exactCount: 1 }` matches a *single* Shadow-land [{s}] requirement but not a
+double Shadow-land keying (two `"shadow"` entries in the same `regionTypes`
+array — see `satisfiedRegionTypes`/`creatureKeyedToRegionType`).
+
+When a creature is played on the strength of a `siteFilter.regionNames`
+match, the matched name is threaded into `keyedBy` as
+`{ method: "keying-bypass", value: <race>, grantedRegionName: <name> }`
+(still a keying-bypass for validation purposes — `checkCreatureKeying` is
+skipped exactly as for any other grant) and from there into the attack's
+`attackKeyingRegionNames` / `attack.keyingRegionNames` context, so name-gated
+`cancel-attack`/`on-event` effects see it exactly as they would a native
+`region-name` match.
+
+Used by In Darkness Bind Them (dm-65): "Any creature that can be keyed to one
+single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains,
+Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can
+be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn,
+Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one
+of these regions (not to the region symbol) is defeated." — two
+`grant-creature-keying` effects (one per printed clause) plus an `on-event:
+attack-defeated` self-discard gated on `attack.keyingRegionNames` naming any
+of the nine regions:
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+  "siteFilter": {
+    "regionNames": ["Ithilien", "Harondor", "Horse Plains", "Khand",
+      "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
+}
+```
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "dark" },
+  "siteFilter": {
+    "regionNames": ["Khand", "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
+}
+```
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected

@@ -89,6 +89,15 @@ export interface CreatureKeyingMatch {
   readonly method: 'region-type' | 'region-name' | 'site-type' | 'site-name' | 'site-in-region' | 'site-keyword' | 'adjacent-to-site-keyword' | 'adjacent-to-site-name' | 'moving-between-sites' | 'keying-bypass' | 'follows-attack';
   /** The specific value that matched (e.g. "wilderness", "Arthedain", "ruins-and-lairs", "The Lonely Mountain", "Rivendell to Lórien"). */
   readonly value: string;
+  /**
+   * For `keying-bypass` matches sourced from a `grant-creature-keying`
+   * effect's `siteFilter.regionNames` branch (e.g. In Darkness Bind Them
+   * dm-65), the specific named region that justified the grant. Threaded
+   * into the attack's `attackKeyingRegionNames` so name-gated cancel-attack
+   * and on-event effects (e.g. dm-65's own discard-on-defeat clause) see it
+   * exactly as they would a native `region-name` match.
+   */
+  readonly grantedRegionName?: string;
 }
 
 export interface PlayHazardAction {
