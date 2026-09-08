@@ -24,7 +24,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GIMLI, BILBO,
+  ARAGORN, LEGOLAS, GIMLI, BILBO, GOLLUM,
   ORC_PATROL, CONCEALMENT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   pool, viableActions,
@@ -33,7 +33,7 @@ import {
   CardStatus,
   handCardId, companyIdAt, dispatch, expectCharStatus, expectInDiscardPile,
   resolveChain, RESOURCE_PLAYER, HAZARD_PLAYER,
-  buildSitePhaseState, setupAutoAttackStep,
+  buildSitePhaseState, setupAutoAttackStep, attachAllyToChar, findCharInstanceId,
 } from '../test-helpers.js';
 import type { CancelAttackAction } from '../../index.js';
 import { RegionType, SiteType, describeAction } from '../../index.js';
@@ -444,5 +444,36 @@ describe('Concealment (tw-204)', () => {
     const scoutIds = cancelActions.map(a => (a.action as CancelAttackAction).scoutInstanceId);
     expect(scoutIds.every(id => id !== undefined)).toBe(true);
     expect(new Set(scoutIds).size).toBe(2);
+  });
+
+  // Regression: bug report — Gollum (a scout ally, tw-246) attached to a
+  // non-scout character (Gimli) should still let his bearer's company play
+  // Concealment, per CoE rule 2.V.2.2 ("Allies are ... treated as characters
+  // for the purposes of ... 'skill only' cards or effects"). Previously the
+  // cancel-attack legal-action scan only checked `company.characters` for
+  // the required skill, ignoring allies entirely.
+  test('cancel-attack is available via a scout ally (Gollum) even when no character in the company is a scout', () => {
+    const state = buildSitePhaseState({
+      site: MORIA,
+      characters: [GIMLI],
+      hand: [CONCEALMENT],
+    });
+    const withGollum = attachAllyToChar(state, RESOURCE_PLAYER, GIMLI, GOLLUM);
+
+    const readyState = setupAutoAttackStep(withGollum);
+    const afterPass = dispatch(readyState, { type: 'pass', player: PLAYER_1 });
+
+    expect(afterPass.combat).toBeDefined();
+    const cancelActions = viableActions(afterPass, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(1);
+    const action = cancelActions[0].action as CancelAttackAction;
+    expect(action.scoutInstanceId).toBeDefined();
+
+    // Executing the action should tap Gollum (not Gimli, who lacks scout).
+    const declared = dispatch(afterPass, action);
+    const gimliId = findCharInstanceId(declared, RESOURCE_PLAYER, GIMLI);
+    const gimliData = declared.players[0].characters[gimliId];
+    expect(gimliData.status).toBe(CardStatus.Untapped);
+    expect(gimliData.allies[0]?.status).toBe(CardStatus.Tapped);
   });
 });
