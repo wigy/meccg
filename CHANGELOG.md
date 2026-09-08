@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.148.0 — 2026-09-08
+
+Nazgûl-summoning certification and deck list tools
+
+### Game Engine
+
+- Certified Out of the Black Sky (dm-77): a new `nazgul-permanent-event-attack` primitive turns an in-play Nazgûl permanent-event (either player's) into an immediate creature attack exempt from the hazard limit, with the attacker choosing defenders. On full defeat the Nazgûl is removed from play and Out of the Black Sky goes to the defender's kill pile for its own printed kill points; `initiateCreatureCombat` now scans both players' cards in play for the targeted card (#3016)
+- Fixed Fireworks untapping a site locked by No Strangers at this Time or People Diminished: the `untap-site` roll result now honours `siteNeverUntapsForOwner`, so a passed roll leaves a site-locked site tapped (#3020)
+
+### Web Client
+
+- Added an Export button to every row of the My Decks list and the deck catalog, downloading the deck as a `.meccg-json` file without opening the editor (#3018)
+- Decks can now be renamed inline from the My Decks list, and copying a catalog deck prompts for the new deck's name before the copy is made (#3017)
+- Fixed an opponent's character being unclickable as the target of an influence attempt on the board: the character column and its card image share one instance id, and the generic walk claimed the column first (#3019)
+
 ## 0.147.0 — 2026-09-08
 
 Region-keying hazard certifications and scout-ally fixes

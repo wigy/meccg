@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1314 | 1314 | 0 | 100.0% |
+| 1315 | 1315 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 116 | 116 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 137 | 137 | 100.0% |
+| DM | 138 | 138 | 100.0% |
 | LE | 317 | 317 | 100.0% |
 | TD | 126 | 126 | 100.0% |
 | TW | 423 | 423 | 100.0% |
@@ -307,6 +307,7 @@
 | dm-74 | Never Seen Him | — | 10 | ☑ |
 | dm-75 | No Way Forward | — | 8 | ☑ |
 | dm-76 | Nobody’s Friend | — | 14 | ☑ |
+| dm-77 | Out of the Black Sky | — | 9 | ☑ |
 | dm-78 | Pale Dream-maker | — | 15 | ☑ |
 | dm-79 | Pierced by Many Wounds | — | 11 | ☑ |
 | dm-80 | Rank upon Rank | — | 11 | ☑ |
@@ -341,7 +342,7 @@
 | dm-125 | Enduring Tales | — | 6 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
-| dm-130 | Fireworks | — | 19 | ☑ |
+| dm-130 | Fireworks | — | 20 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 14 | ☑ |
 | dm-134 | Hall of Fire | — | 13 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
