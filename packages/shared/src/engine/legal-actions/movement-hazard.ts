@@ -1830,10 +1830,11 @@ function summonsFromLongSleepActions(
         }
 
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
+          || keyingGrant.granted;
 
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(creatureDef);
@@ -1859,7 +1860,7 @@ function summonsFromLongSleepActions(
               player: playerId,
               sourceCardInstanceId: card.instanceId,
               targetCompanyId,
-              keyedBy: { method: 'keying-bypass', value: (creatureDef).race },
+              keyedBy: { method: 'keying-bypass', value: (creatureDef).race, grantedRegionName: keyingGrant.regionName },
             },
             viable: true,
           });
@@ -1959,10 +1960,11 @@ function playCreatureFromDiscardActions(
       const creatureName = (creatureDef as { name?: string })?.name ?? (discardCard.definitionId as string);
 
       const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+      const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
         || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-        || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
+        || keyingGrant.granted;
 
       if (matches.length === 0 && !keyingBypassed) {
         logDetail(`${defName}: discard creature "${creatureName}" not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -1978,7 +1980,7 @@ function playCreatureFromDiscardActions(
             cardInstanceId: handCard.instanceId,
             creatureInstanceId: discardCard.instanceId,
             targetCompanyId,
-            keyedBy: { method: 'keying-bypass', value: creatureDef.race },
+            keyedBy: { method: 'keying-bypass', value: creatureDef.race, grantedRegionName: keyingGrant.regionName },
           },
           viable: true,
         });
@@ -2632,10 +2634,11 @@ function playHazardsActions(
           continue;
         }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
+        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
           || siteAllowsCreatureByKeying(state, targetCompany, def)
-          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def);
+          || keyingGrant.granted;
         if (matches.length === 0 && !keyingBypassed) {
           const keyError = describeKeyingRequirement(def);
           logDetail(`Creature "${def.name}" not keyable: ${keyError}`);
@@ -2656,7 +2659,7 @@ function playHazardsActions(
         if (matches.length === 0 && keyingBypassed) {
           logDetail(`Creature "${def.name}" keyable via keying-bypass (race "${def.race}")`);
           actions.push({
-            action: { ...action, keyedBy: { method: 'keying-bypass', value: def.race } },
+            action: { ...action, keyedBy: { method: 'keying-bypass', value: def.race, grantedRegionName: keyingGrant.regionName } },
             viable: true,
           });
           continue;
@@ -5545,21 +5548,21 @@ function grantsCreatureKeying(
   owner: PlayerState,
   targetCompany: Company,
   creatureDef: CardDefinition,
-): boolean {
+): { readonly granted: boolean; readonly regionName?: string } {
   const grants = collectCreatureKeyingGrants(state, mhState);
-  if (grants.length === 0) return false;
+  if (grants.length === 0) return { granted: false };
 
   const effectiveSiteInstanceId = targetCompany.destinationSite?.instanceId
     ?? targetCompany.currentSite?.instanceId
     ?? null;
-  if (!effectiveSiteInstanceId) return false;
-  const siteDefId = resolveInstanceId(state, effectiveSiteInstanceId);
-  if (!siteDefId) return false;
-  const siteDef = defById(state, siteDefId);
-  if (!siteDef || !isSiteCard(siteDef)) return false;
-  const effSiteType = getEffectiveSiteType(state, siteDefId, siteDef.siteType, effectiveSiteInstanceId);
-  const siteKeywords = new Set<string>(siteDef.keywords ?? []);
+  const siteDefId = effectiveSiteInstanceId ? resolveInstanceId(state, effectiveSiteInstanceId) : null;
+  const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
+  const effSiteType = siteDefId && siteDef && isSiteCard(siteDef)
+    ? getEffectiveSiteType(state, siteDefId, siteDef.siteType, effectiveSiteInstanceId!)
+    : null;
+  const siteKeywords = new Set<string>(siteDef && isSiteCard(siteDef) ? (siteDef.keywords ?? []) : []);
   const regionPath = mhState.resolvedSitePath;
+  const pathNames = mhState.resolvedSitePathNames;
 
   const creatureCtx = creatureDef as unknown as Record<string, unknown>;
   for (const { sourceName, effect: e } of grants) {
@@ -5567,19 +5570,30 @@ function grantsCreatureKeying(
     // The creature must be playable in a non-Coastal-Sea region (tw-497).
     if (e.requiresNonCoastalKeying && creatureDef.cardType === 'hazard-creature'
       && !creatureHasNonCoastalRegionKeying(creatureDef)) continue;
+    // The creature's own printed keyedTo must already require the given
+    // region type (In Darkness Bind Them dm-65: "can be keyed to one single
+    // Shadow-land" / "can be keyed to a Dark-domain").
+    if (e.requiresKeyedToRegionType && creatureDef.cardType === 'hazard-creature'
+      && !creatureKeyedToRegionType(
+        creatureDef, e.requiresKeyedToRegionType.regionType, e.requiresKeyedToRegionType.exactCount,
+      )) continue;
     // Site-type branch: effective site type in siteTypes (or NOT in excludeSiteTypes) AND all keywords.
     let siteBranch = false;
-    if (e.siteFilter.siteTypes) {
-      siteBranch = e.siteFilter.siteTypes.includes(effSiteType)
-        && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
-    } else if (e.siteFilter.excludeSiteTypes) {
-      siteBranch = !e.siteFilter.excludeSiteTypes.includes(effSiteType)
-        && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
+    if (effSiteType !== null) {
+      if (e.siteFilter.siteTypes) {
+        siteBranch = e.siteFilter.siteTypes.includes(effSiteType)
+          && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
+      } else if (e.siteFilter.excludeSiteTypes) {
+        siteBranch = !e.siteFilter.excludeSiteTypes.includes(effSiteType)
+          && (!e.siteFilter.siteKeywords || e.siteFilter.siteKeywords.every(k => siteKeywords.has(k)));
+      }
     }
     // Region-type branch: the company path holds a granted region type.
     const regionBranch = !!e.siteFilter.regionTypes
       && regionPath.some(rt => e.siteFilter.regionTypes!.includes(rt));
-    if (!siteBranch && !regionBranch) continue;
+    // Named-region branch: the company path includes one of the granted names.
+    const matchedRegionName = e.siteFilter.regionNames?.find(rn => pathNames.includes(rn));
+    if (!siteBranch && !regionBranch && !matchedRegionName) continue;
     // Target-company gate (e.g. "a hero company bearing The One Ring").
     if (e.companyFilter) {
       const companyCtx = buildTargetCompanyConditionContext(
@@ -5589,11 +5603,11 @@ function grantsCreatureKeying(
     }
     logDetail(
       `Creature keying granted by "${sourceName}" (${e.source ?? 'in-play'}): `
-      + `${siteBranch ? `site type ${effSiteType}` : `region type on path`}`,
+      + `${siteBranch ? `site type ${effSiteType}` : matchedRegionName ? `named region ${matchedRegionName}` : `region type on path`}`,
     );
-    return true;
+    return { granted: true, regionName: matchedRegionName };
   }
-  return false;
+  return { granted: false };
 }
 
 /**
@@ -5610,6 +5624,28 @@ export function creatureHasNonCoastalRegionKeying(def: CreatureCard): boolean {
     for (const rt of key.regionTypes ?? []) {
       if (rt !== RegionType.Coastal && (rt as string) !== 'coastal-sea') return true;
     }
+  }
+  return false;
+}
+
+/**
+ * True if some entry in the creature's printed `keyedTo` requires the given
+ * region type — honoring per-type count (repeated occurrences of the same
+ * type in one entry's `regionTypes` mean "N of this type," per
+ * {@link satisfiedRegionTypes}). `exactCount` (when given) restricts the
+ * match to entries whose occurrence count of `regionType` equals exactly
+ * that number, e.g. `exactCount: 1` matches only a *single* Shadow-land
+ * requirement and excludes a double Shadow-land entry (`["shadow","shadow"]`).
+ * Omitting `exactCount` matches any occurrence count ≥ 1.
+ *
+ * Used by In Darkness Bind Them (dm-65)'s `requiresKeyedToRegionType` gate on
+ * `grant-creature-keying`.
+ */
+export function creatureKeyedToRegionType(def: CreatureCard, regionType: RegionType, exactCount?: number): boolean {
+  for (const key of def.keyedTo) {
+    const count = (key.regionTypes ?? []).filter(rt => rt === regionType).length;
+    if (count === 0) continue;
+    if (exactCount === undefined || count === exactCount) return true;
   }
   return false;
 }

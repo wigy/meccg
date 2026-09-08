@@ -270,7 +270,7 @@ export function applyRegionTypeConversions(
 /**
  * Collect every additional-keying grant offered by active
  * `region-name-keying-grant` effects (Angmar Arises dm-44, In Darkness Bind
- * Them dm-65, Reaching Shadow dm-81). Scans both players' `cardsInPlay` —
+ * Them dm-65). Scans both players' `cardsInPlay` —
  * these are global permanent environments, so all grants apply regardless of
  * which player's creature or company is being keyed.
  */

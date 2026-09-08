@@ -865,6 +865,45 @@ Rumor of Wealth (td-58): "Playable on a Ruins & Lairs [{R}] that is not a Dragon
 
 Used by Rumor of Wealth (td-58): `creatureFilter: { "$and": [ { "race": "dragon" }, { "name": { "$ne": "Eärcaraxë" } } ] }`.
 
+### `grant-creature-keying` named-region branch (`siteFilter.regionNames`) + `requiresKeyedToRegionType` gate (In Darkness Bind Them dm-65)
+
+In Darkness Bind Them (dm-65): "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains, Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated." The named regions here are typed `wilderness` (Ithilien, Harondor) or `shadow`/`dark` in a way that doesn't already satisfy the base keying, so the grant is meaningful rather than redundant — confirmed against `tw-regions.json`.
+
+Two extensions to the existing in-play creature-keying grant, both in `legal-actions/movement-hazard.ts`:
+
+- **`siteFilter.regionNames`** — a third OR branch (alongside site-type and region-type): matches when the moving company's `resolvedSitePathNames` includes one of the listed exact region names, mirroring the check a creature's own native `keyedTo.regionNames` already performs. `grantsCreatureKeying` now returns `{ granted, regionName? }` instead of a bare boolean so the matched name can be threaded through — the three call sites (`play-reserved-creature`, `play-creature-from-discard`, and the main hand-play offer) all now capture this and attach it as `keyedBy: { method: "keying-bypass", value: <race>, grantedRegionName: <name> }` (new optional field on `CreatureKeyingMatch`). `keying-bypass` still short-circuits `checkCreatureKeying` in the reducer exactly as before — the new field is purely informational, read back out in `chain-reducer.ts`'s `attackKeyingRegionNames` derivation (`declaredKeyedBy.method === 'keying-bypass' && declaredKeyedBy.grantedRegionName`) so a grant-sourced play populates `attack.keyingRegionNames` identically to a native `region-name` match — letting name-gated `cancel-attack`/`on-event` effects (the existing `attack.keyingRegionNames` context field, e.g. Beasts of the Wood wh-38's `cancel-attack`) see it the same way.
+- **`requiresKeyedToRegionType: { regionType, exactCount? }`** — gates the grant on the creature's *own* printed `keyedTo` already requiring the given region type (the keying the grant widens, not the granted region). New helper `creatureKeyedToRegionType(def, regionType, exactCount?)` scans each `keyedTo` entry's `regionTypes` array and counts occurrences of `regionType` (repeated entries of the same type mean "N required," per `satisfiedRegionTypes`); `exactCount` (when given) requires that count to match exactly, so `{ regionType: "shadow", exactCount: 1 }` accepts a single-Shadow-land entry but rejects a double-Shadow-land one (`["shadow","shadow"]`). Omitting `exactCount` accepts any occurrence count ≥ 1 (used for the Dark-domain clause, which carries no "single" qualifier).
+
+Also extended `on-event: attack-defeated`'s context (`combat-finalize.ts`) with `attack.keyingRegionNames: combat.attackKeyingRegionNames ?? []`, previously only exposed to `cancel-attack`/`cancel-strike` — needed for dm-65's own discard clause, gated on the defeated attack's keying regardless of how it was keyed (native or grant).
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+  "siteFilter": {
+    "regionNames": ["Ithilien", "Harondor", "Horse Plains", "Khand",
+      "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
+},
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "dark" },
+  "siteFilter": { "regionNames": ["Khand", "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"] }
+},
+{
+  "type": "on-event", "event": "attack-defeated",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+  "when": { "$or": [
+    { "attack.keyingRegionNames": { "$includes": "Ithilien" } },
+    { "attack.keyingRegionNames": { "$includes": "Dagorlad" } }
+  ] }
+}
+```
+
+Used by In Darkness Bind Them (dm-65).
+
 - `region-name-keying-grant` — a global permanent environment that grants hazard creatures an additional **by-name** keying alternative, based on the creature's own printed region-type keying (not the destination, unlike `grant-creature-keying`). Each `grants` entry is `{ ifRegionTypes, regionNames }`: a creature whose own `keyedTo` has a `regionTypes` entry that *exactly* multiset-matches `ifRegionTypes` (same types, same count — a creature keyed to *two* Shadow-lands does not match `["shadow"]`, per CRF: "May not be used to play creatures keyed to double Shadow-lands") may additionally be keyed by name to any of `regionNames`. `collectRegionNameKeyingGrants(state)` (`engine/region-keying.ts`) scans both players' `cardsInPlay`; `extraKeyedToFromRegionNameGrants(keyedTo, grants, whenContext)` builds synthetic `{ regionNames }`-only `CreatureKeyRestriction` entries, skipping a printed entry whose own `when` clause (e.g. Elf-lord Revealed in Wrath le-69's Shadow-land keying, gated on Doors of Night being out of play) does not currently hold — the card text's "any creature that **can** be keyed" is false while that gate is closed. Both creature-keying matchers (`findCreatureKeyingMatches` in `legal-actions/movement-hazard.ts`, `checkCreatureKeying` in `mh-hazard-play.ts`) append the synthetic entries to their local `extraKeyedTo` list (same mechanism as Fell Beast's `nazgul-boost-pending` grant) — never into `def.keyedTo` itself, so detainment (`engine/detainment.ts`, which reads the creature's own printed `keyedTo`) and on-guard reveals are unaffected, matching the CRF ruling that this "does not change the region type used to judge whether an attack is detainment or not." The paired discard clause ("Discard this card when a creature keyed to one of these regions — not to the region symbol — is defeated") reads the attack's *declared* by-name match: `combat.attackKeyingRegionNames` is now also exposed to the `on-event: attack-defeated` context (`combat-finalize.ts`) as `attack.keyingRegionNames`, so an `on-event` `{ "$in": [...] }` check only fires when the creature was actually keyed by name, not via its own region-type/site-type symbol. Used by Angmar Arises (dm-44): single-Shadow-land creatures gain Forochel/Arthedain/Angmar/Gundabad/Rhudaur; single-Dark-domain creatures gain Angmar/Gundabad.
 
 ### `hazard-limit-race-grant` + `wound-additional-body-check` (per-company one-shot hazard-limit exemption; a second, independent body check on a matching wound, Host of Bats)
@@ -884,6 +923,19 @@ Host of Bats (td-31): "Against each company, one Orc hazard creature may be play
 ```
 
 Used by *Host of Bats* (td-31).
+
+### `grant-creature-keying` named-region branch reused for the Mirkwood/Anduin sibling (Reaching Shadow dm-81)
+
+Reaching Shadow (dm-81): "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated." Word-for-word the In Darkness Bind Them (dm-65) template with a different region list, so it is certified on exactly the mechanism documented in the dm-65 section above with **no new engine code**: two `grant-creature-keying` effects using the `siteFilter.regionNames` named-region branch, gated by `requiresKeyedToRegionType` (`{ "regionType": "shadow", "exactCount": 1 }` for "one single Shadow-land" — a double-Shadow-land keying such as Wild Fell Beast is excluded per CRF 22 "may not be used to play creatures keyed to double Shadow-lands"; `{ "regionType": "dark" }` for "a Dark-domain"), plus an `on-event: attack-defeated` self-discard gated on `attack.keyingRegionNames` (`{ "$in": [<the ten names>] }`), which only sees a name when the creature was actually keyed via the grant (`keyedBy.grantedRegionName`) or via its own printed `keyedTo.regionNames` — never via a region-type symbol elsewhere on the path.
+
+```json
+{ "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+  "siteFilter": { "regionNames": ["Anduin Vales", "Woodland Realm", "Dagorlad"] } }
+```
+
+dm-81 carries two such effects (Shadow-land list of 10 names, Dark-domain list of the 4 names that overlap Mordor/Mirkwood) plus the `on-event: attack-defeated` self-discard `when: { "attack.keyingRegionNames": { "$in": [<all 10 names>] } }`.
 
 ### `nazgul-permanent-event-attack` (trigger an in-play Nazgûl permanent-event into an attack, either player's own, Out of the Black Sky)
 

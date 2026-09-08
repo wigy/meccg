@@ -3408,7 +3408,7 @@ Events:
     "apply": { "type": "reveal-hand-cards-per-character" } }
   ```
 
-- `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`) and `attack.isAutomaticAttack` (`true` only when the defeated attack was a site automatic-attack or a played-auto-attack, not a hazard creature). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated, and by *Redoubled Force* (dm-83) to self-discard when an Orc/Troll **automatic**-attack is defeated (`when: { "attack.isAutomaticAttack": true, "enemy.race": { "$in": ["orc", "troll"] } }`).
+- `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`), `attack.isAutomaticAttack` (`true` only when the defeated attack was a site automatic-attack or a played-auto-attack, not a hazard creature), `attack.attackerChoosesDefenders`, and `attack.keyingRegionNames` (the named regions the defeated attack was keyed to — a creature's own printed `keyedTo.regionNames` match, a by-name alternative added by a `region-name-keying-grant` environment (Angmar Arises dm-44), or, via a `grant-creature-keying` `siteFilter.regionNames` grant's `keyedBy.grantedRegionName`, the named region that justified the grant; `[]` when none applies). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated, by *Redoubled Force* (dm-83) to self-discard when an Orc/Troll **automatic**-attack is defeated (`when: { "attack.isAutomaticAttack": true, "enemy.race": { "$in": ["orc", "troll"] } }`), and by *Reaching Shadow* (dm-81) to self-discard when a creature keyed via its named-region grant is defeated (`when: { "attack.keyingRegionNames": { "$in": [<the ten granted region names>] } } }`).
 - `attack-strike-successful` -- fires in `finalizeCombat` (`combat-finalize.ts`) when at least one of **this attack's own strikes** wounded or eliminated a defender (the same `struckCharIds` set used for wound-triggered passives — detainment strikes excluded, since they tap rather than wound) while the defending company is still in its movement/hazard phase. Self-bound to the attack source card; no `scope`. Supports the `company-return-to-origin` apply verb, which forces the defending company back to its site of origin (CoE rule 2.IV.4 — the same mechanism as the short-event `company-return-to-origin` card effect and `agent-discard-return-to-origin`): sets `MovementHazardPhaseState.returnedToOrigin` (skipped if already set, or if the company has no `destinationSite` — i.e. it already isn't moving) and adds a `site-phase-do-nothing` constraint scoped to the company's upcoming site phase. Unlike the short-event version there is no `unless` exception. Used by *Fell Turtle* (tw-34): "One strike. If any strike is successful, the defending company must return to its site of origin (defending characters are wounded normally)."
 
   ```json
@@ -11523,6 +11523,71 @@ in a Shadow-land [{s}] or Shadow-hold [{S}]."
 }
 ```
 
+`siteFilter.regionNames` opens a third branch, OR'd with the site-type and
+region-type branches: the grant matches when the moving company's resolved
+site path includes a region printed with one of these exact names (checked
+against `MovementHazardPhaseState.resolvedSitePathNames` — the same field a
+creature's own native `keyedTo.regionNames` checks). This is for widening
+keying to *specific named regions* rather than a whole region type. The
+optional `requiresKeyedToRegionType` gates the grant on the creature's own
+printed `keyedTo` already requiring a given region type — `exactCount`
+(default: any count ≥ 1) restricts the match to entries whose occurrence
+count of that type is exactly `exactCount`, e.g. `{ regionType: "shadow",
+exactCount: 1 }` matches a *single* Shadow-land [{s}] requirement but not a
+double Shadow-land keying (two `"shadow"` entries in the same `regionTypes`
+array — see `satisfiedRegionTypes`/`creatureKeyedToRegionType`).
+
+When a creature is played on the strength of a `siteFilter.regionNames`
+match, the matched name is threaded into `keyedBy` as
+`{ method: "keying-bypass", value: <race>, grantedRegionName: <name> }`
+(still a keying-bypass for validation purposes — `checkCreatureKeying` is
+skipped exactly as for any other grant) and from there into the attack's
+`attackKeyingRegionNames` / `attack.keyingRegionNames` context, so name-gated
+`cancel-attack`/`on-event` effects see it exactly as they would a native
+`region-name` match.
+
+Used by In Darkness Bind Them (dm-65): "Any creature that can be keyed to one
+single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains,
+Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can
+be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn,
+Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one
+of these regions (not to the region symbol) is defeated." — two
+`grant-creature-keying` effects (one per printed clause) plus an `on-event:
+attack-defeated` self-discard gated on `attack.keyingRegionNames` naming any
+of the nine regions:
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+  "siteFilter": {
+    "regionNames": ["Ithilien", "Harondor", "Horse Plains", "Khand",
+      "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
+}
+```
+
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "dark" },
+  "siteFilter": {
+    "regionNames": ["Khand", "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
+}
+```
+
+Reaching Shadow (dm-81) is the Mirkwood/Anduin sibling with the identical
+shape: the single-Shadow-land grant (`{ regionType: "shadow", exactCount: 1 }`)
+opens Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain
+Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern
+Mirkwood, Brown Lands and Dagorlad; the Dark-domain grant
+(`{ regionType: "dark" }`) opens Heart of Mirkwood, Southern Mirkwood, Brown
+Lands and Dagorlad; and its `on-event: attack-defeated` self-discard is gated
+on `attack.keyingRegionNames` naming any of its ten regions.
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected
@@ -13566,9 +13631,11 @@ single Shadow-land [{s}] may be keyed to Forochel, Arthedain, Angmar,
 Gundabad, or Rhudaur. Any creature that can be keyed to a Dark-domain [{d}]
 may be keyed to Angmar or Gundabad. Discard this card when a creature keyed
 to one of these regions (not to the region symbol) is defeated." The sibling
-cards *In Darkness Bind Them* (dm-65) and *Reaching Shadow* (dm-81) print the
-same mechanic with different name lists and are expected to reuse this
-primitive when certified.
+sibling card *In Darkness Bind Them* (dm-65) prints the same mechanic with a
+different name list and is expected to reuse this primitive when certified.
+*Reaching Shadow* (dm-81) prints it too, but is certified instead via the
+`grant-creature-keying` `siteFilter.regionNames` branch (see that section) —
+both routes feed the same `attack.keyingRegionNames` context.
 
 ### 44. `company-strike`
 

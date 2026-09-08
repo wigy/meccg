@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.147.0 — 2026-09-08
+
+Region-keying hazard certifications and scout-ally fixes
+
+### Game Engine
+
+- Certified Angmar Arises (dm-44): a new `region-name-keying-grant` global environment lets creatures printed with a single Shadow-land or Dark-domain keying be keyed by name to the Angmar-area regions. Grants are injected as synthetic keying entries, so detainment and on-guard reveals still read the creature's printed keying, and the attack's by-name keying is now exposed to `attack-defeated` on-event checks for the self-discard clause (#3011)
+- Certified In Darkness Bind Them (dm-65): `grant-creature-keying` gains a named-region branch and a `requiresKeyedToRegionType` gate with an exact-count qualifier that excludes double-Shadow-land creatures; the matched region name is threaded through combat so the discard-on-defeat clause only fires for grant-sourced keying (#3012)
+- Certified Reaching Shadow (dm-81): the Mirkwood/Anduin sibling of In Darkness Bind Them, built on the same `requiresKeyedToRegionType` named-region grant and discard-on-defeat wiring with no new engine code (#3014)
+- Certified Host of Bats (td-31): new `hazard-limit-race-grant` primitive for the per-company one-shot Orc hazard-limit exemption, and new `wound-additional-body-check` primitive that queues a second independent body check after a matching wound, including the Shadow of Mordor -2 variant at Shadow-holds and Darkholds (#3010)
+- Certified Potion of Prowess (tw-304): a `company-prowess-boost` grant-action giving +1 prowess to the bearer's company until end of turn, reusing the Orc-draughts and Miruvor mechanic (#3015)
+- Certified Arinmîr (tw-121): +2 direct influence against Variags of Khand via the existing faction-influence `stat-modifier` pattern (#3009)
+- Concealment and other skill-gated cancel-attack cards are now offered when only an ally with the required skill is in the company, per the rule that allies count as characters for "skill only" effects (#3007)
+
+### Web Client
+
+- Fixed a stuck game when Long Dark Reach reveals eligible attackers: the browser now renders one "Attack with" button per candidate instead of hiding the choice (#3013)
+- Allies attached to a character (for example Gollum as a scout) are now clickable as the target of Stealth and other character-targeting cards on the board (#3008)
+
 ## 0.146.0 — 2026-09-07
 
 Dragon-hazard certifications and combat-window fixes

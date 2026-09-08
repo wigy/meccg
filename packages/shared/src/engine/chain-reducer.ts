@@ -4079,7 +4079,10 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
         creatureDef.keyedTo.flatMap(k => k.siteTypes ?? []),
       ));
   const attackKeyingRegionNames = declaredKeyedBy
-    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value] : [])
+    ? (declaredKeyedBy.method === 'region-name' ? [declaredKeyedBy.value]
+      : declaredKeyedBy.method === 'keying-bypass' && declaredKeyedBy.grantedRegionName
+        ? [declaredKeyedBy.grantedRegionName]
+        : [])
     : Array.from(new Set(
         creatureDef.keyedTo.flatMap(k => k.regionNames ?? []),
       ));

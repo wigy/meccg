@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1308 | 1308 | 0 | 100.0% |
+| 1314 | 1314 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 116 | 116 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 134 | 134 | 100.0% |
+| DM | 137 | 137 | 100.0% |
 | LE | 317 | 317 | 100.0% |
-| TD | 125 | 125 | 100.0% |
-| TW | 421 | 421 | 100.0% |
+| TD | 126 | 126 | 100.0% |
+| TW | 423 | 423 | 100.0% |
 | WH | 95 | 95 | 100.0% |
 
 ## Detailed Test Matrix
@@ -280,6 +280,7 @@
 | dm-41 | The Under-vaults | — | 14 | ☑ |
 | dm-42 | Urlurtsu Nurn | — | 7 | ☑ |
 | dm-43 | An Article Missing | — | 15 | ☑ |
+| dm-44 | Angmar Arises | — | 10 | ☑ |
 | dm-45 | An Unexpected Outpost | — | 14 | ☑ |
 | dm-46 | Aware of their Ways | — | 7 | ☑ |
 | dm-49 | Chance of Being Lost | — | 11 | ☑ |
@@ -295,6 +296,7 @@
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
 | dm-63 | Great Secrets Buried There | — | 10 | ☑ |
 | dm-64 | Helms of Iron | — | 16 | ☑ |
+| dm-65 | In Darkness Bind Them | — | 8 | ☑ |
 | dm-66 | In Great Wrath | — | 7 | ☑ |
 | dm-67 | In the Heart of his Realm | — | 15 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
@@ -308,6 +310,7 @@
 | dm-78 | Pale Dream-maker | — | 15 | ☑ |
 | dm-79 | Pierced by Many Wounds | — | 11 | ☑ |
 | dm-80 | Rank upon Rank | — | 11 | ☑ |
+| dm-81 | Reaching Shadow | — | 9 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
 | dm-86 | Scimitars of Steel | — | 6 | ☑ |
@@ -705,6 +708,7 @@
 | td-25 | Foolish Words | — | 8 | ☑ |
 | td-27 | From the Pits of Angband | — | 15 | ☑ |
 | td-30 | Hobgoblins  | — | 4 | ☑ |
+| td-31 | Host of Bats | — | 15 | ☑ |
 | td-32 | Ice-drake | — | 2 | ☑ |
 | td-33 | Icy Touch | — | 11 | ☑ |
 | td-34 | Incite Denizens | — | 10 | ☑ |
@@ -936,6 +940,7 @@
 | tw-118 | Anborn | — | 3 | ☑ |
 | tw-119 | Annalena | — | 2 | ☑ |
 | tw-120 | Aragorn II | — | 3 | ☑ |
+| tw-121 | Arinmîr | — | 2 | ☑ |
 | tw-122 | Arwen | — | 3 | ☑ |
 | tw-123 | Balin | — | 5 | ☑ |
 | tw-124 | Bard Bowman | — | 2 | ☑ |
@@ -1017,7 +1022,7 @@
 | tw-201 | Book of Mazarbul | — | 16 | ☑ |
 | tw-202 | Bridge | — | 6 | ☑ |
 | tw-203 | Clear Skies | — | 5 | ☑ |
-| tw-204 | Concealment | — | 11 | ☑ |
+| tw-204 | Concealment | — | 12 | ☑ |
 | tw-205 | Cracks of Doom | — | 9 | ☑ |
 | tw-206 | Dagger of Westernesse | — | 3 | ☑ |
 | tw-207 | Dark Quarrels | — | 8 | ☑ |
@@ -1101,6 +1106,7 @@
 | tw-299 | Palantír of Minas Tirith | — | 11 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
 | tw-302 | Paths of the Dead | — | 6 | ☑ |
+| tw-304 | Potion of Prowess | — | 11 | ☑ |
 | tw-305 | Praise to Elbereth | — | 11 | ☑ |
 | tw-306 | Precious Gold Ring | — | 21 | ☑ |
 | tw-307 | Quickbeam | — | 7 | ☑ |
