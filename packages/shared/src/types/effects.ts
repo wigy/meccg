@@ -5405,7 +5405,7 @@ export interface RegionNameKeyingGrant {
 
 /**
  * A permanent environment effect (Angmar Arises dm-44, In Darkness Bind Them
- * dm-65) that grants hazard creatures an additional,
+ * dm-65, Reaching Shadow dm-81) that grants hazard creatures an additional,
  * name-based way to be keyed: any creature whose own printed keying matches
  * one of the listed {@link RegionNameKeyingGrant} entries may also be keyed to
  * the grant's named regions, on top of (never instead of) its printed
@@ -9158,45 +9158,6 @@ export interface RetainHazardLongEventsEffect extends EffectBase {
  * (tw-96) to restrict the widened keying to a hero company bearing The One
  * Ring (`{ "company.itemKeywords": { "$includes": "the-one-ring" } }`) or any
  * Ring (`{ "company.itemKeywords": { "$includes": "ring" } }`).
- *
- * `siteFilter.regionNames` opens a third, **named-region** branch (OR'd with
- * the other two): the grant matches when the moving company's resolved path
- * contains a region whose printed name is one of the listed names, regardless
- * of that region's own type. `creatureFilter` may reference the derived
- * `keyedToSingleRegionTypes` field — the set of region types a hazard
- * creature's own `keyedTo` requires *exactly once* in some entry (a creature
- * whose only relevant entry requires a type twice, e.g. a double
- * Shadow-land [{s}][{s}], does not offer that type here) — computed by
- * `grantsCreatureKeying` (`legal-actions/movement-hazard.ts`) and merged into
- * the creature-filter context alongside the raw card definition. Used by
- * Reaching Shadow (dm-81): "Any creature that can be keyed to one single
- * Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern
- * Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of
- * Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can
- * be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern
- * Mirkwood, Brown Lands, or Dagorlad" — two `grant-creature-keying` effects,
- * `creatureFilter: { "keyedToSingleRegionTypes": { "$includes": "shadow" } }`
- * / `{ "$includes": "dark" }`, each with its own `siteFilter.regionNames`
- * list (per CRF 22, "may not be used to play creatures keyed to double
- * Shadow-lands" — captured for free by the single-count derivation).
- *
- * ```json
- * { "type": "grant-creature-keying",
- *   "creatureFilter": { "keyedToSingleRegionTypes": { "$includes": "shadow" } },
- *   "siteFilter": { "regionNames": ["Anduin Vales", "Woodland Realm", "Dagorlad"] } }
- * ```
- *
- * When the `regionNames` branch is what justifies the grant, the matched name
- * is recorded on the resulting `keyedBy` as `grantedRegionName` (still
- * `method: 'keying-bypass'`, so the reducer's normal keying re-check is still
- * skipped) — see {@link import('./actions-movement-hazard.js').CreatureKeyingMatch}.
- * `chain-reducer.ts` folds it into `CombatState.attackKeyingRegionNames`
- * exactly as it would a creature's own printed `keyedTo.regionNames` match, so
- * an `on-event: attack-defeated` trigger gated on `attack.keyingRegionNames`
- * fires only for a creature actually keyed via the grant — not one keyed by
- * its own region-type symbol elsewhere on the path (Reaching Shadow's
- * "Discard this card when a creature keyed to one of these regions (not to
- * the region symbol) is defeated").
  */
 export interface GrantCreatureKeyingEffect extends EffectBase {
   readonly type: 'grant-creature-keying';
@@ -9220,18 +9181,14 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
      */
     readonly regionTypes?: readonly RegionType[];
     /**
-     * The moving company's resolved site path must contain a region whose
-     * printed *name* is one of these (omit = no region-name branch). OR'd
-     * with the site-type / region-type branches. Unlike `regionTypes`, this
-     * lets the grant key a creature to specific named regions regardless of
-     * their own printed region type — e.g. Reaching Shadow (dm-81): "Any
-     * creature that can be keyed to one single Shadow-land [{s}] may be keyed
-     * to Anduin Vales, Northern Rhovanion, … or Dagorlad" (named regions that
-     * are not themselves Shadow-lands). When this branch is what justifies
-     * the grant, the matched name is recorded on the resulting `keyedBy` as
-     * `grantedRegionName` (see {@link import('./actions-movement-hazard.js').CreatureKeyingMatch}),
-     * so a later `on-event: attack-defeated` trigger can gate on "keyed by
-     * this grant" rather than by the creature's own printed keying.
+     * The moving company's resolved site path must include a region printed
+     * with one of these exact names (omit = no named-region branch). OR'd
+     * with the site-type / region-type branches. Checked against
+     * `MovementHazardPhaseState.resolvedSitePathNames` — the same field a
+     * creature's own native `keyedTo.regionNames` checks — so this opens
+     * keying to *specific* named regions rather than a region type. Used by
+     * In Darkness Bind Them (dm-65): "may be keyed to Ithilien, Harondor,
+     * Horse Plains, Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad."
      */
     readonly regionNames?: readonly string[];
   };
@@ -9249,6 +9206,24 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
    * Excludes Coastal-Sea-only creatures (e.g. tw-34) from the broadened keying.
    */
   readonly requiresNonCoastalKeying?: boolean;
+  /**
+   * Restricts the grant to creatures whose own `keyedTo` already contains an
+   * entry requiring the given region type — the printed keying the grant
+   * widens, not the granted region itself. `exactCount` (default: any count
+   * ≥ 1) requires the matching entry's region-type list to contain exactly
+   * that many occurrences of `regionType` — e.g.
+   * `{ regionType: "shadow", exactCount: 1 }` matches only a *single*
+   * Shadow-land [{s}] requirement, excluding a double Shadow-land keying
+   * (two `"shadow"` entries in the same `regionTypes` array). Used by In
+   * Darkness Bind Them (dm-65): "Any creature that can be keyed to one
+   * single Shadow-land [{s}] may be keyed to …" (`exactCount: 1`) vs. "Any
+   * creature that can be keyed to a Dark-domain [{d}] may be keyed to …"
+   * (no count qualifier — `exactCount` omitted).
+   */
+  readonly requiresKeyedToRegionType?: {
+    readonly regionType: RegionType;
+    readonly exactCount?: number;
+  };
   /**
    * Where the grant lives — i.e. what makes it active against the company
    * currently being attacked. Defaults to `'in-play'`.

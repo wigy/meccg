@@ -11523,45 +11523,70 @@ in a Shadow-land [{s}] or Shadow-hold [{S}]."
 }
 ```
 
-`siteFilter.regionNames` opens a third, **named-region** branch (OR'd with
-the other two): the grant matches when the moving company's resolved path
-contains a region whose printed name is one of the listed names, regardless
-of that region's own type. `creatureFilter` may reference the derived
-`keyedToSingleRegionTypes` field — the set of region types a hazard
-creature's own `keyedTo` requires *exactly once* in some entry (a creature
-whose only relevant entry requires a type twice, e.g. a double Shadow-land
-`[{s}][{s}]`, does not offer that type here) — computed by `grantsCreatureKeying`
-(`legal-actions/movement-hazard.ts`) and merged into the creature-filter
-context alongside the raw card definition. Used by Reaching Shadow (dm-81):
-"Any creature that can be keyed to one single Shadow-land [{s}] may be keyed
-to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain
-Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern
-Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a
-Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown
-Lands, or Dagorlad" — two `grant-creature-keying` effects,
-`creatureFilter: { "keyedToSingleRegionTypes": { "$includes": "shadow" } }` /
-`{ "$includes": "dark" }`, each with its own `siteFilter.regionNames` list
-(per CRF 22, "may not be used to play creatures keyed to double
-Shadow-lands" — captured for free by the single-count derivation).
+`siteFilter.regionNames` opens a third branch, OR'd with the site-type and
+region-type branches: the grant matches when the moving company's resolved
+site path includes a region printed with one of these exact names (checked
+against `MovementHazardPhaseState.resolvedSitePathNames` — the same field a
+creature's own native `keyedTo.regionNames` checks). This is for widening
+keying to *specific named regions* rather than a whole region type. The
+optional `requiresKeyedToRegionType` gates the grant on the creature's own
+printed `keyedTo` already requiring a given region type — `exactCount`
+(default: any count ≥ 1) restricts the match to entries whose occurrence
+count of that type is exactly `exactCount`, e.g. `{ regionType: "shadow",
+exactCount: 1 }` matches a *single* Shadow-land [{s}] requirement but not a
+double Shadow-land keying (two `"shadow"` entries in the same `regionTypes`
+array — see `satisfiedRegionTypes`/`creatureKeyedToRegionType`).
+
+When a creature is played on the strength of a `siteFilter.regionNames`
+match, the matched name is threaded into `keyedBy` as
+`{ method: "keying-bypass", value: <race>, grantedRegionName: <name> }`
+(still a keying-bypass for validation purposes — `checkCreatureKeying` is
+skipped exactly as for any other grant) and from there into the attack's
+`attackKeyingRegionNames` / `attack.keyingRegionNames` context, so name-gated
+`cancel-attack`/`on-event` effects see it exactly as they would a native
+`region-name` match.
+
+Used by In Darkness Bind Them (dm-65): "Any creature that can be keyed to one
+single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains,
+Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can
+be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn,
+Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one
+of these regions (not to the region symbol) is defeated." — two
+`grant-creature-keying` effects (one per printed clause) plus an `on-event:
+attack-defeated` self-discard gated on `attack.keyingRegionNames` naming any
+of the nine regions:
 
 ```json
 {
   "type": "grant-creature-keying",
-  "creatureFilter": { "keyedToSingleRegionTypes": { "$includes": "shadow" } },
-  "siteFilter": { "regionNames": ["Anduin Vales", "Woodland Realm", "Dagorlad"] }
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+  "siteFilter": {
+    "regionNames": ["Ithilien", "Harondor", "Horse Plains", "Khand",
+      "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
 }
 ```
 
-When the `regionNames` branch is what justifies the grant, the matched name
-is recorded on the resulting `keyedBy` as `grantedRegionName` (still
-`method: "keying-bypass"`, so the reducer's normal keying re-check is still
-skipped). `chain-reducer.ts` folds it into `CombatState.attackKeyingRegionNames`
-exactly as it would a creature's own printed `keyedTo.regionNames` match, so
-an `on-event: attack-defeated` trigger gated on `attack.keyingRegionNames`
-fires only for a creature actually keyed via the grant — not one keyed by its
-own region-type symbol elsewhere on the path (Reaching Shadow's "Discard this
-card when a creature keyed to one of these regions (not to the region
-symbol) is defeated").
+```json
+{
+  "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "dark" },
+  "siteFilter": {
+    "regionNames": ["Khand", "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+  }
+}
+```
+
+Reaching Shadow (dm-81) is the Mirkwood/Anduin sibling with the identical
+shape: the single-Shadow-land grant (`{ regionType: "shadow", exactCount: 1 }`)
+opens Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain
+Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern
+Mirkwood, Brown Lands and Dagorlad; the Dark-domain grant
+(`{ regionType: "dark" }`) opens Heart of Mirkwood, Southern Mirkwood, Brown
+Lands and Dagorlad; and its `on-event: attack-defeated` self-discard is gated
+on `attack.keyingRegionNames` naming any of its ten regions.
 
 ### Site auto-attack `combatRules`
 

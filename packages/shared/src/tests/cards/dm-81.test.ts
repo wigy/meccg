@@ -20,8 +20,8 @@
  *
  * Effects:
  *   1. `grant-creature-keying` — any creature whose own `keyedTo` requires a
- *      single Shadow-land [{s}] (`keyedToSingleRegionTypes` includes
- *      "shadow" — a double-Shadow-land requirement does NOT qualify) may be
+ *      single Shadow-land [{s}] (`requiresKeyedToRegionType` shadow with
+ *      `exactCount: 1` — a double-Shadow-land requirement does NOT qualify) may be
  *      keyed to any of the ten named regions via `siteFilter.regionNames`.
  *   2. `grant-creature-keying` — any creature whose own `keyedTo` requires a
  *      single Dark-domain [{d}] may be keyed to the four named regions that

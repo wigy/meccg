@@ -956,8 +956,52 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/InDarknessBindThem.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains, Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated."
+    "effects": [
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": { "cardType": "hazard-creature" },
+        "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+        "siteFilter": {
+          "regionNames": [
+            "Ithilien", "Harondor", "Horse Plains", "Khand", "Imlad Morgul",
+            "Nurn", "Gorgoroth", "Udûn", "Dagorlad"
+          ]
+        }
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": { "cardType": "hazard-creature" },
+        "requiresKeyedToRegionType": { "regionType": "dark" },
+        "siteFilter": {
+          "regionNames": ["Khand", "Imlad Morgul", "Nurn", "Gorgoroth", "Udûn", "Dagorlad"]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        },
+        "when": {
+          "$or": [
+            { "attack.keyingRegionNames": { "$includes": "Ithilien" } },
+            { "attack.keyingRegionNames": { "$includes": "Harondor" } },
+            { "attack.keyingRegionNames": { "$includes": "Horse Plains" } },
+            { "attack.keyingRegionNames": { "$includes": "Khand" } },
+            { "attack.keyingRegionNames": { "$includes": "Imlad Morgul" } },
+            { "attack.keyingRegionNames": { "$includes": "Nurn" } },
+            { "attack.keyingRegionNames": { "$includes": "Gorgoroth" } },
+            { "attack.keyingRegionNames": { "$includes": "Udûn" } },
+            { "attack.keyingRegionNames": { "$includes": "Dagorlad" } }
+          ]
+        }
+      }
+    ],
+    "text": "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Ithilien, Harondor, Horse Plains, Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Khand, Imlad Morgul, Nurn, Gorgoroth, Udûn, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated.",
+    "certified": "2026-09-08"
   },
   {
     "cardType": "hazard-event",
@@ -1316,7 +1360,8 @@
     "effects": [
       {
         "type": "grant-creature-keying",
-        "creatureFilter": { "keyedToSingleRegionTypes": { "$includes": "shadow" } },
+        "creatureFilter": { "cardType": "hazard-creature" },
+        "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
         "siteFilter": {
           "regionNames": [
             "Anduin Vales",
@@ -1334,7 +1379,8 @@
       },
       {
         "type": "grant-creature-keying",
-        "creatureFilter": { "keyedToSingleRegionTypes": { "$includes": "dark" } },
+        "creatureFilter": { "cardType": "hazard-creature" },
+        "requiresKeyedToRegionType": { "regionType": "dark" },
         "siteFilter": {
           "regionNames": [
             "Heart of Mirkwood",
