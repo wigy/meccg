@@ -63,6 +63,7 @@ function freshCompanyFields() {
     returnedToOrigin: false,
     hazardsEncountered: [],
     spawnReplayUsedSources: [],
+    hazardLimitRaceGrantsUsed: [],
     ahuntAttacksResolved: 0,
     ahuntGroupOutcomes: [],
   };

@@ -2228,10 +2228,15 @@ function bodyCheckActions(
   // eliminate the target by the same amount — the quoted `need` must match, or
   // the player is told the target is safer than it is.
   const attackBodyCheckModifier = combat.bodyCheckModifier ?? 0;
-  const bcNeed = body + 1 - woundedBonus - attackBodyCheckModifier;
+  // Host of Bats (td-31): a queued `wound-additional-body-check` follow-up
+  // roll on this same strike (see `pendingAdditionalBodyChecks` in
+  // combat-actions.ts) — applies exactly like `attackBodyCheckModifier`.
+  const additionalCheckMod = combat.bodyCheckTarget === 'character' ? (combat.pendingAdditionalBodyChecks?.[0] ?? 0) : 0;
+  const bcNeed = body + 1 - woundedBonus - attackBodyCheckModifier - additionalCheckMod;
   const bcParts = [`${targetLabel} body ${body}`];
   if (woundedBonus) bcParts.push('+1 wounded');
   if (attackBodyCheckModifier) bcParts.push(`${formatSignedNumber(attackBodyCheckModifier)} attack`);
+  if (additionalCheckMod) bcParts.push(`${formatSignedNumber(additionalCheckMod)} additional check`);
 
   logDetail(`${roller === combat.attackingPlayerId ? 'Attacker' : 'Defender'} rolls body check vs ${targetLabel} (body ${body}${isWounded ? ', wounded +1' : ''})`);
   return [{
