@@ -161,6 +161,35 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Long Dark Reach (dm-70): the card-player names one eligible creature
+    // revealed from the top of their own play deck to immediately attack the
+    // targeted company (`choose-long-dark-reach-attacker`). Mechanically the
+    // mirror of The Hunt above — same mandatory no-default choice, same
+    // `definitionId`-carrying action shape (`ChooseLongDarkReachAttackerAction`
+    // deliberately mirrors `ChooseHuntTargetAction`) — so it gets the same
+    // treatment: one button per eligible candidate instead of falling through
+    // to the "no pass action" branch below, which hides both the pass button
+    // and the waiting indicator (a viable action does exist) and leaves no
+    // visible control at all. Bug report 83d850ee4f0f258d (game
+    // mtrpvojh-cfw2na, seq 98): "revealed a dragon (Bairanax) I should be able
+    // to play, but clicking on it (or any other card) does nothing."
+    const longDarkReachEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'choose-long-dark-reach-attacker');
+    if (longDarkReachEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of longDarkReachEvals) {
+        const chooseAction = ea.action;
+        if (chooseAction.type !== 'choose-long-dark-reach-attacker') continue;
+        const creatureName = cardPool[chooseAction.definitionId as string]?.name ?? chooseAction.definitionId as string;
+        const chooseBtn = document.createElement('button');
+        chooseBtn.className = 'enter-site-btn long-dark-reach-choice-btn';
+        chooseBtn.textContent = `Attack with ${creatureName}`;
+        chooseBtn.onclick = () => onAction(chooseAction);
+        inPhaseTier?.appendChild(chooseBtn);
+      }
+      return;
+    }
+
     // CoE 3.47 general-influence overflow: the player left their organization
     // phase over their general influence and must remove one of several
     // named characters (`influence-overflow-discard`). Like the two choices

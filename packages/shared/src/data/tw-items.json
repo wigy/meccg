@@ -2277,8 +2277,26 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Discard to give +1 prowess to all characters in bearer’s company until the end of the turn."
+    "effects": [
+      {
+        "type": "grant-action",
+        "action": "company-prowess-boost",
+        "anyPhase": true,
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "company-stat-modifier",
+          "stat": "prowess",
+          "value": 1,
+          "target": "bearer-company",
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Discard to give +1 prowess to all characters in bearer’s company until the end of the turn.",
+    "certified": "2026-09-08"
   },
   {
     "cardType": "hero-resource-item",
