@@ -41,7 +41,7 @@ import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { countExtraAgentActions } from '../mh-agents.js';
-import { extraMHMoveDestinations, extraMHUnderDeepsDestinations, gangwaysExtraDestinations } from '../mh-hazard-play.js';
+import { extraMHMoveDestinations, extraMHUnderDeepsDestinations, gangwaysExtraDestinations, isHazardLimitRaceGrantAvailable } from '../mh-hazard-play.js';
 import { buildCompanyCompositionContext } from '../company-composition.js';
 import { currentHazardLimit } from '../hazard-limit.js';
 import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from '../region-keying.js';
@@ -5538,20 +5538,23 @@ export function deckExhaustExchangeActions(
 
 /**
  * Check whether a creature's race is exempted from the hazard limit by
- * a `creature-type-no-hazard-limit` active constraint on the target company.
+ * a `creature-type-no-hazard-limit` active constraint on the target company
+ * (Two or Three Tribes Present dm-97, Dragon's Desolation tw-29 Mode B), or by
+ * an in-play `hazard-limit-race-grant` still holding an unused exemption for
+ * this company this M/H sub-phase (Host of Bats td-31).
  */
 function isCreatureRaceExemptFromLimit(
   state: GameState,
   companyId: CompanyId,
   race: Race,
 ): boolean {
-  if (!state.activeConstraints) return false;
-  return state.activeConstraints.some(
+  const constraintExempt = !!state.activeConstraints?.some(
     c => c.target.kind === 'company'
       && c.target.companyId === companyId
       && c.kind.type === 'creature-type-no-hazard-limit'
       && c.kind.exemptRace === race,
   );
+  return constraintExempt || isHazardLimitRaceGrantAvailable(state, race);
 }
 
 /**

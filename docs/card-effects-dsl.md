@@ -18710,3 +18710,97 @@ the same call a revealed on-guard creature uses to attack during the site
 phase (`reducer-site.ts`'s resolve-attacks step) — so the play never touches
 `hazardsPlayedThisCompany`, satisfying "does not count against the hazard
 limit" structurally rather than via a special-case check.
+
+### 85. `hazard-limit-race-grant` + `wound-additional-body-check` (Host of Bats)
+
+Host of Bats (td-31): "Against each company, one Orc hazard creature may be
+played that does not count against the hazard limit. Any character wounded by
+an Orc attack makes an additional body check modified by -1. Additionally, if
+Shadow of Mordor is in play, any character wounded by an attack keyed to (or
+an automatic-attack at) a Shadow-hold [{S}] or a Darkhold [{D}] makes an
+additional body check modified by -2. Cannot be duplicated."
+
+**`hazard-limit-race-grant`** — a game-wide, per-company-capped hazard-limit
+exemption carried by an in-play long/permanent hazard-event.
+
+```json
+{ "type": "hazard-limit-race-grant", "race": "orc", "maxPerCompany": 1 }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `race` | yes | The creature race exempted from the hazard limit. |
+| `maxPerCompany` | no | Exempted creatures of `race` per company per M/H phase (default 1). |
+
+Unlike `creature-race-choice`'s `creature-type-no-hazard-limit`
+`add-constraint` (§24 — declared against **one** company when the card is
+played, unlimited exemptions for the rest of the turn: Two or Three Tribes
+Present), this effect is self-targeting and reaches **every** company, but
+caps at `maxPerCompany`. `isCreatureRaceExempt` (`mh-hazard-play.ts`) checks
+both sources: the `ActiveConstraint` path (`isCreatureRaceExemptViaConstraint`)
+and this one (`isHazardLimitRaceGrantAvailable`, exported for reuse by
+`legal-actions/movement-hazard.ts`'s pre-hazard-limit-reached gate). Usage is
+tracked per company in `MovementHazardPhaseState.hazardLimitRaceGrantsUsed:
+readonly Race[]`, reset every company alongside `hazardsEncountered` (no
+`ActiveConstraint` is created, since the grant is never declared against a
+specific company at play time). The creature-play handler only appends to
+this list when the grant (not the unlimited constraint) actually exempted the
+play, so the two mechanisms never interfere.
+
+**`wound-additional-body-check`** — forces a second, independent body check
+immediately after a character-target body check first resolves to "survives"
+(the character is wounded, not eliminated/discarded), carried by an in-play
+long/permanent hazard-event.
+
+```json
+{ "type": "wound-additional-body-check", "modifier": -1,
+  "when": { "attack.creatureRace": "orc" } }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `modifier` | yes | Added to the additional body-check roll (negative protects the target, like `body-check-modifier`). |
+| `when` | yes | Condition over `{ attack: { creatureRace, siteType }, inPlay }` selecting which wounds trigger the additional check. |
+
+`attack.creatureRace` is the attacking creature's race (undefined for
+agents/CvCC); `attack.siteType` is the `SiteType` of the site the attack takes
+place at — resolved by a new `attackSiteType` helper (`combat-actions.ts`) as
+the automatic-attack's own site, or (for any other attack source) the target
+company's `destinationSite ?? currentSite`, mirroring the `company-site`
+play-condition's fallback (§23). `inPlay` is the standard game-wide in-play
+card-name list, letting a rule gate on a companion card (`{ "inPlay": "Shadow
+of Mordor" }`).
+
+Evaluated by `pendingWoundAdditionalBodyCheckModifiers` the moment a
+character-target body check first resolves to "survives"
+(`handleBodyCheckRoll`, `combat-actions.ts`): every in-play card's matching
+effect contributes one modifier to a new `CombatState.pendingAdditionalBodyChecks:
+readonly number[]` queue. A new `advanceOrQueueAdditionalBodyCheck` helper
+drains the queue one roll at a time instead of advancing the strike —
+`bodyCheckActions` (`legal-actions/combat.ts`) needs no new action type
+because it already re-offers `body-check-roll` for as long as
+`bodyCheckTarget`/`currentStrikeIndex` are left unchanged (and the strike
+assignment is only marked `resolved` once the queue is empty), and
+`handleBodyCheckRoll` folds `pendingAdditionalBodyChecks[0]` into
+`effectiveRoll` exactly like the pre-existing `bodyCheckModifier`. Because each
+additional roll re-enters the full survive/eliminate/discard branch (including
+`discardBodyCheck` matches and the `character-body-check-equals-body`
+on-event), it is a genuine independent elimination chance, not merely a
+modifier tacked onto the first roll. Multiple matching effects queue in
+card-scan order and resolve one at a time — Host of Bats' own two clauses both
+match an Orc automatic-attack at a Shadow-hold with Shadow of Mordor in play,
+queuing `[-1, -2]`.
+
+Full card data:
+
+```json
+{ "type": "hazard-limit-race-grant", "race": "orc" },
+{ "type": "wound-additional-body-check", "modifier": -1,
+  "when": { "attack.creatureRace": "orc" } },
+{ "type": "wound-additional-body-check", "modifier": -2,
+  "when": { "$and": [ { "inPlay": "Shadow of Mordor" },
+                       { "attack.siteType": { "$in": ["shadow-hold", "dark-hold"] } } ] } },
+{ "type": "duplication-limit", "scope": "game", "max": 1 }
+```
+
+Used by *Host of Bats* (td-31).

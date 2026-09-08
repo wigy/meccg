@@ -19,7 +19,7 @@ import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
-import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard, isFactionCard } from '../../types/cards.js';
+import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
 import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
@@ -2228,10 +2228,15 @@ function bodyCheckActions(
   // eliminate the target by the same amount — the quoted `need` must match, or
   // the player is told the target is safer than it is.
   const attackBodyCheckModifier = combat.bodyCheckModifier ?? 0;
-  const bcNeed = body + 1 - woundedBonus - attackBodyCheckModifier;
+  // Host of Bats (td-31): a queued `wound-additional-body-check` follow-up
+  // roll on this same strike (see `pendingAdditionalBodyChecks` in
+  // combat-actions.ts) — applies exactly like `attackBodyCheckModifier`.
+  const additionalCheckMod = combat.bodyCheckTarget === 'character' ? (combat.pendingAdditionalBodyChecks?.[0] ?? 0) : 0;
+  const bcNeed = body + 1 - woundedBonus - attackBodyCheckModifier - additionalCheckMod;
   const bcParts = [`${targetLabel} body ${body}`];
   if (woundedBonus) bcParts.push('+1 wounded');
   if (attackBodyCheckModifier) bcParts.push(`${formatSignedNumber(attackBodyCheckModifier)} attack`);
+  if (additionalCheckMod) bcParts.push(`${formatSignedNumber(additionalCheckMod)} additional check`);
 
   logDetail(`${roller === combat.attackingPlayerId ? 'Attacker' : 'Defender'} rolls body check vs ${targetLabel} (body ${body}${isWounded ? ', wounded +1' : ''})`);
   return [{
@@ -3120,41 +3125,81 @@ function cancelAttackActions(
       return true;
     };
 
+    // Per CoE rule 2.V.2.2, allies are treated as characters for "skill
+    // only" active conditions (e.g. Gollum, a scout ally, tapping to play
+    // Concealment "Scout only"). Allies have no race, so they never satisfy
+    // a requiredRace-only condition — only requiredSkill.
+    const allyMatchesRequirement = (allyDef: import('../../types/cards.js').CardDefinition): boolean => {
+      if (!cancelEffect.requiredSkill) return false;
+      return isAllyCard(allyDef) && !!allyDef.skills?.includes(cancelEffect.requiredSkill as import('../../types/common.js').Skill);
+    };
+
     if (cancelEffect.cost) {
       for (const charId of company.characters) {
         const charData = player.characters[charId];
         if (!charData) continue;
-        if (!canPayCost(cancelEffect.cost, charData)) continue;
 
-        const charDef = defById(state, charData.definitionId);
-        if (!charDef || !isCharacterCard(charDef)) continue;
-        if (!matchesRequirement(charDef)) continue;
+        if (canPayCost(cancelEffect.cost, charData)) {
+          const charDef = defById(state, charData.definitionId);
+          if (charDef && isCharacterCard(charDef) && matchesRequirement(charDef)) {
+            const costKind = cancelEffect.cost.tap ? 'tap' : 'check';
+            logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string} (${costKind} cost)`);
+            actions.push({
+              action: {
+                type: 'cancel-attack',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                scoutInstanceId: charId,
+              },
+              viable: true,
+            });
+            // Dual-mode cards (e.g. The Tormented Earth) also offer a
+            // "reduce attack prowess" variant paid by the same character.
+            if (cancelEffect.prowessPenalty !== undefined) {
+              logDetail(`Reduce-prowess (-${cancelEffect.prowessPenalty}) available: ${handCard.definitionId as string} via ${charData.definitionId as string}`);
+              actions.push({
+                action: {
+                  type: 'cancel-attack',
+                  player: playerId,
+                  cardInstanceId: handCard.instanceId,
+                  scoutInstanceId: charId,
+                  mode: 'reduce-prowess',
+                },
+                viable: true,
+              });
+            }
+          }
+        }
 
-        const costKind = cancelEffect.cost.tap ? 'tap' : 'check';
-        logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ${charData.definitionId as string} (${costKind} cost)`);
-        actions.push({
-          action: {
-            type: 'cancel-attack',
-            player: playerId,
-            cardInstanceId: handCard.instanceId,
-            scoutInstanceId: charId,
-          },
-          viable: true,
-        });
-        // Dual-mode cards (e.g. The Tormented Earth) also offer a
-        // "reduce attack prowess" variant paid by the same character.
-        if (cancelEffect.prowessPenalty !== undefined) {
-          logDetail(`Reduce-prowess (-${cancelEffect.prowessPenalty}) available: ${handCard.definitionId as string} via ${charData.definitionId as string}`);
+        for (const ally of charData.allies) {
+          if (!canPayCost(cancelEffect.cost, ally)) continue;
+          const allyDef = defById(state, ally.definitionId);
+          if (!allyDef || !allyMatchesRequirement(allyDef)) continue;
+
+          const costKind = cancelEffect.cost.tap ? 'tap' : 'check';
+          logDetail(`Cancel-attack available: ${handCard.definitionId as string} via ally ${ally.definitionId as string} (${costKind} cost)`);
           actions.push({
             action: {
               type: 'cancel-attack',
               player: playerId,
               cardInstanceId: handCard.instanceId,
-              scoutInstanceId: charId,
-              mode: 'reduce-prowess',
+              scoutInstanceId: ally.instanceId,
             },
             viable: true,
           });
+          if (cancelEffect.prowessPenalty !== undefined) {
+            logDetail(`Reduce-prowess (-${cancelEffect.prowessPenalty}) available: ${handCard.definitionId as string} via ally ${ally.definitionId as string}`);
+            actions.push({
+              action: {
+                type: 'cancel-attack',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                scoutInstanceId: ally.instanceId,
+                mode: 'reduce-prowess',
+              },
+              viable: true,
+            });
+          }
         }
       }
     } else {
@@ -3162,8 +3207,11 @@ function cancelAttackActions(
         const charData = player.characters[charId];
         if (!charData) return false;
         const charDef = defById(state, charData.definitionId);
-        if (!charDef || !isCharacterCard(charDef)) return false;
-        return matchesRequirement(charDef);
+        if (charDef && isCharacterCard(charDef) && matchesRequirement(charDef)) return true;
+        return charData.allies.some(ally => {
+          const allyDef = defById(state, ally.definitionId);
+          return !!allyDef && allyMatchesRequirement(allyDef);
+        });
       });
       if (hasMatch) {
         logDetail(`Cancel-attack available (no tap cost): ${handCard.definitionId as string}`);

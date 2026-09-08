@@ -18,6 +18,7 @@ import {
   WinReason,
   ById,
   ByPlayerId,
+  Race,
 } from './common.js';
 // ViewCard is used indirectly via SiteSelectionPlayerState
 import type {
@@ -620,6 +621,15 @@ export interface MovementHazardPhaseState {
    * company's M/H phase begins. Absent is treated as an empty list.
    */
   readonly spawnReplayUsedSources?: readonly CardInstanceId[];
+  /**
+   * Races that have already consumed their `hazard-limit-race-grant`
+   * exemption (Host of Bats td-31: "one Orc hazard creature may be played
+   * against each company that does not count against the hazard limit")
+   * against the current company this M/H sub-phase. Reset alongside
+   * {@link hazardsEncountered} whenever a new company's M/H phase begins.
+   * Absent is treated as an empty list.
+   */
+  readonly hazardLimitRaceGrantsUsed?: readonly Race[];
   /**
    * Number of ahunt-attack effects resolved during the order-effects step.
    * Tracks progress through the list of matching ahunt long-events so
