@@ -1357,8 +1357,68 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ReachingShadow.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated."
+    "effects": [
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": { "cardType": "hazard-creature" },
+        "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+        "siteFilter": {
+          "regionNames": [
+            "Anduin Vales",
+            "Northern Rhovanion",
+            "Southern Rhovanion",
+            "Grey Mountain Narrows",
+            "Woodland Realm",
+            "Western Mirkwood",
+            "Heart of Mirkwood",
+            "Southern Mirkwood",
+            "Brown Lands",
+            "Dagorlad"
+          ]
+        }
+      },
+      {
+        "type": "grant-creature-keying",
+        "creatureFilter": { "cardType": "hazard-creature" },
+        "requiresKeyedToRegionType": { "regionType": "dark" },
+        "siteFilter": {
+          "regionNames": [
+            "Heart of Mirkwood",
+            "Southern Mirkwood",
+            "Brown Lands",
+            "Dagorlad"
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "when": {
+          "attack.keyingRegionNames": {
+            "$in": [
+              "Anduin Vales",
+              "Northern Rhovanion",
+              "Southern Rhovanion",
+              "Grey Mountain Narrows",
+              "Woodland Realm",
+              "Western Mirkwood",
+              "Heart of Mirkwood",
+              "Southern Mirkwood",
+              "Brown Lands",
+              "Dagorlad"
+            ]
+          }
+        },
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "text": "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated.",
+    "certified": "2026-09-08"
   },
   {
     "cardType": "hazard-event",

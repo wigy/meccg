@@ -923,3 +923,16 @@ Host of Bats (td-31): "Against each company, one Orc hazard creature may be play
 ```
 
 Used by *Host of Bats* (td-31).
+
+### `grant-creature-keying` named-region branch reused for the Mirkwood/Anduin sibling (Reaching Shadow dm-81)
+
+Reaching Shadow (dm-81): "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated." Word-for-word the In Darkness Bind Them (dm-65) template with a different region list, so it is certified on exactly the mechanism documented in the dm-65 section above with **no new engine code**: two `grant-creature-keying` effects using the `siteFilter.regionNames` named-region branch, gated by `requiresKeyedToRegionType` (`{ "regionType": "shadow", "exactCount": 1 }` for "one single Shadow-land" — a double-Shadow-land keying such as Wild Fell Beast is excluded per CRF 22 "may not be used to play creatures keyed to double Shadow-lands"; `{ "regionType": "dark" }` for "a Dark-domain"), plus an `on-event: attack-defeated` self-discard gated on `attack.keyingRegionNames` (`{ "$in": [<the ten names>] }`), which only sees a name when the creature was actually keyed via the grant (`keyedBy.grantedRegionName`) or via its own printed `keyedTo.regionNames` — never via a region-type symbol elsewhere on the path.
+
+```json
+{ "type": "grant-creature-keying",
+  "creatureFilter": { "cardType": "hazard-creature" },
+  "requiresKeyedToRegionType": { "regionType": "shadow", "exactCount": 1 },
+  "siteFilter": { "regionNames": ["Anduin Vales", "Woodland Realm", "Dagorlad"] } }
+```
+
+dm-81 carries two such effects (Shadow-land list of 10 names, Dark-domain list of the 4 names that overlap Mordor/Mirkwood) plus the `on-event: attack-defeated` self-discard `when: { "attack.keyingRegionNames": { "$in": [<all 10 names>] } }`.
