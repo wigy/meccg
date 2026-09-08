@@ -556,6 +556,52 @@ export function renderCompanyBlock(
   };
 
   /**
+   * A selected hand/in-play card looking for a target takes priority over
+   * everything else: `instId` — a top-level character, a follower, or an
+   * attached ally (allies are treated as characters for "skill only" cards
+   * per CoE rule 2.V.2.2, e.g. Stealth tapping a scout ally like Gollum) —
+   * is clickable only when a viable action targets it with the selected
+   * card. Shared by {@link buildCombinedClick} (characters/followers) and
+   * {@link buildHazardClick} (allies/hazards) so both surfaces answer the
+   * same "does the selected card target this instance?" question.
+   */
+  const buildTargetingModeClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    for (const mode of CHARACTER_TARGETING_MODES) {
+      const selected = mode.selected();
+      if (!selected) continue;
+      const matches = mode.find(viableActions(view.legalActions), selected, instId);
+      if (matches.length === 0) return undefined;
+      return {
+        cls: 'company-card--influence-target',
+        handler: (e) => {
+          e.stopPropagation();
+          // A single match fires immediately. Several (plain vs. leader-control
+          // faction influence, e.g. Stone Trolls le-288) require a choice — show
+          // a tooltip menu so the player can place the faction under the
+          // Orc/Troll leader's control instead of always tapping the site.
+          if (matches.length === 1) {
+            mode.clear();
+            options?.onAction?.(matches[0]);
+            return;
+          }
+          showTooltipMenu(
+            e.target as HTMLElement,
+            matches.map(action => ({
+              label: mode.label?.(action) ?? action.type,
+              onClick: () => {
+                mode.clear();
+                options?.onAction?.(action);
+              },
+            })),
+            { placement: 'auto' },
+          );
+        },
+      };
+    }
+    return undefined;
+  };
+
+  /**
    * Discard-target short event: highlight and click the target card. Shared by
    * items and hazards since a discard-target short event can name either.
    */
@@ -725,8 +771,12 @@ export function renderCompanyBlock(
     };
   };
 
-  /** Build click handler for cards with granted actions (hazards, or bearer-less in-play cards). */
+  /** Build click handler for cards with granted actions (hazards, or bearer-less in-play cards), or for allies eligible as a "skill only" card target (e.g. Stealth tapping a scout ally). */
   const buildHazardClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    if (CHARACTER_TARGETING_MODES.some(mode => mode.selected())) {
+      return buildTargetingModeClick(instId);
+    }
+
     const discardClick = buildDiscardTargetClick(instId);
     if (discardClick) return discardClick;
 
@@ -838,37 +888,8 @@ export function renderCompanyBlock(
     // A selected hand/in-play card looking for a character target takes
     // priority over everything else: the character is clickable only when a
     // viable action targets it with the selected card.
-    for (const mode of CHARACTER_TARGETING_MODES) {
-      const selected = mode.selected();
-      if (!selected) continue;
-      const matches = mode.find(viableActions(view.legalActions), selected, charInstId);
-      if (matches.length === 0) return undefined;
-      return {
-        cls: 'company-card--influence-target',
-        handler: (e) => {
-          e.stopPropagation();
-          // A single match fires immediately. Several (plain vs. leader-control
-          // faction influence, e.g. Stone Trolls le-288) require a choice — show
-          // a tooltip menu so the player can place the faction under the
-          // Orc/Troll leader's control instead of always tapping the site.
-          if (matches.length === 1) {
-            mode.clear();
-            options?.onAction?.(matches[0]);
-            return;
-          }
-          showTooltipMenu(
-            e.target as HTMLElement,
-            matches.map(action => ({
-              label: mode.label?.(action) ?? action.type,
-              onClick: () => {
-                mode.clear();
-                options?.onAction?.(action);
-              },
-            })),
-            { placement: 'auto' },
-          );
-        },
-      };
+    if (CHARACTER_TARGETING_MODES.some(mode => mode.selected())) {
+      return buildTargetingModeClick(charInstId);
     }
 
     // Opponent influence targeting: selected influencer deselects on re-click
