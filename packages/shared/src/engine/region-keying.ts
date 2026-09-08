@@ -16,7 +16,8 @@
 
 import type { GameState } from '../types/state.js';
 import type { RegionType } from '../types/common.js';
-import type { CardEffect, RegionKeyingBoost, RegionTypeRemap } from '../types/effects.js';
+import type { CardEffect, RegionKeyingBoost, RegionNameKeyingGrant, RegionTypeRemap } from '../types/effects.js';
+import type { CreatureKeyRestriction } from '../types/cards-hazards.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { getEffectiveRegionType } from './effective.js';
 
@@ -264,4 +265,68 @@ export function applyRegionTypeConversions(
     }
     return value;
   });
+}
+
+/**
+ * Collect every additional-keying grant offered by active
+ * `region-name-keying-grant` effects (Angmar Arises dm-44, In Darkness Bind
+ * Them dm-65, Reaching Shadow dm-81). Scans both players' `cardsInPlay` —
+ * these are global permanent environments, so all grants apply regardless of
+ * which player's creature or company is being keyed.
+ */
+export function collectRegionNameKeyingGrants(state: GameState): RegionNameKeyingGrant[] {
+  const grants: RegionNameKeyingGrant[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = state.cardPool[card.definitionId] as { effects?: readonly CardEffect[] } | undefined;
+      for (const e of def?.effects ?? []) {
+        if (e.type !== 'region-name-keying-grant') continue;
+        grants.push(...e.grants);
+      }
+    }
+  }
+  return grants;
+}
+
+/** Exact multiset equality — order-independent, but counts must match. */
+function regionTypeMultisetEquals(a: readonly RegionType[], b: readonly RegionType[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((v, i) => v === sortedB[i]);
+}
+
+/**
+ * Build synthetic `regionNames`-only {@link CreatureKeyRestriction} entries
+ * for a creature's own printed `keyedTo`, one per active grant whose
+ * `ifRegionTypes` exactly matches a `regionTypes` entry on the creature (a
+ * creature keyed to a *single* Shadow-land matches `["shadow"]`; one keyed to
+ * *double* Shadow-lands, `["shadow", "shadow"]`, does not — CRF: "May not be
+ * used to play creatures keyed to double Shadow-lands"). An entry gated by its
+ * own `when` clause (e.g. Elf-lord Revealed in Wrath le-69's Shadow-land
+ * keying, active only while Doors of Night is out of play) only contributes a
+ * grant while that `when` currently holds — the card text reads "any creature
+ * that CAN be keyed to a single Shadow-land", which is false for such a
+ * creature whenever its own gate is closed. Callers append the result to the
+ * local `extraKeyedTo` list consulted by the offering
+ * (`findCreatureKeyingMatches`) and validating (`checkCreatureKeying`) sides —
+ * never to `def.keyedTo` itself, so unrelated consumers of the creature's
+ * printed keying (detainment, on-guard reveals) are unaffected.
+ */
+export function extraKeyedToFromRegionNameGrants(
+  keyedTo: readonly CreatureKeyRestriction[],
+  grants: readonly RegionNameKeyingGrant[],
+  whenContext: Record<string, unknown>,
+): CreatureKeyRestriction[] {
+  const extra: CreatureKeyRestriction[] = [];
+  for (const key of keyedTo) {
+    if (!key.regionTypes || key.regionTypes.length === 0) continue;
+    if (key.when && !matchesCondition(key.when, whenContext)) continue;
+    for (const grant of grants) {
+      if (regionTypeMultisetEquals(key.regionTypes, grant.ifRegionTypes)) {
+        extra.push({ regionNames: grant.regionNames });
+      }
+    }
+  }
+  return extra;
 }

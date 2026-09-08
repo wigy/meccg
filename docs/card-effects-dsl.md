@@ -13485,6 +13485,75 @@ Used by: *Look More Closely Later* (td-128) — "Sage only. Ritual. Tap a sage
 to untap a site at which Information is playable. Sage makes a corruption
 check."
 
+### 43e. `region-name-keying-grant`
+
+A global permanent environment that grants hazard creatures an additional
+**by-name** keying alternative, based on the creature's own printed
+region-type keying — distinct from `region-type-remap` /
+`region-type-conversion` (which reinterpret region *types* along a path) and
+from `grant-creature-keying` (which grants keying to site/region *types* at
+the destination, gated on a `creatureFilter`). Here the destination is
+irrelevant; what matters is whether the creature's own `keyedTo` has a
+`regionTypes` entry that **exactly** matches one of the grant's
+`ifRegionTypes` (same types, same count — a creature requiring *two*
+Shadow-lands does not match a `["shadow"]` grant).
+
+```json
+{ "type": "region-name-keying-grant",
+  "grants": [
+    { "ifRegionTypes": ["shadow"], "regionNames": ["Forochel", "Arthedain", "Angmar", "Gundabad", "Rhudaur"] },
+    { "ifRegionTypes": ["dark"], "regionNames": ["Angmar", "Gundabad"] }
+  ] }
+```
+
+`collectRegionNameKeyingGrants(state)` (`engine/region-keying.ts`) scans both
+players' `cardsInPlay` for the effect. `extraKeyedToFromRegionNameGrants(
+keyedTo, grants, whenContext)` walks the creature's own printed `keyedTo`
+entries and, for each whose `regionTypes` multiset-equals a grant's
+`ifRegionTypes`, appends a synthetic `{ regionNames }`-only
+`CreatureKeyRestriction`. An entry gated by its own `when` clause (e.g.
+*Elf-lord Revealed in Wrath* le-69's Shadow-land keying, "if Doors of Night is
+not in play") only contributes the grant while that `when` currently holds —
+the card text reads "any creature that **can** be keyed to a single
+Shadow-land", which is false whenever the creature's own gate is closed.
+
+Both creature-keying matchers — `findCreatureKeyingMatches`
+(`legal-actions/movement-hazard.ts`) and `checkCreatureKeying`
+(`mh-hazard-play.ts`) — append the synthetic entries to their local
+`extraKeyedTo` list (the same list Fell Beast's `nazgul-boost-pending` grant
+uses) and try them alongside the creature's own printed `keyedTo`. The
+synthetic entries are **never** written into `def.keyedTo` itself, so
+unrelated consumers of the creature's printed keying — detainment
+(`engine/detainment.ts`, which reads `creatureDef.keyedTo` directly) and
+on-guard reveals — are unaffected. Per CRF ruling this is intentional: "does
+not change the region type used to judge whether an attack is detainment or
+not."
+
+The discard trigger ("Discard this card when a creature keyed to one of these
+regions — not to the region symbol — is defeated") reads the *declared*
+by-name match, not the full union of the creature's keying: `attackKeyingRegionNames`
+on `CombatState` (populated in `chain-reducer.ts` from the played creature's
+declared `keyedBy`) is exposed to the `on-event: attack-defeated` context as
+`attack.keyingRegionNames` (`combat-finalize.ts`), so an `on-event` `$in` check
+against the grant's region names only fires when the creature was actually
+keyed by name — not when it was keyed via its own region-type/site-type
+symbol despite also being eligible for the grant.
+
+```json
+{ "type": "on-event", "event": "attack-defeated",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+  "when": { "attack.keyingRegionNames": { "$in": ["Forochel", "Arthedain", "Angmar", "Gundabad", "Rhudaur"] } } }
+```
+
+Used by: *Angmar Arises* (dm-44) — "Any creature that can be keyed to a
+single Shadow-land [{s}] may be keyed to Forochel, Arthedain, Angmar,
+Gundabad, or Rhudaur. Any creature that can be keyed to a Dark-domain [{d}]
+may be keyed to Angmar or Gundabad. Discard this card when a creature keyed
+to one of these regions (not to the region symbol) is defeated." The sibling
+cards *In Darkness Bind Them* (dm-65) and *Reaching Shadow* (dm-81) print the
+same mechanic with different name lists and are expected to reuse this
+primitive when certified.
+
 ### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target

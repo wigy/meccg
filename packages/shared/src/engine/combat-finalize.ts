@@ -1143,6 +1143,11 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         isolated: combat.isolated ?? false,
         isAutomaticAttack,
         attackerChoosesDefenders: combat.attackerChoosesDefenders ?? false,
+        // Angmar Arises (dm-44) and siblings: "Discard this card when a
+        // creature keyed to one of these regions (not to the region symbol)
+        // is defeated" — the *declared* by-name keying match, not the full
+        // union of the creature's printed keyedTo (see `attackKeyingRegionNames`
+        // on CombatState).
         keyingRegionNames: combat.attackKeyingRegionNames ?? [],
       },
       inPlay: buildInPlayNames(stateAfterCombat),

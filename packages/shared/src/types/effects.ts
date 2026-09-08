@@ -5389,6 +5389,41 @@ export interface RegionTypeRemapEffect extends EffectBase {
  *   "duration": "long-event" }
  * ```
  */
+/**
+ * One additional-keying grant offered by a {@link RegionNameKeyingGrantEffect}:
+ * a creature whose *own* printed {@link CreatureKeyRestriction.regionTypes}
+ * exactly equals {@link ifRegionTypes} (same region types, same count — a
+ * creature requiring two Shadow-lands does not match a `["shadow"]` grant)
+ * may also be keyed by name to any of {@link regionNames}.
+ */
+export interface RegionNameKeyingGrant {
+  /** The creature's own printed region-type keying this grant matches (exact multiset). */
+  readonly ifRegionTypes: readonly RegionType[];
+  /** The named regions a matching creature may additionally be keyed to. */
+  readonly regionNames: readonly string[];
+}
+
+/**
+ * A permanent environment effect (Angmar Arises dm-44, In Darkness Bind Them
+ * dm-65, Reaching Shadow dm-81) that grants hazard creatures an additional,
+ * name-based way to be keyed: any creature whose own printed keying matches
+ * one of the listed {@link RegionNameKeyingGrant} entries may also be keyed to
+ * the grant's named regions, on top of (never instead of) its printed
+ * `keyedTo`. Per CRF ruling, this does not change the region *type* used to
+ * judge detainment — the grant only ever adds `regionNames`-shaped entries,
+ * consulted solely by the creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying` via
+ * `engine/region-keying.ts`'s `collectCreatureKeyingGrants` /
+ * `extraKeyedToFromGrants`), never by `def.keyedTo` itself or by the
+ * detainment computation (`engine/detainment.ts`), which both keep reading
+ * the creature's own printed `keyedTo` union.
+ */
+export interface RegionNameKeyingGrantEffect extends EffectBase {
+  readonly type: 'region-name-keying-grant';
+  /** The additional-keying grants active while the carrying card is in play. */
+  readonly grants: readonly RegionNameKeyingGrant[];
+}
+
 export interface SiteTypeRemapEffect extends EffectBase {
   readonly type: 'site-type-remap';
   /** The printed site type being reinterpreted. */
@@ -9731,6 +9766,7 @@ export type CardEffect =
   | DiscardToRecruitEffect
   | RegionKeyingBoostEffect
   | RegionTypeRemapEffect
+  | RegionNameKeyingGrantEffect
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | RegionTransformEffect
