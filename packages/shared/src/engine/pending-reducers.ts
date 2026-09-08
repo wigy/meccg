@@ -4724,6 +4724,63 @@ export function applyArrangeDeckTopResolution(
 }
 
 /**
+ * Resolve a `rearrange-defender-deck` pending resolution (Goblin-faces,
+ * wh-13, step-by-step): the attacker places one still-unplaced looked-at
+ * card onto the defender's deck top or bottom pile per
+ * `rearrange-defender-deck-card` action. Once every looked-at card is
+ * placed, the defender's play deck is rebuilt as
+ * `[...topPile, ...untouchedRemainder, ...bottomPile]` — the top pile with
+ * its first pick placed topmost, the bottom pile with its first pick placed
+ * nearest the untouched remainder and its last pick at the deck's absolute
+ * bottom. The choice is mandatory (no pass — every looked-at card must go
+ * somewhere).
+ */
+export function applyRearrangeDefenderDeckResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolution(state, rawAction, top, 'rearrange-defender-deck-card', 'rearrange-defender-deck');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
+
+  const { count, remainingInstanceIds, topInstanceIds, bottomInstanceIds, deckOwnerIndex } = kind;
+  if (!remainingInstanceIds.includes(action.cardInstanceId)) {
+    return { state, error: `Card ${action.cardInstanceId as string} is not an available looked-at card` };
+  }
+
+  const newRemaining = remainingInstanceIds.filter(id => id !== action.cardInstanceId);
+  const newTop = action.destination === 'top' ? [...topInstanceIds, action.cardInstanceId] : topInstanceIds;
+  const newBottom = action.destination === 'bottom' ? [...bottomInstanceIds, action.cardInstanceId] : bottomInstanceIds;
+  const deckOwner = state.players[deckOwnerIndex];
+  const chosenCard = deckOwner.playDeck.find(c => c.instanceId === action.cardInstanceId);
+  const chosenName = chosenCard ? cardName(state, chosenCard.definitionId) : (action.cardInstanceId as string);
+
+  // Not finished yet — record the pick in the resolution's accumulator.
+  if (newRemaining.length > 0) {
+    logDetail(`rearrange-defender-deck: placed "${chosenName}" on the ${action.destination} (${count - newRemaining.length}/${count})`);
+    const updated = state.pendingResolutions.map(r =>
+      r.id === top.id
+        ? { ...r, kind: { ...kind, remainingInstanceIds: newRemaining, topInstanceIds: newTop, bottomInstanceIds: newBottom } }
+        : r,
+    );
+    return { state: { ...state, pendingResolutions: updated } };
+  }
+
+  // Final pick — rebuild the deck: top pile (first pick topmost) + untouched
+  // remainder + bottom pile (first pick nearest the remainder, last pick deepest).
+  const lookedSet = new Set<CardInstanceId>([...topInstanceIds, ...bottomInstanceIds, action.cardInstanceId]);
+  const rest = deckOwner.playDeck.filter(c => !lookedSet.has(c.instanceId));
+  const byId = new Map(deckOwner.playDeck.map(c => [c.instanceId, c] as const));
+  const topCards = newTop.map(id => byId.get(id)!);
+  const bottomCards = newBottom.map(id => byId.get(id)!);
+  const newDeck = [...topCards, ...rest, ...bottomCards];
+  logDetail(`rearrange-defender-deck: placed "${chosenName}" on the ${action.destination} (${count}/${count}) — deck finalized (${newTop.length} on top, ${newBottom.length} on bottom)`);
+  const newState = updatePlayer(state, deckOwnerIndex, p => ({ ...p, playDeck: newDeck }));
+  return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
  * Resolve a `reveal-choose-to-hand` pending resolution (Eyes of Mandos, dm-126).
  *
  * The player picks one of the revealed top-of-deck cards via a

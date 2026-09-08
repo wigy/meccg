@@ -1060,6 +1060,40 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const sourceCardForStrikeSuccess = getAttackSourceCard(state, combat);
     const strikeSuccessEvents = getOnEventEffects(sourceCardForStrikeSuccess, 'attack-strike-successful');
     for (const sse of strikeSuccessEvents) {
+      // Goblin-faces (wh-13): after a successful strike, the attacker looks
+      // at the top `struckCharIds.length` cards of the defender's play deck
+      // and enqueues a `rearrange-defender-deck` resolution letting them
+      // split those cards between the deck's top and bottom piles.
+      if (sse.apply.type === 'rearrange-defender-deck-by-strikes') {
+        const defIdxRD = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+        const deckRD = stateAfterCombat.players[defIdxRD].playDeck;
+        const lookCount = Math.min(struckCharIds.length, deckRD.length);
+        const creatureSourceRD = combat.attackSource.type === 'creature' ? combat.attackSource.instanceId : null;
+        const creatureDefIdRD = creatureSourceRD ? resolveInstanceId(state, creatureSourceRD) : undefined;
+        const creatureNameRD = creatureDefIdRD ? cardName(state, creatureDefIdRD, 'creature') : 'Goblin-faces';
+        if (lookCount === 0) {
+          logDetail(`${creatureNameRD}: defender's play deck is empty — nothing to look at`);
+        } else {
+          const lookedCards = deckRD.slice(0, lookCount);
+          stateAfterCombat = revealInstances(stateAfterCombat, lookedCards);
+          logDetail(`${creatureNameRD}: ${struckCharIds.length} successful strike(s) — attacker looks at top ${lookCount} card(s) of ${stateAfterCombat.players[defIdxRD].name}'s play deck`);
+          stateAfterCombat = enqueueResolution(stateAfterCombat, {
+            source: creatureSourceRD,
+            actor: combat.attackingPlayerId,
+            scope: companySubphaseScope(state.phaseState.phase, combat.companyId),
+            kind: {
+              type: 'rearrange-defender-deck',
+              count: lookCount,
+              remainingInstanceIds: lookedCards.map(c => c.instanceId),
+              topInstanceIds: [],
+              bottomInstanceIds: [],
+              deckOwnerIndex: defIdxRD,
+              sourceDefinitionId: (creatureDefIdRD ?? sourceCardForStrikeSuccess?.id) as CardDefinitionId,
+            },
+          });
+        }
+        continue;
+      }
       if (sse.apply.type !== 'company-return-to-origin') continue;
       const mhStateSS = stateAfterCombat.phaseState as MovementHazardPhaseState;
       if (mhStateSS.returnedToOrigin) continue;

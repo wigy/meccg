@@ -1008,6 +1008,45 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Goblin-faces (wh-13): "Following the attack, the attacker looks at
+         * a number of cards from the top of the defender's play deck equal
+         * to the number of successful strikes of the attack." He may place
+         * any of them face down on the bottom of the defender's play deck
+         * (in any order he chooses); he places the rest on top (in any
+         * order he chooses). The looked-at cards sit physically on top of
+         * the defender's play deck the whole time; resolving only
+         * partitions them between the top and bottom piles (and relocates
+         * the bottom-pile ones to the deck's end). One
+         * `rearrange-defender-deck-card` action per still-unplaced card,
+         * naming a `destination` of `'top'` or `'bottom'`; the actor picks
+         * one at a time until every looked-at card is placed (mandatory,
+         * no pass — every card must go somewhere).
+         */
+        readonly type: 'rearrange-defender-deck';
+        /** How many cards were looked at (top of the defender's deck at trigger time). */
+        readonly count: number;
+        /** Cards not yet assigned to a pile, in original top-to-bottom deck order. */
+        readonly remainingInstanceIds: readonly CardInstanceId[];
+        /**
+         * Cards chosen for the deck top so far, in pick order. On
+         * resolution these become the new top of the deck with index 0
+         * placed topmost (matching `arrange-deck-top`'s convention).
+         */
+        readonly topInstanceIds: readonly CardInstanceId[];
+        /**
+         * Cards chosen for the deck bottom so far, in pick order. On
+         * resolution these are appended after the untouched remainder of
+         * the deck, index 0 nearest that remainder and the last pick at
+         * the deck's absolute bottom.
+         */
+        readonly bottomInstanceIds: readonly CardInstanceId[];
+        /** Player index of the defender (deck owner), for locating the pile at resolution. */
+        readonly deckOwnerIndex: number;
+        /** Definition ID of the source creature (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Eyes of Mandos (dm-126): the playing player has revealed the top
          * cards of their play deck (a `reveal-choose-shuffle` effect) and must
          * now choose exactly one to put into their hand. The revealed cards are

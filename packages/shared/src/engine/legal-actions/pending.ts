@@ -3638,6 +3638,43 @@ export function arrangeDeckTopActions(
 }
 
 /**
+ * Legal actions while a `rearrange-defender-deck` resolution is pending
+ * (Goblin-faces, wh-13): the attacker places each still-unplaced looked-at
+ * card onto either the defender's deck top or bottom pile. Two
+ * `rearrange-defender-deck-card` actions per remaining card (one per
+ * destination); mandatory (no pass — every looked-at card must be placed).
+ */
+export function rearrangeDefenderDeckActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'rearrange-defender-deck') return [];
+  const { remainingInstanceIds, deckOwnerIndex } = top.kind;
+  const deckOwner = state.players[deckOwnerIndex];
+  if (!deckOwner) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const instanceId of remainingInstanceIds) {
+    const card = deckOwner.playDeck.find(c => c.instanceId === instanceId);
+    const name = card ? cardName(state, card.definitionId) : (instanceId as string);
+    for (const destination of ['top', 'bottom'] as const) {
+      logDetail(`rearrange-defender-deck: offering to place "${name}" on the ${destination}`);
+      actions.push({
+        action: {
+          type: 'rearrange-defender-deck-card' as const,
+          player: actor,
+          cardInstanceId: instanceId,
+          destination,
+        },
+        viable: true,
+      });
+    }
+  }
+  return actions;
+}
+
+/**
  * Legal actions while a `reveal-choose-to-hand` resolution is pending (Eyes of
  * Mandos, dm-126): the player must choose exactly one of the revealed
  * top-of-deck cards to put into their hand. One `choose-revealed-card` action
