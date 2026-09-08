@@ -11530,7 +11530,7 @@ of that region's own type. `creatureFilter` may reference the derived
 `keyedToSingleRegionTypes` field — the set of region types a hazard
 creature's own `keyedTo` requires *exactly once* in some entry (a creature
 whose only relevant entry requires a type twice, e.g. a double Shadow-land
-[{s}][{s}], does not offer that type here) — computed by `grantsCreatureKeying`
+`[{s}][{s}]`, does not offer that type here) — computed by `grantsCreatureKeying`
 (`legal-actions/movement-hazard.ts`) and merged into the creature-filter
 context alongside the raw card definition. Used by Reaching Shadow (dm-81):
 "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed
