@@ -33,7 +33,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildSitePhaseState, buildFallenWizardOrgPhaseState, buildFallenWizardSitePhaseState, resetMint, mint, Phase, CardStatus,
   viableActions, dispatch, resolveChain, playPermanentEventAndResolve,
-  findCharInstanceId, findHandCardId,
+  findCharInstanceId, findHandCardId, addP1CardsInPlay,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   BILBO, GANDALF, GIMLI, BREE, EDORAS, MORIA,
   AND_FORTH_HE_HASTENED,
@@ -42,6 +42,9 @@ import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction,
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 
 const FIREWORKS = 'dm-130' as CardDefinitionId;
+// No Strangers at this Time (as-51): "This site … never untaps for you" — a
+// `site-lock` bound to the site, absolute and unconditional per its text.
+const NO_STRANGERS = 'as-51' as CardDefinitionId;
 const PALLANDO = 'tw-175' as CardDefinitionId;
 const CHAMBERS_IN_THE_ROYAL_COURT = 'wh-97' as CardDefinitionId;
 // wh-4: the Fallen-wizard Gandalf avatar (distinct from the Wizard-side
@@ -288,6 +291,30 @@ describe('Fireworks (dm-130)', () => {
     expect(resolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Untapped);
     // The sage himself remains tapped (the site untapped, not the sage).
     expect(resolved.players[RESOURCE_PLAYER].characters[sageId].status).toBe(CardStatus.Tapped);
+  });
+
+  test('a passed roll does NOT untap a site locked by No Strangers at this Time (bug report on game mtsjm55t-me0oq4, seq 894)', () => {
+    // Reported: Gandalf played Fireworks on Pelargir (a Free-hold with No
+    // Strangers at this Time bound to it, owned by the same player) and the
+    // roll passed — the site untapped anyway. No Strangers at this Time's
+    // `site-lock` reads "this site is never discarded and never untaps for
+    // you", an absolute lock (ICE Rulings Digest #61 Query 7) that a passed
+    // roll-untap-site roll must not override.
+    const base = fireworksState({ site: BREE, chars: [GANDALF] });
+    const lockedSiteDefId = base.players[RESOURCE_PLAYER].companies[0].currentSite!.definitionId;
+    const state = addP1CardsInPlay(base, [
+      { instanceId: mint(), definitionId: NO_STRANGERS, status: CardStatus.Untapped, attachedToSite: lockedSiteDefId },
+    ]);
+    const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, FIREWORKS);
+    const played = playPermanentEventAndResolve(state, PLAYER_1, cardId, gandalfId, { targetSiteDefinitionId: BREE });
+
+    // Gandalf: mind null (→ 0) + 10 wizard bonus. Rolled 3 → 13 > 12 → pass.
+    const resolved = dispatch(
+      { ...played, cheatRollTotal: 3 },
+      { type: 'resolve-dice-check', player: PLAYER_1, explanation: '' },
+    );
+    expect(resolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Tapped);
   });
 
   test('roll fail (2d6 + mind not > 12) leaves the site tapped', () => {

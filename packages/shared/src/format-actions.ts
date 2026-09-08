@@ -668,6 +668,8 @@ export function describeAction(
       return `${playerName(action.player)} plays reserved creature from ${instName(action.sourceCardInstanceId)} against company ${compName(action.targetCompanyId)}`;
     case 'play-creature-from-discard':
       return `${playerName(action.player)} plays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)}`;
+    case 'attack-nazgul-permanent-event':
+      return `${playerName(action.player)} triggers Nazgûl permanent-event ${instName(action.targetNazgulInstanceId)} to attack company ${compName(action.targetCompanyId)}`;
     case 'spawn-replay-creature':
       return `${playerName(action.player)} replays creature ${instName(action.creatureInstanceId)} from discard pile against company ${compName(action.targetCompanyId)} (${instName(action.sourceInstanceId)})`;
     case 'stay-her-appetite-roll':

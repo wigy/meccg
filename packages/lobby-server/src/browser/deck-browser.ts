@@ -19,6 +19,9 @@ import {
   parseGccgDeck, parseMeccgJsonDeck, parsedCardCount, readDeckFile, toFullDeck,
 } from './deck-import.js';
 
+/** Max deck name length, matching the deck editor's rename input (`deck-editor.ts`). */
+const MAX_DECK_NAME_LENGTH = 60;
+
 // Forward-declared function references, set by the lobby module at startup.
 let openDeckEditorFn: ((deckId: string) => Promise<void>) | null = null;
 
@@ -98,15 +101,96 @@ function makeExportButton(deck: FullDeck): HTMLButtonElement {
   return exportBtn;
 }
 
+/**
+ * Swap `container`'s contents for a name-editing input with a `commitLabel`
+ * button and a Cancel button (Enter submits, Escape cancels), mirroring the
+ * deck editor's inline rename control (`deck-editor.ts`'s `renderTitle`).
+ * An empty/whitespace-only name is rejected and left for further editing;
+ * otherwise `onCommit` is called with the trimmed name. `onCancel` is
+ * called on Escape or the Cancel button.
+ */
+function renderInlineRename(
+  container: HTMLElement, currentName: string, commitLabel: string,
+  onCommit: (name: string) => void, onCancel: () => void,
+): void {
+  container.innerHTML = '';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'deck-editor-title-input';
+  input.value = currentName;
+  input.maxLength = MAX_DECK_NAME_LENGTH;
+  container.appendChild(input);
+
+  const commit = (): void => {
+    const name = input.value.trim();
+    if (!name) {
+      input.focus();
+      return;
+    }
+    onCommit(name);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      onCancel();
+    }
+  });
+
+  const actions = document.createElement('span');
+  actions.className = 'deck-editor-title-actions';
+  const commitBtn = document.createElement('button');
+  commitBtn.textContent = commitLabel;
+  commitBtn.addEventListener('click', commit);
+  actions.appendChild(commitBtn);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'deck-editor-title-btn--cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', onCancel);
+  actions.appendChild(cancelBtn);
+  container.appendChild(actions);
+
+  input.focus();
+  input.select();
+}
+
 /** Render a deck item row for "My Decks" -- click to select as current. */
 export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
   const item = document.createElement('div');
   item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
-  item.appendChild(buildDeckInfo(deck, deck.alignment + (isCurrent ? ' \u2014 selected' : '')));
+
+  const infoSlot = document.createElement('div');
+  const showInfo = (): void => {
+    infoSlot.innerHTML = '';
+    infoSlot.appendChild(buildDeckInfo(deck, deck.alignment + (isCurrent ? ' \u2014 selected' : '')));
+  };
+  showInfo();
+  item.appendChild(infoSlot);
+
   const btns = document.createElement('div');
   btns.style.display = 'flex';
   btns.style.flexWrap = 'wrap';
   btns.style.gap = '0.4rem';
+
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'deck-editor-title-edit-btn';
+  renameBtn.textContent = '\u{270F}\u{FE0F}';
+  renameBtn.title = 'Rename this deck';
+  renameBtn.addEventListener('click', () => {
+    renderInlineRename(infoSlot, deck.name, 'Save', (name) => {
+      if (name === deck.name) {
+        showInfo();
+        return;
+      }
+      void renameDeck(deck, name);
+    }, showInfo);
+  });
+  btns.appendChild(renameBtn);
+
   if (isCurrent) {
     const editBtn = document.createElement('button');
     editBtn.textContent = 'Edit';
@@ -136,8 +220,8 @@ export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElemen
   return item;
 }
 
-/** Render a deck item row for the catalog -- "Add" or "Owned". */
-function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void): HTMLElement {
+/** Render a deck item row for the catalog -- "Copy" (with rename-on-copy) or "Owned". */
+function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: (name: string) => void): HTMLElement {
   const item = document.createElement('div');
   item.className = 'lobby-deck-item';
   item.appendChild(buildDeckInfo(deck, deck.alignment));
@@ -145,20 +229,32 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: () => void
   btns.style.display = 'flex';
   btns.style.flexWrap = 'wrap';
   btns.style.gap = '0.4rem';
-  const btn = document.createElement('button');
+  const btnSlot = document.createElement('div');
   if (owned) {
+    const btn = document.createElement('button');
     btn.textContent = 'Owned';
     btn.disabled = true;
+    btnSlot.appendChild(btn);
   } else {
+    const btn = document.createElement('button');
     btn.textContent = 'Copy';
     btn.title = 'Make a copy for yourself to edit';
+    const showCopyBtn = (): void => {
+      btnSlot.innerHTML = '';
+      btnSlot.appendChild(btn);
+    };
     btn.addEventListener('click', () => {
-      btn.disabled = true;
-      btn.textContent = 'Copying...';
-      onAdd();
+      renderInlineRename(btnSlot, deck.name, 'Copy', (name) => {
+        btnSlot.innerHTML = '';
+        const copying = document.createElement('span');
+        copying.textContent = 'Copying...';
+        btnSlot.appendChild(copying);
+        onAdd(name);
+      }, showCopyBtn);
     });
+    showCopyBtn();
   }
-  btns.appendChild(btn);
+  btns.appendChild(btnSlot);
   btns.appendChild(makeExportButton(deck));
   item.appendChild(btns);
   return item;
@@ -290,8 +386,8 @@ export async function loadDecks(): Promise<void> {
     catContainer.innerHTML = '<p class="lobby-empty">No decks available</p>';
   } else {
     for (const deck of catalog) {
-      catContainer.appendChild(renderCatalogDeckItem(deck, appState.ownedDeckIds.has(`${appState.lobbyPlayerName}-${deck.id}`), () => {
-        void addDeckToCollection(deck);
+      catContainer.appendChild(renderCatalogDeckItem(deck, appState.ownedDeckIds.has(`${appState.lobbyPlayerName}-${deck.id}`), (name) => {
+        void addDeckToCollection(deck, name);
       }));
     }
   }
@@ -426,17 +522,30 @@ async function importDeckFile(file: File): Promise<void> {
 }
 
 /**
- * Add a catalog deck to the player's collection, then refresh. The copy is
- * editable, so it drops the catalog deck's `approved` flag: approval is
- * granted by hand per deck (see `DeckList.approved`) and does not survive
- * into a deck a player can change.
+ * Add a catalog deck to the player's collection under `name`, then refresh.
+ * The copy is editable, so it drops the catalog deck's `approved` flag:
+ * approval is granted by hand per deck (see `DeckList.approved`) and does
+ * not survive into a deck a player can change. The copy's `name` is
+ * independent of the catalog deck's name so a player can tell their
+ * modified copy apart from the standard deck it came from.
  */
-export async function addDeckToCollection(deck: FullDeck): Promise<void> {
-  const personalDeck = { ...deck, approved: undefined, id: `${appState.lobbyPlayerName}-${deck.id}` };
+export async function addDeckToCollection(deck: FullDeck, name: string): Promise<void> {
+  const personalDeck = { ...deck, approved: undefined, id: `${appState.lobbyPlayerName}-${deck.id}`, name };
   const resp = await apiSend('/api/my-decks', 'POST', personalDeck);
   if (resp.ok) {
     await loadDecks();
+  } else {
+    await showAlert(resp.error ?? 'Failed to copy deck');
   }
+}
+
+/** Rename an owned deck (persisted via the generic deck-save route), then refresh. */
+async function renameDeck(deck: FullDeck, name: string): Promise<void> {
+  const resp = await apiSend('/api/my-decks', 'POST', { ...deck, name });
+  if (!resp.ok) {
+    await showAlert(resp.error ?? 'Failed to rename deck');
+  }
+  await loadDecks();
 }
 
 /** Map a deck alignment to the card-alignment tag carried by its site cards. */

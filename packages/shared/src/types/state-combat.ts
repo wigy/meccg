@@ -224,6 +224,27 @@ export type AttackSource =
       readonly type: 'long-dark-reach-attack';
       readonly sourceInstanceId: CardInstanceId;
       readonly creatureInstanceId: CardInstanceId;
+    }
+  /**
+   * Triggered by Out of the Black Sky (dm-77) via the
+   * `nazgul-permanent-event-attack` DSL effect: an already in-play Nazgûl
+   * permanent-event (either player's own `cardsInPlay`) attacks immediately
+   * "as if it were in your hand as a creature." The Nazgûl is never moved at
+   * initiation — it sits in `nazgulOwnerId`'s `cardsInPlay` throughout combat,
+   * exactly like a `creature-alt-event` `attacksAsCreature` attack (Shelob
+   * tw-86) — but `nazgulOwnerId` may differ from the attacking player, so the
+   * generic `creature` disposal (which only ever looks in the *attacker's*
+   * cardsInPlay) cannot be reused; see `combat-finalize.ts` for the dedicated
+   * disposal this variant gets instead.
+   */
+  | {
+      readonly type: 'nazgul-permanent-event-attack';
+      /** The Nazgûl permanent-event card instance attacking. */
+      readonly nazgulInstanceId: CardInstanceId;
+      /** Whichever player's `cardsInPlay` currently holds the Nazgûl. */
+      readonly nazgulOwnerId: PlayerId;
+      /** Out of the Black Sky's own card instance (resting in its owner's discard pile since play). */
+      readonly triggerInstanceId: CardInstanceId;
     };
 
 /**
@@ -1243,6 +1264,20 @@ export type ChainEntryPayload =
        * which fall back to the union of the card's `keyedTo`.
        */
       readonly keyedBy?: CreatureKeyingMatch;
+    }
+  | {
+      /**
+       * Out of the Black Sky (dm-77): triggers an already in-play Nazgûl
+       * permanent-event into an immediate creature attack. `entry.card` is
+       * the Nazgûl's own `CardInstance` (already resident in
+       * `nazgulOwnerId`'s `cardsInPlay` — never moved at initiation). See
+       * {@link NazgulPermanentEventAttackEffect}.
+       */
+      readonly type: 'nazgul-permanent-event-attack';
+      /** Whichever player's `cardsInPlay` currently holds the targeted Nazgûl. */
+      readonly nazgulOwnerId: PlayerId;
+      /** Out of the Black Sky's own card instance, already discarded at play time. */
+      readonly triggerInstanceId: CardInstanceId;
     }
   | {
       readonly type: 'permanent-event';

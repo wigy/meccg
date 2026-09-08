@@ -63,7 +63,8 @@ describe('deck list Export button', () => {
   test('renders an Export button alongside Select and Delete', () => {
     const item = renderMyDeckItem(DECK, false) as unknown as StubEl;
     const buttons = item.all().filter(el => el.tagName === 'button');
-    expect(buttons.map(b => b.textContent)).toEqual(['Select', 'Export', 'Delete']);
+    // The leading button is the rename pencil added by the rename-on-copy feature.
+    expect(buttons.map(b => b.textContent)).toEqual(['\u{270F}\u{FE0F}', 'Select', 'Export', 'Delete']);
   });
 
   test('clicking Export downloads the exact FullDeck object shown in the row', () => {
