@@ -3408,7 +3408,7 @@ Events:
     "apply": { "type": "reveal-hand-cards-per-character" } }
   ```
 
-- `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`), `attack.isAutomaticAttack` (`true` only when the defeated attack was a site automatic-attack or a played-auto-attack, not a hazard creature), `attack.attackerChoosesDefenders`, and `attack.keyingRegionNames` (the named regions the defeated attack was keyed to — a creature's own printed `keyedTo.regionNames` match, or, via a `grant-creature-keying` `siteFilter.regionNames` grant's `keyedBy.grantedRegionName`, the named region that justified the grant; `[]` when neither applies). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated, by *Redoubled Force* (dm-83) to self-discard when an Orc/Troll **automatic**-attack is defeated (`when: { "attack.isAutomaticAttack": true, "enemy.race": { "$in": ["orc", "troll"] } }`), and by *Reaching Shadow* (dm-81) to self-discard when a creature keyed via its named-region grant is defeated (`when: { "attack.keyingRegionNames": { "$in": [<the ten granted region names>] } } }`).
+- `attack-defeated` -- fires after combat finalization when **all** strikes of an attack were fully defeated (all results = `success`). Scanned from every player's `cardsInPlay` in `reducer-combat.ts` when `allDefeated` is true. The condition context exposes `enemy.race` (the normalized race of the attack, e.g. `"undead"`), `attack.isAutomaticAttack` (`true` only when the defeated attack was a site automatic-attack or a played-auto-attack, not a hazard creature), `attack.attackerChoosesDefenders`, and `attack.keyingRegionNames` (the named regions the defeated attack was keyed to — a creature's own printed `keyedTo.regionNames` match, a by-name alternative added by a `region-name-keying-grant` environment (Angmar Arises dm-44), or, via a `grant-creature-keying` `siteFilter.regionNames` grant's `keyedBy.grantedRegionName`, the named region that justified the grant; `[]` when none applies). Supports a self-discard `move` apply (`{ "type": "move", "select": "self", "from": "self-location", "to": "discard" }`) to move the source card from `cardsInPlay` to the owning player's discard pile. Used by *The Moon Is Dead* (dm-71) to self-discard when any Undead attack is defeated, by *Redoubled Force* (dm-83) to self-discard when an Orc/Troll **automatic**-attack is defeated (`when: { "attack.isAutomaticAttack": true, "enemy.race": { "$in": ["orc", "troll"] } }`), and by *Reaching Shadow* (dm-81) to self-discard when a creature keyed via its named-region grant is defeated (`when: { "attack.keyingRegionNames": { "$in": [<the ten granted region names>] } } }`).
 - `attack-strike-successful` -- fires in `finalizeCombat` (`combat-finalize.ts`) when at least one of **this attack's own strikes** wounded or eliminated a defender (the same `struckCharIds` set used for wound-triggered passives — detainment strikes excluded, since they tap rather than wound) while the defending company is still in its movement/hazard phase. Self-bound to the attack source card; no `scope`. Supports the `company-return-to-origin` apply verb, which forces the defending company back to its site of origin (CoE rule 2.IV.4 — the same mechanism as the short-event `company-return-to-origin` card effect and `agent-discard-return-to-origin`): sets `MovementHazardPhaseState.returnedToOrigin` (skipped if already set, or if the company has no `destinationSite` — i.e. it already isn't moving) and adds a `site-phase-do-nothing` constraint scoped to the company's upcoming site phase. Unlike the short-event version there is no `unless` exception. Used by *Fell Turtle* (tw-34): "One strike. If any strike is successful, the defending company must return to its site of origin (defending characters are wounded normally)."
 
   ```json
@@ -13468,6 +13468,77 @@ when omitted.
 Used by: *Look More Closely Later* (td-128) — "Sage only. Ritual. Tap a sage
 to untap a site at which Information is playable. Sage makes a corruption
 check."
+
+### 43e. `region-name-keying-grant`
+
+A global permanent environment that grants hazard creatures an additional
+**by-name** keying alternative, based on the creature's own printed
+region-type keying — distinct from `region-type-remap` /
+`region-type-conversion` (which reinterpret region *types* along a path) and
+from `grant-creature-keying` (which grants keying to site/region *types* at
+the destination, gated on a `creatureFilter`). Here the destination is
+irrelevant; what matters is whether the creature's own `keyedTo` has a
+`regionTypes` entry that **exactly** matches one of the grant's
+`ifRegionTypes` (same types, same count — a creature requiring *two*
+Shadow-lands does not match a `["shadow"]` grant).
+
+```json
+{ "type": "region-name-keying-grant",
+  "grants": [
+    { "ifRegionTypes": ["shadow"], "regionNames": ["Forochel", "Arthedain", "Angmar", "Gundabad", "Rhudaur"] },
+    { "ifRegionTypes": ["dark"], "regionNames": ["Angmar", "Gundabad"] }
+  ] }
+```
+
+`collectRegionNameKeyingGrants(state)` (`engine/region-keying.ts`) scans both
+players' `cardsInPlay` for the effect. `extraKeyedToFromRegionNameGrants(
+keyedTo, grants, whenContext)` walks the creature's own printed `keyedTo`
+entries and, for each whose `regionTypes` multiset-equals a grant's
+`ifRegionTypes`, appends a synthetic `{ regionNames }`-only
+`CreatureKeyRestriction`. An entry gated by its own `when` clause (e.g.
+*Elf-lord Revealed in Wrath* le-69's Shadow-land keying, "if Doors of Night is
+not in play") only contributes the grant while that `when` currently holds —
+the card text reads "any creature that **can** be keyed to a single
+Shadow-land", which is false whenever the creature's own gate is closed.
+
+Both creature-keying matchers — `findCreatureKeyingMatches`
+(`legal-actions/movement-hazard.ts`) and `checkCreatureKeying`
+(`mh-hazard-play.ts`) — append the synthetic entries to their local
+`extraKeyedTo` list (the same list Fell Beast's `nazgul-boost-pending` grant
+uses) and try them alongside the creature's own printed `keyedTo`. The
+synthetic entries are **never** written into `def.keyedTo` itself, so
+unrelated consumers of the creature's printed keying — detainment
+(`engine/detainment.ts`, which reads `creatureDef.keyedTo` directly) and
+on-guard reveals — are unaffected. Per CRF ruling this is intentional: "does
+not change the region type used to judge whether an attack is detainment or
+not."
+
+The discard trigger ("Discard this card when a creature keyed to one of these
+regions — not to the region symbol — is defeated") reads the *declared*
+by-name match, not the full union of the creature's keying: `attackKeyingRegionNames`
+on `CombatState` (populated in `chain-reducer.ts` from the played creature's
+declared `keyedBy`) is exposed to the `on-event: attack-defeated` context as
+`attack.keyingRegionNames` (`combat-finalize.ts`), so an `on-event` `$in` check
+against the grant's region names only fires when the creature was actually
+keyed by name — not when it was keyed via its own region-type/site-type
+symbol despite also being eligible for the grant.
+
+```json
+{ "type": "on-event", "event": "attack-defeated",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+  "when": { "attack.keyingRegionNames": { "$in": ["Forochel", "Arthedain", "Angmar", "Gundabad", "Rhudaur"] } } }
+```
+
+Used by: *Angmar Arises* (dm-44) — "Any creature that can be keyed to a
+single Shadow-land [{s}] may be keyed to Forochel, Arthedain, Angmar,
+Gundabad, or Rhudaur. Any creature that can be keyed to a Dark-domain [{d}]
+may be keyed to Angmar or Gundabad. Discard this card when a creature keyed
+to one of these regions (not to the region symbol) is defeated." The sibling
+sibling card *In Darkness Bind Them* (dm-65) prints the same mechanic with a
+different name list and is expected to reuse this primitive when certified.
+*Reaching Shadow* (dm-81) prints it too, but is certified instead via the
+`grant-creature-keying` `siteFilter.regionNames` branch (see that section) —
+both routes feed the same `attack.keyingRegionNames` context.
 
 ### 44. `company-strike`
 

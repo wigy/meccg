@@ -562,8 +562,33 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/AngmarArises.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Any creature that can be keyed to a one single Shadow-land [{s}] may be keyed to Forochel, Arthedain, Angmar, Gundabad, or Rhudaur. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Angmar or Gundabad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated."
+    "effects": [
+      {
+        "type": "region-name-keying-grant",
+        "grants": [
+          {
+            "ifRegionTypes": ["shadow"],
+            "regionNames": ["Forochel", "Arthedain", "Angmar", "Gundabad", "Rhudaur"]
+          },
+          {
+            "ifRegionTypes": ["dark"],
+            "regionNames": ["Angmar", "Gundabad"]
+          }
+        ]
+      },
+      {
+        "type": "on-event",
+        "event": "attack-defeated",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": {
+          "attack.keyingRegionNames": {
+            "$in": ["Forochel", "Arthedain", "Angmar", "Gundabad", "Rhudaur"]
+          }
+        }
+      }
+    ],
+    "text": "Any creature that can be keyed to a one single Shadow-land [{s}] may be keyed to Forochel, Arthedain, Angmar, Gundabad, or Rhudaur. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Angmar or Gundabad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated.",
+    "certified": "2026-09-07"
   },
   {
     "cardType": "hazard-event",

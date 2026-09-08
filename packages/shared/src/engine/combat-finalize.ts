@@ -1143,11 +1143,15 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         isolated: combat.isolated ?? false,
         isAutomaticAttack,
         attackerChoosesDefenders: combat.attackerChoosesDefenders ?? false,
-        // Named regions the defeated attack was keyed to — a creature's own
-        // printed `keyedTo.regionNames` match, or (via `keyedBy.grantedRegionName`)
-        // a `grant-creature-keying` regionNames branch. Used by Reaching
-        // Shadow (dm-81) to discard itself only when the defeated creature
-        // was keyed to one of *its* granted named regions.
+        // Named regions the defeated attack was *declared* keyed to — not the
+        // full union of the creature's printed `keyedTo` (see
+        // `attackKeyingRegionNames` on CombatState). Two sources feed it: a
+        // creature's own printed `keyedTo.regionNames` match (`method:
+        // 'region-name'`), and a keying grant that matched by region name
+        // (`keyedBy.grantedRegionName`). Cards gated on this discard
+        // themselves only when the defeated creature was keyed via one of
+        // *their* named regions rather than via a region-type symbol —
+        // Angmar Arises (dm-44) and Reaching Shadow (dm-81).
         keyingRegionNames: combat.attackKeyingRegionNames ?? [],
       },
       inPlay: buildInPlayNames(stateAfterCombat),
