@@ -14,6 +14,7 @@ import {
 import { showAlert, showConfirm } from './dialog.js';
 import { apiGet, apiSend } from './api.js';
 import { renderMarkdown } from './markdown.js';
+import { downloadDeck } from './deck-editor.js';
 import {
   parseGccgDeck, parseMeccgJsonDeck, parsedCardCount, readDeckFile, toFullDeck,
 } from './deck-import.js';
@@ -88,6 +89,19 @@ function buildDeckInfo(deck: FullDeck, metaText: string): HTMLDivElement {
 }
 
 /**
+ * Build an Export button that downloads `deck` as a `.meccg-json` file via
+ * the same helper the deck editor's title bar uses, so a copy can be saved
+ * straight from the deck list without opening the editor first.
+ */
+function makeExportButton(deck: FullDeck): HTMLButtonElement {
+  const exportBtn = document.createElement('button');
+  exportBtn.textContent = 'Export';
+  exportBtn.title = 'Download this deck as a .meccg-json file';
+  exportBtn.addEventListener('click', () => downloadDeck(deck));
+  return exportBtn;
+}
+
+/**
  * Swap `container`'s contents for a name-editing input with a `commitLabel`
  * button and a Cancel button (Enter submits, Escape cancels), mirroring the
  * deck editor's inline rename control (`deck-editor.ts`'s `renderTitle`).
@@ -145,7 +159,7 @@ function renderInlineRename(
 }
 
 /** Render a deck item row for "My Decks" -- click to select as current. */
-function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
+export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
   const item = document.createElement('div');
   item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
 
@@ -159,6 +173,7 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
 
   const btns = document.createElement('div');
   btns.style.display = 'flex';
+  btns.style.flexWrap = 'wrap';
   btns.style.gap = '0.4rem';
 
   const renameBtn = document.createElement('button');
@@ -191,6 +206,7 @@ function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElement {
     });
     btns.appendChild(selectBtn);
   }
+  btns.appendChild(makeExportButton(deck));
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = 'Delete';
   deleteBtn.className = 'lobby-delete-btn';
@@ -209,6 +225,10 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: (name: str
   const item = document.createElement('div');
   item.className = 'lobby-deck-item';
   item.appendChild(buildDeckInfo(deck, deck.alignment));
+  const btns = document.createElement('div');
+  btns.style.display = 'flex';
+  btns.style.flexWrap = 'wrap';
+  btns.style.gap = '0.4rem';
   const btnSlot = document.createElement('div');
   if (owned) {
     const btn = document.createElement('button');
@@ -234,7 +254,9 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: (name: str
     });
     showCopyBtn();
   }
-  item.appendChild(btnSlot);
+  btns.appendChild(btnSlot);
+  btns.appendChild(makeExportButton(deck));
+  item.appendChild(btns);
   return item;
 }
 

@@ -349,9 +349,11 @@ function isRing(def: CardDefinition): boolean {
 
 /**
  * Download the deck as `<deck-name>.meccg-json`: a pure JSON copy of the
- * deck data, re-importable from the decks screen's import button.
+ * deck data, re-importable from the decks screen's import button. Exported
+ * so both the editor's title bar and the deck browser's per-row Export
+ * button can trigger the same download.
  */
-function downloadDeck(deck: FullDeck): void {
+export function downloadDeck(deck: FullDeck): void {
   const blob = new Blob([JSON.stringify(deck, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
