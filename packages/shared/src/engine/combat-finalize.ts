@@ -565,6 +565,54 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
+  // Out of the Black Sky (dm-77): the targeted Nazgûl permanent-event attacked
+  // "in place" from its owner's cardsInPlay (never moved at initiation — see
+  // `initiateCreatureCombat`), so the generic creature disposal above never
+  // finds it (`attackSourceCreatureInstanceId` returns null for this source
+  // type). Disposal is the reverse of a normal creature: on a fully defeated
+  // attack, the Nazgûl itself is "removed from play" (CoE glossary — moved to
+  // its owner's outOfPlayPile, NOT a kill pile, so its own printed kill-MP
+  // value is never paid out) and the triggering card — already resting in its
+  // own owner's discard pile since being played — moves instead to the
+  // defending player's kill pile, awarding *its own* kill-MP. An undefeated
+  // attack leaves both cards exactly where they already are: the Nazgûl
+  // remains in play, and the triggering card stays discarded ("Otherwise,
+  // discard this card").
+  if (combat.attackSource.type === 'nazgul-permanent-event-attack') {
+    const { nazgulInstanceId, nazgulOwnerId, triggerInstanceId } = combat.attackSource;
+    if (allDefeated) {
+      const ownerIdx = getPlayerIndex(state, nazgulOwnerId);
+      const nazgulCard = findById(newPlayers[ownerIdx].cardsInPlay, nazgulInstanceId);
+      if (nazgulCard) {
+        const nazgulName = cardName(state, nazgulCard.definitionId, '?');
+        newPlayers[ownerIdx] = {
+          ...newPlayers[ownerIdx],
+          cardsInPlay: newPlayers[ownerIdx].cardsInPlay.filter(c => c.instanceId !== nazgulInstanceId),
+          outOfPlayPile: [...newPlayers[ownerIdx].outOfPlayPile, toCardInstance(nazgulCard)],
+        };
+        logDetail(`Out of the Black Sky: "${nazgulName}" defeated — removed from play (no kill-MP for its own printed value)`);
+      }
+
+      const atkIdx3 = getPlayerIndex(state, combat.attackingPlayerId);
+      const defIdx3 = getPlayerIndex(state, combat.defendingPlayerId);
+      const triggerCard = findById(newPlayers[atkIdx3].discardPile, triggerInstanceId);
+      if (triggerCard) {
+        const triggerName = cardName(state, triggerCard.definitionId, '?');
+        newPlayers[atkIdx3] = {
+          ...newPlayers[atkIdx3],
+          discardPile: newPlayers[atkIdx3].discardPile.filter(c => c.instanceId !== triggerInstanceId),
+        };
+        newPlayers[defIdx3] = {
+          ...newPlayers[defIdx3],
+          killPile: [...newPlayers[defIdx3].killPile, triggerCard],
+        };
+        logDetail(`Out of the Black Sky: "${triggerName}" moved to defending player's kill pile (kill-MP awarded)`);
+      }
+    } else {
+      logDetail('Out of the Black Sky: attack not fully defeated — Nazgûl remains in play, event card stays discarded');
+    }
+  }
+
   logDetail('Combat finalized — returning to enclosing phase');
 
   // Check for on-event: character-wounded-by-self effects on the attack source.

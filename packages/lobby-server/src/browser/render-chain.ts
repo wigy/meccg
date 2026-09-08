@@ -182,6 +182,7 @@ function formatChainEntry(
         + `<span class="chain-declarer">${declarer}</span>`;
     }
     case 'creature':
+    case 'nazgul-permanent-event-attack':
       return `<span class="chain-card-name">${cardName}</span>`
         + `<span class="chain-declarer">${declarer}</span>`;
     case 'corruption-card':

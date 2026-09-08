@@ -3913,7 +3913,10 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       // Fell Beast (tw-33): a consumed `nazgul-boost-pending` constraint
       // grants "attacker chooses defending characters" to this creature's
       // play, on top of any rule the card itself carries.
-      || (entry.payload.type === 'creature' && entry.payload.grantAttackerChoosesDefenders === true),
+      || (entry.payload.type === 'creature' && entry.payload.grantAttackerChoosesDefenders === true)
+      // Out of the Black Sky (dm-77): "chooses defending characters" is
+      // unconditional for this attack, regardless of the Nazgûl's own rules.
+      || entry.payload.type === 'nazgul-permanent-event-attack',
     creatureDef.race,
   );
   if (attackerChooses) {
@@ -4002,13 +4005,20 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const reservingCardInstanceId = entry.payload.type === 'creature'
     ? entry.payload.reservingCardInstanceId
     : undefined;
-  const attackSource = state.phaseState.phase === 'site'
-    ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
-    : {
-        type: 'creature' as const,
-        instanceId: entry.card!.instanceId,
-        ...(reservingCardInstanceId ? { reservingCardInstanceId } : {}),
-      };
+  const attackSource = entry.payload.type === 'nazgul-permanent-event-attack'
+    ? {
+        type: 'nazgul-permanent-event-attack' as const,
+        nazgulInstanceId: entry.card!.instanceId,
+        nazgulOwnerId: entry.payload.nazgulOwnerId,
+        triggerInstanceId: entry.payload.triggerInstanceId,
+      }
+    : state.phaseState.phase === 'site'
+      ? { type: 'on-guard-creature' as const, cardInstanceId: entry.card!.instanceId }
+      : {
+          type: 'creature' as const,
+          instanceId: entry.card!.instanceId,
+          ...(reservingCardInstanceId ? { reservingCardInstanceId } : {}),
+        };
 
   const inPlayNames = buildInPlayNames(state);
   // A creature card already stores canonical races, so it is read directly —
@@ -4303,10 +4313,14 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // A creature attacking from an alt-permanent-event state (Shelob tw-86,
   // `attacksAsCreature`) is already sitting there — it was never removed, so
   // its own passive effects keep boosting its own attack — so skip re-adding
-  // it and avoid a duplicate cardsInPlay entry.
+  // it and avoid a duplicate cardsInPlay entry. Checked across BOTH players'
+  // cardsInPlay (not just the hazard player's own) because Out of the Black
+  // Sky (dm-77) can target the *opponent's* Nazgûl permanent-event — it stays
+  // in `nazgulOwnerId`'s cardsInPlay throughout, disposed separately by
+  // `combat-finalize.ts`'s dedicated `nazgul-permanent-event-attack` block.
   const hazardIndex = getPlayerIndex(state, hazardPlayerId);
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-  const alreadyInPlay = newPlayers[hazardIndex].cardsInPlay.some(c => c.instanceId === entry.card!.instanceId);
+  const alreadyInPlay = newPlayers.some(p => p.cardsInPlay.some(c => c.instanceId === entry.card!.instanceId));
   if (!alreadyInPlay) {
     newPlayers[hazardIndex] = {
       ...newPlayers[hazardIndex],
@@ -6567,7 +6581,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
-  if (entry.payload.type === 'creature' && entry.card) {
+  if ((entry.payload.type === 'creature' || entry.payload.type === 'nazgul-permanent-event-attack') && entry.card) {
     current = initiateCreatureCombat(current, entry);
   }
 

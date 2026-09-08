@@ -9832,6 +9832,7 @@ export type CardEffect =
   | PressGangCaptureEffect
   | EliminateInsteadOfDiscardEffect
   | PlayCreatureFromDiscardEffect
+  | NazgulPermanentEventAttackEffect
   | GrantReplayAttackedCreatureEffect
   | LeaderControlEffect
   | StagePointsEffect
@@ -12014,6 +12015,43 @@ export interface PlayCreatureFromDiscardEffect extends EffectBase {
    * when the card does not modify body (Exhalation of Decay).
    */
   readonly bodyModifier?: number;
+}
+
+/**
+ * Hazard permanent-event effect: trigger an already in-play Nazgûl
+ * permanent-event (either player's own) into an immediate creature attack
+ * from its permanent-event state, without counting against the hazard
+ * limit. Models Out of the Black Sky (dm-77): "Playable if Doors of Night is
+ * in play on a Nazgûl permanent-event that could immediately attack as if it
+ * were in your hand as a creature. The Nazgûl immediately attacks as a
+ * creature from its permanent-event state (not counting against the hazard
+ * limit) and chooses defending characters. If the Nazgûl is defeated, place
+ * this card in opponent's marshalling point pile and remove the Nazgûl from
+ * play. Otherwise, discard this card. This can be used on an opponent's
+ * Nazgûl permanent-event as well as on your own."
+ *
+ * Unlike {@link PlayCreatureFromDiscardEffect} (own discard pile only), the
+ * candidate pool is every Nazgûl permanent-event in **either** player's
+ * `cardsInPlay` (`isNazgulPermanentEvent`, `reducer-utils.ts`), matched
+ * against the target company with the same creature-keying check ("could
+ * immediately attack"). The targeted card is never moved at play time — it
+ * attacks "in place," still sitting in its owner's `cardsInPlay` — and the
+ * attack forces "attacker chooses defending characters" regardless of the
+ * creature's own printed rules.
+ *
+ * Disposal (`combat-finalize.ts`, `AttackSource` variant
+ * `nazgul-permanent-event-attack`) is the reverse of a normal creature: if
+ * the attack is fully defeated, the targeted Nazgûl is moved to its owner's
+ * `outOfPlayPile` ("removed from play," CoE glossary — it is not awarded to
+ * anyone's kill pile, so its own printed kill-MP value is never paid out) and
+ * the triggering card — already resting in its own owner's discard pile from
+ * being played — is moved instead to the defending player's kill pile,
+ * awarding *its own* kill-MP. An undefeated attack leaves both cards exactly
+ * where they already are: the Nazgûl remains in play, and the triggering
+ * card stays discarded.
+ */
+export interface NazgulPermanentEventAttackEffect extends EffectBase {
+  readonly type: 'nazgul-permanent-event-attack';
 }
 
 /**

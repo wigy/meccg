@@ -1187,8 +1187,13 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/OutoftheBlackSky.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable if Doors of Night is in play on a Nazgûl permanent-event that could immediately attack as if it were in your hand as a creature. The Nazgûl immediately attacks as a creature from its permanent-event state (not counting against the hazard limit) and chooses defending characters. If the Nazgûl is defeated, place this card in opponent’s marshalling point pile and remove the Nazgûl from play. Otherwise, discard this card. This can be used on an opponent’s Nazgûl permanent-event as well as on your own."
+    "killMarshallingPoints": 5,
+    "effects": [
+      { "type": "play-condition", "requires": "card-in-play", "cardName": "Doors of Night" },
+      { "type": "nazgul-permanent-event-attack" }
+    ],
+    "text": "Playable if Doors of Night is in play on a Nazgûl permanent-event that could immediately attack as if it were in your hand as a creature. The Nazgûl immediately attacks as a creature from its permanent-event state (not counting against the hazard limit) and chooses defending characters. If the Nazgûl is defeated, place this card in opponent’s marshalling point pile and remove the Nazgûl from play. Otherwise, discard this card. This can be used on an opponent’s Nazgûl permanent-event as well as on your own.",
+    "certified": "2026-09-08"
   },
   {
     "cardType": "hazard-event",

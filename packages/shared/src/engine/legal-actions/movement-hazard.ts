@@ -2006,6 +2006,123 @@ function playCreatureFromDiscardActions(
 }
 
 /**
+ * Generate attack-nazgul-permanent-event actions for hazard permanent-events
+ * carrying a `nazgul-permanent-event-attack` effect (Out of the Black Sky,
+ * dm-77: "Playable if Doors of Night is in play on a Nazgûl permanent-event
+ * that could immediately attack as if it were in your hand as a creature.").
+ *
+ * Unlike {@link playCreatureFromDiscardActions} (own discard pile only), the
+ * candidate pool is every Nazgûl permanent-event in EITHER player's
+ * `cardsInPlay` (`isNazgulPermanentEvent`) — "This can be used on an
+ * opponent's Nazgûl permanent-event as well as on your own." Each candidate
+ * is offered only if it can be keyed against the target company (same
+ * creature-keying check as a normal creature play) and the chain is null
+ * (creatures must initiate a new chain). The play does NOT count against the
+ * hazard limit, so no limit gating is applied.
+ */
+function nazgulPermanentEventAttackActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  targetCompanyId: CompanyId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIdx];
+  const targetCompany = resourcePlayer.companies[mhState.activeCompanyIndex];
+  if (!targetCompany) return actions;
+
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!def) continue;
+    const effect = getCardEffects(def).find(e => e.type === 'nazgul-permanent-event-attack');
+    if (!effect) continue;
+
+    const defName = (def as { name?: string })?.name ?? (handCard.definitionId as string);
+
+    // Creatures must initiate a new chain — not playable in response (CoE rule 307).
+    if (state.chain != null) {
+      logDetail(`${defName}: nazgul-permanent-event-attack not available — chain in progress`);
+      continue;
+    }
+
+    // play-condition: card-in-play (Doors of Night) — a named card must
+    // already be in play (either player's), mirroring the generic gate used
+    // for short-events (e.g. Darkness Under Tree le-108).
+    const cardInPlayCond = findPlayConditionEffect(def, 'card-in-play');
+    if (cardInPlayCond?.cardName && !isCardNameInPlayOrCharacters(state, cardInPlayCond.cardName)) {
+      logDetail(`${defName}: play-condition card-in-play requires "${cardInPlayCond.cardName}" in play`);
+      continue;
+    }
+
+    // Cancel-attacks site rule (e.g. Dol Guldur, Moria): when the target
+    // company's effective site forbids creatures, this play is unavailable.
+    const cancelSiteName = cancelAttacksSiteName(state, targetCompany);
+    if (cancelSiteName) {
+      logDetail(`${defName}: blocked by site-rule on ${cancelSiteName}`);
+      continue;
+    }
+
+    for (const owner of state.players) {
+      for (const cip of owner.cardsInPlay) {
+        const nazgulDef = defById(state, cip.definitionId);
+        if (!isNazgulPermanentEvent(nazgulDef)) continue;
+        const creatureDef = nazgulDef as unknown as CreatureCard;
+        const nazgulName = (creatureDef as { name?: string })?.name ?? (cip.definitionId as string);
+
+        const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+        const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
+          || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
+          || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
+          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
+
+        if (matches.length === 0 && !keyingBypassed) {
+          logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) not keyable: ${describeKeyingRequirement(creatureDef)}`);
+          continue;
+        }
+
+        if (matches.length === 0 && keyingBypassed) {
+          logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) keyable via keying-bypass`);
+          actions.push({
+            action: {
+              type: 'attack-nazgul-permanent-event' as const,
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetNazgulInstanceId: cip.instanceId,
+              targetNazgulOwnerId: owner.id,
+              targetCompanyId,
+              keyedBy: { method: 'keying-bypass', value: creatureDef.race },
+            },
+            viable: true,
+          });
+          continue;
+        }
+
+        for (const match of matches) {
+          logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) keyable by ${match.method}: ${match.value}`);
+          actions.push({
+            action: {
+              type: 'attack-nazgul-permanent-event' as const,
+              player: playerId,
+              cardInstanceId: handCard.instanceId,
+              targetNazgulInstanceId: cip.instanceId,
+              targetNazgulOwnerId: owner.id,
+              targetCompanyId,
+              keyedBy: match,
+            },
+            viable: true,
+          });
+        }
+      }
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate spawn-replay-creature actions for in-play permanent-events carrying
  * a `grant-replay-attacked-creature` effect (Monstrosity of Diverse Shape,
  * ba-21).
@@ -3942,6 +4059,15 @@ function playHazardsActions(
         continue;
       }
 
+      // Out of the Black Sky (dm-77): this permanent-event plays via the
+      // dedicated nazgulPermanentEventAttackActions() emitter (one action per
+      // targetable Nazgûl permanent-event, in either player's cardsInPlay) —
+      // skip the generic long/permanent path entirely, mirroring how the
+      // short-event branch above skips play-creature-from-discard cards.
+      if (getCardEffects(def).some(e => e.type === 'nazgul-permanent-event-attack')) {
+        continue;
+      }
+
       // --- Long/permanent event checks ---
       // A permanent/long hazard-event whose only movement/hazard-relevant
       // effect is a from-hand `modify-attack` is a combat modifier (e.g.
@@ -4538,6 +4664,10 @@ function playHazardsActions(
 
     // --- Exhalation of Decay (dm-55): play a creature from the discard pile (no hazard limit) ---
     actions.push(...playCreatureFromDiscardActions(state, playerId, mhState, targetCompanyId));
+
+    // --- Out of the Black Sky (dm-77): trigger an in-play Nazgûl
+    //     permanent-event (either player's) into an immediate attack ---
+    actions.push(...nazgulPermanentEventAttackActions(state, playerId, mhState, targetCompanyId));
 
     // --- Monstrosity of Diverse Shape (ba-21): replay a Wolf/Animal creature
     //     that already attacked this company this turn from the discard pile
