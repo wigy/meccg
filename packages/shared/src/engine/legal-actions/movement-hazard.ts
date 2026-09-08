@@ -2075,10 +2075,11 @@ function nazgulPermanentEventAttackActions(
         const nazgulName = (creatureDef as { name?: string })?.name ?? (cip.definitionId as string);
 
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
+        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
-          || grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
+          || keyingGrant.granted;
 
         if (matches.length === 0 && !keyingBypassed) {
           logDetail(`${defName}: "${nazgulName}" (owner ${owner.id as string}) not keyable: ${describeKeyingRequirement(creatureDef)}`);
@@ -2095,7 +2096,7 @@ function nazgulPermanentEventAttackActions(
               targetNazgulInstanceId: cip.instanceId,
               targetNazgulOwnerId: owner.id,
               targetCompanyId,
-              keyedBy: { method: 'keying-bypass', value: creatureDef.race },
+              keyedBy: { method: 'keying-bypass', value: creatureDef.race, grantedRegionName: keyingGrant.regionName },
             },
             viable: true,
           });
