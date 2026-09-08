@@ -832,6 +832,21 @@ export interface CombatState {
    */
   readonly bodyCheckModifier?: number;
   /**
+   * Queue of modifiers for `wound-additional-body-check` (Host of Bats td-31)
+   * follow-up rolls still owed on the *current* strike's character body check.
+   * Populated by `handleBodyCheckRoll` (`combat-actions.ts`) the moment a
+   * character-target body check first resolves to "survives" (the character is
+   * wounded): every in-play `wound-additional-body-check` effect whose `when`
+   * matches this attack contributes one queued modifier. Each subsequent
+   * `body-check-roll` for the same strike (the `currentStrikeIndex` /
+   * `strikeAssignments` entry is left unresolved so the same action is
+   * re-offered) adds `pendingAdditionalBodyChecks[0]` to the roll, then shifts
+   * it off; the strike only advances once the queue is empty (or the check is
+   * eliminated/discarded instead of surviving). Absent/empty = no additional
+   * checks owed.
+   */
+  readonly pendingAdditionalBodyChecks?: readonly number[];
+  /**
    * When set (from a `modify-attack` `firstExcessStrikePenalty`, e.g.
    * Pierced by Many Wounds dm-79), overrides the prowess penalty for a
    * defending character's *first* excess strike this attack. Normally an

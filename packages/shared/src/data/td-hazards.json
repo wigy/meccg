@@ -1084,8 +1084,27 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/HostofBats.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "Against each company, one Orc hazard creature may be played that does not count against the hazard limit. Any character wounded by an Orc attack makes an additional body check modified by -1.Additionally, if Shadow of Mordor is in play, any character wounded by an attack keyed to (or an automatic-attack at) a Shadow-hold [{S}] or a Darkhold [{D}] makes an additional body check modifed by -2. Cannot be duplicated."
+    "effects": [
+      { "type": "hazard-limit-race-grant", "race": "orc" },
+      {
+        "type": "wound-additional-body-check",
+        "modifier": -1,
+        "when": { "attack.creatureRace": "orc" }
+      },
+      {
+        "type": "wound-additional-body-check",
+        "modifier": -2,
+        "when": {
+          "$and": [
+            { "inPlay": "Shadow of Mordor" },
+            { "attack.siteType": { "$in": ["shadow-hold", "dark-hold"] } }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "game", "max": 1 }
+    ],
+    "text": "Against each company, one Orc hazard creature may be played that does not count against the hazard limit. Any character wounded by an Orc attack makes an additional body check modified by -1.Additionally, if Shadow of Mordor is in play, any character wounded by an attack keyed to (or an automatic-attack at) a Shadow-hold [{S}] or a Darkhold [{D}] makes an additional body check modifed by -2. Cannot be duplicated.",
+    "certified": "2026-09-07"
   },
   {
     "cardType": "hazard-event",

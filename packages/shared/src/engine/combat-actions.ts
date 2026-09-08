@@ -23,7 +23,7 @@ import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay } from '../types/state-cards.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard } from '../types/cards.js';
+import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -604,6 +604,93 @@ function globalBodyCheckRollModifier(state: GameState, targetRace: Race | undefi
 }
 
 /**
+ * The `SiteType` of the site a combat's attack takes place at, for
+ * `wound-additional-body-check`'s `attack.siteType` context (Host of Bats
+ * td-31: "an attack keyed to (or an automatic-attack at) a Shadow-hold [{S}]
+ * or a Darkhold [{D}]"). For an `automatic-attack`, that is the site itself;
+ * for any other attack source (a keyed hazard creature or agent), it is the
+ * target company's relevant site — `destinationSite` while moving, else
+ * `currentSite` — mirroring the `company-site` play-condition's fallback.
+ * Undefined when the site cannot be resolved (defensive; should not happen
+ * mid-combat).
+ */
+function attackSiteType(state: GameState, combat: CombatState): string | undefined {
+  if (combat.attackSource.type === 'automatic-attack') {
+    const siteDefId = resolveInstanceId(state, combat.attackSource.siteInstanceId);
+    const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
+    return siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined;
+  }
+  const defPlayerIdx = getPlayerIndex(state, combat.defendingPlayerId);
+  const company = companyById(state.players[defPlayerIdx].companies, combat.companyId);
+  const siteRef = company?.destinationSite ?? company?.currentSite;
+  const siteDef = siteRef ? defById(state, siteRef.definitionId) : undefined;
+  return siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined;
+}
+
+/**
+ * Modifiers for every in-play `wound-additional-body-check` effect (Host of
+ * Bats td-31) whose `when` matches this attack, scanning both players'
+ * `cardsInPlay`. Evaluated against `{ attack: { creatureRace, siteType },
+ * inPlay }` — `inPlay` is the standard game-wide in-play card-name list,
+ * letting a rule gate on a companion card (td-31's second clause: "if Shadow
+ * of Mordor is in play"). Called once, the moment a character-target body
+ * check first resolves to "survives" (the character is wounded); the
+ * returned list becomes `CombatState.pendingAdditionalBodyChecks`, consumed
+ * one roll at a time by `handleBodyCheckRoll`.
+ */
+function pendingWoundAdditionalBodyCheckModifiers(state: GameState, combat: CombatState): number[] {
+  const ctx = {
+    attack: { creatureRace: combat.creatureRace, siteType: attackSiteType(state, combat) },
+    inPlay: buildInPlayNames(state),
+  };
+  const modifiers: number[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'wound-additional-body-check') continue;
+        if (!matchesCondition(effect.when, ctx)) continue;
+        logDetail(`Wound-additional-body-check queued: ${formatSignedNumber(effect.modifier)} from ${(def as { name?: string }).name ?? (card.definitionId as string)}`);
+        modifiers.push(effect.modifier);
+      }
+    }
+  }
+  return modifiers;
+}
+
+/**
+ * After a character-target body check resolves to "survives" (the character
+ * is wounded, not eliminated/discarded), check for `wound-additional-body-check`
+ * follow-ups (Host of Bats td-31): either drain an already-queued list (this
+ * "survives" was itself a queued additional roll) or, the first time this
+ * wound survives, compute the full list from in-play effects and start
+ * draining it. The strike only actually advances once the queue is empty —
+ * `bodyCheckActions` (`legal-actions/combat.ts`) re-offers the same
+ * `body-check-roll` action as long as `bodyCheckTarget`/`currentStrikeIndex`
+ * are left unchanged, so queuing needs no new action type.
+ */
+function advanceOrQueueAdditionalBodyCheck(
+  state: GameState,
+  combat: CombatState,
+  effects: GameEffect[],
+  markResolved: (assignments: readonly StrikeAssignment[]) => readonly StrikeAssignment[],
+): ReducerResult {
+  const queued = combat.pendingAdditionalBodyChecks;
+  const remaining = queued && queued.length > 0
+    ? queued.slice(1)
+    : pendingWoundAdditionalBodyCheckModifiers(state, combat);
+  if (remaining.length > 0) {
+    logDetail(`Wound-additional-body-check: ${remaining.length} check(s) still owed — re-rolling the same strike`);
+    // Leave strikeAssignments (and thus `resolved`) untouched: the strike is
+    // not actually done yet, it is only fully resolved once the queue drains.
+    return { state: { ...state, combat: { ...combat, pendingAdditionalBodyChecks: remaining } }, effects };
+  }
+  const strikeAssignments = markResolved(combat.strikeAssignments);
+  return advanceStrikeOrFinalize(state, { ...combat, strikeAssignments, pendingAdditionalBodyChecks: undefined }, effects);
+}
+
+/**
  * Sums `scope: 'bearer-combat'` `body-check-modifier` effects carried by an
  * item / attached permanent-event on the character *participating* in the
  * current body check, gated by `when` against a context describing the check.
@@ -1016,9 +1103,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // bearer-combat body-check modifier (Flame of Udûn ba-58): a successful CvCC
     // strike by the bearer raises the defending character's body check.
     const bearerMod = bearerCombatBodyCheckModifier(stateWithRoll, combat, strike);
-    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod + bearerMod;
+    // Host of Bats (td-31): the first queued `wound-additional-body-check`
+    // modifier, when this roll is a follow-up check on a wound that already
+    // survived once this strike (see the "survives" branch below, which
+    // enqueues `pendingAdditionalBodyChecks` and re-requests this same roll).
+    const additionalCheckMod = combat.pendingAdditionalBodyChecks?.[0] ?? 0;
+    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod + bearerMod + additionalCheckMod;
 
-    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${additionalCheckMod ? `${formatSignedNumber(additionalCheckMod)}(additional check)` : ''} = ${effectiveRoll} vs body ${body}`);
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.
@@ -1107,10 +1199,8 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
         if (isProtected) {
           logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — discard suppressed by protect-from-body-check; character survives wounded`);
           noteOutcome(`${targetName} survives the body check (rolled ${effectiveRoll}, body ${body})`);
-          const survivedAssignments = combat.strikeAssignments.map((a, i) =>
-            i === combat.currentStrikeIndex ? { ...a, resolved: true, result: 'wounded' as const } : a,
-          );
-          return advanceStrikeOrFinalize(stateWithRoll, { ...combat, strikeAssignments: survivedAssignments }, effects);
+          return advanceOrQueueAdditionalBodyCheck(stateWithRoll, combat, effects, assignments =>
+            assignments.map((a, i) => i === combat.currentStrikeIndex ? { ...a, resolved: true, result: 'wounded' as const } : a));
         }
         logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — character discarded to discard pile`);
         noteOutcome(`${targetName} is discarded by the body check (rolled ${effectiveRoll})`);
@@ -1149,10 +1239,10 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // body check so it can be finalized here; mark it resolved now or
     // `nextStrikePhase` will treat this strike as still pending and re-enter
     // resolve-strike for the same character (CvCC combat would loop forever).
-    const survivedAssignments = combat.strikeAssignments.map((a, i) =>
-      i === combat.currentStrikeIndex ? { ...a, resolved: true } : a,
-    );
-    return advanceStrikeOrFinalize(stateWithRoll, { ...combat, strikeAssignments: survivedAssignments }, effects);
+    // (Deferred to `advanceOrQueueAdditionalBodyCheck`, which only marks the
+    // strike resolved once no `wound-additional-body-check` follow-up is owed.)
+    return advanceOrQueueAdditionalBodyCheck(stateWithRoll, combat, effects, assignments =>
+      assignments.map((a, i) => i === combat.currentStrikeIndex ? { ...a, resolved: true } : a));
   }
 
   if (combat.bodyCheckTarget === 'attacker-character') {

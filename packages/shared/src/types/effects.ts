@@ -5389,6 +5389,41 @@ export interface RegionTypeRemapEffect extends EffectBase {
  *   "duration": "long-event" }
  * ```
  */
+/**
+ * One additional-keying grant offered by a {@link RegionNameKeyingGrantEffect}:
+ * a creature whose *own* printed {@link CreatureKeyRestriction.regionTypes}
+ * exactly equals {@link ifRegionTypes} (same region types, same count — a
+ * creature requiring two Shadow-lands does not match a `["shadow"]` grant)
+ * may also be keyed by name to any of {@link regionNames}.
+ */
+export interface RegionNameKeyingGrant {
+  /** The creature's own printed region-type keying this grant matches (exact multiset). */
+  readonly ifRegionTypes: readonly RegionType[];
+  /** The named regions a matching creature may additionally be keyed to. */
+  readonly regionNames: readonly string[];
+}
+
+/**
+ * A permanent environment effect (Angmar Arises dm-44, In Darkness Bind Them
+ * dm-65, Reaching Shadow dm-81) that grants hazard creatures an additional,
+ * name-based way to be keyed: any creature whose own printed keying matches
+ * one of the listed {@link RegionNameKeyingGrant} entries may also be keyed to
+ * the grant's named regions, on top of (never instead of) its printed
+ * `keyedTo`. Per CRF ruling, this does not change the region *type* used to
+ * judge detainment — the grant only ever adds `regionNames`-shaped entries,
+ * consulted solely by the creature-keying matchers
+ * (`findCreatureKeyingMatches`, `checkCreatureKeying` via
+ * `engine/region-keying.ts`'s `collectCreatureKeyingGrants` /
+ * `extraKeyedToFromGrants`), never by `def.keyedTo` itself or by the
+ * detainment computation (`engine/detainment.ts`), which both keep reading
+ * the creature's own printed `keyedTo` union.
+ */
+export interface RegionNameKeyingGrantEffect extends EffectBase {
+  readonly type: 'region-name-keying-grant';
+  /** The additional-keying grants active while the carrying card is in play. */
+  readonly grants: readonly RegionNameKeyingGrant[];
+}
+
 export interface SiteTypeRemapEffect extends EffectBase {
   readonly type: 'site-type-remap';
   /** The printed site type being reinterpreted. */
@@ -9702,6 +9737,7 @@ export type CardEffect =
   | DiscardToRecruitEffect
   | RegionKeyingBoostEffect
   | RegionTypeRemapEffect
+  | RegionNameKeyingGrantEffect
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | RegionTransformEffect
@@ -9791,6 +9827,8 @@ export type CardEffect =
   | FwSiteAlignmentRestrictionEffect
   | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
+  | HazardLimitRaceGrantEffect
+  | WoundAdditionalBodyCheckEffect
   | CancelHazardEventPlayEffect
   | TakePrisonerEffect
   | StrikeShieldEffect
@@ -10940,6 +10978,73 @@ export interface HazardLimitEnvironmentEffect extends EffectBase {
    * all companies".
    */
   readonly appliesTo?: 'moving' | 'all';
+}
+
+/**
+ * Grants a one-time-per-company exemption from the hazard limit for creatures
+ * of {@link race}, while the carrying long/permanent hazard-event is in play.
+ * Unlike {@link CreatureRaceChoiceEffect}'s `creature-type-no-hazard-limit`
+ * constraint (declared against one specific company, unlimited uses for the
+ * rest of the turn — Two or Three Tribes Present dm-97), this effect is
+ * game-wide and self-targeting: it reaches **every** company, but only
+ * {@link maxPerCompany} (default 1) creature of the race may be exempted
+ * against each company during that company's own M/H sub-phase.
+ *
+ * Checked by `isCreatureRaceExempt` (`mh-hazard-play.ts`) alongside the
+ * `creature-type-no-hazard-limit` constraint check; consumption is tracked in
+ * `MovementHazardPhaseState.hazardLimitRaceGrantsUsed` (company-scoped, reset
+ * every company) rather than an `ActiveConstraint`, since the grant is never
+ * declared against a specific company at play time.
+ *
+ * Used by Host of Bats (td-31): "Against each company, one Orc hazard
+ * creature may be played that does not count against the hazard limit."
+ */
+export interface HazardLimitRaceGrantEffect extends EffectBase {
+  readonly type: 'hazard-limit-race-grant';
+  /** The creature race exempted from the hazard limit. */
+  readonly race: Race;
+  /** Maximum exempted creatures of {@link race} per company per M/H phase (default 1). */
+  readonly maxPerCompany?: number;
+}
+
+/**
+ * Forces a second, independent body check on a character immediately after
+ * that character *survives* (is wounded by, but not eliminated by) a body
+ * check whose attack matches {@link when}. Carried by an in-play long/permanent
+ * hazard-event; evaluated game-wide (either player's `cardsInPlay`) every time
+ * a character-target body check resolves to "survives" in `handleBodyCheckRoll`
+ * (`combat-actions.ts`).
+ *
+ * The `when` condition is evaluated against `{ attack: { creatureRace,
+ * siteType }, inPlay }` — `attack.creatureRace` is the attacking creature's
+ * race (undefined for agents/CvCC), `attack.siteType` is the `SiteType` of the
+ * site the attack takes place at (the target company's `destinationSite ??
+ * currentSite` for a company-attack, or the site bearing the automatic-attack),
+ * and `inPlay` is the standard game-wide in-play card-name list (letting a rule
+ * gate on a companion card like "if Shadow of Mordor is in play").
+ *
+ * The additional check reuses the character's already-computed effective body
+ * and every modifier that applied to the first roll (wounded bonus, item/global
+ * modifiers) *except* this effect's own {@link modifier} replaces none of
+ * them — it is added on top, once, for this second roll only. Only the first
+ * matching effect (across all in-play cards) applies to a given wound; the
+ * additional check itself never re-triggers a further check.
+ *
+ * Used by Host of Bats (td-31): "Any character wounded by an Orc attack makes
+ * an additional body check modified by -1." (`modifier: -1, when: {
+ * "attack.creatureRace": "orc" }`) and "if Shadow of Mordor is in play, any
+ * character wounded by an attack keyed to (or an automatic-attack at) a
+ * Shadow-hold [{S}] or a Darkhold [{D}] makes an additional body check
+ * modified by -2." (`modifier: -2, when: { "$and": [ { "inPlay": "Shadow of
+ * Mordor" }, { "attack.siteType": { "$in": ["shadow-hold", "dark-hold"] } } ]
+ * }`).
+ */
+export interface WoundAdditionalBodyCheckEffect extends EffectBase {
+  readonly type: 'wound-additional-body-check';
+  /** Modifier applied to the additional body-check roll. */
+  readonly modifier: number;
+  /** Condition (over the attack/in-play context) selecting which wounds trigger the additional check. */
+  readonly when: Condition;
 }
 
 /**

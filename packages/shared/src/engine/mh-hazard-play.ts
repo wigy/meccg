@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
-import type { AgentInfluenceBoostEffect, AgentTapFactionInfluenceEffect, AgentTapMultiInfluenceEffect, AgentTapOpponentInfluenceEffect, AgentTapReturnCharacterEffect, AllyTapExtraMHPhaseEffect, CallCouncilEffect, CardEffect, CharacterTapExtraMHPhaseEffect, Condition, CreatureAltEventEffect, HazardLimitSwapEffect, PlayDiscardCostEffect, RegionKeyingBoostEffect, SwapNewSiteEffect, TapAgentEffect } from '../types/effects.js';
+import type { AgentInfluenceBoostEffect, AgentTapFactionInfluenceEffect, AgentTapMultiInfluenceEffect, AgentTapOpponentInfluenceEffect, AgentTapReturnCharacterEffect, AllyTapExtraMHPhaseEffect, CallCouncilEffect, CardEffect, CharacterTapExtraMHPhaseEffect, Condition, CreatureAltEventEffect, HazardLimitRaceGrantEffect, HazardLimitSwapEffect, PlayDiscardCostEffect, RegionKeyingBoostEffect, SwapNewSiteEffect, TapAgentEffect } from '../types/effects.js';
 import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -50,7 +50,7 @@ import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, 
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard, wouldViolateLeaderRestriction } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { computeCandidateRegionPaths } from './region-keying.js';
+import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
 
@@ -796,7 +796,9 @@ export function handlePlayHazardCard(
       logDetail(`Creature "${def.name}" played via keying-bypass constraint (race "${def.race}")`);
     }
 
-    const raceExempt = isCreatureRaceExempt(state, action, def);
+    const constraintExempt = isCreatureRaceExemptViaConstraint(state, action, def);
+    const grantExempt = !constraintExempt && isHazardLimitRaceGrantAvailable(state, def.race);
+    const raceExempt = constraintExempt || grantExempt;
     const newHazardCount = raceExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
 
@@ -816,6 +818,13 @@ export function handlePlayHazardCard(
     // on the target company when the creature was keyed via bypass.
     if (viaKeyingBypass) {
       newState = consumeCreatureKeyingBypass(newState, action.targetCompanyId, def.race);
+    }
+
+    // Host of Bats (td-31): consume one charge of the game-wide
+    // hazard-limit-race-grant only when this play actually used it (not an
+    // unlimited creature-type-no-hazard-limit constraint).
+    if (grantExempt) {
+      newState = consumeHazardLimitRaceGrant(newState, def.race);
     }
 
     // Fell Beast (tw-33): a `nazgul-boost-pending` constraint on the target
@@ -3498,6 +3507,14 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
       });
     }
   }
+  // Angmar Arises (dm-44) and siblings: mirror of the offering side
+  // (findCreatureKeyingMatches) — a global `region-name-keying-grant`
+  // environment grants an extra by-name keying alternative to any creature
+  // whose own printed keying matches the grant's `ifRegionTypes`.
+  const regionNameKeyingGrants = collectRegionNameKeyingGrants(state);
+  if (regionNameKeyingGrants.length > 0) {
+    extraKeyedTo.push(...extraKeyedToFromRegionNameGrants(def.keyedTo, regionNameKeyingGrants, whenCtxBase));
+  }
 
   for (const key of [...def.keyedTo, ...extraKeyedTo]) {
     // When-condition guards the entry (DoN, sitePath-count conditions, etc.)
@@ -4432,9 +4449,10 @@ export function handleSpawnReplayCreature(
  */
 /**
  * Check whether a creature's race is exempted from the hazard limit by
- * a `creature-type-no-hazard-limit` constraint on the target company.
+ * a `creature-type-no-hazard-limit` constraint on the target company
+ * (Two or Three Tribes Present dm-97, Dragon's Desolation tw-29 Mode B).
  */
-export function isCreatureRaceExempt(state: GameState, action: GameAction, def: CreatureCard): boolean {
+function isCreatureRaceExemptViaConstraint(state: GameState, action: GameAction, def: CreatureCard): boolean {
   if (action.type !== 'play-hazard') return false;
   if (!state.activeConstraints) return false;
   return state.activeConstraints.some(
@@ -4443,6 +4461,56 @@ export function isCreatureRaceExempt(state: GameState, action: GameAction, def: 
       && c.kind.type === 'creature-type-no-hazard-limit'
       && c.kind.exemptRace === def.race,
   );
+}
+
+/** Find an in-play `hazard-limit-race-grant` effect matching `race` (Host of Bats td-31), scanning both players' `cardsInPlay`. */
+function findHazardLimitRaceGrant(state: GameState, race: Race): HazardLimitRaceGrantEffect | undefined {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const cardDef = defById(state, card.definitionId);
+      if (!cardDef) continue;
+      const grant = getCardEffects(cardDef).find(
+        (e): e is HazardLimitRaceGrantEffect => e.type === 'hazard-limit-race-grant' && e.race === race,
+      );
+      if (grant) return grant;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Whether an in-play `hazard-limit-race-grant` (Host of Bats td-31: "one Orc
+ * hazard creature may be played against each company that does not count
+ * against the hazard limit") still has an unused exemption for `race` against
+ * the current company this M/H sub-phase. Usage is company-scoped, tracked in
+ * `MovementHazardPhaseState.hazardLimitRaceGrantsUsed` (reset every company)
+ * rather than an `ActiveConstraint`, since the grant is never declared against
+ * a specific company at play time — it applies to every company automatically.
+ */
+export function isHazardLimitRaceGrantAvailable(state: GameState, race: Race): boolean {
+  if (state.phaseState.phase !== Phase.MovementHazard) return false;
+  const grant = findHazardLimitRaceGrant(state, race);
+  if (!grant) return false;
+  const used = (state.phaseState.hazardLimitRaceGrantsUsed ?? []).filter(r => r === race).length;
+  return used < (grant.maxPerCompany ?? 1);
+}
+
+/**
+ * Record consumption of one `hazard-limit-race-grant` exemption for `race`
+ * against the current company. Only called when the exemption actually came
+ * from the grant rather than an unlimited `creature-type-no-hazard-limit`
+ * constraint.
+ */
+function consumeHazardLimitRaceGrant(state: GameState, race: Race): GameState {
+  if (state.phaseState.phase !== Phase.MovementHazard) return state;
+  const mhState = state.phaseState;
+  const used = [...(mhState.hazardLimitRaceGrantsUsed ?? []), race];
+  logDetail(`Hazard-limit race grant consumed for race "${race}" (${used.filter(r => r === race).length} used this company)`);
+  return { ...state, phaseState: { ...mhState, hazardLimitRaceGrantsUsed: used } };
+}
+
+export function isCreatureRaceExempt(state: GameState, action: GameAction, def: CreatureCard): boolean {
+  return isCreatureRaceExemptViaConstraint(state, action, def) || isHazardLimitRaceGrantAvailable(state, def.race);
 }
 
 /**
