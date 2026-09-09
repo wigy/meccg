@@ -3995,8 +3995,12 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     logDetail(`Creature has combat-strike-effect: ${strikeEffect} — successful strikes replaced accordingly`);
   }
 
-  // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks)
-  const cancelByTapEffect = creatureDef.effects?.find(
+  // Check for cancel-attack-by-tap combat rule (e.g. Assassin — tap to cancel attacks).
+  // Forewarned Is Forearmed makes the isolated attack uncancelable outright, so
+  // the creature's own tap-to-cancel budget must not survive the reduction —
+  // otherwise a Slayer-style "tap to cancel one of these attacks" ability would
+  // still cancel the single attack Forewarned Is Forearmed protects.
+  const cancelByTapEffect = forewarnedActive ? undefined : creatureDef.effects?.find(
     e => e.type === 'combat-cancel-attack-by-tap',
   );
   const cancelByTapMax = cancelByTapEffect?.maxCancels ?? 0;
