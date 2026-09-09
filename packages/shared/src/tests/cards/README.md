@@ -343,7 +343,7 @@
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
 | dm-130 | Fireworks | — | 20 | ☑ |
-| dm-132 | Forewarned Is Forearmed | — | 14 | ☑ |
+| dm-132 | Forewarned Is Forearmed | — | 15 | ☑ |
 | dm-134 | Hall of Fire | — | 13 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |

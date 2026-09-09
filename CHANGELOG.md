@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.150.0 — 2026-09-09
+
+Combat cancel fixes and detainment trophies
+
+### Game Engine
+
+- Defeating a detainment creature (e.g. Orc-watch) now offers the trophy choice to eligible Orc/Troll characters instead of silently discarding the creature; the trophy handler looks in the attacker's discard pile as well as the defender's kill pile, and declining leaves the creature discarded with no kill MP (#3028)
+- Forewarned Is Forearmed now also blocks a Slayer/Assassin's own tap-to-cancel ability once its attack has been reduced to one isolated attack, in both the hazard-chain and Great Hunt reveal paths (#3025)
+- Fixed Sapling of the White Tree being playable at Shadow-holds and Dark-holds: `item-play-site` gains a `deny` mode that adds a site exclusion on top of the normal `playableResources` tier gate, applied in both legal-action generation and `isCardPlayableAtSiteDef`; the card's tests now genuinely exercise the play-resources step (#3027)
+- Stored Align Palantír now scores its printed 2 misc marshalling points via `mp-in-pile` instead of losing them once it moves to the marshalling-point pile with its host (#3026)
+
+### Web Client
+
+- Allies can now be clicked to tap and cancel a Slayer/Assassin attack during the cancel-by-tap window; the ally click chain never checked the engine's cancel-by-tap actors (#3023)
+
+### Infrastructure
+
+- The heuristic AI now scores splitting off an excess leader outside a haven, so a minion company holding two leaders no longer sits stuck forever; splitting is not forced at havens where two leaders are legal (#3024)
+- The sim's item-playability mirror honours the new `item-play-site` deny mode (#3027)
+
 ## 0.149.0 — 2026-09-09
 
 Goblin-faces and Dragon's Hunger certifications
