@@ -49,6 +49,7 @@ import type { CardInPlay, CardInstanceId, CardDefinitionId, SitePhaseState, Site
 const FOREWARNED_IS_FOREARMED = 'dm-132' as CardDefinitionId;
 const ETTENMOORS_LE = 'le-373' as CardDefinitionId;
 const CAVES_OF_ULUND = 'tw-381' as CardDefinitionId;
+const SLAYER = 'le-90' as CardDefinitionId;
 
 /** Convenience: add Forewarned to RESOURCE_PLAYER's cardsInPlay. */
 function withForewarnedInPlay(state: Parameters<typeof pushCardInPlay>[0]) {
@@ -412,6 +413,75 @@ describe('Forewarned Is Forearmed (dm-132)', () => {
     // Defending player (P1) must NOT have cancel-attack actions
     const cancelActions = viableActions(afterChain, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(0);
+  });
+
+  test('isolated attack from a Slayer cannot be canceled via its own tap-to-cancel ability', () => {
+    // Bug report: Slayer (combat-cancel-attack-by-tap) attacks; Forewarned Is
+    // Forearmed reduces its 2 attacks to 1 isolated/uncancelable attack, but
+    // the strike still got tap-canceled via Slayer's own "tap any one
+    // character to cancel one of these attacks" ability after being assigned
+    // to the defending character (Radagast in the report). Forewarned's
+    // uncancelable attack must also close off the creature's own cancel path.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: PhaseEnum.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BREE, characters: [ARAGORN, LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [SLAYER],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const stateWithFia = withForewarnedInPlay(state);
+
+    const mhState = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+    });
+    const gameState = { ...stateWithFia, phaseState: mhState };
+
+    const slayerId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterPlay = dispatch(gameState, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: slayerId,
+      targetCompanyId: companyId,
+      keyedBy: { method: 'site-type' as const, value: 'border-hold' },
+    });
+    const afterChain = resolveChain(afterPlay);
+
+    expect(afterChain.combat).not.toBeNull();
+    // Slayer's 2 attacks reduced to 1, isolated and uncancelable
+    expect(afterChain.combat!.strikesTotal).toBe(1);
+    expect(afterChain.combat!.isolated).toBe(true);
+    expect(afterChain.combat!.uncancelable).toBe(true);
+    // Slayer's own tap-to-cancel budget must not survive the reduction
+    expect(afterChain.combat!.cancelByTapRemaining).toBeUndefined();
+
+    // Attacker assigns the sole strike to a defender
+    const aragornCharId = charIdAt(afterChain, RESOURCE_PLAYER);
+    const afterAssign = dispatch(afterChain, {
+      type: 'assign-strike',
+      player: PLAYER_2,
+      characterId: aragornCharId,
+      tapped: false,
+    });
+
+    // Defender (P1) must have no cancel-by-tap actions at all
+    const cancelByTapActions = viableActions(afterAssign, PLAYER_1, 'cancel-by-tap');
+    expect(cancelByTapActions).toHaveLength(0);
   });
 
   // ── Rule 5: Discard when isolated attack is defeated ─────────────────────

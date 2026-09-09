@@ -181,7 +181,9 @@ export function buildGreatHuntCombat(
 
   // "The defender may tap any one character in the company to cancel one of
   // these attacks" (Slayer, Assassin) — per-attack tap-cancel budget.
-  const cancelByTapEffect = cDef.effects?.find(
+  // Forewarned Is Forearmed makes the isolated attack uncancelable outright, so
+  // the creature's own tap-to-cancel budget must not survive the reduction.
+  const cancelByTapEffect = forewarnedActive ? undefined : cDef.effects?.find(
     (e): e is import('../types/effects.js').CombatCancelAttackByTapEffect => e.type === 'combat-cancel-attack-by-tap',
   );
   const cancelByTapMax = cancelByTapEffect?.maxCancels ?? 0;
