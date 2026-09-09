@@ -25,7 +25,8 @@ import type {
   SelectForewarnedAttackAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
+import { createCardImage, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
+import { renderInPlayCardImage } from './company-block.js';
 import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection, getSelectedShortEvent, clearShortEventSelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
 import { showGrantedActionTooltip } from './company-modals.js';
@@ -287,9 +288,9 @@ export function renderSiteArea(
             const strip = document.createElement('div');
             strip.className = 'site-attachments';
             for (const ac of attached) {
-              const acEl = createCardImageFromDefId(ac.definitionId, cardPool, 'company-card company-card--item company-card--site-attachment', ac.instanceId as string);
+              const acEl = renderInPlayCardImage(ac, view, cardPool, options?.onAction, { showSiteBadge: false });
               if (!acEl) continue;
-              if (ac.status === CardStatus.Tapped) acEl.classList.add('company-card--tapped');
+              acEl.classList.add('company-card--item', 'company-card--site-attachment');
               strip.appendChild(acEl);
             }
             if (strip.childElementCount > 0) column.appendChild(strip);

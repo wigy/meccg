@@ -1475,15 +1475,20 @@ export function findOpponentInfluenceTargetActions(
  * see `renderCardsInPlayRow`) still shows which site it belongs to. Cards
  * rendered inside a company block are bound by `companyId`, not
  * `attachedToSite`, so this only fires in practice from the flat-row call
- * site — computed here anyway to keep the logic in one place.
+ * site — computed here anyway to keep the logic in one place. The
+ * site-attachments strip in `renderSiteArea` (company-site.ts) renders the
+ * same cards directly beneath their bound site, so the badge would be
+ * redundant there — that call site passes `showSiteBadge: false` to suppress
+ * it while still picking up every click affordance this function wires up.
  *
  * Returns `null` when the card image cannot be created.
  */
-function renderInPlayCardImage(
+export function renderInPlayCardImage(
   card: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId; readonly status?: string; readonly attachedToSite?: CardDefinitionId },
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction?: (action: GameAction) => void,
+  options?: { readonly showSiteBadge?: boolean },
 ): HTMLElement | null {
   const img = createCardImageFromDefId(card.definitionId, cardPool, 'company-card', card.instanceId as string);
   if (!img) return null;
@@ -1645,7 +1650,7 @@ function renderInPlayCardImage(
     }
   }
 
-  if (card.attachedToSite) {
+  if (card.attachedToSite && options?.showSiteBadge !== false) {
     const siteName = cardPool[card.attachedToSite as string]?.name;
     if (siteName) {
       img.dataset.attachedSiteName = siteName;
