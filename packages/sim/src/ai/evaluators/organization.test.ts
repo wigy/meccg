@@ -474,3 +474,100 @@ describe('organizationEvaluator plan-movement draw-only fallback', () => {
     expect(moveScore).toBeGreaterThan(passScore);
   });
 });
+
+// Two leader-keyword minion characters (mirrors le-45 Troll-chief and le-31
+// Orc Captain) plus one non-leader (le-2 Belegorn).
+const TROLL_CHIEF: CardDefinition = {
+  cardType: 'minion-character',
+  keywords: ['leader'],
+} as unknown as CardDefinition;
+
+const ORC_CAPTAIN: CardDefinition = {
+  cardType: 'minion-character',
+  keywords: ['leader'],
+} as unknown as CardDefinition;
+
+const BELEGORN: CardDefinition = {
+  cardType: 'minion-character',
+  keywords: [],
+} as unknown as CardDefinition;
+
+const DOL_GULDUR: CardDefinition = {
+  cardType: 'minion-site',
+  name: 'Dol Guldur',
+  siteType: 'dark-hold',
+  playableResources: [],
+  sitePath: [],
+} as unknown as CardDefinition;
+
+const LEADER_POOL: Record<string, CardDefinition> = {
+  'le-45': TROLL_CHIEF,
+  'le-31': ORC_CAPTAIN,
+  'le-2': BELEGORN,
+  'le-dg': DOL_GULDUR,
+};
+
+function leaderStuckView() {
+  return {
+    self: {
+      hand: [],
+      siteDeck: [],
+      characters: {
+        trollChief: { instanceId: 'trollChief', definitionId: 'le-45', status: 'untapped', items: [] },
+        orcCaptain: { instanceId: 'orcCaptain', definitionId: 'le-31', status: 'untapped', items: [] },
+        belegorn: { instanceId: 'belegorn', definitionId: 'le-2', status: 'untapped', items: [] },
+      },
+      companies: [
+        {
+          id: 'company-p2-1',
+          characters: ['trollChief', 'orcCaptain', 'belegorn'],
+          currentSite: { instanceId: 'dg', definitionId: 'le-dg', status: 'untapped' },
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
+function splitCompany(characterId: string): GameAction {
+  return {
+    type: 'split-company',
+    player: 'p2',
+    sourceCompanyId: 'company-p2-1',
+    characterId,
+  } as unknown as GameAction;
+}
+
+describe('organizationEvaluator split-company leader shedding', () => {
+  // Regression: game mttrgt9q-d2jegf, stateSeq 467 — a minion company
+  // carrying two leader-keyword characters (Troll-chief, Orc Captain) sat at
+  // Dol Guldur (a dark-hold, not a haven) for 15 turns. Rule 3.26 blocks the
+  // legal-action generator from offering ANY plan-movement for a company
+  // with more than one leader outside a haven, so the company could never
+  // move again — split-company must outscore pass to break the deadlock.
+  test('scores splitting off an excess leader highly outside a haven', () => {
+    const view = leaderStuckView();
+    const action = splitCompany('trollChief');
+    const context: AiContext = { view, cardPool: LEADER_POOL, legalActions: [action, PASS] };
+    const splitScore = organizationEvaluator.score(action, context)!;
+    const passScore = organizationEvaluator.score(PASS, context)!;
+    expect(splitScore).toBeGreaterThan(passScore);
+  });
+
+  test('does not force a split for the non-leader character', () => {
+    const view = leaderStuckView();
+    const action = splitCompany('belegorn');
+    const context: AiContext = { view, cardPool: LEADER_POOL, legalActions: [action, PASS] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
+  });
+
+  test('does not force a split at a haven, where two leaders are legal', () => {
+    const view = leaderStuckView();
+    (view.self.companies[0] as { currentSite: unknown }).currentSite = {
+      instanceId: 'haven', definitionId: 'le-haven', status: 'untapped',
+    };
+    const pool = { ...LEADER_POOL, 'le-haven': LORIEN };
+    const action = splitCompany('trollChief');
+    const context: AiContext = { view, cardPool: pool, legalActions: [action, PASS] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
+  });
+});
