@@ -15,6 +15,7 @@ import { Phase } from '../types/state-phases.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
+import { resolveCancelAttackEntry } from './combat-cancel.js';
 import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
@@ -1471,6 +1472,64 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
             });
           }
         }
+      }
+    }
+  }
+
+  // Handle force-opponent-discard (match: 'hazard-creature') played as a
+  // combat-window resource short event (Dragon's Hunger td-106): "Playable
+  // on a Dragon or Drake attack. If one is available, opponent must discard
+  // a hazard creature from his hand; this reduces the company's hazard limit
+  // by one. Otherwise, the attack is canceled and the opponent must reveal
+  // his hand." "Opponent" here is the attacking (hazard) player, the mirror
+  // image of the hazard-phase force-opponent-discard cards in chain-reducer.ts
+  // (whose "opponent" is the resource player). Resolved immediately (no
+  // chain), matching this card's sibling Alert the Folk (td-97,
+  // company-combat-boost) above.
+  const hazardCreatureForceDiscard = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').ForceOpponentDiscardEffect =>
+      e.type === 'force-opponent-discard' && e.match === 'hazard-creature',
+  );
+  if (hazardCreatureForceDiscard && newState.combat) {
+    const combat = newState.combat;
+    const opponentId = combat.attackingPlayerId;
+    const opponentIdx = getPlayerIndex(newState, opponentId);
+    const opponentState = newState.players[opponentIdx];
+    const candidateInstanceIds = opponentState.hand
+      .filter(c => defById(newState, c.definitionId)?.cardType === 'hazard-creature')
+      .map(c => c.instanceId);
+
+    if (candidateInstanceIds.length > 0) {
+      logDetail(`${def.name}: ${opponentState.name} must discard a hazard creature from hand (${candidateInstanceIds.length} candidate(s)) — enqueuing force-discard-card`);
+      newState = enqueueResolution(newState, {
+        source: handCard.instanceId,
+        actor: opponentId,
+        scope: { kind: 'phase', phase: newState.phaseState.phase },
+        kind: {
+          type: 'force-discard-card',
+          candidateInstanceIds,
+          sourceDefinitionId: handCard.definitionId,
+        },
+      });
+      if (hazardCreatureForceDiscard.hazardLimitReduction) {
+        logDetail(`${def.name}: reducing hazard limit against company ${combat.companyId as string} by ${hazardCreatureForceDiscard.hazardLimitReduction} for the rest of its Movement/Hazard phase`);
+        newState = addConstraint(newState, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope: { kind: 'company-mh-phase', companyId: combat.companyId },
+          target: { kind: 'company', companyId: combat.companyId },
+          kind: { type: 'hazard-limit-modifier', value: -hazardCreatureForceDiscard.hazardLimitReduction },
+        });
+      }
+    } else {
+      logDetail(`${def.name}: ${opponentState.name} has no hazard creature to discard`);
+      if (hazardCreatureForceDiscard.fallbackRevealHand) {
+        logDetail(`${def.name}: revealing ${opponentState.name}'s hand (${opponentState.hand.length} card(s))`);
+        newState = revealInstances(newState, opponentState.hand);
+      }
+      if (hazardCreatureForceDiscard.fallbackCancelAttack) {
+        logDetail(`${def.name}: no hazard creature available — canceling the attack`);
+        newState = resolveCancelAttackEntry(newState);
       }
     }
   }

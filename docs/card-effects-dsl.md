@@ -2026,12 +2026,28 @@ their hand. Resolved when the event resolves on the chain
     subtype (the MECCG definition of a ring).
   - `"any"` — any card (used when the discard **count**, not the category,
     matters). Only the `"hand"` source is supported for `"any"`.
+  - `"hazard-creature"` — any card whose `cardType` is `hazard-creature`.
+    Only the `"hand"` source is meaningful. Unlike the two categories above,
+    a card carrying this match is offered and resolved through the
+    **combat-window** short-event path (see below), not the hazard-phase
+    chain.
 - `sources` — where candidate cards are gathered from: `"hand"` (the
   opponent's hand) and/or `"carried"` (cards held by the opponent's in-play
   characters, i.e. "from one of his companies").
 - `fallbackRevealHand` — when true and no candidate exists in any source, the
   opponent's current hand identities are revealed to the card-player instead
   (recorded in `GameState.revealedInstances`).
+- `fallbackCancelAttack` — combat-only (`match: "hazard-creature"`): when true
+  and no candidate exists, also cancels the current attack (in addition to
+  any `fallbackRevealHand`).
+- `hazardLimitReduction` — combat-only (`match: "hazard-creature"`): when set
+  and at least one candidate exists, reduces the hazard limit against the
+  defending company by this amount for the rest of its Movement/Hazard phase
+  (`add-constraint` `hazard-limit-modifier`, scope `company-mh-phase` — the
+  Many Turns and Doublings `decrease-hazard-limit` shape), applied
+  immediately alongside the enqueued `force-discard-card` resolution since
+  the reduction follows from the discard being forced, independent of which
+  card the opponent picks.
 - `count` — how many cards the opponent must discard. Absent = one card (the
   `"ring"` case). A `{ "countCardsInPlay": { "keyword": "<kw>" } }` descriptor
   makes the number equal to the count of cards in play (across both players)
@@ -2070,6 +2086,34 @@ Used by Khamûl the Easterling (tw-47): when its permanent-event mode is tapped 
 "becomes a short-event and forces opponent to discard one card of his choice for
 every Nazgûl permanent-event in play (including this one) at the time of
 declaration." (See §56c for the dual creature/permanent-event tap machinery.)
+
+**Combat-window mode (`match: "hazard-creature"`).** A hero resource short
+event may instead force the *attacking* (hazard) player to discard, using the
+same effect on the opposite side of the table. "Opponent" here is
+`combat.attackingPlayerId`, not the resource player. Offered by
+`hazardCreatureForceDiscardActions` (`legal-actions/combat.ts`) as a
+`play-short-event` action — gated the same way a possibly-cancelling
+`cancel-attack` card is gated (`inCancelWindow`, not `combat.uncancelable`, no
+pending `forcedStrikeTargets`), plus the effect's own `when` — and resolved
+immediately (no chain) in `handlePlayResourceShortEvent`
+(`reducer-events.ts`), mirroring `company-combat-boost`/Alert the Folk
+(td-97). When the attacking player's hand holds a matching hazard-creature
+card, a `force-discard-card` resolution is enqueued for them (their choice)
+and `hazardLimitReduction` (if any) applies immediately; the attack continues.
+With none, the fallback(s) fire instead — `fallbackRevealHand` and/or
+`fallbackCancelAttack`.
+
+```json
+{ "type": "force-opponent-discard", "match": "hazard-creature",
+  "sources": ["hand"], "hazardLimitReduction": 1,
+  "fallbackRevealHand": true, "fallbackCancelAttack": true,
+  "when": { "enemy.race": { "$in": ["dragon", "drake"] } } }
+```
+
+Used by Dragon's Hunger (td-106): "Playable on a Dragon or Drake attack. If
+one is available, opponent must discard a hazard creature from his hand; this
+reduces the company's hazard limit by one. Otherwise, the attack is canceled
+and the opponent must reveal his hand."
 
 ### 6f. `cycle-hand`
 

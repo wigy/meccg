@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect, ForceOpponentDiscardEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -172,6 +172,8 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const multiStrikeOptionActs = multiStrikeOptionActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
+  // Dragon's Hunger (td-106): force-opponent-discard (match: hazard-creature).
+  const hazardCreatureForceDiscards = hazardCreatureForceDiscardActions(state, playerId, combat);
   const joinForceStrikes = joinCombatForceStrikeActions(state, playerId, combat);
   // Tap-ally combat boosts (e.g. Great Lord of Goblin-gate) are available to
   // the ally's owner during the assign-strikes and resolve-strike windows.
@@ -228,6 +230,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...multiStrikeOptionActs,
           ...modifyActions,
           ...companyCombatBoosts,
+          ...hazardCreatureForceDiscards,
           ...joinForceStrikes,
           ...allyCombatBoosts,
           ...havenJoinAttackActions(state, playerId, combat),
@@ -247,7 +250,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       if (combat.assignmentPhase === 'defender' && !combat.isCvCC && !combat.attackerPreAssignDone) {
         const attackerModifyOptions = modifyAttackActions(state, combat.attackingPlayerId, combat);
         if (attackerModifyOptions.length > 0) {
-          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts];
+          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...hazardCreatureForceDiscards, ...joinForceStrikes, ...allyCombatBoosts];
           if (playerId === combat.attackingPlayerId) {
             logDetail(`Pre-assignment window: attacker has ${attackerModifyOptions.length} modify-attack option(s) — defender waits`);
             return [...preAssignActions, { action: { type: 'pass' as const, player: playerId }, viable: true }];
@@ -256,7 +259,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           return preAssignActions;
         }
       }
-      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...preAssignmentGrantedActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...hazardCreatureForceDiscards, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...preAssignmentGrantedActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
@@ -4482,6 +4485,59 @@ function companyCombatBoostActions(
     });
   }
 
+  return actions;
+}
+
+/**
+ * Generate `play-short-event` actions for a `force-opponent-discard` effect
+ * with `match: 'hazard-creature'` (Dragon's Hunger td-106): "Playable on a
+ * Dragon or Drake attack." Reuses the `play-short-event` action shape and
+ * combat-window gating of `companyCombatBoostActions`/`cancelAttackActions`
+ * rather than a bespoke action type — resolution is immediate (no chain), in
+ * `reducer-events.ts`. Because the effect's no-candidate fallback cancels the
+ * attack outright (`fallbackCancelAttack`), the same guards that block a
+ * cancel-attack offering (uncancelable attacks, pending forced-strike
+ * targets) apply here too.
+ */
+function hazardCreatureForceDiscardActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (!inCancelWindow(combat)) return [];
+  if (combat.uncancelable) return [];
+  if (combat.forcedStrikeTargets && combat.forcedStrikeTargets.length > 0) return [];
+
+  const player = playerById(state, playerId);
+  if (!player) return [];
+
+  const enemyCreatureInstanceId = attackSourceCreatureInstanceId(combat);
+  const enemyCreatureDef = enemyCreatureInstanceId ? resolveDef(state, enemyCreatureInstanceId) : undefined;
+  const whenContext = {
+    enemy: {
+      race: combat.creatureRace,
+      name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+    },
+  };
+
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const effect = getCardEffects(cardDef).find(
+      (e): e is ForceOpponentDiscardEffect => e.type === 'force-opponent-discard' && e.match === 'hazard-creature',
+    );
+    if (!effect) continue;
+    if (effect.when && !matchesCondition(effect.when, whenContext)) {
+      logDetail(`${(cardDef as { name?: string })?.name ?? handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+      continue;
+    }
+    logDetail(`Force-opponent-discard (hazard-creature) available: ${(cardDef as { name?: string })?.name ?? handCard.definitionId as string}`);
+    actions.push({
+      action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
+      viable: true,
+    });
+  }
   return actions;
 }
 
