@@ -3594,6 +3594,24 @@ export interface CompanyReturnToOriginTriggeredAction extends TriggeredActionBas
 }
 
 /**
+ * `rearrange-defender-deck-by-strikes` — `on-event: "attack-strike-successful"`
+ * apply verb (Goblin-faces wh-13). Fires in `finalizeCombat` when at least one
+ * of this creature's own strikes wounded or eliminated a defender: the
+ * attacker looks at the top N cards of the defender's play deck, where N is
+ * the attack's successful-strike count (`struckCharIds.length`, the same
+ * count the sibling `company-return-to-origin` apply reads), and enqueues a
+ * `rearrange-defender-deck` pending resolution. The attacker then places each
+ * looked-at card, one at a time via a `rearrange-defender-deck-card` action,
+ * onto either the deck's top pile or its bottom pile; picking a card assigns
+ * it to the next slot of the chosen pile, so pick order fully controls the
+ * final arrangement within each pile ("in any order he chooses"). Type-only
+ * marker; no fields beyond `type`.
+ */
+export interface RearrangeDefenderDeckByStrikesTriggeredAction extends TriggeredActionBase {
+  readonly type: 'rearrange-defender-deck-by-strikes';
+}
+
+/**
  * `counter-cancel-attack` — dice-check onPass verb for Black Vapour (ba-14).
  * Negates the chain entry named by the resolution's `targetInstanceId` (the
  * opponent's cancel-attack) so the attack survives, and adds {@link prowessBonus}
@@ -3902,6 +3920,7 @@ export type TriggeredAction =
   | CompanyTapCharactersTriggeredAction
   | RevealHandCardsPerCharacterAction
   | CompanyReturnToOriginTriggeredAction
+  | RearrangeDefenderDeckByStrikesTriggeredAction
   | CounterCancelAttackTriggeredAction
   | SiteEntryAttackAction
   | SetCompanySpecialMovementAction

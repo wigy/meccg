@@ -236,6 +236,8 @@ export const ACTION_TYPES: readonly string[] = [
   'play-dragon-ambush-creature',
   // Added by certifying dm-77 (Out of the Black Sky).
   'attack-nazgul-permanent-event',
+  // Added by certifying wh-13 (Goblin-faces).
+  'rearrange-defender-deck-card',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */
