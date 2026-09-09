@@ -86,7 +86,7 @@ describe('Indûr the Ringwraith (le-54)', () => {
     expect(indur.effectiveStats.prowess).toBe(7);         // 9 - 2 (mode card); his Fell Rider penalty does not apply
   });
 
-  test('-3 prowess in Fell Rider mode (direct influence unchanged)', () => {
+  test('-3 prowess in Fell Rider mode, stacking on the mode card\'s own +2 prowess/-3 direct influence', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -98,8 +98,11 @@ describe('Indûr the Ringwraith (le-54)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyIdAt(state, RESOURCE_PLAYER)));
     const indur = getCharacter(state, RESOURCE_PLAYER, INDUR);
-    expect(indur.effectiveStats.prowess).toBe(6);          // 9 - 3
-    expect(indur.effectiveStats.directInfluence).toBe(5);  // Heralded Lord penalty does not apply
+    // Fell Rider (le-183) itself swings +2 prowess / -3 direct influence on
+    // the Ringwraith; his own -3 prowess stacks on top of that (CoE Weekly
+    // Rulings #13, Query 18: "both modifiers are applied").
+    expect(indur.effectiveStats.prowess).toBe(8);          // 9 - 3 (his own) + 2 (mode card)
+    expect(indur.effectiveStats.directInfluence).toBe(2);  // 5 - 3 (mode card); Heralded Lord penalty does not apply
   });
 
   // ── End-of-turn magic-card fetch ─────────────────────────────────────────

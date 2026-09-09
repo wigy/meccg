@@ -416,7 +416,7 @@ describe('Dwar the Ringwraith (le-52)', () => {
     expect(dwar.effectiveStats.prowess).toBe(7); // 9 - 2 (mode card); his Fell Rider penalty does not apply
   });
 
-  test('-1 prowess in Fell Rider mode (direct influence unchanged)', () => {
+  test('-1 prowess in Fell Rider mode, stacking on the mode card\'s own +2 prowess/-3 direct influence', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -428,7 +428,10 @@ describe('Dwar the Ringwraith (le-52)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyIdAt(state, RESOURCE_PLAYER)));
     const dwar = getCharacter(state, RESOURCE_PLAYER, DWAR);
-    expect(dwar.effectiveStats.prowess).toBe(8); // 9 - 1
-    expect(dwar.effectiveStats.directInfluence).toBe(5); // Heralded Lord bonus does not apply
+    // Fell Rider (le-183) itself swings +2 prowess / -3 direct influence on
+    // the Ringwraith; his own -1 prowess stacks on top of that (CoE Weekly
+    // Rulings #13, Query 18: "both modifiers are applied").
+    expect(dwar.effectiveStats.prowess).toBe(10); // 9 - 1 (his own) + 2 (mode card)
+    expect(dwar.effectiveStats.directInfluence).toBe(2); // 5 - 3 (mode card); Heralded Lord bonus does not apply
   });
 });

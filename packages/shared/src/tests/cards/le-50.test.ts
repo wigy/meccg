@@ -356,7 +356,7 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     expect(adunaphel.effectiveStats.prowess).toBe(6); // 8 - 2 (mode card); her Fell Rider penalty does not apply
   });
 
-  test('-2 prowess in Fell Rider mode (direct influence unchanged)', () => {
+  test('-2 prowess in Fell Rider mode, stacking on the mode card\'s own +2 prowess/-3 direct influence', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -368,7 +368,10 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyIdAt(state, RESOURCE_PLAYER)));
     const adunaphel = getCharacter(state, RESOURCE_PLAYER, ADUNAPHEL_RW);
-    expect(adunaphel.effectiveStats.prowess).toBe(6); // 8 - 2
-    expect(adunaphel.effectiveStats.directInfluence).toBe(4); // Heralded Lord bonus does not apply
+    // Fell Rider (le-183) itself swings +2 prowess / -3 direct influence on
+    // the Ringwraith; her own -2 prowess stacks on top of that (CoE Weekly
+    // Rulings #13, Query 18: "both modifiers are applied").
+    expect(adunaphel.effectiveStats.prowess).toBe(8); // 8 - 2 (her own) + 2 (mode card)
+    expect(adunaphel.effectiveStats.directInfluence).toBe(1); // 4 - 3 (mode card); Heralded Lord bonus does not apply
   });
 });
