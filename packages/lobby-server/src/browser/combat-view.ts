@@ -42,6 +42,7 @@ import { buildTakeTrophyMap, trophyOfferBannerText } from './trophy-offer-target
 import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
 import { resolveFaceStrikeOnTapAction } from './combat-face-strike-action.js';
+import { resolveCancelByTapAllyAction } from './combat-cancel-by-tap-ally-action.js';
 import { strikeResultDisplay, strikeArrowStyle } from './strike-result-display.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, inPlayCardDefs, findIsolatingEventName } from './render-utils.js';
@@ -1000,6 +1001,18 @@ function renderCombatCharacterColumn(
           e.stopPropagation();
           onAction(allyCancelAttackInPlay);
         });
+      } else if (cancelByTapIds.has(allyIdStr)) {
+        // Cancel-by-tap phase: click to tap this ally and cancel an attack
+        // (CRF 22 Ally: "Allies may tap to cancel attacks from Slayers and Assassins").
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        const cancelByTapAction = resolveCancelByTapAllyAction(cancelByTapActions, allyIdStr);
+        if (cancelByTapAction) {
+          itemEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onAction(cancelByTapAction);
+          });
+        }
       } else if (assignableIds.has(allyIdStr) && combat.phase === 'assign-strikes') {
         itemEl.classList.add('combat-card--assignable');
         itemEl.style.cursor = 'pointer';
