@@ -694,6 +694,11 @@
             "$includes": "palantir"
           }
         }
+      },
+      {
+        "type": "mp-in-pile",
+        "category": "misc",
+        "value": 2
       }
     ],
     "text": "Sage only. Playable on a Palantír with a sage in the company. Bearer now has the ability to use the Palantír. If the Palantír is stored, this card is stored too. Discard Align Palantír if the company carrying the Palantír moves. Cannot be duplicated on a given Palantír.",

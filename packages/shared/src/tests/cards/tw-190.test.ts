@@ -23,6 +23,7 @@ import {
   playPermanentEventAndResolve,
   findCharInstanceId, getCharacter, makeMHState, RESOURCE_PLAYER,
   makeShadowMHState, makeBodyCheckCombat, setCharStatus, companyIdAt,
+  recomputeDerived,
 } from '../test-helpers.js';
 import type {
   PlayPermanentEventAction,
@@ -367,6 +368,12 @@ describe('Align Palantír (tw-190)', () => {
     // Align Palantír is not lost — it lands in the marshalling point (kill) pile too.
     expect(after.players[0].killPile.some(c => c.definitionId === PALANTIR_OF_ORTHANC)).toBe(true);
     expect(after.players[0].killPile.some(c => c.definitionId === ALIGN_PALANTIR)).toBe(true);
+
+    // Stored Align Palantír scores its printed 2 misc marshalling points
+    // (CRF 22: "If the Palantir is stored, this card is stored too") via its
+    // `mp-in-pile` effect, same as the Palantír itself scores item MP.
+    const recomputed = recomputeDerived(after);
+    expect(recomputed.players[0].marshallingPoints.misc).toBe(2);
   });
 
   // ── CoE rule 3.I.2: elimination — only true items are salvageable ──
