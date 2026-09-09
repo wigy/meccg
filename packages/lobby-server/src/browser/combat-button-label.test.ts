@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { GameAction, PlayerId } from '@meccg/shared';
-import { combatButtonLabel } from './combat-button-label.js';
+import type { GameAction, PlayerId, CardInstanceId } from '@meccg/shared';
+import { combatButtonLabel, isCombatActionButton } from './combat-button-label.js';
 
 /**
  * Regression tests for resolve-strike button labels.
@@ -85,5 +85,46 @@ describe('combatButtonLabel for play-strike-event (reroll mode, e.g. Swift Strok
 
   it('labels the stay-untapped reroll variant "Untapped"', () => {
     expect(combatButtonLabel(rerollStayUntappedAction(), true)).toBe('Untapped');
+  });
+});
+
+/**
+ * Regression test for bug report d7ecb98f2ae44a45 (game mtukrmxa-asilf1, seq
+ * 880): "Je ne vois pas comment je peux annuler la seconde attaque" ("I don't
+ * see how I can cancel the second attack"). Fifteen Birds in Five Firtrees
+ * (dm-129) grants a `free-attack-cancel` constraint that the engine correctly
+ * offers as a `cancel-attack` action with `mode: 'free-later-cancel'` against
+ * the next non-unique hazard-creature attack — but that action's
+ * `cardInstanceId` names the already-discarded granting card (kept only for
+ * logging) and it has no `scoutInstanceId`/`targetCharacterId`, so neither the
+ * hand-card click routing nor the old button-type allowlist ever surfaced it.
+ * `isCombatActionButton` must route it into the generic button stack, and
+ * `combatButtonLabel` must give it a clear label.
+ */
+describe('free-later-cancel cancel-attack (Fifteen Birds in Five Firtrees dm-129, Darkness Wielded ba-55)', () => {
+  const PLAYER = 'p1' as PlayerId;
+
+  const freeLaterCancelAction = (): GameAction => ({
+    type: 'cancel-attack',
+    player: PLAYER,
+    cardInstanceId: 'p1-4' as CardInstanceId,
+    mode: 'free-later-cancel',
+  });
+
+  it('is routed into the generic combat-action button stack', () => {
+    expect(isCombatActionButton(freeLaterCancelAction())).toBe(true);
+  });
+
+  it('is labeled clearly as a free attack cancellation', () => {
+    expect(combatButtonLabel(freeLaterCancelAction(), false)).toBe('Cancel Attack (Free)');
+  });
+
+  it('does not route an ordinary hand-played cancel-attack (no mode) into the button stack', () => {
+    const handPlayed: GameAction = {
+      type: 'cancel-attack',
+      player: PLAYER,
+      cardInstanceId: 'p1-9' as CardInstanceId,
+    };
+    expect(isCombatActionButton(handPlayed)).toBe(false);
   });
 });
