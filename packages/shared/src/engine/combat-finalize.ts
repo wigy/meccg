@@ -1611,15 +1611,23 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   }
 
 
-  // MELE §8.37: Trophy offer — after a non-detainment non-played-auto-attack
-  // creature defeat, eligible Orc/Troll characters may take the creature as
-  // a trophy. We transition to the `trophy-offer` phase rather than finalizing
+  // MELE §8.37: Trophy offer — after a non-played-auto-attack creature
+  // defeat, eligible Orc/Troll characters may take the creature as a
+  // trophy. We transition to the `trophy-offer` phase rather than finalizing
   // immediately so the defending player can choose. Also offered when a
   // `force-attacker-kill-on-resolution` short event (Fury of the Iron Crown
   // tw-492) forced the kill instead of a genuine all-strikes defeat — its
   // own text offers the same choice ("le défenseur reçoit les points de
   // rassemblement ou peut la prendre comme trophée").
-  if ((allDefeated || forcedKillApplied) && !combat.detainment && !isPlayedAutoAttack && creatureInstanceId) {
+  //
+  // CoE 3.IV.1 does not exclude detainment attacks from the trophy choice —
+  // 3.IV.2 merely clamps a detainment trophy's kill-MP value to zero (same
+  // as the non-trophy §3.II.3 discard it otherwise disposal above already
+  // gives). A detainment creature's card currently rests in the ATTACKING
+  // player's discard pile (see the disposal branch above), not the
+  // defender's kill pile — `handleTakeTrophy` / `finalizeCombatFromTrophyOffer`
+  // account for that alternate resting place.
+  if ((allDefeated || forcedKillApplied) && !isPlayedAutoAttack && creatureInstanceId) {
     const defIdx3 = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
     const defPlayer3 = stateAfterCombat.players[defIdx3];
     // Find Orc/Troll (not half-orc) characters that faced at least one strike
@@ -1639,9 +1647,11 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       }
     }
     if (trophyEligible.length > 0) {
-      logDetail(`Trophy offer: ${trophyEligible.length} eligible Orc/Troll character(s) may take creature ${creatureInstanceId as string} as a trophy (MELE §8.37)`);
-      // Creature is in kill pile; rule 8.22 is applied after the trophy decision
-      // (in finalizeCombatFromTrophyOffer or take-trophy handler).
+      logDetail(`Trophy offer: ${trophyEligible.length} eligible Orc/Troll character(s) may take creature ${creatureInstanceId as string} as a trophy${combat.detainment ? ' (detainment — 0 kill MP per CoE 3.IV.2)' : ''} (MELE §8.37)`);
+      // Non-detainment: creature is in the defender's kill pile; rule 8.22 is
+      // applied after the trophy decision (in finalizeCombatFromTrophyOffer or
+      // the take-trophy handler). Detainment: creature is in the attacker's
+      // discard pile (CoE 3.II.3) and rule 8.22 never applies to it.
       const trophyOfferCombat: CombatState = {
         ...combat,
         phase: 'trophy-offer',

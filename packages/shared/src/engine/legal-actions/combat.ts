@@ -372,8 +372,10 @@ function cancelPrisonerTakingActions(
 
 /**
  * Legal actions during the `trophy-offer` combat phase (MELE §8.37 / CoE
- * 3.IV.1). After a non-detainment creature defeat, the *defending* player may
- * assign the defeated creature (now in their kill pile) as a trophy to any
+ * 3.IV.1). After a creature defeat, the *defending* player may assign the
+ * defeated creature (in their kill pile for a non-detainment attack, or in
+ * the attacker's discard pile for a detainment attack — CoE 3.II.3/3.IV.2,
+ * worth 0 kill MP either way as a detainment trophy) as a trophy to any
  * eligible Orc/Troll character that faced one of its strikes, or pass to
  * decline all trophies ("may take" — the offer is optional).
  *
@@ -390,7 +392,8 @@ function trophyOfferActions(
   if (playerId !== combat.defendingPlayerId) return [];
 
   // The defeated creature instance — mirrors the derivation in finalizeCombat
-  // so the take-trophy handler can locate it in the defender's kill pile.
+  // so the take-trophy handler can locate it (defender's kill pile, or the
+  // attacker's discard pile for a detainment attack).
   const creatureInstanceId = attackSourceCreatureInstanceId(combat);
 
   const eligible = combat.trophyEligibleCharacters ?? [];

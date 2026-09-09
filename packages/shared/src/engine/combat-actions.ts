@@ -2878,10 +2878,14 @@ export function finalizeCombatFromCancelPrisonerTakingOffer(state: GameState, co
  * Handle a `take-trophy` action during the `trophy-offer` combat phase.
  *
  * The chosen Orc/Troll character receives the defeated creature card as a
- * trophy (placed under the character). The creature is removed from the
- * kill pile (kill-MP was already counted in finalizeCombat) and stored on
- * the character instead. After taking a trophy the phase returns to normal
- * (removes the combat state).
+ * trophy (placed under the character). For a non-detainment attack the
+ * creature was moved to the defender's kill pile in `finalizeCombat`
+ * (kill-MP already counted there); for a detainment attack (CoE 3.II.3) it
+ * instead sits in the ATTACKING player's discard pile, since a detainment
+ * kill never scores MP even when taken as a trophy (CoE 3.IV.2). Either way
+ * the card is pulled from wherever it rests and stored on the character
+ * instead. After taking a trophy the phase returns to normal (removes the
+ * combat state).
  */
 export function handleTakeTrophy(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'take-trophy') return wrongActionType(state, action, 'take-trophy');
@@ -2892,21 +2896,28 @@ export function handleTakeTrophy(state: GameState, action: GameAction, combat: C
   const char = defPlayer.characters[action.characterId];
   if (!char) return { state, error: 'Trophy character not found' };
 
-  // Find the creature instance in the kill pile (it was moved there in finalizeCombat)
+  const atkPlayerIndex = getPlayerIndex(state, combat.attackingPlayerId);
+  const atkPlayer = state.players[atkPlayerIndex];
   const creatureInKillPile = findById(defPlayer.killPile, action.creatureInstanceId);
-  if (!creatureInKillPile) return { state, error: 'Creature not found in kill pile for trophy' };
+  const creatureInAtkDiscard = creatureInKillPile
+    ? undefined
+    : findById(atkPlayer.discardPile, action.creatureInstanceId);
+  const creatureCard = creatureInKillPile ?? creatureInAtkDiscard;
+  if (!creatureCard) return { state, error: 'Creature not found for trophy' };
 
-  logDetail(`Trophy: ${action.characterId as string} takes ${action.creatureInstanceId as string} as a trophy (MELE §8.37)`);
+  logDetail(`Trophy: ${action.characterId as string} takes ${action.creatureInstanceId as string} as a trophy${creatureInAtkDiscard ? ' (detainment — 0 kill MP)' : ''} (MELE §8.37)`);
 
-  // Remove from kill pile and add to character's trophies
-  const newKillPile = removeById(defPlayer.killPile, action.creatureInstanceId);
-  const newTrophies = [...(char.trophies ?? []), creatureInKillPile];
   const newPlayers = clonePlayers(state);
+  if (creatureInKillPile) {
+    newPlayers[defPlayerIndex] = { ...newPlayers[defPlayerIndex], killPile: removeById(defPlayer.killPile, action.creatureInstanceId) };
+  } else {
+    newPlayers[atkPlayerIndex] = { ...newPlayers[atkPlayerIndex], discardPile: removeById(atkPlayer.discardPile, action.creatureInstanceId) };
+  }
+  const newTrophies = [...(char.trophies ?? []), creatureCard];
   newPlayers[defPlayerIndex] = {
-    ...defPlayer,
-    killPile: newKillPile,
+    ...newPlayers[defPlayerIndex],
     characters: {
-      ...defPlayer.characters,
+      ...newPlayers[defPlayerIndex].characters,
       [action.characterId as string]: { ...char, trophies: newTrophies },
     },
   };
@@ -2919,7 +2930,10 @@ export function handleTakeTrophy(state: GameState, action: GameAction, combat: C
  * Handle a `pass` action during the `trophy-offer` combat phase.
  * The defending player declines to take any trophy; combat ends normally.
  * Applies rule 8.22: if the defeated creature is in the defender's kill pile
- * but alignment-mismatched, move it to out-of-play instead.
+ * but alignment-mismatched, move it to out-of-play instead. For a detainment
+ * attack the creature already sits in the attacker's discard pile with no
+ * kill MP (CoE 3.II.3) — `applyRule8_22AfterTrophyDecision` is a no-op for
+ * `combat.detainment`, so declining leaves it there untouched.
  */
 export function finalizeCombatFromTrophyOffer(state: GameState, combat: CombatState): ReducerResult {
   logDetail('Trophy offer declined — combat finalized without trophy');
