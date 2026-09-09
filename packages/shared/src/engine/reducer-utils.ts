@@ -4566,7 +4566,10 @@ function playableAtEntryMatchesSite(
  *   `playableResources` list, or an `item-play-site` effect on the item
  *   must name the site (`sites`) / match it (`filter`) — except for hoard
  *   items, whose `filter` (matching a hoard site) is an addition to the
- *   `playableResources` tier gate, not a replacement for it.
+ *   `playableResources` tier gate, not a replacement for it. A `deny: true`
+ *   `item-play-site` effect instead excludes a matching site outright, on
+ *   top of the normal tier gate (Sapling of the White Tree tw-322: "Not
+ *   playable in a Shadow-hold or Dark-hold").
  * - **Allies / factions**: some `playableAt` entry must match the site, or
  *   (when playability is expressed via a `play-target` DSL effect instead
  *   of `playableAt` entries, e.g. Noble Hound dm-179: "any tapped or
@@ -4578,9 +4581,20 @@ function playableAtEntryMatchesSite(
  */
 export function isCardPlayableAtSiteDef(def: CardDefinition, siteDef: SiteCard, state: GameState): boolean {
   if (isItemCard(def)) {
+    const denyPlaySite = getCardEffects(def).find(
+      (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site' && e.deny === true,
+    );
+    if (denyPlaySite) {
+      const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+      const matchesSiteList = denyPlaySite.sites?.includes(siteDef.name) ?? false;
+      const matchesFilter = denyPlaySite.filter
+        ? matchesContext(denyPlaySite.filter, { site: { ...siteDef, autoAttackRaces } })
+        : false;
+      if (matchesSiteList || matchesFilter) return false;
+    }
     if ((siteDef.playableResources as readonly string[]).includes(def.subtype as string)) return true;
     const playSite = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site',
+      (e): e is import('../types/effects.js').ItemPlaySiteEffect => e.type === 'item-play-site' && e.deny !== true,
     );
     if (playSite?.sites?.includes(siteDef.name)) return true;
     // A hoard item's own subtype must still appear in the site's printed

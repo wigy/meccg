@@ -3,7 +3,7 @@
  *
  * Card test: Sapling of the White Tree (tw-322)
  * Type: hero-resource-item (major)
- * Effects: 1 (storable-at Minas Tirith with 2 MP override)
+ * Effects: 2 (item-play-site deny at Shadow-hold/Dark-hold, storable-at Minas Tirith with 2 MP override)
  *
  * "Not playable in a Shadow-hold or Dark-hold. May be stored at Minas
  *  Tirith. 2 marshalling points if stored at Minas Tirith."
@@ -11,7 +11,7 @@
  * Engine Support:
  * | # | Feature                                    | Status      | Notes                                  |
  * |---|-------------------------------------------|-------------|----------------------------------------|
- * | 1 | Not playable in Shadow-hold / Dark-hold    | IMPLEMENTED | playableAt restricts to ruins-and-lairs |
+ * | 1 | Not playable in Shadow-hold / Dark-hold    | IMPLEMENTED | item-play-site deny filter on siteType |
  * | 2 | Storable at Minas Tirith                   | IMPLEMENTED | storable-at effect + store-item action  |
  * | 3 | 2 MP if stored at Minas Tirith             | IMPLEMENTED | storable-at marshallingPoints override  |
  *
@@ -20,13 +20,13 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   Phase,
   ARAGORN, LEGOLAS,
   SAPLING_OF_THE_WHITE_TREE,
   MINAS_TIRITH, LORIEN, MORIA, RIVENDELL,
-  buildTestState, resetMint,
-  dispatch,
+  buildTestState, buildSitePhaseState, resetMint,
+  dispatch, viableActionsForHandCard,
 } from '../test-helpers.js';
 import type { StoreItemAction } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
@@ -39,46 +39,33 @@ describe('Sapling of the White Tree (tw-322)', () => {
 
   // ── Playability restrictions ──
 
-  test('not playable at shadow-hold (Moria) — playableAt restricts to ruins-and-lairs only', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
-      players: [
-        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [SAPLING_OF_THE_WHITE_TREE], siteDeck: [MINAS_TIRITH] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
-      ],
+  test('not playable at shadow-hold (Moria) — item-play-site deny excludes Shadow-hold/Dark-hold', () => {
+    // Regression test for a bug report (game mtu8r1g6-kub603, seq 101):
+    // a company was allowed to play Sapling of the White Tree at Moria (a
+    // Shadow-hold). Moria's `playableResources` list includes "major" (like
+    // any other Ruins & Lairs/Shadow-hold/Dark-hold), so this must be
+    // exercised at the `play-resources` step — a bare `Phase.Site` state
+    // with no step never reaches the item-eligibility check at all, and
+    // would pass this assertion vacuously.
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: MORIA,
+      hand: [SAPLING_OF_THE_WHITE_TREE],
     });
 
-    const allActions = computeLegalActions(state, PLAYER_1);
-    const saplingPlays = allActions
-      .filter(ea => ea.viable && (ea.action.type === 'play-hero-resource' || ea.action.type === 'play-minor-item'))
-      .filter(ea => {
-        const a = ea.action as { cardInstanceId?: string };
-        const card = state.players[0].hand.find(c => c.instanceId === a.cardInstanceId);
-        return card?.definitionId === SAPLING_OF_THE_WHITE_TREE;
-      });
-    expect(saplingPlays).toHaveLength(0);
+    const offered = viableActionsForHandCard(state, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, SAPLING_OF_THE_WHITE_TREE);
+    expect(offered).toHaveLength(0);
   });
 
-  test('not playable at a free-hold (Minas Tirith) — playableAt restricts to ruins-and-lairs only', () => {
-    const state = buildTestState({
-      activePlayer: PLAYER_1,
-      phase: Phase.Site,
-      players: [
-        { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [SAPLING_OF_THE_WHITE_TREE], siteDeck: [MORIA] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
-      ],
+  test('not playable at a free-hold (Minas Tirith) — playableResources there is faction-only', () => {
+    const state = buildSitePhaseState({
+      characters: [ARAGORN],
+      site: MINAS_TIRITH,
+      hand: [SAPLING_OF_THE_WHITE_TREE],
     });
 
-    const allActions = computeLegalActions(state, PLAYER_1);
-    const saplingPlays = allActions
-      .filter(ea => ea.viable && (ea.action.type === 'play-hero-resource' || ea.action.type === 'play-minor-item'))
-      .filter(ea => {
-        const a = ea.action as { cardInstanceId?: string };
-        const card = state.players[0].hand.find(c => c.instanceId === a.cardInstanceId);
-        return card?.definitionId === SAPLING_OF_THE_WHITE_TREE;
-      });
-    expect(saplingPlays).toHaveLength(0);
+    const offered = viableActionsForHandCard(state, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, SAPLING_OF_THE_WHITE_TREE);
+    expect(offered).toHaveLength(0);
   });
 
   // ── Storage at Minas Tirith ──

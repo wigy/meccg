@@ -7867,6 +7867,22 @@ satisfies a constraint. Two mutually-exclusive forms:
 When present, the normal site-type check (`playableResources`) is
 bypassed; the item is playable only if its restriction matches.
 
+The optional `deny: true` flag inverts this: `sites`/`filter` instead name
+a site the item is **never** playable at, applied as an additional
+restriction on top of the normal `playableResources` tier gate (not a
+replacement for it, unlike the default form above). Checked
+unconditionally, ahead of every tapped-site/tier bypass mechanism (major-
+item-unlocked, War-forges, Saruman's Machinery, …) — none of those claim to
+override a card's own printed site exclusion. Used by *Sapling of the White
+Tree* (tw-322): "Not playable in a Shadow-hold or Dark-hold." Implemented
+in `legal-actions/site.ts` and `reducer-utils.ts`'s `isCardPlayableAtSiteDef`
+(the `fetch-to-deck` `playableAtSite` gate, e.g. Strider ba-1).
+
+```json
+{ "type": "item-play-site", "deny": true,
+  "filter": { "site.siteType": { "$in": ["shadow-hold", "dark-hold"] } } }
+```
+
 The optional `allowTapped: true` flag additionally bypasses the
 tapped-site gate, so the item may be played even when its company's
 current site is Tapped (the site-restriction still gates *which* tapped
