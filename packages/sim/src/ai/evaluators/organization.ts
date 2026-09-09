@@ -6,7 +6,9 @@
  *
  * Strategy: prefer playing characters with high MP / prowess / DI; only plan
  * movement when there are hand cards playable at the destination; merge tiny
- * companies; never split (the AI lacks planning depth to justify it).
+ * companies; split only to shed a wound or an excess leader that would
+ * otherwise block all movement — otherwise never split (the AI lacks
+ * planning depth to justify it).
  */
 
 import type { GameAction } from '@meccg/shared';
@@ -172,13 +174,39 @@ export const organizationEvaluator: ActionEvaluator = {
         // Default: don't split — the AI lacks the planning depth to
         // evaluate whether two separate travel plans justify the split.
         //
-        // Exception: when the source company has wounded and healthy
-        // characters mixed, splitting lets the wounded group head to a
-        // haven for healing while the healthy group keeps earning MPs.
+        // Exception 1 (below): when the source company has wounded and
+        // healthy characters mixed, splitting lets the wounded group head to
+        // a haven for healing while the healthy group keeps earning MPs.
         // Only enable the split if no in-company healing item/spell is
         // already available (that path is strictly cheaper).
         const source = view.self.companies.find(c => c.id === action.sourceCompanyId);
         if (!source) return 0;
+
+        // Exception 2: a company holding more than one leader-keyword
+        // character outside a haven violates rule 3.26 ("a company can only
+        // contain one leader unless at a haven") and the legal-action
+        // generator refuses to offer ANY plan-movement for it at all
+        // (organization-companies.ts wouldViolateLeaderRestriction /
+        // "has more than one leader — cannot declare movement at all"). With
+        // the default score-0 above, such a company can never move again on
+        // its own — the AI has no way to discover that shedding one leader
+        // via split-company is the only way out. Score highly splitting off
+        // one of the excess leaders so the resulting companies each hold at
+        // most one (bug report: minion company stuck at Dol Guldur for 15
+        // turns with both a Troll-chief and an Orc Captain, both `leader`).
+        const currentSiteDef = source.currentSite
+          ? findSiteDef(view, pool, source.currentSite.instanceId)
+          : undefined;
+        const atHaven = currentSiteDef?.siteType === 'haven';
+        if (!atHaven) {
+          const leaders = source.characters.filter(id => {
+            const ch = view.self.characters[id];
+            const def = ch ? lookupDef(pool, ch.definitionId) : undefined;
+            return isCharacter(def) && (def.keywords?.includes('leader') ?? false);
+          });
+          if (leaders.length > 1 && leaders.includes(action.characterId)) return 25;
+        }
+
         const wounded = woundedCharactersInCompany(view, source);
         if (wounded.length === 0 || wounded.length === source.characters.length) return 0;
         if (hasHealingAvailable(view, pool, source)) return 0;
