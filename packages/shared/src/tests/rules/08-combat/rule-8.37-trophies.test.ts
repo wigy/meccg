@@ -28,18 +28,25 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardDefinitionId, Alignment, CardStatus, Race, resolveInstanceId } from '../../../index.js';
 import {
   buildTestState, PLAYER_1, PLAYER_2, resetMint,
-  dispatch, viableActions, viableFor, findCharInstanceId, companyIdAt, makeShadowMHState, recomputeDerived, RESOURCE_PLAYER,
+  dispatch, viableActions, viableFor, findCharInstanceId, companyIdAt, makeShadowMHState, recomputeDerived, RESOURCE_PLAYER, HAZARD_PLAYER,
   assertEveryInstanceReachable, enqueueCorruptionCheck,
 } from '../../test-helpers.js';
 import type { CombatState, CardInstanceId } from '../../../index.js';
 import { addConstraint } from '../../../engine/pending.js';
 import { capturePressGang, returnPressedCharacter } from '../../../engine/press-gang.js';
+import { finalizeCombat } from '../../../engine/combat-finalize.js';
 
 // Orc character (minion, race: orc, mind has a value)
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;   // orc warrior, mind 5, prowess 6, DI 2
 
 // Creature with kill-MP (Orc-guard: race orc, killMarshallingPoints 2)
 const ORC_GUARD = 'tw-072' as CardDefinitionId;
+
+// Detainment-eligible creature with no body (Orc-watch: 3 strikes, prowess 9,
+// body null, killMarshallingPoints 1) — a defeated strike auto-defeats
+// without a creature body check (CoE combat rule at docs/coe-rules.md:950),
+// and detainment attacks skip body checks entirely (CoE 3.II.1).
+const ORC_WATCH = 'tw-078' as CardDefinitionId;
 
 // Minion sites
 const CARN_DUM = 'le-359' as CardDefinitionId;
@@ -48,8 +55,11 @@ const DOL_GULDUR = 'le-367' as CardDefinitionId;
 
 /** Build a combat state where the creature was just defeated (all strikes succeeded)
  *  and we're about to enter finalizeCombat. The creature card is in the attacker's
- *  cardsInPlay so finalizeCombat can move it. */
-function makeTrophyOfferState(opts: { orcDefId: CardDefinitionId; creatureDefId: CardDefinitionId }) {
+ *  cardsInPlay so finalizeCombat can move it. Pass `detainment: true` to build a
+ *  detainment attack instead (no creature body, no body check — CoE 3.II.1) so the
+ *  caller can invoke `finalizeCombat` directly rather than dispatching a
+ *  body-check-roll action. */
+function makeTrophyOfferState(opts: { orcDefId: CardDefinitionId; creatureDefId: CardDefinitionId; detainment?: boolean }) {
   const base = buildTestState({
     phase: Phase.MovementHazard,
     activePlayer: PLAYER_1,
@@ -88,6 +98,7 @@ function makeTrophyOfferState(opts: { orcDefId: CardDefinitionId; creatureDefId:
     ) as unknown as typeof base.players,
   };
 
+  const detainment = opts.detainment ?? false;
   const combat: CombatState = {
     attackSource: { type: 'creature', instanceId: creatureInstance.instanceId },
     companyId,
@@ -95,7 +106,7 @@ function makeTrophyOfferState(opts: { orcDefId: CardDefinitionId; creatureDefId:
     attackingPlayerId: PLAYER_2,
     strikesTotal: 1,
     strikeProwess: 8,
-    creatureBody: 5,
+    creatureBody: detainment ? null : 5,
     creatureRace: Race.Orc,
     strikeAssignments: [{
       characterId: orcId,
@@ -106,8 +117,8 @@ function makeTrophyOfferState(opts: { orcDefId: CardDefinitionId; creatureDefId:
     currentStrikeIndex: 0,
     phase: 'body-check',
     assignmentPhase: 'done',
-    bodyCheckTarget: 'creature',
-    detainment: false,
+    bodyCheckTarget: detainment ? null : 'creature',
+    detainment,
   };
 
   return {
@@ -199,6 +210,67 @@ describe('Rule 8.37 — Trophies', () => {
     const afterTrophy = dispatch(afterBodyCheck, takeTrophy[0].action);
     expect(afterTrophy.combat).toBeNull();
     expect(afterTrophy.players[0].characters[orcId]?.trophies?.some(t => t.instanceId === creatureInstanceId)).toBe(true);
+  });
+
+  test('CoE 3.IV.1 — a defeated DETAINMENT creature is still offered as a trophy to an Orc/Troll that faced its strike', () => {
+    // Regression for a bug report (game mtuahate-ph0o5p, seq 546): an
+    // Orc-watch (tw-078, detainment-keyed, no body) attacked a Ringwraith
+    // company; the Troll-chief defending it fought off every strike, but the
+    // creature was silently discarded with no trophy offer at all. CoE
+    // 3.IV.1 doesn't exclude detainment attacks from the trophy choice —
+    // 3.IV.2 only clamps a detainment trophy's kill-MP value to zero, same
+    // as the discard-instead-of-kill-pile disposal a declined offer already
+    // gives (CoE 3.II.3).
+    const { state, orcId, creatureInstanceId } = makeTrophyOfferState({
+      orcDefId: ORC_CAPTAIN,
+      creatureDefId: ORC_WATCH,
+      detainment: true,
+    });
+
+    // Detainment attacks skip body checks entirely (CoE 3.II.1) — the
+    // already-resolved strike goes straight to combat finalization.
+    const { state: afterFinalize } = finalizeCombat(state);
+
+    expect(afterFinalize.combat?.phase).toBe('trophy-offer');
+    expect(afterFinalize.combat?.trophyEligibleCharacters).toContain(orcId);
+
+    // The creature rests in the ATTACKER's discard pile while the offer is
+    // pending (CoE 3.II.3), never in the defender's kill pile — a detainment
+    // creature must never score kill MP, trophy or not (CoE 3.IV.2).
+    expect(afterFinalize.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+    expect(afterFinalize.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+
+    const afterTrophy = dispatch(afterFinalize, {
+      type: 'take-trophy',
+      player: PLAYER_1,
+      characterId: orcId,
+      creatureInstanceId,
+    });
+
+    expect(afterTrophy.combat).toBeNull();
+    const char = afterTrophy.players[RESOURCE_PLAYER].characters[orcId];
+    expect(char?.trophies?.some(t => t.instanceId === creatureInstanceId)).toBe(true);
+    expect(afterTrophy.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    expect(afterTrophy.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+
+    assertEveryInstanceReachable(afterTrophy);
+  });
+
+  test('CoE 3.II.3 — declining a detainment-creature trophy offer discards it with no kill MP', () => {
+    const { state, creatureInstanceId } = makeTrophyOfferState({
+      orcDefId: ORC_CAPTAIN,
+      creatureDefId: ORC_WATCH,
+      detainment: true,
+    });
+    const { state: afterFinalize } = finalizeCombat(state);
+    expect(afterFinalize.combat?.phase).toBe('trophy-offer');
+
+    const afterDecline = dispatch(afterFinalize, { type: 'pass', player: PLAYER_1 });
+
+    expect(afterDecline.combat).toBeNull();
+    expect(afterDecline.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+    expect(afterDecline.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    assertEveryInstanceReachable(afterDecline);
   });
 
   test('3.IV.2 — Detainment-creature trophy on Orc/Troll scores 0 kill-MP at Free Council; §3.IV.3 printed-MP attribute bonuses still apply', () => {
