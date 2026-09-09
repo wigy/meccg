@@ -378,11 +378,26 @@ export function resourcePlayableAt(
   }
   // Items: playability mirrors the engine (legal-actions/site.ts).
   if (def.cardType === 'hero-resource-item' || def.cardType === 'minion-resource-item') {
-    // An item that carries its own `item-play-site` effect defines exactly
-    // where it may be played (gold rings, Shadow/Dark-hold-restricted items,
-    // etc.). Honour that first — it mirrors the engine's `item-play-site` gate.
+    // A `deny: true` `item-play-site` effect names sites the item is *never*
+    // playable at, on top of — not instead of — the tier gate below (Sapling
+    // of the White Tree tw-322: "Not playable in a Shadow-hold or Dark-hold").
+    // Reading it as an allow-list would invert the card and make the item
+    // playable only at the sites its text forbids.
+    const itemDenyPlaySite = (def.effects ?? []).find(
+      (e): e is ItemPlaySiteEffect => e.type === 'item-play-site' && e.deny === true,
+    );
+    if (itemDenyPlaySite) {
+      if (itemDenyPlaySite.sites?.includes(site.name)) return false;
+      if (itemDenyPlaySite.filter && matchesCondition(
+        itemDenyPlaySite.filter,
+        { site: site as unknown as Record<string, unknown> },
+      )) return false;
+    }
+    // An item that carries its own (non-deny) `item-play-site` effect defines
+    // exactly where it may be played (gold rings, Shadow/Dark-hold-restricted
+    // items, etc.). Honour that — it mirrors the engine's `item-play-site` gate.
     const itemPlaySite = (def.effects ?? []).find(
-      (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
+      (e): e is ItemPlaySiteEffect => e.type === 'item-play-site' && e.deny !== true,
     );
     if (itemPlaySite) {
       if (itemPlaySite.sites?.includes(site.name)) return true;

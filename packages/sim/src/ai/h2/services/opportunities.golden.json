@@ -1815,48 +1815,6 @@
       ]
     },
     {
-      "id": "resources/p1-12@tw-413",
-      "module": "resources",
-      "goal": {
-        "label": "play Sapling of the White Tree at Moria",
-        "source": "item",
-        "mp": 1,
-        "cardInstanceId": "p1-12",
-        "siteDefinitionId": "tw-413"
-      },
-      "payoffTsd": 2.6069444444444443,
-      "deadline": 8,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p1-0",
-          "siteDefinitionId": "tw-413",
-          "byTurn": 8
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Moria",
-          "p": 1,
-          "owner": "travel",
-          "tag": "route",
-          "source": "already there or already headed there"
-        },
-        {
-          "label": "still hold Sapling of the White Tree",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
       "id": "resources/p1-12@tw-397",
       "module": "resources",
       "goal": {
@@ -3729,48 +3687,6 @@
           "tag": "carrier"
         }
       ]
-    },
-    {
-      "id": "resources/p2-12@tw-413",
-      "module": "resources",
-      "goal": {
-        "label": "play Sapling of the White Tree at Moria",
-        "source": "item",
-        "mp": 1,
-        "cardInstanceId": "p2-12",
-        "siteDefinitionId": "tw-413"
-      },
-      "payoffTsd": 0.031250000000000444,
-      "deadline": 9,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p2-3",
-          "siteDefinitionId": "tw-413",
-          "byTurn": 9
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Moria",
-          "p": 0.015625,
-          "owner": "travel",
-          "tag": "route",
-          "source": "4 region(s) away, at planUnroutedReachProbability per region"
-        },
-        {
-          "label": "still hold Sapling of the White Tree",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
     }
   ],
   "movement/hazard-bundle-choice": [],
@@ -5066,48 +4982,6 @@
       "steps": [
         {
           "label": "route to Isle of the Ulond",
-          "p": 0.015625,
-          "owner": "travel",
-          "tag": "route",
-          "source": "4 region(s) away, at planUnroutedReachProbability per region"
-        },
-        {
-          "label": "still hold Sapling of the White Tree",
-          "p": 1,
-          "owner": "hand",
-          "tag": "card-in-hand"
-        },
-        {
-          "label": "someone left untapped to play it",
-          "p": 1,
-          "owner": "characters",
-          "tag": "carrier"
-        }
-      ]
-    },
-    {
-      "id": "resources/p1-12@tw-413",
-      "module": "resources",
-      "goal": {
-        "label": "play Sapling of the White Tree at Moria",
-        "source": "item",
-        "mp": 1,
-        "cardInstanceId": "p1-12",
-        "siteDefinitionId": "tw-413"
-      },
-      "payoffTsd": 2.7,
-      "deadline": 17,
-      "requirements": [
-        {
-          "kind": "company-at-site",
-          "companyId": "company-p1-0",
-          "siteDefinitionId": "tw-413",
-          "byTurn": 17
-        }
-      ],
-      "steps": [
-        {
-          "label": "route to Moria",
           "p": 0.015625,
           "owner": "travel",
           "tag": "route",
