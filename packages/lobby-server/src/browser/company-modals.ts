@@ -24,6 +24,7 @@ import type {
   CorruptionCheckAction,
   SupportCorruptionCheckAction,
   RestoreCharacterByEffectAction,
+  TapCharacterByEffectAction,
   OpponentInfluenceAttemptAction,
   ActivateGrantedAction,
   DiscardCharacterOrgAction,
@@ -441,6 +442,7 @@ export function showCharacterActionTooltip(
     corruptionCheckActions?: Map<string, CorruptionCheckAction>;
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     restoreCharacterActions?: Map<string, RestoreCharacterByEffectAction>;
+    tapCharacterByEffectActions?: Map<string, TapCharacterByEffectAction>;
     declareBurglaryActions?: Map<string, DeclareBurglaryAction[]>;
     grantedActions?: Map<string, ActivateGrantedAction[]>;
     discardCharacterActions?: Map<string, DiscardCharacterOrgAction>;
@@ -540,6 +542,11 @@ export function showCharacterActionTooltip(
     const charStatus = lastView?.self.characters[charInstId]?.status;
     const label = charStatus === CardStatus.Inverted ? 'Heal (Hall of Fire)' : 'Untap (Hall of Fire)';
     items.push({ label, onClick: () => onAction(restoreAction) });
+  }
+
+  const tapByEffectAction = options.tapCharacterByEffectActions?.get(charInstId as string);
+  if (tapByEffectAction) {
+    items.push({ label: 'Tap (Mandatory)', onClick: () => onAction(tapByEffectAction) });
   }
 
   const burglaryActions = options.declareBurglaryActions?.get(charInstId as string) ?? [];

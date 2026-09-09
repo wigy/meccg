@@ -35,6 +35,7 @@ import type {
   DiscardCharacterOrgAction,
   DiscardItemFromCompanyAction,
   DeclareBurglaryAction,
+  TapCharacterByEffectAction,
 } from '@meccg/shared';
 import { viableActions } from '@meccg/shared';
 
@@ -245,6 +246,22 @@ export function getRestoreCharacterActions(view: PlayerView): Map<string, Restor
   const result = new Map<string, RestoreCharacterByEffectAction>();
   for (const action of viableActions(view.legalActions)) {
     if (action.type !== 'restore-character-by-effect') continue;
+    result.set(action.characterInstanceId as string, action);
+  }
+  return result;
+}
+
+/**
+ * Collect all viable tap-character-by-effect actions, keyed by the character
+ * instance ID (e.g. Tolfalas as-162, Himring as-150, Stench of Mordor le-141:
+ * "must tap one untapped character if available"). Each untapped character
+ * eligible to satisfy the mandatory tap has at most one such action while the
+ * `tap-one-character` pending resolution is active.
+ */
+export function getTapCharacterByEffectActions(view: PlayerView): Map<string, TapCharacterByEffectAction> {
+  const result = new Map<string, TapCharacterByEffectAction>();
+  for (const action of viableActions(view.legalActions)) {
+    if (action.type !== 'tap-character-by-effect') continue;
     result.set(action.characterInstanceId as string, action);
   }
   return result;
