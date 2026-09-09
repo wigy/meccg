@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1315 | 1315 | 0 | 100.0% |
+| 1317 | 1317 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,9 +16,9 @@
 | BA | 100 | 100 | 100.0% |
 | DM | 138 | 138 | 100.0% |
 | LE | 317 | 317 | 100.0% |
-| TD | 126 | 126 | 100.0% |
+| TD | 127 | 127 | 100.0% |
 | TW | 423 | 423 | 100.0% |
-| WH | 95 | 95 | 100.0% |
+| WH | 96 | 96 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -765,6 +765,7 @@
 | td-103 | Burglary  | — | 14 | ☑ |
 | td-104 | Cloudless Day | — | 9 | ☑ |
 | td-105 | Cram | — | 17 | ☑ |
+| td-106 | Dragon’s Hunger | — | 7 | ☑ |
 | td-108 | Dragon-lore | — | 15 | ☑ |
 | td-109 | Dwarven Hoard | — | 11 | ☑ |
 | td-111 | Elf-path | — | 8 | ☑ |
@@ -1255,6 +1256,7 @@
 | wh-9 | Saruman | — | 10 | ☑ |
 | wh-10 | Sly Southerner | — | 6 | ☑ |
 | wh-12 | Uglúk | — | 9 | ☑ |
+| wh-13 | Goblin-faces | — | 8 | ☑ |
 | wh-14 | Blind to the West | — | 5 | ☑ |
 | wh-16 | Cruel Claw Perceived | — | 9 | ☑ |
 | wh-17 | Echoes of the Song | — | 8 | ☑ |

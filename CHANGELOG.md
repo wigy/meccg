@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.149.0 — 2026-09-09
+
+Goblin-faces and Dragon's Hunger certifications
+
+### Game Engine
+
+- Certified Goblin-faces (wh-13): a new `rearrange-defender-deck-by-strikes` on-event apply verb on the `attack-strike-successful` event lets the attacker look at one card per successful strike from the top of the defender's play deck and split them between the deck's top and bottom in an order of their choosing. Backed by a new `rearrange-defender-deck` pending resolution and a `rearrange-defender-deck-card` action whose pile and order choices are redacted from opponent and spectator toasts (#3021)
+- Certified Dragon's Hunger (td-106): `force-opponent-discard` gains a combat-window mode with `match: "hazard-creature"`, `fallbackCancelAttack` and `hazardLimitReduction`, offered as a resource short event against Dragon and Drake attacks where the "opponent" is the attacking hazard player. Wired through the combat-window short-event path alongside Alert the Folk rather than the hazard-phase chain (#3022)
+
+### Infrastructure
+
+- Registered the `rearrange-defender-deck-card` action in the sim featurizer's append-only `ACTION_TYPES` list so the action-discriminant coverage test passes (#3021)
+
 ## 0.148.0 — 2026-09-08
 
 Nazgûl-summoning certification and deck list tools
