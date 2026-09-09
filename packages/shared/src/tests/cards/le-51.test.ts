@@ -41,7 +41,7 @@
  * |---|-------------------------------------------------------------------|-------------|
  * | 1 | Base stats (no mode): DI 3, prowess 8                              | IMPLEMENTED |
  * | 2 | +3 direct influence in Heralded Lord mode (prowess unchanged)      | IMPLEMENTED |
- * | 3 | +1 prowess in Fell Rider mode (direct influence unchanged)         | IMPLEMENTED |
+ * | 3 | +1 prowess in Fell Rider mode, stacking with the mode card's own    | IMPLEMENTED |
  * | 4 | Casting a magic short event recycles it to the play deck (reshuffle)| IMPLEMENTED |
  * | 5 | The recycled magic card is NOT in the discard pile                 | IMPLEMENTED |
  * | 6 | Same magic card under a non-Akhôrahil avatar (Adûnaphel) discards   | IMPLEMENTED |
@@ -157,15 +157,18 @@ describe('Akhôrahil the Ringwraith (le-51)', () => {
     expect(akh.effectiveStats.prowess).toBe(6); // 8 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
-  test('+1 prowess in Fell Rider mode (direct influence unchanged)', () => {
+  test('+1 prowess in Fell Rider mode, stacking on the mode card\'s own +2 prowess/-3 direct influence', () => {
     let state = orgState(AKHORAHIL, []);
     const companyId = companyIdAt(state, RESOURCE_PLAYER);
     state = addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyId);
     state = recomputeDerived(state);
 
     const akh = getCharacter(state, RESOURCE_PLAYER, AKHORAHIL);
-    expect(akh.effectiveStats.prowess).toBe(9); // 8 + 1
-    expect(akh.effectiveStats.directInfluence).toBe(3); // Heralded Lord bonus does not apply
+    // Fell Rider (le-183) itself swings +2 prowess / -3 direct influence on the
+    // Ringwraith; his own +1 prowess stacks on top of that (CoE Weekly Rulings
+    // #13, Query 18: "both modifiers are applied").
+    expect(akh.effectiveStats.prowess).toBe(11); // 8 + 1 (his own) + 2 (mode card)
+    expect(akh.effectiveStats.directInfluence).toBe(0); // 3 - 3 (mode card); Heralded Lord bonus does not apply
   });
 
   // ── Magic-recycling passive: resource short-event path ───────────────────
