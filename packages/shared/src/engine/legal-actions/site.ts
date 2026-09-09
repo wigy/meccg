@@ -1844,9 +1844,32 @@ export function playResourcesActions(
       // untapped Shadow-hold …"). The site-restriction below still gates
       // *which* tapped sites qualify.
       const itemSiteRestriction = itemDef.effects?.find(
-        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site',
+        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site' && e.deny !== true,
       );
       const itemAllowsTapped = itemSiteRestriction?.allowTapped === true;
+
+      // item-play-site deny: the item's own text excludes certain sites
+      // outright (e.g. Sapling of the White Tree tw-322: "Not playable in a
+      // Shadow-hold or Dark-hold"), on top of — not instead of — the normal
+      // `playableResources` tier gate below. Checked unconditionally: none of
+      // the bypass mechanisms further down (major/gold-ring/War-forges/
+      // Saruman's Machinery unlocks) claim to override a card's own printed
+      // site exclusion.
+      const itemDenyRestriction = itemDef.effects?.find(
+        (e): e is ItemPlaySiteEffect => e.type === 'item-play-site' && e.deny === true,
+      );
+      if (itemDenyRestriction && siteDef && isSiteCard(siteDef)) {
+        const autoAttackRaces = siteDef.automaticAttacks.map(a => normalizeCreatureRace(a.creatureType));
+        const matchesSiteList = itemDenyRestriction.sites?.includes(siteName) ?? false;
+        const matchesFilter = itemDenyRestriction.filter
+          ? matchesContext(itemDenyRestriction.filter, { site: { ...siteDef, autoAttackRaces } })
+          : false;
+        if (matchesSiteList || matchesFilter) {
+          logDetail(`Item ${itemDef.name}: excluded from ${siteName} by item-play-site deny restriction`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: cannot be played at ${siteName}`));
+          continue;
+        }
+      }
 
       // Does the item's own item-play-site restriction independently name
       // this site as playable (e.g. Dwarven Light-stone dm-168 and Aiglos

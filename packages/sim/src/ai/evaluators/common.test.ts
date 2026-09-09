@@ -109,6 +109,24 @@ describe('resourcePlayableAt', () => {
       expect(resourcePlayableAt(durinsAxe, zarakDum)).toBe(true);
     });
   });
+
+  // A `deny: true` item-play-site effect subtracts sites from the printed
+  // playable line; read as the ordinary allow-list it would invert the card
+  // and price it only where its text forbids it.
+  describe('item-play-site deny', () => {
+    const pool = loadCardPool();
+    const sapling = pool['tw-322']; // major item, "Not playable in a Shadow-hold or Dark-hold"
+    const moria = pool['tw-413'] as AnySiteCard; // Shadow-hold, major playable
+    const glitteringCaves = pool['tw-397'] as AnySiteCard; // Ruins & Lairs, major playable
+
+    test('Sapling of the White Tree is barred from a Shadow-hold', () => {
+      expect(resourcePlayableAt(sapling, moria)).toBe(false);
+    });
+
+    test('Sapling of the White Tree still follows the printed playable line elsewhere', () => {
+      expect(resourcePlayableAt(sapling, glitteringCaves)).toBe(true);
+    });
+  });
 });
 
 describe('siteDangerFor', () => {

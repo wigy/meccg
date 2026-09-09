@@ -365,6 +365,15 @@
     ],
     "effects": [
       {
+        "type": "item-play-site",
+        "deny": true,
+        "filter": {
+          "site.siteType": {
+            "$in": ["shadow-hold", "dark-hold"]
+          }
+        }
+      },
+      {
         "type": "storable-at",
         "sites": [
           "Minas Tirith"

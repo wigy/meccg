@@ -5934,6 +5934,16 @@ export interface ItemPlaySiteEffect extends EffectBase {
    * untapped Barad-dûr … (does not tap the site)."
    */
   readonly doesNotTapSite?: boolean;
+  /**
+   * When true, `sites` / `filter` describe a site the item is **never**
+   * playable at, applied as an additional restriction *on top of* the
+   * normal `playableResources` tier gate — the opposite of the default
+   * "OR-expand playability" semantics, which replace that gate entirely.
+   * Used by *Sapling of the White Tree* (tw-322): "Not playable in a
+   * Shadow-hold or Dark-hold" — the item otherwise follows the ordinary
+   * major-item site rule.
+   */
+  readonly deny?: boolean;
 }
 
 /**
