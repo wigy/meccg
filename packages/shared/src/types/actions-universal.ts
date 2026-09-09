@@ -487,6 +487,23 @@ export interface ArrangeDeckTopCardAction {
 }
 
 /**
+ * Place one of the cards looked at from the top of the defender's play deck
+ * (Goblin-faces, wh-13) onto the deck's top or bottom pile. Resolves one step
+ * of a `rearrange-defender-deck` pending resolution: the chosen card is
+ * appended to the named pile's pick order, and once every looked-at card is
+ * placed the deck is rebuilt as top-pile + untouched-remainder + bottom-pile.
+ */
+export interface RearrangeDefenderDeckCardAction {
+  readonly type: 'rearrange-defender-deck-card';
+  /** The attacking player, choosing where the defender's looked-at cards go. */
+  readonly player: PlayerId;
+  /** The instance ID of the looked-at card to place next. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Which pile of the defender's play deck to place the card into. */
+  readonly destination: 'top' | 'bottom';
+}
+
+/**
  * Choose one of the cards revealed from the top of the play deck to put into
  * hand (Eyes of Mandos, dm-126). Resolves a `reveal-choose-to-hand` pending
  * resolution: the chosen card moves to the player's hand and the remaining

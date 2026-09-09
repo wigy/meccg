@@ -175,6 +175,14 @@ export function extractActionCardDefs(
  *   opponent and every spectator. The audience only sees "Place a card … on
  *   top of the play deck"; the acting player still names their choices via
  *   the legal actions.
+ * - `rearrange-defender-deck-card` `cardInstanceId` — Goblin-faces (wh-13):
+ *   the attacker looks at the top of the defender's play deck and the
+ *   identities become public via `revealInstances`, but the *placement* the
+ *   attacker picks (which pile, and each pile's internal order) is exactly
+ *   the deck-position information that must stay hidden — broadcasting it
+ *   per step would hand the defender (and spectators) a deterministic map of
+ *   upcoming draws. The audience only sees "Place a card on the top/bottom
+ *   of the play deck".
  * - `plan-movement` `destinationSite` — the destination is placed face-down
  *   (CoE 2.II.7) and stays secret until revealed during the company's M/H
  *   sub-phase. If this exact site instance was public earlier in the game,
@@ -194,6 +202,7 @@ const PRIVATE_ACTION_FIELDS: Partial<Record<GameAction['type'], readonly string[
   'fetch-from-pile': ['cardInstanceId'],
   'exchange-sideboard': ['discardCardInstanceId', 'sideboardCardInstanceId'],
   'arrange-deck-top-card': ['cardInstanceId'],
+  'rearrange-defender-deck-card': ['cardInstanceId'],
   'plan-movement': ['destinationSite'],
   'place-on-guard': ['cardInstanceId'],
 };
@@ -716,6 +725,8 @@ export function describeAction(
       return `${playerName(action.player)} taps ${instName(action.characterId)} to play ${instName(action.manifestationCardInstanceId)} (agent discarded)`;
     case 'arrange-deck-top-card':
       return `Place ${instName(action.cardInstanceId)} next on top of your play deck`;
+    case 'rearrange-defender-deck-card':
+      return `${playerName(action.player)} places ${instName(action.cardInstanceId)} on the ${action.destination} of the defender's play deck (Goblin-faces)`;
     case 'choose-revealed-card':
       return `Take revealed card ${instName(action.cardInstanceId)} into hand (shuffle the rest back into the play deck)`;
     case 'choose-set-aside-item':
