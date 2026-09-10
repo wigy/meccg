@@ -816,6 +816,11 @@
     "race": "man",
     "keyedTo": [
       {
+        "regionTypes": [
+          "coastal"
+        ]
+      },
+      {
         "siteInRegionNames": [
           "Elven Shores",
           "Eriadoran Coast",
