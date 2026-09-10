@@ -36,6 +36,14 @@ const ENTER = 'site/enter-or-pass';
  */
 const WOUNDED_VS_HAVEN = 'travel/wounded-company-shadow-hold-vs-haven';
 
+/**
+ * Fatty Bolger's company (carrying Treebeard) at Lórien, choosing between
+ * Rivendell (outside the regions Treebeard may travel to — discards him on
+ * arrival) and Glittering Caves (inside Gap of Isen, one of them), both
+ * printing the same two-card resource draw.
+ */
+const ALLY_DISCARDED_ON_ARRIVAL = 'travel/ally-discarded-on-arrival';
+
 /** The scenario as a module context. */
 function position(id: string = SCENARIO): { context: ModuleContext; actions: GameAction[] } {
   const scenario = loadScenario(id);
@@ -199,6 +207,43 @@ describe('entering a site', () => {
     const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
     const entering = travelModule.evaluate(enter, context)!;
     expect(entering.expectedTsd).toBeLessThan(stay.expectedTsd);
+  });
+});
+
+describe('a destination that discards a region-restricted ally on arrival', () => {
+  // Regression: a bug report (marric1976, game mtvdgdqo-cs50sc, stateSeq 1003)
+  // described H2 repeatedly sending a company carrying Treebeard to sites
+  // outside the regions he may travel to (Fangorn, Rohan, Gap of Isen, Wold &
+  // Foothills, Enedhwaith, Old Pûkel-land, Brown Lands, Anduin Vales,
+  // Redhorn Gate — tw-353's own text), discarding him for no reason: an
+  // equally good site inside those regions (Glittering Caves, printing the
+  // same two-card draw as the site H2 actually chose) was on offer instead.
+  // `destinationValue` priced what a destination drew and what it attacked
+  // with, but never what arriving there cost an ally already travelling with
+  // the company — so Rivendell (Rhudaur, outside the list) and Glittering
+  // Caves (Gap of Isen, inside it) scored as if Treebeard were not there at
+  // all.
+  function planTo(context: ModuleContext, actions: GameAction[], destinationSite: string): GameAction {
+    const found = actions.find(a => a.type === 'plan-movement'
+      && (a as unknown as { companyId?: string }).companyId === 'company-p2-2'
+      && (a as unknown as { destinationSite?: string }).destinationSite === destinationSite);
+    if (!found) throw new Error(`no plan-movement offered to ${destinationSite}`);
+    return found;
+  }
+
+  test('scores worse than an equally good site that does not discard the ally', () => {
+    const { context, actions } = position(ALLY_DISCARDED_ON_ARRIVAL);
+    const toRivendell = travelModule.evaluate(planTo(context, actions, 'p2-75'), context)!;
+    const toGlitteringCaves = travelModule.evaluate(planTo(context, actions, 'p2-66'), context)!;
+    expect(toRivendell.expectedTsd).toBeLessThan(toGlitteringCaves.expectedTsd);
+  });
+
+  test('names the discarded ally in the rationale', () => {
+    const { context, actions } = position(ALLY_DISCARDED_ON_ARRIVAL);
+    const toRivendell = travelModule.evaluate(planTo(context, actions, 'p2-75'), context)!;
+    const text = JSON.stringify(toRivendell.rationale);
+    expect(text).toContain('Treebeard');
+    expect(text).toContain('discarded on arrival');
   });
 });
 
