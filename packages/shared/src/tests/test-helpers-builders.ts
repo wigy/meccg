@@ -2422,13 +2422,14 @@ export function makeRiverConstraints(
   source: CardInstanceId,
   companyId: CompanyId,
   riverDefId: CardDefinitionId,
+  boundSiteDefinitionId?: CardDefinitionId,
 ): readonly [Omit<ActiveConstraint, 'id'>, Omit<ActiveConstraint, 'id'>] {
   const restriction: Omit<ActiveConstraint, 'id'> = {
     source,
     sourceDefinitionId: riverDefId,
     scope: { kind: 'company-site-phase', companyId },
     target: { kind: 'company', companyId },
-    kind: { type: 'site-phase-do-nothing' },
+    kind: { type: 'site-phase-do-nothing', ...(boundSiteDefinitionId ? { boundSiteDefinitionId } : {}) },
   };
   const grant: Omit<ActiveConstraint, 'id'> = {
     source,
@@ -2457,8 +2458,9 @@ export function addRiverConstraints(
   source: CardInstanceId,
   companyId: CompanyId,
   riverDefId: CardDefinitionId,
+  boundSiteDefinitionId?: CardDefinitionId,
 ): GameState {
-  const [restriction, grant] = makeRiverConstraints(source, companyId, riverDefId);
+  const [restriction, grant] = makeRiverConstraints(source, companyId, riverDefId, boundSiteDefinitionId);
   return addConstraint(addConstraint(state, restriction), grant);
 }
 
@@ -2471,15 +2473,21 @@ export function addRiverConstraints(
  * resource player's cardsInPlay because the River tests patch it there
  * as an artificial lookup target, not because the card is truly in that
  * player's ownership.
+ *
+ * `boundSiteDefinitionId`, when passed, ties the restriction to a specific
+ * site (as `play-hazard`'s `targetSiteDefinitionId` does in production) so
+ * tests can verify the restriction only fires when the company actually
+ * arrives at that site.
  */
 export function installRiverOnActiveCompany(
   state: GameState,
   riverDefId: CardDefinitionId,
   lookupPlayerIdx: 0 | 1 = 0,
+  boundSiteDefinitionId?: CardDefinitionId,
 ): { state: GameState; riverInstance: CardInstanceId } {
   const riverInstance = mint();
   const companyId = companyIdAt(state, RESOURCE_PLAYER);
-  const constrained = addRiverConstraints(state, riverInstance, companyId, riverDefId);
+  const constrained = addRiverConstraints(state, riverInstance, companyId, riverDefId, boundSiteDefinitionId);
   const card: CardInPlay = {
     instanceId: riverInstance,
     definitionId: riverDefId,

@@ -2299,6 +2299,23 @@ function applySitePhaseDoNothing(
   const sps = state.phaseState;
   if (sps.step !== 'enter-or-skip') return base;
 
+  // River (CRF 22 erratum: "playable on a site … a company that has moved to
+  // this site") binds the restriction to the site it was played on via
+  // `boundSiteDefinitionId`. If the company replanned its movement after
+  // River was played and arrived somewhere else, the restriction must not
+  // follow it — bug report on game mtveit7u-vu6eno: River played on Dol
+  // Guldur against a company that later retargeted to Minas Morgul still
+  // forced it to do nothing there.
+  const boundSiteDefId = constraint.kind.boundSiteDefinitionId;
+  if (boundSiteDefId) {
+    const player = activePlayerState(state);
+    const company = player ? companyById(player.companies, targetCompanyId) : undefined;
+    if (company?.currentSite?.definitionId !== boundSiteDefId) {
+      logDetail(`Constraint ${constraint.id as string} (site-phase-do-nothing): company ${targetCompanyId as string} arrived at a different site than bound (${boundSiteDefId as string}) — fizzles`);
+      return base;
+    }
+  }
+
   logDetail(`Constraint ${constraint.id as string} (site-phase-do-nothing): collapsing to pass for company ${targetCompanyId as string}`);
   return base.filter(ea => ea.action.type === 'pass');
 }
