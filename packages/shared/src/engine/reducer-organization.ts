@@ -1725,12 +1725,18 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   // check determines whether the store *succeeds*, so it has to be made
   // as if the item were still borne. Reuses `transferredItemId`, the same
   // already-moved-but-still-counted mechanism the transfer-item check uses.
+  //
+  // `allowSupport: true` because CoE 7.1.1 lets a resource player tap
+  // untapped company mates for +1 each on *any* corruption check that has
+  // been declared but not yet resolved — same as the transfer-item check
+  // just above, this is not limited to hazard-triggered checks.
   let stateAfterCheck = enqueueCorruptionCheck(stateAfterStore, {
     source: itemInstId,
     actor: action.player,
     scope: { kind: 'phase', phase: state.phaseState.phase },
     characterId: charId,
     reason: 'Store',
+    allowSupport: true,
     transferredItemId: itemInstId,
   });
 

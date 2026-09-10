@@ -27,7 +27,7 @@ import {
   dispatch, assertEveryInstanceReachable,
 } from '../../test-helpers.js';
 import type { StoreItemAction } from '../../../types/actions-organization.js';
-import type { CorruptionCheckAction } from '../../../types/actions-universal.js';
+import type { CorruptionCheckAction, SupportCorruptionCheckAction } from '../../../types/actions-universal.js';
 
 // Red Book of Westmarch (tw-313): storable at any haven for 1 MP.
 // Only used in this file.
@@ -285,6 +285,53 @@ describe('Rule 3.32 — Storing Cards', () => {
 
     expect(corruptionChecks.some(a =>
       a.action.characterId === bilboId && a.action.corruptionPoints === 3,
+    )).toBe(true);
+  });
+
+  test('CoE 7.1.1: an untapped company mate may tap in support of the store corruption check', () => {
+    // Bug report (game mtvpnspn-gi9lyh, seq 1310-1311): Troll-chief stores an
+    // item at Barad-dûr while an untapped company mate stands by. The engine
+    // enqueues a corruption check for the bearer (CoE 2.II.4.1) but never
+    // offered the company mate's tap-in-support option (CoE 7.1.1), which
+    // applies to any corruption check that has been declared but not yet
+    // resolved — not just transfers or hazard-triggered checks.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [SCROLL_OF_ISILDUR] }, GIMLI] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const gimliId = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const scrollInstId = state.players[RESOURCE_PLAYER].characters[bilboId].items[0].instanceId;
+
+    const storeAction = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item')
+      .find(a => (a.action as StoreItemAction).itemInstanceId === scrollInstId);
+    expect(storeAction).toBeDefined();
+
+    const afterStore = dispatch(state, storeAction!.action);
+
+    const supports = viableFor(afterStore, PLAYER_1)
+      .filter(a => a.action.type === 'support-corruption-check') as { action: SupportCorruptionCheckAction }[];
+
+    expect(supports.some(a =>
+      a.action.supportingCharacterId === gimliId &&
+      a.action.targetCharacterId === bilboId,
     )).toBe(true);
   });
 
