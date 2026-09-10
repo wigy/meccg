@@ -106,7 +106,7 @@ describe('Ren the Ringwraith (le-56)', () => {
     expect(ren.effectiveStats.prowess).toBe(6);         // 8 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
-  test('+2 prowess in Fell Rider mode (direct influence unchanged)', () => {
+  test('+2 prowess in Fell Rider mode, stacking on the mode card\'s own +2 prowess/-3 direct influence', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -118,8 +118,11 @@ describe('Ren the Ringwraith (le-56)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyIdAt(state, RESOURCE_PLAYER)));
     const ren = getCharacter(state, RESOURCE_PLAYER, REN);
-    expect(ren.effectiveStats.prowess).toBe(10);           // 8 + 2
-    expect(ren.effectiveStats.directInfluence).toBe(4);    // Heralded Lord penalty does not apply
+    // Fell Rider (le-183) itself swings +2 prowess / -3 direct influence on
+    // the Ringwraith; his own +2 prowess stacks on top of that (CoE Weekly
+    // Rulings #13, Query 18: "both modifiers are applied").
+    expect(ren.effectiveStats.prowess).toBe(12);           // 8 + 2 (his own) + 2 (mode card)
+    expect(ren.effectiveStats.directInfluence).toBe(1);    // 4 - 3 (mode card); Heralded Lord penalty does not apply
   });
 
   // ── The corruption-check ability: availability gates ─────────────────────

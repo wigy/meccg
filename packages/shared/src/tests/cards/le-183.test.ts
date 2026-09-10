@@ -29,7 +29,7 @@
  * | 3 | Ringwraith may move to a non-Darkhaven site               | IMPLEMENTED | `ringwraithHasModeCard` lifts the Darkhaven-only movement gate         |
  * | 4 | Cannot be duplicated on a given company                   | IMPLEMENTED | `duplication-limit` scope "company", max 1                            |
  * | 5 | Discard at a following organization phase at a Darkhaven   | IMPLEMENTED | `on-event: organization-phase-start` + `discard-self` when `atHaven`   |
- * | 6 | +2 prowess / -3 direct influence to your Ringwraith       | IMPLEMENTED | per-mode stats live on the named avatar card (gated on `bearer.ringwraithMode`); Fell Rider establishes the mode that activates them |
+ * | 6 | +2 prowess / -3 direct influence to your Ringwraith       | IMPLEMENTED | two `company-modifier` effects scoped to `bearer.race: "ringwraith"`, stacking with each named avatar's own per-mode stat-modifier (CoE Weekly Rulings #13, Query 18: "both modifiers are applied") |
  * | 7 | Discard all allies & Ringwraith followers; none may join  | IMPLEMENTED | `block-company-joins` play-flag: on-play purge + ally/follower gates   |
  * | 8 | Cannot be included in a Balrog's deck                     | IMPLEMENTED | `deck-validation.ts` BALROG_BANNED_CARD_IDS (rule 1.23)               |
  * | 9 | On company split, follows the Ringwraith (CoE 2.II.3.6.1) | IMPLEMENTED | `handleSplitCompany` reassigns mode cards bound to a "character's company" |
@@ -75,6 +75,9 @@ const THE_WITCH_KING = 'le-58' as CardDefinitionId;
 // le-53: Hoarmûrath — Ringwraith avatar with its own per-mode stats (+2 prowess
 // in Fell Rider mode, direct influence unchanged).
 const HOARMURATH = 'le-53' as CardDefinitionId;
+// le-51: Akhôrahil — Ringwraith avatar with its own per-mode stats (+1 prowess
+// in Fell Rider mode).
+const AKHORAHIL = 'le-51' as CardDefinitionId;
 // le-11 / le-39: Gorbag / Shagrat — non-avatar minion (orc) characters.
 const GORBAG = 'le-11' as CardDefinitionId;
 // le-30: Orc Brawler — mind 1, controllable as a follower by the Witch-king (DI 3).
@@ -312,13 +315,17 @@ describe('Fell Rider (le-183)', () => {
 
   // ─── Rule #6: stat change to your Ringwraith (delivered by the avatar) ────────
 
-  test('Fell Rider mode activates the Ringwraith avatar’s per-mode stat bonus', () => {
-    // The "+2 prowess / -3 direct influence to your Ringwraith" is delivered by
-    // each named Ringwraith's OWN per-mode stat-modifiers (gated on
-    // `bearer.ringwraithMode`); a named avatar's values supersede the generic
-    // mode bonus. Fell Rider's role is to establish the mode that activates
-    // them. Hoarmûrath (le-53) gains +2 prowess in Fell Rider mode (his direct
-    // influence is unchanged).
+  test('Fell Rider mode stacks the card’s own +2 prowess/-3 direct influence with the Ringwraith avatar’s per-mode stat bonus', () => {
+    // Per CoE Weekly Rulings/Clarifications #13, Query 18 ("Why is there a
+    // prowess modifier on the Fell Rider card? As all Ringwraiths have
+    // prowess-modifiers for this card this seems needless. Do both modifiers
+    // count?" — "Both modifiers are applied."), Fell Rider's own printed +2
+    // prowess/-3 direct influence to the Ringwraith stacks with each named
+    // Ringwraith's OWN per-mode stat-modifier (gated on
+    // `bearer.ringwraithMode`), rather than being superseded by it. Hoarmûrath
+    // (le-53) gains +2 prowess in Fell Rider mode from his own card, on top of
+    // the mode card's +2 prowess/-3 direct influence, netting +4 prowess and
+    // -3 direct influence overall.
     const base = recomputeDerived(buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -340,8 +347,46 @@ describe('Fell Rider (le-183)', () => {
     const withMode = recomputeDerived(addCardInPlay(base, RESOURCE_PLAYER, FELL_RIDER, companyId));
     const avatarAfter = getCharacter(withMode, RESOURCE_PLAYER, HOARMURATH);
 
-    expect(avatarAfter.effectiveStats.prowess - avatarBefore.effectiveStats.prowess).toBe(2);
-    expect(avatarAfter.effectiveStats.directInfluence).toBe(avatarBefore.effectiveStats.directInfluence);
+    expect(avatarAfter.effectiveStats.prowess - avatarBefore.effectiveStats.prowess).toBe(4);
+    expect(avatarAfter.effectiveStats.directInfluence - avatarBefore.effectiveStats.directInfluence).toBe(-3);
+  });
+
+  test('Fell Rider’s own prowess/direct-influence modifiers apply to the Ringwraith even without a per-mode avatar bonus, and not to non-Ringwraith company members', () => {
+    // Regression: game mtuihznt-inn090, seq 746 — Akhôrahil the Ringwraith
+    // (le-51) has his own "+1 prowess in Fell Rider mode" modifier, but Fell
+    // Rider's own "+2 prowess, -3 direct influence to your Ringwraith" was not
+    // implemented at all, so the engine only applied +1 prowess instead of the
+    // correct +3 (both modifiers stacking, per CoE Weekly Rulings #13 Query
+    // 18). Gorbag (a non-Ringwraith company member) should be untouched, since
+    // the card's text scopes the bonus to "your Ringwraith" only (unlike
+    // Heralded Lord's company-wide bonus).
+    const base = recomputeDerived(buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [AKHORAHIL, { defId: GORBAG, followerOf: 0 }] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    }));
+
+    const avatarBefore = getCharacter(base, RESOURCE_PLAYER, AKHORAHIL);
+    const gorbagBefore = getCharacter(base, RESOURCE_PLAYER, GORBAG);
+    const companyId = companyIdAt(base, RESOURCE_PLAYER);
+    const withMode = recomputeDerived(addCardInPlay(base, RESOURCE_PLAYER, FELL_RIDER, companyId));
+    const avatarAfter = getCharacter(withMode, RESOURCE_PLAYER, AKHORAHIL);
+    const gorbagAfter = getCharacter(withMode, RESOURCE_PLAYER, GORBAG);
+
+    expect(avatarAfter.effectiveStats.prowess - avatarBefore.effectiveStats.prowess).toBe(3);
+    expect(avatarAfter.effectiveStats.directInfluence - avatarBefore.effectiveStats.directInfluence).toBe(-3);
+    expect(gorbagAfter.effectiveStats.prowess).toBe(gorbagBefore.effectiveStats.prowess);
+    expect(gorbagAfter.effectiveStats.directInfluence).toBe(gorbagBefore.effectiveStats.directInfluence);
   });
 
   // ─── Rule #7: discard all allies & Ringwraith followers on play ───────────────

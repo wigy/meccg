@@ -110,7 +110,7 @@ describe('The Witch-king (le-58)', () => {
     expect(wk.effectiveStats.prowess).toBe(7); // 9 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
-  test('+1 prowess in Fell Rider mode (direct influence unchanged)', () => {
+  test('+1 prowess in Fell Rider mode, stacking on the mode card\'s own +2 prowess/-3 direct influence', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -122,8 +122,11 @@ describe('The Witch-king (le-58)', () => {
     });
     state = recomputeDerived(addCardInPlay(state, RESOURCE_PLAYER, FELL_RIDER, companyIdAt(state, RESOURCE_PLAYER)));
     const wk = getCharacter(state, RESOURCE_PLAYER, THE_WITCH_KING);
-    expect(wk.effectiveStats.prowess).toBe(10); // 9 + 1
-    expect(wk.effectiveStats.directInfluence).toBe(3); // Heralded Lord bonus does not apply
+    // Fell Rider (le-183) itself swings +2 prowess / -3 direct influence on
+    // the Ringwraith; his own +1 prowess stacks on top of that (CoE Weekly
+    // Rulings #13, Query 18: "both modifiers are applied").
+    expect(wk.effectiveStats.prowess).toBe(12); // 9 + 1 (his own) + 2 (mode card)
+    expect(wk.effectiveStats.directInfluence).toBe(0); // 3 - 3 (mode card); Heralded Lord bonus does not apply
   });
 
   // ─── Ringwraith followers: up to two, controlled with no influence ─────────

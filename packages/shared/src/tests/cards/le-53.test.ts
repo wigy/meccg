@@ -16,7 +16,7 @@
  * | # | Feature                                          | Status      | Notes                                                          |
  * |---|--------------------------------------------------|-------------|----------------------------------------------------------------|
  * | 1 | +1 direct influence in Heralded Lord mode        | IMPLEMENTED | stat-modifier gated on `bearer.ringwraithMode === heralded-lord`|
- * | 2 | +2 prowess in Fell Rider mode                    | IMPLEMENTED | stat-modifier gated on `bearer.ringwraithMode === fell-rider`   |
+ * | 2 | +2 prowess in Fell Rider mode, stacking with the mode card's own | IMPLEMENTED | stat-modifier gated on `bearer.ringwraithMode === fell-rider`   |
  * | 3 | +1 hand size at a Darkhaven                      | IMPLEMENTED | hand-size-modifier gated on `self.atDarkhaven`                  |
  * | 4 | Can use sorcery                                  | N/A         | No engine consumer: spell-casting is not gated by caster skill |
  * | 5 | Manifestation of Hoarmûrath of Dír (tw-44)       | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
@@ -126,7 +126,7 @@ describe('Hoarmûrath the Ringwraith (le-53)', () => {
     expect(hoarmurath.effectiveStats.prowess).toBe(6); // 8 - 2 (mode card); his Fell Rider bonus does not apply
   });
 
-  test('+2 prowess in Fell Rider mode (direct influence unchanged)', () => {
+  test('+2 prowess in Fell Rider mode, stacking on the mode card\'s own +2 prowess/-3 direct influence', () => {
     let state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -154,8 +154,11 @@ describe('Hoarmûrath the Ringwraith (le-53)', () => {
     state = recomputeDerived(state);
 
     const hoarmurath = getCharacter(state, RESOURCE_PLAYER, HOARMURATH);
-    expect(hoarmurath.effectiveStats.prowess).toBe(10); // 8 + 2
-    expect(hoarmurath.effectiveStats.directInfluence).toBe(3); // Heralded Lord bonus does not apply
+    // Fell Rider (le-183) itself swings +2 prowess / -3 direct influence on the
+    // Ringwraith; his own +2 prowess stacks on top of that (CoE Weekly Rulings
+    // #13, Query 18: "both modifiers are applied").
+    expect(hoarmurath.effectiveStats.prowess).toBe(12); // 8 + 2 (his own) + 2 (mode card)
+    expect(hoarmurath.effectiveStats.directInfluence).toBe(0); // 3 - 3 (mode card); Heralded Lord bonus does not apply
   });
 
   test('a mode card bound to a DIFFERENT company does not modify Hoarmûrath', () => {
