@@ -322,6 +322,23 @@ function findCancelAttackActions(
 }
 
 /**
+ * Find from-hand modify-attack actions for a given card instance (e.g.
+ * Morgul-knife tw-64, Dragon's Desolation tw-29, Forewarned tw-346): a hazard
+ * event played reactively during the pre-assignment window to boost or alter
+ * a live attack. In-play item/ally activations also use `modify-attack` but
+ * carry a `characterInstanceId` and are rendered by clicking the item/ally on
+ * the combat board instead, so they are excluded here.
+ */
+export function findModifyAttackActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'modify-attack', instanceId)
+    .filter(a => a.type === 'modify-attack' && !a.characterInstanceId);
+}
+
+/**
  * Find all play-strike-event actions for a given card instance.
  * Covers all strike-modifier modes: dodge, reroll, and prowess/body modifier.
  */
@@ -1155,6 +1172,8 @@ export function renderHand(
     const isInfluence = influenceActions.length > 0;
     const cancelAttackActions = findCancelAttackActions(cardInstanceId, viable);
     const isCancelAttack = cancelAttackActions.length > 0;
+    const modifyAttackActions = findModifyAttackActions(cardInstanceId, viable);
+    const isModifyAttack = modifyAttackActions.length > 0;
     const strikeEventActions = findStrikeEventActions(cardInstanceId, viable);
     const isStrikeEvent = strikeEventActions.length > 0;
     const ringAfterTestAction = findRingAfterTestAction(cardInstanceId, viable);
@@ -1167,7 +1186,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !discardAction && !onGuardAction && !isStartingCompanyEvent
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !discardAction && !onGuardAction && !isStartingCompanyEvent
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1528,6 +1547,14 @@ export function renderHand(
             reRenderFromCache(cancelAttackRenderCache);
           });
         }
+      }
+    } else if (isModifyAttack) {
+      // From-hand modify-attack (e.g. Morgul-knife tw-64): no extra target —
+      // clicking the card plays it directly on the live attack.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        const modifyAction = modifyAttackActions[0];
+        img.addEventListener('click', () => onAction(modifyAction));
       }
     } else if (isPermanentEventWithCharTarget) {
       // Permanent-event character targeting: two-step flow (click card, then click target character)
