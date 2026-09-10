@@ -527,7 +527,7 @@
 | le-179 | Deeper Shadow | — | 14 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
-| le-183 | Fell Rider | — | 17 | ☑ |
+| le-183 | Fell Rider | — | 18 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-185 | Forced March | — | 9 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |

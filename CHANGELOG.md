@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.151.0 — 2026-09-10
+
+Unclickable legal actions in the web client
+
+### Game Engine
+
+- Fell Rider (le-183) now applies its own printed +2 prowess / -3 direct influence to the Ringwraith on top of the avatar's individual mode modifier, per CoE ruling #13 Q18 ("both modifiers are applied"); Akhôrahil in Fell Rider mode is now +3 prowess instead of +1. Implemented as two `company-modifier` effects gated on the bearer being a Ringwraith, mirroring Heralded Lord (le-190); the nine Ringwraith avatar tests now assert the stacked totals (#3030)
+
+### Web Client
+
+- From-hand `modify-attack` hazard events (Morgul-knife, Dragon's Desolation, Forewarned Is Forearmed) are now clickable in the hand during an attack's pre-assignment window; the hand renderer had a click handler for every other combat hand action type but this one (#3029)
+- Mandatory `tap-character-by-effect` actions from site reveals (Tolfalas, Himring) now have a click target: clicking the character taps it directly, or offers a "Tap (Mandatory)" menu entry when combined with other actions. Previously the phase could not advance from the board (#3031)
+- The deferred "cancel a later attack for free" grant from Fifteen Birds in Five Firtrees and Darkness Wielded is now offered as a "Cancel Attack (Free)" button in the combat action stack; the action's card was already discarded, so it was reachable from neither the hand nor a scout click (#3032)
+- Hazard permanent-events attached to a company's current site (e.g. Siege) are now rendered through the common in-play card helper, so they can be selected as discard targets for The Cock Crows and get the other in-play click affordances (tap-alt, granted actions, hazard-limit tap) they were missing (#3033)
+
 ## 0.150.0 — 2026-09-09
 
 Combat cancel fixes and detainment trophies
