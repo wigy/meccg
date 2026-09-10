@@ -31,6 +31,7 @@ import { playPermanentEventActions } from './organization-events.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
 import { cardTargetsSetAside } from '../set-aside.js';
 import { grantedAction } from './granted-action-emit.js';
+import { factionInfluenceRollPreview } from './pending.js';
 
 /**
  * Returns the legal actions available to the given player while a chain
@@ -46,13 +47,19 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
     return [];
   }
 
+  const actions: EvaluatedAction[] = [];
+
+  // Preview the eventual faction-influence-roll while its chain entry is
+  // still unresolved, so both players see the current need/breakdown before
+  // priority to play an enhancer passes (see `factionInfluenceRollPreview`).
+  const influencePreview = factionInfluenceRollPreview(state);
+  if (influencePreview) actions.push(influencePreview);
+
   // Only the priority player may act
   if (playerId !== chain.priority) {
     logDetail(`Player ${playerId as string} does not have chain priority — no actions`);
-    return [];
+    return actions;
   }
-
-  const actions: EvaluatedAction[] = [];
 
   // Short-event response actions (e.g. Twilight canceling an environment)
   if (chain.restriction === 'normal') {

@@ -93,17 +93,25 @@ function renderCorruptionCheckBanner(
 }
 
 /**
- * Render a situation banner when a faction influence roll is pending.
- * Mirrors {@link renderCorruptionCheckBanner}: title line names the
- * influencing character and target faction; detail line shows the full
+ * Render a situation banner when a faction influence roll is pending, or
+ * previewed. Mirrors {@link renderCorruptionCheckBanner}: title line names
+ * the influencing character and target faction; detail line shows the full
  * roll breakdown (target number, DI, and any modifiers).
+ *
+ * Matches both the actual (`viable: true`) roll action once it becomes
+ * legal, and the `viable: false` preview
+ * (`factionInfluenceRollPreview` in `@meccg/shared`) shown earlier, while
+ * the influence-attempt chain entry is still unresolved — so the banner
+ * appears as soon as the faction is declared, not only after priority to
+ * play an enhancer has already passed, and recomputes live as enhancers
+ * resolve.
  */
 function renderFactionInfluenceRollBanner(
   board: HTMLElement,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
-  const fiEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'faction-influence-roll');
+  const fiEval = view.legalActions.find(ea => ea.action.type === 'faction-influence-roll');
   if (!fiEval || fiEval.action.type !== 'faction-influence-roll') return;
 
   const action = fiEval.action;
