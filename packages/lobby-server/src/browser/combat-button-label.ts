@@ -7,6 +7,26 @@
  */
 import type { GameAction } from '@meccg/shared';
 
+/** Combat action types that get rendered as buttons (not handled by card clicks). */
+const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll', 'allocate-cvcc-excess']);
+
+/**
+ * Whether a combat action belongs in the generic bottom-right button stack
+ * rather than a card/character click target.
+ *
+ * `cancel-attack` normally dispatches from a hand-card click (see
+ * `render-hand.ts`), but the `free-later-cancel` mode (Fifteen Birds in Five
+ * Firtrees dm-129, Darkness Wielded ba-55) has no card in hand to click — its
+ * `cardInstanceId` names the already-discarded card that granted the free
+ * cancellation, kept only for logging — and no scout/character to target
+ * either. Without a button, the grant was legal per the engine but had no
+ * click target anywhere in the UI (game mtukrmxa-asilf1, seq 880).
+ */
+export function isCombatActionButton(action: GameAction): boolean {
+  if (action.type === 'cancel-attack') return action.mode === 'free-later-cancel';
+  return BUTTON_ACTION_TYPES.has(action.type);
+}
+
 /**
  * Short label for a combat action button in the visual view.
  *
@@ -37,6 +57,7 @@ export function combatButtonLabel(action: GameAction, hasStayUntappedOption: boo
   if (action.type === 'agent-strike-roll') return 'Roll for Agent';
   if (action.type === 'body-check-roll') return 'Body Check';
   if (action.type === 'allocate-cvcc-excess') return 'Assign −1';
+  if (action.type === 'cancel-attack' && action.mode === 'free-later-cancel') return 'Cancel Attack (Free)';
   if (action.type === 'pass') return 'Pass';
   return action.type;
 }

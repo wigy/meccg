@@ -34,7 +34,7 @@ import type {
   CardEffect,
 } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, CardStatus, buildInstanceLookup, effectiveItemCorruptionPoints, isItemCard, isCharacterCard } from '@meccg/shared';
-import { combatButtonLabel } from './combat-button-label.js';
+import { combatButtonLabel, isCombatActionButton } from './combat-button-label.js';
 import { withDetainmentSuffix } from './combat-detainment-suffix.js';
 import { withIsolatedSuffix } from './combat-isolated-suffix.js';
 import { inPlayCancelAttackIds, groupCancelAttackActionsByScout } from './cancel-attack-targets.js';
@@ -1343,9 +1343,6 @@ function drawStrikeArrows(svg: SVGSVGElement, combat: CombatState, iAmDefender: 
 
 // ---- Combat action buttons (bottom-right, same area as pass button) ----
 
-/** Combat action types that get rendered as buttons (not handled by card clicks). */
-const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll', 'allocate-cvcc-excess']);
-
 /**
  * Render combat action buttons stacked above the pass button in the
  * bottom-right corner, reusing the existing enter-site-btn styling.
@@ -1363,7 +1360,7 @@ function renderCombatActionButtons(
   // Remove any previously rendered combat action buttons
   for (const old of document.querySelectorAll('.combat-visual-btn')) old.remove();
 
-  const buttonEvals = evaluated.filter(ea => BUTTON_ACTION_TYPES.has(ea.action.type)
+  const buttonEvals = evaluated.filter(ea => isCombatActionButton(ea.action)
     && (ea.viable === true
       || ('reason' in ea && typeof ea.reason === 'string' && ea.reason.startsWith('Tutorial'))));
   const passBtn = document.getElementById('pass-btn');
