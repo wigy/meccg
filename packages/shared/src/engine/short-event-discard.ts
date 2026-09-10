@@ -16,10 +16,11 @@
  */
 
 import type { CardDefinition } from '../types/cards.js';
+import { isCharacterCard } from '../types/cards.js';
 import type { CardInstanceId, GameState, GameAction, PlayerId } from '../index.js';
 import type { RegionType } from '../types/common.js';
-import { CardStatus } from '../types/common.js';
-import { getPlayerIndex } from '../state-utils.js';
+import { CardStatus, Race } from '../types/common.js';
+import { getPlayerIndex, isBalrogAvatarDef } from '../state-utils.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 import { addConstraint, enqueueCorruptionCheck } from './pending.js';
@@ -29,6 +30,33 @@ import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInsta
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { RegionTransformEffect, SiteUntapEffect } from '../types/effects.js';
+
+/**
+ * Whether tapping `characterId` as the cost-payer for one of this module's
+ * sage/skill effects carries no follow-up corruption check under CoE rule
+ * 7.4: "Allies, Ringwraiths, and Balrogs are not affected by corruption and
+ * never make corruption checks, but may still fulfill active conditions of
+ * effects that require a corruption check upon resolution." The tap cost
+ * (the active condition) is always paid regardless; this only gates whether
+ * {@link enqueueCorruptionCheck} should be called afterward.
+ *
+ * @param state - Game state to resolve the character/ally against.
+ * @param playerIndex - Index of the player who tapped the cost-payer.
+ * @param characterId - Instance id of the tapped character or ally.
+ */
+function isCorruptionCheckExempt(
+  state: GameState,
+  playerIndex: number,
+  characterId: CardInstanceId,
+): boolean {
+  const player = state.players[playerIndex];
+  const char = player.characters[characterId];
+  if (!char) {
+    return findAttachment(player, 'allies', characterId) != null;
+  }
+  const def = defById(state, char.definitionId);
+  return (isCharacterCard(def) && def.race === Race.Ringwraith) || isBalrogAvatarDef(def);
+}
 
 /**
  * Re-resolves a live attack's `all-attacks` strikes/prowess bonuses after a
@@ -102,8 +130,8 @@ function recomputeLiveAttackAfterDiscard(before: GameState, after: GameState): G
  * @param actor - Player who declared the short event.
  * @param discardTargetInstanceId - The in-play card chosen at declaration time.
  * @param costTapCharacterId - The character tapped as the play cost, if any.
- *   Per rule 7.4 an ally that satisfied the skill requirement makes no
- *   corruption check, so the check is skipped in that case.
+ *   Per rule 7.4 an ally, Ringwraith, or Balrog avatar that satisfied the
+ *   skill requirement makes no corruption check, so the check is skipped.
  * @returns The updated state, or an error when the target is no longer in play.
  */
 export function applyShortEventDiscardInPlay(
@@ -180,14 +208,13 @@ export function applyShortEventDiscardInPlay(
   newState = recomputeLiveAttackAfterDiscard(state, newState);
 
   if (discardInPlay.corruptionCheck && costTapCharacterId) {
-    // Rule 7.4: allies never make corruption checks, but may still fulfill
-    // the skill-only active condition that let them tap (e.g. a sage ally
-    // tapping for Marvels Told). When the sage is an ally the discard is
-    // still implemented but the corruption check is skipped entirely.
-    const sageIsAlly = !newState.players[playerIndex].characters[costTapCharacterId]
-      && findAttachment(newState.players[playerIndex], 'allies', costTapCharacterId) != null;
-    if (sageIsAlly) {
-      logDetail(`${def.name}: sage ${costTapCharacterId as string} is an ally — corruption check skipped (rule 7.4)`);
+    // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
+    // corruption checks, but may still fulfill the skill-only active
+    // condition that let them tap (e.g. a sage ally, or a Ringwraith sage
+    // like Akhôrahil, tapping for Voices of Malice). The discard is still
+    // implemented but the corruption check is skipped entirely.
+    if (isCorruptionCheckExempt(newState, playerIndex, costTapCharacterId)) {
+      logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
     } else {
       newState = enqueueCorruptionCheck(newState, {
         source: sourceInstanceId,
@@ -299,8 +326,8 @@ export function applyShortEventDiscardAllInPlay(
  * @param regionName - The named region chosen at declaration time.
  * @param newRegionType - The type the region becomes.
  * @param costTapCharacterId - The character (or ally) tapped as the play cost, if any.
- *   Per rule 7.4 an ally that satisfied the skill requirement makes no
- *   corruption check, so the check is skipped in that case.
+ *   Per rule 7.4 an ally, Ringwraith, or Balrog avatar that satisfied the
+ *   skill requirement makes no corruption check, so the check is skipped.
  */
 export function applyShortEventRegionTransform(
   state: GameState,
@@ -334,14 +361,13 @@ export function applyShortEventRegionTransform(
   });
 
   if (costTapCharacterId) {
-    // Rule 7.4: allies never make corruption checks, but may still fulfill
-    // the skill-only active condition that let them tap (e.g. a sage ally
-    // tapping for Marvels Told). When the sage is an ally the transform is
-    // still implemented but the corruption check is skipped entirely.
-    const sageIsAlly = !newState.players[playerIndex].characters[costTapCharacterId]
-      && findAttachment(newState.players[playerIndex], 'allies', costTapCharacterId) != null;
-    if (sageIsAlly) {
-      logDetail(`${def.name}: sage ${costTapCharacterId as string} is an ally — corruption check skipped (rule 7.4)`);
+    // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
+    // corruption checks, but may still fulfill the skill-only active
+    // condition that let them tap (e.g. a sage ally tapping for Marvels
+    // Told). The transform is still implemented but the corruption check
+    // is skipped entirely.
+    if (isCorruptionCheckExempt(newState, playerIndex, costTapCharacterId)) {
+      logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
     } else {
       newState = enqueueCorruptionCheck(newState, {
         source: sourceInstanceId,
@@ -376,8 +402,8 @@ export function applyShortEventRegionTransform(
  * @param actor - Player who declared the short event.
  * @param siteInstanceId - The site instance chosen at declaration time to untap.
  * @param costTapCharacterId - The character (or ally) tapped as the play cost, if any.
- *   Per rule 7.4 an ally that satisfied the skill requirement makes no
- *   corruption check, so the check is skipped in that case.
+ *   Per rule 7.4 an ally, Ringwraith, or Balrog avatar that satisfied the
+ *   skill requirement makes no corruption check, so the check is skipped.
  */
 export function applyShortEventSiteUntap(
   state: GameState,
@@ -411,13 +437,12 @@ export function applyShortEventSiteUntap(
   let newState: GameState = { ...state, players };
 
   if (costTapCharacterId) {
-    // Rule 7.4: allies never make corruption checks, but may still fulfill
-    // the skill-only active condition that let them tap (e.g. a sage ally
-    // tapping for Marvels Told).
-    const sageIsAlly = !newState.players[playerIndex].characters[costTapCharacterId]
-      && findAttachment(newState.players[playerIndex], 'allies', costTapCharacterId) != null;
-    if (sageIsAlly) {
-      logDetail(`${def.name}: sage ${costTapCharacterId as string} is an ally — corruption check skipped (rule 7.4)`);
+    // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
+    // corruption checks, but may still fulfill the skill-only active
+    // condition that let them tap (e.g. a sage ally tapping for Marvels
+    // Told).
+    if (isCorruptionCheckExempt(newState, playerIndex, costTapCharacterId)) {
+      logDetail(`${def.name}: sage ${costTapCharacterId as string} is exempt from corruption checks (rule 7.4)`);
     } else {
       newState = enqueueCorruptionCheck(newState, {
         source: sourceInstanceId,

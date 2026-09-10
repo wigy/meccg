@@ -50,6 +50,7 @@ const WAKE_OF_WAR = 'tw-108' as CardDefinitionId; // hazard long-event: +1 strik
 const LAYOS = 'le-19' as CardDefinitionId;        // sage + diplomat, man, mind 5
 const CIRYAHER = 'le-6' as CardDefinitionId;      // scout + sage, dúnadan, mind 5
 const OSTISEN = 'le-36' as CardDefinitionId;      // scout only (no sage), man, mind 2
+const AKHORAHIL = 'le-51' as CardDefinitionId;    // Ringwraith avatar with the sage skill
 
 const DOL_GULDUR = 'le-367' as CardDefinitionId;  // minion haven
 const MINAS_MORGUL = 'le-390' as CardDefinitionId; // minion haven
@@ -258,6 +259,46 @@ describe('Voices of Malice (le-250)', () => {
       expect(resolution.kind.reason).toBe('Voices of Malice');
     }
     expect(resolution.actor).toBe(PLAYER_1);
+  });
+
+  test('Ringwraith sage makes no corruption check (rule 7.4, bug 9b2945a07d26f1c1)', () => {
+    // Regression: game mtveit7u-vu6eno, seq 1111. Akhôrahil (le-51), a
+    // Ringwraith with the sage skill, tapped to discard a hazard event with
+    // Voices of Malice — and the engine enqueued a corruption check against
+    // him. CoE 7.4: "Allies, Ringwraiths, and Balrogs are not affected by
+    // corruption and never make corruption checks, but may still fulfill
+    // active conditions of effects that require a corruption check upon
+    // resolution." The discard still happens; no corruption-check
+    // resolution should be queued.
+    const foolishWordsInPlay: CardInPlay = { instanceId: mint(), definitionId: FOOLISH_WORDS, status: CardStatus.Untapped };
+
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: DOL_GULDUR, characters: [AKHORAHIL] }], hand: [VOICES_OF_MALICE], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [MORIA_MINION], cardsInPlay: [foolishWordsInPlay] },
+      ],
+    });
+
+    const voicesId = handCardId(state, RESOURCE_PLAYER);
+    const foolishWordsId = state.players[1].cardsInPlay[0].instanceId;
+    const akhorahilId = Object.keys(state.players[0].characters)[0] as unknown as CardInstanceId;
+
+    const next = resolveChain(dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: voicesId,
+      targetScoutInstanceId: akhorahilId,
+      discardTargetInstanceId: foolishWordsId,
+    }));
+
+    // The discard still happens.
+    expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(foolishWordsId);
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(foolishWordsId);
+
+    // But no corruption check is queued for the Ringwraith sage.
+    expect(next.pendingResolutions).toHaveLength(0);
   });
 
   test('opponent has no actions while the sage resolves the corruption check', () => {
