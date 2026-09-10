@@ -29,6 +29,7 @@ import type {
   CorruptionCheckAction,
   SupportCorruptionCheckAction,
   RestoreCharacterByEffectAction,
+  TapCharacterByEffectAction,
   ActivateGrantedAction,
   OpponentInfluenceAttemptAction,
   InfluenceAttemptAction,
@@ -338,6 +339,8 @@ export function renderCompanyBlock(
     supportCorruptionCheckActions?: Map<string, SupportCorruptionCheckAction>;
     /** Map from character instance ID to restore-character-by-effect action (Hall of Fire). */
     restoreCharacterActions?: Map<string, RestoreCharacterByEffectAction>;
+    /** Map from character instance ID to tap-character-by-effect action (Tolfalas, Himring, Stench of Mordor). */
+    tapCharacterByEffectActions?: Map<string, TapCharacterByEffectAction>;
     /** Map from character instance ID to declare-burglary actions (Burglary, td-103). */
     declareBurglaryActions?: Map<string, DeclareBurglaryAction[]>;
     /** Map from source card instance ID to activate-granted-action actions. */
@@ -934,6 +937,7 @@ export function renderCompanyBlock(
     const ccAction = options?.corruptionCheckActions?.get(charInstId as string);
     const ccSupportAction = options?.supportCorruptionCheckActions?.get(charInstId as string);
     const restoreAction = options?.restoreCharacterActions?.get(charInstId as string);
+    const tapByEffectAction = options?.tapCharacterByEffectActions?.get(charInstId as string);
     const burglaryActionsForChar = options?.declareBurglaryActions?.get(charInstId as string) ?? [];
     const hasBurglary = burglaryActionsForChar.length > 0;
     const bearerAction = options?.selectCardBearerActions?.get(charInstId as string);
@@ -952,7 +956,7 @@ export function renderCompanyBlock(
     const hasOppInfluence = oppInfluenceActions.length > 0;
 
     // Count how many action types are available
-    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, hasBurglary, hasOppInfluence, bearerAction, hasGrantedActions, discardAction].filter(Boolean).length;
+    const actionTypes = [influenceResult, companyResult, mergeActionsForChar, hasSideboard, ccAction, ccSupportAction, restoreAction, tapByEffectAction, hasBurglary, hasOppInfluence, bearerAction, hasGrantedActions, discardAction].filter(Boolean).length;
 
     if (actionTypes === 0) return undefined;
 
@@ -1070,6 +1074,18 @@ export function renderCompanyBlock(
         handler: (e) => {
           e.stopPropagation();
           options!.onAction!(restoreAction);
+        },
+      };
+    }
+
+    // Single type: tap-character-by-effect (Tolfalas, Himring, Stench of
+    // Mordor) — tap to satisfy the mandatory reveal-tap
+    if (tapByEffectAction) {
+      return {
+        cls: 'company-card--influence-source',
+        handler: (e) => {
+          e.stopPropagation();
+          options!.onAction!(tapByEffectAction);
         },
       };
     }
