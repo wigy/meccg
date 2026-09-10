@@ -10,7 +10,7 @@
 import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard, PlayHeroResourceAction, ActivateGrantedAction } from '@meccg/shared';
 import { cardImageProxyPath, isCardHidden } from '@meccg/shared';
 import { buildCardAttributes } from './render-card-preview.js';
-import { setSelectedAllyForPlay, setTargetingInstruction } from './render-selection-state.js';
+import { setSelectedAllyForPlay, setTargetingInstruction, getTargetingInstruction } from './render-selection-state.js';
 import { reRenderAllyPlaySelection } from './render-hand.js';
 import { getGrantedActions } from './company-actions.js';
 import { showInPlayGrantedActionMenu } from './company-modals.js';
@@ -705,10 +705,20 @@ export function openMovementViewer(
 }
 
 /**
+ * Targeting instruction shown while {@link prepareFetchFromPile}'s sub-flow is
+ * active. Exported so {@link clearSelectionState} can check it's still the
+ * current instruction before clearing — mirroring the Hidden Haven / arrange-
+ * deck-top hint lifecycle in game-connection.ts — without clobbering some
+ * other flow's hint that happened to be set afterwards.
+ */
+export const FETCH_FROM_PILE_HINT = 'Click a highlighted pile to take a card, or Pass to decline';
+
+/**
  * Prepare the fetch-from-pile sub-flow UI.
  *
  * Opens the deck box, highlights the sideboard, discard, and play deck pile
- * cells (whichever the effect's sources include), and wires up the pile
+ * cells (whichever the effect's sources include), sets the
+ * {@link FETCH_FROM_PILE_HINT} targeting instruction, and wires up the pile
  * browser so clicking an eligible card sends the corresponding
  * fetch-from-pile action.
  */
@@ -754,6 +764,14 @@ export function prepareFetchFromPile(
       && ea.action.cardInstanceId === card.instanceId,
   );
   siteSelectionCallback = onAction;
+
+  // The pulsing pile highlight above is the only visual cue this sub-flow
+  // exists — unlike the Hidden Haven pairing and arrange-deck-top sub-flows,
+  // nothing else on screen says a pick is available. Reported: "I dont get
+  // in a state where I can draw a card" after playing Akhôrahil Unleashed
+  // (le-162) — the fetch options were legal and the piles did light up, but
+  // with no explanatory text the player didn't notice and just passed.
+  setTargetingInstruction(FETCH_FROM_PILE_HINT);
 }
 
 /**
@@ -870,6 +888,12 @@ export function clearSelectionState(): void {
   pileSubFlowActive = false;
   revealRemoveDiscardFilterActive = false;
   arrangeDeckTopBrowserOpened = false;
+  // Only clear the fetch-from-pile hint, never some other flow's hint that
+  // may have been set since (e.g. the Hidden Haven / arrange-deck-top hints
+  // manage their own lifecycle in game-connection.ts).
+  if (getTargetingInstruction() === FETCH_FROM_PILE_HINT) {
+    setTargetingInstruction(null);
+  }
   const pile = document.getElementById('self-site-pile');
   if (pile) pile.classList.remove('site-pile--active');
   document.getElementById('self-sideboard-pile')?.classList.remove('pile--fetch-active');
