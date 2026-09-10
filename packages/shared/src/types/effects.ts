@@ -2786,7 +2786,7 @@ export interface AddConstraintAction extends TriggeredActionBase {
    */
   readonly prowessSubstitution?: { readonly max: number };
   /** Which stat a company/character-stat-modifier applies to. */
-  readonly stat?: 'prowess' | 'body' | 'direct-influence';
+  readonly stat?: 'prowess' | 'body' | 'direct-influence' | 'mind';
   /**
    * Optional ceiling applied to the running stat total for a
    * `company-stat-modifier` payload (mirrors a JSON `stat-modifier`'s `max`

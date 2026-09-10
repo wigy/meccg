@@ -1777,7 +1777,7 @@ in a company), but targets exactly one character. Synthesised by
 equivalent `stat-modifier` effect so caps and overrides work exactly
 as for item bonuses.
 
-- `stat` — the stat to boost: `"prowess"`, `"body"`, or `"direct-influence"`.
+- `stat` — the stat to boost: `"prowess"`, `"body"`, `"direct-influence"`, or `"mind"`.
 - `value` — integer bonus (positive to increase).
 - `characterId` — the instance ID of the target character.
 - `requiresCardInPlay` *(optional)* — name of a card that must remain in play
@@ -1791,9 +1791,24 @@ Emitted via `on-event: self-enters-play` → `add-constraint` with
 target character. The target is read from `action.targetCharacterId`.
 Swept at turn-end by the existing `scope: { kind: 'turn' }` sweep.
 
+Also emittable from a **grant-action** (a tap/discard-triggered activated
+ability, not just `on-event: self-enters-play`): `grant-action-apply.ts`'s
+`buildPayloadConstraintKind` builds the same constraint kind with
+`characterId` taken from the activating character (`ctx.action.characterId`)
+when the grant-action's `apply` is `{ "type": "add-constraint", "constraint":
+"character-stat-modifier", "stat": ..., "value": ..., "scope": "turn",
+"target": "bearer" }` — `target: "bearer"` resolves to the activating
+character himself. Used by *Necklace of Silver and Pearls* (td-141): "Discard
+this card to give +3 direct influence and +5 mind to bearer until the end of
+the turn" — a `sequence` of two such `add-constraint` applies (see the
+`control-cost-override` note under §28 for how its "does not use any
+controlling influence" clause is modeled).
+
 Used by: *Vilya* (+4 prowess / +2 body / +6 direct-influence on Elrond);
 *Heart of Dark Fire* (ba-63) — +5 direct influence on The Balrog this turn,
-gated `requiresCardInPlay: "Strangling Coils"`.
+gated `requiresCardInPlay: "Strangling Coils"`; *Necklace of Silver and
+Pearls* (td-141) — +3 direct-influence / +5 mind on the bearer, via a
+discard-triggered grant-action rather than `on-event: self-enters-play`.
 
 ```json
 { "type": "on-event", "event": "self-enters-play",
@@ -9968,6 +9983,25 @@ and `reducer-movement-hazard.ts` (opponent/agent influence-away threshold).
 > Note: the separate "this character cannot be controlled by direct influence at
 > all" rule (Rebel-talk le-132) is the `no-direct-influence` **play-flag**, not
 > this effect — see the play-flag list.
+
+**`control-cost-override` active constraint — the same cost-freeze, but for a
+card that has already left play.** `control-restriction` above only works
+while its carrying card stays attached; a discard-triggered grant-action
+cannot use it since the source card is gone the instant the ability
+resolves. `{ "type": "add-constraint", "constraint": "control-cost-override",
+"scope": "turn", "target": "bearer" }` installs a turn-scoped `ActiveConstraint`
+instead, carrying `{ characterId, cost }` — `cost` is not read from JSON but
+resolved by `buildPayloadConstraintKind` at activation time as the bearer's
+own printed `mind`. `control-cost.ts`'s `getControlRestrictions` treats a
+matching `control-cost-override` constraint exactly like an attached
+`control-restriction` with that `cost` and no `sources`, so it stacks with
+any attached restriction via the same CRF-22 "use the lower number" rule.
+Used by *Necklace of Silver and Pearls* (td-141): "The bearer's additional
+mind does not use any controlling influence" — the card's own `character-
+stat-modifier` `"mind"` bonus (§6a) would otherwise inflate `effectiveStats.mind`,
+which `controlCostOf` normally reads as the influence-to-control cost; this
+constraint freezes that cost at the bearer's un-boosted mind for the same
+turn-scoped `sequence`.
 
 ### 29. `general-influence-exempt` / `own-mp-not-counted`
 

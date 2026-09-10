@@ -335,7 +335,7 @@ function runGrantApply(
     // payload-carrying kinds — currently only `company-stat-modifier`
     // used by discard-to-boost items (Orc-draughts et al.) — read their
     // fields off the apply clause.
-    let kind = buildPayloadConstraintKind(constraintKind, apply)
+    let kind = buildPayloadConstraintKind(constraintKind, apply, { state, characterId: ctx.action.characterId })
       ?? constraintKindWithoutPayload(constraintKind);
     // Site-bound constraint kinds resolve their `siteDefinitionId` from the
     // bearer's company's current site (e.g. Blasting Fire wh-51, discarded
@@ -1300,11 +1300,40 @@ function constraintKindWithoutPayload(
 function buildPayloadConstraintKind(
   name: string,
   apply: import('../types/effects.js').TriggeredAction,
+  ctx?: { readonly state: GameState; readonly characterId: CardInstanceId },
 ): import('../types/pending.js').ActiveConstraint['kind'] | null {
   // These payload kinds are only built for add-constraint applies; narrowing
   // here makes the Legacy payload fields (stat/value/siteType/subtype/check)
   // available without a cast.
   if (apply.type !== 'add-constraint') return null;
+  if (name === 'character-stat-modifier') {
+    // Necklace of Silver and Pearls (td-141): "+3 direct influence and +5
+    // mind to bearer until the end of the turn" — a single named character
+    // gets a turn-scoped bonus, mirroring the `on-event: self-enters-play`
+    // path (§6a) but sourced from a discard-triggered grant-action instead.
+    if (apply.stat !== 'prowess' && apply.stat !== 'body' && apply.stat !== 'direct-influence' && apply.stat !== 'mind') return null;
+    if (typeof apply.value !== 'number') return null;
+    if (!ctx) return null;
+    return {
+      type: 'character-stat-modifier',
+      stat: apply.stat,
+      value: apply.value,
+      characterId: ctx.characterId,
+      ...(typeof apply.max === 'number' ? { max: apply.max } : {}),
+    };
+  }
+  if (name === 'control-cost-override') {
+    // Necklace of Silver and Pearls (td-141): "The bearer's additional mind
+    // does not use any controlling influence" — freezes the influence-to-
+    // control cost at the bearer's own printed mind, so the card's own +5
+    // mind bonus (added alongside this in the same `sequence`) never
+    // inflates it. No JSON value is read: the cost is always the bearer's
+    // base mind, resolved here at activation time.
+    if (!ctx) return null;
+    const charDef = resolveDef(ctx.state, ctx.characterId) as { mind?: number | null } | undefined;
+    if (typeof charDef?.mind !== 'number') return null;
+    return { type: 'control-cost-override', characterId: ctx.characterId, cost: charDef.mind };
+  }
   if (name === 'company-stat-modifier') {
     if (apply.stat !== 'prowess' && apply.stat !== 'body') return null;
     if (typeof apply.value !== 'number') return null;

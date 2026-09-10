@@ -2021,6 +2021,10 @@ function applyOneConstraint(
       // Consumed directly by the effects resolver via
       // `collectCharacterEffects` — no legal-action filtering needed.
       return base;
+    case 'control-cost-override':
+      // Consumed directly by `controlCostOf` (`control-cost.ts`) — no
+      // legal-action filtering needed here.
+      return base;
     case 'character-creature-body-modifier':
       // Consumed directly by `handleBodyCheckRoll`'s creature body-check
       // branch — no legal-action filtering needed.
