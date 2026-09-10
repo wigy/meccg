@@ -251,6 +251,50 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Leaf Brooch (dm-171) discard-substitute-offer: a non-special item about
+    // to be forced-discarded may be saved by discarding a substitute item
+    // instead. Like transfer-returned-item above, declining is not a
+    // privileged default — the substitute is a company asset the player must
+    // actively choose to spend — so it is deliberately absent from the
+    // pass-like whitelist. Render one "Save" button per offered item plus a
+    // decline button rather than falling through to the "no pass action"
+    // branch below, which would hide the panel entirely while these actions
+    // are viable, leaving no visible way to continue after playing a tested
+    // gold ring (e.g. The One Ring). Bug report 11322040de8c98af (game
+    // mtw1m0pg-7lp8hj, seq 787): "I cant go on after playing The one ring."
+    const discardSubstituteEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'use-discard-substitute');
+    if (discardSubstituteEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      let declineItemName: string | undefined;
+      let declineAmbiguous = false;
+      for (const ea of discardSubstituteEvals) {
+        const useAction = ea.action;
+        if (useAction.type !== 'use-discard-substitute') continue;
+        if (!useAction.itemInstanceId) continue;
+        const itemDefId = appState.lastInstanceLookup(useAction.itemInstanceId);
+        const itemName = itemDefId ? cardPool[itemDefId as string]?.name : undefined;
+        if (declineItemName === undefined) declineItemName = itemName;
+        else if (declineItemName !== itemName) declineAmbiguous = true;
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'enter-site-btn discard-substitute-choice-btn';
+        saveBtn.textContent = `Save ${itemName ?? useAction.itemInstanceId as string}`;
+        saveBtn.onclick = () => onAction(useAction);
+        inPhaseTier?.appendChild(saveBtn);
+      }
+      const declineAction = discardSubstituteEvals
+        .map(ea => ea.action)
+        .find((a): a is Extract<GameAction, { type: 'use-discard-substitute' }> => a.type === 'use-discard-substitute' && !a.itemInstanceId);
+      if (declineAction) {
+        const declineBtn = document.createElement('button');
+        declineBtn.className = 'enter-site-btn discard-substitute-choice-btn';
+        declineBtn.textContent = !declineAmbiguous && declineItemName ? `Discard ${declineItemName}` : 'Decline Substitute';
+        declineBtn.onclick = () => onAction(declineAction);
+        inPhaseTier?.appendChild(declineBtn);
+      }
+      return;
+    }
+
     // Tutorial enter-or-skip: the script demands entering the site, so the
     // gate demoted the normal Skip (pass) to non-viable — which would hide
     // the whole button pair. Show the familiar Enter/Skip controls anyway:
