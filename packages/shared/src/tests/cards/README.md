@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1317 | 1317 | 0 | 100.0% |
+| 1319 | 1319 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 100 | 100 | 100.0% |
 | DM | 138 | 138 | 100.0% |
 | LE | 317 | 317 | 100.0% |
-| TD | 127 | 127 | 100.0% |
+| TD | 129 | 129 | 100.0% |
 | TW | 423 | 423 | 100.0% |
 | WH | 96 | 96 | 100.0% |
 
@@ -529,7 +529,7 @@
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 18 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
-| le-185 | Forced March | — | 9 | ☑ |
+| le-185 | Forced March | — | 10 | ☑ |
 | le-188 | Gifts as Given of Old | — | 8 | ☑ |
 | le-190 | Heralded Lord | — | 10 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
@@ -563,7 +563,7 @@
 | le-244 | Threats | — | 9 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
 | le-247 | Under His Blow | — | 5 | ☑ |
-| le-250 | Voices of Malice | — | 21 | ☑ |
+| le-250 | Voices of Malice | — | 22 | ☑ |
 | le-252 | We Have Come to Kill | — | 17 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
 | le-254 | Where There’s a Whip | — | 11 | ☑ |
@@ -769,6 +769,7 @@
 | td-108 | Dragon-lore | — | 15 | ☑ |
 | td-109 | Dwarven Hoard | — | 11 | ☑ |
 | td-111 | Elf-path | — | 8 | ☑ |
+| td-112 | Emerald of Doriath | — | 9 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
 | td-116 | Flatter a Foe | — | 23 | ☑ |
@@ -789,6 +790,7 @@
 | td-138 | Men of Dale | — | 3 | ☑ |
 | td-139 | Men of Lake-town | — | 3 | ☑ |
 | td-140 | More Sense than You | — | 9 | ☑ |
+| td-141 | Necklace of Silver and Pearls | — | 12 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 12 | ☑ |
 | td-144 | Pledge of Conduct | — | 9 | ☑ |
@@ -845,7 +847,7 @@
 | tw-021 | — | — | 15 | ☑ |
 | tw-22 | Clouds | — | 7 | ☑ |
 | tw-23 | Corpse-candle | — | 13 | ☑ |
-| tw-024 | — | — | 2 | ☑ |
+| tw-024 | — | — | 4 | ☑ |
 | tw-25 | Crebain | — | 13 | ☑ |
 | tw-26 | Daelomin | — | 7 | ☑ |
 | tw-27 | Despair of the Heart | — | 9 | ☑ |
@@ -905,7 +907,7 @@
 | tw-81 | Plague of Wights | — | 7 | ☑ |
 | tw-82 | Pûkel-men | — | 6 | ☑ |
 | tw-83 | Ren the Unclean | — | 11 | ☑ |
-| tw-084 | — | — | 13 | ☑ |
+| tw-084 | — | — | 15 | ☑ |
 | tw-85 | Rogrog | — | 6 | ☑ |
 | tw-86 | Shelob | — | 11 | ☑ |
 | tw-87 | Siege | — | 16 | ☑ |

@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.152.0 — 2026-09-11
+
+River site-binding fixes and Doriath treasures
+
+### Game Engine
+
+- River (tw-84/le-134) now binds its "do nothing" restriction to the targeted site rather than the company that was hazarded: `site-phase-do-nothing` constraints carry a `boundSiteDefinitionId`, so a company that replans and arrives elsewhere is no longer restricted there (#3039)
+- River's restriction no longer carries past a chained extra movement/hazard phase: `advanceAfterCompanyMH` now sweeps a company's `company-site-phase`-scoped constraints whenever it routes into another M/H phase (Forced March, Shadowfax, Gangways over the Fire and the like) instead of finalizing into the site phase they were meant for (#3040)
+- A company dissolved by losing its last character now drops any active constraints targeting its ID, so a later split that recycles the same company ID no longer inherits a stale River restriction or cancel grant (#3038)
+- Ringwraiths and Balrog avatars tapped as the sage for Voices of Malice and similar short-events no longer make corruption checks, per CoE rule 7.4; the three ally special-cases were unified into one `isCorruptionCheckExempt` helper (#3037)
+- Storing an item at a haven now allows untapped company mates to tap in support of the bearer's corruption check (CoE 7.1.1), matching the existing transfer-item behaviour (#3042)
+- Corsairs of Umbar (tw-24) can now be played against a stationary company at a site in one of its erratum coastal regions; the `keyedTo` entry now names the sites' regions in addition to the travelled coastal region type (#3041)
+- Certified Necklace of Silver and Pearls (td-141): discarding it grants +3 direct influence and +5 mind until end of turn, the `character-stat-modifier` constraint gains a `mind` stat, and a new `control-cost-override` constraint freezes the bearer's influence-to-control cost at printed mind (#3047)
+- Certified Emerald of Doriath (td-112): +1 direct influence against Elves and Elf factions, and +2 general influence when borne by a Wizard (#3046)
+
+### Web Client
+
+- Clicking a hand card that is both playable and reshufflable into the play deck (Sudden Call) now opens a choice menu instead of silently playing it (#3034)
+- A targeting hint is shown when a fetch-from-pile sub-flow starts (Akhôrahil Unleashed and similar), so the optional search is no longer invisible to a player who misses the pile glow (#3035)
+- The faction influence-roll need and breakdown banner is now shown while the influence attempt is still open in the chain, before both players pass priority, so enhancers can still be played (#3043)
+- The Worthy Hills' untap-site granted action (and other site-sourced granted actions) now has a click target on the site card (#3044)
+- The Leaf Brooch discard-substitute offer after a successful gold ring test now shows Save/Discard buttons instead of hiding the instruction panel and leaving the game stuck (#3045)
+
+### Infrastructure
+
+- The modular AI (H2) now prices the discard risk of region-restricted allies (Treebeard, Tom Bombadil, Leaflock, Skinbark, Last Child of Ungoliant) when scoring a movement destination, so it no longer walks them out of their allowed regions (#3036)
+
 ## 0.151.0 — 2026-09-10
 
 Unclickable legal actions in the web client
