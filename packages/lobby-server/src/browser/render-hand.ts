@@ -429,10 +429,12 @@ export function shortEventPlayChoices(
   playChoices: readonly ShortEventPlayChoice[],
   discardAction: GameAction | undefined,
   onGuardAction: GameAction | undefined,
+  reshuffleAction?: GameAction,
 ): readonly ShortEventPlayChoice[] {
   const choices = [...playChoices];
   if (discardAction) choices.push({ label: 'Discard', action: discardAction });
   if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
+  if (reshuffleAction) choices.push({ label: 'Return to play deck', action: reshuffleAction });
   return choices;
 }
 
@@ -467,11 +469,14 @@ export function strikeEventPlayChoices(actions: readonly GameAction[]): readonly
  * defect class fixed by agent-onguard-choice.test.ts and friends).
  */
 export function discardOnlyChoices(
-  discardAction: GameAction,
+  discardAction: GameAction | undefined,
   onGuardAction: GameAction | undefined,
+  reshuffleAction?: GameAction,
 ): readonly ShortEventPlayChoice[] {
-  const choices: ShortEventPlayChoice[] = [{ label: 'Discard', action: discardAction }];
+  const choices: ShortEventPlayChoice[] = [];
+  if (discardAction) choices.push({ label: 'Discard', action: discardAction });
   if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
+  if (reshuffleAction) choices.push({ label: 'Return to play deck', action: reshuffleAction });
   return choices;
 }
 
@@ -578,14 +583,16 @@ function showShortEventTargetMenu(
   onAction: (action: GameAction) => void,
   discardAction?: GameAction,
   onGuardAction?: GameAction,
+  reshuffleAction?: GameAction,
 ): void {
   const cachedInstanceLookup = getCachedInstanceLookup();
   const playChoices = buildShortEventTargetChoices(actions, cachedInstanceLookup, cardPool, view);
 
-  // Append "Discard" (end-of-turn voluntary discard, CoE 2.VI.i) and
-  // "Place on-guard" (CoE 2.IV.vii.4) when legal, so neither is silently
-  // dropped just because the card also has a short-event play target.
-  const choices = shortEventPlayChoices(playChoices, discardAction, onGuardAction);
+  // Append "Discard" (end-of-turn voluntary discard, CoE 2.VI.i), "Place
+  // on-guard" (CoE 2.IV.vii.4), and "Return to play deck" (reshuffle-from-hand
+  // cards, e.g. Sudden Call) when legal, so none is silently dropped just
+  // because the card also has a short-event play target.
+  const choices = shortEventPlayChoices(playChoices, discardAction, onGuardAction, reshuffleAction);
   const items: TooltipMenuItem[] = choices.map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
 
   showCursorTooltipMenu(event, items);
@@ -1183,10 +1190,13 @@ export function renderHand(
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
+    const reshuffleAction = cardInstanceId
+      ? viable.find(a => a.type === 'reshuffle-card-from-hand' && a.cardInstanceId === cardInstanceId)
+      : undefined;
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !discardAction && !onGuardAction && !isStartingCompanyEvent
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1275,30 +1285,21 @@ export function renderHand(
       const hasDiscardTargets = shortEventActions.some(
         a => a.type === 'play-short-event' && a.discardTargetInstanceId,
       );
-      // When the card is both playable as a short event AND discardable from
-      // hand (e.g. during the end-of-turn voluntary discard step), always
-      // show a disambiguation menu so the player can choose. CoE rule 2.VI.i
-      // allows discarding any card — including playable short events.
-      if (discardAction) {
+      // When the card is also discardable from hand (e.g. end-of-turn
+      // voluntary discard, CoE 2.VI.i), placeable on-guard (CoE 2.IV.vii.4),
+      // or reshuffleable back into the play deck (e.g. Sudden Call, le-235 —
+      // CRF 22 "you may reshuffle this card into your play deck at any time
+      // that it is in your hand"), always show a disambiguation menu so the
+      // player can choose instead of silently dispatching just the
+      // short-event play (the same defect class previously fixed for agent
+      // and hazard cards).
+      if (discardAction || onGuardAction || reshuffleAction) {
         img.className = 'hand-card hand-card-playable';
         if (onAction) {
           img.addEventListener('click', (e) => {
-            showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction, discardAction);
-          });
-        }
-      } else if (onGuardAction) {
-        // A hazard short-event that is not routed through the play-hazard
-        // action type (e.g. Twilight, Searching Eye — environment/skill
-        // cancelers emitted as play-short-event) still qualifies for on-guard
-        // placement under CoE 2.IV.vii.4 ("any one card from their hand").
-        // The two-step highlight flows below only dispatch the short event,
-        // so route through the disambiguation menu instead whenever on-guard
-        // placement is also legal, to avoid silently dropping that choice
-        // (the same defect previously fixed for agent and hazard cards).
-        img.className = 'hand-card hand-card-playable';
-        if (onAction) {
-          img.addEventListener('click', (e) => {
-            showShortEventTargetMenu(e, shortEventActions, view, cardPool, onAction, undefined, onGuardAction);
+            showShortEventTargetMenu(
+              e, shortEventActions, view, cardPool, onAction, discardAction, onGuardAction, reshuffleAction,
+            );
           });
         }
       } else if (hasDiscardTargets && !hasScoutTargets) {
@@ -1641,16 +1642,19 @@ export function renderHand(
           onAction(findCardAction(cardDefId, viable, cachedInstanceLookup, liveFocusedSiteDefId) ?? action);
         });
       }
-    } else if (discardAction) {
-      // Never discard straight from the click: a misclick during the
-      // end-of-turn / reset-hand / hand-reduction discard steps would
-      // otherwise irrevocably discard the card. Open the same cursor tooltip
-      // used for every other hand-card disambiguation so the player confirms
-      // "Discard" (or dismisses by clicking elsewhere).
+    } else if (discardAction || reshuffleAction) {
+      // Never dispatch discard/reshuffle straight from the click: a misclick
+      // during the end-of-turn / reset-hand / hand-reduction discard steps
+      // would otherwise irrevocably discard the card, and a reshuffle-only
+      // card (e.g. Sudden Call outside its short-event window) deserves the
+      // same confirm-via-menu treatment rather than an instant dispatch. Open
+      // the same cursor tooltip used for every other hand-card disambiguation
+      // so the player confirms their choice (or dismisses by clicking
+      // elsewhere).
       img.className = 'hand-card hand-card-playable';
       if (onAction) {
         img.addEventListener('click', (e) => {
-          const items: TooltipMenuItem[] = discardOnlyChoices(discardAction, onGuardAction)
+          const items: TooltipMenuItem[] = discardOnlyChoices(discardAction, onGuardAction, reshuffleAction)
             .map(c => ({ label: c.label, onClick: () => onAction(c.action) }));
           showCursorTooltipMenu(e, items);
         });
