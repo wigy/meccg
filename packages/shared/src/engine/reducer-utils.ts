@@ -5035,9 +5035,17 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
   // so they cannot be routed inside the owner's own map callback.
   const handReturns: [CardInstance[], CardInstance[]] = [[], []];
   const hazardDiscards: [CardInstance[], CardInstance[]] = [[], []];
+  // Company IDs are index-based and recycled by `nextCompanyId` once the
+  // dissolved slot is gone from `player.companies` — a later split/merge can
+  // reissue the exact same ID (e.g. "company-p1-2") for an unrelated company.
+  // Any `activeConstraint` still targeting the dissolved company (River's
+  // site-phase-do-nothing, etc.) must be dropped here, or it silently
+  // reattaches to whichever future company inherits the recycled ID.
+  const dissolvedCompanyIds = new Set<string>();
   const newPlayers = state.players.map((player, playerIdx) => {
     const emptyCompanies = player.companies.filter(c => c.characters.length === 0);
     const keptCompanies = player.companies.filter(c => c.characters.length > 0);
+    for (const c of emptyCompanies) dissolvedCompanyIds.add(c.id as string);
 
     // Build a set of site instance IDs still claimed by a kept company —
     // as the site it is at (CoE rule 2.07: another company at the same site
@@ -5147,7 +5155,19 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
       : { ...p, hand: [...p.hand, ...handReturns[i]], discardPile: [...p.discardPile, ...hazardDiscards[i]] }
   ));
 
-  const cleanedState: GameState = { ...state, players: [mergedPlayers[0], mergedPlayers[1]] };
+  const survivingConstraints = dissolvedCompanyIds.size === 0
+    ? state.activeConstraints
+    : state.activeConstraints.filter((c: ActiveConstraint) => {
+      if (c.target.kind !== 'company' || !dissolvedCompanyIds.has(c.target.companyId as string)) return true;
+      logDetail(`cleanupEmptyCompanies: dropping constraint ${c.id as string} (${c.kind.type}) targeting dissolved company ${c.target.companyId as string}`);
+      return false;
+    });
+
+  const cleanedState: GameState = {
+    ...state,
+    players: [mergedPlayers[0], mergedPlayers[1]],
+    activeConstraints: survivingConstraints,
+  };
   return reindexActiveCompanyAfterCleanup(state, cleanedState);
 }
 
