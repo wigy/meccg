@@ -229,9 +229,36 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "influence-check",
+          "target.race": "elf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 1,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "elf"
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "general-influence",
+        "value": 2,
+        "when": {
+          "bearer.race": "wizard"
+        }
       }
     ],
-    "text": "Unique. Hoard item. +1 to direct influence against Elves and Elf factions. If bearer is a Wizard, your general influence is increased by two."
+    "text": "Unique. Hoard item. +1 to direct influence against Elves and Elf factions. If bearer is a Wizard, your general influence is increased by two.",
+    "certified": "2026-09-11"
   },
   {
     "cardType": "hero-resource-item",
