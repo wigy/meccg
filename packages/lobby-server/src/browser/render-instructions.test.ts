@@ -795,6 +795,70 @@ describe('renderPassButton — transfer-returned-item (Call of Home / Pilfer Any
 });
 
 /**
+ * Regression test for bug report 11322040de8c98af (game mtw1m0pg-7lp8hj, seq
+ * 787): "I cant go on after playing The one ring." Testing a gold ring queues
+ * a `discard-substitute-offer` resolution when a Leaf Brooch (dm-171) is
+ * borne in the same company — the player may discard the brooch to save the
+ * tested ring from its mandatory discard, or decline. `use-discard-substitute`
+ * was entirely absent from {@link renderPassButton}'s pass-like whitelist and
+ * had no fallback branch, so (like `transfer-returned-item` above) the button
+ * hid and the "Waiting…" indicator was suppressed too, even though two viable
+ * actions existed — leaving no visible way to continue after playing The One
+ * Ring. It now renders one "Save <item>" button per offered item plus a
+ * "Discard <item>" decline button.
+ */
+const useDiscardSubstitute = (itemInstanceId?: string): EvaluatedAction => ({
+  action: {
+    type: 'use-discard-substitute',
+    player: 'p1',
+    itemInstanceId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — use-discard-substitute (Leaf Brooch)', () => {
+  test('renders a Save button plus a Discard decline button instead of hiding the panel', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p1-24': 'tw-306' });
+
+    renderPassButton(
+      viewWith([useDiscardSubstitute('p1-24'), useDiscardSubstitute()]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual([
+      'Save Precious Gold Ring',
+      'Discard Precious Gold Ring',
+    ]);
+  });
+
+  test('clicking Save sends the use action naming the saved item', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p1-24': 'tw-306' });
+    const save = useDiscardSubstitute('p1-24');
+
+    renderPassButton(viewWith([save, useDiscardSubstitute()]), action => { sent = action; });
+
+    tierInPhasePass.children[0].onclick?.();
+
+    expect(sent).toEqual(save.action);
+  });
+
+  test('clicking Discard sends the decline action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p1-24': 'tw-306' });
+    const decline = useDiscardSubstitute();
+
+    renderPassButton(viewWith([useDiscardSubstitute('p1-24'), decline]), action => { sent = action; });
+
+    tierInPhasePass.children[1].onclick?.();
+
+    expect(sent).toEqual(decline.action);
+  });
+});
+
+/**
  * Regression tests for the three-tier action-button layout (feature request
  * "changing tight buttons"): buttons that end the phase, resolve an in-phase
  * decision, or activate a card-granted ability now render into three
