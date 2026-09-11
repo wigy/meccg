@@ -16,14 +16,16 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildSitePhaseState, resetMint, viableActions, dispatch, resolveChain,
+  nonViableOfType,
   PLAYER_1, RESOURCE_PLAYER,
   ARAGORN, GANDALF, RANGERS_OF_THE_NORTH,
   BREE,
   CardStatus,
   handCardId, charIdAt,
 } from '../../test-helpers.js';
+import { computeLegalActions } from '../../../index.js';
 import type { GameState } from '../../../types/state.js';
-import type { InfluenceAttemptAction } from '../../../types/actions-site.js';
+import type { InfluenceAttemptAction, FactionInfluenceRollAction } from '../../../types/actions-site.js';
 
 describe('Rule 6.11 — Playing a Faction', () => {
   beforeEach(() => resetMint());
@@ -85,6 +87,44 @@ describe('Rule 6.11 — Playing a Faction', () => {
     expect(resolved.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === factionInstId)).toBe(true);
     expect(resolved.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === factionInstId)).toBe(false);
     expect(resolved.players[RESOURCE_PLAYER].companies[0].currentSite!.status).toBe(CardStatus.Untapped);
+  });
+
+  test('influence-attempt chain entry previews the eventual faction-influence-roll before priority passes', () => {
+    // Bug report 6e8aef7fe404fd26: the need/explanation breakdown only
+    // existed once the roll became an actual legal action — by which point
+    // chain priority to play an enhancer had already passed both players, so
+    // there was no way to see the numbers before deciding whether to enhance.
+    // A non-viable preview must be visible as soon as the faction is
+    // declared, with the same breakdown the real roll will use.
+    const state = buildSitePhaseState({
+      site: BREE,
+      characters: [ARAGORN],
+      hand: [RANGERS_OF_THE_NORTH],
+    });
+
+    const factionInstId = handCardId(state, RESOURCE_PLAYER);
+    const aragornInstId = charIdAt(state, RESOURCE_PLAYER);
+    const attempt = (viableActions(state, PLAYER_1, 'influence-attempt') as { action: InfluenceAttemptAction }[])
+      .find(a => a.action.factionInstanceId === factionInstId && a.action.influencingCharacterId === aragornInstId)!;
+
+    const afterDeclare = dispatch(state, attempt.action);
+    expect(afterDeclare.chain?.mode).toBe('declaring');
+
+    // No real roll action exists yet — the chain entry hasn't resolved.
+    expect(viableActions(afterDeclare, PLAYER_1, 'faction-influence-roll')).toHaveLength(0);
+
+    // But a non-viable preview does, naming the same faction and influencer.
+    const preview = nonViableOfType(computeLegalActions(afterDeclare, PLAYER_1), 'faction-influence-roll');
+    expect(preview).toHaveLength(1);
+    const previewAction = preview[0].action as FactionInfluenceRollAction;
+    expect(previewAction.factionInstanceId).toBe(factionInstId);
+    expect(previewAction.influencingCharacterId).toBe(aragornInstId);
+
+    // Once the chain resolves, the real roll carries the identical need —
+    // the preview never drifts from what the player actually rolls against.
+    const afterChain = resolveChain(afterDeclare);
+    const rollAction = viableActions(afterChain, PLAYER_1, 'faction-influence-roll')[0].action as FactionInfluenceRollAction;
+    expect(rollAction.need).toBe(previewAction.need);
   });
 
   test('losing the influencer before the roll fails the attempt and discards the faction', () => {

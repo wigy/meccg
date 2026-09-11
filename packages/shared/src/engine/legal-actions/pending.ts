@@ -494,24 +494,27 @@ function cancelInfluenceActions(
 }
 
 /**
- * Compute the single faction-influence-roll action that resolves a queued
- * `faction-influence-roll` resolution. Calculates all modifiers from the
- * current game state (post-chain) so the UI can display a full breakdown
- * before the player commits to rolling.
+ * Compute the `faction-influence-roll` action — need, explanation, and all
+ * modifiers — for a given (faction, influencer) pair, from the current game
+ * state. Shared by {@link factionInfluenceRollActions} (the actual queued
+ * resolution, once the chain entry has resolved) and
+ * {@link factionInfluenceRollPreview} (a live, non-viable preview shown while
+ * the influence-attempt chain entry is still unresolved), so the number a
+ * player sees while deciding whether to play an enhancer never drifts from
+ * the number the eventual roll actually uses.
  */
-export function factionInfluenceRollActions(
+export function computeFactionInfluenceRollAction(
   state: GameState,
   playerId: PlayerId,
-  top: PendingResolution,
-): EvaluatedAction[] {
-  if (top.kind.type !== 'faction-influence-roll') return [];
-  const { factionInstanceId, factionDefinitionId, influencingCharacterId } = top.kind;
-
+  factionInstanceId: CardInstanceId,
+  factionDefinitionId: CardDefinitionId,
+  influencingCharacterId: CardInstanceId,
+): EvaluatedAction['action'] | null {
   const player = playerById(state, playerId);
-  if (!player) return [];
+  if (!player) return null;
 
   const def = defById(state, factionDefinitionId);
-  if (!def || !isFactionCard(def)) return [];
+  if (!def || !isFactionCard(def)) return null;
 
   const charInPlay = player.characters[influencingCharacterId];
   // The influencer may be a character or an ally that "influences factions as
@@ -524,18 +527,15 @@ export function factionInfluenceRollActions(
     // is still unresolved, and a chain in `resolving` mode offers no actions
     // of its own, so nothing would ever call `reduce` to advance it.
     logDetail(`Pending faction-influence-roll for ${def.name}: influencer no longer in play — attempt fails automatically`);
-    return [{
-      action: {
-        type: 'faction-influence-roll' as const,
-        player: playerId,
-        factionInstanceId,
-        influencingCharacterId,
-        // No 2d6 total can reach this: the check cannot be made at all.
-        need: 13,
-        explanation: `${def.name}: the influencing character is no longer in play — the attempt fails and the faction is discarded`,
-      },
-      viable: true,
-    }];
+    return {
+      type: 'faction-influence-roll' as const,
+      player: playerId,
+      factionInstanceId,
+      influencingCharacterId,
+      // No 2d6 total can reach this: the check cannot be made at all.
+      need: 13,
+      explanation: `${def.name}: the influencing character is no longer in play — the attempt fails and the faction is discarded`,
+    };
   }
 
   const charDef = defById(state, (charInPlay ?? influencerAlly!.attachment).definitionId);
@@ -671,19 +671,70 @@ export function factionInfluenceRollActions(
   const modStr = parts.length > 0 ? ` (${parts.join(', ')})` : '';
   logDetail(`Pending faction-influence-roll for ${factionName} by ${charName}: ${autoInfluence ? 'automatic' : `need 2d6 >= ${need}`}${modStr}`);
 
-  return [{
-    action: {
-      type: 'faction-influence-roll' as const,
-      player: playerId,
-      factionInstanceId,
-      influencingCharacterId,
-      need,
-      explanation: autoInfluence
-        ? `${charName} influences ${factionName} automatically (influence # ${influenceNumber}${modStr})`
-        : `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${formatSignedNumber(modifier)}${modStr})`,
-    },
-    viable: true,
-  }];
+  return {
+    type: 'faction-influence-roll' as const,
+    player: playerId,
+    factionInstanceId,
+    influencingCharacterId,
+    need,
+    explanation: autoInfluence
+      ? `${charName} influences ${factionName} automatically (influence # ${influenceNumber}${modStr})`
+      : `${charName} influences ${factionName}: need roll >= ${need} (influence # ${influenceNumber}, modifier ${formatSignedNumber(modifier)}${modStr})`,
+  };
+}
+
+/**
+ * Compute the single faction-influence-roll action that resolves a queued
+ * `faction-influence-roll` resolution. Calculates all modifiers from the
+ * current game state (post-chain) so the UI can display a full breakdown
+ * before the player commits to rolling.
+ */
+export function factionInfluenceRollActions(
+  state: GameState,
+  playerId: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'faction-influence-roll') return [];
+  const { factionInstanceId, factionDefinitionId, influencingCharacterId } = top.kind;
+  const action = computeFactionInfluenceRollAction(state, playerId, factionInstanceId, factionDefinitionId, influencingCharacterId);
+  if (!action) return [];
+  return [{ action, viable: true }];
+}
+
+/**
+ * Live preview of the eventual `faction-influence-roll`, surfaced while its
+ * `influence-attempt` chain entry is still unresolved (chain in "declaring"
+ * mode, priority still passing back and forth for enhancer responses).
+ * Without this, the need/explanation breakdown only existed once the chain
+ * entry resolved into an actual pending `faction-influence-roll` — by then
+ * priority to play an enhancer had already passed, so a player could never
+ * see the numbers they needed in order to decide whether to enhance.
+ * Recomputed from current state on every call, so a rendered banner updates
+ * live as enhancer chain entries above it resolve.
+ *
+ * Always keyed to the entry's declaring player (`entry.declaredBy`), not the
+ * caller's `playerId` — {@link chainActions} calls this once per player, and
+ * the influencing character/hand data only exists on the declarer's side of
+ * state. Returns `viable: false`: informational only, never submittable
+ * (`game-session.ts` admits only `viable` actions to the legal-action set),
+ * so it is safe to surface to both players regardless of who currently holds
+ * chain priority.
+ */
+export function factionInfluenceRollPreview(state: GameState): EvaluatedAction | null {
+  const chain = state.chain;
+  if (!chain) return null;
+  const entry = chain.entries.find(e => !e.resolved && !e.negated && e.payload.type === 'influence-attempt');
+  if (!entry || !entry.card || entry.payload.type !== 'influence-attempt') return null;
+
+  const action = computeFactionInfluenceRollAction(
+    state,
+    entry.declaredBy,
+    entry.card.instanceId,
+    entry.card.definitionId,
+    entry.payload.influencingCharacterId,
+  );
+  if (!action) return null;
+  return { action, viable: false };
 }
 
 /**
