@@ -698,6 +698,7 @@ export const GRANTED_ACTION_LABELS: Readonly<Record<string, string>> = {
   'sauron-peek-hand': 'Discard to Peek at Opponent\'s Hand',
   'anduril-combine-with-narsil': 'Combine with Narsil',
   'reforging-retrieve-item': 'Retrieve Item from Discard',
+  'untap-site': 'Untap Site',
 };
 
 /**

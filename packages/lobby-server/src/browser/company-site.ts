@@ -253,9 +253,18 @@ export function renderSiteArea(
           const havenReturnAction = options?.onAction ? viableActions(view.legalActions).find(
             (a): a is HavenReturnAction => a.type === 'haven-return' && a.companyId === company.id,
           ) : undefined;
+          // Site-sourced granted actions (The Worthy Hills as-142: tap a sage
+          // and a scout to untap this site): the engine offered
+          // `activate-granted-action` with the site itself as `sourceCardId`,
+          // but nothing wired a click affordance for it — the constraint strip
+          // and item columns handle granted actions sourced from other cards,
+          // and the site card fell through with no click handler of its own.
+          const siteGrantedActions = options?.onAction
+            ? options.grantedActions?.get(company.currentSite.instanceId as string) ?? []
+            : [];
           let cls = 'company-card company-card--site';
           if (company.currentSite.status === CardStatus.Tapped) cls += ' company-card--tapped';
-          if (options?.hasLegalMovement || havenReturnAction) cls += ' company-card--movable';
+          if (options?.hasLegalMovement || havenReturnAction || siteGrantedActions.length > 0) cls += ' company-card--movable';
           if (!siteOwned) cls += ' company-card--site-ghost';
           const siteElId = siteElementInstanceId(company.id as string, company.currentSite.instanceId, options?.renderedSiteInstances);
           const img = createCardImage(siteDefId as string, siteDef, imgPath, cls, siteElId);
@@ -271,6 +280,21 @@ export function renderSiteArea(
             img.addEventListener('click', (e) => {
               e.stopPropagation();
               onAction(havenReturnAction);
+            });
+          } else if (siteGrantedActions.length > 0 && options?.onAction) {
+            const onAction = options.onAction;
+            img.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (siteGrantedActions.length === 1) {
+                onAction(siteGrantedActions[0]);
+                return;
+              }
+              const getCharacterName = (id: CardInstanceId): string | undefined => {
+                const cachedInstanceLookup = getCachedInstanceLookup();
+                const defId = cachedInstanceLookup(id);
+                return defId ? cardPool[defId as string]?.name : undefined;
+              };
+              showGrantedActionTooltip(img, siteGrantedActions, onAction, getCharacterName);
             });
           } else {
             applyHazardOnGuardClick(img, view, company, options?.onAction);
