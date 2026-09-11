@@ -2953,7 +2953,7 @@ function applyShortEventOnEntersPlay(
         }
         const stat = onEvent.apply.stat;
         const value = onEvent.apply.value;
-        if (!stat || stat === 'direct-influence' || typeof value !== 'number') {
+        if (!stat || (stat !== 'prowess' && stat !== 'body') || typeof value !== 'number') {
           logDetail(`add-constraint(company-stat-modifier, player): missing/unsupported stat or value — fizzle`);
           continue;
         }

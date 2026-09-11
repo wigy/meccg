@@ -49,6 +49,15 @@ function getControlRestrictions(
       if (e.type === 'control-restriction') restrictions.push(e);
     }
   }
+  // `control-cost-override` active constraints (Necklace of Silver and
+  // Pearls td-141) behave exactly like an attached `control-restriction`
+  // with a fixed `cost` and no `sources` restriction, but are placed by a
+  // card that has already been discarded, so they cannot live on `char.items`.
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'control-cost-override') continue;
+    if (constraint.kind.characterId !== char.instanceId) continue;
+    restrictions.push({ type: 'control-restriction', cost: constraint.kind.cost });
+  }
   return restrictions;
 }
 

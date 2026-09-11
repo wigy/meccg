@@ -462,9 +462,46 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "grant-action",
+        "action": "necklace-mind-boost",
+        "anyPhase": true,
+        "opposingSitePhase": true,
+        "cost": {
+          "discard": "self"
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            {
+              "type": "add-constraint",
+              "constraint": "character-stat-modifier",
+              "stat": "direct-influence",
+              "value": 3,
+              "scope": "turn",
+              "target": "bearer"
+            },
+            {
+              "type": "add-constraint",
+              "constraint": "character-stat-modifier",
+              "stat": "mind",
+              "value": 5,
+              "scope": "turn",
+              "target": "bearer"
+            },
+            {
+              "type": "add-constraint",
+              "constraint": "control-cost-override",
+              "scope": "turn",
+              "target": "bearer"
+            }
+          ]
+        }
       }
     ],
-    "text": "Hoard item. Discard this card to give +3 direct influence and +5 mind to bearer until the end of the turn. The bearer’s additional mind does not use any controlling influence. This item may also be so discarded during opponent’s site phase."
+    "text": "Hoard item. Discard this card to give +3 direct influence and +5 mind to bearer until the end of the turn. The bearer’s additional mind does not use any controlling influence. This item may also be so discarded during opponent’s site phase.",
+    "certified": "2026-09-11"
   },
   {
     "cardType": "hero-resource-item",

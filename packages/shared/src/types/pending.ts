@@ -2458,7 +2458,7 @@ export interface ActiveConstraint {
          */
         readonly type: 'character-stat-modifier';
         /** Which stat receives the bonus. */
-        readonly stat: 'prowess' | 'body' | 'direct-influence';
+        readonly stat: 'prowess' | 'body' | 'direct-influence' | 'mind';
         /** The bonus applied to the named character. */
         readonly value: number;
         /** The character instance to which the bonus applies. */
@@ -2491,6 +2491,26 @@ export interface ActiveConstraint {
          * Without it an `until-cleared` constraint would outlive its source.
          */
         readonly requiresSourceBorne?: boolean;
+      }
+    | {
+        /**
+         * Necklace of Silver and Pearls (td-141) style: freezes a
+         * character's influence-to-control cost at a fixed value for the
+         * rest of the turn, so a turn-scoped `character-stat-modifier`
+         * `"mind"` bonus (which raises `effectiveStats.mind`) does not
+         * inflate the general/direct influence a controller must spend to
+         * hold the bearer. `controlCostOf` (`control-cost.ts`) treats this
+         * exactly like an attached `control-restriction`'s `cost` field —
+         * stacked with any attached restrictions via the same CRF-22
+         * "use the lower number" rule — except it is placed by a card that
+         * has already left play (discarded), so it must live as an active
+         * constraint rather than a per-item attached effect.
+         */
+        readonly type: 'control-cost-override';
+        /** The character instance whose control cost is pinned. */
+        readonly characterId: CardInstanceId;
+        /** The frozen influence-to-control cost (the character's base mind). */
+        readonly cost: number;
       }
     | {
         /**

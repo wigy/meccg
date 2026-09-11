@@ -956,3 +956,29 @@ Out of the Black Sky (dm-77): "Playable if Doors of Night is in play on a Nazgû
 - **New `killMarshallingPoints` field on a `hazard-event` card**: `recompute-derived.ts`'s kill-pile scoring loop only reads `killMarshallingPoints` (duck-typed via `'killMarshallingPoints' in def`, not gated on `cardType`) — the `marshallingPoints`/`marshallingCategory` (or Balrog of Moria tw-12's `marshallingPoints`/`marshallingPointsType`) fields some hazard-event cards carry are **not** read by this loop at all (they fall through every branch — `mp-in-pile`, `permanentEventMpOverride`, `storable-at`, `isItemCard` — to the bare `killMarshallingPoints` presence check, which `continue`s past them with zero MP scored). Out of the Black Sky is the first hazard-event card to use `killMarshallingPoints` directly, which is the only field this loop actually honors for a plain card routed to a kill pile.
 
 Used by *Out of the Black Sky* (dm-77).
+
+### `character-stat-modifier` gains `"mind"` + new `control-cost-override` constraint (discard-for-a-turn-scoped-mind-bonus, Necklace of Silver and Pearls)
+
+Necklace of Silver and Pearls (td-141): "Hoard item. Discard this card to give +3 direct influence and +5 mind to bearer until the end of the turn. The bearer's additional mind does not use any controlling influence. This item may also be so discarded during opponent's site phase." Two small additions cover it in full:
+
+- **`character-stat-modifier`'s `stat` union gained `"mind"`** (alongside the existing `prowess` | `body` | `direct-influence`), in both the `AddConstraintAction.stat` field (`types/effects.ts`) and the `ActiveConstraint` `character-stat-modifier` payload (`types/pending.ts`). `collectCharacterStatModifierEffects` (`effects/resolver.ts`) already synthesizes a generic `StatModifierEffect` from whatever `stat` the constraint carries, and `recompute-derived.ts`'s `effectiveMind` computation already reads any `stat-modifier` effect with `stat === "mind"` — so no resolver change was needed, only the type widening. One existing caller (`reducer-events.ts`'s **player-scoped** `company-stat-modifier` branch, Praise to Elbereth tw-305) had to explicitly re-exclude `"mind"` (it only ever supported `prowess`/`body` and previously rejected only `"direct-influence"`) now that the shared `stat` field type is wider.
+- **`grant-action-apply.ts`'s `buildPayloadConstraintKind` gained a `character-stat-modifier` branch** — previously this constraint kind was only ever added via the `on-event: self-enters-play` path (Vilya, Heart of Dark Fire ba-63, §6a of the DSL doc), never via a discard/tap-triggered grant-action. The new branch accepts `stat` ∈ `{prowess, body, direct-influence, mind}` + numeric `value` (+ optional `max`) and reads the target character from the new `ctx: { state, characterId }` parameter threaded into `buildPayloadConstraintKind` from `runGrantApply` (`ctx.action.characterId` — the activating/bearer character), so `{ "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "mind", "value": 5, "scope": "turn", "target": "bearer" }` inside a grant-action's `apply` (typically wrapped in a `sequence` alongside the direct-influence bonus) installs a turn-scoped bonus on the bearer exactly like the on-event path does, cleared by the same generic `turn-end` constraint sweep.
+- **New `control-cost-override` constraint kind** (`{ characterId, cost }`, scope `turn`) models "the bearer's additional mind does not use any controlling influence": since the item that grants the mind bonus is discarded in the same action (unlike `control-restriction`, which is carried by a card that stays attached — Wizard's Myrmidon wh-84, The Forge-master wh-117), the cost-freeze cannot live as a per-item attached effect and has to be an active constraint instead. `control-cost.ts`'s `getControlRestrictions` now also scans `state.activeConstraints` for this kind targeting the character and synthesizes an equivalent `{ type: "control-restriction", cost }` entry, so it stacks with any attached `control-restriction` cards via the pre-existing CRF-22 "use the lower number" rule in `governingControlRestriction` for free. `buildPayloadConstraintKind`'s `control-cost-override` branch takes no JSON value — it resolves the bearer's own printed `mind` (via `resolveDef(ctx.state, ctx.characterId)`) at activation time and bakes that in as the frozen cost, so the mind bonus added alongside it in the same `sequence` never inflates the GI/DI a controller must spend to hold the character.
+
+```json
+{
+  "type": "grant-action", "action": "necklace-mind-boost",
+  "anyPhase": true, "opposingSitePhase": true,
+  "cost": { "discard": "self" },
+  "apply": { "type": "sequence", "apps": [
+    { "type": "add-constraint", "constraint": "character-stat-modifier",
+      "stat": "direct-influence", "value": 3, "scope": "turn", "target": "bearer" },
+    { "type": "add-constraint", "constraint": "character-stat-modifier",
+      "stat": "mind", "value": 5, "scope": "turn", "target": "bearer" },
+    { "type": "add-constraint", "constraint": "control-cost-override",
+      "scope": "turn", "target": "bearer" }
+  ] }
+}
+```
+
+Used by *Necklace of Silver and Pearls* (td-141).
