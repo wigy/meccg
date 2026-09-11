@@ -26,6 +26,7 @@ import type { CardDefinitionId, GameState, MovementHazardPhaseState } from '../.
 import type { ExtraMHMoveAction } from '../../types/actions-movement-hazard.js';
 
 const FORCED_MARCH = 'le-185' as CardDefinitionId;
+const RIVER_LE = 'le-134' as CardDefinitionId;      // hazard-event: site-phase-do-nothing on arrival
 const GORBAG = 'le-11' as CardDefinitionId;               // minion character (mind 6)
 const THE_WITCH_KING = 'le-58' as CardDefinitionId;       // Ringwraith avatar (mind null)
 const ETTENMOORS = 'le-373' as CardDefinitionId;          // origin (R&L, nearestHaven Carn Dûm)
@@ -307,5 +308,66 @@ describe('le-185 — Forced March', () => {
     expect(extraMoves.some(a => a.destinationSite === whiteTowersInst.instanceId)).toBe(false);
     expect(extraMoves.some(a => a.destinationSite === dolGuldurInst.instanceId)).toBe(false);
     expect(extraMoves).toHaveLength(0);
+  });
+
+  // Bug report: "My company moves to Minas Morgul and gets river (played on
+  // site). I use forced march but river passes along to new site." River
+  // (le-134) is played on Carn Dûm and installs a `company-site-phase`-scoped
+  // do-nothing constraint anticipating the company's site phase there. But
+  // Forced March sends the company straight into another movement/hazard
+  // phase instead of ever resolving that site phase — the constraint must not
+  // survive to be (mis)applied once the company's site phase actually
+  // happens, at whatever site that turns out to be.
+  test('River played on the Darkhaven does not carry its do-nothing constraint into the extra M/H phase', () => {
+    let state: GameState = {
+      ...buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: ETTENMOORS, characters: [GORBAG], destinationSite: CARN_DUM }],
+            hand: [FORCED_MARCH],
+            siteDeck: [WHITE_TOWERS],
+            playDeck: [],
+          },
+          {
+            id: PLAYER_2,
+            companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+            hand: [RIVER_LE],
+            siteDeck: [],
+            playDeck: [],
+          },
+        ],
+      }),
+      phaseState: makeMHState({ activeCompanyIndex: 0 }),
+    };
+
+    const companyId = state.players[0].companies[0].id;
+    const riverInst = state.players[1].hand.find(c => c.definitionId === RIVER_LE)!.instanceId;
+
+    state = resolveChain(dispatch(state, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId: riverInst, targetCompanyId: companyId,
+    }));
+
+    // River's do-nothing restriction and ranger-cancel grant are installed,
+    // scoped to this company's (still pending) site phase.
+    let riverConstraints = state.activeConstraints.filter(c => c.source === riverInst);
+    expect(riverConstraints.map(c => c.kind.type).sort()).toEqual(['granted-action', 'site-phase-do-nothing']);
+
+    // Forced March sends the company on to an extra M/H phase instead of
+    // resolving a site phase at Carn Dûm.
+    const fmInst = state.players[0].hand.find(c => c.definitionId === FORCED_MARCH)!.instanceId;
+    state = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst }));
+    state = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    state = dispatch(state, { type: 'pass', player: PLAYER_2 });
+
+    const mh = state.phaseState as MovementHazardPhaseState;
+    expect(mh.step).toBe('extra-mh-move-offer');
+    expect(state.players[0].companies[0].currentSite?.definitionId).toBe(CARN_DUM);
+
+    riverConstraints = state.activeConstraints.filter(c => c.source === riverInst);
+    expect(riverConstraints).toHaveLength(0);
   });
 });

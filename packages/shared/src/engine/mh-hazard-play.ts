@@ -2638,6 +2638,22 @@ function findCharacterTapExtraMHPhase(
   return null;
 }
 
+/**
+ * Drop any `company-site-phase`-scoped constraints (River tw-84/le-134's
+ * do-nothing effect, its ranger cancel-action, etc.) still pending for a
+ * company that is about to take another movement/hazard phase instead of
+ * resolving the site phase at its current site. Such constraints are added
+ * in anticipation of a site phase at *this* site (CRF: River "must do
+ * nothing during its site phase" refers to the site it was played on); when
+ * an extra M/H phase (Forced March le-185, Master of Esgaroth td-135,
+ * Shadowfax tw-326, Carambor le-5, Gangways over the Fire, etc.) sends the
+ * company onward without ever running that site phase, the constraint must
+ * not survive to be misapplied at the next site's site phase instead.
+ */
+function dropPendingSitePhaseConstraints(state: GameState, companyId: CompanyId): GameState {
+  return sweepExpired(state, { kind: 'company-site-end', companyId });
+}
+
 export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const currentCompany = state.players[activeIndex].companies[mhState.activeCompanyIndex];
@@ -2686,11 +2702,14 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   if (currentCompany.extraMHPhasePending) {
     const underDeeps = currentCompany.extraMHPhasePending === 'under-deeps';
     logDetail(`Extra M/H phase: company ${currentCompany.id as string} may move to an additional ${underDeeps ? 'Under-deeps ' : ''}site → extra-mh-move-offer`);
-    const clearedState = updatePlayer(state, activeIndex, p => ({
-      ...p,
-      companies: p.companies.map((c, idx) =>
-        idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
-    }));
+    const clearedState = dropPendingSitePhaseConstraints(
+      updatePlayer(state, activeIndex, p => ({
+        ...p,
+        companies: p.companies.map((c, idx) =>
+          idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
+      })),
+      currentCompany.id,
+    );
     return {
       state: {
         ...clearedState,
@@ -2714,7 +2733,7 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
     logDetail(`Extra M/H phase: "${extraPhase.sourceDefinitionId as string}" grants company ${currentCompany.id as string} a second movement/hazard phase → extra-mh-move-offer`);
     return {
       state: {
-        ...removeConstraint(state, extraPhase.id),
+        ...dropPendingSitePhaseConstraints(removeConstraint(state, extraPhase.id), currentCompany.id),
         phaseState: { ...mhState, step: 'extra-mh-move-offer' as const },
       },
     };
@@ -2726,7 +2745,12 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   const allyTapMatch = findAllyTapExtraMHPhase(state, state.players[activeIndex], currentCompany);
   if (allyTapMatch) {
     logDetail(`Ally-tap extra M/H phase: ${allyTapMatch.allyName} is untapped and company ${currentCompany.id as string}'s composition qualifies → ally-tap-mh-offer`);
-    return { state: { ...state, phaseState: { ...mhState, step: 'ally-tap-mh-offer' as const } } };
+    return {
+      state: {
+        ...dropPendingSitePhaseConstraints(state, currentCompany.id),
+        phaseState: { ...mhState, step: 'ally-tap-mh-offer' as const },
+      },
+    };
   }
 
   // character-tap-extra-mh-phase (Carambor le-5): offer, don't force — the
@@ -2736,7 +2760,12 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   const characterTapMatch = findCharacterTapExtraMHPhase(state, state.players[activeIndex], currentCompany);
   if (characterTapMatch) {
     logDetail(`Character-tap extra M/H phase: ${characterTapMatch.characterName} is untapped in company ${currentCompany.id as string} → character-tap-mh-offer`);
-    return { state: { ...state, phaseState: { ...mhState, step: 'character-tap-mh-offer' as const } } };
+    return {
+      state: {
+        ...dropPendingSitePhaseConstraints(state, currentCompany.id),
+        phaseState: { ...mhState, step: 'character-tap-mh-offer' as const },
+      },
+    };
   }
 
   if (playerHasExtraUnderDeepsMH(state, activeIndex)) {
@@ -2759,7 +2788,12 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
       : [];
     if (dests.length > 0) {
       logDetail(`Gangways over the Fire: company ${cid} completed M/H phase #${phaseCounts[cid]} and may take another Under-deeps movement (${dests.length} destination(s), roll penalty -${phaseCounts[cid]}) → gangways-offer`);
-      return { state: { ...state, phaseState: { ...trackedMhState, step: 'gangways-offer' as const } } };
+      return {
+        state: {
+          ...dropPendingSitePhaseConstraints(state, currentCompany.id),
+          phaseState: { ...trackedMhState, step: 'gangways-offer' as const },
+        },
+      };
     }
     return finalizeCompanyMH(state, trackedMhState);
   }
