@@ -23,6 +23,7 @@
  * | 6 | Non-ranger characters cannot cancel      | IMPLEMENTED | constraint filter checks Skill.Ranger  |
  * | 7 | Tapped ranger cannot cancel              | IMPLEMENTED | constraint filter checks CardStatus    |
  * | 8 | River goes to discard after resolution   | IMPLEMENTED | short-event → discard + add-constraint on resolve |
+ * | 10| Restriction bound to played site, not company | IMPLEMENTED | constraint-kind boundSiteDefinitionId + applySitePhaseDoNothing site check |
  *
  * Certified: 2026-04-08
  */
@@ -110,6 +111,29 @@ describe('River (tw-84)', () => {
     expect(viableActionTypes(state, PLAYER_1)).toEqual(['pass']);
   });
 
+  test('a company that arrives at a different site than River was bound to is unaffected', () => {
+    // Regression for a bug report: River was played on Dol Guldur against a
+    // company, but that company later replanned and arrived at a different
+    // site (Minas Morgul) — the do-nothing restriction still applied there.
+    // River (CRF 22 erratum) is "playable on a site" and binds to that site,
+    // not to whichever company happened to be hazarded at play time.
+    const base = buildTestState(SITE_SCENARIO); // active company is at RIVENDELL
+    const { state } = installRiverOnActiveCompany({ ...base, phaseState: ENTER_OR_SKIP }, RIVER, 0, MORIA);
+
+    // The company arrived at RIVENDELL, not the MORIA site River was bound
+    // to — the restriction must fizzle and normal site actions remain legal.
+    expect(viableActionTypes(state, PLAYER_1)).toContain('enter-site');
+  });
+
+  test('a company that arrives at the site River was bound to is still restricted', () => {
+    const base = buildTestState(SITE_SCENARIO); // active company is at RIVENDELL
+    const { state } = installRiverOnActiveCompany({ ...base, phaseState: ENTER_OR_SKIP }, RIVER, 0, RIVENDELL);
+
+    const types = viableActionTypes(state, PLAYER_1);
+    expect(types).toContain('pass');
+    expect(types).not.toContain('enter-site');
+  });
+
   test('constraint clears at company-site-end via sweepExpired', () => {
     const base = buildTestState(SITE_SCENARIO);
     const companyId = companyIdAt(base, RESOURCE_PLAYER);
@@ -183,6 +207,7 @@ describe('River (tw-84)', () => {
       player: PLAYER_2,
       cardInstanceId: riverInstance,
       targetCompanyId,
+      targetSiteDefinitionId: moriaCard.definitionId,
     });
     expect(playResult.error).toBeUndefined();
     expect(playResult.state.chain).not.toBeNull();
@@ -213,6 +238,12 @@ describe('River (tw-84)', () => {
     if (grant.kind.type === 'granted-action') {
       expect(grant.kind.action).toBe('cancel-river');
       expect(grant.kind.apply.type).toBe('remove-constraint');
+    }
+    // The restriction is bound to the site River was played on (Moria) — it
+    // must not silently follow the company if it later replans elsewhere.
+    const restriction = riverConstraints.find(c => c.kind.type === 'site-phase-do-nothing')!;
+    if (restriction.kind.type === 'site-phase-do-nothing') {
+      expect(restriction.kind.boundSiteDefinitionId).toBe(moriaCard.definitionId);
     }
     for (const c of riverConstraints) {
       expect(c.sourceDefinitionId).toBe(RIVER);

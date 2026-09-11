@@ -87,7 +87,11 @@ export function buildConstraintKind(
   }
   switch (constraintKind) {
     case 'site-phase-do-nothing':
-      return { type: 'site-phase-do-nothing' };
+      // Only site-targeting sources (River, via `explicitSiteDefId`) bind the
+      // restriction to a specific site; company-scoped sources (Beorn's
+      // return-to-origin, Darkness Made by Malice) leave this unset so the
+      // restriction follows the company regardless of destination.
+      return { type: 'site-phase-do-nothing', ...(explicitSiteDefId ? { boundSiteDefinitionId: explicitSiteDefId } : {}) };
     case 'no-creature-hazards-on-company':
       return { type: 'no-creature-hazards-on-company' };
     case 'only-creatures-keyed-to-site':

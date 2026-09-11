@@ -1531,8 +1531,17 @@ export interface ActiveConstraint {
          * `granted-action` constraint alongside this one — both are
          * sourced from the same card so `remove-constraint` sweeps
          * both at once.
+         *
+         * `boundSiteDefinitionId`, when present, restricts the effect to a
+         * company that actually arrives at that specific site: River (CRF 22
+         * erratum) is "playable on a site" and only affects "a company that
+         * has moved to this site" — it must not follow the targeted company
+         * to a different site it later replans to visit. Company-scoped
+         * variants (Beorn's return-to-origin, Darkness Made by Malice) that
+         * bind to the company regardless of destination leave this unset.
          */
         readonly type: 'site-phase-do-nothing';
+        readonly boundSiteDefinitionId?: CardDefinitionId;
       }
     | {
         /**

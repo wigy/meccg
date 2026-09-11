@@ -1127,8 +1127,13 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
 
       // Arrival constraints always target the active moving company; the
       // company is the resolution context, so `until-cleared` keeps the
-      // company target (no player override).
-      const r = addDeclaredConstraint(state, card, { ...onEvent, apply }, constraintKind, scopeName, targetCompany.id);
+      // company target (no player override). Site-targeting sources (River)
+      // carry their played-on site on the payload — forward it so the
+      // resulting `site-phase-do-nothing` constraint stays bound to that
+      // site instead of following the company to a later, replanned
+      // destination (CRF 22: River is "playable on a site").
+      const boundSiteDefId = entry.payload.type === 'short-event' ? entry.payload.targetSiteDefinitionId : undefined;
+      const r = addDeclaredConstraint(state, card, { ...onEvent, apply }, constraintKind, scopeName, targetCompany.id, { boundSiteDefId });
       state = r.state;
       if (r.added) {
         logDetail(`Short-event "${def.name}" resolves → added ${constraintKind} constraint on company ${targetCompany.id as string}`);
