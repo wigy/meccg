@@ -821,6 +821,15 @@
         ]
       },
       {
+        "siteInRegionNames": [
+          "Elven Shores",
+          "Eriadoran Coast",
+          "Andrast Coast",
+          "Bay of Belfalas",
+          "Mouths of the Anduin"
+        ]
+      },
+      {
         "regionNames": [
           "Andrast",
           "Anfalas",

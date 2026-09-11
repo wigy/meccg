@@ -20,12 +20,19 @@
  * | # | Entry                                                                                       | When   |
  * |---|----------------------------------------------------------------------------------------------|--------|
  * | 1 | regionTypes: [coastal]                                                                      | always |
- * | 2 | regionNames: [Andrast, Anfalas, Belfalas, Cardolan, Enedhwaith, Harondor, Lindon, Lebennin, Old Pûkel-land] | always |
+ * | 2 | siteInRegionNames: [Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of the Anduin] | always |
+ * | 3 | regionNames: [Andrast, Anfalas, Belfalas, Cardolan, Enedhwaith, Harondor, Lindon, Lebennin, Old Pûkel-land] | always |
  *
- * The "R&L and Shadow-holds in these regions" clause is subsumed by entry 2
+ * The "R&L and Shadow-holds in these regions" clause is subsumed by entry 3
  * (regionNames match fires for any site type in that region). The "any site in
  * Elven Shores, Eriadoran Coast, Andrast Coast, Bay of Belfalas, Mouths of
- * the Anduin" clause is subsumed by entry 1 (all five are coastal regions).
+ * the Anduin" clause needs both entry 1 and entry 2: `regionTypes` matches the
+ * regions a company *travelled through* this turn (all five named regions are
+ * exactly the coastal-type regions) and is what other cards read to recognise
+ * this creature as "keyed to Coastal Sea" (The Drowning-deeps ba-89, Remains
+ * of Thangorodrim ba-95), while `siteInRegionNames` matches the destination
+ * site's own region — needed for a company that stayed put this turn and so
+ * has an empty `resolvedSitePath`.
  *
  * Effects: none — the card has no special abilities; all rules are captured
  * in base stats, race, and keying.
@@ -36,8 +43,8 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, GIMLI,
-  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  ARAGORN, LEGOLAS, GIMLI, ANBORN,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, TOLFALAS,
   buildTestState, resetMint, makeMHState, makeWildernessMHState,
   playCreatureHazardAndResolve,
   handCardId, companyIdAt,
@@ -149,6 +156,80 @@ describe('Corsairs of Umbar (tw-24)', () => {
       const a = p.action as { keyedBy?: { method: string; value: string } };
       return a.keyedBy?.method === 'region-type' && a.keyedBy?.value === 'coastal';
     })).toBe(true);
+  });
+
+  // ─── Site-in-region keying: stationary company (empty resolved path) ─
+
+  test('keyable at Tolfalas (Mouths of the Anduin) even when the company did not move this turn', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: TOLFALAS, characters: [ANBORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [CORSAIRS_OF_UMBAR],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    // Company stayed at its current site (Tolfalas) — no movement this
+    // turn, so resolvedSitePath/resolvedSitePathNames are empty and the
+    // coastal `regionTypes` entry cannot fire.
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.RuinsAndLairs,
+        destinationSiteName: 'Tolfalas',
+      }),
+    };
+
+    expect(handCardId(ready, HAZARD_PLAYER)).toBeTruthy();
+    expect(companyIdAt(ready, RESOURCE_PLAYER)).toBeTruthy();
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'site-in-region' && a.keyedBy?.value === 'Mouths of the Anduin';
+    })).toBe(true);
+  });
+
+  test('NOT keyable at a stationary site outside the listed regions', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+          hand: [CORSAIRS_OF_UMBAR],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const ready: GameState = {
+      ...state,
+      phaseState: makeMHState({
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'Moria Redhorn Gate',
+      }),
+    };
+
+    expect(viableActions(ready, PLAYER_2, 'play-hazard')).toHaveLength(0);
   });
 
   // ─── Named-region keying: each of the nine regions ───────────────────
