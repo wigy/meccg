@@ -6,10 +6,10 @@
  * index look-ups in one place so callers stay concise and consistent.
  */
 
-import type { CardDefinition, Company, GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
+import type { CardDefinition, Company, GameLength, GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
 import { Alignment, Phase, Race } from './types/index.js';
 import { isCharacterCard } from './types/cards.js';
-import { FREE_COUNCIL_MP_THRESHOLD } from './constants.js';
+import { GAME_LENGTH_RULES } from './constants.js';
 
 /**
  * Returns the tuple index (0 or 1) of the player with the given ID.
@@ -254,20 +254,26 @@ export function isWizard(player: PlayerState): boolean {
 }
 
 /**
- * True if the player currently meets the Short ("2-deck") game conditions
- * to call the end of the game (CoE rule 10.40):
+ * True if the player currently meets the game's length-specific conditions
+ * to call the end of the game (CoE rule 10.2 / 10.40):
  *
- * - At least 25 raw MP AND deck has been exhausted at least once, OR
- * - Deck has been exhausted at least twice.
+ * - At least the length's MP threshold AND deck exhausted at least
+ *   `callExhaustions` times, OR
+ * - Deck exhausted at least `autoEndExhaustions` times.
  *
- * Excludes the per-call gating (`freeCouncilCalled`, `lastTurnFor`) so
- * callers can reuse the threshold check independently — that gating is
- * applied at the legal-action site.
+ * See {@link GAME_LENGTH_RULES} for the per-length thresholds. Excludes the
+ * per-call gating (`freeCouncilCalled`, `lastTurnFor`) so callers can reuse
+ * the threshold check independently — that gating is applied at the
+ * legal-action site.
+ *
+ * @param gameLength - The game's declared length (`state.gameLength`).
+ * Defaults to `'short'`, matching `GameState.gameLength`'s undefined default.
  */
-export function canCallEndgameNow(player: PlayerState): boolean {
+export function canCallEndgameNow(player: PlayerState, gameLength: GameLength = 'short'): boolean {
   const rawScore = callableMarshallingTotal(player);
   const exhaustions = player.deckExhaustionCount;
-  return (rawScore >= FREE_COUNCIL_MP_THRESHOLD && exhaustions >= 1) || exhaustions >= 2;
+  const rules = GAME_LENGTH_RULES[gameLength];
+  return (rawScore >= rules.mpThreshold && exhaustions >= rules.callExhaustions) || exhaustions >= rules.autoEndExhaustions;
 }
 
 /**
@@ -282,7 +288,8 @@ export function sumMarshallingPoints(mp: MarshallingPointTotals): number {
 /**
  * Sum of a player's *callable* marshalling-point categories — the raw,
  * unmodified total that CoE rule 10.40 actually compares against the
- * 25-point Short Game calling threshold. This is distinct from the
+ * game's length-specific calling threshold (see {@link GAME_LENGTH_RULES}).
+ * This is distinct from the
  * tournament-adjusted score (see {@link computeTournamentBreakdown}) shown
  * for final scoring, which applies doubling/diversity-cap steps that don't
  * apply while merely checking whether the Free Council can be called.
