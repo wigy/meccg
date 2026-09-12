@@ -358,6 +358,21 @@ export function resolveStrikeCore(
     if (passiveBonus !== 0) prowess += passiveBonus;
   }
 
+  // Whether the combatant taps on a non-wounded outcome (CoE rule 3.iv.7:
+  // tapped on both fail and tie "unless a -3 modification was applied in
+  // Step 3"):
+  //  - tap:    always (success or tie)
+  //  - reroll: same as tap, unless the defender chose to stay untapped
+  //  - untap:  never (the -3 penalty was paid specifically to stay untapped)
+  //  - dodge:  never
+  // This depends only on `mode`/`rerollStayUntapped` (the player's Step-3
+  // choice) and the pre-roll `targetStatus`, so it's already decided before
+  // the dice roll — hoisted here (rather than left by the status mutation
+  // below) so the dice-roll effect can carry the tap preview for the client.
+  const tapOnNonWounded = mode === 'tap' || (mode === 'reroll' && !rerollStayUntapped);
+  const willTapOnRoll = tapOnNonWounded && targetStatus === CardStatus.Untapped;
+  const tappedCharacterId = willTapOnRoll ? strike.characterId : undefined;
+
   // Roll dice. Reroll mode makes two rolls and keeps the better total; the
   // discarded roll is logged and emitted as an effect so both rolls appear
   // in history.
@@ -381,13 +396,13 @@ export function resolveStrikeCore(
     cheatRollTotal = r2.cheatRollTotal;
     logDetail(`${rollLabel}: rolled ${r1.roll.die1}+${r1.roll.die2}=${t1} and ${r2.roll.die1}+${r2.roll.die2}=${t2} → keeping ${kept.roll.die1}+${kept.roll.die2}=${kept.roll.die1 + kept.roll.die2}`);
     effects.push(diceRollEffect(defPlayer.name, discarded.roll, `${rollLabel} (discarded): ${charLabel}`));
-    effects.push(diceRollEffect(defPlayer.name, kept.roll, `${rollLabel}: ${charLabel}`));
+    effects.push(diceRollEffect(defPlayer.name, kept.roll, `${rollLabel}: ${charLabel}`, undefined, tappedCharacterId));
   } else {
     const single = roll2d6(state);
     roll = single.roll;
     rng = single.rng;
     cheatRollTotal = single.cheatRollTotal;
-    effects.push(diceRollEffect(defPlayer.name, roll, `${rollLabel}: ${charLabel}`));
+    effects.push(diceRollEffect(defPlayer.name, roll, `${rollLabel}: ${charLabel}`, undefined, tappedCharacterId));
   }
 
   const rollTotal = roll.die1 + roll.die2;
@@ -492,15 +507,6 @@ export function resolveStrikeCore(
     result = 'success';
     bodyCheckTarget = null;
   }
-
-  // Whether the combatant taps on a non-wounded outcome (CoE rule 3.iv.7:
-  // tapped on both fail and tie "unless a -3 modification was applied in
-  // Step 3"):
-  //  - tap:    always (success or tie)
-  //  - reroll: same as tap, unless the defender chose to stay untapped
-  //  - untap:  never (the -3 penalty was paid specifically to stay untapped)
-  //  - dodge:  never
-  const tapOnNonWounded = mode === 'tap' || (mode === 'reroll' && !rerollStayUntapped);
 
   // Record strike assignment. Dodge tags the strike so the body check picks
   // up the body penalty (CoE rule 3.I +1 for already-wounded still applies).
@@ -1035,6 +1041,17 @@ export function resolveStrikeCvCC(
   defProwess += (strike.strikeProwessBonus ?? 0);
   defProwess += passiveModifyAttackProwessBonus(state, defCharData);
 
+  // Both combatants' tap decisions are already fixed by their Step-3 -3
+  // choices and happen regardless of who wins the roll (see the three
+  // outcome branches below) — known before either roll, so the dice-roll
+  // effects below can carry the tap preview for the client.
+  const atkTappedCharacterId = strike.attackerTapToFight && atkCharData.status === CardStatus.Untapped
+    ? strike.attackingCharacterId
+    : undefined;
+  const defTappedCharacterId = defenderTapToFight && defCharData.status === CardStatus.Untapped
+    ? strike.characterId
+    : undefined;
+
   // Roll for attacker
   const atkRollResult = roll2d6(state);
   const atkRoll = atkRollResult.roll;
@@ -1050,8 +1067,8 @@ export function resolveStrikeCvCC(
   logDetail(`CvCC dual-roll: ${defCharName} (${defPlayer.name}) rolls ${defRoll.die1}+${defRoll.die2}=${defRoll.die1 + defRoll.die2} + prowess ${defProwess} = ${defTotal} (lastDiceRoll → players[${defPlayerIdx}])`);
 
   const effects: GameEffect[] = [
-    diceRollEffect(atkPlayer.name, atkRoll, `CvCC Strike: ${atkCharName}`, atkTotal),
-    diceRollEffect(defPlayer.name, defRoll, `CvCC Strike: ${defCharName}`, defTotal),
+    diceRollEffect(atkPlayer.name, atkRoll, `CvCC Strike: ${atkCharName}`, atkTotal, atkTappedCharacterId),
+    diceRollEffect(defPlayer.name, defRoll, `CvCC Strike: ${defCharName}`, defTotal, defTappedCharacterId),
   ];
 
   // Determine outcome

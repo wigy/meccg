@@ -23,9 +23,9 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase, CardDefinitionId, Alignment, CompanyId } from '../../../index.js';
-import type { SitePhaseState, GameState } from '../../../index.js';
+import type { SitePhaseState, GameState, DiceRollEffect } from '../../../index.js';
 import {
-  buildTestState, PLAYER_1, PLAYER_2, resetMint, dispatch, dispatchResult, viableActions,
+  buildTestState, PLAYER_1, PLAYER_2, resetMint, dispatch, dispatchResult, viableActions, findCharInstanceId,
 } from '../../test-helpers.js';
 
 const ARAGORN = 'tw-120' as CardDefinitionId;
@@ -207,6 +207,42 @@ describe('Rule 8.39 — CvCC Strike Sequence', () => {
     // finalize combat rather than looping back into resolve-strike for the
     // same, already-fought strike.
     expect(state.combat).toBeNull();
+  });
+
+  // Client-side tap preview (bug report: "character first taps, than does the
+  // action") — both CvCC tap-to-fight choices are declared before either side
+  // rolls (sub-steps 1 and 2 above), so both dice-roll effects can carry their
+  // combatant's instance ID the instant they're emitted.
+  test('CvCC: both dice-roll effects carry tappedCharacterId when both sides tap to fight', () => {
+    let state = buildCvCCInResolveStrike();
+    const atkCharId = findCharInstanceId(state, 0, ARAGORN);
+    const defCharId = findCharInstanceId(state, 1, PERCHEN);
+
+    // Attacker taps
+    state = dispatch(state, { type: 'resolve-strike', player: PLAYER_1, tapToFight: true, need: 2, explanation: '' });
+
+    // Defender taps — this dispatch triggers both rolls
+    const result = dispatchResult(state, { type: 'resolve-strike', player: PLAYER_2, tapToFight: true, need: 2, explanation: '' });
+
+    const rollEffects = (result.effects ?? []).filter((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    // Pushed in order: attacker's roll first, then defender's (see resolveStrikeCvCC).
+    expect(rollEffects.length).toBe(2);
+    expect(rollEffects[0].tappedCharacterId).toBe(atkCharId);
+    expect(rollEffects[1].tappedCharacterId).toBe(defCharId);
+  });
+
+  test('CvCC: no tappedCharacterId on either dice-roll effect when both sides stay untapped (-3)', () => {
+    let state = buildCvCCInResolveStrike();
+
+    // Attacker stays untapped (-3)
+    state = dispatch(state, { type: 'resolve-strike', player: PLAYER_1, tapToFight: false, need: 2, explanation: '' });
+
+    // Defender stays untapped (-3) — this dispatch triggers both rolls
+    const result = dispatchResult(state, { type: 'resolve-strike', player: PLAYER_2, tapToFight: false, need: 2, explanation: '' });
+
+    const rollEffects = (result.effects ?? []).filter((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    expect(rollEffects.length).toBe(2);
+    expect(rollEffects.every(e => e.tappedCharacterId === undefined)).toBe(true);
   });
 
   test('CvCC: attacker distributes excess strikes as -1 prowess each', () => {

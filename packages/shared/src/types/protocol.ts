@@ -20,7 +20,7 @@
  * All messages are discriminated by a `type` field for easy dispatching.
  */
 
-import type { PlayerId, CardDefinitionId, Alignment, DieRoll, ById } from './common.js';
+import type { PlayerId, CardDefinitionId, Alignment, DieRoll, ById, CardInstanceId } from './common.js';
 import type { GameAction } from './actions.js';
 import type { PlayerView } from './player-view.js';
 import type { DeckList } from './cards-deck.js';
@@ -404,6 +404,13 @@ export interface DiceRollEffect {
    * Prowess = total - die1 - die2.
    */
   readonly total?: number;
+  /**
+   * Instance ID of a character that will tap as a result of this roll.
+   * Lets clients apply the tapped visual the instant the roll effect
+   * arrives, instead of waiting for the dice animation and the later
+   * `state` message to finish.
+   */
+  readonly tappedCharacterId?: CardInstanceId;
 }
 
 /**
