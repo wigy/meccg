@@ -25,6 +25,7 @@ import { handleAiExplanation, setAskAiSender, setObserver } from './ask-ai.js';
 import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
 import { diceRollLogLine, diceRollNotification } from './dice-roll-log.js';
 import { buildToolbarStatusText } from './render-toolbar-status.js';
+import { applyTapPreview } from './tap-preview.js';
 
 // Forward-declared function references set by the lobby module to avoid
 // circular imports. The lobby module calls setLobbyCallbacks() at startup.
@@ -736,6 +737,7 @@ export function connect(name: string): void {
           });
           const visualView = document.getElementById('visual-view');
           if (visualView && !visualView.classList.contains('hidden')) {
+            if (rollEffect.tappedCharacterId) applyTapPreview(rollEffect.tappedCharacterId);
             const variant = rollEffect.playerName === name ? 'black' : 'red';
             rollDice(rollEffect.die1, rollEffect.die2, variant);
           }
