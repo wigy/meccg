@@ -5,8 +5,8 @@
  * Type: hero-resource-ally (unique, prowess 5 / body 8, 2 MP)
  * Effects: 3
  *   1. grant-action cancel-chain-entry — tap Leaflock (self) to cancel a
- *      hazard being played against his company, unconditionally (no
- *      destination-region gate, unlike Tom Bombadil tw-350).
+ *      hazard that targets his company or an entity of it, with no
+ *      destination-region gate (unlike Tom Bombadil tw-350).
  *   2. play-flag no-attack-site-keyed — immune to automatic-attacks and
  *      hazards keyed to his site.
  *   3. on-event company-arrives-at-site → discard-self when the arrival
@@ -24,13 +24,14 @@
  * Engine Support:
  * | # | Feature                                          | Status      | Notes                                             |
  * |---|---------------------------------------------------|-------------|----------------------------------------------------|
- * | 1 | Tap-to-cancel offered whenever a hazard is unresolved | IMPLEMENTED | emitAllyCancelChainActions, no `when` gate     |
+ * | 1 | Tap-to-cancel offered whenever a targeting hazard is unresolved | IMPLEMENTED | emitAllyCancelChainActions, no destination-region gate |
  * | 2 | Not offered when no hazard is on the chain         | IMPLEMENTED | hazardCount gate                                  |
  * | 3 | Not offered when Leaflock is already tapped        | IMPLEMENTED | untapped-ally gate                                |
  * | 4 | Activating taps Leaflock and negates the chain hazard | IMPLEMENTED | handleGrantActionApply cancel-chain-entry     |
  * | 5 | Immunity to automatic-attacks/site-keyed hazards   | IMPLEMENTED | play-flag: no-attack-site-keyed (as on Treebeard) |
  * | 6 | Discard on move to a disallowed region             | IMPLEMENTED | on-event discard-self in fireAllyArrivalEffects   |
  * | 7 | Stays on move to an allowed region                 | IMPLEMENTED | when condition filters by site.region             |
+ * | 8 | Not offered when the hazard doesn't target the company or an entity of it | IMPLEMENTED | mostRecentUnresolvedHazardTargetsCompany gate |
  *
  * Certified: 2026-08-18
  */
@@ -111,6 +112,32 @@ describe('Leaflock (tw-265)', () => {
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     expect(actions[0].sourceCardId).toBe(leaflockInstanceId(state));
     expect(actions[0].characterId).toBe(aragornId);
+  });
+
+  test('does NOT offer tap-to-cancel for a hazard event that does not target the company (Wake of War)', () => {
+    // Regression: Wake of War (tw-108) is a hazard long-event with no
+    // play-target effect at all — it "doesn't have a target" (CoE 2.IV.vii.3)
+    // and never targets Leaflock's company or an entity associated with it.
+    const WAKE_OF_WAR = 'tw-108' as CardDefinitionId;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: WELLINGHALL, characters: [ARAGORN], destinationSite: EDORAS }], hand: [], siteDeck: [EDORAS] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [WAKE_OF_WAR], siteDeck: [MORIA] },
+      ],
+    });
+    const withLeaflock = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, LEAFLOCK);
+    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const wakeOfWarCard = { instanceId: mint(), definitionId: WAKE_OF_WAR };
+    const withChain = initiateChain(
+      { ...withLeaflock, phaseState: mhState },
+      PLAYER_2,
+      wakeOfWarCard,
+      { type: 'long-event' },
+    );
+    expect(leaflockCancelActions(withChain).length).toBe(0);
   });
 
   test('does NOT offer tap-to-cancel when no hazard is on the chain', () => {

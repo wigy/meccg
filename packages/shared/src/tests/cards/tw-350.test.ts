@@ -27,6 +27,7 @@
  * | 5 | Activating taps Tom and negates the chain hazard  | IMPLEMENTED | handleGrantActionApply cancel-chain-entry        |
  * | 6 | Discard on move to a disallowed region            | IMPLEMENTED | on-event discard-self in fireAllyArrivalEffects  |
  * | 7 | Stays on move to an allowed region                | IMPLEMENTED | when condition filters by site.region            |
+ * | 8 | Not offered when the hazard doesn't target the company or an entity of it | IMPLEMENTED | mostRecentUnresolvedHazardTargetsCompany gate |
  *
  * Certified: 2026-07-06
  */
@@ -111,6 +112,35 @@ describe('Tom Bombadil (tw-350)', () => {
   test('does NOT offer tap-to-cancel when moving to a disallowed region (Minas Tirith — Anórien)', () => {
     const state = buildMovingWithChain(MINAS_TIRITH);
     expect(tomCancelActions(state).length).toBe(0);
+  });
+
+  test('does NOT offer tap-to-cancel for a hazard event that does not target the company (Wake of War)', () => {
+    // Regression: Wake of War (tw-108) is a hazard long-event with no
+    // play-target effect at all — it "doesn't have a target" (CoE 2.IV.vii.3)
+    // and never targets the company or an entity associated with it, so Tom's
+    // ability ("cancel a hazard that targets ... a company, or an entity
+    // associated with a company") does not apply to it even though it's the
+    // most-recent unresolved hazard on the chain.
+    const WAKE_OF_WAR = 'tw-108' as CardDefinitionId;
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: BREE }], hand: [], siteDeck: [BREE] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [WAKE_OF_WAR], siteDeck: [MORIA] },
+      ],
+    });
+    const withTom = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, TOM_BOMBADIL);
+    const mhState = makeMHState({ activeCompanyIndex: 0 });
+    const wakeOfWarCard = { instanceId: mint(), definitionId: WAKE_OF_WAR };
+    const withChain = initiateChain(
+      { ...withTom, phaseState: mhState },
+      PLAYER_2,
+      wakeOfWarCard,
+      { type: 'long-event' },
+    );
+    expect(tomCancelActions(withChain).length).toBe(0);
   });
 
   test('does NOT offer tap-to-cancel when no hazard is on the chain', () => {

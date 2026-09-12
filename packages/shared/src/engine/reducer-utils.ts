@@ -3645,6 +3645,44 @@ export function countUnresolvedChainHazards(state: GameState): number {
 }
 
 /**
+ * `play-target` kinds that count as "the current company or an entity
+ * associated with that company" under CoE 2.IV.vii.3 — a character or ally
+ * in the company, or an item borne by one. A hazard's site targeting (its
+ * "site path"/new site) and faction targeting are deliberately excluded:
+ * those are separate entries in the 2.IV.vii.3 target list, distinct from
+ * "the company or an entity associated with it".
+ */
+const COMPANY_ASSOCIATED_PLAY_TARGETS: ReadonlySet<string> = new Set([
+  'company', 'character', 'ally', 'item', 'stored-item',
+]);
+
+/**
+ * Whether the most-recent still-live hazard-creature/hazard-event chain entry
+ * — the one `cancel-chain-entry` `select: "most-recent-unresolved-hazard"`
+ * would negate — targets a company or an entity associated with a company
+ * (CoE 2.IV.vii.3) as an active condition of playing the card itself.
+ *
+ * A creature attack always targets the current company (CoE 2.IV.vii.2), so
+ * any pending hazard-creature entry qualifies unconditionally. A hazard event
+ * only qualifies when it carries a `play-target` effect naming one of
+ * {@link COMPANY_ASSOCIATED_PLAY_TARGETS}; an event that targets only a site
+ * or faction, or that "doesn't have a target" at all (a long-event like Wake
+ * of War tw-108), does not qualify. Backs Tom Bombadil (tw-350) and Leaflock
+ * (tw-265): "Tap to cancel a hazard that targets (as an active condition of
+ * playing the card itself) a company, or an entity associated with a
+ * company".
+ */
+export function mostRecentUnresolvedHazardTargetsCompany(state: GameState): boolean {
+  const pending = pendingChainCards(state).filter(pc => isHazardCreatureOrEventDef(pc.def));
+  const mostRecent = pending[pending.length - 1];
+  if (!mostRecent?.def) return false;
+  if (mostRecent.def.cardType === 'hazard-creature') return true;
+  return getCardEffects(mostRecent.def).some(
+    e => e.type === 'play-target' && COMPANY_ASSOCIATED_PLAY_TARGETS.has(e.target),
+  );
+}
+
+/**
  * Count in-play copies of `name` that are currently being targeted for discard
  * by an unresolved chain entry.
  *
