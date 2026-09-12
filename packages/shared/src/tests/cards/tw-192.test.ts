@@ -52,7 +52,7 @@ import {
   buildTestState, makePlayDeck,
   findCharInstanceId, findInPile,
   viableActions, viableFor, dispatch, resolveChain,
-  GALADRIEL, ARAGORN, RIVENDELL, LORIEN, LEGOLAS,
+  GALADRIEL, ARAGORN, BILBO, RIVENDELL, LORIEN, LEGOLAS,
   mint, addToPile,
 } from '../test-helpers.js';
 import { recomputeDerived } from '../../engine/recompute-derived.js';
@@ -277,7 +277,7 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
   // ── Organization-phase combine: discard a stored Reforging, place Andúril
   //    with Narsil (bug report msg 33fc9d48b98a2470) ──
 
-  function combineState(opts: { withReforging?: boolean; narsilBearer?: boolean }) {
+  function combineState(opts: { withReforging?: boolean; narsilBearer?: boolean; companyMate?: boolean }) {
     const site = RIVENDELL;
     const withReforging = opts.withReforging ?? true;
     const bearNarsil = opts.narsilBearer ?? true;
@@ -288,7 +288,13 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
       players: [
         {
           id: PLAYER_1,
-          companies: [{ site, characters: [bearNarsil ? { defId: ARAGORN, items: [NARSIL] } : ARAGORN] }],
+          companies: [{
+            site,
+            characters: [
+              bearNarsil ? { defId: ARAGORN, items: [NARSIL] } : ARAGORN,
+              ...(opts.companyMate ? [BILBO] : []),
+            ],
+          }],
           hand: [],
           siteDeck: [AMON_HEN],
           playDeck: makePlayDeck(),
@@ -368,6 +374,38 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
     expect(aragorn.effectiveStats.directInfluence).toBe(5);
     expect(aragorn.effectiveStats.corruptionPoints).toBe(3);
     expect(after.players[RESOURCE_PLAYER].marshallingPoints.misc).toBe(4);
+  });
+
+  // ── Transferring the combined pair keeps them together (bug report
+  //    df85b4e33b1f054b, game mtymxoft-2huwi5 seq 1542) ──
+
+  test('bug report df85b4e33b1f054b: transferring Narsil carries the combined Andúril along to the new bearer', () => {
+    const state = combineState({ companyMate: true });
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+
+    const combineAct = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .find(a => a.actionId === 'anduril-combine-with-narsil' && a.targetCardId === reforgingId && a.recipientCharacterId === aragornId);
+    const afterCombine = dispatch(state, combineAct as GameAction);
+
+    const narsilId = afterCombine.players[RESOURCE_PLAYER].characters[aragornId].items
+      .find(i => i.definitionId === NARSIL)!.instanceId;
+
+    const afterTransfer = dispatch(afterCombine, {
+      type: 'transfer-item',
+      player: PLAYER_1,
+      itemInstanceId: narsilId,
+      fromCharacterId: aragornId,
+      toCharacterId: bilboId,
+    });
+
+    const aragorn = afterTransfer.players[RESOURCE_PLAYER].characters[aragornId];
+    const bilbo = afterTransfer.players[RESOURCE_PLAYER].characters[bilboId];
+    expect(aragorn.items.some(i => i.definitionId === NARSIL || i.definitionId === ANDURIL)).toBe(false);
+    expect(bilbo.items.some(i => i.definitionId === NARSIL)).toBe(true);
+    expect(bilbo.items.some(i => i.definitionId === ANDURIL)).toBe(true);
   });
 
   test('NOT offered when there is no stored Reforging', () => {

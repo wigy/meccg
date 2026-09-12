@@ -14,6 +14,7 @@ import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
 import { isSiteCard, isResourceEventCard, isCharacterCard, isAvatarCharacter, isItemCard } from '../types/cards.js';
 import { CardStatus, SiteType, Race } from '../types/common.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
+import type { ItemInPlay } from '../types/state-cards.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { directInfluenceLedgerFor } from './legal-actions/organization.js';
@@ -1384,6 +1385,10 @@ function handleMoveToInfluence(state: GameState, action: GameAction): ReducerRes
  * recruitment-vehicle Stage resources riding in `CharacterInPlay.items` stay
  * with the character they were placed with), and that both characters are at
  * the same site (not necessarily same company).
+ *
+ * If the item carries {@link ItemInPlay.combinedWithInstanceId} (Andúril, the
+ * Flame of the West combined with Narsil), its bonded companion moves along
+ * to the same recipient rather than staying behind on the source character.
  */
 function handleTransferItem(state: GameState, action: GameAction): ReducerResult {
   if (action.type !== 'transfer-item') return wrongActionType(state, action, 'transfer-item');
@@ -1419,8 +1424,25 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
   const toDef = resolveDef(state, toCharId);
   logDetail(`Transfer item: ${itemDef?.name ?? '?'} from ${fromDef?.name ?? '?'} to ${toDef?.name ?? '?'}`);
 
-  // Move the item
-  const playerAfterTransfer = updateCharacter(removed.player, toCharId, c => ({ ...c, items: [...c.items, item] }));
+  // Carry along any item this one was "placed with" via a
+  // `place-source-with-item` grant-action apply (e.g. Andúril, the Flame of
+  // the West combined with Narsil, tw-192) — the two move as a bonded pair
+  // regardless of which one the action names, since CoE treats cards placed
+  // with each other as moving together (cf. the `discard` glossary entry).
+  let playerAfterRemoval = removed.player;
+  const itemsToMove: ItemInPlay[] = [item];
+  if (item.combinedWithInstanceId) {
+    const combinedRemoved = removeAttachment(playerAfterRemoval, 'items', item.combinedWithInstanceId);
+    if (combinedRemoved && combinedRemoved.charId === fromCharId) {
+      playerAfterRemoval = combinedRemoved.player;
+      itemsToMove.push(combinedRemoved.attachment);
+      const combinedDef = resolveDef(state, item.combinedWithInstanceId);
+      logDetail(`Transfer item: carrying combined ${combinedDef?.name ?? '?'} along with ${itemDef?.name ?? '?'}`);
+    }
+  }
+
+  // Move the item(s)
+  const playerAfterTransfer = updateCharacter(playerAfterRemoval, toCharId, c => ({ ...c, items: [...c.items, ...itemsToMove] }));
 
   // Enqueue a corruption-check resolution for the character who gave away
   // the item. The unified pending system replaces the old per-phase
@@ -1466,6 +1488,7 @@ function handleTransferItem(state: GameState, action: GameAction): ReducerResult
       characterId: fromCharId,
       reason: 'Transfer',
       transferredItemId: itemInstId,
+      combinedTransferItemId: itemsToMove.length > 1 ? itemsToMove[1].instanceId : null,
       allowSupport: true,
     }),
   };
