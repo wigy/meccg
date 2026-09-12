@@ -256,7 +256,7 @@ function signalEndStepActions(state: GameState, playerId: PlayerId): GameAction[
   if (!player.freeCouncilCalled && state.lastTurnFor === null) {
     if (isMinionOrBalrog(player)) {
       logDetail(`End-of-Turn signal-end: ${player.name} (${player.alignment}) cannot freely call Free Council per rule 10.41 — must play Sudden Call`);
-    } else if (canCallEndgameNow(player)) {
+    } else if (canCallEndgameNow(player, state.gameLength ?? 'short')) {
       const mp = player.marshallingPoints;
       const rawScore = mp.character + mp.item + mp.faction + mp.ally + mp.kill + mp.misc;
       logDetail(`End-of-Turn signal-end: ${player.name} eligible to call Free Council (raw MP ${rawScore}, exhaustions ${player.deckExhaustionCount})`);

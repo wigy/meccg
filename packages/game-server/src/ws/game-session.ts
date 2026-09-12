@@ -28,7 +28,7 @@ import type {
   ActionMessage,
 } from '@meccg/shared';
 import { loadCardPool, createRng, buildMovementMap, createGame, reduce, startCapture, flushCapture, Phase, computeTournamentBreakdown, computeLegalActions, withConcedeAction, stampActionIds, canonicalActionKey, extractActionCardDefs, redactActionForAudience, validateDeck, Alignment, CHARACTER_CARD_TYPES } from '@meccg/shared';
-import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry } from '@meccg/shared';
+import type { MovementMap, PlayerConfig, GameConfig, DeckList, DeckListEntry, GameLength } from '@meccg/shared';
 import { TUTORIAL_HERO_DECK, TUTORIAL_MENTOR_DECK, TUTORIAL_BEATS } from '@meccg/shared';
 import { projectPlayerView, projectSpectatorView } from './projection.js';
 import { TutorialController } from './tutorial-controller.js';
@@ -942,6 +942,7 @@ export class GameSession {
         this.toPlayerConfig(p2, p2Id, name2),
       ],
       seed: Date.now(),
+      gameLength: this.reconcileGameLength(p1.join.deckList?.gameLength, p2.join.deckList?.gameLength),
     };
 
     this.state = createGame(config, this.cardPool);
@@ -961,6 +962,22 @@ export class GameSession {
 
     this.announceDeckLegality(p1.join, name1);
     this.announceDeckLegality(p2.join, name2);
+  }
+
+  /**
+   * Reconcile two players' declared deck {@link GameLength}s into the single
+   * length the match is played at. Deck length is per-deck metadata, not a
+   * per-match setting agreed by both players, so a mismatch is resolved by
+   * taking the longer/more permissive of the two (Starter < Short < Long <
+   * Campaign) — this way neither player is forced into a shorter game than
+   * the deck they built for. Missing declarations default to `'short'`,
+   * matching the engine's own default.
+   */
+  private reconcileGameLength(length1: GameLength | undefined, length2: GameLength | undefined): GameLength {
+    const order: readonly GameLength[] = ['starter', 'short', 'long', 'campaign'];
+    const rank1 = order.indexOf(length1 ?? 'short');
+    const rank2 = order.indexOf(length2 ?? 'short');
+    return order[Math.max(rank1, rank2)];
   }
 
   /**

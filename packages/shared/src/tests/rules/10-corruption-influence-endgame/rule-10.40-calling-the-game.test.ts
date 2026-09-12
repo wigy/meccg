@@ -98,6 +98,186 @@ describe('Rule 10.40 — Calling the Game', () => {
     expect(canCall10mp1).toBe(false);
   });
 
+  test('Starter game (1-deck): 20 MP + 0 exhausts may call; 19 MP + 0 exhausts may not', () => {
+    const eotSignalEnd: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+
+    // Starter game: 20 MPs + 0 exhausts → may call (callExhaustions is 0)
+    const state20mp0ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 20 }, deckExhaustionCount: 0 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state20mp0 = { ...state20mp0ex, phaseState: eotSignalEnd, gameLength: 'starter' as const };
+    const canCall20mp0 = viableFor(state20mp0, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall20mp0).toBe(true);
+
+    // Starter game: 0 MPs but 1 exhaust → may call (auto-end at 1 exhaustion)
+    const state0mp1ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 0 }, deckExhaustionCount: 1 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state0mp1 = { ...state0mp1ex, phaseState: eotSignalEnd, gameLength: 'starter' as const };
+    const canCall0mp1 = viableFor(state0mp1, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall0mp1).toBe(true);
+
+    // Starter game: 19 MPs + 0 exhausts → cannot call (need 20 MPs)
+    const state19mp0ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 19 }, deckExhaustionCount: 0 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state19mp0 = { ...state19mp0ex, phaseState: eotSignalEnd, gameLength: 'starter' as const };
+    const canCall19mp0 = viableFor(state19mp0, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall19mp0).toBe(false);
+  });
+
+  test('Long game (3-deck): 30 MP + 2 exhausts, or 3 exhausts alone, may call; below both may not', () => {
+    const eotSignalEnd: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+
+    // Long game: 30 MPs + 2 exhausts → may call
+    const state30mp2ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 30 }, deckExhaustionCount: 2 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state30mp2 = { ...state30mp2ex, phaseState: eotSignalEnd, gameLength: 'long' as const };
+    const canCall30mp2 = viableFor(state30mp2, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall30mp2).toBe(true);
+
+    // Long game: 3 exhausts (regardless of MPs) → may call
+    const state0mp3ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 0 }, deckExhaustionCount: 3 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state0mp3 = { ...state0mp3ex, phaseState: eotSignalEnd, gameLength: 'long' as const };
+    const canCall0mp3 = viableFor(state0mp3, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall0mp3).toBe(true);
+
+    // Long game: 30 MPs + 1 exhaust → cannot call (need 2 exhausts)
+    const state30mp1ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 30 }, deckExhaustionCount: 1 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state30mp1 = { ...state30mp1ex, phaseState: eotSignalEnd, gameLength: 'long' as const };
+    const canCall30mp1 = viableFor(state30mp1, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall30mp1).toBe(false);
+  });
+
+  test('Campaign game (4-deck): 40 MP + 3 exhausts, or 4 exhausts alone, may call; below both may not', () => {
+    const eotSignalEnd: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+
+    // Campaign game: 40 MPs + 3 exhausts → may call
+    const state40mp3ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 40 }, deckExhaustionCount: 3 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state40mp3 = { ...state40mp3ex, phaseState: eotSignalEnd, gameLength: 'campaign' as const };
+    const canCall40mp3 = viableFor(state40mp3, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall40mp3).toBe(true);
+
+    // Campaign game: 4 exhausts (regardless of MPs) → may call
+    const state0mp4ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 0 }, deckExhaustionCount: 4 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state0mp4 = { ...state0mp4ex, phaseState: eotSignalEnd, gameLength: 'campaign' as const };
+    const canCall0mp4 = viableFor(state0mp4, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall0mp4).toBe(true);
+
+    // Campaign game: 40 MPs + 2 exhausts → cannot call (need 3 exhausts)
+    const state40mp2ex = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          marshallingPoints: { character: 40 }, deckExhaustionCount: 2 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const state40mp2 = { ...state40mp2ex, phaseState: eotSignalEnd, gameLength: 'campaign' as const };
+    const canCall40mp2 = viableFor(state40mp2, PLAYER_1).some(a => a.action.type === 'call-free-council');
+    expect(canCall40mp2).toBe(false);
+  });
+
+  test('Auto-end (both decks exhausted the length-required number of times) fires per game length, not the Short-game default', () => {
+    // Long game: both players exhausted their deck 3 times (Long's
+    // autoEndExhaustions), with no MPs and no prior call — the turn-end
+    // auto-end check must fire even though the Short-game literal (2) would not.
+    const eotSignalEnd: EndOfTurnPhaseState = {
+      phase: Phase.EndOfTurn,
+      step: 'signal-end',
+      discardDone: [true, true],
+      resetHandDone: [true, true],
+    };
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH],
+          deckExhaustionCount: 3 },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL],
+          deckExhaustionCount: 3 },
+      ],
+    });
+    const withLength = { ...state, phaseState: eotSignalEnd, gameLength: 'long' as const };
+
+    const after = dispatch(withLength, { type: 'pass', player: PLAYER_1 });
+
+    expect(after.phaseState.phase).toBe(Phase.FreeCouncil);
+  });
+
   test('formatGameState shows the unmodified MP total alongside the tournament-adjusted score, so the 25-MP calling threshold is visible', () => {
     // Player 1's raw total is exactly 25 — the calling threshold — but the
     // tournament-adjusted score shown as "MP" is inflated to 33 by the

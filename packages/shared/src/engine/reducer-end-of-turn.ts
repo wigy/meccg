@@ -9,6 +9,7 @@
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance, CardInstanceId, SiteInPlay } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
+import { GAME_LENGTH_RULES } from '../constants.js';
 import { isSiteCard } from '../types/cards.js';
 import { CardStatus, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
@@ -417,9 +418,10 @@ function handleEndOfTurnSignalEnd(state: GameState, action: GameAction): Reducer
       };
     }
 
-    // Check auto-end: both players exhausted their deck twice
-    if (state.players[0].deckExhaustionCount >= 2 && state.players[1].deckExhaustionCount >= 2) {
-      logDetail(`End-of-Turn signal-end: both players exhausted deck twice → transitioning to Free Council`);
+    // Check auto-end: both players exhausted their deck the length's required number of times
+    const autoEndExhaustions = GAME_LENGTH_RULES[state.gameLength ?? 'short'].autoEndExhaustions;
+    if (state.players[0].deckExhaustionCount >= autoEndExhaustions && state.players[1].deckExhaustionCount >= autoEndExhaustions) {
+      logDetail(`End-of-Turn signal-end: both players exhausted deck ${autoEndExhaustions}x (${state.gameLength ?? 'short'} game) → transitioning to Free Council`);
       return {
         state: transitionToFreeCouncil(state, state.activePlayer!),
       };
