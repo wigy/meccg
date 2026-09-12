@@ -707,7 +707,15 @@ export function applyCorruptionCheckResolution(
       if (cid === characterId as string) continue;
       const itemIdx = cData.items.findIndex(i => i.instanceId === transferredItemId);
       if (itemIdx >= 0) {
-        newCharacters[cid as CardInstanceId] = { ...cData, items: cData.items.filter(i => i.instanceId !== transferredItemId) };
+        // Andúril, the Flame of the West combined with Narsil (tw-192):
+        // if the failed transfer also carried a bonded companion item along
+        // (see `combinedWithInstanceId` in reducer-organization.ts), pull
+        // that one back off the new bearer too — it never really left.
+        const combinedId = cData.items[itemIdx].combinedWithInstanceId;
+        newCharacters[cid as CardInstanceId] = {
+          ...cData,
+          items: cData.items.filter(i => i.instanceId !== transferredItemId && i.instanceId !== combinedId),
+        };
         transferredItemOnBearer = true;
         break;
       }

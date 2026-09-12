@@ -218,6 +218,16 @@ export interface PendingResolution {
          */
         readonly transferredItemId: CardInstanceId | null;
         /**
+         * For transfer corruption checks that also carried a bonded
+         * companion item along (Andúril, the Flame of the West combined
+         * with Narsil, tw-192 — see `ItemInPlay.combinedWithInstanceId`):
+         * the companion's instance ID. Its corruption points are added to
+         * the check the same way `transferredItemId`'s are, even though it
+         * too already moved to the target character. Null when the
+         * transferred item has no bonded companion (the common case).
+         */
+        readonly combinedTransferItemId?: CardInstanceId | null;
+        /**
          * Custom failure consequence. When `'discard-ring-only'`, a failed
          * check discards only the bearer's Ring item instead of the character
          * (e.g. The Ring's Betrayal). When `'discard-instead-of-eliminate'`,
