@@ -152,7 +152,7 @@ export function buildConstraintKind(
             }
           }
         }
-      } else if (ps.phase === Phase.Site) {
+      } else if (siteDefinitionId === null && ps.phase === Phase.Site) {
         // Site phase: resolve from active company's current site
         const activePlayer = activePlayerState(state);
         const company = activePlayer?.companies[ps.activeCompanyIndex];
