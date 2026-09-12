@@ -28,6 +28,22 @@ export function diceRollLogLine(effect: DiceRollEffect): string {
 }
 
 /**
+ * Longest name/label allowed before {@link truncateName} clips it with an
+ * ellipsis. Keeps a `dice-roll` line inside `#game-log-panel`'s clipped
+ * `32rem` width so the roll numbers at the start of the line stay visible.
+ */
+const MAX_NAME_LENGTH = 24;
+
+/**
+ * Clips `name` to {@link MAX_NAME_LENGTH}, replacing the tail with `…` when it
+ * is too long. Used only for the message-panel notification — the verbose
+ * debug log is not width-constrained and keeps full names.
+ */
+function truncateName(name: string): string {
+  return name.length > MAX_NAME_LENGTH ? `${name.slice(0, MAX_NAME_LENGTH - 1)}…` : name;
+}
+
+/**
  * Roll line for the per-game message panel, or null when the roll needs no
  * entry there.
  *
@@ -47,7 +63,7 @@ export function diceRollNotification(
   const { playerName, die1, die2, label, total } = effect;
   if (total !== undefined) {
     const prowess = total - die1 - die2;
-    const charName = label.startsWith('CvCC Strike: ') ? label.slice('CvCC Strike: '.length) : label;
+    const charName = truncateName(label.startsWith('CvCC Strike: ') ? label.slice('CvCC Strike: '.length) : label);
     const message = `rolled ${prowess}+${die1}+${die2}=${total} for ${charName} in CvCC`;
     return playerName === selfName
       ? { message, opts: { self: selfName } }
@@ -55,7 +71,7 @@ export function diceRollNotification(
   }
   if (playerName === selfName) return null;
   return {
-    message: `rolled ${die1} + ${die2} = ${die1 + die2} (${label})`,
+    message: `rolled ${die1} + ${die2} = ${die1 + die2} (${truncateName(label)})`,
     opts: { opponent: playerName },
   };
 }
