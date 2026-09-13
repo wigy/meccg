@@ -1513,7 +1513,7 @@ function corruptionCheckEntryActions(
   isHead: boolean,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'corruption-check') return [];
-  const { characterId, modifier, reason, transferredItemId, combinedTransferItemId } = top.kind;
+  const { characterId, modifier, reason, transferredItemId, combinedTransferItemId, companionItemIds } = top.kind;
 
   // Find the character on either player (corruption checks are owned by
   // the actor, but the actor may not be the active player in all cases).
@@ -1652,6 +1652,7 @@ function corruptionCheckEntryActions(
   const transferredItemIds = [
     ...(transferredItemId ? [transferredItemId] : []),
     ...(combinedTransferItemId ? [combinedTransferItemId] : []),
+    ...(companionItemIds ?? []),
   ];
   const possessions: CardInstanceId[] = [
     ...transferredItemIds,

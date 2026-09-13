@@ -1748,6 +1748,9 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   // check determines whether the store *succeeds*, so it has to be made
   // as if the item were still borne. Reuses `transferredItemId`, the same
   // already-moved-but-still-counted mechanism the transfer-item check uses.
+  // Any companion permanent event stored alongside it (Align Palantír
+  // tw-190) is still borne by the character for corruption-total purposes
+  // too, so its CP rides along via `companionItemIds`.
   //
   // `allowSupport: true` because CoE 7.1.1 lets a resource player tap
   // untapped company mates for +1 each on *any* corruption check that has
@@ -1761,6 +1764,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     reason: 'Store',
     allowSupport: true,
     transferredItemId: itemInstId,
+    companionItemIds: companionCards.map(c => c.instanceId),
   });
 
   // Clear any bearer-cannot-untap constraints that reference the stored card.

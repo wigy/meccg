@@ -31,6 +31,7 @@ import type {
   CardDefinitionId,
 } from '../../index.js';
 import type { StoreItemAction } from '../../types/actions-organization.js';
+import type { CorruptionCheckAction } from '../../types/actions-universal.js';
 import { ISENGARD } from '../../index.js';
 
 const ALIGN_PALANTIR = 'tw-190' as CardDefinitionId;
@@ -374,6 +375,52 @@ describe('Align Palantír (tw-190)', () => {
     // `mp-in-pile` effect, same as the Palantír itself scores item MP.
     const recomputed = recomputeDerived(after);
     expect(recomputed.players[0].marshallingPoints.misc).toBe(2);
+  });
+
+  // ── CoE 7.1: corruption check when storing must count Align Palantír's own CP too ──
+
+  test('corruption check for storing the Palantír counts Align Palantír\'s corruption points too', () => {
+    // Palantír of Orthanc (2 CP) + Align Palantír (2 CP) stored together must
+    // produce a corruption check against 4 CP, not just the Palantír's own 2 —
+    // CoE 7.1's "corruption point total" sums every card the bearer controls,
+    // and Align Palantír leaves with it (CRF 22: "If the Palantír is stored,
+    // this card is stored too").
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: LORIEN,
+            characters: [{
+              defId: SARUMAN,
+              items: [PALANTIR_OF_ORTHANC, ALIGN_PALANTIR],
+            }],
+          }],
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const charBefore = getCharacter(state, RESOURCE_PLAYER, SARUMAN);
+    const palantirInstId = charBefore.items.find(i => i.definitionId === PALANTIR_OF_ORTHANC)!.instanceId;
+
+    const stores = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item') as { action: StoreItemAction }[];
+    const storeAction = stores.find(a => a.action.itemInstanceId === palantirInstId);
+    expect(storeAction).toBeDefined();
+
+    const after = dispatch(state, storeAction!.action);
+
+    const checks = viableActions(after, PLAYER_1, 'corruption-check')
+      .map(ea => ea.action as CorruptionCheckAction);
+    expect(checks.length).toBe(1);
+    expect(checks[0].corruptionPoints).toBe(4);
   });
 
   // ── CoE rule 3.I.2: elimination — only true items are salvageable ──

@@ -228,6 +228,16 @@ export interface PendingResolution {
          */
         readonly combinedTransferItemId?: CardInstanceId | null;
         /**
+         * For store corruption checks where a companion permanent event
+         * stores alongside the item (Align Palantír tw-190: "If the
+         * Palantír is stored, this card is stored too"): the companion
+         * cards' instance IDs. Their corruption points are added to the
+         * check the same way `transferredItemId`'s are, even though they
+         * too already moved to the marshalling point pile. Empty for
+         * checks with no such companions.
+         */
+        readonly companionItemIds?: readonly CardInstanceId[];
+        /**
          * Custom failure consequence. When `'discard-ring-only'`, a failed
          * check discards only the bearer's Ring item instead of the character
          * (e.g. The Ring's Betrayal). When `'discard-instead-of-eliminate'`,
