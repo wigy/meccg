@@ -3255,6 +3255,9 @@
         "cost": {
           "tap": "self"
         },
+        "when": {
+          "chain.targetsCompany": true
+        },
         "apply": {
           "type": "cancel-chain-entry",
           "select": "most-recent-unresolved-hazard"
@@ -4497,7 +4500,7 @@
         "type": "grant-action",
         "action": "cancel-chain-entry",
         "cost": { "tap": "self" },
-        "when": { "destinationRegion": { "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"] } },
+        "when": { "$and": [ { "destinationRegion": { "$in": ["Arthedain", "Cardolan", "Rhudaur", "The Shire"] } }, { "chain.targetsCompany": true } ] },
         "apply": { "type": "cancel-chain-entry", "select": "most-recent-unresolved-hazard" }
       },
       {

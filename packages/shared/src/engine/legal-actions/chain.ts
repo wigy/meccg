@@ -23,7 +23,7 @@ import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { cardStatusToName } from '../../types/common.js';
 import { logDetail } from './log.js';
-import { playerById, getCardEffects, defById, companyById, pendingChainCards, countUnresolvedChainHazards } from '../reducer-utils.js';
+import { playerById, getCardEffects, defById, companyById, pendingChainCards, countUnresolvedChainHazards, mostRecentUnresolvedHazardTargetsCompany } from '../reducer-utils.js';
 import { companyContainsBalrogAvatar } from '../../state-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
@@ -115,7 +115,8 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
       // home regions.
       const destDef = company.destinationSite ? defById(state, company.destinationSite.definitionId) : undefined;
       const destinationRegion = destDef && isSiteCard(destDef) ? destDef.region : undefined;
-      actions.push(...emitAllyCancelChainActions(state, playerId, company, hazardCount, destinationRegion));
+      const targetsCompany = mostRecentUnresolvedHazardTargetsCompany(state);
+      actions.push(...emitAllyCancelChainActions(state, playerId, company, hazardCount, destinationRegion, targetsCompany));
       // Enchanted Stream (as-27): a hazard being played that carries its own
       // "a <skill> in the company may tap to cancel this card before it
       // resolves" grant-action. Offered to the active (resource) player.
@@ -147,7 +148,11 @@ export function chainActions(state: GameState, playerId: PlayerId): EvaluatedAct
  *  - the ally is an untapped ally in the active company,
  *  - there is at least one unresolved hazard on the chain (`hazardCount > 0`),
  *  - the ally's grant-action `when` matches a context exposing the active
- *    company's destination region and the chain hazard count.
+ *    company's destination region, the chain hazard count, and whether the
+ *    most-recent unresolved hazard actually targets the company or an
+ *    entity associated with it ({@link mostRecentUnresolvedHazardTargetsCompany}) —
+ *    both cards' text requires this, ruling out untargeted hazard long-events
+ *    like Wake of War (tw-108).
  *
  * The reducer path is the shared `handleGrantActionApply`: the cost
  * `{ tap: "self" }` taps the ally in place (source ≠ bearer character) and the
@@ -162,6 +167,7 @@ function emitAllyCancelChainActions(
   company: import('../../index.js').Company,
   hazardCount: number,
   destinationRegion: string | undefined,
+  targetsCompany: boolean,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   if (hazardCount === 0) return actions;
@@ -169,7 +175,7 @@ function emitAllyCancelChainActions(
   const player = playerById(state, playerId);
   if (!player) return actions;
 
-  const ctx = { destinationRegion, chain: { hazardCount } };
+  const ctx = { destinationRegion, chain: { hazardCount, targetsCompany } };
 
   for (const charInstId of company.characters) {
     const char = player.characters[charInstId];
