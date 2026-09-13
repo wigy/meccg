@@ -38,7 +38,7 @@ import {
   SAPLING_OF_THE_WHITE_TREE, RIVENDELL,
 } from '../../index.js';
 import type {
-  CardDefinitionId, GameState, CardInstance, PlayPermanentEventAction, ConstraintId,
+  CardDefinitionId, GameState, CardInstance, PlayPermanentEventAction, ConstraintId, SitePhaseState,
 } from '../../index.js';
 import { buildTestState, mint } from '../test-helpers.js';
 
@@ -405,6 +405,78 @@ describe('tw-348 The White Tree', () => {
     const action = playActions[0].action as PlayPermanentEventAction;
     expect(action.discardCardInstanceId).toBeDefined();
     expect(action.targetSiteDefinitionId).toBe(MINAS_TIRITH);
+  });
+
+  test('binds the haven override to the targeted site, not the active company\'s site', () => {
+    // Regression for the KakitaBen bug report (game mtytzhi5-cbtkfq, seq 1012):
+    // the site-phase-active company (company index 0) was at a different
+    // site (Moria) than the one The White Tree targeted (Minas Tirith, held
+    // by a second company). `buildConstraintKind`'s site-type-override case
+    // unconditionally re-resolved the site from the active company during
+    // the Site phase, discarding the card's explicit targetSiteDefinitionId
+    // — so the resulting haven override bound to Moria instead of Minas
+    // Tirith, and a wounded character stationed at Minas Tirith (Beregond,
+    // as a follower) never healed at untap.
+    let state: GameState = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: MINAS_TIRITH, characters: [ELROND] },
+          ],
+          hand: [THE_WHITE_TREE],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const sitePhaseState: SitePhaseState = {
+      phase: Phase.Site,
+      step: 'play-resources',
+      activeCompanyIndex: 0,
+      handledCompanyIds: [],
+      siteEntered: true,
+      resourcePlayed: false,
+      minorItemAvailable: false,
+      hoardBountyAvailable: false,
+      thoroughSearchAvailable: false,
+      declaredAgentAttack: null,
+      automaticAttacksResolved: 0,
+      awaitingOnGuardReveal: false,
+      pendingResourceAction: null,
+      opponentInteractionThisTurn: null,
+      pendingOpponentInfluence: null,
+    };
+    state = { ...state, phaseState: sitePhaseState };
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
+
+    const elrondId = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
+    const saplingId = state.players[0].characters[elrondId].items[0].instanceId;
+    const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
+
+    state = playPermanentEventAndResolve(state, PLAYER_1, whiteTreeId, undefined, {
+      targetSiteDefinitionId: MINAS_TIRITH,
+      discardCardInstanceId: saplingId,
+    });
+
+    const override = state.activeConstraints.find(
+      c => c.kind.type === 'attribute-modifier'
+        && c.kind.attribute === 'site.type'
+        && c.kind.op === 'override'
+        && c.kind.value === 'haven',
+    );
+    expect(override).toBeDefined();
+    expect((override!.kind as { filter?: { 'site.definitionId'?: string } }).filter?.['site.definitionId'])
+      .toBe(MINAS_TIRITH as unknown as string);
   });
 
   test('unique — not playable if already in play', () => {
