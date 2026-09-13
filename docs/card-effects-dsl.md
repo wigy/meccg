@@ -10288,6 +10288,80 @@ play it from hand onto any character in the defending company via a new
 `applyNamedCardPlayOfferResolution`, mirroring `ring-play-offer`'s
 item-attach shape), or pass to decline.
 
+#### 32b. `force-body-check-on-strike-failure` (forced additional body check when a strike fails)
+
+A `short` hazard-event's `self-enters-play-combat` on-event may apply
+`force-body-check-on-strike-failure` instead of `modify-current-strike-prowess`
+— played (like Dragon's Curse) via the `play-window { phase: "combat", step:
+"resolve-strike" }` / `play-target: character` combat window, but resolving
+and discarding immediately per `isCombatReactiveShortEvent`
+(`handleCombatPlayHazard` treats the apply as one more combat-reactive-short-event
+marker, alongside `modify-current-strike-prowess` and
+`force-attacker-kill-on-resolution`) rather than attaching.
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-target", "target": "character",
+  "filter": { "attack.race": { "$in": ["dragon", "drake"] } } }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "force-body-check-on-strike-failure",
+    "itemModifiers": [
+      { "keyword": "armor", "value": -1 },
+      { "keyword": "shield", "value": -1 },
+      { "keyword": "helmet", "value": -1 }
+    ] } }
+{ "type": "duplication-limit", "scope": "character", "max": 1 }
+```
+
+On play, `handleCombatPlayHazard` records the effect's `itemModifiers` onto
+the current `StrikeAssignment.forcedBodyCheckOnFailureItemMods`
+(`combat-hazard-play.ts`) rather than applying anything immediately — the
+strike hasn't been rolled yet. Once `resolveStrikeCore` (`combat-strike.ts`)
+determines the strike's outcome, `strikeFailedAgainstDefender` (`result ===
+'success'`, covering both an outright parry and a tie — CoE 3.iv.7
+"ineffectual") gates the forced check: when true, and the strike isn't
+detainment, and the target is a character (not an ally — the card is
+playable only "on a character"), the engine sums `itemModifiers` whose
+`keyword` the character bears on **any** borne item (possession, not
+item-slot "in use" status) into `StrikeAssignment.forcedBodyCheckModifier`,
+and — if the strike's own resolution left `bodyCheckTarget` unset (a tie, or
+a defeated strike against a bodyless creature) — forces `bodyCheckTarget =
+'character'` so a body check happens at all where the rules would otherwise
+skip one entirely.
+
+When the character *also* threatens the creature's own body (bodyCheckTarget
+was already `'creature'`), the creature's check resolves first;
+`handleBodyCheckRoll`'s `'creature'` branch then reads
+`strikeAssignments[currentStrikeIndex].forcedBodyCheckModifier` and, if
+defined, chains straight into a second `'character'` body check instead of
+advancing — both checks fire off the same strike, in creature-then-character
+order. The `'character'` branch of `handleBodyCheckRoll`
+(`combat-actions.ts`) folds `strike.forcedBodyCheckModifier` into the roll
+alongside every other body-check modifier (attack-wide, item-granted,
+global, bearer-combat) — a negative value protects the character, matching
+the card's flavor that armor/shield/helmet cushion the effect.
+
+"Cannot be duplicated on a given character" is tracked without an
+attachment: since the card discards immediately rather than living in
+`hazards`, `handleCombatPlayHazard` installs an attack-scoped
+`attack-card-played` constraint targeted at the character
+(`{ kind: "character", characterId }`, `scope: { kind: "attack" }`), and the
+per-character `duplication-limit` check in `combatHazardPermanentPlays`
+(`legal-actions/combat.ts`) counts those markers (filtered by matching
+`sourceDefinitionId` name) instead of scanning `targetChar.hazards` whenever
+`isCombatReactiveShortEvent(def)` is true.
+
+Used by Dragon's Blood (td-14): "Playable on a character facing a Dragon or
+Drake strike (before the dice are rolled to resolve the strike). If the
+strike fails, the target character must make a body check modified by -1 if
+he has armor, by -1 if he has a shield, and by -1 if he has a helmet. Cannot
+be duplicated on a given character."
+
+Implemented in `engine/combat-hazard-play.ts` (`handleCombatPlayHazard`),
+`engine/combat-strike.ts` (`resolveStrikeCore`), `engine/combat-actions.ts`
+(`handleBodyCheckRoll`), and `engine/legal-actions/combat.ts`
+(`combatHazardPermanentPlays`).
+
 ### 33. `combat-protection`
 
 Protects the bearing card (typically an ally) from being assigned

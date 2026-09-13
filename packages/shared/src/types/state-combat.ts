@@ -11,6 +11,7 @@ import {
   CardInstanceId,
   CardDefinitionId,
   CompanyId,
+  Keyword,
   Race,
   RegionType,
   SiteType,
@@ -389,6 +390,28 @@ export interface StrikeAssignment {
    * (no-body-check path) and `handleBodyCheckRoll` (creature-body-check path).
    */
   readonly cascadesOnDefeat?: boolean;
+  /**
+   * Item-keyword body-check modifiers to apply if this strike fails to wound
+   * its target character (Dragon's Blood td-14). Set when the card is played
+   * via `self-enters-play-combat` → `force-body-check-on-strike-failure`
+   * (`handleCombatPlayHazard`, `combat-hazard-play.ts`); consumed by
+   * `resolveStrikeCore` once the strike's outcome is known, which computes
+   * {@link forcedBodyCheckModifier} from the target's borne items and clears
+   * this field.
+   */
+  readonly forcedBodyCheckOnFailureItemMods?: readonly { readonly keyword: Keyword; readonly value: number }[];
+  /**
+   * Set by `resolveStrikeCore` when {@link forcedBodyCheckOnFailureItemMods}
+   * applied (the strike failed to wound the target): the total roll modifier
+   * (sum of matching item-keyword values) for the additional body check
+   * Dragon's Blood (td-14) forces on the target character. Presence of this
+   * field (even `0`) signals to `handleBodyCheckRoll`'s `'creature'` branch
+   * that, once the creature's own body check (if any) resolves, an extra
+   * `'character'` body check must be forced for this strike before advancing;
+   * the `'character'` branch reads it into the roll and it is not read again
+   * afterward (the strike moves on regardless of this field's stale value).
+   */
+  readonly forcedBodyCheckModifier?: number;
 }
 
 /**

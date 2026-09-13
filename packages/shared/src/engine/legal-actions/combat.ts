@@ -5115,12 +5115,23 @@ function combatHazardPermanentPlays(
     }
 
     // Per-character duplication limit: skip if a copy is already on the target.
+    // A combat-reactive short event (e.g. Dragon's Blood td-14) never attaches
+    // to `targetChar.hazards` — it resolves and discards immediately — so its
+    // copies are tracked instead via attack-scoped `attack-card-played`
+    // constraint markers targeted at the character (installed in
+    // `handleCombatPlayHazard`, `combat-hazard-play.ts`), mirroring how the
+    // company-wide limit below tracks `company-stat-modifier` markers.
     const charDupLimit = findDuplicationLimitEffect(def, 'character');
     if (charDupLimit) {
-      const copies = targetChar.hazards.filter(h => {
-        const hDef = defById(state, h.definitionId);
-        return hDef && hDef.name === def.name;
-      }).length;
+      const copies = isCombatReactiveShortEvent(def)
+        ? state.activeConstraints.filter(
+            c => c.target.kind === 'character' && c.target.characterId === targetCharId
+              && c.kind.type === 'attack-card-played' && defById(state, c.sourceDefinitionId)?.name === def.name,
+          ).length
+        : targetChar.hazards.filter(h => {
+            const hDef = defById(state, h.definitionId);
+            return hDef && hDef.name === def.name;
+          }).length;
       if (copies >= charDupLimit.max) {
         logDetail(`Combat play-hazard "${def.name}" already on ${targetDef.name} (${copies}/${charDupLimit.max})`);
         continue;

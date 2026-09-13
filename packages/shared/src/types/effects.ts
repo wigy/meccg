@@ -2292,6 +2292,7 @@ export type TriggeredActionType =
   | 'increment-company-extra-region-distance'
   | 'modify-current-strike-prowess'
   | 'force-attacker-kill-on-resolution'
+  | 'force-body-check-on-strike-failure'
   | 'move'
   | 'place-item-on-character'
   | 'place-source-with-item'
@@ -3704,6 +3705,25 @@ export interface ForceAttackerKillOnResolutionAction extends TriggeredActionBase
   readonly offerCardName?: string;
 }
 
+/**
+ * `force-body-check-on-strike-failure` — Dragon's Blood (td-14): played on a
+ * character facing a Dragon or Drake strike, before the dice are rolled. If
+ * the strike fails to wound the target character (the character defeats the
+ * strike or ties), the character must immediately face an additional body
+ * check. Each entry in `itemModifiers` whose `keyword` the character bears on
+ * any borne item (regardless of item-slot "in use" status — this is about
+ * possession, not usage) contributes its `value` to the check roll; a
+ * negative value protects the character (the card's flavor is that
+ * armor/shield/helmet cushion the corrosive blood). Recorded onto the current
+ * `StrikeAssignment` at play time and consumed by `resolveStrikeCore`
+ * (`combat-strike.ts`) and `handleBodyCheckRoll` (`combat-actions.ts`).
+ */
+export interface ForceBodyCheckOnStrikeFailureAction extends TriggeredActionBase {
+  readonly type: 'force-body-check-on-strike-failure';
+  /** Per-item-keyword roll modifiers (e.g. armor/shield/helmet each -1). */
+  readonly itemModifiers: readonly { readonly keyword: Keyword; readonly value: number }[];
+}
+
 /** `transform-site` — override all versions of the bearer's current site's type, optionally with a bespoke attack (Vile Fumes). */
 export interface TransformSiteAction extends TriggeredActionBase {
   readonly type: 'transform-site';
@@ -3928,6 +3948,7 @@ export type TriggeredAction =
   | IncrementCompanyExtraRegionDistanceAction
   | ModifyCurrentStrikeProwessAction
   | ForceAttackerKillOnResolutionAction
+  | ForceBodyCheckOnStrikeFailureAction
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction
