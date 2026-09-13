@@ -1024,6 +1024,20 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       }
     }
 
+    // Dragon's Blood (td-14): this strike's forced-body-check-on-failure
+    // modifier is set exactly when the strike failed to wound the character
+    // (which is how this 'creature' branch was reached in the first place —
+    // the character defeated or tied the creature's strike). Chain into an
+    // additional 'character' body check now that the creature's own check
+    // has resolved, rather than advancing to the next strike.
+    if (strike2?.forcedBodyCheckModifier !== undefined) {
+      logDetail(`Dragon's Blood: creature body check resolved — forcing body check on ${strike2.characterId as string}`);
+      return {
+        state: { ...stateAfterOutcome, combat: { ...combatAfterBodyCheck, phase: 'body-check', bodyCheckTarget: 'character' } },
+        effects,
+      };
+    }
+
     // Advance to next strike or finalize
     return advanceStrikeOrFinalize(stateAfterOutcome, combatAfterBodyCheck, effects);
   }
@@ -1108,9 +1122,14 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     // survived once this strike (see the "survives" branch below, which
     // enqueues `pendingAdditionalBodyChecks` and re-requests this same roll).
     const additionalCheckMod = combat.pendingAdditionalBodyChecks?.[0] ?? 0;
-    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod + bearerMod + additionalCheckMod;
+    // Dragon's Blood (td-14): the forced check computed in resolveStrikeCore
+    // when this strike failed to wound the character (item-keyword modifier
+    // from armor/shield/helmet the character bears — negative values protect
+    // him). Only present on a strike Dragon's Blood was played on.
+    const forcedCheckMod = strike.forcedBodyCheckModifier ?? 0;
+    const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod + bearerMod + additionalCheckMod + forcedCheckMod;
 
-    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${additionalCheckMod ? `${formatSignedNumber(additionalCheckMod)}(additional check)` : ''} = ${effectiveRoll} vs body ${body}`);
+    logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${additionalCheckMod ? `${formatSignedNumber(additionalCheckMod)}(additional check)` : ''}${forcedCheckMod ? `${formatSignedNumber(forcedCheckMod)}(Dragon's Blood)` : ''} = ${effectiveRoll} vs body ${body}`);
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.

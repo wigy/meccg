@@ -982,3 +982,40 @@ Necklace of Silver and Pearls (td-141): "Hoard item. Discard this card to give +
 ```
 
 Used by *Necklace of Silver and Pearls* (td-141).
+
+### `force-body-check-on-strike-failure` — a forced additional body check when a strike fails, tracked without attaching (Dragon's Blood td-14)
+
+Dragon's Blood (td-14): "Playable on a character facing a Dragon or Drake strike (before the dice are rolled to resolve the strike). If the strike fails, the target character must make a body check modified by -1 if he has armor, by -1 if he has a shield, and by -1 if he has a helmet. Cannot be duplicated on a given character." — **fully implemented**, new primitive; see `docs/card-effects-dsl.md` §32b for the full walkthrough.
+
+The card reuses Dragon's Curse's (td-16) combat-time play window (`play-window` combat/resolve-strike, `play-target: character` filtered on `attack.race` via `$in: ["dragon", "drake"]`, per the DSL-over-magic-keyword policy rather than extending the single-race `combat-creature-race` condition), but is a `short` event that resolves and discards immediately rather than attaching — `isCombatReactiveShortEvent` (`reducer-utils.ts`) gained a fourth recognized apply, `force-body-check-on-strike-failure`, alongside `add-constraint`/`company-stat-modifier`, `modify-current-strike-prowess`, and `force-attacker-kill-on-resolution`.
+
+On play, `handleCombatPlayHazard` (`combat-hazard-play.ts`) records the apply's `itemModifiers` onto `StrikeAssignment.forcedBodyCheckOnFailureItemMods` for the current strike — nothing is rolled yet. `resolveStrikeCore` (`combat-strike.ts`) reads it once the strike's outcome is known: when `strikeFailedAgainstDefender` (the strike did not wound the character — a parry or a tie, CoE 3.iv.7) and the target is a character (not detainment, not an ally), it sums the modifiers whose `keyword` the character bears on any borne item (possession, not item-slot "in use" status) into `StrikeAssignment.forcedBodyCheckModifier`, and — only if the strike's own resolution left no body check pending (a tie, or a defeated strike against a bodyless creature) — forces `bodyCheckTarget = 'character'` so a check happens where the printed rules would otherwise skip one. When the character's own strike also threatens the creature's body, the creature's check runs first as normal; `handleBodyCheckRoll`'s `'creature'` branch (`combat-actions.ts`) then reads the same field and, if set, chains straight into a second `'character'` check instead of advancing to the next strike. The `'character'` branch folds `forcedBodyCheckModifier` into the roll alongside every other body-check modifier.
+
+"Cannot be duplicated on a given character" needed a new tracking path since the card never attaches to `hazards`: `handleCombatPlayHazard` installs an attack-scoped `attack-card-played` constraint (the existing marker kind, previously only targeted at `{ kind: "player" }` from `handleModifyAttack`) targeted instead at `{ kind: "character", characterId }`, and the per-character `duplication-limit` check in `combatHazardPermanentPlays` (`legal-actions/combat.ts`) now branches on `isCombatReactiveShortEvent(def)`: true counts matching constraint markers on the character, false (the Dragon's Curse attaching-permanent-event case) keeps scanning `targetChar.hazards` as before.
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-target", "target": "character",
+  "filter": { "attack.race": { "$in": ["dragon", "drake"] } } }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "force-body-check-on-strike-failure",
+    "itemModifiers": [
+      { "keyword": "armor", "value": -1 },
+      { "keyword": "shield", "value": -1 },
+      { "keyword": "helmet", "value": -1 }
+    ] } }
+{ "type": "duplication-limit", "scope": "character", "max": 1 }
+```
+
+Used by *Dragon's Blood* (td-14).
+
+### Five sibling "duplicate a named Palantír's tap ability" grant-actions, no new engine primitives (Palantír of Osgiliath tw-301)
+
+Palantír of Osgiliath (tw-301): "With its bearer able to use a Palantír, tap Palantír of Osgiliath to force the discard of any hazard permanent-event or to duplicate the effect of any Palantír in play. Bearer makes a corruption check." (CRF 22: "Only copies tapping effects of other Palantíri, not continuous effects.")
+
+No new engine work — this extends the precedent set by Palantír of Amon Sûl (tw-296, see its own entry above) from "two named borrowed abilities" to "every other hero Palantír", confirming the pattern generalizes cleanly:
+
+- **Discard mode**: `targets.scope: "opponent-cards-in-play"` filtered to `{ "$and": [{ "cardType": "hazard-event" }, { "eventType": "permanent" }] }` + `discard-target-in-play` apply (the Keys to the White Towers wh-89 precedent) — "force the discard of any hazard permanent-event" needs no card-name filter, unlike wh-89/tw-296's named targets.
+- **Duplicate mode ×5**: one `grant-action` per other hero Palantír (Amon Sûl tw-296, Annúminas tw-297, Elostirion tw-298, Orthanc tw-300, Minas Tirith tw-299), each gated `$and: [bearer.canUsePalantir, player.inPlayNames $includes "<that Palantír's name>", <that ability's own extra precondition, if any>]`, with an `apply` that is a verbatim copy of the target Palantír's own tap-ability `apply`. Elostirion's "if the bearer is a sage" and Orthanc's "5+ cards in your play deck" preconditions carry over unchanged since both already evaluate against the *acting* bearer/player, not the target Palantír's own — the same reasoning tw-296 already established for its Elostirion clause. Osgiliath's own `{ tap: "self" }` cost makes all six modes mutually exclusive for free (the item is tapped by whichever mode is taken), so — unlike wh-89's two same-cost-`{}` modes — no shared action name / `oncePerTurn` lock is needed.
+
+Used by *Palantír of Osgiliath* (tw-301). Sibling *Palantír of Osgiliath* (le-335, minion) is not yet certified; its text restricts duplication to "any **minion** Palantír in play", which the `player.inPlayNames` (own-play-only) semantics already enforce for free once it's certified with the LE-side siblings' own names.
