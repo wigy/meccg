@@ -846,9 +846,16 @@ export function buildGrantedActionMenuItems(
           if (parts.length > 0) label += ` — ${parts.join(' ')}`;
         } else if (action.characterId) {
           // Different acting characters offering the same ability — append the
-          // acting character's name so the player knows which one taps.
+          // acting character's name so the player knows which one taps. When a
+          // second character also pays the cost (The Worthy Hills as-142: one
+          // sage + one scout untap the site), name both — otherwise every
+          // pairing that shares the same first character renders an identical
+          // label (bug report 7e7c3f9bfcd4e91a: 3 indistinguishable "Bilbo"
+          // buttons, one per eligible scout).
           const charName = resolveName(action.characterId);
-          if (charName) label += ` — ${charName}`;
+          const secondCharName = action.secondCharacterId ? resolveName(action.secondCharacterId) : undefined;
+          const parts = [charName, secondCharName].filter((p): p is string => !!p);
+          if (parts.length > 0) label += ` — ${parts.join(' + ')}`;
         }
       }
       items.push({ label, onClick: () => onAction(action) });
