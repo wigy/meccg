@@ -1770,6 +1770,9 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   // check determines whether the store *succeeds*, so it has to be made
   // as if the item were still borne. Reuses `transferredItemId`, the same
   // already-moved-but-still-counted mechanism the transfer-item check uses.
+  // Any companion permanent event stored alongside it (Align Palantír
+  // tw-190) is still borne by the character for corruption-total purposes
+  // too, so its CP rides along via `companionItemIds`.
   //
   // `allowSupport: true` because CoE 7.1.1 lets a resource player tap
   // untapped company mates for +1 each on *any* corruption check that has
@@ -1784,6 +1787,13 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     allowSupport: true,
     transferredItemId: itemInstId,
     combinedTransferItemId: combinedItem?.instanceId ?? null,
+    // The bonded companion (Andúril combined with Narsil) rides along in
+    // `companionCards` so it reaches the marshalling point pile, but its CP is
+    // already counted via `combinedTransferItemId` — filter it out here or the
+    // check would count it (and list it as a possession) twice.
+    companionItemIds: companionCards
+      .map(c => c.instanceId)
+      .filter(id => id !== combinedItem?.instanceId),
   });
 
   // Clear any bearer-cannot-untap constraints that reference the stored card.
