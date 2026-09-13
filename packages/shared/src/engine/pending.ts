@@ -118,6 +118,7 @@ export function enqueueCorruptionCheck(
     readonly possessions?: readonly CardInstanceId[];
     readonly transferredItemId?: CardInstanceId | null;
     readonly combinedTransferItemId?: CardInstanceId | null;
+    readonly companionItemIds?: readonly CardInstanceId[];
     readonly failureMode?: 'discard-ring-only' | 'discard-instead-of-eliminate';
     readonly onSuccess?: import('../types/effects.js').TriggeredAction;
     readonly awardKillMpTo?: PlayerId;
@@ -141,6 +142,7 @@ export function enqueueCorruptionCheck(
       possessions: opts.possessions ?? [],
       transferredItemId: opts.transferredItemId ?? null,
       combinedTransferItemId: opts.combinedTransferItemId ?? null,
+      companionItemIds: opts.companionItemIds ?? [],
       failureMode: opts.failureMode,
       onSuccess: opts.onSuccess,
       awardKillMpTo: opts.awardKillMpTo,
