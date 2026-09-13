@@ -2921,6 +2921,30 @@ h2 {
   color: #ffffff;
 }
 
+.deck-editor-favourite-btn {
+  padding: 0.1rem 0.3rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  background: transparent;
+  color: #5a6a8b;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.05s ease, color 0.1s ease;
+}
+
+.deck-editor-favourite-btn:hover {
+  color: #d4af37;
+}
+
+.deck-editor-favourite-btn:active {
+  transform: translateY(1px) scale(0.92);
+}
+
+.deck-editor-favourite-btn--active {
+  color: #d4af37;
+}
+
 .deck-editor-section-title {
   display: flex;
   align-items: center;

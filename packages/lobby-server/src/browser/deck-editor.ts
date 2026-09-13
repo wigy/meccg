@@ -528,6 +528,19 @@ async function saveEditingDeck(): Promise<boolean> {
   return r.ok;
 }
 
+/** Flip an entry's favourite flag, save the deck, and re-render the section. Reverts on failure. */
+function toggleFavourite(entry: DeckListEntry, section: DeckSection, deckId: string): void {
+  const prev = entry.favourite;
+  entry.favourite = !prev;
+  renderSection(section, deckId);
+  void saveEditingDeck().then(ok => {
+    if (!ok) {
+      entry.favourite = prev;
+      renderSection(section, deckId);
+    }
+  });
+}
+
 /** Adjust an entry's quantity by delta, save the deck, and re-render the section. */
 function changeQty(
   entry: DeckListEntry, delta: number, section: DeckSection, deckId: string, e: MouseEvent,
@@ -769,7 +782,7 @@ function makeQtyButton(label: string, title: string, onClick: (e: MouseEvent) =>
 }
 
 /** Render a list of card entries into a container element, sorted by card type then name. */
-function renderCardList(container: HTMLElement, section: DeckSection, deckId: string): void {
+export function renderCardList(container: HTMLElement, section: DeckSection, deckId: string): void {
   container.innerHTML = '';
   const sorted = sortDeckEntries(section.entries);
   for (const entry of sorted) {
@@ -782,8 +795,22 @@ function renderCardList(container: HTMLElement, section: DeckSection, deckId: st
     nameEl.className = 'deck-editor-card-name';
     // Use official name and color from card pool if mapped
     const def = entry.card ? cardPool[entry.card] : undefined;
-    const favStar = entry.favourite ? ' \u2605' : '';
+    const showFavouriteToggle = section.id === 'pool' && def && CHARACTER_CARD_TYPES.has(def.cardType);
+    const favStar = !showFavouriteToggle && entry.favourite ? ' \u2605' : '';
     nameEl.textContent = (def ? def.name : entry.name) + favStar;
+    let favouriteBtn: HTMLButtonElement | null = null;
+    if (showFavouriteToggle) {
+      favouriteBtn = document.createElement('button');
+      favouriteBtn.className = entry.favourite
+        ? 'deck-editor-favourite-btn deck-editor-favourite-btn--active'
+        : 'deck-editor-favourite-btn';
+      favouriteBtn.textContent = entry.favourite ? '★' : '☆';
+      favouriteBtn.title = 'Mark/unmark as a starting-company favourite';
+      favouriteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFavourite(entry, section, deckId);
+      });
+    }
     const badge = document.createElement('span');
     badge.className = 'deck-editor-certified-badge';
     if (def) {
@@ -844,6 +871,7 @@ function renderCardList(container: HTMLElement, section: DeckSection, deckId: st
     row.appendChild(qtyEl);
     row.appendChild(badge);
     row.appendChild(nameEl);
+    if (favouriteBtn) row.appendChild(favouriteBtn);
     if (def && !('certified' in def && (def as unknown as Record<string, unknown>).certified)) {
       const certBtn = document.createElement('button');
       certBtn.className = 'deck-editor-certify-btn';
