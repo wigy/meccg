@@ -37,6 +37,7 @@ import type {
   CardInstanceId,
   CompanyId,
   CardDefinitionId,
+  GameLength,
 } from '../index.js';
 import { HAND_SIZE } from '../constants.js';
 import { createRng, shuffle } from '../rng.js';
@@ -100,6 +101,13 @@ export interface GameConfig {
    * guided tutorial) where every draw must be predetermined.
    */
   readonly orderedDecks?: boolean;
+  /**
+   * The game's predetermined length (CoE rule 1.1 / 10.2), reconciled from
+   * both players' declared deck lengths. Stored on {@link GameState.gameLength}
+   * and read by the endgame-calling checks (see `GAME_LENGTH_RULES` in
+   * `constants.ts`). Absent/undefined defaults to `'short'`.
+   */
+  readonly gameLength?: GameLength;
 }
 
 // ---- Instance minting ----
@@ -204,6 +212,7 @@ export function createGame(
     revealedInstances: {},
     handRevealedInstances: {},
     ...(config.orderedDecks ? { orderedDecks: true } : {}),
+    ...(config.gameLength ? { gameLength: config.gameLength } : {}),
   };
 }
 

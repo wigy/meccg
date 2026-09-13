@@ -531,10 +531,11 @@ function renderState(input: RenderInput): string {
     const selfAdj = computeTournamentBreakdown(selfRaw, oppRaw);
     const oppAdj = computeTournamentBreakdown(oppRaw, selfRaw);
     const totalMP = selfAdj.character + selfAdj.item + selfAdj.faction + selfAdj.ally + selfAdj.kill + selfAdj.misc;
-    // Unmodified total (CoE rule 10.40's actual 25-point calling threshold) —
+    // Unmodified total (CoE rule 10.40's actual calling threshold, which
+    // varies by the game's declared length — see GAME_LENGTH_RULES) —
     // shown alongside the tournament-adjusted score so players can tell
-    // whether they've hit the Short Game calling threshold without doing
-    // the doubling/diversity-cap math themselves.
+    // whether they've hit the calling threshold without doing the
+    // doubling/diversity-cap math themselves.
     const callableTotal = sumMarshallingPoints(player.callableMarshallingPoints);
     if (player.isActive) lines.push('«ACTIVE-START»');
     const giLabel = player.generalInfluenceUsed !== undefined

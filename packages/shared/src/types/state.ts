@@ -23,6 +23,7 @@ import {
   ByCardDefinitionId,
 } from './common.js';
 import { CardDefinition } from './cards.js';
+import type { GameLength } from './cards.js';
 import type { GameAction } from './actions.js';
 
 // Re-export everything from sub-modules
@@ -216,6 +217,14 @@ export interface GameState {
    * Absent/false in normal games.
    */
   readonly orderedDecks?: boolean;
+  /**
+   * The predetermined game length (CoE rule 1.1 / 10.2) governing the
+   * marshalling-point threshold and deck-exhaustion counts needed to end the
+   * game (see {@link GAME_LENGTH_RULES} in `constants.ts`). Set at game
+   * creation from the reconciled `gameLength` of both players' decks.
+   * Absent defaults to `'short'`.
+   */
+  readonly gameLength?: GameLength;
   /**
    * True once any developer-tools (debug menu) command has been used in
    * this game. A cheated game is played out normally, but its end result

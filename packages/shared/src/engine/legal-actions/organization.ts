@@ -4117,7 +4117,7 @@ export function playResourceShortEventActions(
       (e): e is import('../../index.js').CallCouncilEffect => e.type === 'call-council' && e.lastTurnFor === 'opponent',
     );
     if (resourceCallCouncil) {
-      if (!canCallEndgameNow(player)) {
+      if (!canCallEndgameNow(player, state.gameLength ?? 'short')) {
         logDetail(`${def.name}: caller has not met end-of-game conditions`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: end-of-game conditions not met`));
         continue;

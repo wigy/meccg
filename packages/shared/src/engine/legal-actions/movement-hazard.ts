@@ -2696,7 +2696,7 @@ function playHazardsActions(
           actions.push({ action, viable: false, reason: `${def.name}: cannot be played as a hazard against a ${defendingPlayer.alignment} player` });
           continue;
         }
-        if (!canCallEndgameNow(defendingPlayer)) {
+        if (!canCallEndgameNow(defendingPlayer, state.gameLength ?? 'short')) {
           actions.push({ action, viable: false, reason: `${def.name}: opponent has not met end-of-game conditions` });
           continue;
         }
