@@ -237,9 +237,40 @@
     "keywords": [
       "dragon-manifestation"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [
+          "Withered Heath",
+          "Northern Rhovanion",
+          "Iron Hills",
+          "Grey Mountain Narrows"
+        ],
+        "strikes": 3,
+        "prowess": 13,
+        "body": 8,
+        "race": "dragon",
+        "extended": {
+          "when": {
+            "inPlay": "Doors of Night"
+          },
+          "regionNames": [
+            "Southern Rhovanion",
+            "Dorwinion",
+            "Heart of Mirkwood",
+            "Woodland Realm"
+          ]
+        }
+      }
+    ],
     "text": "Unique. Any company moving in Withered Heath, Northern Rhovanion, Iron Hills, and/or Grey Mountain Narrows faces one Dragon attack (considered a hazard creature attack) — 3 strikes at 13/8. If Doors of Night is in play, this attack also affects: Southern Rhovanion, Dorwinion, Heart of Mirkwood, and Woodland Realm.",
-    "manifestId": "tw-3"
+    "manifestId": "tw-3",
+    "certified": "2026-09-12"
   },
   {
     "cardType": "hazard-event",
