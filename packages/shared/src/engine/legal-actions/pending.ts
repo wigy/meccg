@@ -1513,7 +1513,7 @@ function corruptionCheckEntryActions(
   isHead: boolean,
 ): EvaluatedAction[] {
   if (top.kind.type !== 'corruption-check') return [];
-  const { characterId, modifier, reason, transferredItemId } = top.kind;
+  const { characterId, modifier, reason, transferredItemId, combinedTransferItemId } = top.kind;
 
   // Find the character on either player (corruption checks are owned by
   // the actor, but the actor may not be the active player in all cases).
@@ -1646,23 +1646,31 @@ function corruptionCheckEntryActions(
   }
 
   // Build possessions list. For transfer checks, the item physically lives
-  // on the new bearer but is counted on the original character for this check.
-  const possessions: CardInstanceId[] = [
+  // on the new bearer but is counted on the original character for this
+  // check — as does any bonded companion (Andúril combined with Narsil,
+  // tw-192) that was carried along with it.
+  const transferredItemIds = [
     ...(transferredItemId ? [transferredItemId] : []),
+    ...(combinedTransferItemId ? [combinedTransferItemId] : []),
+  ];
+  const possessions: CardInstanceId[] = [
+    ...transferredItemIds,
     ...characterPossessions(char),
   ];
 
-  // For transfer/store checks, also count the transferred item's CP toward
-  // the total. Uses `effectiveItemCorruptionPoints` (not the raw printed
-  // field) so bearer-conditional bonuses declared on the item itself — e.g.
-  // Dwarven Ring of Durin's Tribe tw-216's +2 CP on a Dwarf bearer — and any
-  // in-play `in-play-item-modifier` deltas are counted, matching the total
+  // For transfer/store checks, also count the transferred item's (and its
+  // combined companion's) CP toward the total. Uses
+  // `effectiveItemCorruptionPoints` (not the raw printed field) so
+  // bearer-conditional bonuses declared on the item itself — e.g. Dwarven
+  // Ring of Durin's Tribe tw-216's +2 CP on a Dwarf bearer — and any in-play
+  // `in-play-item-modifier` deltas are counted, matching the total
   // `char.effectiveStats.corruptionPoints` carried while the item was still
   // borne.
-  if (transferredItemId) {
-    const transferredDef = resolveDef(state, transferredItemId);
-    if (transferredDef) {
-      const inPlayDefs = state.players.flatMap(p => p.cardsInPlay.map(c => resolveDef(state, c.instanceId)));
+  if (transferredItemIds.length > 0) {
+    const inPlayDefs = state.players.flatMap(p => p.cardsInPlay.map(c => resolveDef(state, c.instanceId)));
+    for (const id of transferredItemIds) {
+      const transferredDef = resolveDef(state, id);
+      if (!transferredDef) continue;
       cp += effectiveItemCorruptionPoints(
         transferredDef,
         inPlayDefs,

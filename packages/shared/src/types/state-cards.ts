@@ -146,6 +146,18 @@ export interface ItemInPlay {
    * otherwise leaves play (`creature-storage.ts`'s orphan sweep).
    */
   readonly storedCreature?: CardInstance;
+  /**
+   * The instance ID of another item on the same bearer that this item was
+   * "placed with" via a `place-source-with-item` grant-action apply — e.g.
+   * Andúril, the Flame of the West (tw-192): "place Andúril with Narsil".
+   * Set symmetrically on both items at combination time. Whichever of the
+   * pair a `transfer-item` action names, `handleTransferItem` carries its
+   * combined partner along to the same recipient, since CoE rules treat
+   * cards placed with each other as moving together (cf. the `discard`
+   * glossary entry: "any other non-follower cards ... placed with the card
+   * being discarded").
+   */
+  readonly combinedWithInstanceId?: CardInstanceId;
 }
 
 /**

@@ -1764,7 +1764,8 @@ function handleStoredCardGrantAction(
   const recipient = recipientId ? player.characters[recipientId] : undefined;
   if (!recipient) return { state, error: `${sourceName}: no recipient character` };
   const itemName = effect.apply.itemName;
-  if (!recipient.items.some(i => defById(state, i.definitionId)?.name === itemName)) {
+  const namedItem = recipient.items.find(i => defById(state, i.definitionId)?.name === itemName);
+  if (!namedItem) {
     return { state, error: `${sourceName}: recipient does not bear ${itemName}` };
   }
 
@@ -1776,7 +1777,10 @@ function handleStoredCardGrantAction(
     };
     return updateCharacter(withoutStored, recipientId!, c => ({
       ...c,
-      items: [...c.items, { instanceId: source.instanceId, definitionId: source.definitionId, status: CardStatus.Untapped, restored: true }],
+      items: [
+        ...c.items.map(i => (i.instanceId === namedItem.instanceId ? { ...i, combinedWithInstanceId: source.instanceId } : i)),
+        { instanceId: source.instanceId, definitionId: source.definitionId, status: CardStatus.Untapped, restored: true, combinedWithInstanceId: namedItem.instanceId },
+      ],
     }));
   });
 
