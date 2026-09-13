@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.154.0 — 2026-09-13
+
+Dragon's Blood forced body checks and Palantír of Osgiliath
+
+### Game Engine
+
+- Certified Dragon's Blood (td-14): a new `force-body-check-on-strike-failure` combat primitive covers "if the strike fails, the character must still make a body check". The card is played reactively during strike resolution like Dragon's Curse but resolves and is discarded immediately; the forced check chains after the creature's own body check when one is pending, armor/shield/helmet items each give -1 from the target's borne items at resolution time, and "cannot be duplicated on a given character" is tracked with an attack-scoped constraint marker since the card never attaches to a hazard (#3057)
+- Certified Palantír of Osgiliath (tw-301): 5 marshalling points when stored in a Haven, tap to force the discard of any hazard permanent-event in play, and tap to duplicate the tap ability of any other in-play hero Palantír via five sibling grant-actions (Amon Sûl, Annúminas, Elostirion, Orthanc, Minas Tirith), extending the two-ability pattern Palantír of Amon Sûl already set; no new engine primitives were needed (#3058)
+
+### Web Client
+
+- Playing Stay Her Appetite (le-140) against an ally no longer freezes the UI: `stay-her-appetite-roll` was missing from the pass-button whitelist of pass-like action types, so neither the Roll button nor the "Waiting..." indicator appeared even though the resolution was queued server-side — the same class of bug as the earlier Seized by Terror and gold ring test roll fixes (#3056)
+
+### Infrastructure
+
+- New `/merge-all-and-release` Claude command: sweeps and fixes every open pull request (conflicts, red CI, review comments) in a scratch worktree, merges them in order with a polling driver, verifies merged master and waits for its CI, then runs `/release` and deploys with `bin/update-dev`. It encodes the batch-merge lessons from earlier releases (transient UNKNOWN mergeability, keep-both-sides docs resolution, append-only sim `ACTION_TYPES`, stacking conflicting PRs, checking master first when many PRs fail identically)
+
 ## 0.153.0 — 2026-09-13
 
 Official game lengths, bonded Narsil transfer and ally-cancel targeting

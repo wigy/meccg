@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1320 | 1320 | 0 | 100.0% |
+| 1322 | 1322 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,8 +16,8 @@
 | BA | 100 | 100 | 100.0% |
 | DM | 138 | 138 | 100.0% |
 | LE | 317 | 317 | 100.0% |
-| TD | 130 | 130 | 100.0% |
-| TW | 423 | 423 | 100.0% |
+| TD | 131 | 131 | 100.0% |
+| TW | 424 | 424 | 100.0% |
 | WH | 96 | 96 | 100.0% |
 
 ## Detailed Test Matrix
@@ -702,6 +702,7 @@
 | td-9 | Cruel Caradhras | — | 10 | ☑ |
 | td-10 | Daelomin Ahunt | — | 9 | ☑ |
 | td-11 | Daelomin at Home | — | 11 | ☑ |
+| td-14 | Dragon’s Blood | — | 13 | ☑ |
 | td-16 | Dragon’s Curse | — | 17 | ☑ |
 | td-18 | Dragon-sickness | — | 9 | ☑ |
 | td-19 | Dunlending Raiders | — | 2 | ☑ |
@@ -1110,6 +1111,7 @@
 | tw-298 | Palantír of Elostirion | — | 12 | ☑ |
 | tw-299 | Palantír of Minas Tirith | — | 11 | ☑ |
 | tw-300 | Palantír of Orthanc | — | 10 | ☑ |
+| tw-301 | Palantír of Osgiliath | — | 18 | ☑ |
 | tw-302 | Paths of the Dead | — | 6 | ☑ |
 | tw-304 | Potion of Prowess | — | 11 | ☑ |
 | tw-305 | Praise to Elbereth | — | 11 | ☑ |
