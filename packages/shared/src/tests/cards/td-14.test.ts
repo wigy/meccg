@@ -76,7 +76,7 @@ function makeDragonsBloodState(opts: {
       {
         id: PLAYER_2,
         companies: [{ site: LORIEN, characters: [LEGOLAS] }],
-        hand: Array(opts.bloodCopies ?? 1).fill(DRAGONS_BLOOD),
+        hand: new Array<CardDefinitionId>(opts.bloodCopies ?? 1).fill(DRAGONS_BLOOD),
         siteDeck: [RIVENDELL],
       },
     ],
