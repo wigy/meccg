@@ -87,7 +87,7 @@ describe('text-log ordering of dice rolls (game ms1vaegk-e4fvuf, seq 103-104)', 
 
     expect(lines).toEqual([
       'AI-Real: Corruption check for Glorfindel II (CP 4)',
-      'AI-Real: rolled 5 + 5 = 10 (Corruption: Glorfindel II)',
+      'AI-Real: rolled 5 + 5 = 10 (Corruption: Glorfindel …)',
     ]);
     expect(pendingEffectLogCount()).toBe(0);
   });
@@ -118,5 +118,18 @@ describe('text-log ordering of dice rolls (game ms1vaegk-e4fvuf, seq 103-104)', 
     // wigy's own roll animates on their own dice — only the opponent's rolls
     // need a text entry. CvCC strikes (which carry a total) are the exception.
     expect(diceRollNotification(rollEffect('Corruption: Glorfindel II', 5, 5), ROLLER_NAME, VIEWER_NAME)).toBeNull();
+  });
+
+  test('a long name is truncated with an ellipsis in the message panel', () => {
+    const longLabel = 'Necklace of Silver and Pearls (Emerald of Doriath)';
+    const notification = diceRollNotification(rollEffect(longLabel, 3, 4), VIEWER_NAME, ROLLER_NAME);
+    expect(notification?.message).toBe('rolled 3 + 4 = 7 (Necklace of Silver and …)');
+    expect(notification?.message.length).toBeLessThan(longLabel.length + 'rolled 3 + 4 = 7 ()'.length);
+  });
+
+  test('a name at the truncation limit is left untouched', () => {
+    const exactLabel = 'A'.repeat(24);
+    const notification = diceRollNotification(rollEffect(exactLabel, 3, 4), VIEWER_NAME, ROLLER_NAME);
+    expect(notification?.message).toBe(`rolled 3 + 4 = 7 (${exactLabel})`);
   });
 });
