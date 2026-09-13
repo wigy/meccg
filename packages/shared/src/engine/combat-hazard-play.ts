@@ -22,7 +22,7 @@ import { CardStatus, Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
-import { defById, findById, getCardEffects, getOnEventEffects, isCombatReactiveShortEvent, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, findById, findDuplicationLimitEffect, getCardEffects, getOnEventEffects, isCombatReactiveShortEvent, removeById, ringwraithReclaimMark, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { isWardedAgainst } from './effects/index.js';
 import { addConstraint } from './pending.js';
 import { parseConstraintScope } from './constraint-kind.js';
@@ -199,6 +199,33 @@ export function handleCombatPlayHazard(
           });
         } else {
           logDetail(`Combat play-hazard: "${def.name}" add-constraint(company-stat-modifier) missing/unsupported stat, value, or scope — fizzle`);
+        }
+      } else if (eff.apply.type === 'force-body-check-on-strike-failure') {
+        // Dragon's Blood (td-14): record the item-keyword modifiers on the
+        // current strike so resolveStrikeCore can compute the forced
+        // character body check once the strike's outcome (success/tie vs.
+        // wound) is known.
+        logDetail(`Combat play-hazard: "${def.name}" will force a body check on ${targetCharId as string} if this strike fails`);
+        const itemModifiers = eff.apply.itemModifiers;
+        const newAssignments = workingCombat.strikeAssignments.map((a, i) =>
+          i === workingCombat.currentStrikeIndex
+            ? { ...a, forcedBodyCheckOnFailureItemMods: itemModifiers }
+            : a,
+        );
+        workingCombat = { ...workingCombat, strikeAssignments: newAssignments };
+        // "Cannot be duplicated on a given character" — this short event
+        // discards immediately rather than attaching, so track copies via an
+        // attack-scoped `attack-card-played` marker on the character instead
+        // of `targetChar.hazards` (see the per-character duplication-limit
+        // check in `combatHazardPermanentPlays`, `legal-actions/combat.ts`).
+        if (findDuplicationLimitEffect(def, 'character')) {
+          newState = addConstraint(newState, {
+            source: handCard.instanceId,
+            sourceDefinitionId: handCard.definitionId,
+            scope: { kind: 'attack' },
+            target: { kind: 'character', characterId: targetCharId },
+            kind: { type: 'attack-card-played' },
+          });
         }
       } else if (eff.apply.type === 'force-attacker-kill-on-resolution') {
         // Fury of the Iron Crown (tw-492): schedule the forced kill /

@@ -459,6 +459,31 @@ export function resolveStrikeCore(
   // (Morgul-blade le-205, The Fiery Blade wh-44).
   const strikeFailedAgainstDefender = result === 'success';
 
+  // Dragon's Blood (td-14): if this strike failed to wound the target
+  // character (defeated the strike, or tied) and the played card recorded
+  // `forcedBodyCheckOnFailureItemMods` on this strike (combat-hazard-play.ts),
+  // compute the total roll modifier from the character's borne items —
+  // possession, not "in use" status, since the card checks "if he has" an
+  // item of that keyword. Detainment strikes never wound in the first place,
+  // so they are excluded (there is nothing for Dragon's Blood to punish);
+  // allies are excluded since the card is playable only "on a character".
+  // A defined (possibly zero) modifier signals the forced check to trigger
+  // below and, when this strike also carries a creature body check,
+  // `handleBodyCheckRoll`'s `'creature'` branch chains into it afterward.
+  const forcedBodyCheckModifier = strikeFailedAgainstDefender && !combat.detainment && charData && !allyMatch && strike.forcedBodyCheckOnFailureItemMods
+    ? strike.forcedBodyCheckOnFailureItemMods.reduce((total, m) => {
+        const hasItem = charData.items.some(item => {
+          const itemDef = defById(state, item.definitionId);
+          return itemDef && 'keywords' in itemDef && (itemDef as { keywords?: readonly string[] }).keywords?.includes(m.keyword);
+        });
+        return hasItem ? total + m.value : total;
+      }, 0)
+    : undefined;
+  if (forcedBodyCheckModifier !== undefined) {
+    logDetail(`Dragon's Blood: strike against ${strike.characterId as string} failed — forcing an additional body check (item modifier ${formatSignedNumber(forcedBodyCheckModifier)})`);
+    bodyCheckTarget ??= 'character';
+  }
+
   // discard-item strike effect (An Article Missing dm-43, Taladhan dm-25,
   // Thief tw-102, Pick-pocket tw-79): on a successful strike the defender is
   // not wounded; an item must instead be discarded (defender's choice) —
@@ -549,6 +574,7 @@ export function resolveStrikeCore(
           wasAlreadyWounded,
           strikeMode: mode,
           ...(mode === 'dodge' ? { dodged: true, dodgeBodyPenalty } : {}),
+          ...(forcedBodyCheckModifier !== undefined ? { forcedBodyCheckModifier } : {}),
         }
       : a,
   );

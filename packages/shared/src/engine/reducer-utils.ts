@@ -1130,13 +1130,16 @@ export function getOnEventEffects(
  *  - `add-constraint`/`company-stat-modifier` — Words of Power and Terror (tw-115)
  *  - `modify-current-strike-prowess` — a one-strike prowess bonus (Fury of the Iron Crown, tw-492)
  *  - `force-attacker-kill-on-resolution` — schedules a post-combat forced kill (tw-492)
+ *  - `force-body-check-on-strike-failure` — schedules a forced character body
+ *    check if the strike fails (Dragon's Blood, td-14)
  */
 export function isCombatReactiveShortEvent(def: CardDefinition | null | undefined): boolean {
   if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') return false;
   return getOnEventEffects(def, 'self-enters-play-combat').some(
     e => (e.apply.type === 'add-constraint' && e.apply.constraint === 'company-stat-modifier')
       || e.apply.type === 'modify-current-strike-prowess'
-      || e.apply.type === 'force-attacker-kill-on-resolution',
+      || e.apply.type === 'force-attacker-kill-on-resolution'
+      || e.apply.type === 'force-body-check-on-strike-failure',
   );
 }
 
