@@ -1008,3 +1008,14 @@ On play, `handleCombatPlayHazard` (`combat-hazard-play.ts`) records the apply's 
 ```
 
 Used by *Dragon's Blood* (td-14).
+
+### Five sibling "duplicate a named Palantír's tap ability" grant-actions, no new engine primitives (Palantír of Osgiliath tw-301)
+
+Palantír of Osgiliath (tw-301): "With its bearer able to use a Palantír, tap Palantír of Osgiliath to force the discard of any hazard permanent-event or to duplicate the effect of any Palantír in play. Bearer makes a corruption check." (CRF 22: "Only copies tapping effects of other Palantíri, not continuous effects.")
+
+No new engine work — this extends the precedent set by Palantír of Amon Sûl (tw-296, see its own entry above) from "two named borrowed abilities" to "every other hero Palantír", confirming the pattern generalizes cleanly:
+
+- **Discard mode**: `targets.scope: "opponent-cards-in-play"` filtered to `{ "$and": [{ "cardType": "hazard-event" }, { "eventType": "permanent" }] }` + `discard-target-in-play` apply (the Keys to the White Towers wh-89 precedent) — "force the discard of any hazard permanent-event" needs no card-name filter, unlike wh-89/tw-296's named targets.
+- **Duplicate mode ×5**: one `grant-action` per other hero Palantír (Amon Sûl tw-296, Annúminas tw-297, Elostirion tw-298, Orthanc tw-300, Minas Tirith tw-299), each gated `$and: [bearer.canUsePalantir, player.inPlayNames $includes "<that Palantír's name>", <that ability's own extra precondition, if any>]`, with an `apply` that is a verbatim copy of the target Palantír's own tap-ability `apply`. Elostirion's "if the bearer is a sage" and Orthanc's "5+ cards in your play deck" preconditions carry over unchanged since both already evaluate against the *acting* bearer/player, not the target Palantír's own — the same reasoning tw-296 already established for its Elostirion clause. Osgiliath's own `{ tap: "self" }` cost makes all six modes mutually exclusive for free (the item is tapped by whichever mode is taken), so — unlike wh-89's two same-cost-`{}` modes — no shared action name / `oncePerTurn` lock is needed.
+
+Used by *Palantír of Osgiliath* (tw-301). Sibling *Palantír of Osgiliath* (le-335, minion) is not yet certified; its text restricts duplication to "any **minion** Palantír in play", which the `player.inPlayNames` (own-play-only) semantics already enforce for free once it's certified with the LE-side siblings' own names.
