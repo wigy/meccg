@@ -467,7 +467,7 @@ export function applyCorruptionCheckResolution(
   }
   if (top.kind.type !== 'corruption-check') return null;
 
-  const { characterId, transferredItemId, reason } = top.kind;
+  const { characterId, transferredItemId, combinedTransferItemId, reason } = top.kind;
 
   // Check if the character still exists BEFORE validating the action type.
   // When a character is eliminated mid-series (e.g. during a multi-region
@@ -724,10 +724,21 @@ export function applyCorruptionCheckResolution(
       const itemCard: CardInstance = { instanceId: transferredItemId, definitionId: resolveInstanceId(state, transferredItemId)! };
       if (playersAfterRoll[playerIndex].killPile.some(c => c.instanceId === transferredItemId)) {
         logDetail(`Failed store: pulling ${transferredItemId as string} back out of the marshalling-point pile → discard`);
+        // Andúril, the Flame of the West combined with Narsil (tw-192): a
+        // failed store already moved the bonded companion into the
+        // marshalling-point pile alongside the named item (see
+        // `combinedWithInstanceId` handling in `handleStoreItem`) — pull it
+        // back out and discard it too, or it would sit scoring MP for an
+        // item its bearer never actually parted with.
+        const combinedCard: CardInstance | undefined = combinedTransferItemId
+          ? { instanceId: combinedTransferItemId, definitionId: resolveInstanceId(state, combinedTransferItemId)! }
+          : undefined;
         playersAfterRoll[playerIndex] = {
           ...playersAfterRoll[playerIndex],
-          killPile: playersAfterRoll[playerIndex].killPile.filter(c => c.instanceId !== transferredItemId),
-          discardPile: [...playersAfterRoll[playerIndex].discardPile, itemCard],
+          killPile: playersAfterRoll[playerIndex].killPile.filter(
+            c => c.instanceId !== transferredItemId && c.instanceId !== combinedTransferItemId,
+          ),
+          discardPile: [...playersAfterRoll[playerIndex].discardPile, itemCard, ...(combinedCard ? [combinedCard] : [])],
         };
         transferredItemPreDiscarded = true;
       } else if (playersAfterRoll.some(p => p.cardsInPlay.some(c => c.instanceId === transferredItemId))) {
@@ -744,7 +755,7 @@ export function applyCorruptionCheckResolution(
     }
   }
   let failedPossessions = transferredItemPreDiscarded
-    ? action.possessions.filter(id => id !== transferredItemId)
+    ? action.possessions.filter(id => id !== transferredItemId && id !== combinedTransferItemId)
     : action.possessions;
 
   // The Precious (tw-98): on failure, also discard a named item borne by a

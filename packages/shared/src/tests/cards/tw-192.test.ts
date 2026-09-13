@@ -408,6 +408,32 @@ describe('Andúril, the Flame of the West (tw-192)', () => {
     expect(bilbo.items.some(i => i.definitionId === ANDURIL)).toBe(true);
   });
 
+  test('bug report 4897395c2c822db0: storing Narsil carries the combined Andúril along into the kill pile', () => {
+    const state = combineState({});
+    const reforgingId = findInPile(state, RESOURCE_PLAYER, 'killPile', REFORGING)!.instanceId;
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+
+    const combineAct = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .map(a => a.action as GameAction & { actionId?: string; targetCardId?: unknown; recipientCharacterId?: unknown })
+      .find(a => a.actionId === 'anduril-combine-with-narsil' && a.targetCardId === reforgingId && a.recipientCharacterId === aragornId);
+    const afterCombine = dispatch(state, combineAct as GameAction);
+
+    const narsilId = afterCombine.players[RESOURCE_PLAYER].characters[aragornId].items
+      .find(i => i.definitionId === NARSIL)!.instanceId;
+
+    const afterStore = dispatch(afterCombine, {
+      type: 'store-item',
+      player: PLAYER_1,
+      itemInstanceId: narsilId,
+      characterId: aragornId,
+    });
+
+    const aragorn = afterStore.players[RESOURCE_PLAYER].characters[aragornId];
+    expect(aragorn.items.some(i => i.definitionId === NARSIL || i.definitionId === ANDURIL)).toBe(false);
+    expect(afterStore.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === NARSIL)).toBe(true);
+    expect(afterStore.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === ANDURIL)).toBe(true);
+  });
+
   test('NOT offered when there is no stored Reforging', () => {
     const state = combineState({ withReforging: false });
     const offered = viableActions(state, PLAYER_1, 'activate-granted-action')

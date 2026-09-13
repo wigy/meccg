@@ -1695,7 +1695,29 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
   const hostItemStoredCtx = { storedItem: { itemKeywords: itemKeywordsOf(state, [item]) } };
   let playerAfterRemoval = removed.player;
   const companionCards: CardInstance[] = [];
+  /** Set when a bonded companion (Andúril combined with Narsil) is carried along with the stored item. */
+  let combinedItem: ItemInPlay | undefined;
   if (action.cacheHostInstanceId === undefined) {
+    // Carry along any item this one was "placed with" via a
+    // `place-source-with-item` grant-action apply (e.g. Andúril, the Flame
+    // of the West combined with Narsil, tw-192) — the two move as a bonded
+    // pair regardless of which one is named in the store action, mirroring
+    // `handleTransferItem`'s treatment of the same bond.
+    if (item.combinedWithInstanceId) {
+      const combinedRemoved = removeAttachment(playerAfterRemoval, 'items', item.combinedWithInstanceId);
+      if (combinedRemoved && combinedRemoved.charId === charId) {
+        playerAfterRemoval = combinedRemoved.player;
+        combinedItem = combinedRemoved.attachment;
+        const combinedDef = resolveDef(state, item.combinedWithInstanceId);
+        logDetail(`Store item: carrying combined ${combinedDef?.name ?? '?'} along with ${itemDef?.name ?? '?'}`);
+        companionCards.push({
+          instanceId: combinedItem.instanceId,
+          definitionId: combinedItem.definitionId,
+          ...(storeCompany?.currentSite ? { storedAtSite: storeCompany.currentSite.definitionId } : {}),
+        });
+      }
+    }
+
     for (const companion of playerAfterRemoval.characters[charId]?.items ?? []) {
       const companionDef = defById(state, companion.definitionId);
       const storesToo = getOnEventEffects(companionDef, 'host-item-stored').some(
@@ -1761,6 +1783,7 @@ export function handleStoreItem(state: GameState, action: GameAction): ReducerRe
     reason: 'Store',
     allowSupport: true,
     transferredItemId: itemInstId,
+    combinedTransferItemId: combinedItem?.instanceId ?? null,
   });
 
   // Clear any bearer-cannot-untap constraints that reference the stored card.
