@@ -2267,9 +2267,136 @@
             "$lt": 4
           }
         }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 5
+      },
+      {
+        "type": "grant-action",
+        "action": "osgiliath-discard-hazard-permanent-event",
+        "cost": { "tap": "self" },
+        "when": { "bearer.canUsePalantir": true },
+        "targets": {
+          "scope": "opponent-cards-in-play",
+          "filter": {
+            "$and": [
+              { "cardType": "hazard-event" },
+              { "eventType": "permanent" }
+            ]
+          }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "discard-target-in-play" },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "osgiliath-duplicate-amon-sul",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "player.inPlayNames": { "$includes": "Palantír of Amon Sûl" } }
+          ]
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "reveal-opponent-hand" },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "osgiliath-duplicate-annuminas",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "player.inPlayNames": { "$includes": "Palantír of Annúminas" } }
+          ]
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["deck", "discard-pile"],
+          "fetchTo": "hand",
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "postCorruptionCheck": true,
+          "filter": { "keywords": { "$includes": "sage-only" } }
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "osgiliath-duplicate-elostirion",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "player.inPlayNames": { "$includes": "Palantír of Elostirion" } },
+            { "bearer.skills": { "$includes": "sage" } }
+          ]
+        },
+        "targets": {
+          "scope": "own-hazard-corruption-cards",
+          "filter": { "race": { "$in": ["elf", "wizard"] } }
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "discard-target-corruption-card" },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "osgiliath-duplicate-orthanc",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "player.inPlayNames": { "$includes": "Palantír of Orthanc" } },
+            { "player.playDeckSize": { "$gte": 5 } }
+          ]
+        },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["discard-pile"],
+          "fetchCount": 1,
+          "fetchShuffle": true,
+          "postCorruptionCheck": true
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "osgiliath-duplicate-minas-tirith",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.canUsePalantir": true },
+            { "player.inPlayNames": { "$includes": "Palantír of Minas Tirith" } }
+          ]
+        },
+        "apply": {
+          "type": "sequence",
+          "apps": [
+            { "type": "shuffle-deck-top", "count": 5 },
+            { "type": "shuffle-deck-top", "count": 5, "toOwner": "opponent" },
+            { "type": "enqueue-corruption-check" }
+          ]
+        }
       }
     ],
-    "text": "Unique. Palantír. If the bearer’s company is ever below 4 characters and the company moves, discard. 5 marshalling pts. if stored in a Haven [{H}]. With its bearer able to use a Palantír, tap Palantír of Osgiliath to force the discard of any hazard permanent-event or to duplicate the effect of any Palantír in play. Bearer makes a corruption check."
+    "text": "Unique. Palantír. If the bearer’s company is ever below 4 characters and the company moves, discard. 5 marshalling pts. if stored in a Haven [{H}]. With its bearer able to use a Palantír, tap Palantír of Osgiliath to force the discard of any hazard permanent-event or to duplicate the effect of any Palantír in play. Bearer makes a corruption check.",
+    "certified": "2026-09-13"
   },
   {
     "cardType": "hero-resource-item",
