@@ -1045,7 +1045,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DragonsBlood.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "certified": "2026-09-13",
+    "effects": [
+      { "type": "play-window", "phase": "combat", "step": "resolve-strike" },
+      { "type": "play-target", "target": "character", "filter": { "attack.race": { "$in": ["dragon", "drake"] } } },
+      {
+        "type": "on-event",
+        "event": "self-enters-play-combat",
+        "apply": {
+          "type": "force-body-check-on-strike-failure",
+          "itemModifiers": [
+            { "keyword": "armor", "value": -1 },
+            { "keyword": "shield", "value": -1 },
+            { "keyword": "helmet", "value": -1 }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "character", "max": 1 }
+    ],
     "text": "Playable on a character facing a Dragon or Drake strike (before the dice are rolled to resolve the strike). If the strike fails, the target character must make a body check modified by -1 if he has armor, by -1 if he has a shield, and by -1 if he has a helmet.Cannot be duplicated on a given character."
   },
   {
