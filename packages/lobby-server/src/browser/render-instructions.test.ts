@@ -269,6 +269,44 @@ describe('renderPassButton — gold-ring-test-roll (Gandalf test-gold-ring)', ()
 });
 
 /**
+ * Regression test for bug report 09efd3bfe29ad46f (game mtwp7oj7-93ghdt, seq
+ * 1098): "Expected the card to resolve. Playing the card froze my Mac" after
+ * playing Stay Her Appetite (le-140) against an opponent's ally. The card
+ * enqueues a `stay-her-appetite-roll` pending resolution whose only legal
+ * action is `stay-her-appetite-roll`. {@link renderPassButton}'s whitelist of
+ * pass-like action types omitted `stay-her-appetite-roll`, so neither the
+ * roll button nor the "Waiting…" indicator appeared — the same class of bug
+ * as `seized-by-terror-roll` and `gold-ring-test-roll` above.
+ * `stay-her-appetite-roll` is now whitelisted with a "Roll" label.
+ */
+const stayHerAppetiteRoll: EvaluatedAction = {
+  action: {
+    type: 'stay-her-appetite-roll',
+    player: 'p1',
+  },
+  viable: true,
+} as EvaluatedAction;
+
+describe('renderPassButton — stay-her-appetite-roll (Stay Her Appetite)', () => {
+  test('shows a Roll button for a pending stay-her-appetite-roll resolution', () => {
+    renderPassButton(viewWith([stayHerAppetiteRoll]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Roll');
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+  });
+
+  test('clicking the button sends the stay-her-appetite-roll action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([stayHerAppetiteRoll]), action => { sent = action; });
+
+    passBtn.onclick?.();
+
+    expect(sent).toEqual(stayHerAppetiteRoll.action);
+  });
+});
+
+/**
  * Regression test for bug report 4a124a06991d909f (game ms9n2c5y-pfdcdr, seq
  * 532): "Game state is frozen — there is no further action available" right
  * after playing Wizard's Test (tw-365) via Saruman to test Bilbo's Precious
