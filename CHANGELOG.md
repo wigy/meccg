@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.155.0 — 2026-09-13
+
+Bonded Andúril and Align Palantír follow their item into storage
+
+### Game Engine
+
+- Storing Narsil while Andúril, the Flame of the West (tw-192) was combined with it via "place Andúril with Narsil" moved only Narsil to the marshalling point pile and left Andúril attached to the bearer. `handleStoreItem` never consulted `ItemInPlay.combinedWithInstanceId`, unlike the transfer handler that already carries the companion along; it now stores the bonded item alongside its partner, and the store's corruption check (CP total, possessions list) and its failed-check pull-back path account for the companion, mirroring the existing transfer-item handling (#3061)
+- Storing a Palantír with Align Palantír (tw-190) attached made the bearer's corruption check count only the stored item's own corruption points, even though CRF 22 stores Align Palantír alongside its Palantír and CoE 7.1 sums every card the character controls. The corruption-check pending resolution gained a `companionItemIds` field, threaded from the store handler's "host-item-stored" companion cards, so the legal-action CP total now includes them (#3060)
+
+### Web Client
+
+- The Worthy Hills (as-142) offers one activate-granted-action per eligible (sage, scout) pair, but the granted-action menu disambiguated same-action entries by the acting character's name only, so a company with two sages and several scouts rendered identically labelled untap-site buttons. Menu labels now name both the acting character and the second character when one is present (#3059)
+
 ## 0.154.0 — 2026-09-13
 
 Dragon's Blood forced body checks and Palantír of Osgiliath

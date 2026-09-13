@@ -1014,9 +1014,9 @@
 | tw-187 | Wacho | — | 4 | ☑ |
 | tw-188 | A Chance Meeting | — | 14 | ☑ |
 | tw-189 | A Friend or Three | — | 13 | ☑ |
-| tw-190 | Align Palantír | — | 11 | ☑ |
+| tw-190 | Align Palantír | — | 12 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |
-| tw-192 | Andúril, the Flame of the West | — | 18 | ☑ |
+| tw-192 | Andúril, the Flame of the West | — | 19 | ☑ |
 | tw-193 | Army of the Dead | — | 5 | ☑ |
 | tw-194 | Ash Mountains | — | 13 | ☑ |
 | tw-195 | Athelas | — | 11 | ☑ |
