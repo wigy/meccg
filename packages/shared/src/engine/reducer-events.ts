@@ -413,18 +413,24 @@ function resolveFactionInfluenceRegionPenalty(
   const freeDI = availableDI(state, diplomatId, player);
   const modifier = freeDI - (apply.penaltyBase + regionDistance);
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  // Tap the diplomat — the cost of declaring the attempt — before rolling,
+  // matching the card's own text ("tap the diplomat, then roll") and
+  // regardless of outcome; a failed attempt discards him anyway (a stronger
+  // state). Carrying `tappedCharacterId` on the roll effect lets the client
+  // apply the tap the instant the roll arrives, instead of waiting for the
+  // deferred `state` message.
+  const diplomatTappedCharacterId = diplomat.status === CardStatus.Untapped ? diplomatId : undefined;
+  let nextState: GameState = updatePlayer(state, playerIndex, p =>
+    updateCharacter(p, diplomatId, c => ({ ...c, status: CardStatus.Tapped })));
+
+  const { roll, rng, cheatRollTotal } = roll2d6(nextState);
+  nextState = { ...nextState, rng, cheatRollTotal };
   const total = roll.die1 + roll.die2 + modifier;
   logDetail(`${def.name}: ${diplomatName} rolls ${roll.die1} + ${roll.die2} + ${modifier} (free DI ${freeDI} - region penalty ${apply.penaltyBase + regionDistance}) = ${total} vs influence # ${factionDef.influenceNumber}`);
-  const rollEffect = diceRollEffect(player.name, roll, `${def.name}: influence ${factionDef.name}`);
+  const rollEffect = diceRollEffect(player.name, roll, `${def.name}: influence ${factionDef.name}`, undefined, diplomatTappedCharacterId);
 
   const handAfterFaction = removeById(newHand, factionCardId);
   const succeeded = total >= factionDef.influenceNumber;
-
-  // Tap the diplomat — the cost of declaring the attempt — regardless of
-  // outcome; a failed attempt discards him anyway (a stronger state).
-  let nextState: GameState = updatePlayer({ ...state, rng, cheatRollTotal }, playerIndex, p =>
-    updateCharacter(p, diplomatId, c => ({ ...c, status: CardStatus.Tapped })));
 
   if (succeeded) {
     const mpPin = playedAfterFactionMpPin(state, player);

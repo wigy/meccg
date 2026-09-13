@@ -26,7 +26,10 @@ import {
   executeAction,
   resetMint,
   CardStatus,
+  viableActions,
+  dispatchResult,
 } from '../../test-helpers.js';
+import type { DiceRollEffect } from '../../../index.js';
 
 describe('Rule 8.19 — Strike Step 7: Resolve the Strike', () => {
   beforeEach(() => resetMint());
@@ -123,5 +126,41 @@ describe('Rule 8.19 — Strike Step 7: Resolve the Strike', () => {
 
     expect(after.combat).toBeNull();
     expect(after.players[RESOURCE_PLAYER].characters[characterId]?.status).toBe(CardStatus.Untapped);
+  });
+
+  // Client-side tap preview (bug report: "character first taps, than does the
+  // action" — the board stayed untapped through the whole dice animation
+  // because the client only applies a tapped status once the deferred `state`
+  // message arrives after the roll). The tap-to-fight choice is made in Step 3,
+  // before the roll, so the `dice-roll` effect itself can carry the defender's
+  // instance ID the instant it's emitted — before the animation even starts.
+  test('dice-roll effect carries tappedCharacterId when the defender tapped to fight', () => {
+    const { state, characterId } = makeDetainmentStrikeState({
+      detainment: false,
+      strikeProwess: 10,
+      creatureBody: null,
+    });
+    const tapAction = viableActions(state, PLAYER_1, 'resolve-strike')
+      .find(a => 'tapToFight' in a.action && (a.action as { tapToFight: boolean }).tapToFight)!.action;
+
+    const result = dispatchResult({ ...state, cheatRollTotal: 4 }, tapAction);
+
+    const rollEffect = result.effects?.find((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    expect(rollEffect?.tappedCharacterId).toBe(characterId);
+  });
+
+  test('dice-roll effect has no tappedCharacterId when the defender stays untapped (-3)', () => {
+    const { state } = makeDetainmentStrikeState({
+      detainment: false,
+      strikeProwess: 10,
+      creatureBody: null,
+    });
+    const untapAction = viableActions(state, PLAYER_1, 'resolve-strike')
+      .find(a => 'tapToFight' in a.action && !(a.action as { tapToFight: boolean }).tapToFight)!.action;
+
+    const result = dispatchResult({ ...state, cheatRollTotal: 7 }, untapAction);
+
+    const rollEffect = result.effects?.find((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    expect(rollEffect?.tappedCharacterId).toBeUndefined();
   });
 });
