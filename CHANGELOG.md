@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.153.0 — 2026-09-13
+
+Official game lengths, bonded Narsil transfer and ally-cancel targeting
+
+### Game Engine
+
+- All four official game lengths (CoE 10.2) are now supported: Starter, Short, Long and Campaign each get their own marshalling-point threshold and deck-exhaustion counts via a `GAME_LENGTH_RULES` lookup table, replacing the hardcoded Short-game constants. `GameState.gameLength` is set from the players' declared `DeckList.gameLength`, reconciled to the longer of the two (#3050)
+- Transferring Narsil or Andúril after they have been combined via "place Andúril with Narsil" now moves both items to the new bearer as a bonded pair; `ItemInPlay.combinedWithInstanceId` records the link and the transfer corruption-check and its failure rollback account for the companion item (#3053)
+- The White Tree (tw-348) played during the site phase now binds its haven override to the explicitly targeted site instead of the active site-phase company's site; the Site-phase fallback in `buildConstraintKind` was missing the `siteDefinitionId === null` guard the M/H-phase branch already had (#3054)
+- Tom Bombadil (tw-350) and Leaflock (tw-265) can no longer tap to cancel hazards that do not target a company or an entity of it, such as Wake of War; a new `mostRecentUnresolvedHazardTargetsCompany` check gates their cancel grant-action (#3055)
+- Hour of Need (dm-141) now taps the diplomat before rolling, matching its documented order (#3051)
+- Certified Agburanar Ahunt (td-1): 3 strikes at 13/8 against companies moving through Withered Heath, Northern Rhovanion, Iron Hills or Grey Mountain Narrows, extended to Southern Rhovanion, Dorwinion, Heart of Mirkwood and Woodland Realm under Doors of Night (#3052)
+
+### Web Client
+
+- Tap-to-fight strikes now show the character tapped as soon as the dice-roll effect arrives instead of after the animation: `DiceRollEffect` carries an optional `tappedCharacterId` and a new `applyTapPreview` helper updates the board and combat overlay immediately (#3051)
+- Deck editor Pool section rows for characters now have a ☆/★ favourite toggle so starting-company favourites can be set in the UI rather than only via `.meccg-json` import (#3048)
+- Dice-roll notifications in the message panel truncate long card and site names to 24 characters with an ellipsis so the roll numbers are no longer clipped off the left edge (#3049)
+
 ## 0.152.0 — 2026-09-11
 
 River site-binding fixes and Doriath treasures

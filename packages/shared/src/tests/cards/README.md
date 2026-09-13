@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1319 | 1319 | 0 | 100.0% |
+| 1320 | 1320 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 100 | 100 | 100.0% |
 | DM | 138 | 138 | 100.0% |
 | LE | 317 | 317 | 100.0% |
-| TD | 129 | 129 | 100.0% |
+| TD | 130 | 130 | 100.0% |
 | TW | 423 | 423 | 100.0% |
 | WH | 96 | 96 | 100.0% |
 
@@ -695,6 +695,7 @@
 | le-417 | Zarak Dûm | — | 5 | ☑ |
 | le-418 | The Arkenstone | — | 20 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
+| td-1 | Agburanar Ahunt | — | 13 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 17 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
@@ -1014,7 +1015,7 @@
 | tw-189 | A Friend or Three | — | 13 | ☑ |
 | tw-190 | Align Palantír | — | 11 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |
-| tw-192 | Andúril, the Flame of the West | — | 17 | ☑ |
+| tw-192 | Andúril, the Flame of the West | — | 18 | ☑ |
 | tw-193 | Army of the Dead | — | 5 | ☑ |
 | tw-194 | Ash Mountains | — | 13 | ☑ |
 | tw-195 | Athelas | — | 11 | ☑ |
@@ -1077,7 +1078,7 @@
 | tw-262 | Kindling of the Spirit | — | 3 | ☑ |
 | tw-263 | Knights of Dol Amroth | — | 2 | ☑ |
 | tw-264 | Lapse of Will | — | 5 | ☑ |
-| tw-265 | Leaflock | — | 9 | ☑ |
+| tw-265 | Leaflock | — | 10 | ☑ |
 | tw-266 | Lesser Ring | — | 4 | ☑ |
 | tw-267-lordly-presence | Lordly Presence | — | 6 | ☑ |
 | tw-268 | Lossoth | — | 2 | ☑ |
@@ -1150,9 +1151,9 @@
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
 | tw-347 | The One Ring | — | 15 | ☑ |
-| tw-348 | The White Tree | — | 13 | ☑ |
+| tw-348 | The White Tree | — | 14 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
-| tw-350 | Tom Bombadil | — | 8 | ☑ |
+| tw-350 | Tom Bombadil | — | 9 | ☑ |
 | tw-351 | Torque of Hues | — | 10 | ☑ |
 | tw-352 | Tower Guard of Minas Tirith | — | 2 | ☑ |
 | tw-353 | Treebeard | — | 5 | ☑ |
