@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -5326,6 +5326,17 @@ function findCreatureKeyingMatches(
         }
       }
     }
+    // Follows-attack-keyed-to matches — the stricter sibling of
+    // followsAttackRaces: the earlier creature-sourced attack must itself
+    // have been keyed by one of the listed region/site types, not merely
+    // played by a matching race. See Carrion Birds (td-7).
+    if (key.followsAttackKeyedTo) {
+      const match = matchesFollowsAttackKeyedTo(state, mhState.hazardsEncounteredKeying ?? [], key.followsAttackKeyedTo);
+      if (match) {
+        const k = `follows-attack-keyed-to:${match.name}`;
+        if (!seen.has(k)) { seen.add(k); matches.push({ method: 'follows-attack-keyed-to', value: match.name }); }
+      }
+    }
     // Moving-between-sites matches — the company's origin (current) site and
     // its destination site must both be named in the entry and differ, so one
     // entry covers both directions of a named site-to-site route (The Great
@@ -5664,6 +5675,7 @@ function describeKeyingRequirement(def: CreatureCard): string {
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to:${k.adjacentToSiteKeywords.join('/')}`);
     if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to:${k.adjacentToSiteNames.join('/')}`);
     if (k.followsAttackRaces?.length) parts.push(`follows-attack:${k.followsAttackRaces.join('/')}`);
+    if (k.followsAttackKeyedTo) parts.push(`follows-attack-keyed-to:${[...(k.followsAttackKeyedTo.regionTypes ?? []), ...(k.followsAttackKeyedTo.siteTypes ?? [])].join('/')}`);
     return parts.join(', ');
   }).join(' or ');
   return `Not keyable (requires ${keyDesc})`;

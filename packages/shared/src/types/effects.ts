@@ -11155,8 +11155,14 @@ export interface WoundAdditionalBodyCheckEffect extends EffectBase {
   readonly type: 'wound-additional-body-check';
   /** Modifier applied to the additional body-check roll. */
   readonly modifier: number;
-  /** Condition (over the attack/in-play context) selecting which wounds trigger the additional check. */
-  readonly when: Condition;
+  /**
+   * Condition (over the attack/in-play context) selecting which wounds
+   * trigger the additional check. Omit for a creature's own self-bound
+   * clause that always triggers on its own wounds (Carrion Birds td-7:
+   * "Any character wounded by Carrion Birds makes two body checks instead
+   * of one") — absent is treated as unconditional.
+   */
+  readonly when?: Condition;
 }
 
 /**

@@ -19,6 +19,7 @@
  */
 
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, Company } from '../index.js';
+import type { CardDefinition } from '../types/cards.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay } from '../types/state-cards.js';
 import { formatSignedNumber } from '../format-helpers.js';
@@ -628,15 +629,22 @@ function attackSiteType(state: GameState, combat: CombatState): string | undefin
 }
 
 /**
- * Modifiers for every in-play `wound-additional-body-check` effect (Host of
- * Bats td-31) whose `when` matches this attack, scanning both players'
- * `cardsInPlay`. Evaluated against `{ attack: { creatureRace, siteType },
- * inPlay }` — `inPlay` is the standard game-wide in-play card-name list,
- * letting a rule gate on a companion card (td-31's second clause: "if Shadow
- * of Mordor is in play"). Called once, the moment a character-target body
- * check first resolves to "survives" (the character is wounded); the
- * returned list becomes `CombatState.pendingAdditionalBodyChecks`, consumed
- * one roll at a time by `handleBodyCheckRoll`.
+ * Modifiers for every `wound-additional-body-check` effect whose `when`
+ * matches this attack, from two sources: (1) both players' in-play cards
+ * (Host of Bats td-31, a persistent hazard-event); and (2) the attacking
+ * creature's own printed effects, self-bound like `combat-body-check-modifier`
+ * — a hazard-creature card is never placed in `cardsInPlay` while it attacks
+ * (it resolves and is discarded directly), so a creature whose own text
+ * grants the extra check on its *own* wounds (Carrion Birds td-7: "Any
+ * character wounded by Carrion Birds makes two body checks instead of one")
+ * must be read straight from `combat.attackSource`, not scanned there.
+ * Evaluated against `{ attack: { creatureRace, siteType }, inPlay }` —
+ * `inPlay` is the standard game-wide in-play card-name list, letting a rule
+ * gate on a companion card (td-31's second clause: "if Shadow of Mordor is in
+ * play"). Called once, the moment a character-target body check first
+ * resolves to "survives" (the character is wounded); the returned list
+ * becomes `CombatState.pendingAdditionalBodyChecks`, consumed one roll at a
+ * time by `handleBodyCheckRoll`.
  */
 function pendingWoundAdditionalBodyCheckModifiers(state: GameState, combat: CombatState): number[] {
   const ctx = {
@@ -644,16 +652,26 @@ function pendingWoundAdditionalBodyCheckModifiers(state: GameState, combat: Comb
     inPlay: buildInPlayNames(state),
   };
   const modifiers: number[] = [];
+  const collect = (def: CardDefinition | undefined, label: string): void => {
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'wound-additional-body-check') continue;
+      if (effect.when && !matchesCondition(effect.when, ctx)) continue;
+      logDetail(`Wound-additional-body-check queued: ${formatSignedNumber(effect.modifier)} from ${label}`);
+      modifiers.push(effect.modifier);
+    }
+  };
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const def = defById(state, card.definitionId);
       if (!def) continue;
-      for (const effect of getCardEffects(def)) {
-        if (effect.type !== 'wound-additional-body-check') continue;
-        if (!matchesCondition(effect.when, ctx)) continue;
-        logDetail(`Wound-additional-body-check queued: ${formatSignedNumber(effect.modifier)} from ${(def as { name?: string }).name ?? (card.definitionId as string)}`);
-        modifiers.push(effect.modifier);
-      }
+      collect(def, (def as { name?: string }).name ?? (card.definitionId as string));
+    }
+  }
+  if (combat.attackSource.type === 'creature') {
+    const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
+    const creatureDef = creatureDefId ? defById(state, creatureDefId) : undefined;
+    if (creatureDef) {
+      collect(creatureDef, (creatureDef as { name?: string }).name ?? (creatureDefId as string));
     }
   }
   return modifiers;

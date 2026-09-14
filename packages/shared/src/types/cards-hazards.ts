@@ -97,6 +97,37 @@ export interface CreatureKeyRestriction {
    */
   readonly followsAttackRaces?: readonly Race[];
   /**
+   * The stricter sibling of {@link followsAttackRaces}: matches when the
+   * target company has, during its *current* M/H sub-phase, already faced a
+   * creature-sourced attack by one of `races` (any race, if omitted) whose
+   * *own play* was keyed by one of `regionTypes` or `siteTypes` — not merely
+   * a creature of that race played by any means. Checked against
+   * `MovementHazardPhaseState.hazardsEncounteredKeying` (each entry's own
+   * declared `keyedBy` match, recorded at that attack's combat finalization
+   * — never the followed creature's full printed `keyedTo` union). Standalone:
+   * this entry does not also require the *current* creature's own play to
+   * match `regionTypes`/`siteTypes` — pair with a separate `regionTypes`/etc.
+   * entry in the array if the card's own base keying independently requires
+   * it (Carrion Birds td-7 has no such independent base keying: its printed
+   * "keyed to wilderness" *is* this clause, since a company's resolved M/H
+   * path cannot change mid-sub-phase — if an earlier attack was keyed to
+   * wilderness, wilderness is in the path now too).
+   *
+   * The keying method recorded in `keyedBy.method` is
+   * `"follows-attack-keyed-to"`. Evaluated in `findCreatureKeyingMatches`
+   * (`movement-hazard.ts`) and `checkCreatureKeying` (`mh-hazard-play.ts`).
+   *
+   * Used by *Carrion Birds* (td-7): "May be played keyed to wilderness after
+   * any Orc, Troll, or Man attack keyed to wilderness and against the same
+   * company" — `keyedTo: [{ followsAttackKeyedTo: { races: ["orc", "troll",
+   * "man"], regionTypes: ["wilderness"] } }]`.
+   */
+  readonly followsAttackKeyedTo?: {
+    readonly races?: readonly Race[];
+    readonly regionTypes?: readonly RegionType[];
+    readonly siteTypes?: readonly SiteType[];
+  };
+  /**
    * Site-to-site movement keying. The creature is playable on a company
    * that is moving directly between two of the named sites: the company's
    * origin (current) site name and its destination site name must both

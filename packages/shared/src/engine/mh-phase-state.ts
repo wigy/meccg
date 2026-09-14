@@ -62,6 +62,7 @@ function freshCompanyFields() {
     onGuardPlacedThisCompany: false,
     returnedToOrigin: false,
     hazardsEncountered: [],
+    hazardsEncounteredKeying: [],
     spawnReplayUsedSources: [],
     hazardLimitRaceGrantsUsed: [],
     ahuntAttacksResolved: 0,
