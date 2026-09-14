@@ -24,6 +24,8 @@ import {
 } from '../../test-helpers.js';
 
 const GORBAG = 'le-11' as CardDefinitionId;  // orc, body=9, discardBodyCheck=[9]
+const LAGDUF = 'le-18' as CardDefinitionId;  // minion orc companion (filler)
+const BLACK_MACE = 'le-299' as CardDefinitionId; // minion item (weapon)
 
 // Minion sites
 const CARN_DUM = 'le-359' as CardDefinitionId;
@@ -72,6 +74,64 @@ describe('Rule 8.31 — Orc/Troll Body Check Discard', () => {
 
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === gorbagId)).toBe(true);
     expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === gorbagId)).toBe(false);
+  });
+
+  test('item-salvage phase entered when an Orc discarded (not eliminated) by body check has a tapped, unwounded companion', () => {
+    // Bug report: Gorbag (le-11, orc, discardBodyCheck=[9]) carrying an item
+    // is discarded (rule 3.I.3 — Orc/Troll discard-instead-of-eliminate) but
+    // the item-salvage sub-phase (rule 3.I.2) was never entered, even though
+    // his companion is merely tapped, not wounded. discardCharacterAfterBodyCheck
+    // (the Orc/Troll discard path) skipped the item-salvage step entirely,
+    // discarding the item outright — unlike eliminateCombatantFromStrike,
+    // which already implements it correctly for the roll > body case.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{
+            site: CARN_DUM,
+            characters: [
+              { defId: GORBAG, items: [BLACK_MACE] },
+              LAGDUF,
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL_LE],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const gorbagId = findCharInstanceId(state, RESOURCE_PLAYER, GORBAG);
+    const lagdufId = findCharInstanceId(state, RESOURCE_PLAYER, LAGDUF);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    let woundedState = setCharStatus(state, RESOURCE_PLAYER, GORBAG, CardStatus.Inverted);
+    woundedState = setCharStatus(woundedState, RESOURCE_PLAYER, LAGDUF, CardStatus.Tapped);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: gorbagId }),
+      cheatRollTotal: 9,
+    };
+
+    const [bodyCheckAction] = viableActions(readyState, PLAYER_2, 'body-check-roll');
+    const after = dispatch(readyState, bodyCheckAction.action);
+
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === gorbagId)).toBe(true);
+    expect(after.combat).toBeDefined();
+    expect(after.combat!.phase).toBe('item-salvage');
+    expect(after.combat!.salvageItems).toHaveLength(1);
+    expect(after.combat!.salvageRecipients).toContain(lagdufId);
   });
 
   test('Orc eliminated when body check roll exceeds body', () => {
