@@ -1967,6 +1967,23 @@ export function playResourcesActions(
         logDetail(`Item ${itemDef.name}: bonus item unlocked at ${siteName} (War-forges) — tap state bypassed`);
       }
 
+      // Thing Stolen (le-243): "Playable after a faction is successfully
+      // played at a Shadow-hold or Dark-hold. Tap a character at the site to
+      // play a non-unique, non-hoard minor or major item (even if the item is
+      // not normally playable there)." Sets `stolenItemUnlocked` on resolving;
+      // the one bonus item it allows bypasses both the `playableResources`
+      // tier gate and the tapped-site gate (the qualifying faction play
+      // already tapped the site), mirroring War-forges but widened to major.
+      const isStolenEligibleItem = itemDef.subtype === 'minor' || itemDef.subtype === 'major';
+      const stolenItemUnlockActive = isStolenEligibleItem
+        && itemDef.unique !== true
+        && (itemDef.keywords as readonly string[] | undefined)?.includes('hoard') !== true
+        && siteState.stolenItemPlayed !== true
+        && siteState.stolenItemUnlocked === true;
+      if (stolenItemUnlockActive) {
+        logDetail(`Item ${itemDef.name}: bonus item unlocked at ${siteName} (Thing Stolen) — site restriction and tap state bypassed`);
+      }
+
       // Hermit's Hill (le-382): while a `gold-ring-item-unlocked` constraint
       // binds this company, a gold ring item is playable at the (untapped)
       // site "regardless of its text restrictions" — both the site's
@@ -1995,7 +2012,7 @@ export function playResourcesActions(
         logDetail(`Item ${itemDef.name}: Dragon-lore fetch unlocked ${siteName} — site-tapped gate bypassed`);
       }
 
-      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !warForgesUnlockActive && !burglaryUnlockActive && !tappedSiteFetchUnlockActive) {
+      if (siteIsTapped && !minorItemBonus && !allowWhenTapped && !hoardBountyBonus && !thoroughSearchBonus && !itemAllowsTapped && !technologyUnlockActive && !warForgesUnlockActive && !stolenItemUnlockActive && !burglaryUnlockActive && !tappedSiteFetchUnlockActive) {
         logDetail(`Item ${itemDef.name}: site is already tapped`);
         actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: site is already tapped`));
         continue;
@@ -2007,7 +2024,7 @@ export function playResourcesActions(
         continue;
       }
 
-      const siteRestriction = technologyUnlockActive || goldRingUnlockActive || warForgesUnlockActive ? undefined : itemSiteRestriction;
+      const siteRestriction = technologyUnlockActive || goldRingUnlockActive || warForgesUnlockActive || stolenItemUnlockActive ? undefined : itemSiteRestriction;
       if (siteRestriction) {
         // Either the site-list or filter form satisfying is captured by
         // `itemOwnSiteRestrictionMatches`, computed once above; if both are
@@ -2035,7 +2052,7 @@ export function playResourcesActions(
           actions.push(notPlayable(playerId, cardInstanceId, siteRestriction.sites ? `${itemDef.name}: ${reason}` : reason));
           continue;
         }
-      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus && !technologyUnlockActive && !goldRingUnlockActive && !warForgesUnlockActive) {
+      } else if (!playableTypes.has(itemDef.subtype) && !minorItemBonus && !technologyUnlockActive && !goldRingUnlockActive && !warForgesUnlockActive && !stolenItemUnlockActive) {
         // major-item-unlocked allows major items (subtype "major") at the site
         if (majorItemUnlocked && itemDef.subtype === 'major') {
           logDetail(`Item ${itemDef.name} (major): allowed via major-item-unlocked constraint`);

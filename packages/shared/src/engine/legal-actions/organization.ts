@@ -4241,16 +4241,23 @@ export function playResourceShortEventActions(
     // ({ site, company: { itemNames, characterNames, allyNames } }). Used by
     // the CoE 10.39 win cards (Cracks of Doom, Gollum's Fate) to require The
     // One Ring (and Gollum) at Mount Doom. Only meaningful during the site
-    // phase after a company is selected.
+    // phase after a company is selected. `factionPlayedAtSite` is folded in
+    // for Thing Stolen (le-243): "Playable after a faction is successfully
+    // played at a Shadow-hold or Dark-hold" reads
+    // `company.factionPlayedAtSite`, set by the successful-influence-attempt
+    // branch in `reducer-site.ts` (never on an ally play, unlike the sibling
+    // `allyOrFactionPlayedAtSite` folded in for items at site.ts).
     const activeCompanyCondition = findPlayConditionEffect(def, 'active-company');
     if (activeCompanyCondition?.condition) {
       let met = false;
       if (currentPhase === 'site') {
-        const sitePhaseState = state.phaseState as { activeCompanyIndex: number; step?: string };
+        const sitePhaseState = state.phaseState as { activeCompanyIndex: number; step?: string; factionPlayedAtSite?: boolean };
         const activePlayer = activePlayerState(state);
         const company = activePlayer?.companies[sitePhaseState.activeCompanyIndex];
         if (company) {
-          met = matchesCondition(activeCompanyCondition.condition, buildActiveCompanyContext(state, player, company));
+          met = matchesCondition(activeCompanyCondition.condition, buildActiveCompanyContext(state, player, company, {
+            factionPlayedAtSite: sitePhaseState.factionPlayedAtSite ?? false,
+          }));
         }
       }
       if (!met) {

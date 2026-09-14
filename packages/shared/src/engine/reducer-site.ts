@@ -3047,6 +3047,23 @@ export function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} played via War-forges (bonus item unlock) — site not tapped, allowance consumed`);
   }
 
+  // Thing Stolen (le-243): a non-hoard, non-unique minor or major item played
+  // after `stolenItemUnlocked` is set is the one allowed bonus item "even if
+  // the item is not normally playable there" — bypasses both the
+  // `playableResources` tier gate and the tapped-site gate (the qualifying
+  // faction play already tapped the site). Mirrors War-forges but widened to
+  // include major items and gated by the short event instead of a tap cost.
+  const isStolenEligibleItem = isItem
+    && ((def as { subtype?: string }).subtype === 'minor' || (def as { subtype?: string }).subtype === 'major')
+    && (def as { unique?: boolean }).unique !== true
+    && ((def as { keywords?: readonly string[] }).keywords ?? []).includes('hoard') !== true;
+  const usingStolenBonus = isStolenEligibleItem
+    && siteState.stolenItemPlayed !== true
+    && siteState.stolenItemUnlocked === true;
+  if (usingStolenBonus) {
+    logDetail(`Site: ${def.name} played via Thing Stolen (bonus item unlock) — site restriction and tap state bypassed`);
+  }
+
   // Rule 2.V.5: when a resource that taps the site is successfully played,
   // the resource player may attempt one additional minor item as the next
   // action. A `never-taps` site never triggers the bonus. The bonus is
@@ -3096,7 +3113,7 @@ export function handleSitePlayHeroResource(
   // Thorough Search (and the Saruman's Machinery Technology bonus, and a
   // no-tap-on-play ally) prevent site tap and do not count as the "first
   // resource played" (so the opening minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !usingWarForgesBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !usingWarForgesBonus && !usingStolenBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
@@ -3119,7 +3136,7 @@ export function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} played via Dragon-lore's tapped-site allowance — allowance consumed`);
   }
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -3130,7 +3147,7 @@ export function handleSitePlayHeroResource(
     ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, sideboard: newSideboard, characters: newCharacters, companies: newCompaniesActual })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,
@@ -3138,6 +3155,7 @@ export function handleSitePlayHeroResource(
       firstMinorItemNoTapAvailable: nextFirstMinorItemNoTapAvailable,
       ...(usingTechnologyBonus ? { technologyItemPlayed: true } : {}),
       ...(usingWarForgesBonus ? { warForgesItemPlayed: true } : {}),
+      ...(usingStolenBonus ? { stolenItemPlayed: true } : {}),
       ...(usingBurglaryUnlock ? { burglaryItemUnlock: undefined } : {}),
       ...(usingTappedSiteFetchUnlock ? { tappedSiteItemUnlock: undefined } : {}),
       // Ent-draughts (tw-227): "in addition to an ally or faction that has
@@ -4120,6 +4138,9 @@ export function resolveInfluenceAttemptRoll(
         // Ent-draughts (tw-227): record that a faction was successfully
         // played at the current site this site phase.
         allyOrFactionPlayedAtSite: true,
+        // Thing Stolen (le-243): record that specifically a *faction* (not an
+        // ally) was successfully played at the current site this site phase.
+        factionPlayedAtSite: true,
       },
     }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
     // Lordly Presence (tw-267): the consumed boost draws a card for the
