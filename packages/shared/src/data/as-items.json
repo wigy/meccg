@@ -187,6 +187,7 @@
       {
         "type": "grant-action",
         "action": "tap-roll-untap-bearer",
+        "anyPhase": true,
         "cost": {
           "tap": "self"
         },
