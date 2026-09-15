@@ -23,7 +23,7 @@ import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay } from '../types/state-cards.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { isCharacterCard, isSiteCard } from '../types/cards.js';
+import { isCharacterCard, isItemCard, isSiteCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
 import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -818,10 +818,6 @@ function discardCharacterAfterBodyCheck(
     newPlayerData.hand = [...newPlayerData.hand, ...toHand];
     newPlayerData.discardPile = [...newPlayerData.discardPile, ...toDiscard];
   }
-  for (const item of charData.items) {
-    logDetail(`Discarding item ${item.instanceId as string} from discarded character`);
-    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(item)];
-  }
   let hazardDiscard = [...newPlayers[1 - defPlayerIndex].discardPile];
   for (const hazard of charData.hazards) {
     logDetail(`Discarding hazard ${hazard.instanceId as string} from discarded character`);
@@ -846,6 +842,52 @@ function discardCharacterAfterBodyCheck(
     if (follower) updatedChars[followerId] = { ...follower, controlledBy: 'general', influenceUnsubtracted: true, ...ringwraithReclaimMark(stateWithRoll, follower) };
   }
   newPlayerData.characters = pruneLeaderFollowers(updatedChars, strike.characterId, charData.controlledBy);
+
+  // Per CoE rule 3.I.2: a failed body check still triggers item salvage even
+  // when 3.I.3 (Orc/Troll) redirects the character to the discard pile
+  // instead of eliminating it — 3.I.3 only changes the character's own
+  // destination, not the item-transfer step. For each unwounded character in
+  // the same company, an item the discarded character controlled may be
+  // transferred (one per recipient); non-item permanent events attached to
+  // the character (e.g. Align Palantír tw-190) are not salvageable and go
+  // straight to the discard pile.
+  const salvageItems = charData.items.filter(item => isItemCard(defById(state, item.definitionId)));
+  const nonItemPermanentEvents = charData.items.filter(item => !isItemCard(defById(state, item.definitionId)));
+  for (const item of nonItemPermanentEvents) {
+    const itemDef = defById(state, item.definitionId);
+    logDetail(`Discarding non-item permanent event "${itemDef?.name ?? item.instanceId as string}" from discarded character (not salvageable, CoE 3.I.2)`);
+  }
+  if (nonItemPermanentEvents.length > 0) {
+    newPlayerData.discardPile = [...newPlayerData.discardPile, ...nonItemPermanentEvents.map(toCardInstance)];
+  }
+  const unwoundedRecipients: CardInstanceId[] = company
+    ? company.characters
+      .filter(ch => ch !== strike.characterId)
+      .filter(ch => {
+        const cd = newPlayerData.characters[ch];
+        return cd && cd.status !== CardStatus.Inverted;
+      })
+    : [];
+
+  if (salvageItems.length > 0 && unwoundedRecipients.length > 0) {
+    logDetail(`Entering item-salvage phase: ${salvageItems.length} item(s) available, ${unwoundedRecipients.length} unwounded recipient(s)`);
+    newPlayers[defPlayerIndex] = newPlayerData;
+    let afterRemoval: GameState = { ...stateWithRoll, players: newPlayers };
+    if (elimHost) afterRemoval = consumeEliminateInsteadOfDiscardHost(afterRemoval, elimHost);
+    const combatWithSalvage: CombatState = {
+      ...combatWithDiscard,
+      phase: 'item-salvage',
+      salvageItems,
+      salvageRecipients: unwoundedRecipients,
+    };
+    return { state: { ...afterRemoval, combat: combatWithSalvage }, effects };
+  }
+
+  // No items or no recipients — discard all items immediately
+  for (const item of salvageItems) {
+    logDetail(`Discarding item ${item.instanceId as string} (no salvage possible)`);
+    newPlayerData.discardPile = [...newPlayerData.discardPile, toCardInstance(item)];
+  }
   newPlayers[defPlayerIndex] = newPlayerData;
   let afterRemoval: GameState = { ...stateWithRoll, players: newPlayers };
   if (elimHost) afterRemoval = consumeEliminateInsteadOfDiscardHost(afterRemoval, elimHost);
