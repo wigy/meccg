@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1322 | 1322 | 0 | 100.0% |
+| 1325 | 1325 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -15,8 +15,8 @@
 | AS | 116 | 116 | 100.0% |
 | BA | 100 | 100 | 100.0% |
 | DM | 138 | 138 | 100.0% |
-| LE | 317 | 317 | 100.0% |
-| TD | 131 | 131 | 100.0% |
+| LE | 318 | 318 | 100.0% |
+| TD | 133 | 133 | 100.0% |
 | TW | 424 | 424 | 100.0% |
 | WH | 96 | 96 | 100.0% |
 
@@ -69,7 +69,7 @@
 | as-66 | Wain-easterlings | — | 8 | ☑ |
 | as-67 | Woses of the Eryn Vorn | — | 6 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
-| as-70 | Jewel of Beleriand | — | 10 | ☑ |
+| as-70 | Jewel of Beleriand | — | 11 | ☑ |
 | as-71 | The Balrog | — | 2 | ☑ |
 | as-73 | Creature of an Older World | — | 3 | ☑ |
 | as-74 | Great Bats | — | 17 | ☑ |
@@ -560,6 +560,7 @@
 | le-239 | Test of Fire | — | 12 | ☑ |
 | le-240 | That Ain’t No Secret | — | 15 | ☑ |
 | le-241 | That’s Been Heard Before Tonight | — | 13 | ☑ |
+| le-243 | Thing Stolen | — | 18 | ☑ |
 | le-244 | Threats | — | 9 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
 | le-247 | Under His Blow | — | 5 | ☑ |
@@ -698,6 +699,7 @@
 | td-1 | Agburanar Ahunt | — | 13 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 17 | ☑ |
+| td-7 | Carrion Birds | — | 6 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-9 | Cruel Caradhras | — | 10 | ☑ |
 | td-10 | Daelomin Ahunt | — | 9 | ☑ |
@@ -807,6 +809,7 @@
 | td-159 | Trickery | — | 6 | ☑ |
 | td-160 | Twice-baked Cakes | — | 9 | ☑ |
 | td-161 | Valiant Sword | — | 10 | ☑ |
+| td-162 | Vanish in Sunlight! | — | 5 | ☑ |
 | td-163 | Warm Now Be Heart and Limb | — | 9 | ☑ |
 | td-165 | Waybread | — | 14 | ☑ |
 | td-166 | When I Know Anything | — | 13 | ☑ |

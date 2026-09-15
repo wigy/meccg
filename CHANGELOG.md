@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.156.0 — 2026-09-16
+
+Carrion Birds, Thing Stolen and Orc item salvage after body checks
+
+### Game Engine
+
+- Certified Carrion Birds (td-7): a follow-up hazard creature playable only right after an Orc, Troll or Man attack that was itself keyed to wilderness against the same company, dealing one strike per company character with wounds requiring two independent body checks at -1. A new `followsAttackKeyedTo` creature-keying restriction (the stricter sibling of Wolf-riders' `followsAttackRaces`) matches on both the earlier attack's race and its keying, backed by a per-play `hazardsEncounteredKeying` record, and `wound-additional-body-check` is now also read self-bound off the attacking creature's own definition (#3064)
+- Certified Thing Stolen (le-243): a faction-only `factionPlayedAtSite` site-phase trigger (sibling of the ally-or-faction flag) and a `stolenItemUnlocked` flag that lets one non-unique, non-hoard minor or major item be played at the site regardless of its printed playable resources and tap state, widening the War-forges pattern to major items (#3063)
+- Certified Vanish in Sunlight! (td-162): -4 prowess against a Ringwraith or Undead attack when Gates of Morning is in play, -2 otherwise, using the existing from-hand defender-played modify-attack primitive (#3066)
+- An Orc or Troll discarded (rather than eliminated) by a failed body check under CoE 3.I.3 had its items discarded immediately instead of offering item salvage (CoE 3.I.2) to unwounded companions; `discardCharacterAfterBodyCheck` now runs the same salvage step as the elimination path, since 3.I.3 only redirects the character's own destination pile. Reported from game mu07cgnk-i04451 where Orc Chieftain (le-32) lost his items to his printed discard body check (#3062)
+- Jewel of Beleriand's (as-70) tap-roll-untap-bearer ability was missing `anyPhase: true`, so it was only offered during the organization phase instead of every phase of the resource player's turn as with Cram's untap ability (#3065)
+
 ## 0.155.0 — 2026-09-13
 
 Bonded Andúril and Align Palantír follow their item into storage
