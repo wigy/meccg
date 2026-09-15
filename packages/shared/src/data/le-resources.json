@@ -4610,8 +4610,25 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable after a faction is successfully played at a Shadow-hold [{S}] or Dark-hold [{D}]. Tap a character at the site to play a non-unique, non-hoard minor or major item (even if the item is not normally playable there)."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site",
+        "siteTypes": ["shadow-hold", "dark-hold"]
+      },
+      {
+        "type": "play-condition",
+        "requires": "active-company",
+        "condition": { "company.factionPlayedAtSite": true }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "set-site-phase-flag", "flag": "stolenItemUnlocked" }
+      }
+    ],
+    "text": "Playable after a faction is successfully played at a Shadow-hold [{S}] or Dark-hold [{D}]. Tap a character at the site to play a non-unique, non-hoard minor or major item (even if the item is not normally playable there).",
+    "certified": "2026-09-14"
   },
   {
     "cardType": "minion-resource-event",

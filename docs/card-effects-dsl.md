@@ -6497,6 +6497,47 @@ items instead of `player.hand`. The sideboard source needed a new
 removes it from there instead of `hand`/`discardPile` when the flag is set;
 the hand is left untouched (mirrors `fromDiscard`'s hand pass-through).
 
+### 13f. `stolenItemUnlocked` site-phase flag — Thing Stolen (le-243)
+
+Thing Stolen (le-243) is a `minion-resource-event` (short) — "Playable after
+a faction is successfully played at a Shadow-hold [{S}] or Dark-hold [{D}].
+Tap a character at the site to play a non-unique, non-hoard minor or major
+item (even if the item is not normally playable there)." — a one-shot
+trigger, unlike War-forges' standing tap-activated ability (13e), so it uses
+the `on-event: self-enters-play` → `set-site-phase-flag` idiom (Bounty of the
+Hoard td-101) instead of `grant-action`:
+
+```json
+{ "type": "play-window", "phase": "site", "siteTypes": ["shadow-hold", "dark-hold"] },
+{ "type": "play-condition", "requires": "active-company",
+  "condition": { "company.factionPlayedAtSite": true } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-site-phase-flag", "flag": "stolenItemUnlocked" } }
+```
+
+**A narrower sibling of `allyOrFactionPlayedAtSite` (13, `active-company`
+play-condition doc above): `factionPlayedAtSite`.** Thing Stolen's text names
+only a faction, not an ally, so reusing `allyOrFactionPlayedAtSite` would
+incorrectly also open the window after an ally play. `SitePhaseState.factionPlayedAtSite`
+is set only in the successful-influence-attempt branch of
+`resolveInfluenceAttemptRoll` (`reducer-site.ts`), never in the ally-attach
+branch of `handleSitePlayHeroResource`. Consumed via the context key
+`company.factionPlayedAtSite`, folded into `buildActiveCompanyContext`'s extra
+param at the short-event `active-company` play-condition check
+(`playResourceShortEventActions`, `legal-actions/organization.ts`) — the same
+extension point Ent-draughts (tw-227) uses for items in `legal-actions/site.ts`,
+just at the event-checking call site instead of the item-checking one.
+
+Once `stolenItemUnlocked` is set, `legal-actions/site.ts` and `reducer-site.ts`
+offer one non-unique, non-hoard minor **or** major item at the site — whether
+tapped or untapped, and regardless of the site's printed `playableResources`
+— mirroring War-forges' `warForgesUnlockActive` bypass exactly, just widened
+to include major items and gated by the event flag instead of a constraint.
+`SitePhaseState.stolenItemPlayed` tracks the one-per-site-phase consumption.
+The bearer is tapped by the ordinary item-play mechanics (every item play
+taps its bearer already) — the card's "tap a character... to play" names the
+normal cost, not an extra one, so no separate tap-cost effect is needed.
+
 ### 14. `duplication-limit`
 
 Caps how many copies of this card can be in a given scope.

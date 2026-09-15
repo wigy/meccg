@@ -1020,6 +1020,24 @@ No new engine work — this extends the precedent set by Palantír of Amon Sûl 
 
 Used by *Palantír of Osgiliath* (tw-301). Sibling *Palantír of Osgiliath* (le-335, minion) is not yet certified; its text restricts duplication to "any **minion** Palantír in play", which the `player.inPlayNames` (own-play-only) semantics already enforce for free once it's certified with the LE-side siblings' own names.
 
+### `factionPlayedAtSite` + `stolenItemUnlocked` — a faction-only trigger unlocking one off-restriction item (Thing Stolen le-243)
+
+Thing Stolen (le-243): "Playable after a faction is successfully played at a Shadow-hold [{S}] or Dark-hold [{D}]. Tap a character at the site to play a non-unique, non-hoard minor or major item (even if the item is not normally playable there)." — **fully implemented**; see `docs/card-effects-dsl.md` §13f for the full walkthrough.
+
+```json
+{ "type": "play-window", "phase": "site", "siteTypes": ["shadow-hold", "dark-hold"] }
+{ "type": "play-condition", "requires": "active-company",
+  "condition": { "company.factionPlayedAtSite": true } }
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "set-site-phase-flag", "flag": "stolenItemUnlocked" } }
+```
+
+Two new `SitePhaseState` flags: `factionPlayedAtSite` — a narrower sibling of Ent-draughts' (tw-227) `allyOrFactionPlayedAtSite`, set only in the successful-influence-attempt branch of `resolveInfluenceAttemptRoll` (never on an ally play), because le-243's text names only a faction — and `stolenItemUnlocked`, set via `set-site-phase-flag` (the Bounty of the Hoard td-101 idiom for a one-shot event, rather than War-forges' wh-83 tap-activated `grant-action`, since Thing Stolen is a short event with no standing bearer). `company.factionPlayedAtSite` is folded into `buildActiveCompanyContext`'s extra param at the short-event `active-company` play-condition check site (`playResourceShortEventActions`, `legal-actions/organization.ts`) — a second extension point alongside the item-checking one Ent-draughts already uses in `legal-actions/site.ts`.
+
+Once unlocked, `legal-actions/site.ts` and `reducer-site.ts` offer one non-unique, non-hoard minor **or** major item at the site — tapped or untapped, bypassing the site's printed `playableResources` — mirroring `warForgesUnlockActive` exactly but widened from minor-only to minor-or-major. `SitePhaseState.stolenItemPlayed` tracks the one-per-site-phase consumption. No new cost mechanism was needed: every item play already taps its bearer, so "tap a character... to play" is the ordinary cost, not an extra one.
+
+Used by *Thing Stolen* (le-243).
+
 ### `followsAttackKeyedTo` creature-keying restriction + self-bound `wound-additional-body-check` (Carrion Birds td-7)
 
 Carrion Birds (td-7): "Animals. May be played keyed to wilderness [{w}] after any Orc, Troll, or Man attack keyed to wilderness and against the same company. Each character in the company faces one strike. Any character wounded by Carrion Birds makes two body checks instead of one, both checks modified by -1."
