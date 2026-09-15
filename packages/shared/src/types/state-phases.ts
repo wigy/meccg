@@ -1093,6 +1093,40 @@ export interface SitePhaseState {
    */
   readonly allyOrFactionPlayedAtSite?: boolean;
   /**
+   * Whether the active company has, this site phase, **successfully played a
+   * faction** (as distinct from an ally) at its current site. A narrower
+   * sibling of {@link allyOrFactionPlayedAtSite}, set only in the successful-
+   * influence-attempt branch of `resolveInfluenceAttemptRoll`, never on an
+   * ally play. Consulted by the `active-company` play-condition (via the
+   * context key `company.factionPlayedAtSite`) so a card can gate on "after a
+   * faction is successfully played" without also firing on an ally play
+   * (Thing Stolen, le-243 — text names only a faction). Absent (undefined →
+   * false) until such a play happens; reset to absent when a new company's
+   * site phase begins (a fresh {@link SitePhaseState} is built).
+   */
+  readonly factionPlayedAtSite?: boolean;
+  /**
+   * Whether Thing Stolen (le-243) has been played this site phase, unlocking
+   * one non-unique, non-hoard minor or major item to be played at the site
+   * "even if the item is not normally playable there" — bypassing the site's
+   * printed `playableResources` tier gate and (since the qualifying faction
+   * play already taps the site) the tapped-site gate, exactly as the
+   * War-forges (wh-83) bonus does but widened to include major items. Set by
+   * `set-site-phase-flag` when the event resolves; consumed (see
+   * {@link stolenItemPlayed}) by the first eligible item played afterward.
+   * Absent (undefined → false) until the event is played; reset to absent
+   * when a new company's site phase begins.
+   */
+  readonly stolenItemUnlocked?: boolean;
+  /**
+   * Whether the current company has already played its one allowed bonus item
+   * at the site this site phase via {@link stolenItemUnlocked} (Thing Stolen,
+   * le-243). Absent (undefined) until the company plays such an item; reset
+   * to absent when a new company's site phase begins (a fresh
+   * {@link SitePhaseState} is built).
+   */
+  readonly stolenItemPlayed?: boolean;
+  /**
    * Whether the site's minion-only additional automatic-attack (No Strangers at
    * this Time, as-51 `duplicateFirstAutoAttackVsMinion`) has already been faced
    * this site phase. Set once the copied first automatic-attack has been

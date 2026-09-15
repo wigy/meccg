@@ -3036,7 +3036,7 @@ export interface RemoveConstraintAction extends TriggeredActionBase {
 export interface SetSitePhaseFlagAction extends TriggeredActionBase {
   readonly type: 'set-site-phase-flag';
   /** The `SitePhaseState` boolean key to set. */
-  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable' | 'firstItemNoTapAvailable' | 'hoardKeywordGranted';
+  readonly flag?: 'hoardBountyAvailable' | 'thoroughSearchAvailable' | 'firstItemNoTapAvailable' | 'hoardKeywordGranted' | 'stolenItemUnlocked';
 }
 
 /** `discard-character` — discard the wound/body-check-context character (type-only marker). */
