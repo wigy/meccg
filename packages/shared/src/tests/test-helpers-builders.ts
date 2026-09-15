@@ -860,6 +860,7 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     siteRevealed: false,
     returnedToOrigin: false,
     hazardsEncountered: [],
+    hazardsEncounteredKeying: [],
     ahuntAttacksResolved: 0,
     corruptionCardsPlayedPerChar: {},
     nazgulSideboardDestination: null,

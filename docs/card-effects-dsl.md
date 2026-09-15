@@ -13163,6 +13163,39 @@ Used by: *Wolf-riders* (td-86) — "May be played following any Orc attack not k
 to a site." (`keyedTo: [{ "followsAttackRaces": ["orc"] }]`, no other keying entry —
 this creature has no ordinary region/site keying at all.)
 
+### `followsAttackKeyedTo`
+
+```json
+{ "followsAttackKeyedTo": { "races": ["orc", "troll", "man"], "regionTypes": ["wilderness"] } }
+```
+
+The stricter sibling of `followsAttackRaces`: matches when the company has, this
+M/H sub-phase, already faced a creature-sourced attack by one of `races` (any
+race, if omitted) whose *own play* was keyed by one of `regionTypes` or
+`siteTypes` (any keying, if both omitted) — not merely a creature of that race
+played by any means. Checked against
+`MovementHazardPhaseState.hazardsEncounteredKeying`, a per-play record of each
+`hazardsEncountered` entry's *declared* `keyedBy` match (never the followed
+creature's full printed `keyedTo` union), populated in `recordHazardEncountered`
+(`combat-finalize.ts`) from that combat's own `attackKeying`/`attackSiteKeyingTypes`.
+Race is resolved by the same by-name `cardPool` lookup `deriveFacedRaces` uses
+(`matchesFollowsAttackKeyedTo`, `reducer-utils.ts`) since the record itself never
+varies per-play. Standalone: this entry does not also require the *current*
+creature's own play to match `regionTypes`/`siteTypes` — pair with a separate
+entry in the array if the card's own base keying independently requires it.
+
+The keying method recorded in `keyedBy.method` is `"follows-attack-keyed-to"`.
+Evaluated in `findCreatureKeyingMatches` (movement-hazard.ts) and
+`checkCreatureKeying` (mh-hazard-play.ts).
+
+Used by: *Carrion Birds* (td-7) — "May be played keyed to wilderness after any
+Orc, Troll, or Man attack keyed to wilderness and against the same company" —
+`keyedTo: [{ "followsAttackKeyedTo": { "races": ["orc", "troll", "man"],
+"regionTypes": ["wilderness"] } }]`, no separate `regionTypes` entry of its own:
+the printed "keyed to wilderness" *is* this clause, since a company's resolved
+M/H path cannot change mid-sub-phase — if the earlier attack was keyed to
+wilderness, wilderness is in the path now too.
+
 ### `movingBetweenSiteNames`
 
 ```json
@@ -19105,17 +19138,21 @@ play, so the two mechanisms never interfere.
 **`wound-additional-body-check`** — forces a second, independent body check
 immediately after a character-target body check first resolves to "survives"
 (the character is wounded, not eliminated/discarded), carried by an in-play
-long/permanent hazard-event.
+long/permanent hazard-event **or** self-bound to a hazard-creature's own
+attack (Carrion Birds td-7: "Any character wounded by Carrion Birds makes two
+body checks instead of one" — no `when` needed since it always fires on the
+creature's own wounds).
 
 ```json
 { "type": "wound-additional-body-check", "modifier": -1,
   "when": { "attack.creatureRace": "orc" } }
+{ "type": "wound-additional-body-check", "modifier": 0 }
 ```
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `modifier` | yes | Added to the additional body-check roll (negative protects the target, like `body-check-modifier`). |
-| `when` | yes | Condition over `{ attack: { creatureRace, siteType }, inPlay }` selecting which wounds trigger the additional check. |
+| `when` | no | Condition over `{ attack: { creatureRace, siteType }, inPlay }` selecting which wounds trigger the additional check. Omit for a creature's own self-bound clause, which always fires on its own wounds. |
 
 `attack.creatureRace` is the attacking creature's race (undefined for
 agents/CvCC); `attack.siteType` is the `SiteType` of the site the attack takes
@@ -19129,8 +19166,13 @@ of Mordor" }`).
 Evaluated by `pendingWoundAdditionalBodyCheckModifiers` the moment a
 character-target body check first resolves to "survives"
 (`handleBodyCheckRoll`, `combat-actions.ts`): every in-play card's matching
-effect contributes one modifier to a new `CombatState.pendingAdditionalBodyChecks:
-readonly number[]` queue. A new `advanceOrQueueAdditionalBodyCheck` helper
+effect, **plus** (Carrion Birds td-7) the attacking creature's own printed
+effects when `combat.attackSource.type === 'creature'` — self-bound like the
+pre-existing `combat-body-check-modifier` effect, since a hazard-creature card
+is never placed in `cardsInPlay` while it attacks and so is otherwise invisible
+to the in-play scan — contributes one modifier to a new
+`CombatState.pendingAdditionalBodyChecks: readonly number[]` queue. A new
+`advanceOrQueueAdditionalBodyCheck` helper
 drains the queue one roll at a time instead of advancing the strike —
 `bodyCheckActions` (`legal-actions/combat.ts`) needs no new action type
 because it already re-offers `body-check-roll` for as long as

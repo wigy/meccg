@@ -41,7 +41,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -3646,6 +3646,16 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
         return undefined;
       }
     }
+    // Check followsAttackKeyedTo — the stricter sibling of followsAttackRaces:
+    // the earlier creature-sourced attack must itself have been keyed by one
+    // of the listed region/site types (Carrion Birds, td-7).
+    if (key.followsAttackKeyedTo) {
+      const match = matchesFollowsAttackKeyedTo(state, mhState.hazardsEncounteredKeying ?? [], key.followsAttackKeyedTo);
+      if (match) {
+        logDetail(`Creature "${def.name}" keyable — follows "${match.name}"'s attack keyed to a matching region/site type this sub-phase`);
+        return undefined;
+      }
+    }
     // Check movingBetweenSiteNames — the active company's origin (current)
     // site and its destination site must both be named and differ; one entry
     // covers both directions of the route (The Great Goblin tw-95:
@@ -3679,6 +3689,7 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
     if (k.adjacentToSiteKeywords?.length) parts.push(`adjacent-to: ${k.adjacentToSiteKeywords.join('/')}`);
     if (k.adjacentToSiteNames?.length) parts.push(`adjacent-to: ${k.adjacentToSiteNames.join('/')}`);
     if (k.followsAttackRaces?.length) parts.push(`follows attack: ${k.followsAttackRaces.join('/')}`);
+    if (k.followsAttackKeyedTo) parts.push(`follows attack keyed to: ${[...(k.followsAttackKeyedTo.regionTypes ?? []), ...(k.followsAttackKeyedTo.siteTypes ?? [])].join('/')}`);
     if (k.movingBetweenSiteNames?.length) parts.push(`moving between: ${k.movingBetweenSiteNames.join('/')}`);
     return parts.join(', ');
   }).join(' OR ');

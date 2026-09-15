@@ -19,6 +19,7 @@ import { isSiteCard, isAvatarCharacter, isCharacterCard, isAllyCard, isFactionCa
 import { hasCharacterPlayTargetEffect, matchesCharacterPlayTarget } from '../stage-resource-characters.js';
 import { Alignment, CardStatus, Race, RegionType, Skill, SiteType, WIZARD_SPECIFIC_KEYWORD_NAMES } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
+import type { HazardEncounterKeying } from '../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
@@ -7463,4 +7464,35 @@ export function deriveFacedRaces(state: GameState, hazardNames: readonly string[
     }
   }
   return Array.from(races);
+}
+
+/**
+ * True when the target company has, this M/H sub-phase, already faced a
+ * creature-sourced attack matching a `followsAttackKeyedTo` restriction: by
+ * one of `restriction.races` (any race, if omitted) whose *own play* was
+ * keyed by one of `restriction.regionTypes` or `restriction.siteTypes` (any
+ * keying, if both omitted). Race is resolved the same way `deriveFacedRaces`
+ * does (by name lookup against `hazard-creature` defs in `state.cardPool`),
+ * since {@link HazardEncounterKeying} only stores the name and its own
+ * declared keying, not the race — the race never varies per-play. Used by
+ * Carrion Birds (td-7): "after any Orc, Troll, or Man attack keyed to
+ * wilderness."
+ */
+export function matchesFollowsAttackKeyedTo(
+  state: GameState,
+  keyingRecords: readonly HazardEncounterKeying[],
+  restriction: { readonly races?: readonly Race[]; readonly regionTypes?: readonly RegionType[]; readonly siteTypes?: readonly SiteType[] },
+): HazardEncounterKeying | undefined {
+  return keyingRecords.find(rec => {
+    if (restriction.races) {
+      const race = Object.values(state.cardPool).find(
+        def => (def as { cardType?: string }).cardType === 'hazard-creature' && (def as { name?: string }).name === rec.name,
+      ) as { race?: Race } | undefined;
+      if (!race?.race || !restriction.races.includes(race.race)) return false;
+    }
+    if (!restriction.regionTypes && !restriction.siteTypes) return true;
+    const regionMatch = restriction.regionTypes?.some(rt => rec.regionTypes.includes(rt)) ?? false;
+    const siteMatch = restriction.siteTypes?.some(st => rec.siteTypes.includes(st)) ?? false;
+    return regionMatch || siteMatch;
+  });
 }

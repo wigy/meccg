@@ -467,6 +467,24 @@ export type MHStep =
    */
   | 'region-shortcut-attack';
 
+/**
+ * The keying record for one entry in {@link MovementHazardPhaseState.hazardsEncountered}:
+ * the printed name of the creature that attacked, and the specific
+ * region/site type(s) its play was keyed by (never the card's full printed
+ * `keyedTo` union — see {@link MovementHazardPhaseState.hazardsEncounteredKeying}).
+ * Both arrays are typically at most one element (a creature's declared
+ * `keyedBy` match is a single region type or a single site type), but are
+ * arrays for symmetry with `CombatState.attackKeying`/`attackSiteKeyingTypes`.
+ */
+export interface HazardEncounterKeying {
+  /** The printed name of the creature card that attacked. */
+  readonly name: string;
+  /** Region type(s) this specific play was keyed by, if any. */
+  readonly regionTypes: readonly RegionType[];
+  /** Site type(s) this specific play was keyed by, if any. */
+  readonly siteTypes: readonly SiteType[];
+}
+
 export interface MovementHazardPhaseState {
   /** Phase discriminant. */
   readonly phase: Phase.MovementHazard;
@@ -613,6 +631,20 @@ export interface MovementHazardPhaseState {
    * the company already faced a specific hazard (e.g. troll-trio).
    */
   readonly hazardsEncountered: readonly string[];
+  /**
+   * The per-play keying record for every entry in {@link hazardsEncountered},
+   * in the same order — the region/site type the hazard-creature attack was
+   * actually keyed by (its declared `keyedBy` match at combat initiation,
+   * `CombatState.attackKeying` / `attackSiteKeyingTypes`), not the union of
+   * the card's full printed `keyedTo`. Backs the `followsAttackKeyedTo`
+   * creature-keying restriction, which needs to know not just *that* a
+   * matching-race attack was faced this M/H sub-phase but *how it was keyed*
+   * — e.g. Carrion Birds (td-7): "playable... after any Orc, Troll, or Man
+   * attack keyed to wilderness," which a same-race attack keyed to a site
+   * type instead must not satisfy. Reset alongside {@link hazardsEncountered}
+   * whenever a new company's M/H phase begins. Absent is treated as empty.
+   */
+  readonly hazardsEncounteredKeying?: readonly HazardEncounterKeying[];
   /**
    * Instance IDs of in-play permanent-events (Monstrosity of Diverse Shape,
    * ba-21) that have already used their once-per-turn

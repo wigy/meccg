@@ -2202,11 +2202,23 @@ export function recordHazardEncountered(
 
   const mhState = s.phaseState as MovementHazardPhaseState;
   logDetail(`Recording hazard "${creatureName}" in hazardsEncountered`);
+  // Record how *this specific play* was keyed (region-type/site-type only —
+  // `combat.attackKeying`/`attackSiteKeyingTypes` already resolve to the
+  // declared `keyedBy` match rather than the card's full printed `keyedTo`
+  // union, see their doc comments) so a later creature's `followsAttackKeyedTo`
+  // restriction (Carrion Birds td-7: "after any Orc, Troll, or Man attack
+  // keyed to wilderness") can check the actual keying, not just the race.
+  const keyingRecord: import('../types/state-phases.js').HazardEncounterKeying = {
+    name: creatureName,
+    regionTypes: combat.attackKeying ?? [],
+    siteTypes: combat.attackSiteKeyingTypes ?? [],
+  };
   return {
     ...s,
     phaseState: {
       ...mhState,
       hazardsEncountered: [...mhState.hazardsEncountered, creatureName],
+      hazardsEncounteredKeying: [...(mhState.hazardsEncounteredKeying ?? []), keyingRecord],
     },
   };
 }

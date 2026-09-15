@@ -385,8 +385,20 @@
     "body": null,
     "killMarshallingPoints": 1,
     "race": "animal",
-    "keyedTo": [],
-    "effects": [],
+    "keyedTo": [
+      {
+        "followsAttackKeyedTo": {
+          "races": ["orc", "troll", "man"],
+          "regionTypes": ["wilderness"]
+        }
+      }
+    ],
+    "effects": [
+      { "type": "combat-one-strike-per-character" },
+      { "type": "combat-body-check-modifier", "value": -1 },
+      { "type": "wound-additional-body-check", "modifier": 0 }
+    ],
+    "certified": "2026-09-15",
     "text": "Animals. May be played keyed to wilderness [{w}] after any Orc, Troll, or Man attack keyed to wilderness and against the same company. Each character in the company faces one strike. Any character wounded by Carrion Birds makes two body checks instead of one, both checks modified by -1."
   },
   {
