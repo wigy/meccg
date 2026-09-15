@@ -231,4 +231,23 @@ describe('Jewel of Beleriand (as-70)', () => {
     const next = dispatch({ ...state, cheatRollTotal: 7 }, action);
     expectCharStatus(next, RESOURCE_PLAYER, GANDALF, CardStatus.Untapped);
   });
+
+  // ─── Rule 2.1.1: resource/character actions on cards in play are usable
+  //     during any phase of the resource player's turn ─────────────────────
+
+  test('grant-action is available during the bearer\'s site phase (rule 2.1.1)', () => {
+    const state = buildSitePhaseState({
+      site: LONELY_MOUNTAIN,
+      characters: [{ defId: GANDALF, items: [JEWEL_OF_BELERIAND] }],
+    });
+    const gandalfId = charIdAt(state, RESOURCE_PLAYER, 0, 0);
+    const tapped = setCharStatus(state, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
+
+    const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
+    const jewelActions = actions.filter(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'tap-roll-untap-bearer'
+        && (ea.action as ActivateGrantedAction).characterId === gandalfId,
+    );
+    expect(jewelActions).toHaveLength(1);
+  });
 });
