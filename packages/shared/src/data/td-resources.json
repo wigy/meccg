@@ -1827,8 +1827,29 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Modify the prowess of one Nazgûl or Undead attack by -2 (by -4 if Gates of Morning is in play)."
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "prowessModifier": -4,
+        "when": {
+          "$and": [
+            { "enemy.race": { "$in": ["ringwraith", "undead"] } },
+            { "inPlay": "Gates of Morning" }
+          ]
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "prowessModifier": -2,
+        "when": { "enemy.race": { "$in": ["ringwraith", "undead"] } }
+      }
+    ],
+    "text": "Modify the prowess of one Nazgûl or Undead attack by -2 (by -4 if Gates of Morning is in play).",
+    "certified": "2026-09-15"
   },
   {
     "cardType": "hero-resource-event",
