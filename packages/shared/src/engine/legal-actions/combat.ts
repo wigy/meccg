@@ -4919,6 +4919,14 @@ function cancelByTapActions(
  * After a character is eliminated by a body check, the defending player
  * may transfer one item per unwounded character in the same company.
  * The player can also pass to discard all remaining items.
+ *
+ * An item is only offered against a recipient that it could legally be
+ * played on: the `no-transfer` play-flag (e.g. Wizard's Ring tw-363, per
+ * CRF 22 errata "Cannot be stored, stolen, or transferred") excludes it
+ * from every pairing, and a `play-target` character filter (e.g. Wizard's
+ * Ring's "Wizard only") excludes recipients that don't match. An item left
+ * with no eligible recipient never appears in the offered actions and is
+ * discarded when the defender passes, same as any other unsalvaged item.
  */
 function itemSalvageActions(
   state: GameState,
@@ -4931,15 +4939,33 @@ function itemSalvageActions(
   if (!salvageItems || !salvageRecipients || salvageItems.length === 0 || salvageRecipients.length === 0) return [];
 
   const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
 
   // For each available item × each eligible recipient = one action
   for (const item of salvageItems) {
+    const itemDef = defById(state, item.definitionId);
+    const itemName = itemDef?.name ?? (item.instanceId as string);
+
+    if (isItemCard(itemDef) && hasPlayFlag(itemDef, 'no-transfer')) {
+      logDetail(`Salvage skip: ${itemName} carries the no-transfer play-flag`);
+      continue;
+    }
+
+    const playTarget = getCardEffects(itemDef).find(
+      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+    );
+
     for (const recipientId of salvageRecipients) {
-      const charData = playerById(state, playerId)?.characters[recipientId];
+      const charData = player?.characters[recipientId];
       const charDef = charData ? defById(state, charData.definitionId) : undefined;
       const charName = charDef?.name ?? (recipientId as string);
-      const itemDef = defById(state, item.definitionId);
-      const itemName = itemDef?.name ?? (item.instanceId as string);
+
+      if (playTarget?.filter && charData
+          && !matchesCondition(playTarget.filter, buildPlayOptionContext(state, charData, player))) {
+        logDetail(`Salvage skip: ${itemName} cannot be placed on ${charName} (play-target filter)`);
+        continue;
+      }
+
       logDetail(`Salvage available: ${itemName} → ${charName}`);
       actions.push({
         action: {
