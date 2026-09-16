@@ -29,7 +29,7 @@ import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, play
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter } from '../reducer-utils.js';
+import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter, findCharacterCompany } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -626,6 +626,52 @@ export function heroResourceShortEventActions(
         actions.push(notPlayable(playerId, cardInstanceId, `No eligible ${playTarget.target} to target`));
       } else {
         for (const targetId of targets) emitPlay(targetId);
+      }
+    } else if (playTarget && playTarget.target === 'character' && def.effects?.some(
+      e => e.type === 'on-event' && e.event === 'self-enters-play' && e.apply?.type === 'enqueue-gold-ring-test',
+    )) {
+      // Wizard's Test (tw-365) / Test of Fire (le-239) played outside the
+      // organization/site phase (e.g. during movement/hazard, CoE 2.1.1's
+      // "any phase of the resource player's own turn"): cross eligible
+      // wizard/sage targets with gold rings borne by characters in their
+      // company, mirroring the equivalent branch in organization.ts's
+      // `playResourceShortEventActions`. Without this, the generic
+      // character-target path below offers a bare `targetCharacterId`-only
+      // action that the reducer's `enqueue-gold-ring-test` handler silently
+      // fizzles for lack of a chosen ring — the player's corruption check
+      // still fires (it only needs `targetCharacterId`), but the gold-ring
+      // roll never happens.
+      const targets = eligibleCharacterTargets(state, player, playTarget);
+      const offeredRings = new Set<CardInstanceId>();
+      for (const sageId of targets) {
+        const sageCompany = findCharacterCompany(player.companies, sageId);
+        if (!sageCompany) continue;
+        for (const charId of sageCompany.characters) {
+          const char = player.characters[charId];
+          if (!char) continue;
+          for (const item of char.items) {
+            if (offeredRings.has(item.instanceId)) continue;
+            const itemDef = defById(state, item.definitionId);
+            if (itemDef && 'subtype' in itemDef && (itemDef as { subtype?: string }).subtype === 'gold-ring') {
+              logDetail(`${def.name} playable on ${sageId as string} (ring ${item.instanceId as string})`);
+              actions.push({
+                action: {
+                  type: 'play-short-event',
+                  player: playerId,
+                  cardInstanceId,
+                  targetCharacterId: sageId,
+                  targetGoldRingInstanceId: item.instanceId,
+                },
+                viable: true,
+              });
+              offeredRings.add(item.instanceId);
+            }
+          }
+        }
+      }
+      if (offeredRings.size === 0) {
+        logDetail(`${def.name}: no eligible (sage × gold ring) pair — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires a sage and a gold ring in the same company`));
       }
     } else if (playTarget && playTarget.target === 'character') {
       const optionActions = playOptionActionsForShortEvent(
