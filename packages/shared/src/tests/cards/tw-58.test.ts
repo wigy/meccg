@@ -57,6 +57,9 @@ import { RegionType } from '../../index.js';
 import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 const LURE_OF_NATURE = 'tw-58' as CardDefinitionId;
+// Bug-report regression only — stacked alongside Lure of Nature to reproduce
+// the reported Geann a-Lisch corruption-check overcharge.
+const ALONE_AND_UNADVISED = 'as-24' as CardDefinitionId;
 
 // Minion fixtures used only to exercise the non-Orc / non-Ringwraith race
 // filter — declared locally per the card-ids.ts constants policy.
@@ -358,6 +361,47 @@ describe('Lure of Nature (tw-58)', () => {
       resourcePlayerPassed: true,
     });
     const stateAtPlayHazards = { ...withCard, phaseState: mhState };
+
+    const afterBothPass = dispatch(stateAtPlayHazards, { type: 'pass', player: PLAYER_2 });
+
+    const pending = afterBothPass.pendingResolutions.filter(
+      r => r.actor === PLAYER_1 && r.kind.type === 'corruption-check',
+    );
+    expect(pending).toHaveLength(0);
+  });
+
+  test('no corruption checks enqueued (from Lure of Nature or a stacked Alone and Unadvised) when resolvedSitePath is a hazard-keying override but the company did not travel (bug report)', () => {
+    // Bug report: Ôm-buri-Ôm, alone at Geann a-Lisch (le-374), got 9 corruption
+    // checks (5 from Alone and Unadvised as-24 + 4 from Lure of Nature, whose
+    // wilderness-only regionTypeFilter matched 4 of the override's 5 virtual
+    // regions) despite the company never having moved that turn. Both cards
+    // funnel through the same `fireEndOfCompanyMHCorruptionChecks`, which must
+    // key off `traveledSitePath` (the real, empty travel record here), not
+    // `resolvedSitePath` — Geann a-Lisch's hazard-site-type-override reinterprets
+    // a stationary company's site path as a virtual 5-region path "for purposes
+    // of playing and interpreting hazards" only.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withLureOfNature = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_NATURE);
+    const withBothCards = attachHazardToChar(withLureOfNature, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [
+        RegionType.Shadow, RegionType.Wilderness, RegionType.Wilderness,
+        RegionType.Wilderness, RegionType.Wilderness,
+      ],
+      traveledSitePath: [],
+      resourcePlayerPassed: true,
+    });
+    const stateAtPlayHazards = { ...withBothCards, phaseState: mhState };
 
     const afterBothPass = dispatch(stateAtPlayHazards, { type: 'pass', player: PLAYER_2 });
 
