@@ -15,7 +15,7 @@ import { SetupStep } from '../../types/state-phases.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { matchesCharacterPlayTarget } from '../../stage-resource-characters.js';
 import { logDetail } from './log.js';
-import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter, hasUnassignedMandatoryStageResource } from '../reducer-utils.js';
+import { defById, countStartingMinorItems, hasAgentSummonsEffect, isAgentCharacter, hasUnassignedMandatoryStageResource, findDuplicationLimitEffect } from '../reducer-utils.js';
 
 export function itemDraftActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const ctx = setupStepContext(state, playerId, SetupStep.ItemDraft);
@@ -150,6 +150,13 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
       // an agent character ("place this card with the agent").
       const isRecruitmentVehicle = effects.some(e => e.type === 'recruitment-vehicle');
       const agentOnly = hasAgentSummonsEffect(def);
+      // "Cannot be duplicated on a given character" (Open to the Summons
+      // wh-46): a second copy may still be placed with the *company* (e.g. an
+      // undrafted deck copy offered in lieu of a minor item — see below), but
+      // never on a character that already carries one — regardless of whether
+      // that first copy landed via the automatic draft-finalize pairing
+      // (resolveThrallCharacterPairings) or an earlier place-starting-company-event.
+      const charDupLimit = findDuplicationLimitEffect(def, 'character');
       for (const company of player.companies) {
         // Skip if already placed on this company
         const alreadyOnCompany = player.cardsInPlay.some(
@@ -157,9 +164,17 @@ export function itemDraftActions(state: GameState, playerId: PlayerId): Evaluate
         );
         if (alreadyOnCompany) continue;
         if (isRecruitmentVehicle) {
-          const eligibleChars = company.characters.filter(
-            charId => !agentOnly || isAgentCharacter(defById(state, player.characters[charId]?.definitionId)),
-          );
+          const eligibleChars = company.characters.filter(charId => {
+            if (agentOnly && !isAgentCharacter(defById(state, player.characters[charId]?.definitionId))) return false;
+            if (charDupLimit) {
+              const copiesOnChar = (player.characters[charId]?.items ?? []).filter(i => i.definitionId === defId).length;
+              if (copiesOnChar >= charDupLimit.max) {
+                logDetail(`${def?.name ?? defId as string}: cannot be duplicated on character ${String(charId)} (${copiesOnChar} already attached)`);
+                return false;
+              }
+            }
+            return true;
+          });
           for (const charId of eligibleChars) {
             evaluated.push({
               action: { type: 'place-starting-company-event', player: playerId, cardDefId: defId, companyId: company.id, targetCharacterInstanceId: charId },

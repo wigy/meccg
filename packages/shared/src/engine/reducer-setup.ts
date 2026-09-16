@@ -20,7 +20,7 @@ import { Phase, SetupStep } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { applyDraftResults, transitionAfterItemDraft, enterSiteSelection, startFirstTurn } from './init.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { rollDiceForPlayer, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource, hasStartingCompanyPlacementInDeck } from './reducer-utils.js';
+import { rollDiceForPlayer, clonePlayers, cleanupEmptyCompanies, nextCompanyId, updatePlayer, updateCharacter, wrongActionType, findById, defById, isStageResourceCard, isAgentCharacter, hasRecruitmentVehicleEffect, hasAgentSummonsEffect, countStartingMinorItems, countAgentSummonsEnablersForDraft, countDraftedAgents, stageResourceDuplicationLimitReached, fwHasViableStageResourcePick, getCardEffects, matchesDefinition, hasUnassignedMandatoryStageResource, hasStartingCompanyPlacementInDeck, findDuplicationLimitEffect } from './reducer-utils.js';
 import { stageResourceNeedsSite, siteMatchesStageResourceTarget, blockingSiteStageResources } from './stage-resource-sites.js';
 import { sameManifestationEntity } from './manifestations.js';
 
@@ -672,6 +672,20 @@ function handleItemDraft(
     if (isRecruitmentVehicle && targetChar && hasAgentSummonsEffect(eventDef)
       && !isAgentCharacter(defById(state, targetChar.definitionId))) {
       return { state, error: 'Open to the Summons may only be placed with an agent character' };
+    }
+    // "Cannot be duplicated on a given character" (Open to the Summons
+    // wh-46): reject a second copy targeting a character that already carries
+    // one — the first may have landed via the automatic draft-finalize
+    // pairing (resolveThrallCharacterPairings), which the legal-action
+    // eligibility filter above must also respect.
+    if (isRecruitmentVehicle && targetChar) {
+      const charDupLimit = findDuplicationLimitEffect(eventDef, 'character');
+      if (charDupLimit) {
+        const copiesOnChar = targetChar.items.filter(i => i.definitionId === deckCard.definitionId).length;
+        if (copiesOnChar >= charDupLimit.max) {
+          return { state, error: `${eventDef?.name ?? (deckCard.definitionId as string)} cannot be duplicated on a given character` };
+        }
+      }
     }
 
     const stateWithCard = (isRecruitmentVehicle && targetChar)

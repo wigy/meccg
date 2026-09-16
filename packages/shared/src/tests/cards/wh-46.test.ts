@@ -39,9 +39,12 @@
  *    starting company" — enforced by the existing `not-starting-character`
  *    draft rule (an agent flagged so is never draftable).
  *  - "Cannot be duplicated on a given character" — the `duplication-limit`
- *    (scope `character`) declares it; structurally each agent instance is played
- *    once and receives at most one vehicle, so two copies can never land on the
- *    same character.
+ *    (scope `character`) is enforced explicitly: a second physical copy sitting
+ *    undrafted in the play deck (offered "in lieu of a minor item" during the
+ *    item-draft step) is no longer offered — nor accepted by the reducer — for
+ *    an agent that already carries one, whether that first copy landed via the
+ *    automatic draft-finalize pairing (`resolveThrallCharacterPairings`) or an
+ *    earlier `place-starting-company-event`.
  *  - "Cannot be included in a Balrog's deck" — enforced by deck validation
  *    (wh-46 is on the Balrog banned list); not a runtime effect.
  *
@@ -339,5 +342,56 @@ describe('Open to the Summons (wh-46)', () => {
     const ferny = getCharacter(after, RESOURCE_PLAYER, BILL_FERNY);
     expect(ferny.items.some(i => i.definitionId === OPEN_TO_THE_SUMMONS)).toBe(true);
     expect(ferny.effectiveStats.mind).toBe(2);
+  });
+
+  // ── "Cannot be duplicated on a given character" ─────────────────────────────
+
+  test('a second copy in the play deck cannot also be placed on the same agent (game mu436f0m-e60pkn, seq 18)', () => {
+    // Regression: the drafted copy auto-pairs with Bill Ferny at finalize
+    // (rule 4/5 above). A second physical copy of wh-46 left undrafted in the
+    // play deck is still offered "in lieu of a minor item" during the item-draft
+    // step (CoE 1.9.R2/F4) — but it must never be offered, or accepted, for a
+    // character that already carries one. In the reported game two copies both
+    // landed on the agent (Wormtongue, dm-27), because the item-draft eligible-
+    // character filter and the reducer both skipped this check.
+    const config: GameConfig = {
+      players: [
+        { id: PLAYER_1, name: 'Alice', alignment: Alignment.Ringwraith,
+          draftPool: [BILL_FERNY, OPEN_TO_THE_SUMMONS], playDeck: [...makePlayDeck(), OPEN_TO_THE_SUMMONS], siteDeck: [MINAS_MORGUL], sideboard: [] },
+        { id: PLAYER_2, name: 'Bob', alignment: Alignment.Wizard,
+          draftPool: [OPPONENT_CHAR], playDeck: makePlayDeck(), siteDeck: [MORIA], sideboard: [] },
+      ],
+      seed: 42,
+    };
+    let state = createGame(config, pool);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, RESOURCE_PLAYER, OPEN_TO_THE_SUMMONS) },
+      { type: 'draft-pick', player: PLAYER_2, characterInstanceId: draftInstId(state, 1, OPPONENT_CHAR) },
+    ]);
+    state = runActions(state, [
+      { type: 'draft-pick', player: PLAYER_1, characterInstanceId: draftInstId(state, RESOURCE_PLAYER, BILL_FERNY) },
+    ]);
+
+    // Finalize placed the drafted copy on Bill Ferny already.
+    const ferny = getCharacter(state, RESOURCE_PLAYER, BILL_FERNY);
+    expect(ferny.items.filter(i => i.definitionId === OPEN_TO_THE_SUMMONS)).toHaveLength(1);
+
+    // The second, undrafted copy is no longer offered for Bill Ferny — the only
+    // character in the starting company.
+    const placements = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'place-starting-company-event'
+        && (a.action as { cardDefId?: CardDefinitionId }).cardDefId === OPEN_TO_THE_SUMMONS,
+    );
+    expect(placements).toHaveLength(0);
+
+    // The reducer also rejects a direct attempt to force the duplicate placement.
+    const companyId = state.players[RESOURCE_PLAYER].companies[0].id;
+    const result = reduce(state, {
+      type: 'place-starting-company-event', player: PLAYER_1, cardDefId: OPEN_TO_THE_SUMMONS,
+      companyId, targetCharacterInstanceId: ferny.instanceId,
+    });
+    expect(result.error).toBeDefined();
+    const fernyAfter = getCharacter(result.state, RESOURCE_PLAYER, BILL_FERNY);
+    expect(fernyAfter.items.filter(i => i.definitionId === OPEN_TO_THE_SUMMONS)).toHaveLength(1);
   });
 });
