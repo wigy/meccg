@@ -5117,8 +5117,26 @@
         "site": "Cameth Brin"
       }
     ],
-    "effects": [],
-    "text": "Unique. Manifestation of hero Hillmen. Playable at Cameth Brin if the influence check is greater than 10. Standard Modifications: Dunlendings (+2), Angmarim (+2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Dunlendings"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Angmarim"
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of hero Hillmen. Playable at Cameth Brin if the influence check is greater than 10. Standard Modifications: Dunlendings (+2), Angmarim (+2).",
+    "certified": "2026-09-16"
   },
   {
     "cardType": "minion-resource-faction",
