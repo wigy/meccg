@@ -19,11 +19,18 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   ARAGORN, ELROND, GLORFINDEL_II, LEGOLAS, BEREGOND,
   RIVENDELL, LORIEN, MINAS_TIRITH,
+  CardStatus,
 } from '../../test-helpers.js';
+import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../test-helpers.js';
 import { Phase } from '../../../types/state-phases.js';
 import type { GameState } from '../../../types/state.js';
-import type { CardInstanceId } from '../../../types/common.js';
 import type { InfluenceOverflowDiscardAction } from '../../../types/actions-organization.js';
+
+/** Elf-song (tw-223) — while in play, protects every character at a Haven. */
+const ELF_SONG = 'tw-223' as CardDefinitionId;
+/** Echo of All Joy (td-110) — exempts an attached long-event from the
+ * CoE 2.III.1 sweep for as long as it stays in play. */
+const ECHO_OF_ALL_JOY = 'td-110' as CardDefinitionId;
 
 describe('Rule 3.47 — Influence Overflow at End of Org Phase', () => {
   beforeEach(() => resetMint());
@@ -236,5 +243,57 @@ describe('Rule 3.47 — Influence Overflow at End of Org Phase', () => {
     expect(orgState.phase).toBe(Phase.Organization);
     expect((orgState as { charactersBroughtIntoPlayIds?: readonly CardInstanceId[] }).charactersBroughtIntoPlayIds)
       .toEqual([legolasHandId]);
+  });
+
+  test('a removal-protected character (Elf-song, at a Haven) is never offered and does not deadlock the resolution', () => {
+    // Same 27-over-20 overflow as the first test, but every candidate stands
+    // at Rivendell (a Haven) while Elf-song is in play, so none of them can be
+    // discarded (CRF 22: Elf-song "saves" the character outright). Echo of All
+    // Joy keeps Elf-song exempt from the CoE 2.III.1 own-long-event sweep that
+    // would otherwise fire in this same organization-phase-exit action, so it
+    // is still in play when the overflow is evaluated — exactly as in the
+    // reported live game (mu4k55yg-f355xa, turn 19), where Elf-song had been
+    // kept in play this way for many turns and Legolas, just played into the
+    // Rivendell company, was endlessly re-offered for a discard the engine
+    // could never actually perform.
+    const elfSongId = 'elfsong-1' as CardInstanceId;
+    const elfSongInPlay: CardInPlay = { instanceId: elfSongId, definitionId: ELF_SONG, status: CardStatus.Untapped };
+    const echoInPlay: CardInPlay = {
+      instanceId: 'echo-1' as CardInstanceId,
+      definitionId: ECHO_OF_ALL_JOY,
+      status: CardStatus.Untapped,
+      attachedToLongEvent: elfSongId,
+    };
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, ELROND, GLORFINDEL_II] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          cardsInPlay: [elfSongInPlay, echoInPlay],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    expect(state.players[RESOURCE_PLAYER].generalInfluenceUsed).toBe(27);
+
+    const passed = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    expect(passed.phaseState.phase).toBe(Phase.LongEvent);
+
+    // Nothing removable → nothing enqueued, and all three characters remain
+    // exactly where they were instead of the game stalling on a resolution it
+    // can never satisfy.
+    expect(passed.pendingResolutions.some(r => r.kind.type === 'influence-overflow-discard')).toBe(false);
+    expect(viableActions(passed, PLAYER_1, 'influence-overflow-discard')).toHaveLength(0);
+    const aragornId = findCharInstanceId(passed, RESOURCE_PLAYER, ARAGORN);
+    const elrondId = findCharInstanceId(passed, RESOURCE_PLAYER, ELROND);
+    const glorfindelId = findCharInstanceId(passed, RESOURCE_PLAYER, GLORFINDEL_II);
+    expect(passed.players[RESOURCE_PLAYER].characters[aragornId]).toBeDefined();
+    expect(passed.players[RESOURCE_PLAYER].characters[elrondId]).toBeDefined();
+    expect(passed.players[RESOURCE_PLAYER].characters[glorfindelId]).toBeDefined();
   });
 });

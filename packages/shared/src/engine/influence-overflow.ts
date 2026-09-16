@@ -27,6 +27,10 @@
  * CoE 3.22), and neither are characters whose control costs the pool nothing
  * (followers, prisoners, influence-exempt characters): removing one could not
  * reduce the overflow, so offering it would only stall the resolution.
+ * Characters {@link isCharacterRemovalProtected | removal-protected} (e.g. by
+ * Elf-song, tw-223) are excluded too — CRF 22 confirms Elf-song "saves" the
+ * character outright, so offering it would fizzle on resolution and deadlock
+ * the queue forever instead of settling the overflow.
  */
 
 import type { GameState, PlayerId, CardInstanceId, CharacterInPlay } from '../index.js';
@@ -34,6 +38,7 @@ import { isAvatarCharacter, isCharacterCard } from '../types/cards.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { controlCostOf } from './control-cost.js';
 import { characterBearsAttachedEffect, defById, findCharacterCompany, generalInfluenceControlLimit, playerById } from './reducer-utils.js';
+import { isCharacterRemovalProtected } from './removal-protection.js';
 
 /** Which tier of CoE 3.47 the current step is drawing from. */
 export type InfluenceOverflowTier = 'played-this-turn' | 'uncontrolled' | 'free-choice';
@@ -90,6 +95,7 @@ function removableCharacters(state: GameState, playerId: PlayerId): readonly Car
     .filter(char => {
       const charDef = defById(state, char.definitionId);
       if (!isCharacterCard(charDef) || isAvatarCharacter(charDef)) return false;
+      if (isCharacterRemovalProtected(state, char.instanceId)) return false;
       return chargesGeneralInfluence(state, playerId, char);
     })
     .map(char => char.instanceId);
