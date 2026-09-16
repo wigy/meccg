@@ -835,6 +835,13 @@ export function buildDualHandSitePhaseState(opts: {
 
 /** Build a MovementHazardPhaseState in the play-hazards step. */
 export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): MovementHazardPhaseState {
+  // `traveledSitePath` normally mirrors `resolvedSitePath` — they only diverge
+  // when a `hazard-site-type-override` site-rule (Geann a-Lisch le-374)
+  // replaces `resolvedSitePath` with a virtual hazard-keying path. Default it
+  // to whatever `resolvedSitePath` override was passed so existing callers
+  // that only set `resolvedSitePath` keep getting real corruption checks;
+  // callers exercising the override diverge them explicitly.
+  const resolvedSitePath = overrides?.resolvedSitePath ?? [];
   return {
     phase: Phase.MovementHazard,
     step: 'play-hazards',
@@ -846,8 +853,9 @@ export function makeMHState(overrides?: Partial<MovementHazardPhaseState>): Move
     hazardsPlayedThisCompany: 0,
     hazardLimitAtReveal: 4,
     preRevealHazardLimitConstraintIds: [],
-    resolvedSitePath: [],
+    resolvedSitePath,
     resolvedSitePathNames: [],
+    traveledSitePath: resolvedSitePath,
     destinationSiteType: null,
     destinationSiteName: null,
     resourceDrawMax: 0,

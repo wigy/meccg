@@ -80,6 +80,7 @@ describe('Rule 5.16 — Step 7: Play Hazards', () => {
       preRevealHazardLimitConstraintIds: [],
       resolvedSitePath: [],
       resolvedSitePathNames: [],
+      traveledSitePath: [],
       destinationSiteType: null,
       destinationSiteName: null,
       resourceDrawMax: 0,
