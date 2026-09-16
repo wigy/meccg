@@ -833,7 +833,8 @@
     "unique": true,
     "subtype": "greater",
     "keywords": [
-      "hoard"
+      "hoard",
+      "armor"
     ],
     "marshallingPoints": 2,
     "marshallingCategory": "item",
@@ -849,9 +850,51 @@
             "$includes": "hoard"
           }
         }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 9
+      },
+      {
+        "type": "grant-action",
+        "action": "restore-item",
+        "anyPhase": true,
+        "cost": {
+          "discard": "named-stored-card",
+          "discardCardName": "Reforging"
+        },
+        "apply": {
+          "type": "restore-item"
+        }
+      },
+      {
+        "type": "restored-item-stats",
+        "marshallingPoints": 4,
+        "corruptionPoints": 3
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "untap-penalty",
+        "op": "set",
+        "value": 0,
+        "when": {
+          "$and": [
+            {
+              "bearer.skills": {
+                "$includes": "warrior"
+              }
+            },
+            {
+              "item.restored": true
+            }
+          ]
+        }
       }
     ],
-    "text": "Unique. Hoard item. Armor. +1 body (to a maximum of 9). A stored Reforging may be placed with this item to “restore” it. Once restored, Belegennon gives 4 marshalling points and 3 corruption points. Warrior only (restored): If bearer chooses not to tap against a strike, he receives no prowess penalty."
+    "text": "Unique. Hoard item. Armor. +1 body (to a maximum of 9). A stored Reforging may be placed with this item to “restore” it. Once restored, Belegennon gives 4 marshalling points and 3 corruption points. Warrior only (restored): If bearer chooses not to tap against a strike, he receives no prowess penalty.",
+    "certified": "2026-09-16"
   },
   {
     "cardType": "hero-resource-item",
