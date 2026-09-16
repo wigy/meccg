@@ -4571,7 +4571,6 @@
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [
-      { "type": "play-window", "phase": "organization" },
       { "type": "play-target", "target": "character", "filter": { "target.skills": { "$includes": "sage" } } },
       { "type": "on-event", "event": "self-enters-play", "apply": { "type": "enqueue-gold-ring-test", "rollModifier": 0 } }
     ],
