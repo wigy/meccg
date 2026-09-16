@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -3446,6 +3446,39 @@ function playHazardsActions(
           if (!offeredAny) {
             logDetail(`Hazard short-event "${def.name}" not playable — no eligible untapped agent with an opponent character or ally to influence`);
             actions.push({ action, viable: false, reason: 'No eligible untapped agent with an opponent character or ally to influence' });
+          }
+          continue;
+        }
+
+        // Stored-permanent-event-targeting short events (Which Might Be Lies
+        // dm-100): one action per opponent stored resource permanent-event
+        // that "required a site where X is playable" to be played, X named by
+        // `requiresResource`. Mirrors dm-73's `stored-item` targeting but
+        // scans for permanent-events (not items) and — unlike dm-73's
+        // displace-and-replace — the matched card is simply discarded on
+        // resolution; this hazard's own card was already discarded at play
+        // time like any short-event.
+        if (shortPlayTarget?.target === 'stored-permanent-event') {
+          const storedPermanentEvents = resourcePlayer.killPile.filter(c => {
+            const cDef = defById(state, c.definitionId);
+            if (!cDef) return false;
+            if (shortPlayTarget.requiresResource
+              && !permanentEventSiteResourceSubtypes(cDef).includes(shortPlayTarget.requiresResource)) {
+              return false;
+            }
+            return !shortPlayTarget.filter || matchesDefinition(cDef, shortPlayTarget.filter);
+          });
+          if (storedPermanentEvents.length === 0) {
+            logDetail(`Hazard short-event "${def.name}": opponent has no matching stored permanent-event to target`);
+            actions.push({ action, viable: false, reason: `${def.name} requires a matching opponent stored permanent-event` });
+          }
+          for (const stored of storedPermanentEvents) {
+            const storedDef = defById(state, stored.definitionId);
+            logDetail(`Hazard short-event "${def.name}" playable on stored permanent-event ${storedDef?.name ?? (stored.definitionId as string)}`);
+            actions.push({
+              action: { ...action, targetStoredPermanentEventInstanceId: stored.instanceId },
+              viable: true,
+            });
           }
           continue;
         }

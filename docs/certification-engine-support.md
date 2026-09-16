@@ -1060,3 +1060,16 @@ Two independent pieces:
 ```
 
 Used by *Carrion Birds* (td-7).
+
+### `play-target` target `"stored-permanent-event"` + `discard-stored-permanent-event` (Which Might Be Lies dm-100)
+
+Which Might Be Lies (dm-100): "Playable on a stored resource permanent-event that required an information site to be played. Discard event." — **fully implemented**, the short-event sibling of dm-73's `stored-item` targeting.
+
+`permanentEventSiteResourceSubtypes` (previously local to `recompute-derived.ts`'s `permanent-event-mp` MP override, Man of Skill wh-119) moved to `reducer-utils.ts` and is now shared: it recognizes "a permanent-event that required a site where X is playable" from either a `play-condition requires: "site-has-resource"` or an in-play permanent-event's own `play-target: "site"` filter with a `playableResources: { $includes: X }` clause (the shape actual in-play cards like Andúril tw-192 use). `play-target` gains a `stored-permanent-event` target value and a matching `requiresResource` field naming the required subtype. The legal-action generator (`legal-actions/movement-hazard.ts`, inside the hazard **short-event** branch — not the long/permanent branch dm-73 uses, since dm-100's printed `eventType` is `short`) filters the opponent's `killPile` to permanent-events whose `permanentEventSiteResourceSubtypes` includes the effect's `requiresResource` (plus any additional `filter`), emitting one `play-hazard` per match carrying the new `targetStoredPermanentEventInstanceId` action field, threaded onto the `short-event` chain payload (`mh-hazard-play.ts`). Unlike dm-73's `displace-stored-item` (which returns the item to hand and re-homes the resolving card into the marshalling-point pile), `discard-stored-permanent-event` simply routes the targeted stored card from `killPile` to its owner's `discardPile` (`resolveDiscardStoredPermanentEvent`, `chain-reducer.ts`) — the resolving dm-100 card needs no special handling since hazard short-events are already discarded at play time.
+
+```json
+{ "type": "play-target", "target": "stored-permanent-event", "requiresResource": "information" }
+{ "type": "discard-stored-permanent-event" }
+```
+
+Used by *Which Might Be Lies* (dm-100).

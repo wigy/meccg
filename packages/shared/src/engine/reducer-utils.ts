@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -2746,6 +2746,43 @@ export function findPlayConditionEffect(
   return getCardEffects(def).find(
     (e): e is PlayConditionEffect => e.type === 'play-condition' && e.requires === requires,
   );
+}
+
+/**
+ * Recursively collects the resource subtypes a `Condition` requires via a
+ * `playableResources: { $includes: <subtype> }` clause — the shape a
+ * `play-target` site filter uses to say "at a site where X is playable"
+ * (When I Know Anything td-166, Andúril tw-192, …). Only descends into
+ * `$and`: an `$or` branch means the resource is merely one of several
+ * acceptable options, not a hard requirement, so it does not count.
+ */
+function siteFilterRequiredResources(filter: Condition): string[] {
+  const isAnd = (c: Condition): c is { $and: readonly Condition[] } => '$and' in c;
+  if (isAnd(filter)) return filter.$and.flatMap(siteFilterRequiredResources);
+  if ('$or' in filter || '$not' in filter) return [];
+  const includes = (filter as { playableResources?: { $includes?: string } }).playableResources;
+  return typeof includes?.$includes === 'string' ? [includes.$includes] : [];
+}
+
+/**
+ * The resource subtype(s) a permanent-event "requires a site where X is
+ * playable" to be played — from either a `play-condition` with
+ * `requires: 'site-has-resource'` (the DSL shape organization/short-events
+ * use) or a `play-target` effect targeting `site` with a `playableResources`
+ * filter (the shape actual in-play permanent-events use, e.g. td-166). Used
+ * both by the `permanent-event-mp` MP override (Man of Skill wh-119) and by
+ * the `stored-permanent-event` hazard play-target (Which Might Be Lies
+ * dm-100) to recognize "a permanent-event that required an X site to be
+ * played" regardless of which of the two DSL shapes the card used.
+ */
+export function permanentEventSiteResourceSubtypes(def: CardDefinition): string[] {
+  if ((def as { eventType?: string }).eventType !== 'permanent') return [];
+  const siteHasResource = findPlayConditionEffect(def, 'site-has-resource');
+  if (siteHasResource?.subtype) return [siteHasResource.subtype];
+  const sitePlayTarget = getCardEffects(def).find(
+    (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
+  );
+  return sitePlayTarget?.filter ? siteFilterRequiredResources(sitePlayTarget.filter) : [];
 }
 
 /**

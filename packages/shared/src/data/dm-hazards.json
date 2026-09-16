@@ -1746,8 +1746,12 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WhichMightBeLies.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a stored resource permanent-event that required an information site to be played. Discard event."
+    "effects": [
+      { "type": "play-target", "target": "stored-permanent-event", "requiresResource": "information" },
+      { "type": "discard-stored-permanent-event" }
+    ],
+    "text": "Playable on a stored resource permanent-event that required an information site to be played. Discard event.",
+    "certified": "2026-09-16"
   },
   {
     "cardType": "hazard-event",
