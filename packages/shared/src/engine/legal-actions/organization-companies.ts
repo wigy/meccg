@@ -1320,18 +1320,24 @@ export function useItemActions(state: GameState, playerId: PlayerId): EvaluatedA
   return actions;
 }
 
-/** Regular item subtypes (minor/major/greater) that are storable at any Haven per CoE rule 2.II.4. */
-const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater']);
+/**
+ * Item subtypes storable at any Haven per CoE rule 2.II.4, which places no
+ * subtype restriction on storing — including gold rings (rule 6.2.3 confirms
+ * gold-ring items can be stored, at least at a Darkhaven where storing
+ * triggers an automatic test). The One Ring is excluded separately below via
+ * its `no-store` play-flag (rule g.sto.1), not by subtype.
+ */
+const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater', 'gold-ring', 'special']);
 
 /**
  * Computes store-item actions during the organization phase.
  *
  * Two categories of items are storable (CoE rule 2.II.4):
  *
- * 1. **Regular and special items** without an explicit `storable-at`
- *    restriction: storable at any Haven site, unless the item carries the
- *    `no-store` play-flag (Ent-draughts tw-227, The One Ring per rule
- *    g.sto.1: "The One Ring cannot be stored").
+ * 1. **Regular, special, and gold-ring items** without an explicit
+ *    `storable-at` restriction: storable at any Haven site, unless the item
+ *    carries the `no-store` play-flag (Ent-draughts tw-227, The One Ring per
+ *    rule g.sto.1: "The One Ring cannot be stored").
  * 2. **Items with a `storable-at` effect**: storable only at sites whose name
  *    appears in the effect's `sites` list, or whose type appears in
  *    `siteTypes`. This covers special items (e.g. Rescue Prisoners) and
@@ -1430,7 +1436,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
           // Special items (Palantíri, named rings, unique treasures, etc.) are
           // storable at any Haven too — CoE rule 2.II.4 places no subtype
           // restriction on storing.
-          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype) || itemDef.subtype === 'special';
+          isStorable = REGULAR_ITEM_SUBTYPES.has(itemDef.subtype);
         }
 
         // `no-store` play-flag: the item's own text forbids storage,
