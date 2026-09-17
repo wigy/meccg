@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.158.0 — 2026-09-18
+
+Necklace of Girion, Under-deeps extra moves and unique items under Crown of Flowers
+
+### Game Engine
+
+- Certified Necklace of Girion (dm-174): item play restricted to The Lonely Mountain, a target-conditional +3 direct influence against Dwarves/Men and Dwarf/Man factions (covering follower control, opponent-influence attempts and faction-influence checks), and the Free-hold/Border-hold voluntary corruption check that, on success, unlocks discarding the Necklace to play a non-special item from hand onto its bearer. `onSuccess` on `enqueue-corruption-check` previously fired only for checks forced via `on-event: self-enters-play`; it is now threaded through the grant-action path too, with a new `enqueue-item-placement-offer` onSuccess type and an `item-placement-offer` pending resolution where the character may decline or play one matching hand item (#3082)
+- The site-phase item-uniqueness check only scanned items borne by characters, so a unique item paired with Crown of Flowers (dm-121) — which sits unattached in a player's `cardsInPlay` — was invisible to it and the other player could play a second copy of, for example, Orcrist (tw-295). The check now reuses `countCopiesInPlay`, already used for unique rings and long-events, which scans borne items and `cardsInPlay` across both players (#3085)
+- Gold-ring items were never offered as storable at a Haven: `storeItemActions` treated only minor, major, greater and special items as generically storable, so Precious Gold Ring and other gold rings could be stored only at sites with an explicit storable-at effect. CoE 2.II.4 places no subtype restriction on storing and CoE 6.2.3 already assumes gold rings can be stored; only The One Ring is excluded, via its own no-store flag (#3084)
+- Carambor's (le-5) tap for an extra movement/hazard phase, and the other grant-extra-mh-phase resources, ran an Under-deeps origin through the ordinary starter/region movement graph and offered every site within region-movement distance instead of only the sites listed as adjacent on the site card (CoE 2.II.7.iii). `extraMHMoveDestinations` now mirrors the organization-phase split and uses `getUnderDeepsReachable` for an Under-deeps origin, including the origin's own surface site. Reported from game mu5hzes8-yeaq7a where ten sites were offered instead of one (#3083)
+- The Hunt (dm-143) let an ally hosted by Alatar take the strike meant for him, because the solo-defender mechanism shared with Burglary (td-103) deliberately keeps the defender's own hosted allies assignable. CRF 22 rules that even a Noble Hound does not shield Alatar, who "is still alone against them"; a new `CombatState.excludeSoloDefenderAllies` flag, set only by The Hunt, strips hosted allies from both strike-assignment pools and disables the strike-shield block so Alatar stays assignable while hosting a Noble Hound. Reported from game mu4dwlj6-tgp0q2 where Gollum received a strike (#3081)
+
+### AI
+
+- The new `play-item-placement-offer` action discriminant was appended to the sim's `ACTION_TYPES` vocabulary so it no longer featurizes as the reserved unknown row; appended at the end per the index-stability rule, leaving every existing index and the locked prefix hash unchanged (#3082)
+
 ## 0.157.0 — 2026-09-17
 
 Gold ring tests in any phase, Elf-song overflow deadlock and Which Might Be Lies

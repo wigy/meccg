@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1332 | 1332 | 0 | 100.0% |
+| 1333 | 1333 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 117 | 117 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 140 | 140 | 100.0% |
+| DM | 141 | 141 | 100.0% |
 | LE | 321 | 321 | 100.0% |
 | TD | 134 | 134 | 100.0% |
 | TW | 424 | 424 | 100.0% |
@@ -354,7 +354,7 @@
 | dm-140 | Horns, Horns, Horns | — | 4 | ☑ |
 | dm-141 | Hour of Need | — | 13 | ☑ |
 | dm-142 | Hundreds of Butterflies | — | 13 | ☑ |
-| dm-143 | The Hunt | — | 18 | ☑ |
+| dm-143 | The Hunt | — | 19 | ☑ |
 | dm-145 | Into Dark Tunnels | — | 9 | ☑ |
 | dm-148 | Mallorn | — | 18 | ☑ |
 | dm-150 | More Alert than Most | — | 8 | ☑ |
@@ -373,6 +373,7 @@
 | dm-167 | Dragon-helm | — | 14 | ☑ |
 | dm-168 | Dwarven Light-stone | — | 13 | ☑ |
 | dm-171 | Leaf Brooch | — | 15 | ☑ |
+| dm-174 | Necklace of Girion | — | 20 | ☑ |
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-176 | Phial of Galadriel | — | 19 | ☑ |
 | dm-177 | Lindion the Oronín | — | 8 | ☑ |
@@ -384,7 +385,7 @@
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
 | le-3 | Bróin | — | 7 | ☑ |
-| le-5 | Carambor | — | 9 | ☑ |
+| le-5 | Carambor | — | 10 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 2 | ☑ |
