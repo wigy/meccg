@@ -43,7 +43,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   viableActions, dispatch, executeAction, findInPile, findCharInstanceId, findHandCardId,
   companyIdAt, expectCharStatus, assertEveryInstanceReachable, revealOpponentPileInstances,
-  makeMHState, playCreatureHazardAndResolve,
+  makeMHState, playCreatureHazardAndResolve, attachAllyToChar,
   CAVE_DRAKE, ORC_PATROL, GLAMDRING, VANISHMENT, pool,
 } from '../test-helpers.js';
 import { CardStatus, RegionType, SiteType, describeAction } from '../../index.js';
@@ -53,6 +53,7 @@ import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction,
 const THE_HUNT = 'dm-143' as CardDefinitionId;
 const ALATAR = 'tw-117' as CardDefinitionId;
 const WIZARDS_FLAME = 'tw-361' as CardDefinitionId;
+const BILL_THE_PONY = 'tw-198' as CardDefinitionId;
 
 /**
  * An organization-phase state: P1 (active) has Alatar (plus an optional extra
@@ -342,6 +343,29 @@ describe('The Hunt (dm-143)', () => {
     const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
 
     expect(afterChoice.combat!.soloDefenderInstanceId).toBe(alatarId);
+    const strikeTargets = new Set(
+      viableActions(afterChoice, PLAYER_1, 'assign-strike')
+        .map(a => (a.action as { characterId: CardInstanceId }).characterId),
+    );
+    expect(strikeTargets).toEqual(new Set([alatarId]));
+  });
+
+  test('the creature attacks Alatar alone even when he personally hosts an ally', () => {
+    // Bug report (game mu4dwlj6-tgp0q2, turn 18 org phase, stateSeq 1054):
+    // Gollum (an ally hosted directly by Alatar) was offered — and assigned —
+    // a strike during The Hunt. CRF 22 for The Hunt: "A Noble Hound does not
+    // shield Alatar from the creatures, he is still alone against them" — if
+    // even a Noble Hound (a strike-shield ally) cannot take the strike for
+    // him, an ordinary hosted ally certainly cannot either.
+    const state0 = huntState({ p2Discard: [ORC_PATROL] });
+    const orcId = findInPile(state0, HAZARD_PLAYER, 'discardPile', ORC_PATROL)!.instanceId;
+    const revealed = revealOpponentPileInstances(state0, HAZARD_PLAYER, [orcId]);
+    const state = attachAllyToChar(revealed, RESOURCE_PLAYER, ALATAR, BILL_THE_PONY);
+    const alatarId = findCharInstanceId(state, RESOURCE_PLAYER, ALATAR);
+    const afterPlay = playHunt(state);
+    const afterChoice = dispatch(afterPlay, { type: 'choose-hunt-target', player: PLAYER_1, creatureInstanceId: orcId, definitionId: ORC_PATROL });
+
+    expect(afterChoice.combat!.excludeSoloDefenderAllies).toBe(true);
     const strikeTargets = new Set(
       viableActions(afterChoice, PLAYER_1, 'assign-strike')
         .map(a => (a.action as { characterId: CardInstanceId }).characterId),

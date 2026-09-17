@@ -27,7 +27,10 @@
  *   was searched"); a discard-pile find needs no reshuffle.
  * - "As though he were a one-character company" is `CombatState.
  *   soloDefenderInstanceId` — no other member of the bearer's actual company
- *   may be assigned a strike.
+ *   may be assigned a strike. Unlike Burglary's (td-103) same-named field,
+ *   this also sets `excludeSoloDefenderAllies`: not even an ally hosted by
+ *   the bearer himself may take the strike (CRF 22: "A Noble Hound does not
+ *   shield Alatar from the creatures, he is still alone against them").
  * - A defeated attack still awards kill marshalling points (CoE rule 964):
  *   `combat-finalize.ts` moves the creature out of whichever pile it was
  *   attacked from and into the defending player's kill pile, same as any
@@ -170,6 +173,7 @@ export function buildHuntCombat(
     creatureBody: effectiveBody,
     creatureRace,
     soloDefenderInstanceId: bearerInstanceId,
+    excludeSoloDefenderAllies: true,
     spellsIneffective: true,
     assignmentPhase: 'defender',
     detainment: isDetainmentAttack({

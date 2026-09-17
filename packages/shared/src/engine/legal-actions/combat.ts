@@ -653,20 +653,26 @@ export function assignStrikeActions(
 
     // strike-shield (Noble Hound dm-179): collect characters whose controlling
     // strike-shield ally has NOT yet been assigned a strike. Those characters
-    // may not be assigned a strike while their ally is unassigned.
+    // may not be assigned a strike while their ally is unassigned. Skipped
+    // entirely under `excludeSoloDefenderAllies` (The Hunt, dm-143) — an ally
+    // that can never be assigned a strike must not gate the solo defender's
+    // own assignability either (CRF: even a Noble Hound "does not shield
+    // Alatar from the creatures, he is still alone against them").
     const strikeShieldBlockedChars = new Set<string>();
-    for (const charId of company.characters) {
-      const charData = player.characters[charId];
-      if (!charData) continue;
-      for (const ally of charData.allies) {
-        if (assignedCharIds.has(ally.instanceId as string)) continue;
-        const allyDef = defById(state, ally.definitionId);
-        const shieldEff = getCardEffects(allyDef).find(
-          (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
-        );
-        if (shieldEff) {
-          logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
-          strikeShieldBlockedChars.add(charId as string);
+    if (!combat.excludeSoloDefenderAllies) {
+      for (const charId of company.characters) {
+        const charData = player.characters[charId];
+        if (!charData) continue;
+        for (const ally of charData.allies) {
+          if (assignedCharIds.has(ally.instanceId as string)) continue;
+          const allyDef = defById(state, ally.definitionId);
+          const shieldEff = getCardEffects(allyDef).find(
+            (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
+          );
+          if (shieldEff) {
+            logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
+            strikeShieldBlockedChars.add(charId as string);
+          }
         }
       }
     }
@@ -749,8 +755,10 @@ export function assignStrikeActions(
     // Allies with `alwaysCountsAsUntapped` (e.g. Noble Hound) are offered even when
     // tapped or wounded — their status is irrelevant for assignability.
     // Skip entirely while a forced-strike target is still unassigned — the
-    // forced target takes priority.
-    if (!restrictToForced) {
+    // forced target takes priority. Skip entirely under `excludeSoloDefenderAllies`
+    // (The Hunt, dm-143) — not even an ally hosted by the solo defender himself
+    // may take his strikes.
+    if (!restrictToForced && !combat.excludeSoloDefenderAllies) {
       for (const { ally } of findCompanyAllies(player, company.characters)) {
         if (assignedCharIds.has(ally.instanceId as string)) continue;
         if (hasPlayFlag(state.cardPool[ally.definitionId] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
@@ -897,20 +905,24 @@ export function assignStrikeActions(
     // assigned one itself. This mirrors the defender-phase check above —
     // without it, automatic-attacks and other attacker-assigned combats
     // (assignmentPhase 'attacker') could strike a shielded character before
-    // its ally, since only the defender phase enforced the shield.
+    // its ally, since only the defender phase enforced the shield. Skipped
+    // under `excludeSoloDefenderAllies` (The Hunt, dm-143) — see the
+    // defender-phase branch above for the rationale.
     const strikeShieldBlockedChars = new Set<string>();
-    for (const charId of company.characters) {
-      const charData = defPlayer.characters[charId];
-      if (!charData) continue;
-      for (const ally of charData.allies) {
-        if (assignedCharIds.has(ally.instanceId as string)) continue;
-        const allyDef = defById(state, ally.definitionId);
-        const shieldEff = getCardEffects(allyDef).find(
-          (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
-        );
-        if (shieldEff) {
-          logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
-          strikeShieldBlockedChars.add(charId as string);
+    if (!combat.excludeSoloDefenderAllies) {
+      for (const charId of company.characters) {
+        const charData = defPlayer.characters[charId];
+        if (!charData) continue;
+        for (const ally of charData.allies) {
+          if (assignedCharIds.has(ally.instanceId as string)) continue;
+          const allyDef = defById(state, ally.definitionId);
+          const shieldEff = getCardEffects(allyDef).find(
+            (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
+          );
+          if (shieldEff) {
+            logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
+            strikeShieldBlockedChars.add(charId as string);
+          }
         }
       }
     }
@@ -937,7 +949,7 @@ export function assignStrikeActions(
       const charData = defPlayer.characters[charId];
       allCombatantIds.push({ id: charId, tapped: charData?.status !== CardStatus.Untapped });
     }
-    for (const { ally } of findCompanyAllies(defPlayer, company.characters)) {
+    for (const { ally } of combat.excludeSoloDefenderAllies ? [] : findCompanyAllies(defPlayer, company.characters)) {
       if (hasPlayFlag(state.cardPool[ally.definitionId] as { effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined, 'no-attack')) {
         logDetail(`Ally ${ally.instanceId as string} may not be attacked — excluded from attacker assignment pool`);
         continue;
