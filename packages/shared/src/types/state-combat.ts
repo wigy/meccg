@@ -788,9 +788,22 @@ export interface CombatState {
    * td-103: "the character must face all automatic-attacks alone"). An ally
    * hosted by this character is still offered — it counts as "what he
    * himself can provide" — but allies hosted by any other company member do
-   * not. Absent for every other combat.
+   * not, unless `excludeSoloDefenderAllies` narrows it further. Absent for
+   * every other combat.
    */
   readonly soloDefenderInstanceId?: CardInstanceId;
+  /**
+   * When true alongside `soloDefenderInstanceId`, even an ally hosted by the
+   * solo defender himself is excluded from strike assignment — he faces the
+   * attack with no combat support whatsoever, not even his own ally. Set by
+   * The Hunt (dm-143): CRF 22 rules "A Noble Hound does not shield Alatar
+   * from the creatures, he is still alone against them" — the "one-character
+   * company" restriction leaves no room for even a strike-shield ally to take
+   * the strike instead. Also suppresses the strike-shield block itself (an
+   * excluded ally can never be "assigned first", so it must not gate the
+   * solo defender's own assignability either).
+   */
+  readonly excludeSoloDefenderAllies?: boolean;
   /**
    * Side-effects to apply to a specific character when combat finalizes,
    * regardless of outcome. Enqueued by accepted haven-join offers
