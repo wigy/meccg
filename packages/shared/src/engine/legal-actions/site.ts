@@ -2115,21 +2115,17 @@ export function playResourcesActions(
         continue;
       }
 
-      // Check uniqueness — only one copy of a unique item can be in play
-      if (itemDef.unique) {
-        const alreadyInPlay = state.players.some(p =>
-          Object.values(p.characters).some(ch =>
-            ch.items.some(item => {
-              const iDef = defById(state, item.definitionId);
-              return iDef && iDef.name === itemDef.name;
-            }),
-          ),
-        );
-        if (alreadyInPlay) {
-          logDetail(`Item ${itemDef.name}: unique and already in play`);
-          actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name} is unique and already in play`));
-          continue;
-        }
+      // Check uniqueness — only one copy of a unique item can be in play.
+      // `countCopiesInPlay` scans both characters' borne items and each
+      // player's `cardsInPlay` — the latter is where an item paired with
+      // Crown of Flowers (dm-121) lands unattached (`applyPairResourceWithCof`),
+      // so a hand-rolled scan of `ch.items` alone (the previous approach here)
+      // missed that case and let a second unique item (e.g. Orcrist tw-295)
+      // be played while the opponent's copy sat unattached in `cardsInPlay`.
+      if (itemDef.unique && countCopiesInPlay(state, itemDef.name) > 0) {
+        logDetail(`Item ${itemDef.name}: unique and already in play`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name} is unique and already in play`));
+        continue;
       }
 
       // Check character-scoped duplication limit
