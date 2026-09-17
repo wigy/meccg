@@ -689,7 +689,18 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 3,
+        "when": {
+          "reason": "faction-influence-check",
+          "faction.race": "wose"
+        }
+      }
+    ],
+    "certified": "2026-09-16",
     "text": "Unique. Agent. +3 direct influence against Wose Factions."
   },
   {
