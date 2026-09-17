@@ -2182,6 +2182,38 @@ function resolveDisplaceStoredItem(state: GameState, entry: ChainEntry, storedIt
 }
 
 /**
+ * Resolve a `discard-stored-permanent-event` hazard short-event (Which Might
+ * Be Lies dm-100). Removes the targeted stored resource permanent-event from
+ * whichever marshalling-point pile it sits in and routes it to that pile
+ * owner's discard pile. The resolving card is not touched here — hazard
+ * short-events are already discarded at play time.
+ */
+function resolveDiscardStoredPermanentEvent(
+  state: GameState,
+  entry: ChainEntry,
+  storedInstanceId: CardInstanceId,
+): GameState {
+  const def = entry.card ? defById(state, entry.card.definitionId) : undefined;
+  let ownerIdx = -1;
+  for (let pi = 0; pi < state.players.length; pi++) {
+    if (state.players[pi].killPile.some(c => c.instanceId === storedInstanceId)) { ownerIdx = pi; break; }
+  }
+  if (ownerIdx < 0) {
+    logDetail(`"${def?.name ?? entry.payload.type}": stored permanent-event ${storedInstanceId as string} not in any marshalling-point pile — nothing to discard`);
+    return state;
+  }
+  const owner = state.players[ownerIdx];
+  const storedCard = owner.killPile.find(c => c.instanceId === storedInstanceId)!;
+  const storedDef = defById(state, storedCard.definitionId);
+  logDetail(`"${def?.name ?? entry.payload.type}": discarding stored permanent-event ${storedDef?.name ?? (storedCard.definitionId as string)} from ${owner.id as string}'s marshalling-point pile`);
+  return updatePlayer(state, ownerIdx, p => ({
+    ...p,
+    killPile: p.killPile.filter(c => c.instanceId !== storedInstanceId),
+    discardPile: [...p.discardPile, toCardInstance(storedCard)],
+  }));
+}
+
+/**
  * Discard every in-play instance of a card named `cardName`, scanning both
  * players' `cardsInPlay` **and** every character's attached `items`/`hazards`
  * (a resource permanent-event played "on a character" — e.g. Bade to Rule
@@ -4545,6 +4577,20 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Which Might Be Lies (dm-100): a hazard short-event played on a stored
+  // resource permanent-event. Discard the targeted stored card from the
+  // opponent's marshalling-point pile. The card was already moved to discard
+  // at play time, like any short-event.
+  if (
+    entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.targetStoredPermanentEventInstanceId
+    && getCardEffects(defById(current, entry.card.definitionId)).some(e => e.type === 'discard-stored-permanent-event')
+  ) {
+    current = resolveDiscardStoredPermanentEvent(current, entry, entry.payload.targetStoredPermanentEventInstanceId);
   }
 
   // Short events with a bare (not play-option-gated) self-enters-play →

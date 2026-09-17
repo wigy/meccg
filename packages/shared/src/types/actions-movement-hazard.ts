@@ -132,6 +132,14 @@ export interface PlayHazardAction {
    */
   readonly targetStoredItemInstanceId?: CardInstanceId;
   /**
+   * For hazards played on a stored resource permanent-event that "required a
+   * site where X is playable" to be played (e.g. Which Might Be Lies dm-100:
+   * a permanent-event that required an Information site), the stored
+   * permanent-event instance (in the opponent's marshalling-point pile)
+   * being targeted.
+   */
+  readonly targetStoredPermanentEventInstanceId?: CardInstanceId;
+  /**
    * For a `play-target: "nazgul-permanent-event"` hazard permanent-event
    * (Helms of Iron dm-64), the hazard player's own Nazgûl permanent-event
    * instance chosen at declaration. Discarded on resolution by the card's

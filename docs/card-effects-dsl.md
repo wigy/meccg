@@ -1252,6 +1252,36 @@ Used by Neither so Ancient Nor so Potent (dm-73): "Return item to opponent's han
 (discarding all attached cards). Place this card in opponent's marshalling point
 pile."
 
+### 3ac. `discard-stored-permanent-event`
+
+Resolution effect for a hazard short-event played on an opponent's stored
+resource **permanent-event** (paired with a `play-target` `target:
+"stored-permanent-event"`, which offers one `play-hazard` per matching
+permanent-event in the opponent's marshalling-point pile during the M/H
+play-hazards step). The `play-target` effect's `requiresResource` field names
+the resource subtype (e.g. `"information"`) the candidate must "require a
+site where X is playable" to have been played, per
+{@link permanentEventSiteResourceSubtypes} (`reducer-utils.ts`) — the same
+recognizer `permanent-event-mp` (Man of Skill wh-119) uses, matching either a
+`play-condition requires: "site-has-resource"` or an in-play permanent-event's
+own `play-target: "site"` filter with a `playableResources` clause.
+
+On resolution `resolveDiscardStoredPermanentEvent` (`chain-reducer.ts`) removes
+the targeted card from whichever marshalling-point pile holds it and routes it
+straight to that pile owner's discard pile. Unlike `displace-stored-item`,
+nothing returns to hand and the resolving card is not placed in any pile —
+hazard short-events are already discarded at play time (`mh-hazard-play.ts`),
+so no explicit self-placement clause is needed.
+
+```json
+{ "type": "play-target", "target": "stored-permanent-event", "requiresResource": "information" }
+{ "type": "discard-stored-permanent-event" }
+```
+
+Used by Which Might Be Lies (dm-100): "Playable on a stored resource
+permanent-event that required an information site to be played. Discard
+event."
+
 ### 3b. `fw-mp-full`
 
 Fallen-wizard marshalling-point exemption (MEWH §4 exception). MEWH §4

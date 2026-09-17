@@ -492,6 +492,23 @@ export interface DisplaceStoredItemEffect extends EffectBase {
 }
 
 /**
+ * Resolution effect for a hazard short-event played on a stored resource
+ * permanent-event (paired with a `play-target` `target:
+ * "stored-permanent-event"`). On resolution the targeted permanent-event is
+ * removed from the owner's marshalling-point pile and routed straight to
+ * that owner's discard pile — unlike `displace-stored-item`, nothing returns
+ * to hand and the resolving card itself is not placed in any pile (it was
+ * already discarded at play time, like any hazard short-event).
+ *
+ * Used by Which Might Be Lies (dm-100): "Playable on a stored resource
+ * permanent-event that required an information site to be played. Discard
+ * event."
+ */
+export interface DiscardStoredPermanentEventEffect extends EffectBase {
+  readonly type: 'discard-stored-permanent-event';
+}
+
+/**
  * Fallen-wizard marshalling-point exemption (MEWH §4 exception).
  *
  * MEWH §4 normally clamps every non-stage card a Fallen-wizard controls to a
@@ -5779,8 +5796,16 @@ export interface PlayTargetEffect extends EffectBase {
    * mode, or a plain Nazgûl-keyword hazard-event) — one `play-hazard` action
    * per candidate, riding on `targetNazgulInstanceId`. Used by Helms of Iron
    * (dm-64): "Playable only if you have a Nazgûl permanent-event in play."
+   * `stored-permanent-event` scopes to the opponent's stored resource
+   * permanent-events (permanent-events sitting in the opponent's
+   * marshalling-point pile, per the `storable-at` storage mechanic) that
+   * "required a site where X is playable" to be played, X named by this
+   * effect's `requiresResource`. One `play-hazard` action per candidate,
+   * riding on `targetStoredPermanentEventInstanceId`. Used by Which Might Be
+   * Lies (dm-100): "Playable on a stored resource permanent-event that
+   * required an information site to be played."
    */
-  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent' | 'nazgul-permanent-event';
+  readonly target: 'character' | 'company' | 'site' | 'faction' | 'ally' | 'stored-item' | 'item' | 'long-event' | 'agent' | 'nazgul-permanent-event' | 'stored-permanent-event';
   /**
    * Per-mode phase gate: when set, the *targeted* play mode is only offered
    * while the current phase is one of these values (e.g. `["organization"]`).
@@ -5874,6 +5899,15 @@ export interface PlayTargetEffect extends EffectBase {
    * instead of the playing card itself.
    */
   readonly itemFilter?: Condition;
+  /**
+   * For `target: "stored-permanent-event"`: the resource subtype (e.g.
+   * `"information"`) the candidate permanent-event must have "required a site
+   * where X is playable" to have been played — see
+   * {@link permanentEventSiteResourceSubtypes}. Mirrors the same-named field
+   * on `permanent-event-mp` (Man of Skill wh-119), which recognizes the same
+   * "requires a site where X is playable" shape for its MP override.
+   */
+  readonly requiresResource?: string;
 }
 
 /**
@@ -10012,6 +10046,7 @@ export type CardEffect =
   | TapCharacterEffect
   | MpInPileEffect
   | DisplaceStoredItemEffect
+  | DiscardStoredPermanentEventEffect
   | AgentAttackOutcomeEffect
   | AgentTapReturnCharacterEffect
   | AgentTapFactionInfluenceEffect
