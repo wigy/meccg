@@ -24,7 +24,7 @@
  * Engine support:
  * | # | Rule                                                   | Status      | Notes                                                        |
  * |---|--------------------------------------------------------|-------------|--------------------------------------------------------------|
- * | 1 | Playable during the organization phase                 | IMPLEMENTED | play-window phase:organization                               |
+ * | 1 | Playable during any phase of the resource player's turn| IMPLEMENTED | no play-window — CoE 2.1.1 default (no card restriction)     |
  * | 2 | Sage only — a sage must be in the ring's company       | IMPLEMENTED | play-target filter target.skills $includes sage              |
  * | 3 | Requires a gold ring in that sage's company            | IMPLEMENTED | (sage × gold ring) crossing; not playable otherwise          |
  * | 4 | No tap cost — the sage is NOT tapped                   | IMPLEMENTED | play-target carries no cost                                  |
@@ -163,11 +163,14 @@ describe('Test of Form (tw-339)', () => {
     expect((plays[0].action as PlayShortEventAction).targetGoldRingInstanceId).toBe(frodoRingId);
   });
 
-  test('not offered during the site phase (organization play-window only)', () => {
+  test('also offered during the site phase — no play-window restricts it (CoE 2.1.1 default)', () => {
     const base = buildTestState(SAGE_COMPANY);
+    const ringId = getCharacter(base, RESOURCE_PLAYER, FRODO).items[0].instanceId;
     const inSitePhase: GameState = { ...base, phaseState: makeSitePhase() };
 
-    expect(viableActions(inSitePhase, PLAYER_1, 'play-short-event')).toHaveLength(0);
+    const plays = viableActions(inSitePhase, PLAYER_1, 'play-short-event');
+    expect(plays).toHaveLength(1);
+    expect((plays[0].action as PlayShortEventAction).targetGoldRingInstanceId).toBe(ringId);
   });
 
   // ── Rule 4: no tap cost ───────────────────────────────────────────────────

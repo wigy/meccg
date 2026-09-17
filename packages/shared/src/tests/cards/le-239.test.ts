@@ -15,7 +15,7 @@
  * Engine support:
  * | # | Rule                                                     | Status      | Notes                                                       |
  * |---|----------------------------------------------------------|-------------|-------------------------------------------------------------|
- * | 1 | Playable during the organization phase                   | IMPLEMENTED | play-window phase:organization                              |
+ * | 1 | Playable during any phase of the resource player's turn  | IMPLEMENTED | no play-window — CoE 2.1.1 default (no card restriction)    |
  * | 2 | Sage only — a sage must share the gold ring's company    | IMPLEMENTED | play-target filter target.skills:sage (crossed with rings)  |
  * | 3 | Requires a gold ring in the sage's company               | IMPLEMENTED | (sage × gold ring) crossing; not playable otherwise         |
  * | 4 | No tap cost — the sage is NOT tapped                      | IMPLEMENTED | play-target has no cost                                     |
@@ -47,10 +47,10 @@ import {
   PLAYER_1, PLAYER_2,
   attachItemToChar, addCardToHand,
   dispatch, dispatchResult, viableActions, RESOURCE_PLAYER,
-  findCharInstanceId, getCharacter,
+  findCharInstanceId, getCharacter, makeSitePhase,
   expectCharStatus, expectInDiscardPile,
 } from '../test-helpers.js';
-import type { CardDefinitionId, PlayShortEventAction } from '../../index.js';
+import type { CardDefinitionId, GameState, PlayShortEventAction } from '../../index.js';
 
 // ── Card under test ──────────────────────────────────────────────────────────
 const TEST_OF_FIRE = 'le-239' as CardDefinitionId;
@@ -137,6 +137,18 @@ describe('Test of Fire (le-239)', () => {
     expect(plays.length).toBe(1);
     const gorbagRingId = getCharacter(withCard, RESOURCE_PLAYER, GORBAG).items[0].instanceId;
     expect((plays[0].action as PlayShortEventAction).targetGoldRingInstanceId).toBe(gorbagRingId);
+  });
+
+  test('also offered during the site phase — no play-window restricts it (CoE 2.1.1 default)', () => {
+    const base = buildOrgState([HADOR]);
+    const withRing = attachItemToChar(base, RESOURCE_PLAYER, HADOR, LEAST_OF_GOLD_RINGS);
+    const withCard = addCardToHand(withRing, RESOURCE_PLAYER, TEST_OF_FIRE);
+    const ringId = getCharacter(withCard, RESOURCE_PLAYER, HADOR).items[0].instanceId;
+    const inSitePhase: GameState = { ...withCard, phaseState: makeSitePhase() };
+
+    const plays = viableActions(inSitePhase, PLAYER_1, 'play-short-event');
+    expect(plays.length).toBe(1);
+    expect((plays[0].action as PlayShortEventAction).targetGoldRingInstanceId).toBe(ringId);
   });
 
   // ── Rule 4: no tap cost — the sage stays untapped ─────────────────────────
