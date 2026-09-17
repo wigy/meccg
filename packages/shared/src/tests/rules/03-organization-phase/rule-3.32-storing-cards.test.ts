@@ -36,6 +36,9 @@ const RED_BOOK_OF_WESTMARCH = 'tw-313' as CardDefinitionId;
 // Dwarf bearer (a `stat-modifier` on the item's own effects, conditioned on
 // `bearer.race === 'dwarf'`). Only used in this file.
 const DWARVEN_RING = 'tw-216' as CardDefinitionId;
+// Precious Gold Ring (tw-306): subtype "gold-ring", no explicit storable-at
+// effect. Only used in this file.
+const PRECIOUS_GOLD_RING = 'tw-306' as CardDefinitionId;
 
 describe('Rule 3.32 — Storing Cards', () => {
   beforeEach(() => resetMint());
@@ -141,6 +144,69 @@ describe('Rule 3.32 — Storing Cards', () => {
         {
           id: PLAYER_1,
           companies: [{ site: MORIA, characters: [{ defId: BILBO, items: [SCROLL_OF_ISILDUR] }] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+    const moriaStores = viableFor(atMoria, PLAYER_1)
+      .filter(a => a.action.type === 'store-item');
+    expect(moriaStores).toHaveLength(0);
+  });
+
+  test('Gold-ring item (no explicit storable-at effect) is storable at Haven', () => {
+    // Bug report (game mu5omrz8-zsxcp5, seq 414): Precious Gold Ring borne by
+    // a character in a company at Lórien (a Haven) was never offered as
+    // storable. Per CoE rule 2.II.4, storing places no subtype restriction —
+    // gold-ring items are storable at any Haven just like minor/major/greater
+    // items, unless the item itself carries a `no-store` play-flag (which
+    // Precious Gold Ring does not).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+      recompute: true,
+    });
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const ringInstId = state.players[RESOURCE_PLAYER].characters[bilboId].items[0].instanceId;
+
+    const stores = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'store-item') as { action: StoreItemAction }[];
+
+    expect(stores.some(a =>
+      a.action.itemInstanceId === ringInstId &&
+      a.action.characterId === bilboId,
+    )).toBe(true);
+
+    // At a non-haven (Moria), the gold ring is not storable.
+    const atMoria = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [{ defId: BILBO, items: [PRECIOUS_GOLD_RING] }] }],
           hand: [],
           siteDeck: [RIVENDELL],
         },
