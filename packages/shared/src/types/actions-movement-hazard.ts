@@ -830,6 +830,21 @@ export interface PlayNamedCardOfferAction {
 }
 
 /**
+ * Play a hand item onto the fixed recipient of an `item-placement-offer`
+ * pending resolution (Necklace of Girion dm-174), discarding the offer's
+ * source card as part of accepting. To decline, the player sends a generic
+ * `pass` action instead.
+ */
+export interface PlayItemPlacementOfferAction {
+  /** Action discriminant. */
+  readonly type: 'play-item-placement-offer';
+  /** The card's owner (who plays). */
+  readonly player: PlayerId;
+  /** The hand item instance to play (must match the offer's `filter`). */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Resolve a `force-discard-card` pending resolution: the actor picks one
  * candidate card (a ring) to discard. Used by *Rolled down to the Sea*
  * (wh-29), where the card-player's opponent must discard one ring from their

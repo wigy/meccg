@@ -792,6 +792,8 @@ export function describeAction(
       return `${playerName(action.player)} rolls for ${instName(action.characterId)}: ${action.explanation}`;
     case 'play-named-card-offer':
       return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} onto ${instName(action.targetCharacterId)}`;
+    case 'play-item-placement-offer':
+      return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} (Necklace of Girion)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

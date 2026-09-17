@@ -46,7 +46,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -3457,6 +3457,38 @@ export function dragonAmbushOfferActions(
         player: actor,
         cardInstanceId: card.instanceId,
       },
+      viable: true,
+    });
+  }
+
+  return actions;
+}
+
+/**
+ * Compute the legal actions for a queued `item-placement-offer` resolution
+ * (Necklace of Girion dm-174, `enqueue-item-placement-offer` onSuccess): the
+ * actor may play one hand item matching `top.kind.filter` onto the fixed
+ * `top.kind.characterInstanceId`, or pass to decline.
+ */
+export function itemPlacementOfferActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'item-placement-offer') return [];
+  const { filter } = top.kind;
+
+  const actions: EvaluatedAction[] = [{ action: { type: 'pass', player: actor }, viable: true }];
+
+  const player = playerById(state, actor);
+  if (!player) return actions;
+
+  const itemIds = fetchZoneItemInstanceIds(state, player, ['hand'], filter);
+  for (const itemInstId of itemIds) {
+    const def = defById(state, player.hand.find(c => c.instanceId === itemInstId)!.definitionId);
+    logDetail(`item-placement-offer: offering ${def?.name ?? (itemInstId as string)} onto ${top.kind.characterInstanceId as string}`);
+    actions.push({
+      action: { type: 'play-item-placement-offer' as const, player: actor, cardInstanceId: itemInstId },
       viable: true,
     });
   }

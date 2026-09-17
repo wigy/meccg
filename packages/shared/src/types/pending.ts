@@ -651,6 +651,22 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Item-placement offer — enqueued by an `enqueue-item-placement-offer`
+         * `onSuccess` follow-up once its producing corruption check passes
+         * (Necklace of Girion dm-174). The actor may play one hand item
+         * matching `filter` onto `characterInstanceId` (the character who
+         * passed the check), discarding this resolution's `source` card as
+         * part of accepting, or decline (generic `pass`, leaving `source` in
+         * play).
+         */
+        readonly type: 'item-placement-offer';
+        /** Character who receives the placed item; also the source's current bearer. */
+        readonly characterInstanceId: CardInstanceId;
+        /** DSL condition restricting which hand items qualify. Absent = any item. */
+        readonly filter?: Condition;
+      }
+    | {
+        /**
          * Rumor of Wealth (td-58): enqueued by `fireDragonAmbushWindow`
          * (`reducer-site.ts`) once a major/greater item is successfully
          * played at a site bound by a `dragon-ambush-window` constraint. The

@@ -438,6 +438,7 @@ function runGrantApply(
           characterId,
           modifier,
           reason,
+          onSuccess: apply.onSuccess,
         }),
       ],
     };
