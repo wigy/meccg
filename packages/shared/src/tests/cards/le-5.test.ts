@@ -40,6 +40,9 @@ const CARAMBOR = 'le-5' as CardDefinitionId;
 const CARN_DUM = 'le-359' as CardDefinitionId;   // minion haven (Carambor's homesite)
 const BAG_END = 'le-350' as CardDefinitionId;    // free-hold, nearestHaven Carn Dûm, sitePath includes wilderness
 const ZARAK_DUM = 'le-417' as CardDefinitionId;  // ruins-and-lairs, nearestHaven Carn Dûm, sitePath = [shadow] (no wilderness)
+const IRON_DEEPS = 'dm-33' as CardDefinitionId;  // under-deeps (wizard); adjacent: Carn Dûm(0), Under-leas(6), Under-vaults(7)
+const CARN_DUM_SURFACE = 'tw-380' as CardDefinitionId; // wizard haven — Iron-deeps' roll-0 surface site, sitePath includes wilderness
+const MOUNT_GRAM = 'tw-415' as CardDefinitionId; // wizard, same region (Angmar) as Carn Dûm, sitePath includes wilderness — NOT Under-deeps-adjacent to Iron-deeps
 
 /**
  * Build a movement/hazard `play-hazards` state for PLAYER_1's (Ringwraith)
@@ -268,5 +271,51 @@ describe('Carambor (le-5)', () => {
 
     expect(extraMoves.some(a => a.destinationSite === bagEndInst.instanceId)).toBe(true);
     expect(extraMoves.some(a => a.destinationSite === zarakDumInst.instanceId)).toBe(false);
+  });
+
+  // Bug report (game mu5hzes8-yeaq7a, stateSeq 214): tapping Carambor while
+  // the company was at an Under-deeps site offered ten destinations instead
+  // of the one adjacent surface site. `extraMHMoveDestinations` ran the
+  // Under-deeps origin through the ordinary starter/region reachable-sites
+  // graph, which happily treated the site's static `region` field as a
+  // normal region-movement origin and returned every site within region
+  // distance — even though CoE rule 2.II.7.iii restricts a company at an
+  // Under-deeps site to Under-deeps Movement only, and 2.II.7.iii further
+  // requires the new site to be listed as adjacent on the site card.
+  test('restricts extra-move destinations to Under-deeps-adjacent sites when the company is at an Under-deeps site', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: IRON_DEEPS, characters: [{ defId: CARAMBOR, status: CardStatus.Untapped }] }],
+          hand: [],
+          siteDeck: [CARN_DUM_SURFACE, MOUNT_GRAM],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const offered = passToAdvance({ ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) });
+    expect((offered.phaseState as MovementHazardPhaseState).step).toBe('character-tap-mh-offer');
+
+    const caramborId = offered.players[0].companies[0].characters[0];
+    const companyId = offered.players[0].companies[0].id;
+    const tapped = dispatch(offered, {
+      type: 'character-tap-extra-mh-phase', player: PLAYER_1, companyId, characterInstanceId: caramborId,
+    });
+
+    const carnDumInst = tapped.players[0].siteDeck.find(s => s.definitionId === CARN_DUM_SURFACE)!;
+    const mountGramInst = tapped.players[0].siteDeck.find(s => s.definitionId === MOUNT_GRAM)!;
+    const extraMoves = viableActions(tapped, PLAYER_1, 'extra-mh-move')
+      .map(ea => ea.action as ExtraMHMoveAction);
+
+    // Carn Dûm is Iron-deeps' roll-0 surface site — Under-deeps-adjacent and
+    // offered. Mount Gram shares Carn Dûm's region and has a Wilderness in
+    // its site path (so it isn't filtered by Carambor's own restriction),
+    // but it is not listed as adjacent on Iron-deeps and must be excluded.
+    expect(extraMoves.some(a => a.destinationSite === carnDumInst.instanceId)).toBe(true);
+    expect(extraMoves.some(a => a.destinationSite === mountGramInst.instanceId)).toBe(false);
   });
 });

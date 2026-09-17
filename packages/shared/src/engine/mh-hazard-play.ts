@@ -48,7 +48,7 @@ import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } 
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { sweepExpired, addConstraint, removeConstraint, enqueueCorruptionCheck, characterPossessions, enqueueResolution, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed, markNazgulBoostUsed } from './pending.js';
 import { discardCharacterToDiscardPile } from './pending-reducers.js';
-import { resolveAdjacency, isUnderDeepsAdjacent, ringwraithHasModeCard, wouldViolateLeaderRestriction } from './legal-actions/organization-companies.js';
+import { resolveAdjacency, isUnderDeepsAdjacent, getUnderDeepsReachable, ringwraithHasModeCard, wouldViolateLeaderRestriction } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
@@ -3188,7 +3188,13 @@ export function extraMHMoveDestinations(
       logDetail(`Extra M/H phase: company ${company.id as string} may target sibling-in-play destination ${siblingDef.name} via company ${sibling.id as string}`);
     }
   }
-  let reachable = getReachableSites(movementMap, currentDef, allSites);
+  // CoE rule 2.II.7.iii: Under-deeps sites cannot be reached by (or left via)
+  // starter or region movement — only Under-deeps Movement applies, so an
+  // Under-deeps origin offers no starter/region candidates here. Mirrors the
+  // `currentIsUD` candidate split in `planMovementActions` /
+  // `getUnderDeepsReachable` (organization-companies.ts).
+  const originIsUnderDeeps = currentDef.keywords?.includes('under-deeps') ?? false;
+  let reachable = originIsUnderDeeps ? [] : getReachableSites(movementMap, currentDef, allSites);
 
   // CoE 2.II.7.R1: a company containing a Ringwraith avatar is bound by the
   // same Darkhaven-origin/mode-card gate, Coastal-Seas exclusion, and
@@ -3223,12 +3229,26 @@ export function extraMHMoveDestinations(
   // exempt it either, mirroring the same gate applied to the org-phase
   // plan-movement offer in `planMovementActions` (confirmed CoE ruling,
   // forum topic 5356).
-  if (wouldViolateLeaderRestriction(state, company.characters, company.id)) {
+  const leaderRestricted = wouldViolateLeaderRestriction(state, company.characters, company.id);
+  if (leaderRestricted) {
     logDetail(`Extra M/H phase: company ${company.id as string} has more than one leader — no extra move offered (${reachable.length} candidates dropped)`);
     reachable = [];
   }
 
   const reachableNames = new Set(reachable.map(r => r.site.name));
+
+  // CoE rule 2.II.7.iii: from an Under-deeps origin, offer the sites listed
+  // as Under-deeps-adjacent to it (in either direction) — this includes the
+  // Under-deeps site's surface site (adjacency roll 0), not only other
+  // Under-deeps sites.
+  if (originIsUnderDeeps && !leaderRestricted) {
+    const udReachable = getUnderDeepsReachable(state, currentDef, allSites, player.id);
+    for (const siteDef of udReachable) {
+      reachableNames.add(siteDef.name);
+    }
+    logDetail(`Extra M/H phase: company ${company.id as string} at Under-deeps site ${currentDef.name} — ${udReachable.length} Under-deeps-adjacent destination(s)`);
+  }
+
   const requiresRegionTypes = requiresSitePathIncludes && requiresSitePathIncludes.length > 0
     ? requiresSitePathIncludes
     : undefined;
