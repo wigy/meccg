@@ -218,6 +218,7 @@ describe('Gates of Morning (tw-243)', () => {
       preRevealHazardLimitConstraintIds: [],
       resolvedSitePath: [],
       resolvedSitePathNames: [],
+      traveledSitePath: [],
       destinationSiteType: null,
       destinationSiteName: null,
       resourceDrawMax: 0,

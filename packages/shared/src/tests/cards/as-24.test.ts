@@ -339,6 +339,45 @@ describe('Alone and Unadvised (as-24)', () => {
     expect(pending).toHaveLength(0);
   });
 
+  test('no corruption checks enqueued when resolvedSitePath is a hazard-keying override but the company did not travel (bug report)', () => {
+    // Bug report: Ôm-buri-Ôm, an agent alone at Geann a-Lisch (le-374), got 5
+    // "Alone and Unadvised" corruption checks despite never moving. Geann
+    // a-Lisch's hazard-site-type-override site-rule reinterprets a stationary
+    // company's resolvedSitePath as a virtual 5-region path "for purposes of
+    // playing and interpreting hazards" (mh-steps.ts:applyHazardSiteTypeOverride)
+    // even though the company never traveled. Corruption checks fired "for
+    // each region moved through" must key off traveledSitePath (the real
+    // travel record, left empty here), not resolvedSitePath.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withCard = attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, ALONE_AND_UNADVISED);
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      resolvedSitePath: [
+        RegionType.Shadow, RegionType.Wilderness, RegionType.Wilderness,
+        RegionType.Wilderness, RegionType.Wilderness,
+      ],
+      traveledSitePath: [],
+      resourcePlayerPassed: true,
+    });
+    const stateAtPlayHazards = { ...withCard, phaseState: mhState };
+
+    const afterBothPass = dispatch(stateAtPlayHazards, { type: 'pass', player: PLAYER_2 });
+
+    const pending = afterBothPass.pendingResolutions.filter(
+      r => r.actor === PLAYER_1 && r.kind.type === 'corruption-check',
+    );
+    expect(pending).toHaveLength(0);
+  });
+
   test('corruption check modifier includes company character count', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,

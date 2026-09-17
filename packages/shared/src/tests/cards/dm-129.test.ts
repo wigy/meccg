@@ -113,6 +113,7 @@ function faceCreature(state: GameState, creatureDefId: CardDefinitionId): GameSt
     preRevealHazardLimitConstraintIds: [],
     resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
     resolvedSitePathNames: ['Hithaeglir', 'Rhûn'],
+    traveledSitePath: [RegionType.Wilderness, RegionType.Wilderness],
     destinationSiteType: SiteType.RuinsAndLairs,
     destinationSiteName: 'Moria',
     resourceDrawMax: 0,

@@ -266,6 +266,11 @@ describe('Geann a-Lisch (le-374)', () => {
       RegionType.Shadow, RegionType.Wilderness, RegionType.Wilderness,
       RegionType.Wilderness, RegionType.Wilderness,
     ]);
+    // Bug report: the override is a virtual path "for purposes of playing and
+    // interpreting hazards" only — the company never actually moved, so the
+    // real travel record used by "per region moved through" corruption checks
+    // (Alone and Unadvised as-24) must stay empty.
+    expect(ps.traveledSitePath).toEqual([]);
   });
 
   test('a Ruins & Lairs-keyed creature (Chill Douser) is viable against a company at Geann a-Lisch', () => {

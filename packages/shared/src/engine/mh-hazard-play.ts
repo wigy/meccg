@@ -1447,7 +1447,12 @@ export function fireEndOfCompanyMHCorruptionChecks(
   state: GameState,
   mhState: MovementHazardPhaseState,
 ): GameState {
-  const sitePath = mhState.resolvedSitePath;
+  // Use `traveledSitePath`, not `resolvedSitePath` — a `hazard-site-type-override`
+  // site-rule (Geann a-Lisch le-374) may have replaced `resolvedSitePath` with a
+  // virtual path "for purposes of playing and interpreting hazards" even though
+  // the company never moved; corruption checks must count regions actually
+  // traveled, not that virtual keying path.
+  const sitePath = mhState.traveledSitePath;
   if (sitePath.length === 0) return state;
 
   const resourcePlayer = playerById(state, state.activePlayer)!;

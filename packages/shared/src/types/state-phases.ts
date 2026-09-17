@@ -563,6 +563,18 @@ export interface MovementHazardPhaseState {
    */
   readonly resolvedSitePathNames: readonly string[];
   /**
+   * The region path the company actually traveled this movement/hazard
+   * phase, captured before any `hazard-site-type-override` site-rule
+   * (Geann a-Lisch le-374: "counts as a Ruins & Lairs … for purposes of
+   * playing and interpreting hazards") replaces {@link resolvedSitePath}
+   * with a virtual path for creature-keying purposes. Empty if the company
+   * did not move. Corruption checks fired "for each region moved through"
+   * (Alone and Unadvised as-24) must use this field, not
+   * {@link resolvedSitePath}, so a stationary company at an overridden
+   * haven does not get charged checks for a path it never traveled.
+   */
+  readonly traveledSitePath: readonly RegionType[];
+  /**
    * Site type of the destination (or current site if not moving).
    * Used to validate creature keying to site type.
    */

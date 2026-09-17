@@ -49,6 +49,7 @@ function makeSetHazardLimitState(
     preRevealHazardLimitConstraintIds: [],
     resolvedSitePath: [],
     resolvedSitePathNames: [],
+    traveledSitePath: [],
     destinationSiteType: null,
     destinationSiteName: null,
     resourceDrawMax: 0,

@@ -58,6 +58,11 @@ export function enterSetHazardLimitAndAutoAdvance(
 ): ReducerResult {
   const activeIndex = getPlayerIndex(state, state.activePlayer!);
   const company = state.players[activeIndex].companies[mhState.activeCompanyIndex];
+  // Capture the region path actually traveled before the hazard-keying
+  // override below (if any) replaces `resolvedSitePath` with a virtual path.
+  // This is the single funnel every company passes through exactly once en
+  // route to order-effects, so this is the only place this needs capturing.
+  const traveledSitePath = mhState.resolvedSitePath;
   // `hazard-site-type-override` site-rule (Geann a-Lisch le-374): a Haven that
   // "counts as a Ruins & Lairs for the purposes of playing and interpreting
   // hazards". Reinterpret the effective site's type (and, if declared, its site
@@ -90,6 +95,7 @@ export function enterSetHazardLimitAndAutoAdvance(
     step: 'order-effects' as const,
     hazardLimitAtReveal: limit,
     preRevealHazardLimitConstraintIds: preRevealConstraintIds,
+    traveledSitePath,
   };
   return handleOrderEffects(stateForOrderEffects, orderEffectsMhState);
 }
