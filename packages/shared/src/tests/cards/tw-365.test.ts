@@ -56,7 +56,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BREE,
   Phase, CardStatus,
   buildTestState, resetMint,
-  findCharInstanceId, viableActions, getCharacter, makeSitePhase,
+  findCharInstanceId, viableActions, getCharacter, makeSitePhase, makeMHState,
   attachItemToChar, addCardToHand, reduce, dispatch, dispatchResult,
   enqueueCorruptionCheck,
   expectCharStatus, expectCharItemCount, expectInDiscardPile,
@@ -254,6 +254,41 @@ describe("Wizard's Test (tw-365)", () => {
     });
 
     expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(1);
+  });
+
+  test('also playable during the movement/hazard phase, naming the gold ring to test', () => {
+    // Regression: a Wizard's Test played during M/H (CoE 2.1.1's default
+    // any-phase window) went through `heroResourceShortEventActions`
+    // (legal-actions/long-event.ts), a code path that offered a bare
+    // `targetCharacterId` action with no `targetGoldRingInstanceId`. The
+    // reducer's `enqueue-gold-ring-test` requires that field and silently
+    // fizzled without it, so the corruption check fired but the gold-ring
+    // roll never did — the player never got to roll for their ring.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [PALLANDO, { defId: FRODO, items: [PRECIOUS_GOLD_RING] }] }],
+          hand: [WIZARDS_TEST],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = { ...base, phaseState: makeMHState() };
+    const ringId = getCharacter(state, RESOURCE_PLAYER, FRODO).items[0].instanceId;
+
+    const plays = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(plays).toHaveLength(1);
+    const action = plays[0].action as PlayShortEventAction;
+    expect(action.targetGoldRingInstanceId).toBe(ringId);
+    expect(action.targetCharacterId).toBe(findCharInstanceId(state, RESOURCE_PLAYER, PALLANDO));
+
+    const afterPlay = dispatch(state, action);
+    expect(pendingKinds(afterPlay)).toEqual(['gold-ring-test', 'corruption-check']);
   });
 
   test('one play action per gold ring in the Wizard company', () => {
