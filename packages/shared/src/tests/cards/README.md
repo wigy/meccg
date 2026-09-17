@@ -6,17 +6,17 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1325 | 1325 | 0 | 100.0% |
+| 1332 | 1332 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 116 | 116 | 100.0% |
+| AS | 117 | 117 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 138 | 138 | 100.0% |
-| LE | 318 | 318 | 100.0% |
-| TD | 133 | 133 | 100.0% |
+| DM | 140 | 140 | 100.0% |
+| LE | 321 | 321 | 100.0% |
+| TD | 134 | 134 | 100.0% |
 | TW | 424 | 424 | 100.0% |
 | WH | 96 | 96 | 100.0% |
 
@@ -43,7 +43,7 @@
 | as-19 | Saruman the Wise | — | 18 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
 | as-23 | A Lie in Your Eyes | — | 7 | ☑ |
-| as-24 | Alone and Unadvised | — | 17 | ☑ |
+| as-24 | Alone and Unadvised | — | 18 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
@@ -93,6 +93,7 @@
 | as-110 | World Gnawed by the Nameless | — | 13 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
+| as-119 | Morgul-orcs | — | 12 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
 | as-121 | Orcs of Dol Guldur | — | 12 | ☑ |
 | as-122 | Ancient Black Axe | — | 15 | ☑ |
@@ -258,6 +259,7 @@
 | dm-17 | Ivic | — | 4 | ☑ |
 | dm-19 | Leamon | — | 4 | ☑ |
 | dm-20 | Nimloth | — | 9 | ☑ |
+| dm-21 | Ôm-buri-Ôm | — | 3 | ☑ |
 | dm-22 | Pôn-ora-Pôn | — | 3 | ☑ |
 | dm-23 | Râisha | — | 4 | ☑ |
 | dm-24 | Súrion | — | 3 | ☑ |
@@ -321,6 +323,7 @@
 | dm-96 | Twisted Tales | — | 15 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
+| dm-100 | Which Might Be Lies | — | 6 | ☑ |
 | dm-104 | Your Welcome Is Doubtful | — | 13 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
 | dm-107 | Durin's Bane | — | 11 | ☑ |
@@ -557,7 +560,7 @@
 | le-235 | Sudden Call | — | 10 | ☑ |
 | le-237 | Swarm of Bats | — | 14 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
-| le-239 | Test of Fire | — | 12 | ☑ |
+| le-239 | Test of Fire | — | 13 | ☑ |
 | le-240 | That Ain’t No Secret | — | 15 | ☑ |
 | le-241 | That’s Been Heard Before Tonight | — | 13 | ☑ |
 | le-243 | Thing Stolen | — | 18 | ☑ |
@@ -573,11 +576,13 @@
 | le-260 | Balchoth | — | 8 | ☑ |
 | le-261 | Beornings | — | 5 | ☑ |
 | le-262 | Black Trolls | — | 7 | ☑ |
+| le-263 | Dunlendings | — | 5 | ☑ |
 | le-264 | Easterlings | — | 8 | ☑ |
 | le-265 | Goblins of Goblin-gate | — | 7 | ☑ |
 | le-266 | Grey Mountain Goblins | — | 9 | ☑ |
 | le-267 | Half-trolls | — | 8 | ☑ |
 | le-268 | Hill Trolls | — | 7 | ☑ |
+| le-269 | Hillmen | — | 7 | ☑ |
 | le-270 | Ice-orcs | — | 8 | ☑ |
 | le-272 | Misty Mountain Wargs | — | 15 | ☑ |
 | le-273 | Nûrniags | — | 9 | ☑ |
@@ -614,6 +619,7 @@
 | le-325 | The Mithril-coat | — | 7 | ☑ |
 | le-327 | The Oracle’s Ring | — | 9 | ☑ |
 | le-328 | Orc-draughts | — | 12 | ☑ |
+| le-331 | Palantír of Annúminas | — | 6 | ☑ |
 | le-332 | Palantír of Elostirion | — | 23 | ☑ |
 | le-333 | Palantír of Minas Tirith | — | 11 | ☑ |
 | le-334 | Palantír of Orthanc | — | 11 | ☑ |
@@ -829,6 +835,7 @@
 | td-181 | Zarak Dûm | — | 10 | ☑ |
 | td-183 | Horn of Defiance | — | 12 | ☑ |
 | td-184 | Ringil | — | 17 | ☑ |
+| td-185 | Belegennon | — | 14 | ☑ |
 | tw-1 | Abductor | — | 8 | ☑ |
 | tw-2 | Adûnaphel | — | 11 | ☑ |
 | tw-3 | Agburanar | — | 6 | ☑ |
@@ -885,7 +892,7 @@
 | tw-055 | — | — | 6 | ☑ |
 | tw-56 | Lure of Creation | — | 7 | ☑ |
 | tw-57 | Lure of Expedience | — | 13 | ☑ |
-| tw-58 | Lure of Nature | — | 14 | ☑ |
+| tw-58 | Lure of Nature | — | 15 | ☑ |
 | tw-59 | Lure of Power | — | 7 | ☑ |
 | tw-060 | — | — | 9 | ☑ |
 | tw-60 | Lure of the Senses | — | 2 | ☑ |
@@ -1171,7 +1178,7 @@
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
 | tw-363 | Wizard’s Ring | — | 11 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
-| tw-365 | Wizard’s Test | — | 20 | ☑ |
+| tw-365 | Wizard’s Test | — | 21 | ☑ |
 | tw-366 | Wizard’s Voice | — | 9 | ☑ |
 | tw-367 | Wood-elves | — | 4 | ☑ |
 | tw-368 | Woodmen | — | 2 | ☑ |
@@ -1287,7 +1294,7 @@
 | wh-40 | Wild Hounds | — | 15 | ☑ |
 | wh-43 | Crept Along Cleverly | — | 6 | ☑ |
 | wh-45 | Govern the Storms | — | 9 | ☑ |
-| wh-46 | Open to the Summons | — | 12 | ☑ |
+| wh-46 | Open to the Summons | — | 13 | ☑ |
 | wh-47 | Piercing All Shadows | — | 8 | ☑ |
 | wh-49 | Sojourn in Shadows | — | 9 | ☑ |
 | wh-51 | Blasting Fire | — | 10 | ☑ |
