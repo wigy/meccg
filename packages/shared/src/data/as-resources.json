@@ -2123,11 +2123,34 @@
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
+    "inPlayInfluenceNumber": 0,
     "race": "orc",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable at Minas Morgul  if the influence check is greater than 8.Once in play, the number required to influence this faction is 0. Standard Modifications: Ungol-orcs (-2), Orcs of Angmar (+2)."
+    "playableAt": [
+      {
+        "site": "Minas Morgul"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -2,
+        "when": {
+          "controller.inPlay": "Ungol-orcs"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Orcs of Angmar"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Minas Morgul  if the influence check is greater than 8.Once in play, the number required to influence this faction is 0. Standard Modifications: Ungol-orcs (-2), Orcs of Angmar (+2).",
+    "certified": "2026-09-16"
   },
   {
     "cardType": "minion-resource-faction",
