@@ -465,7 +465,7 @@ export function isDeepMinesAscentLegal(
  * current site. At least one side of each pair must carry the
  * `under-deeps` keyword; adjacency is checked bidirectionally.
  */
-function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, candidateSites: readonly SiteCard[], forPlayer: PlayerId): SiteCard[] {
+export function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCard, candidateSites: readonly SiteCard[], forPlayer: PlayerId): SiteCard[] {
   const currentIsUD = currentSiteDef.keywords?.includes('under-deeps') ?? false;
   const results: SiteCard[] = [];
 
