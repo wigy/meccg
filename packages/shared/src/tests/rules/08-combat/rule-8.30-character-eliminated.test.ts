@@ -28,6 +28,10 @@ import {
   expectCharNotInPlay,
 } from '../../test-helpers.js';
 import { resolveInstanceId } from '../../../index.js';
+import type { CardDefinitionId } from '../../../index.js';
+
+/** Wizard-only item ("Cannot be stored, stolen, or transferred" per CRF 22 errata). */
+const WIZARDS_RING = 'tw-363' as CardDefinitionId;
 
 describe('Rule 8.30 — Character Eliminated from Body Check', () => {
   beforeEach(() => resetMint());
@@ -150,6 +154,67 @@ describe('Rule 8.30 — Character Eliminated from Body Check', () => {
     // Aragorn should now have the Dagger
     const aragornData = afterSalvage.players[0].characters[aragornId];
     expect(aragornData.items.some(i => i.instanceId === daggerId)).toBe(true);
+  });
+
+  test('Wizard’s Ring is NOT offered for salvage to a non-Wizard companion — discarded on pass instead', () => {
+    // Bug report: after a Wizard bearing Wizard's Ring is eliminated, the
+    // engine offered to transfer the Ring to a non-Wizard companion. The
+    // Ring is "Wizard only" (play-target character-race filter) and carries
+    // the no-transfer play-flag (CRF 22: "Cannot be stored, stolen, or
+    // transferred") — no salvage-item action should ever be generated for
+    // it, and it should be discarded like any other unsalvageable item.
+    const state = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: MORIA,
+            characters: [
+              { defId: BILBO, items: [WIZARDS_RING] },
+              ARAGORN,
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+    const ringId = state.players[0].characters[bilboId].items[0].instanceId;
+
+    const woundedState = setCharStatus(state, RESOURCE_PLAYER, BILBO, CardStatus.Inverted);
+    const readyState = {
+      ...woundedState,
+      phaseState: makeShadowMHState(),
+      combat: makeBodyCheckCombat({ companyId, characterId: bilboId }),
+      cheatRollTotal: 12,
+    };
+    const afterBodyCheck = dispatch(readyState, { type: 'body-check-roll', player: PLAYER_2, need: 10, explanation: 'test' });
+    expect(afterBodyCheck.combat!.phase).toBe('item-salvage');
+
+    // Aragorn (the only unwounded companion) is not a Wizard — no legal
+    // salvage-item action should exist for the Ring.
+    const salvageActions = viableActions(afterBodyCheck, PLAYER_1, 'salvage-item');
+    expect(salvageActions).toHaveLength(0);
+
+    const afterPass = dispatch(afterBodyCheck, { type: 'pass', player: PLAYER_1 });
+
+    // Combat finalized, Ring discarded rather than transferred to Aragorn
+    expect(afterPass.combat).toBeNull();
+    expect(afterPass.players[0].discardPile.some(c => c.instanceId === ringId)).toBe(true);
+    const aragornId = findCharInstanceId(afterPass, RESOURCE_PLAYER, ARAGORN);
+    expect(afterPass.players[0].characters[aragornId].items.some(i => i.instanceId === ringId)).toBe(false);
   });
 
   test('pass during item-salvage discards remaining items', () => {
