@@ -21,6 +21,7 @@ import {
   ARAGORN, LEGOLAS, EOWYN,
   GLAMDRING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  CardStatus,
 } from '../../test-helpers.js';
 import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 
@@ -162,6 +163,45 @@ describe('Rule 2.04 — Uniqueness In Play', () => {
           hand: [],
           siteDeck: [MINAS_TIRITH],
           companies: [{ site: LORIEN, characters: [{ defId: LEGOLAS, items: [GLAMDRING] }] }],
+        },
+      ],
+      recompute: true,
+    });
+
+    const siteState = { ...state, phaseState: makeSitePhase() };
+    const actions = computeLegalActions(siteState, PLAYER_1);
+
+    const playItem = viableOfType(actions, 'play-hero-resource');
+    expect(playItem).toHaveLength(0);
+
+    const blocked = nonViableOfType(actions, 'not-playable');
+    const glamdringBlocked = blocked.filter(a => a.reason?.includes('unique'));
+    expect(glamdringBlocked.length).toBeGreaterThan(0);
+  });
+
+  test('Unique item sitting unattached in opponent cardsInPlay cannot be played by resource player', () => {
+    // Regression for a reported bug (Orcrist tw-295): a unique item paired
+    // with Crown of Flowers (dm-121) lands in `cardsInPlay` without being
+    // borne by any character (see `applyPairResourceWithCof`). The
+    // uniqueness check used to scan only characters' borne items, so a
+    // second copy of the same unique item could still be played by the
+    // other player while the first sat unattached in `cardsInPlay`.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [GLAMDRING],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: MORIA, characters: [ARAGORN] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          cardsInPlay: [{ instanceId: mint(), definitionId: GLAMDRING, status: CardStatus.Untapped }],
         },
       ],
       recompute: true,
