@@ -5011,8 +5011,18 @@
         "site": "Dunnish Clan-hold"
       }
     ],
-    "effects": [],
-    "text": "Unique. Manifestation of hero Dunlendings. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications:Hillmen (+2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Hillmen"
+        }
+      }
+    ],
+    "text": "Unique. Manifestation of hero Dunlendings. Playable at Dunnish Clan-hold if the influence check is greater than 9. Standard Modifications:Hillmen (+2).",
+    "certified": "2026-09-16"
   },
   {
     "cardType": "minion-resource-faction",
