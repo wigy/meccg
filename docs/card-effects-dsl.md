@@ -3673,6 +3673,44 @@ Apply types:
                "onSuccess": { "type": "win-game", "via": "one-ring" } } }
   ```
 
+  `onSuccess` also works when `enqueue-corruption-check` is a **grant-action**
+  `apply` (`cost: {}`, no `on-event` wrapper) — a voluntary, player-initiated
+  check rather than one forced when a card enters play. `runGrantApply`
+  (`grant-action-apply.ts`) threads `apply.onSuccess` straight through to
+  `enqueueCorruptionCheck`, so the same pass-branch dispatch in
+  `pending-reducers.ts` fires it. Used by *Necklace of Girion* (dm-174): "If
+  bearer is at a Free-hold [{F}] or Border-hold [{B}], he can make a
+  corruption check, and, if successful, you may discard Necklace of Girion to
+  play any non-special item from your hand with its bearer" — the check itself
+  is optional (no forced trigger), so it rides a `grant-action` gated on
+  `bearer.siteType`:
+
+  ```json
+  { "type": "grant-action", "action": "necklace-of-girion-corruption-check",
+    "cost": {}, "activeSitePhase": true,
+    "when": { "bearer.siteType": { "$in": ["free-hold", "border-hold"] } },
+    "apply": { "type": "enqueue-corruption-check",
+      "onSuccess": { "type": "enqueue-item-placement-offer",
+        "filter": { "$not": { "subtype": "special" } } } } }
+  ```
+
+  **`enqueue-item-placement-offer` onSuccess.** Enqueues an
+  `item-placement-offer` pending resolution (Shape A) on the character who
+  just passed the check, carrying the corruption check's own `source` card
+  forward as the new resolution's `source` too. The resolution's controller
+  either declines (generic `pass` — the source card, e.g. Necklace of Girion,
+  stays in play untouched) or plays one hand item matching the optional
+  `filter` condition (`itemPlacementOfferActions`,
+  `legal-actions/pending.ts`, built via `fetchZoneItemInstanceIds` over the
+  `hand` zone) onto that same character (`play-item-placement-offer` action,
+  `applyItemPlacementOfferResolution`, `pending-reducers.ts`). Accepting pays
+  a `{ discard: "self" }` cost against the resolution's `source` (via
+  `applyCost`) before attaching the chosen item, untapped — so the recipient
+  is always the checking character himself, never a separately chosen
+  candidate, distinguishing it from the `place-item-on-character` grant-action
+  apply (Forge-master wh-117), which offers a live (item × recipient) choice
+  with no corruption-check gate at all.
+
 - `offer-corruption-removal-at-site` -- under `on-event: self-enters-play` on a
   resource long-event/permanent-event, offer every character — either
   player's — currently standing at a site whose effective type is in

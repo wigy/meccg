@@ -371,7 +371,31 @@
     "prowessModifier": 0,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      { "type": "item-play-site", "sites": ["The Lonely Mountain"] },
+
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+        "when": { "reason": "influence-check", "target.race": "dwarf" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+        "when": { "reason": "influence-check", "target.race": "man" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+        "when": { "reason": "opponent-influence-check", "target.kind": "character", "target.race": "dwarf" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+        "when": { "reason": "opponent-influence-check", "target.kind": "character", "target.race": "man" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+        "when": { "reason": "faction-influence-check", "faction.race": "dwarf" } },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 3,
+        "when": { "reason": "faction-influence-check", "faction.race": "man" } },
+
+      { "type": "grant-action", "action": "necklace-of-girion-corruption-check",
+        "cost": {},
+        "activeSitePhase": true,
+        "when": { "bearer.siteType": { "$in": ["free-hold", "border-hold"] } },
+        "apply": { "type": "enqueue-corruption-check",
+          "onSuccess": { "type": "enqueue-item-placement-offer",
+            "filter": { "$not": { "subtype": "special" } } } } }
+    ],
+    "certified": "2026-09-17",
     "text": "Unique. Only playable at The Lonely Mountain. Bearer receives +3 direct influence against Dwarves/Men and Dwarf/Man factions. If bearer is at a Free-hold [{F}] or Border-hold [{B}], he can make a corruption check, and, if successful, you may discard Necklace of Girion to play any non-special item from your hand with its bearer."
   },
   {

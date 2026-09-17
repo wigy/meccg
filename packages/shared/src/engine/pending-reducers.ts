@@ -641,6 +641,22 @@ export function applyCorruptionCheckResolution(
         },
       });
     }
+    // Necklace of Girion (dm-174): the bearer survived his voluntary
+    // corruption check — offer him the chance to discard the source card
+    // (Necklace of Girion) to play a matching item from hand onto himself.
+    if (onSuccess?.type === 'enqueue-item-placement-offer') {
+      logDetail(`dm-174: ${charName} passed corruption check — enqueuing item-placement-offer`);
+      stateAfterDequeue = enqueueResolution(stateAfterDequeue, {
+        source: top.source,
+        actor: player.id,
+        scope: top.scope,
+        kind: {
+          type: 'item-placement-offer',
+          characterInstanceId: characterId,
+          filter: onSuccess.filter,
+        },
+      });
+    }
     return { state: stateAfterDequeue, effects: [rollEffect] };
   }
 
@@ -3542,6 +3558,76 @@ export function applyNamedCardPlayOfferResolution(
   const stateAfterPlay = updatePlayer(stateAfterRemove, playerIndex, p => ({
     ...p,
     characters: { ...p.characters, [targetCharacterId as string]: updatedChar },
+  }));
+
+  return { state: dequeueResolution(stateAfterPlay, top.id) };
+}
+
+/**
+ * Resolve a queued `item-placement-offer` resolution (Necklace of Girion
+ * dm-174): the actor either passes (generic `pass` action — the resolution's
+ * `source` card, e.g. Necklace of Girion, stays in play) or plays the chosen
+ * matching hand item (`play-item-placement-offer` action) onto the fixed
+ * `characterInstanceId`, discarding the resolution's `source` card from that
+ * same character as part of accepting.
+ */
+export function applyItemPlacementOfferResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  const g = guardResolutionOrPass(state, rawAction, top, 'play-item-placement-offer', 'item-placement-offer',
+    'item-placement-offer: player declines — source card stays in play');
+  if (!g.ok) return g.result;
+  const { action, actorIndex: playerIndex, kind } = g;
+  const { characterInstanceId } = kind;
+
+  let currentState = state;
+  if (top.source) {
+    const sourceDefId = resolveInstanceId(currentState, top.source);
+    if (sourceDefId) {
+      const costResult = applyCost(currentState, { discard: 'self' }, characterInstanceId, {
+        playerIndex,
+        sourceCardId: top.source,
+        sourceCardDefId: sourceDefId,
+        label: 'item-placement-offer',
+      });
+      if ('error' in costResult) return { state, error: costResult.error };
+      currentState = costResult.state;
+    }
+  }
+
+  const { cardInstanceId } = action;
+  const currentPlayer = currentState.players[playerIndex];
+  const handIdx = currentPlayer.hand.findIndex(c => c.instanceId === cardInstanceId);
+  if (handIdx < 0) {
+    return { state, error: `Card ${cardInstanceId as string} not found in hand` };
+  }
+  const card = currentPlayer.hand[handIdx];
+  const def = defById(currentState, card.definitionId);
+  const cardDefName = def?.name ?? (card.definitionId as string);
+
+  const stateAfterRemove = updatePlayer(currentState, playerIndex, p => ({
+    ...p,
+    hand: p.hand.filter((_, i) => i !== handIdx),
+  }));
+
+  const char = stateAfterRemove.players[playerIndex].characters[characterInstanceId];
+  if (!char) {
+    return { state, error: `Character ${characterInstanceId as string} not found for item-placement-offer placement` };
+  }
+  logDetail(`item-placement-offer: playing ${cardDefName} (${cardInstanceId as string}) onto ${defById(state, char.definitionId)?.name ?? (characterInstanceId as string)}`);
+
+  const newItem: CharacterInPlay['items'][0] = {
+    instanceId: card.instanceId,
+    definitionId: card.definitionId,
+    status: CardStatus.Untapped,
+  };
+  const updatedChar: CharacterInPlay = { ...char, items: [...char.items, newItem] };
+
+  const stateAfterPlay = updatePlayer(stateAfterRemove, playerIndex, p => ({
+    ...p,
+    characters: { ...p.characters, [characterInstanceId as string]: updatedChar },
   }));
 
   return { state: dequeueResolution(stateAfterPlay, top.id) };

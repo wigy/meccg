@@ -238,6 +238,8 @@ export const ACTION_TYPES: readonly string[] = [
   'attack-nazgul-permanent-event',
   // Added by certifying wh-13 (Goblin-faces).
   'rearrange-defender-deck-card',
+  // Added by certifying dm-174 (Necklace of Girion).
+  'play-item-placement-offer',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

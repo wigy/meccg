@@ -2296,6 +2296,7 @@ export type TriggeredActionType =
   | 'random-discard-hand'
   | 'enqueue-corruption-check'
   | 'enqueue-body-check'
+  | 'enqueue-item-placement-offer'
   | 'whip-discipline'
   | 'enqueue-site-wound-rolls'
   | 'malady-without-healing'
@@ -2509,6 +2510,23 @@ export interface EnqueueGoodwillAttemptAction extends TriggeredActionBase {
   readonly itemSubtype: 'minor' | 'major' | 'greater';
   /** Roll (2d6 + unused DI) must exceed this for the attack to be cancelled. */
   readonly threshold: number;
+}
+
+/**
+ * `enqueue-item-placement-offer` — `onSuccess` follow-up on a corruption
+ * check (Necklace of Girion dm-174: "he can make a corruption check, and, if
+ * successful, you may discard Necklace of Girion to play any non-special
+ * item from your hand with its bearer"). Enqueues an `item-placement-offer`
+ * pending resolution on the character who passed the check: its controller
+ * may either decline (generic `pass`, leaving the source card in play) or
+ * play one item from hand matching {@link filter} onto that same character,
+ * discarding the resolution's source card (the corruption check's own
+ * source) as part of accepting.
+ */
+export interface EnqueueItemPlacementOfferAction extends TriggeredActionBase {
+  readonly type: 'enqueue-item-placement-offer';
+  /** DSL condition restricting which hand items qualify (matched against the item's definition). */
+  readonly filter?: Condition;
 }
 
 /**
@@ -3904,6 +3922,7 @@ export type TriggeredAction =
   | ForceCheckAllCompanyAction
   | EnqueueCorruptionCheckAction
   | EnqueueBodyCheckAction
+  | EnqueueItemPlacementOfferAction
   | WhipDisciplineAction
   | EnqueueGoodwillAttemptAction
   | EnqueueSiteWoundRollsAction
