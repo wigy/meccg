@@ -107,6 +107,14 @@ export function handleCombatPlayHazard(
     return { state, error: 'only hazard permanent-events (or combat-reactive short events) may be played during combat' };
   }
 
+  // Wound of Long Burden (dm-102): a `permanent` hazard-event whose attach is
+  // deferred until the targeted strike's outcome is known — discard
+  // immediately like a combat-reactive short event, but track it via
+  // `pendingCharacterCorruptionAttach` for `finalizeCombat` to reattach if the
+  // strike wounds the target (see `AttachCorruptionOnStrikeWoundAction`).
+  const deferredCorruptionAttach = getOnEventEffects(def, 'self-enters-play-combat')
+    .some(e => e.apply.type === 'attach-corruption-on-strike-wound');
+
   const defenderIndex = getPlayerIndex(state, combat.defendingPlayerId);
   const defenderPlayer = state.players[defenderIndex];
   const targetCharId = action.targetCharacterId;
@@ -142,9 +150,11 @@ export function handleCombatPlayHazard(
     return { state: newState };
   }
 
-  if (isCombatShortCompanyModifier) {
-    // Short event: resolve immediately and discard — it never attaches.
-    logDetail(`Combat play-hazard: "${def.name}" resolves immediately and discards (combat-reactive short event)`);
+  if (isCombatShortCompanyModifier || deferredCorruptionAttach) {
+    // Short event, or a permanent event with a deferred attach: discard
+    // immediately — deferredCorruptionAttach is spliced back out onto the
+    // target's hazards at finalizeCombat if the strike wounds them.
+    logDetail(`Combat play-hazard: "${def.name}" resolves immediately and discards (${deferredCorruptionAttach ? 'deferred corruption attach' : 'combat-reactive short event'})`);
     newState = updatePlayer(newState, hazardIndex, p => ({
       ...p,
       discardPile: [...p.discardPile, toCardInstance(handCard)],
@@ -227,6 +237,21 @@ export function handleCombatPlayHazard(
             kind: { type: 'attack-card-played' },
           });
         }
+      } else if (eff.apply.type === 'attach-corruption-on-strike-wound') {
+        // Wound of Long Burden (dm-102): record the pending reattachment so
+        // `finalizeCombat` can splice the card back out of the hazard
+        // player's discard pile onto `targetCharId` if this specific strike
+        // wounds them; otherwise it stays discarded.
+        logDetail(`Combat play-hazard: "${def.name}" will attach to ${targetCharId as string} if this strike wounds him`);
+        workingCombat = {
+          ...workingCombat,
+          pendingCharacterCorruptionAttach: {
+            sourceCardInstanceId: handCard.instanceId,
+            sourceCardDefinitionId: handCard.definitionId,
+            ownerPlayerIndex: hazardIndex,
+            targetCharacterId: targetCharId,
+          },
+        };
       } else if (eff.apply.type === 'force-attacker-kill-on-resolution') {
         // Fury of the Iron Crown (tw-492): schedule the forced kill /
         // named-card offer for `finalizeCombat` to apply once this attack

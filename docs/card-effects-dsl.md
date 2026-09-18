@@ -10471,6 +10471,66 @@ Implemented in `engine/combat-hazard-play.ts` (`handleCombatPlayHazard`),
 (`handleBodyCheckRoll`), and `engine/legal-actions/combat.ts`
 (`combatHazardPermanentPlays`).
 
+#### 32c. `attach-corruption-on-strike-wound` (deferred corruption attach, gated on the specific strike's outcome)
+
+A `permanent` hazard-event's `self-enters-play-combat` on-event may apply
+`attach-corruption-on-strike-wound` — played via the same `play-window {
+phase: "combat", step: "resolve-strike" }` / `play-target: character` combat
+window as Dragon's Curse (§32), but for card text of the shape "if the strike
+is not successful, discard this card; otherwise [corruption effects]",
+where the corruption effects apply only if the *specific* strike the card
+was played against goes on to wound its specific target — unlike Dragon's
+Curse, which attaches and grants its corruption unconditionally the instant
+it is played.
+
+A `play-target.filter` may reference `attack.prowess` (the current strike's
+`combat.strikeProwess`, exposed alongside the existing `attack.race`) for
+text like "facing a strike with a prowess of 12 or greater":
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-target", "target": "character",
+  "filter": { "attack.prowess": { "$gte": 12 } } }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "attach-corruption-on-strike-wound" } }
+{ "type": "stat-modifier", "stat": "corruption-points", "value": 1 }
+{ "type": "stat-modifier", "stat": "body", "value": -1 }
+```
+
+On play, `handleCombatPlayHazard` (`combat-hazard-play.ts`) discards the card
+to the hazard player's discard pile immediately — the same immediate-discard
+shape every combat-window hazard play uses — but records
+`CombatState.pendingCharacterCorruptionAttach: { sourceCardInstanceId,
+sourceCardDefinitionId, ownerPlayerIndex, targetCharacterId }`, pinning the
+exact character it was played against (known up front, since the card
+targets whoever is currently facing the strike — unlike the whole-attack
+`attachCorruptionOnWound` of §10e-ter, which only learns the target after
+combat resolves). At `finalizeCombat` (`combat-finalize.ts`), if
+`targetCharacterId` ended up in the attack's `woundedCharIds` set (still in
+play and wounded — the same set §10e-ter's `pendingCorruptionAttach` block
+consults), the card is spliced out of the discard pile and pushed onto that
+character's `hazards`, so its `stat-modifier` effects (corruption points,
+body) take effect exactly as any other attached hazard card. If the strike
+did not wound the target, the card simply stays in the discard pile —
+"if the strike is not successful, discard this card" falls out for free,
+with no extra bookkeeping.
+
+Used by Wound of Long Burden (dm-102): "Corruption. Playable on a character
+facing a strike with a prowess of 12 or greater. If the strike is not
+successful, discard this card. Otherwise, target character receives 1
+corruption point and his body is lowered by 1." Its removal ability (tap
+during organization phase at a Haven/Darkhaven, roll > 7 discards) is the
+ordinary `grant-action` `remove-self-on-roll` (§3) with `cost: { tap:
+"bearer" }` and `when: { "bearer.atHaven": true }` — gating only the
+tap-and-roll variant; every corruption card also gets a no-tap −3 variant
+regardless of location (METD §7 / rule 10.08, `organization.ts`), so the
+`when` gate never needs to (and cannot) suppress that half.
+
+Implemented in `engine/combat-hazard-play.ts` (`handleCombatPlayHazard`),
+`engine/combat-finalize.ts` (`finalizeCombat`), and
+`engine/legal-actions/combat.ts` (`combatHazardPermanentPlays`, for the
+`attack.prowess` filter context field).
+
 ### 33. `combat-protection`
 
 Protects the bearing card (typically an ally) from being assigned
