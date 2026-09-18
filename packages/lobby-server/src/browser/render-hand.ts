@@ -7,7 +7,7 @@
  * tooltips for short-events and hazard keying, and resource/item target menus.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction, DeclareBurglaryAction } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup } from '@meccg/shared';
 import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
@@ -229,6 +229,23 @@ function findBalrogSwapActions(
 ): GameAction[] {
   if (!instanceId) return [];
   return actionsOfTypeFor(legalActions, 'swap-banned-vs-balrog', instanceId);
+}
+
+/**
+ * Find all declare-burglary actions for a given Burglary (td-103) hand
+ * instance — one per character that could make the attempt. The same play
+ * is also reachable by clicking the highlighted character directly (see
+ * `company-block.ts`), but the hand card must offer it too: leaving it
+ * dimmed with no click handler looked identical to a genuinely dead card,
+ * which is exactly what was reported as a bug (msg 1559d4018415ea85) even
+ * though the underlying legal action was present all along.
+ */
+function findDeclareBurglaryActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): DeclareBurglaryAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'declare-burglary', instanceId);
 }
 
 /**
@@ -1187,6 +1204,8 @@ export function renderHand(
     const isRingAfterTest = ringAfterTestAction !== null;
     const revealedCardPlayActions = findRevealedCardPlayActions(cardInstanceId, viable);
     const isRevealedCardPlay = revealedCardPlayActions.length > 0;
+    const declareBurglaryActions = findDeclareBurglaryActions(cardInstanceId, viable);
+    const isDeclareBurglary = declareBurglaryActions.length > 0;
     const discardAction = cardInstanceId
       ? viable.find(a => a.type === 'discard-card' && a.cardInstanceId === cardInstanceId)
       : undefined;
@@ -1196,7 +1215,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1494,6 +1513,28 @@ export function renderHand(
                 label = (controllerDefId ? cardPool[controllerDefId as string]?.name : undefined) ?? 'Direct influence';
               }
               return { label, onClick: () => onAction(a) };
+            });
+            showCursorTooltipMenu(e, items);
+          });
+        }
+      }
+    } else if (isDeclareBurglary) {
+      // Burglary (td-103): a single character in company plays directly;
+      // multiple eligible characters (or multiple copies of the card, see
+      // `getDeclareBurglaryActions`) show a disambiguation menu naming each
+      // character, matching the menu shown when clicking the character
+      // itself in `company-block.ts`.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (declareBurglaryActions.length === 1) {
+          const burglaryAction = declareBurglaryActions[0];
+          img.addEventListener('click', () => onAction(burglaryAction));
+        } else {
+          img.addEventListener('click', (e) => {
+            const items: TooltipMenuItem[] = declareBurglaryActions.map(a => {
+              const charDefId = cachedInstanceLookup(a.characterInstanceId);
+              const charName = (charDefId ? cardPool[charDefId as string]?.name : undefined) ?? 'character';
+              return { label: charName, onClick: () => onAction(a) };
             });
             showCursorTooltipMenu(e, items);
           });
