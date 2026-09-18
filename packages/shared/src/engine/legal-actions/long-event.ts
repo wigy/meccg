@@ -17,7 +17,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState, Company } from '../../index.js';
-import type { PlayOptionEffect, RegionTransformEffect, SiteUntapEffect } from '../../types/effects.js';
+import type { PlayOptionEffect, RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { isResourceEventCard, isSiteCard } from '../../types/cards.js';
 import { CardStatus, type RegionType } from '../../types/common.js';
@@ -25,7 +25,7 @@ import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, collectSiteUntapTargets, withdrawAgentTargetActions, eligibleSkillAllyTargetsForCharacter } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, collectSiteUntapTargets, collectItemUntapTargets, withdrawAgentTargetActions, eligibleSkillAllyTargetsForCharacter } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -475,6 +475,14 @@ export function heroResourceShortEventActions(
       }
     }
 
+    // Wielded Twice (td-167). See the identical block in organization.ts's
+    // `playResourceShortEventActions` — the (sage × tapped item) cross is
+    // company-relative, so it is resolved per-sage inside `emitPlay` below,
+    // not precomputed here.
+    const itemUntapEffect = def.effects?.find(
+      (e): e is ItemUntapEffect => e.type === 'item-untap',
+    );
+
     // "Discard every matching card in play" (Wizard's River-horses tw-364:
     // "All Nazgûl events are discarded"). Unlike the single-target shape above
     // there is nothing to choose — the mode is simply not playable while
@@ -587,6 +595,25 @@ export function heroResourceShortEventActions(
               cardInstanceId,
               ...(sageId ? { targetScoutInstanceId: sageId } : {}),
               targetSiteInstanceId: siteInstanceId,
+            },
+            viable: true,
+          });
+        }
+      } else if (itemUntapEffect && sageId) {
+        const itemTargets = collectItemUntapTargets(state, player, sageId, itemUntapEffect);
+        if (itemTargets.length === 0) {
+          logDetail(`${def.name}: sage ${String(sageId)}'s company has no tapped item — skipping`);
+          return;
+        }
+        for (const { itemInstanceId, itemName } of itemTargets) {
+          logDetail(`Resource short-event playable (sage ${String(sageId)}, untap item ${itemName}): ${def.name}`);
+          actions.push({
+            action: {
+              type: 'play-short-event',
+              player: playerId,
+              cardInstanceId,
+              targetScoutInstanceId: sageId,
+              targetItemInstanceId: itemInstanceId,
             },
             viable: true,
           });
