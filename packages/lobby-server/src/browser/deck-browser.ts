@@ -6,7 +6,7 @@
  * deck CRUD operations (select, delete, add/copy).
  */
 
-import { getCardCss } from '@meccg/shared';
+import { getCardCss, isSynthesizedActsAsSiteId } from '@meccg/shared';
 import {
   appState, cardPool, type FullDeck, type DeckListEntry,
   missingCards, uncertifiedCards, sortDeckEntries,
@@ -560,10 +560,15 @@ const SITE_CARD_ALIGNMENTS: Record<string, string> = {
  * Build the initial sites section for a new deck: one copy of each unique
  * site of the alignment and four copies of each non-unique one (the havens).
  */
-function initialSites(alignment: string): DeckListEntry[] {
+export function initialSites(alignment: string): DeckListEntry[] {
   const cardAlignment = SITE_CARD_ALIGNMENTS[alignment];
   const entries: DeckListEntry[] = [];
   for (const [cardId, def] of Object.entries(cardPool)) {
+    // Skip synthesized `acts-as-site` companion definitions (e.g. Wondrous
+    // Maps' `td-171-site`) — they share a real site's cardType/alignment so
+    // engine site-lookups treat them like one, but they are not obtainable
+    // cards and must never be auto-added to a new deck's Sites section.
+    if (isSynthesizedActsAsSiteId(cardId)) continue;
     const d = def as unknown as { cardType: string; alignment?: string; unique?: boolean; name: string };
     if (!d.cardType.endsWith('-site') || d.alignment !== cardAlignment) continue;
     entries.push({ name: d.name, card: cardId, qty: d.unique ? 1 : 4 });

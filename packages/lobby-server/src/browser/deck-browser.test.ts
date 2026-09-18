@@ -23,7 +23,7 @@ vi.mock('./api.js', () => ({ apiGet, apiSend }));
 
 // Vitest hoists the vi.mock call above the static imports below, so
 // deck-browser.ts picks up the mocked api.js.
-import { loadDecks } from './deck-browser.js';
+import { loadDecks, initialSites } from './deck-browser.js';
 import { appState, type FullDeck } from './app-state.js';
 
 class StubEl {
@@ -186,5 +186,21 @@ describe('renaming an owned deck from the "My Decks" list', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(apiSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('initial sites for a new deck', () => {
+  // Bug report: Wondrous Maps (td-171, a hero resource-event that acts as a
+  // Ruins & Lairs site once played) was showing up in a brand-new hero
+  // deck's Sites section. The card pool synthesizes a site-shaped companion
+  // definition for it (id `td-171-site`, same name, cardType `hero-site`) so
+  // engine site-lookups can treat it like a real site — but `initialSites`
+  // scanned the whole pool by cardType/alignment and picked that companion
+  // up as if it were a real, obtainable site card.
+  test('excludes synthesized acts-as-site companion definitions', () => {
+    const sites = initialSites('hero');
+
+    expect(sites.some(e => e.card === 'td-171-site')).toBe(false);
+    expect(sites.filter(e => e.name === 'Wondrous Maps')).toHaveLength(0);
   });
 });
