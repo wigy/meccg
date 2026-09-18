@@ -307,6 +307,47 @@ describe('renderPassButton — stay-her-appetite-roll (Stay Her Appetite)', () =
 });
 
 /**
+ * Regression test for bug report 2435e295766eb629 (game mu77cexd-dexv27, seq
+ * 794): "I can now play it, but the AI engine doesnt move forwards anymore."
+ * Burglary (td-103), now playable directly from hand, enqueues a
+ * `burglary-attempt` pending resolution, whose only legal action is
+ * `burglary-attempt`. {@link renderPassButton}'s whitelist of pass-like
+ * action types omitted `burglary-attempt` — the same class of bug as
+ * `resolve-dice-check`, `flattery-attempt`, `seized-by-terror-roll` and
+ * `gold-ring-test-roll` above. `burglary-attempt` is now whitelisted with a
+ * "Roll" label.
+ */
+const burglaryAttempt: EvaluatedAction = {
+  action: {
+    type: 'burglary-attempt',
+    player: 'p1',
+    characterInstanceId: 'p1-130',
+    need: 11,
+    explanation: 'Thráin II burglary: threshold 10, bonus +0 → need roll >= 11',
+  },
+  viable: true,
+} as EvaluatedAction;
+
+describe('renderPassButton — burglary-attempt (Burglary)', () => {
+  test('shows a Roll button for a pending burglary-attempt resolution', () => {
+    renderPassButton(viewWith([burglaryAttempt]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Roll');
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+  });
+
+  test('clicking the button sends the burglary-attempt action', () => {
+    let sent: unknown = null;
+    renderPassButton(viewWith([burglaryAttempt]), action => { sent = action; });
+
+    passBtn.onclick?.();
+
+    expect(sent).toEqual(burglaryAttempt.action);
+  });
+});
+
+/**
  * Regression test for bug report 4a124a06991d909f (game ms9n2c5y-pfdcdr, seq
  * 532): "Game state is frozen — there is no further action available" right
  * after playing Wizard's Test (tw-365) via Saruman to test Bilbo's Precious

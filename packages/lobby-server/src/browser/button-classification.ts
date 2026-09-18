@@ -40,6 +40,7 @@ const END_OF_PHASE_TYPES: ReadonlySet<GameAction['type']> = new Set([
   'pass-chain-priority', 'deck-exhaust', 'finished', 'untap',
   'opponent-influence-defend', 'resolve-dice-check', 'flattery-attempt',
   'seized-by-terror-roll', 'gold-ring-test-roll', 'stay-her-appetite-roll',
+  'burglary-attempt',
 ]);
 
 /** Action types offered by granted card abilities, surfaced in the top tier. */
