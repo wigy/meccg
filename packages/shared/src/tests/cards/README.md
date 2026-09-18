@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1335 | 1335 | 0 | 100.0% |
+| 1338 | 1338 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,8 +14,8 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 117 | 117 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 143 | 143 | 100.0% |
-| LE | 321 | 321 | 100.0% |
+| DM | 144 | 144 | 100.0% |
+| LE | 323 | 323 | 100.0% |
 | TD | 134 | 134 | 100.0% |
 | TW | 424 | 424 | 100.0% |
 | WH | 96 | 96 | 100.0% |
@@ -324,6 +324,7 @@
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-100 | Which Might Be Lies | — | 6 | ☑ |
+| dm-102 | Wound of Long Burden | — | 8 | ☑ |
 | dm-104 | Your Welcome Is Doubtful | — | 13 | ☑ |
 | dm-105 | Bûthrakaur the Green | — | 15 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
@@ -442,6 +443,7 @@
 | le-60 | Arthadan Rangers | — | 6 | ☑ |
 | le-61 | Barrow-wight | — | 6 | ☑ |
 | le-62 | Beorning Toll | — | 10 | ☑ |
+| le-63 | The Border-watch | — | 5 | ☑ |
 | le-64 | Brigands | — | 3 | ☑ |
 | le-65 | Cave Worm | — | 3 | ☑ |
 | le-66 | Cave-drake | — | 5 | ☑ |
@@ -494,6 +496,7 @@
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
 | le-129 | Plague | — | 12 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
+| le-131 | Rats! | — | 14 | ☑ |
 | le-132 | Rebel-talk | — | 12 | ☑ |
 | le-134 | River | — | 2 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |

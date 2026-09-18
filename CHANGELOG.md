@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.160.0 — 2026-09-18
+
+Rats!, The Border-watch and Wound of Long Burden join the hazard ranks; Burglary and The Cock Crows click again
+
+### Game Engine
+
+- Certified Wound of Long Burden (dm-102): a new `attach-corruption-on-strike-wound` primitive for corruption hazard-events played in the resolve-strike window whose attach is deferred until the targeted strike's outcome is known — `handleCombatPlayHazard` discards the card immediately and records `CombatState.pendingCharacterCorruptionAttach` pinning the chosen target, and `finalizeCombat` splices it back onto that character's hazards only if the strike wounded them (unlike Dragon's Curse, which attaches on play). `attack.prowess` was added to the combat play-target filter context, backing "facing a strike with a prowess of 12 or greater", and the organization-phase removal at a Haven/Darkhaven uses the existing `remove-self-on-roll` grant gated on `bearer.atHaven`. Documented in `docs/card-effects-dsl.md` §32c and `docs/certification-engine-support.md` (#3088)
+- Certified The Border-watch (le-63): `resolveAttackStrikes` gained the same optional `creatureSelf` context `resolveAttackProwess` already had, so a hazard creature's own untargeted stat-modifier effects can change its strike count as well as its prowess; `chain-reducer.ts` threads `creatureSelf` into both calls. The Border-watch's printed 5 strikes drop to 2 (paired with combat-detainment) against hero and Fallen-wizard companies, the strikes modifier's `when` explicitly ORing in fallen-wizard to match the detainment branch it is paired with (rule 2.IV.vii.F1) (#3089)
+- Certified Rats! (le-131): a new `discard-item-or-wound-character` DSL effect and `item-or-wound-choice` pending resolution let the defending company's controller choose between discarding one minor item or wounding an unwounded character (no body check). The company play-target filter context gained `target.itemSubtypes` so "a company containing at least one minor item" is expressible as a filter condition (#3092)
+- Rats! was offered as playable on any company — including at Border-holds — because its effects array was empty and the company-targeting short-event fallback in `movement-hazard.ts` offered it unconditionally. The card now carries its play-target effect (Ruins & Lairs / Shadow-hold / Dark-hold site filter plus the minor-item requirement), with a regression test covering the reported scenario and the minor-item gate (#3093)
+
+### Web Client
+
+- Burglary (td-103) was legal at the automatic-attacks step but `render-hand.ts` never checked for `declare-burglary` actions on the hand card, so it rendered dimmed with no click listener — reachable only by clicking the highlighted character in the company block, which the player reported as not working. A new `findDeclareBurglaryActions` (mirroring `findBalrogSwapActions`) marks the card playable, dispatching directly when one character is eligible and otherwise opening the same disambiguation menu used for other multi-target hand plays (#3094)
+- The Cock Crows did not highlight hazards attached to characters as discard targets: `buildHazardClick` checked `CHARACTER_TARGETING_MODES` (matching `targetScoutInstanceId`, never a hazard's own instance id) before `buildDiscardTargetClick`, so it returned early with zero matches. It now checks the discard target first, as `buildItemClick` already did, and `buildDiscardTargetClick` reads legal actions from the `view` argument instead of the module-level `getLastView()` cache, matching `buildTargetingModeClick` (#3090)
+- Every new hero deck was seeded with four copies of "Wondrous Maps" in its Sites section, and the card showed up when browsing to add sites: `loadCardPool()` synthesizes a site-shaped companion definition for each acts-as-site resource-event (`td-171-site`), which the deck editor's Sites initializer and card browser treated as a real, obtainable hero-site. A new `isSynthesizedActsAsSiteId()` (keyed off the shared `ACTS_AS_SITE_ID_SUFFIX`) excludes these companion entries from `initialSites()` and `openCardBrowser()` (#3091)
+
+### AI
+
+- The new `choose-item-or-wound` action discriminant was appended to the sim's `ACTION_TYPES` vocabulary so it no longer featurizes as the reserved unknown row; appended at the end per the index-stability rule, leaving every existing index unchanged (#3092)
+
 ## 0.159.0 — 2026-09-18
 
 Bûthrakaur the Green and Umagaur the Pale bring Orc and Troll hordes past the hazard limit
