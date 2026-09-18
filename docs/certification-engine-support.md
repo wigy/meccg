@@ -1093,3 +1093,34 @@ Which Might Be Lies (dm-100): "Playable on a stored resource permanent-event tha
 ```
 
 Used by *Which Might Be Lies* (dm-100).
+
+### `grant-creature-keying` `hazardLimitExempt` field + "empty `siteFilter` matches any site" (Umagaur the Pale dm-112)
+
+Umagaur the Pale (dm-112): "Unique. Troll. One strike. Also playable at Moria and The Under-gates. If Doors of Night is in play, playable at any Under-deeps site. Any non-unique Orc or Troll hazard creature can be played (not counting against the hazard limit) on a company that has faced Umagaur that turn."
+
+The keying clauses need no new mechanism: `keyedTo: [{ siteTypes: ["shadow-hold"] }, { siteNames: ["Moria", "The Under-gates"] }, { siteKeywords: ["under-deeps"], when: { inPlay: "Doors of Night" } }]` — named-site entries matter here because Moria (ba-93) and The Under-gates (ba-100) both have *haven* printings distinct from their Shadow-hold printings, so the base `{S}` cost doesn't already cover them.
+
+The last sentence is a new combination on `grant-creature-keying` (`source: "faced-this-turn"`, see the as-9 section above): it needs to grant **both** an unconditional keying bypass *and* a hazard-limit exemption, with no site/region qualifier at all (unlike every prior grant, which always widens keying to a specific site/region set).
+
+- **Empty `siteFilter` = any site.** `grantsCreatureKeying` (`legal-actions/movement-hazard.ts`) previously required at least one of `siteTypes`/`excludeSiteTypes`/`regionTypes`/`regionNames` to produce a match; a new `anySite` fallback (true when none of those — nor `siteKeywords`, which only ever qualifies the site-type branches — are set) short-circuits the site/region branch check, so `siteFilter: {}` grants unconditionally. `GrantCreatureKeyingEffect.siteFilter`'s doc comment documents the convention.
+- **`hazardLimitExempt: true`** — a new optional field threaded through the grant's match result (`grantsCreatureKeying` now returns `{ granted, regionName?, hazardLimitExempt? }`) and onto `CreatureKeyingMatch.hazardLimitExempt`. Unlike every other `grant-creature-keying` effect (which only ever defeats `checkCreatureKeying`), this bit must reach the hazard-limit charge too — and must apply **regardless of whether the creature's own native `keyedTo` already matched**, since the printed text places no keying condition on the exemption itself. `playHazardsActions` therefore computes the grant once per candidate creature, hoisted *above* the pre-existing `limitReached` gate (so a hazard-limit-exempt grant can still offer a play when the limit is already maxed out), and stamps `hazardLimitExempt: true` onto the emitted `keyedBy` for **both** the keying-bypass branch and every native `findCreatureKeyingMatches` match — not only the bypass path. `handlePlayHazardCard` (`mh-hazard-play.ts`) reads `action.keyedBy?.hazardLimitExempt` alongside the pre-existing race-exemption checks (`constraintExempt`/`grantExempt`) to skip incrementing `hazardsPlayedThisCompany` and to pass `countsAgainstHazardLimit: false` into `initiateChain`. No cap or consumption bookkeeping was added (unlike `hazard-limit-race-grant`'s `maxPerCompany`), since the printed text places no numeric limit on the replay.
+
+The `creatureFilter` restricts the grant to "non-unique Orc or Troll" with the existing generic condition machinery — no new keyword needed:
+
+```json
+{
+  "type": "grant-creature-keying",
+  "source": "faced-this-turn",
+  "creatureFilter": {
+    "$and": [
+      { "cardType": "hazard-creature" },
+      { "race": { "$in": ["orc", "troll"] } },
+      { "unique": { "$ne": true } }
+    ]
+  },
+  "siteFilter": {},
+  "hazardLimitExempt": true
+}
+```
+
+Used by *Umagaur the Pale* (dm-112). Bûthrakaur the Green (dm-105) is printed with identical text but was certified separately on `hazard-limit-race-grant`'s `source: "faced-this-turn"` + `nonUniqueOnly` (see its own section above); the two mechanisms are independent and both remain in use — unlike dm-105's, this one also widens keying and applies no per-company cap.

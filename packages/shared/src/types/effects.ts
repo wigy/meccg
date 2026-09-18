@@ -9287,6 +9287,13 @@ export interface RetainHazardLongEventsEffect extends EffectBase {
  * by The Nazgûl are Abroad (tw-96): "Nazgûl may attack a hero company … at
  * any site that is not a Free-hold [{F}] or Haven [{H}]."
  *
+ * An empty `siteFilter` (none of `siteTypes`/`excludeSiteTypes`/`regionTypes`/
+ * `regionNames` set) matches **any** site — for grants whose printed text
+ * carries no site/region qualifier at all, only a `creatureFilter` and/or
+ * `companyFilter`. Used by Umagaur the Pale (dm-112): "Any non-unique Orc or
+ * Troll hazard creature can be played … on a company that has faced Umagaur
+ * that turn" — no site restriction, just the `faced-this-turn` company gate.
+ *
  * The optional `companyFilter` gates the grant on the *target company* being
  * attacked (in addition to the site/region match), evaluated via
  * {@link buildTargetCompanyConditionContext}'s `company` context (exposing
@@ -9379,6 +9386,28 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
    *   company that has faced Dwarven Travelers this turn."
    */
   readonly source?: 'in-play' | 'faced-this-turn';
+  /**
+   * When true, a creature play justified by this grant does not count against
+   * the hazard limit — the grant widens keying *and* exempts the play from
+   * the hazard limit in one step, rather than only bypassing `keyedTo`.
+   * Applies regardless of whether the play actually needed the keying-bypass
+   * (a creature whose own printed `keyedTo` already matches the site is still
+   * exempt, since the printed text places no site condition on the
+   * exemption). Threaded through `CreatureKeyingMatch.hazardLimitExempt` into
+   * the `play-hazard` action and read by `handlePlayHazardCard`
+   * (`mh-hazard-play.ts`) to skip incrementing `hazardsPlayedThisCompany` —
+   * unlike {@link HazardLimitRaceGrantEffect}, there is no per-company cap or
+   * consumption bookkeeping, since no certified card using this flag limits
+   * the count.
+   *
+   * Used by Umagaur the Pale (dm-112): "Any non-unique Orc or Troll hazard
+   * creature can be played (not counting against the hazard limit) on a
+   * company that has faced Umagaur that turn." Bûthrakaur the Green (dm-105)
+   * is printed with the same text but is certified on
+   * {@link HazardLimitRaceGrantEffect}'s `source: 'faced-this-turn'` instead;
+   * the two mechanisms are independent and both remain in use.
+   */
+  readonly hazardLimitExempt?: boolean;
 }
 
 /**
