@@ -35,7 +35,7 @@ import {
   PLAYER_1, PLAYER_2,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   P1_COMPANY,
-  ARAGORN, LEGOLAS, RIVENDELL, MORIA,
+  ARAGORN, LEGOLAS, RIVENDELL, MORIA, BREE,
   buildTestState, resetMint, makeMHState,
   dispatch, resolveChain,
   findHandCardId, findItemInstanceId, findCharInstanceId,
@@ -53,6 +53,7 @@ const ETTENMOORS = 'tw-395' as CardDefinitionId;   // hero-site, ruins-and-lairs
 const CARN_DUM = 'tw-380' as CardDefinitionId;     // hero-site, dark-hold
 // MORIA (tw-413, imported) is a hero-site, shadow-hold.
 // RIVENDELL (imported) is a haven — does not qualify.
+// BREE (imported) is a border-hold — does not qualify.
 
 /** Viable play-hazard actions for Rats! specifically. */
 function ratsActions(state: GameState): PlayHazardAction[] {
@@ -73,6 +74,22 @@ function stateAt(site: CardDefinitionId, characters: CardDefinitionId[]): GameSt
     activePlayer: PLAYER_1,
     players: [
       { id: PLAYER_1, companies: [{ site, characters }], hand: [], siteDeck: [] },
+      { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [] }], hand: [RATS], siteDeck: [] },
+    ],
+  });
+  return { ...state, phaseState: makeMHState() };
+}
+
+/**
+ * Build an M/H state with PLAYER_1's company moving from Rivendell to
+ * `destination`, and the hazard player (PLAYER_2) holding Rats!.
+ */
+function movingState(destination: CardDefinitionId, characters: CardDefinitionId[]): GameState {
+  const state = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, destinationSite: destination, characters }], hand: [], siteDeck: [] },
       { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [] }], hand: [RATS], siteDeck: [] },
     ],
   });
@@ -118,6 +135,23 @@ describe('Rats! (le-131)', () => {
 
   test('NOT playable at a non-qualifying site (a Haven), even with a minor item', () => {
     let s = stateAt(RIVENDELL, [ARAGORN]);
+    s = attachItemToChar(s, RESOURCE_PLAYER, ARAGORN, STING);
+    expect(ratsActions(s)).toHaveLength(0);
+  });
+
+  test('playable on a company with a minor item moving to a Shadow-hold', () => {
+    let s = movingState(MORIA, [ARAGORN]);
+    s = attachItemToChar(s, RESOURCE_PLAYER, ARAGORN, STING);
+    const actions = ratsActions(s);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].targetCompanyId).toBe(P1_COMPANY);
+  });
+
+  test('NOT playable on a company with a minor item moving to a Border-hold', () => {
+    // Regression (game mu70l0qs-8p1015, turn 5): before le-131 was certified
+    // its empty effects array let the company-targeting short-event fallback
+    // offer it unconditionally, including against a company moving to Bree.
+    let s = movingState(BREE, [ARAGORN]);
     s = attachItemToChar(s, RESOURCE_PLAYER, ARAGORN, STING);
     expect(ratsActions(s)).toHaveLength(0);
   });
