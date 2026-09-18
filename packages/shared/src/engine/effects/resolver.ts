@@ -1606,6 +1606,11 @@ export function resolveAttackProwess(
  *   Dark-hold sites).
  * @param isAgentAttack - True when the attacker is an agent hazard (exposed as
  *   `attack.isAgentAttack`; see {@link buildAttackContext}).
+ * @param creatureSelf - Creature self-effects and company context for self-modifiers
+ *   (mirrors {@link resolveAttackProwess}'s `creatureSelf`). Used by The Border-watch
+ *   (le-63): "Five strikes (two strikes and detainment against hero companies)" —
+ *   an untargeted `stat-modifier` strikes `op: "set"` `value: 2` gated on
+ *   `defender.alignment: hero`.
  * @returns The modified strikes value after applying all-attacks effects.
  */
 export function resolveAttackStrikes(
@@ -1617,11 +1622,22 @@ export function resolveAttackStrikes(
   attackBoostCtx?: CreatureAttackBoostContext,
   siteType?: string,
   isAgentAttack = false,
+  creatureSelf?: CreatureSelfContext,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, undefined, undefined, siteType, isAgentAttack);
+  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying, creatureSelf?.companyFacedNames);
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
+  }
+  if (creatureSelf) {
+    for (const effect of creatureSelf.effects) {
+      if (effect.type !== 'stat-modifier') continue;
+      if ('target' in effect && (effect as { target?: string }).target) continue;
+      if (effect.when && !matchesContext(effect.when, context)) {
+        continue;
+      }
+      globalEffects.push({ effect, sourceDef: {} as CardDefinition, sourceInstance: '' as CardInstanceId });
+    }
   }
   if (attackBoostCtx) {
     globalEffects.push(...collectCreatureAttackBoostEffects(state, 'strikes', creatureRace, attackBoostCtx));

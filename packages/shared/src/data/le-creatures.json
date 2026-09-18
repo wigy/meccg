@@ -962,8 +962,28 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Men. Five strikes (two strikes and detainment against hero companies)."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "op": "set",
+        "value": 2,
+        "when": {
+          "$or": [
+            { "defender.alignment": "hero" },
+            { "defender.alignment": "fallen-wizard" }
+          ]
+        }
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "defender.alignment": "hero"
+        }
+      }
+    ],
+    "text": "Men. Five strikes (two strikes and detainment against hero companies).",
+    "certified": "2026-09-18"
   },
   {
     "cardType": "hazard-creature",
