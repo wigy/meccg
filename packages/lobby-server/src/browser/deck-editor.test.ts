@@ -193,3 +193,22 @@ describe('deck editor pool favourite toggle', () => {
     expect(favouriteBtnOf(charSectionListEl)).toBeUndefined();
   });
 });
+
+describe('deck editor card browser excludes synthesized acts-as-site sites', () => {
+  // Bug report: Wondrous Maps (td-171, a hero resource-event that acts as a
+  // Ruins & Lairs site once played) showed up in the "Sites" add-card
+  // browser. The card pool synthesizes a site-shaped companion definition
+  // for it (id `td-171-site`, same name, cardType `hero-site`) so engine
+  // site-lookups can treat it like a real site — but the browser listed
+  // every pool entry passing the toggles, including that companion, as if
+  // it were a real, obtainable site card.
+  test('lists the real card but not its synthesized site companion', () => {
+    const deckSection = section();
+    openCardBrowser(deckSection, 'deck-1', 'Add a card to Sites', () => true, toggles());
+
+    const modal = body.all().find(el => el.className === 'app-dialog')!;
+    const items = modal.all().filter(el => el.className === 'card-browser-item');
+
+    expect(items.filter(el => el.textContent === 'Wondrous Maps')).toHaveLength(1);
+  });
+});
