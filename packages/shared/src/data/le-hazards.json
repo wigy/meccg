@@ -1763,7 +1763,30 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Rats.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            {
+              "target.siteType": {
+                "$in": [
+                  "ruins-and-lairs",
+                  "shadow-hold",
+                  "dark-hold"
+                ]
+              }
+            },
+            {
+              "target.itemSubtypes": {
+                "$includes": "minor"
+              }
+            }
+          ]
+        }
+      }
+    ],
     "text": "Playable on a company containing at least one minor item that is at or moving to a Ruins & Lairs [{R}], Shadow-hold [{S}], or Dark-hold [{D}]. Company discards one minor item of its choice or chooses one of its unwounded characters to become wounded (no body check required)."
   },
   {

@@ -3550,6 +3550,13 @@ function playHazardsActions(
             const cDef = ch ? defById(state, ch.definitionId) : undefined;
             return !!cDef && isCharacterCard(cDef) && cDef.race === Race.Ringwraith;
           });
+          // Item-subtype context (Rats! le-131: "a company containing at
+          // least one minor item"), mirroring the character-target block's
+          // per-character itemSubtypes.
+          const companyItemSubtypes = targetCompany.characters.flatMap(cId => {
+            const ch = resourcePlayer.characters[cId];
+            return ch ? itemSubtypesOf(state, ch.items) : [];
+          });
           const companyCtx = {
             target: {
               siteType: compSiteType,
@@ -3561,6 +3568,7 @@ function playHazardsActions(
               moreSpawnThanCompany: spawnInPlayCount > characterCount,
               moving: !!targetCompany.destinationSite,
               hasRingwraith,
+              itemSubtypes: companyItemSubtypes,
             },
           };
           if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
