@@ -797,7 +797,7 @@ export function handlePlayHazardCard(
     }
 
     const constraintExempt = isCreatureRaceExemptViaConstraint(state, action, def);
-    const grantExempt = !constraintExempt && isHazardLimitRaceGrantAvailable(state, def.race);
+    const grantExempt = !constraintExempt && isHazardLimitRaceGrantAvailable(state, def);
     const raceExempt = constraintExempt || grantExempt;
     const newHazardCount = raceExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
     logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
@@ -4536,35 +4536,64 @@ function isCreatureRaceExemptViaConstraint(state: GameState, action: GameAction,
   );
 }
 
-/** Find an in-play `hazard-limit-race-grant` effect matching `race` (Host of Bats td-31), scanning both players' `cardsInPlay`. */
-function findHazardLimitRaceGrant(state: GameState, race: Race): HazardLimitRaceGrantEffect | undefined {
+/**
+ * Find a `hazard-limit-race-grant` effect matching `def`'s race (and, when
+ * the grant carries `nonUniqueOnly`, only if `def` is non-unique), from
+ * either of two sources:
+ *
+ * - `source: 'in-play'` (default) — scans both players' `cardsInPlay`
+ *   (Host of Bats td-31, a long/permanent hazard-event).
+ * - `source: 'faced-this-turn'` — scans the card pool by name for cards
+ *   whose name appears in the current M/H sub-phase's `hazardsEncountered`
+ *   list (Bûthrakaur the Green dm-105, a hazard-creature whose grant
+ *   outlives it). Mirrors `collectCreatureKeyingGrants`'s equivalent lookup
+ *   for `grant-creature-keying`.
+ */
+function findHazardLimitRaceGrant(state: GameState, def: CreatureCard): HazardLimitRaceGrantEffect | undefined {
+  const matches = (e: CardEffect): e is HazardLimitRaceGrantEffect =>
+    e.type === 'hazard-limit-race-grant' && e.race === def.race && (!e.nonUniqueOnly || !def.unique);
+
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const cardDef = defById(state, card.definitionId);
       if (!cardDef) continue;
-      const grant = getCardEffects(cardDef).find(
-        (e): e is HazardLimitRaceGrantEffect => e.type === 'hazard-limit-race-grant' && e.race === race,
-      );
+      const grant = getCardEffects(cardDef).find((e): e is HazardLimitRaceGrantEffect => matches(e) && (e.source ?? 'in-play') === 'in-play');
       if (grant) return grant;
     }
   }
+
+  if (state.phaseState.phase === Phase.MovementHazard) {
+    const encountered = state.phaseState.hazardsEncountered;
+    if (encountered.length > 0) {
+      const encounteredNames = new Set<string>(encountered);
+      for (const poolDef of Object.values(state.cardPool)) {
+        const name = (poolDef as { name?: string }).name;
+        if (name === undefined || !encounteredNames.has(name)) continue;
+        const grant = getCardEffects(poolDef).find((e): e is HazardLimitRaceGrantEffect => matches(e) && e.source === 'faced-this-turn');
+        if (grant) return grant;
+      }
+    }
+  }
+
   return undefined;
 }
 
 /**
- * Whether an in-play `hazard-limit-race-grant` (Host of Bats td-31: "one Orc
- * hazard creature may be played against each company that does not count
- * against the hazard limit") still has an unused exemption for `race` against
- * the current company this M/H sub-phase. Usage is company-scoped, tracked in
+ * Whether a `hazard-limit-race-grant` (Host of Bats td-31: "one Orc hazard
+ * creature may be played against each company that does not count against
+ * the hazard limit"; Bûthrakaur the Green dm-105: "Any non-unique Orc or
+ * Troll hazard creature can be played … on a company that has faced
+ * Bûthrakaur that turn") still has an unused exemption for `def` against the
+ * current company this M/H sub-phase. Usage is company-scoped, tracked in
  * `MovementHazardPhaseState.hazardLimitRaceGrantsUsed` (reset every company)
  * rather than an `ActiveConstraint`, since the grant is never declared against
- * a specific company at play time — it applies to every company automatically.
+ * a specific company at play time.
  */
-export function isHazardLimitRaceGrantAvailable(state: GameState, race: Race): boolean {
+export function isHazardLimitRaceGrantAvailable(state: GameState, def: CreatureCard): boolean {
   if (state.phaseState.phase !== Phase.MovementHazard) return false;
-  const grant = findHazardLimitRaceGrant(state, race);
+  const grant = findHazardLimitRaceGrant(state, def);
   if (!grant) return false;
-  const used = (state.phaseState.hazardLimitRaceGrantsUsed ?? []).filter(r => r === race).length;
+  const used = (state.phaseState.hazardLimitRaceGrantsUsed ?? []).filter(r => r === def.race).length;
   return used < (grant.maxPerCompany ?? 1);
 }
 
@@ -4583,7 +4612,7 @@ function consumeHazardLimitRaceGrant(state: GameState, race: Race): GameState {
 }
 
 export function isCreatureRaceExempt(state: GameState, action: GameAction, def: CreatureCard): boolean {
-  return isCreatureRaceExemptViaConstraint(state, action, def) || isHazardLimitRaceGrantAvailable(state, def.race);
+  return isCreatureRaceExemptViaConstraint(state, action, def) || isHazardLimitRaceGrantAvailable(state, def);
 }
 
 /**

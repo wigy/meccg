@@ -19176,8 +19176,9 @@ Shadow of Mordor is in play, any character wounded by an attack keyed to (or
 an automatic-attack at) a Shadow-hold [{S}] or a Darkhold [{D}] makes an
 additional body check modified by -2. Cannot be duplicated."
 
-**`hazard-limit-race-grant`** — a game-wide, per-company-capped hazard-limit
-exemption carried by an in-play long/permanent hazard-event.
+**`hazard-limit-race-grant`** — a per-company-capped hazard-limit
+exemption, carried either by an in-play long/permanent hazard-event or by a
+hazard-creature whose grant outlives it (see `source` below).
 
 ```json
 { "type": "hazard-limit-race-grant", "race": "orc", "maxPerCompany": 1 }
@@ -19187,21 +19188,41 @@ exemption carried by an in-play long/permanent hazard-event.
 |-------|----------|-------------|
 | `race` | yes | The creature race exempted from the hazard limit. |
 | `maxPerCompany` | no | Exempted creatures of `race` per company per M/H phase (default 1). |
+| `nonUniqueOnly` | no | When true, only *non-unique* creatures of `race` are exempted (Bûthrakaur the Green dm-105: "Any non-unique Orc or Troll hazard creature …" — one effect per race, no `races` array). |
+| `source` | no | `'in-play'` (default) or `'faced-this-turn'` — see below. |
 
 Unlike `creature-race-choice`'s `creature-type-no-hazard-limit`
 `add-constraint` (§24 — declared against **one** company when the card is
 played, unlimited exemptions for the rest of the turn: Two or Three Tribes
-Present), this effect is self-targeting and reaches **every** company, but
-caps at `maxPerCompany`. `isCreatureRaceExempt` (`mh-hazard-play.ts`) checks
-both sources: the `ActiveConstraint` path (`isCreatureRaceExemptViaConstraint`)
+Present), this effect reaches every *eligible* company, but caps at
+`maxPerCompany`. `isCreatureRaceExempt` (`mh-hazard-play.ts`) checks both
+sources: the `ActiveConstraint` path (`isCreatureRaceExemptViaConstraint`)
 and this one (`isHazardLimitRaceGrantAvailable`, exported for reuse by
-`legal-actions/movement-hazard.ts`'s pre-hazard-limit-reached gate). Usage is
-tracked per company in `MovementHazardPhaseState.hazardLimitRaceGrantsUsed:
-readonly Race[]`, reset every company alongside `hazardsEncountered` (no
-`ActiveConstraint` is created, since the grant is never declared against a
-specific company at play time). The creature-play handler only appends to
-this list when the grant (not the unlimited constraint) actually exempted the
-play, so the two mechanisms never interfere.
+`legal-actions/movement-hazard.ts`'s pre-hazard-limit-reached gate). Both
+take the full `CreatureCard` being played (not just its race), so
+`nonUniqueOnly` has something to check. Usage is tracked per company in
+`MovementHazardPhaseState.hazardLimitRaceGrantsUsed: readonly Race[]`, reset
+every company alongside `hazardsEncountered` (no `ActiveConstraint` is
+created, since the grant is never declared against a specific company at
+play time). The creature-play handler only appends to this list when the
+grant (not the unlimited constraint) actually exempted the play, so the two
+mechanisms never interfere.
+
+`source` mirrors `grant-creature-keying`'s field of the same name (§`grant-creature-keying`):
+
+- `'in-play'` (default) — the carrying card must sit in either player's
+  `cardsInPlay` (a long/permanent hazard-event, e.g. Host of Bats td-31),
+  reaching **every** company.
+- `'faced-this-turn'` — the grant is carried by a **hazard creature** and is
+  active only against a company that has already faced that creature this
+  turn, i.e. the carrier's name appears in the company's
+  `MovementHazardPhaseState.hazardsEncountered`. The carrier itself is gone
+  from play by then, so `findHazardLimitRaceGrant` resolves it from the card
+  pool by name, mirroring `collectCreatureKeyingGrants`. Used by Bûthrakaur
+  the Green (dm-105): "Any non-unique Orc or Troll hazard creature can be
+  played (not counting against the hazard limit) on a company that has faced
+  Bûthrakaur that turn" — two effects, `race: "orc"` and `race: "troll"`,
+  both `source: "faced-this-turn"`, `nonUniqueOnly: true`.
 
 **`wound-additional-body-check`** — forces a second, independent body check
 immediately after a character-target body check first resolves to "survives"
