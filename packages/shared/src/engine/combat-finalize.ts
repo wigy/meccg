@@ -701,6 +701,36 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     }
   }
 
+  // Wound of Long Burden (dm-102): a `permanent` hazard-event carrying
+  // `attach-corruption-on-strike-wound` already discarded itself when played
+  // (combat-hazard-play.ts), targeting one specific character up front
+  // (unlike `pendingCorruptionAttach`'s "first eligible wounded" scan). If
+  // that exact character ended up wounded by this attack, splice the card
+  // back out of the discard pile and attach it to him; otherwise "if the
+  // strike is not successful, discard this card" is already satisfied — it
+  // simply stays where `handleCombatPlayHazard` put it.
+  if (combat.pendingCharacterCorruptionAttach) {
+    const pending = combat.pendingCharacterCorruptionAttach;
+    const ownerIdx = pending.ownerPlayerIndex;
+    const stillDiscarded = stateAfterCombat.players[ownerIdx]?.discardPile
+      .some(c => c.instanceId === pending.sourceCardInstanceId);
+    const cardLabel = defById(stateAfterCombat, pending.sourceCardDefinitionId)?.name ?? pending.sourceCardDefinitionId as string;
+    if (stillDiscarded && woundedCharIds.includes(pending.targetCharacterId)) {
+      const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+      logDetail(`${cardLabel}: strike against ${pending.targetCharacterId as string} succeeded — attaching`);
+      stateAfterCombat = updatePlayer(stateAfterCombat, ownerIdx, p => ({
+        ...p,
+        discardPile: p.discardPile.filter(c => c.instanceId !== pending.sourceCardInstanceId),
+      }));
+      stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => updateCharacter(p, pending.targetCharacterId, c => ({
+        ...c,
+        hazards: [...c.hazards, { instanceId: pending.sourceCardInstanceId, definitionId: pending.sourceCardDefinitionId, status: CardStatus.Untapped }],
+      })));
+    } else if (stillDiscarded) {
+      logDetail(`${cardLabel}: strike against ${pending.targetCharacterId as string} was not successful — remains discarded`);
+    }
+  }
+
   // Combatants whose strike *succeeded* — CoE 3.iv.5: "the strike is successful.
   // The defending character is immediately wounded (which is considered
   // synonymous with the strike succeeding) … and then the hazard player
