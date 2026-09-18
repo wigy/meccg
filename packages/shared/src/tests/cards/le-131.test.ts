@@ -186,8 +186,7 @@ describe('Rats! (le-131)', () => {
 
     const stingId = findItemInstanceId(s, RESOURCE_PLAYER, STING);
     const discardChoices = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'choose-item-or-wound'
-        && (a.action as ChooseItemOrWoundAction).choice === 'discard-item')
+      .filter(a => a.viable && a.action.type === 'choose-item-or-wound' && a.action.choice === 'discard-item')
       .map(a => a.action as ChooseItemOrWoundAction);
 
     expect(discardChoices).toHaveLength(1);
@@ -202,8 +201,7 @@ describe('Rats! (le-131)', () => {
 
     const aragornId = findCharInstanceId(s, RESOURCE_PLAYER, ARAGORN);
     const woundChoices = computeLegalActions(s, PLAYER_1)
-      .filter(a => a.viable && a.action.type === 'choose-item-or-wound'
-        && (a.action as ChooseItemOrWoundAction).choice === 'wound-character')
+      .filter(a => a.viable && a.action.type === 'choose-item-or-wound' && a.action.choice === 'wound-character')
       .map(a => a.action as ChooseItemOrWoundAction);
 
     expect(woundChoices).toHaveLength(1);
