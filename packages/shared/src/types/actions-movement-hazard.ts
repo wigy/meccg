@@ -98,6 +98,15 @@ export interface CreatureKeyingMatch {
    * exactly as they would a native `region-name` match.
    */
   readonly grantedRegionName?: string;
+  /**
+   * True when this play was authorized (in whole or in part) by a
+   * `grant-creature-keying` effect with `hazardLimitExempt: true` (e.g.
+   * Umagaur the Pale dm-112) — set regardless of `method`, since the
+   * exemption applies even when the creature's own printed `keyedTo` already
+   * matched natively. Read by `handlePlayHazardCard` (`mh-hazard-play.ts`) to
+   * skip incrementing `hazardsPlayedThisCompany`.
+   */
+  readonly hazardLimitExempt?: boolean;
 }
 
 export interface PlayHazardAction {

@@ -321,9 +321,31 @@
         "siteTypes": [
           "shadow-hold"
         ]
+      },
+      {
+        "siteNames": ["Moria", "The Under-gates"]
+      },
+      {
+        "siteKeywords": ["under-deeps"],
+        "when": { "inPlay": "Doors of Night" }
       }
     ],
-    "effects": [],
-    "text": "Unique. Troll. One strike. Also playable at Moria and The Under-gates. If Doors of Night is in play, playable at any Under-deeps site. Any non-unique Orc or Troll hazard creature can be played (not counting against the hazard limit) on a company that has faced Umagaur that turn."
+    "effects": [
+      {
+        "type": "grant-creature-keying",
+        "source": "faced-this-turn",
+        "creatureFilter": {
+          "$and": [
+            { "cardType": "hazard-creature" },
+            { "race": { "$in": ["orc", "troll"] } },
+            { "unique": { "$ne": true } }
+          ]
+        },
+        "siteFilter": {},
+        "hazardLimitExempt": true
+      }
+    ],
+    "text": "Unique. Troll. One strike. Also playable at Moria and The Under-gates. If Doors of Night is in play, playable at any Under-deeps site. Any non-unique Orc or Troll hazard creature can be played (not counting against the hazard limit) on a company that has faced Umagaur that turn.",
+    "certified": "2026-09-18"
   }
 ]

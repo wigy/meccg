@@ -799,8 +799,13 @@ export function handlePlayHazardCard(
     const constraintExempt = isCreatureRaceExemptViaConstraint(state, action, def);
     const grantExempt = !constraintExempt && isHazardLimitRaceGrantAvailable(state, def.race);
     const raceExempt = constraintExempt || grantExempt;
-    const newHazardCount = raceExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
-    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : ''} — initiating chain`);
+    // Umagaur the Pale (dm-112) / Bûthrakaur the Green (dm-105): a
+    // `grant-creature-keying` effect with `hazardLimitExempt: true`, computed
+    // by the legal-action layer and carried on the chosen `keyedBy`.
+    const keyingGrantExempt = action.keyedBy?.hazardLimitExempt === true;
+    const limitExempt = raceExempt || keyingGrantExempt;
+    const newHazardCount = limitExempt ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+    logDetail(`Play-hazards: hazard player plays creature "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${raceExempt ? ` [race "${def.race}" exempt from hazard limit]` : keyingGrantExempt ? ' [hazard-limit-exempt grant]' : ''} — initiating chain`);
 
     // Remove card from hand — it resides on the chain entry until combat resolves
     const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
@@ -860,7 +865,7 @@ export function handlePlayHazardCard(
         ...(nazgulBoost.kind.grantAttackerChoosesDefenders ? { grantAttackerChoosesDefenders: true as const } : {}),
       } : {}),
     };
-    newState = initiateChain(newState, action.player, handCard, creaturePayload, 'normal', !raceExempt);
+    newState = initiateChain(newState, action.player, handCard, creaturePayload, 'normal', !limitExempt);
 
     return { state: newState };
   }

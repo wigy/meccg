@@ -2504,10 +2504,17 @@ function playHazardsActions(
         continue;
       }
 
+      // Creature keying-grant lookup, hoisted above the hazard-limit gate so a
+      // `hazardLimitExempt` grant (Umagaur the Pale dm-112) exempts the play
+      // even when the hazard limit is otherwise already reached.
+      const keyingGrant = isCreature
+        ? grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def)
+        : { granted: false };
+
       // Hazard limit reached (cards with no-hazard-limit bypass this)
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
       const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
-      if (limitReached && !bypassesLimit && !raceExempt) {
+      if (limitReached && !bypassesLimit && !raceExempt && !keyingGrant.hazardLimitExempt) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
         continue;
       }
@@ -2635,7 +2642,6 @@ function playHazardsActions(
           continue;
         }
         const matches = findCreatureKeyingMatches(def, mhState, state, targetCompany);
-        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, def.race)
           || siteAllowsCreatureByRace(state, targetCompany, def)
           || siteAllowsCreatureByKeying(state, targetCompany, def)
@@ -2660,7 +2666,13 @@ function playHazardsActions(
         if (matches.length === 0 && keyingBypassed) {
           logDetail(`Creature "${def.name}" keyable via keying-bypass (race "${def.race}")`);
           actions.push({
-            action: { ...action, keyedBy: { method: 'keying-bypass', value: def.race, grantedRegionName: keyingGrant.regionName } },
+            action: {
+              ...action,
+              keyedBy: {
+                method: 'keying-bypass', value: def.race, grantedRegionName: keyingGrant.regionName,
+                ...(keyingGrant.hazardLimitExempt ? { hazardLimitExempt: true } : {}),
+              },
+            },
             viable: true,
           });
           continue;
@@ -2668,7 +2680,13 @@ function playHazardsActions(
         for (const match of matches) {
           logDetail(`Creature "${def.name}" keyable by ${match.method}: ${match.value}`);
           actions.push({
-            action: { ...action, keyedBy: match },
+            action: {
+              ...action,
+              // A `hazardLimitExempt` grant (Umagaur the Pale dm-112) applies
+              // regardless of which keying method actually matched — the
+              // printed text places no site/keying condition on the exemption.
+              keyedBy: keyingGrant.hazardLimitExempt ? { ...match, hazardLimitExempt: true } : match,
+            },
             viable: true,
           });
         }
@@ -5593,7 +5611,7 @@ function grantsCreatureKeying(
   owner: PlayerState,
   targetCompany: Company,
   creatureDef: CardDefinition,
-): { readonly granted: boolean; readonly regionName?: string } {
+): { readonly granted: boolean; readonly regionName?: string; readonly hazardLimitExempt?: boolean } {
   const grants = collectCreatureKeyingGrants(state, mhState);
   if (grants.length === 0) return { granted: false };
 
@@ -5638,7 +5656,12 @@ function grantsCreatureKeying(
       && regionPath.some(rt => e.siteFilter.regionTypes!.includes(rt));
     // Named-region branch: the company path includes one of the granted names.
     const matchedRegionName = e.siteFilter.regionNames?.find(rn => pathNames.includes(rn));
-    if (!siteBranch && !regionBranch && !matchedRegionName) continue;
+    // An empty siteFilter (no site/region dimension at all) matches any site —
+    // for grants whose printed text carries no site/region qualifier (Umagaur
+    // the Pale dm-112: only a creature/company gate, no keying widened).
+    const anySite = !e.siteFilter.siteTypes && !e.siteFilter.excludeSiteTypes
+      && !e.siteFilter.regionTypes && !e.siteFilter.regionNames;
+    if (!siteBranch && !regionBranch && !matchedRegionName && !anySite) continue;
     // Target-company gate (e.g. "a hero company bearing The One Ring").
     if (e.companyFilter) {
       const companyCtx = buildTargetCompanyConditionContext(
@@ -5648,9 +5671,10 @@ function grantsCreatureKeying(
     }
     logDetail(
       `Creature keying granted by "${sourceName}" (${e.source ?? 'in-play'}): `
-      + `${siteBranch ? `site type ${effSiteType}` : matchedRegionName ? `named region ${matchedRegionName}` : `region type on path`}`,
+      + `${siteBranch ? `site type ${effSiteType}` : matchedRegionName ? `named region ${matchedRegionName}` : regionBranch ? `region type on path` : 'any site'}`
+      + `${e.hazardLimitExempt ? ' [hazard-limit exempt]' : ''}`,
     );
-    return { granted: true, regionName: matchedRegionName };
+    return { granted: true, regionName: matchedRegionName, hazardLimitExempt: e.hazardLimitExempt };
   }
   return { granted: false };
 }
