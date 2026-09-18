@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.159.0 — 2026-09-18
+
+Bûthrakaur the Green and Umagaur the Pale bring Orc and Troll hordes past the hazard limit
+
+### Game Engine
+
+- Certified Bûthrakaur the Green (dm-105): the creature's `keyedTo` now carries the named-site alternates (Moria, The Under-gates) and the Doors of Night Under-deeps clause alongside its base Shadow-land keying, and `hazard-limit-race-grant` gained `source: "faced-this-turn"` (mirroring the field of the same name on `grant-creature-keying` — the grant outlives the creature and is resolved from the card pool by name against companies that faced it) plus `nonUniqueOnly`, so any non-unique Orc or Troll creature can be played against a company that faced Bûthrakaur this turn without counting against the hazard limit. Two per-race effects grant the exemption, keeping Host of Bats' (td-31) single-race `HazardLimitRaceGrantEffect` shape unchanged (#3086)
+- Certified Umagaur the Pale (dm-112): the same named-site (Moria/The Under-gates haven printings) and Doors of Night Under-deeps keying via the existing `keyedTo` fields, and the "any non-unique Orc or Troll creature can be played, not counting against the hazard limit, on a company that has faced Umagaur that turn" clause via a new `hazardLimitExempt` field on `grant-creature-keying`, threaded through `CreatureKeyingMatch` into `handlePlayHazardCard` and applied regardless of whether the creature's own native keying matched; an empty `siteFilter` on the grant now means "any site", since this grant carries no site or region qualifier. The card test drives the full keying matrix plus an end-to-end combat confirming `hazardsPlayedThisCompany` does not increment for the granted play (#3087)
+
 ## 0.158.0 — 2026-09-18
 
 Necklace of Girion, Under-deeps extra moves and unique items under Crown of Flowers

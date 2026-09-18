@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1333 | 1333 | 0 | 100.0% |
+| 1335 | 1335 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 117 | 117 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 141 | 141 | 100.0% |
+| DM | 143 | 143 | 100.0% |
 | LE | 321 | 321 | 100.0% |
 | TD | 134 | 134 | 100.0% |
 | TW | 424 | 424 | 100.0% |
@@ -325,12 +325,14 @@
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-100 | Which Might Be Lies | — | 6 | ☑ |
 | dm-104 | Your Welcome Is Doubtful | — | 13 | ☑ |
+| dm-105 | Bûthrakaur the Green | — | 15 | ☑ |
 | dm-106 | Chill Douser | — | 6 | ☑ |
 | dm-107 | Durin's Bane | — | 11 | ☑ |
 | dm-108 | Little Snuffler | — | 7 | ☑ |
 | dm-109 | Nameless Thing | — | 13 | ☑ |
 | dm-110 | Spider of the Môrlat | — | 19 | ☑ |
 | dm-111 | Stirring Bones | — | 6 | ☑ |
+| dm-112 | Umagaur the Pale | — | 10 | ☑ |
 | dm-113 | Wisp of Pale Sheen | — | 4 | ☑ |
 | dm-114 | An Unexpected Party | — | 15 | ☑ |
 | dm-115 | Ancient Stair | — | 8 | ☑ |
