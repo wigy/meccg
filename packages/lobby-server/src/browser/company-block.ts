@@ -611,7 +611,7 @@ export function renderCompanyBlock(
   const buildDiscardTargetClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     const selectedSE = getSelectedShortEvent();
     if (!selectedSE || !options?.onAction) return undefined;
-    const seAction = viableActions(lastView!.legalActions).find(
+    const seAction = viableActions(view.legalActions).find(
       (a): a is PlayShortEventAction => a.type === 'play-short-event'
         && a.cardInstanceId === selectedSE
         && a.discardTargetInstanceId === instId,
