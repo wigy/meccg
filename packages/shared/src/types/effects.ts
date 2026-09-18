@@ -9400,10 +9400,12 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
    * consumption bookkeeping, since no certified card using this flag limits
    * the count.
    *
-   * Used by Umagaur the Pale (dm-112) and Bûthrakaur the Green (dm-105):
-   * "Any non-unique Orc or Troll hazard creature can be played (not counting
-   * against the hazard limit) on a company that has faced [this creature]
-   * that turn."
+   * Used by Umagaur the Pale (dm-112): "Any non-unique Orc or Troll hazard
+   * creature can be played (not counting against the hazard limit) on a
+   * company that has faced Umagaur that turn." Bûthrakaur the Green (dm-105)
+   * is printed with the same text but is certified on
+   * {@link HazardLimitRaceGrantEffect}'s `source: 'faced-this-turn'` instead;
+   * the two mechanisms are independent and both remain in use.
    */
   readonly hazardLimitExempt?: boolean;
 }
@@ -11175,13 +11177,13 @@ export interface HazardLimitEnvironmentEffect extends EffectBase {
 
 /**
  * Grants a one-time-per-company exemption from the hazard limit for creatures
- * of {@link race}, while the carrying long/permanent hazard-event is in play.
+ * of {@link race}, while the carrying card is "active" per {@link source}.
  * Unlike {@link CreatureRaceChoiceEffect}'s `creature-type-no-hazard-limit`
  * constraint (declared against one specific company, unlimited uses for the
- * rest of the turn — Two or Three Tribes Present dm-97), this effect is
- * game-wide and self-targeting: it reaches **every** company, but only
- * {@link maxPerCompany} (default 1) creature of the race may be exempted
- * against each company during that company's own M/H sub-phase.
+ * rest of the turn — Two or Three Tribes Present dm-97), this effect reaches
+ * **every eligible** company, but only {@link maxPerCompany} (default 1)
+ * creature of the race may be exempted against each company during that
+ * company's own M/H sub-phase.
  *
  * Checked by `isCreatureRaceExempt` (`mh-hazard-play.ts`) alongside the
  * `creature-type-no-hazard-limit` constraint check; consumption is tracked in
@@ -11198,6 +11200,31 @@ export interface HazardLimitRaceGrantEffect extends EffectBase {
   readonly race: Race;
   /** Maximum exempted creatures of {@link race} per company per M/H phase (default 1). */
   readonly maxPerCompany?: number;
+  /**
+   * When true, only *non-unique* creatures of {@link race} are exempted —
+   * "Any non-unique Orc or Troll hazard creature …" (Bûthrakaur the Green
+   * dm-105, one `hazard-limit-race-grant` per race). Omit for grants with no
+   * uniqueness restriction (Host of Bats td-31).
+   */
+  readonly nonUniqueOnly?: boolean;
+  /**
+   * Where the grant is active — mirrors {@link GrantCreatureKeyingEffect.source}.
+   * Defaults to `'in-play'`.
+   *
+   * - `'in-play'` — the carrying card must sit in either player's
+   *   `cardsInPlay` (a long/permanent hazard-event, e.g. Host of Bats td-31).
+   * - `'faced-this-turn'` — the grant is carried by a **hazard creature** and
+   *   is active only against a company that has already faced that creature
+   *   this turn, i.e. the carrier's name appears in the company's
+   *   `MovementHazardPhaseState.hazardsEncountered`. The carrier itself is
+   *   gone from play by then, so the grant is resolved from the card pool by
+   *   name rather than from `cardsInPlay` — see `collectCreatureKeyingGrants`
+   *   for the analogous keying-grant lookup. Used by Bûthrakaur the Green
+   *   (dm-105): "Any non-unique Orc or Troll hazard creature can be played
+   *   (not counting against the hazard limit) on a company that has faced
+   *   Bûthrakaur that turn."
+   */
+  readonly source?: 'in-play' | 'faced-this-turn';
 }
 
 /**
