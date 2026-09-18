@@ -2506,7 +2506,7 @@ function playHazardsActions(
 
       // Hazard limit reached (cards with no-hazard-limit bypass this)
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
-      const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def as CreatureCard);
+      const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def);
       if (limitReached && !bypassesLimit && !raceExempt) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
         continue;
