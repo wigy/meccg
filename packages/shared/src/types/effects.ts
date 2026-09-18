@@ -2311,6 +2311,7 @@ export type TriggeredActionType =
   | 'modify-current-strike-prowess'
   | 'force-attacker-kill-on-resolution'
   | 'force-body-check-on-strike-failure'
+  | 'attach-corruption-on-strike-wound'
   | 'move'
   | 'place-item-on-character'
   | 'place-source-with-item'
@@ -3759,6 +3760,23 @@ export interface ForceBodyCheckOnStrikeFailureAction extends TriggeredActionBase
   readonly itemModifiers: readonly { readonly keyword: Keyword; readonly value: number }[];
 }
 
+/**
+ * `attach-corruption-on-strike-wound` — Wound of Long Burden (dm-102): played
+ * on a character facing a strike whose prowess already meets the card's
+ * `play-target` threshold, before the strike is rolled. The card discards to
+ * the hazard player's discard pile immediately (like any other combat hazard
+ * play — see `handleCombatPlayHazard`), but is marked eligible for
+ * reattachment via `CombatState.pendingCharacterCorruptionAttach`. If the
+ * targeted strike goes on to wound the character, `finalizeCombat` splices
+ * the card back out of the discard pile and attaches it to that character's
+ * `hazards` — "otherwise" (the strike fails against the defender) it simply
+ * stays discarded, satisfying "if the strike is not successful, discard this
+ * card" with no further bookkeeping. Type-only marker.
+ */
+export interface AttachCorruptionOnStrikeWoundAction extends TriggeredActionBase {
+  readonly type: 'attach-corruption-on-strike-wound';
+}
+
 /** `transform-site` — override all versions of the bearer's current site's type, optionally with a bespoke attack (Vile Fumes). */
 export interface TransformSiteAction extends TriggeredActionBase {
   readonly type: 'transform-site';
@@ -3985,6 +4003,7 @@ export type TriggeredAction =
   | ModifyCurrentStrikeProwessAction
   | ForceAttackerKillOnResolutionAction
   | ForceBodyCheckOnStrikeFailureAction
+  | AttachCorruptionOnStrikeWoundAction
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction
