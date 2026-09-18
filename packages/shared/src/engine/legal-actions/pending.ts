@@ -2195,6 +2195,12 @@ function applyOneConstraint(
       // initiation in `reducer-site.ts` (adds prowess / marks the attack
       // uncancelable) — no broad legal-action filtering needed here.
       return base;
+    case 'pending-attack-modifier':
+      // Unabated in Malice (ba-26): consumed directly by the site auto-attack
+      // initiation in `reducer-site.ts`, and by Tidings of Bold Spies's
+      // immediate M/H-phase duplicate attack in `chain-reducer.ts` — no
+      // broad legal-action filtering needed here.
+      return base;
     case 'defeat-attack-strikes':
       // Liquid Fire (wh-52): consumed directly by the site auto-attack
       // initiation in `reducer-site.ts` (forces every strike of a qualifying

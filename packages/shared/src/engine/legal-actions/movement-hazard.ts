@@ -4084,22 +4084,43 @@ function playHazardsActions(
         }
 
         // A short event whose only movement/hazard-relevant effect is a
-        // from-hand `modify-attack` is a *combat* modifier (e.g. Unabated in
-        // Malice ba-26, Black Vapour ba-14). It buffs an attack the company is
-        // facing, so it has no open movement/hazard play: during M/H there is
-        // no active attack to modify, and resolving it here would silently drop
-        // the buff (game mruvf51s-a9ge5j — Unabated in Malice played openly in
-        // M/H never affected the site's automatic-attack). Such a card must be
-        // played on the attack itself (via the combat modify-attack action) or
-        // placed on-guard to be revealed when the company faces the site's
-        // automatic-attack (rule 2.V.i). Suppress the open play; the on-guard
-        // placement action remains available separately. Cards reaching this
-        // point have already been ruled out of every legitimate M/H mode above
-        // (create-site-auto-attack, auto-attack-boost, creature-race-choice,
-        // etc.), each of which `continue`s before here.
-        const fromHandModifyAttack = getCardEffects(def).some(
-          (e): boolean => e.type === 'modify-attack' && !!(e as { fromHand?: boolean }).fromHand,
+        // from-hand `modify-attack` is normally a *combat* modifier (e.g.
+        // Black Vapour ba-14, gated on `enemy.race`): it buffs an attack the
+        // company is already facing, so with no live attack in M/H it must
+        // be played on the attack itself (via the combat modify-attack
+        // action) or placed on-guard to be revealed when the company faces
+        // the site's automatic-attack (rule 2.V.i).
+        //
+        // A card whose `modify-attack` is gated on `attack.automatic: true`
+        // (Unabated in Malice ba-26: "playable on an automatic-attack") is
+        // different: per CoE rule 9.3.2.3, such a hazard "may be targeted or
+        // affected... at any time while its site is in play" — it does not
+        // need a live attack, only a destination site that currently has an
+        // automatic-attack. Playing it openly here installs a pending
+        // modifier consumed when that automatic-attack initiates (see
+        // `consumePendingAttackModifier` in `manifestations.ts`), matching
+        // CoE Rulings Digest #61/#103 (interaction with Tidings of Bold
+        // Spies). Cards reaching this point have already been ruled out of
+        // every legitimate M/H mode above (create-site-auto-attack,
+        // auto-attack-boost, creature-race-choice, etc.), each of which
+        // `continue`s before here.
+        const modifyAttackEffect = getCardEffects(def).find(
+          (e): e is import('../../index.js').ModifyAttackEffect => e.type === 'modify-attack' && !!e.fromHand,
         );
+        const targetsAutomaticAttack = !!modifyAttackEffect?.when
+          && matchesCondition(modifyAttackEffect.when, { attack: { automatic: true } });
+        if (modifyAttackEffect && targetsAutomaticAttack) {
+          const destSiteInst = targetCompany.destinationSite;
+          const destSiteDef = destSiteInst ? resolveDef(state, destSiteInst.instanceId) : undefined;
+          if (destSiteDef && isSiteCard(destSiteDef) && getActiveAutoAttacks(state, destSiteDef, destSiteInst!.instanceId).length > 0) {
+            logDetail(`Hazard short-event "${def.name}": from-hand modify-attack targets an automatic-attack — playable openly in M/H onto ${destSiteDef.name}'s automatic-attack (rule 9.3.2.3)`);
+            actions.push({ action, viable: true });
+            continue;
+          }
+          logDetail(`Hazard short-event "${def.name}": destination has no automatic-attack to target — not playable openly in M/H (play it on the attack or place it on-guard)`);
+          actions.push({ action, viable: false, reason: `${def.name}: destination site has no automatic-attack to target` });
+          continue;
+        }
         // Fell Beast (tw-33): a card may carry a from-hand modify-attack mode
         // (played on an existing Nazgûl attack) *alongside* a genuine
         // standalone `on-event self-enters-play → add-constraint` mode
@@ -4110,7 +4131,7 @@ function playHazardsActions(
         const hasSelfEntersPlayAddConstraint = getCardEffects(def).some(
           e => e.type === 'on-event' && e.event === 'self-enters-play' && e.apply.type === 'add-constraint',
         );
-        if (fromHandModifyAttack && !hasSelfEntersPlayAddConstraint) {
+        if (modifyAttackEffect && !hasSelfEntersPlayAddConstraint) {
           logDetail(`Hazard short-event "${def.name}": from-hand modify-attack is a combat modifier — not playable openly in M/H (play it on the attack or place it on-guard)`);
           actions.push({ action, viable: false, reason: `${def.name} must be played on the attack it modifies or placed on-guard` });
           continue;

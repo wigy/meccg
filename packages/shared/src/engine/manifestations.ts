@@ -30,7 +30,7 @@ import type {
   PlayerState,
   SiteCard,
 } from '../index.js';
-import type { CardInstanceId } from '../types/common.js';
+import type { CardDefinitionId, CardInstanceId, CompanyId } from '../types/common.js';
 import { Race } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
@@ -38,6 +38,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { ownerOf } from '../types/state.js';
 import { isBalrogAvatarDef } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
+import { addConstraint, removeConstraint } from './pending.js';
 import { cardName, defById, getCardEffects, matchesDefinition, toCardInstance } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { factionRaceToAttackType, normalizeCreatureRace } from './effects/index.js';
@@ -693,4 +694,112 @@ function collectAtHomeAttacks(state: GameState, m: ManifestId): AutomaticAttack[
     }
   }
   return out;
+}
+
+/** Base attack numbers {@link consumePendingAttackModifier} adjusts. */
+export interface PendingAttackModifierBase {
+  readonly strikesTotal: number;
+  readonly strikeProwess: number;
+  readonly creatureBody: number | null;
+}
+
+/** Result of consuming a `pending-attack-modifier` constraint. */
+export interface PendingAttackModifierResult extends PendingAttackModifierBase {
+  readonly state: GameState;
+  readonly cancelProtection?: {
+    readonly sourceInstanceId: CardInstanceId;
+    readonly strikesModifier: number;
+    readonly prowessModifier: number;
+    readonly bodyModifier: number;
+  };
+}
+
+/**
+ * Consumes the first `pending-attack-modifier` constraint (Unabated in
+ * Malice ba-26, played openly in M/H onto a not-yet-initiated site
+ * automatic-attack — see {@link ../types/pending.js}) targeting `companyId`
+ * and bound to `siteDefinitionId`, applying its deltas to `base` exactly as
+ * the live combat `modify-attack` action would. Returns `base` unchanged
+ * (with the input `state`) when no such constraint exists.
+ *
+ * Called from both `reducer-site.ts` (the site phase's real automatic-attack
+ * initiation) and `chain-reducer.ts` (Tidings of Bold Spies's immediate
+ * M/H-phase duplicate attack), so a card played on the destination site's
+ * automatic-attack before either resolves affects both, per CoE Rulings
+ * Digest #61/#103.
+ */
+export function consumePendingAttackModifier(
+  state: GameState,
+  companyId: CompanyId,
+  siteDefinitionId: CardDefinitionId,
+  base: PendingAttackModifierBase,
+): PendingAttackModifierResult {
+  const constraint = state.activeConstraints.find(
+    c => c.target.kind === 'company'
+      && c.target.companyId === companyId
+      && c.kind.type === 'pending-attack-modifier'
+      && c.kind.siteDefinitionId === siteDefinitionId,
+  );
+  if (!constraint || constraint.kind.type !== 'pending-attack-modifier') {
+    return { ...base, state };
+  }
+  const { strikesModifier, prowessModifier, bodyModifier, firstCancelRemovesEffect } = constraint.kind;
+  const newStrikesTotal = strikesModifier !== 0 ? Math.max(1, base.strikesTotal + strikesModifier) : base.strikesTotal;
+  const appliedStrikesDelta = newStrikesTotal - base.strikesTotal;
+  const newStrikeProwess = base.strikeProwess + prowessModifier;
+  const newCreatureBody = base.creatureBody === null ? null : base.creatureBody + bodyModifier;
+  logDetail(`Consuming pending-attack-modifier from "${cardName(state, constraint.sourceDefinitionId, '?')}": strikes ${base.strikesTotal} → ${newStrikesTotal}, prowess ${base.strikeProwess} → ${newStrikeProwess}, creature body ${base.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+  const nextState = removeConstraint(state, constraint.id);
+  return {
+    state: nextState,
+    strikesTotal: newStrikesTotal,
+    strikeProwess: newStrikeProwess,
+    creatureBody: newCreatureBody,
+    ...(firstCancelRemovesEffect
+      ? {
+          cancelProtection: {
+            sourceInstanceId: constraint.source,
+            strikesModifier: appliedStrikesDelta,
+            prowessModifier,
+            bodyModifier,
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * Installs a `pending-attack-modifier` constraint (see
+ * {@link consumePendingAttackModifier}) for a from-hand `modify-attack`
+ * hazard-event (Unabated in Malice ba-26) played openly during the M/H
+ * phase directly onto the destination company's site automatic-attack,
+ * rather than on a live combat.
+ */
+export function installPendingAttackModifier(
+  state: GameState,
+  companyId: CompanyId,
+  siteDefinitionId: CardDefinitionId,
+  sourceInstanceId: CardInstanceId,
+  sourceDefinitionId: CardDefinitionId,
+  modifier: {
+    readonly strikesModifier: number;
+    readonly prowessModifier: number;
+    readonly bodyModifier: number;
+    readonly firstCancelRemovesEffect: boolean;
+  },
+): GameState {
+  return addConstraint(state, {
+    source: sourceInstanceId,
+    sourceDefinitionId,
+    scope: { kind: 'company-site-phase', companyId },
+    target: { kind: 'company', companyId },
+    kind: {
+      type: 'pending-attack-modifier',
+      strikesModifier: modifier.strikesModifier,
+      prowessModifier: modifier.prowessModifier,
+      bodyModifier: modifier.bodyModifier,
+      firstCancelRemovesEffect: modifier.firstCancelRemovesEffect,
+      siteDefinitionId,
+    },
+  });
 }

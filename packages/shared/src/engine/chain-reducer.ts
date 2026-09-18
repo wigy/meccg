@@ -44,7 +44,7 @@ import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
-import { isReduceAttacksToOneInPlay, getActiveAutoAttacks } from './manifestations.js';
+import { isReduceAttacksToOneInPlay, getActiveAutoAttacks, installPendingAttackModifier } from './manifestations.js';
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
@@ -5954,6 +5954,49 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         });
         const destSiteName = (defById(current, destSiteInst.definitionId) as { name?: string } | undefined)?.name ?? (destSiteInst.definitionId as string);
         logDetail(`Arouse Defenders: one automatic-attack at ${destSiteName} gets +${boostEffect.prowessBonus} prowess${boostEffect.uncancelable ? ' and cannot be canceled' : ''} this turn`);
+      }
+    }
+  }
+
+  // Unabated in Malice (ba-26): a from-hand `modify-attack` gated on
+  // `attack.automatic: true` played openly in M/H (rather than placed
+  // on-guard) targets the destination site's not-yet-initiated
+  // automatic-attack directly, per CoE rule 9.3.2.3 — see the gating logic
+  // in `movement-hazard.ts` which only offers this open-play mode when the
+  // destination site currently has one. Install a single-use
+  // `pending-attack-modifier` constraint (scope company-site-phase, keyed
+  // to the destination site) that the first automatic-attack the company
+  // faces there consumes (`reducer-site.ts`). (Interaction with Tidings of
+  // Bold Spies's immediate M/H-phase duplicate attack — CoE Rulings Digest
+  // #61/#103 — is not modelled here; that duplicate is unaffected.)
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const uimCardDef = defById(current, entry.card.definitionId);
+    const uimEffect = getCardEffects(uimCardDef).find(
+      (e): e is import('../index.js').ModifyAttackEffect => e.type === 'modify-attack' && !!e.fromHand,
+    );
+    if (uimEffect?.when && matchesCondition(uimEffect.when, { attack: { automatic: true } })) {
+      const activeIndex = getPlayerIndex(current, current.activePlayer!);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      const destSiteInst = company?.destinationSite ?? null;
+      if (company && destSiteInst) {
+        current = installPendingAttackModifier(
+          current,
+          company.id,
+          destSiteInst.definitionId,
+          entry.card.instanceId,
+          entry.card.definitionId,
+          {
+            strikesModifier: uimEffect.strikesModifier ?? 0,
+            prowessModifier: uimEffect.prowessModifier ?? 0,
+            bodyModifier: uimEffect.bodyModifier ?? 0,
+            firstCancelRemovesEffect: !!uimEffect.firstCancelRemovesEffect,
+          },
+        );
+        const destSiteName = (defById(current, destSiteInst.definitionId) as { name?: string } | undefined)?.name ?? (destSiteInst.definitionId as string);
+        logDetail(`${uimCardDef?.name ?? 'Card'}: played openly in M/H — will modify the first automatic-attack faced at ${destSiteName} (+${uimEffect.strikesModifier ?? 0} strikes, +${uimEffect.prowessModifier ?? 0} prowess, ${uimEffect.bodyModifier ?? 0} body)`);
       }
     }
   }
