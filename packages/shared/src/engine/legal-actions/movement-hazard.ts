@@ -2506,7 +2506,7 @@ function playHazardsActions(
 
       // Hazard limit reached (cards with no-hazard-limit bypass this)
       const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
-      const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def.race);
+      const raceExempt = isCreature && isCreatureRaceExemptFromLimit(state, targetCompany.id, def);
       if (limitReached && !bypassesLimit && !raceExempt) {
         actions.push({ action, viable: false, reason: `Hazard limit reached (${liveLimit})` });
         continue;
@@ -5752,21 +5752,22 @@ export function deckExhaustExchangeActions(
  * Check whether a creature's race is exempted from the hazard limit by
  * a `creature-type-no-hazard-limit` active constraint on the target company
  * (Two or Three Tribes Present dm-97, Dragon's Desolation tw-29 Mode B), or by
- * an in-play `hazard-limit-race-grant` still holding an unused exemption for
- * this company this M/H sub-phase (Host of Bats td-31).
+ * a `hazard-limit-race-grant` still holding an unused exemption for this
+ * company this M/H sub-phase (Host of Bats td-31; Bûthrakaur the Green
+ * dm-105 via `source: 'faced-this-turn'`).
  */
 function isCreatureRaceExemptFromLimit(
   state: GameState,
   companyId: CompanyId,
-  race: Race,
+  def: CreatureCard,
 ): boolean {
   const constraintExempt = !!state.activeConstraints?.some(
     c => c.target.kind === 'company'
       && c.target.companyId === companyId
       && c.kind.type === 'creature-type-no-hazard-limit'
-      && c.kind.exemptRace === race,
+      && c.kind.exemptRace === def.race,
   );
-  return constraintExempt || isHazardLimitRaceGrantAvailable(state, race);
+  return constraintExempt || isHazardLimitRaceGrantAvailable(state, def);
 }
 
 /**

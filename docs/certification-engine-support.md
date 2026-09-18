@@ -931,6 +931,22 @@ Host of Bats (td-31): "Against each company, one Orc hazard creature may be play
 
 Used by *Host of Bats* (td-31).
 
+### `hazard-limit-race-grant` gains `source: "faced-this-turn"` + `nonUniqueOnly` (Bûthrakaur the Green dm-105)
+
+Bûthrakaur the Green (dm-105): "Unique. Troll. One strike. Also playable at Moria and The Under-gates. If Doors of Night is in play, playable at any Under-deeps site. Any non-unique Orc or Troll hazard creature can be played (not counting against the hazard limit) on a company that has faced Bûthrakaur that turn." Unlike Host of Bats' `hazard-limit-race-grant` (game-wide, reaches every company, carried by an in-play long-event), this grant is carried by a **hazard creature** and scoped to only the company that already faced it — the same "outlives the carrier, scoped to one company" shape `grant-creature-keying`'s `source: "faced-this-turn"` already solved for Dwarven Travelers (as-9). Two new optional fields generalize `HazardLimitRaceGrantEffect` to reuse that shape rather than inventing a parallel mechanism:
+
+- **`source?: 'in-play' | 'faced-this-turn'`** (default `'in-play'`) — mirrors `GrantCreatureKeyingEffect.source`. `findHazardLimitRaceGrant` (`mh-hazard-play.ts`) now scans two sources: `'in-play'` grants from both players' `cardsInPlay` (Host of Bats, unchanged), and `'faced-this-turn'` grants resolved from the card pool by name for every entry in the current M/H sub-phase's `MovementHazardPhaseState.hazardsEncountered` (mirrors `collectCreatureKeyingGrants`'s equivalent lookup) — the carrier itself is long gone from play (discarded or trophied) by the time the grant is checked.
+- **`nonUniqueOnly?: boolean`** — when true, the grant only matches a candidate creature whose own `unique` is falsy ("Any **non-unique** Orc or Troll hazard creature…"). Checked alongside the race match in `findHazardLimitRaceGrant`.
+
+`isHazardLimitRaceGrantAvailable` and `isCreatureRaceExempt`/`isCreatureRaceExemptFromLimit` (`mh-hazard-play.ts`, `legal-actions/movement-hazard.ts`) now take the full `CreatureCard` being played (not just its `race`) so the uniqueness check has something to test; both call sites already had `def` in scope. Consumption bookkeeping (`hazardLimitRaceGrantsUsed`, company-scoped, reset every company) is unchanged and still keyed by `Race`, so Orc and Troll exemptions from the same card (two separate `hazard-limit-race-grant` effects, one per race — no `races` array was added) track independently.
+
+```json
+{ "type": "hazard-limit-race-grant", "race": "orc", "source": "faced-this-turn", "nonUniqueOnly": true },
+{ "type": "hazard-limit-race-grant", "race": "troll", "source": "faced-this-turn", "nonUniqueOnly": true }
+```
+
+Used by *Bûthrakaur the Green* (dm-105).
+
 ### `grant-creature-keying` named-region branch reused for the Mirkwood/Anduin sibling (Reaching Shadow dm-81)
 
 Reaching Shadow (dm-81): "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated." Word-for-word the In Darkness Bind Them (dm-65) template with a different region list, so it is certified on exactly the mechanism documented in the dm-65 section above with **no new engine code**: two `grant-creature-keying` effects using the `siteFilter.regionNames` named-region branch, gated by `requiresKeyedToRegionType` (`{ "regionType": "shadow", "exactCount": 1 }` for "one single Shadow-land" — a double-Shadow-land keying such as Wild Fell Beast is excluded per CRF 22 "may not be used to play creatures keyed to double Shadow-lands"; `{ "regionType": "dark" }` for "a Dark-domain"), plus an `on-event: attack-defeated` self-discard gated on `attack.keyingRegionNames` (`{ "$in": [<the ten names>] }`), which only sees a name when the creature was actually keyed via the grant (`keyedBy.grantedRegionName`) or via its own printed `keyedTo.regionNames` — never via a region-type symbol elsewhere on the path.
