@@ -1124,3 +1124,17 @@ The `creatureFilter` restricts the grant to "non-unique Orc or Troll" with the e
 ```
 
 Used by *Umagaur the Pale* (dm-112). Bûthrakaur the Green (dm-105) is printed with identical text but was certified separately on `hazard-limit-race-grant`'s `source: "faced-this-turn"` + `nonUniqueOnly` (see its own section above); the two mechanisms are independent and both remain in use — unlike dm-105's, this one also widens keying and applies no per-company cap.
+
+### Creature self stat-modifier reaches `strikes`, not just `prowess` (The Border-watch le-63)
+
+The Border-watch (le-63): "Men. Five strikes (two strikes and detainment against hero companies)." Its printed 5 strikes drop to 2 against a hero (or, per rule 2.IV.vii.F1, Fallen-wizard) defending company, paired with `combat-detainment`.
+
+Orc-lieutenant's "creature's own untargeted `stat-modifier` effects apply to its own attack" precedent (`CreatureSelfContext`, `resolveAttackProwess`) only ever reached `prowess` — `resolveAttackStrikes` built its context without `creatureSelf` at all, so an untargeted strikes `stat-modifier` on a hazard-creature card silently did nothing. `resolveAttackStrikes` (`resolver.ts`) now takes the same optional trailing `creatureSelf?: CreatureSelfContext` parameter as `resolveAttackProwess` and applies it identically: untargeted `stat-modifier` effects on the creature's own `effects[]` are evaluated against the same attack context (`defender.alignment`, `company.facedRaces`/`facedNames`, `attack.keying`, …) and folded into `resolveStatModifiers(..., 'strikes', ...)`. The sole call site building a `creatureSelf` context — `initiateCreatureCombat` (`chain-reducer.ts`) — now threads it into both calls instead of only the prowess one.
+
+```json
+{ "type": "stat-modifier", "stat": "strikes", "op": "set", "value": 2,
+  "when": { "$or": [ { "defender.alignment": "hero" }, { "defender.alignment": "fallen-wizard" } ] } },
+{ "type": "combat-detainment", "when": { "defender.alignment": "hero" } }
+```
+
+**Alignment-label mismatch, and why the strikes `when` spells out both branches.** `combat-detainment`'s own `when` is evaluated by `engine/detainment.ts` against `detainmentAlignmentLabel`, which maps *both* Wizard and Fallen-wizard defenders to `"hero"` (rule 2.IV.vii.F1: a Fallen-wizard's companies count as hero companies when determining whether an attack is detainment). The self-modifier context's `defender.alignment`, however, is built via `defenderAlignmentLabel` (`detainment.ts`), which maps only Wizard to `"hero"` — Fallen-wizard stays `"fallen-wizard"` — because most "against hero companies" stat text is *not* detainment-coupled (e.g. Saruman the Wise as-19/as-11's own `-3 prowess when { defender.alignment: hero }` deliberately excludes Fallen-wizard). Since Border-watch's single printed clause couples the strike-count change to detainment itself, its `stat-modifier` `when` explicitly ORs in `defender.alignment: "fallen-wizard"` to stay consistent with the `combat-detainment` branch it is textually paired with — a card-data-level fix, not a change to either alignment-label function (which would wrongly widen unrelated hero-only stat text to Fallen-wizard defenders).

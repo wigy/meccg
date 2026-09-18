@@ -335,7 +335,19 @@ Optional `target` scopes:
   and
   `{ "stat": "direct-influence", "value": -1, "target": "company", "when": { "bearer.race": "wizard" } }`.
 - *(no target)* on a hazard-creature card — self-modifier applied to the
-  creature's own prowess at combat initiation. The context includes
+  creature's own prowess **or strikes** at combat initiation (`resolveAttackProwess`
+  and `resolveAttackStrikes` both accept the same `creatureSelf` context). Used by
+  The Border-watch (le-63): "Five strikes (two strikes and detainment against hero
+  companies)" — `{ "stat": "strikes", "op": "set", "value": 2, "when": { "$or": [
+  { "defender.alignment": "hero" }, { "defender.alignment": "fallen-wizard" } ] } }`
+  paired with a `combat-detainment` effect of its own. Note the `when` spells out
+  both `"hero"` and `"fallen-wizard"`: this self-modifier context's `defender.alignment`
+  is built from `defenderAlignmentLabel` (Wizard only maps to `"hero"`), whereas
+  `combat-detainment`'s own `when` is separately evaluated against
+  `detainmentAlignmentLabel` (rule 2.IV.vii.F1 — Fallen-wizard also maps to `"hero"`
+  for detainment purposes); a card whose strikes change is textually coupled to its
+  own detainment, like le-63, must OR in `"fallen-wizard"` explicitly to keep the two
+  effects consistent with each other. The context includes
   `company.facedRaces`, derived from `phaseState.hazardsEncountered` by
   looking up each faced hazard's race in the card pool, enabling
   conditions like Orc-lieutenant's +4 prowess. It also includes
