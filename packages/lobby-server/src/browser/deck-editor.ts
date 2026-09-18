@@ -7,7 +7,7 @@
  */
 
 import {
-  getCardCss, validateDeck, CHARACTER_CARD_TYPES, Race, hasPlayFlag,
+  getCardCss, validateDeck, CHARACTER_CARD_TYPES, Race, hasPlayFlag, isSynthesizedActsAsSiteId,
   type CardDefinition, type DeckList,
 } from '@meccg/shared';
 import {
@@ -599,6 +599,11 @@ export function openCardBrowser(
   toggles: BrowserToggle[] = [],
 ): void {
   const cards = Object.entries(cardPool)
+    // Synthesized `acts-as-site` companion definitions (e.g. `td-171-site`
+    // for Wondrous Maps) share their source card's name and site type so
+    // engine site-lookups treat them like a real site, but they are not
+    // obtainable cards a deck can include — exclude them from every browser.
+    .filter(([id]) => !isSynthesizedActsAsSiteId(id))
     .filter(([, def]) => cardFilter(def))
     .sort(([, a], [, b]) => a.name.localeCompare(b.name));
 
