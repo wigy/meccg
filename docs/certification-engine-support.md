@@ -1127,6 +1127,33 @@ The `creatureFilter` restricts the grant to "non-unique Orc or Troll" with the e
 
 Used by *Umagaur the Pale* (dm-112). Bûthrakaur the Green (dm-105) is printed with identical text but was certified separately on `hazard-limit-race-grant`'s `source: "faced-this-turn"` + `nonUniqueOnly` (see its own section above); the two mechanisms are independent and both remain in use — unlike dm-105's, this one also widens keying and applies no per-company cap.
 
+### `discard-item-or-wound-character` + `target.itemSubtypes` company-filter field (Rats! le-131)
+
+Rats! (le-131): "Playable on a company containing at least one minor item that is at or moving to a Ruins & Lairs [{R}], Shadow-hold [{S}], or Dark-hold [{D}]. Company discards one minor item of its choice or chooses one of its unwounded characters to become wounded (no body check required)." — **fully implemented**.
+
+**Play condition.** The company-targeting `play-target` filter context (`legal-actions/movement-hazard.ts`, "Company-targeting short events" block) already exposed `target.siteType`; it now also aggregates `target.itemSubtypes` — the `subtype` of every item borne by any character in the company (via the existing `itemSubtypesOf` helper, one call per character, flattened), mirroring the per-character `target.itemSubtypes` field the character-targeting branch already builds. "At least one minor item" is `{ "target.itemSubtypes": { "$includes": "minor" } }`, ANDed with the pre-existing site-type gate.
+
+**The forced choice.** Unlike `play-option` (a choice the *card-player* makes at declaration time — Drowning Seas tw-30), Rats!'s choice belongs to the *defending* company's controller, made when the card resolves. A new top-level effect, `discard-item-or-wound-character` (`itemFilter?: Condition`, e.g. `{ "subtype": "minor" }`), is detected in `chain-reducer.ts`'s `resolveEntry` at the same company-targeting short-event resolution point `company-tap-roll`/`company-tap-characters` use (guarded on `phaseState.phase === MovementHazard`, `!entry.negated`, no `targetCharacterId`). Unlike Drowning Seas's `force-discard-one-company-item` (dispatched *after* the entry already resolved un-negated, since the card is a plain short event with no special resolution hook — its own discard already happened at play time and is independent of the follow-up), this effect — like `company-tap-roll` — returns `{ state, needsInput: true }` and enqueues a new `item-or-wound-choice` {@link PendingResolution} instead of letting the entry fall through, so the entry stays formally unresolved until the choice is made.
+
+`item-or-wound-choice` (`companyId`, `itemFilter?`) offers **both** response families together as one flat set of `choose-item-or-wound` actions (`choice: "discard-item" | "wound-character"`, mirroring `tap-or-roll-choice`'s single-action-type-with-discriminant shape rather than a two-stage mode pick):
+
+- One `discard-item` choice per item in the company matching `itemFilter`, reusing `eligibleCompanyDiscardItems` (constructing an ad-hoc `discard-one-company-item`-shaped kind object, since that helper only reads `companyId`/`characterId`/`itemFilter` off its argument).
+- One `wound-character` choice per company character whose `status !== inverted` (unwounded).
+- With nothing eligible on either side (the qualifying item was discarded by an earlier effect in the same chain, say), a `pass` is offered instead so the resolution can be dismissed rather than deadlocking the game — mirroring `discard-one-company-item`'s own pass-when-unsatisfiable rule.
+
+`applyItemOrWoundChoiceResolution` (`pending-reducers.ts`) resolves either branch — `wound-character` sets the chosen character's status to `inverted` (the same status-set `set-character-status`/`target-character` uses for Escape tw-229's "wounded, no body check"); `discard-item` removes the chosen item from its bearer and moves it to the defending player's discard pile, mirroring `applyDiscardOneCompanyItemResolution`'s item-removal logic (without the Leaf Brooch `discard-substitute` interposition — out of scope for this card's own text, and routing through it would need a chain-entry-closing continuation the substitute-offer resolution doesn't carry). Either branch then calls `resolveChainEntryAndContinue`, matching the chain entry by `entry.card?.instanceId === top.source` (the same pattern `applyCompanyTapRollResolution` uses to close out its own still-open entry once its last roll resolves), so the chain finishes clearing once the defender has chosen.
+
+```json
+{ "type": "play-target", "target": "company",
+  "filter": { "$and": [
+    { "target.itemSubtypes": { "$includes": "minor" } },
+    { "target.siteType": { "$in": ["ruins-and-lairs", "shadow-hold", "dark-hold"] } }
+  ] } }
+{ "type": "discard-item-or-wound-character", "itemFilter": { "subtype": "minor" } }
+```
+
+Used by *Rats!* (le-131).
+
 ### Creature self stat-modifier reaches `strikes`, not just `prowess` (The Border-watch le-63)
 
 The Border-watch (le-63): "Men. Five strikes (two strikes and detainment against hero companies)." Its printed 5 strikes drop to 2 against a hero (or, per rule 2.IV.vii.F1, Fallen-wizard) defending company, paired with `combat-detainment`.

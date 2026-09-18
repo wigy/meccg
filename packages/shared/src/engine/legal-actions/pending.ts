@@ -2991,6 +2991,71 @@ export function eligibleCompanyDiscardItems(
 }
 
 /**
+ * Legal actions while an `item-or-wound-choice` resolution is pending (Rats!
+ * le-131): the defending company's controller must choose either to discard
+ * one item (matching the source card's `itemFilter`, e.g. "minor") from any
+ * character in the company, or to have one of the company's unwounded
+ * characters become wounded (no body check). One `choose-item-or-wound`
+ * action is offered per eligible item and per eligible unwounded character —
+ * both response families are offered together so the defender picks a single
+ * action (mirrors `tapOrRollChoiceActions`).
+ *
+ * The card's own `play-target` filter guarantees at least one minor item
+ * exists when Rats! is played, but the company may change before this
+ * resolution is reached (e.g. the item is discarded by another effect first)
+ * — with nothing eligible on either side, a `pass` is offered instead so the
+ * resolution can be dismissed rather than deadlocking the game.
+ */
+export function itemOrWoundChoiceActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'item-or-wound-choice') return [];
+  const { companyId, itemFilter } = top.kind;
+
+  const actions: EvaluatedAction[] = eligibleCompanyDiscardItems(state, {
+    type: 'discard-one-company-item',
+    companyId,
+    itemFilter,
+  }).map(itemInstanceId => ({
+    action: {
+      type: 'choose-item-or-wound' as const,
+      player: actor,
+      choice: 'discard-item' as const,
+      itemInstanceId,
+    },
+    viable: true,
+  }));
+
+  const defPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
+  const company = defPlayer ? companyById(defPlayer.companies, companyId) : undefined;
+  if (defPlayer && company) {
+    for (const charId of company.characters) {
+      const ch = defPlayer.characters[charId];
+      if (!ch || ch.status === CardStatus.Inverted) continue;
+      logDetail(`item-or-wound-choice: offering to wound ${cardName(state, ch.definitionId)}`);
+      actions.push({
+        action: {
+          type: 'choose-item-or-wound' as const,
+          player: actor,
+          choice: 'wound-character' as const,
+          characterInstanceId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
+
+  if (actions.length === 0) {
+    logDetail('item-or-wound-choice: no eligible item or unwounded character — only pass is offered');
+    actions.push({ action: { type: 'pass', player: actor }, viable: true });
+  }
+
+  return actions;
+}
+
+/**
  * Legal actions while a `discard-substitute-offer` resolution is pending
  * (Leaf Brooch dm-171).
  *
