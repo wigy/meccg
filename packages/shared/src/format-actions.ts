@@ -745,6 +745,10 @@ export function describeAction(
         : action.choice === 'tap-ally'
           ? `${playerName(action.player)} taps ${instName(action.allyInstanceId!)} instead (A Lie in Your Eyes)`
           : `${playerName(action.player)} lets the opponent roll (A Lie in Your Eyes)`;
+    case 'choose-item-or-wound':
+      return action.choice === 'discard-item'
+        ? `${playerName(action.player)} discards ${instName(action.itemInstanceId!)} instead (Rats!)`
+        : `${playerName(action.player)} lets ${instName(action.characterInstanceId!)} become wounded instead (Rats!)`;
     case 'choose-peek-deck':
       return `${playerName(action.player)} looks at the top cards of ${action.deckOwner === 'self' ? 'their own' : "the opponent's"} play deck and shuffles them back on top (Mirror of Galadriel)`;
     case 'choose-great-hunt-source':

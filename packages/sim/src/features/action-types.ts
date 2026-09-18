@@ -202,6 +202,7 @@ export const ACTION_TYPES: readonly string[] = [
   'character-tap-extra-mh-phase',
   'choose-gold-ring-test-roll',
   'choose-hunt-target',
+  'choose-item-or-wound',
   'choose-long-dark-reach-attacker',
   'choose-set-aside-item',
   'choose-tap-or-roll',

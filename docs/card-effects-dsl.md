@@ -14081,6 +14081,42 @@ no roll, no mind gate).
 
 Used by: *Heedless Revelry* (le-114).
 
+### 44c. `discard-item-or-wound-character`
+
+A hazard short-event effect, company-targeting like `company-tap-roll`, that
+on chain resolution during the M/H phase hands the **defending company's
+controller** a forced choice: discard one item (matching the optional
+`itemFilter`) from any character in the company, or have one of the
+company's unwounded characters become wounded (no body check).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `itemFilter` | no | DSL condition every candidate item's card definition must match (e.g. `{ "subtype": "minor" }`). Absent = every item qualifies. |
+
+```json
+{ "type": "discard-item-or-wound-character", "itemFilter": { "subtype": "minor" } }
+```
+
+**Resolution**: `chain-reducer.ts` enqueues an `item-or-wound-choice`
+{@link PendingResolution} (`companyId`, `itemFilter?`) instead of resolving
+the entry outright. `itemOrWoundChoiceActions` (`legal-actions/pending.ts`)
+offers every response as one flat family of `choose-item-or-wound` actions
+(`choice: "discard-item" | "wound-character"`, mirroring `tap-or-roll-choice`'s
+single-action-type-with-discriminant shape) — one `discard-item` per matching
+item (via `eligibleCompanyDiscardItems`), one `wound-character` per unwounded
+company character. `applyItemOrWoundChoiceResolution` (`pending-reducers.ts`)
+sets the chosen character's status to `inverted` (the wound, no body check)
+or moves the chosen item to the defender's discard pile, then closes the
+still-open source chain entry via `resolveChainEntryAndContinue` — the same
+close-out `company-tap-roll` uses once its last roll resolves.
+
+The **company** `play-target` filter context also exposes `target.itemSubtypes`
+(the `subtype` of every item borne by any character in the company), so "a
+company containing at least one minor item" is
+`{ "target.itemSubtypes": { "$includes": "minor" } }`.
+
+Used by: *Rats!* (le-131).
+
 ### 45. `force-return-to-origin`
 
 Hazard environment (long-event) clause enforcing **CoE rule 5.31 — Company

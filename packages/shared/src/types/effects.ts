@@ -8275,6 +8275,30 @@ export interface CompanyTapRollEffect extends EffectBase {
 }
 
 /**
+ * When this hazard short-event resolves on the active movement/hazard
+ * company, the company's controller (the defending player) must choose
+ * either: discard one item matching the optional {@link itemFilter} borne by
+ * any character in the company, or have one of the company's unwounded
+ * characters become wounded (no body check). Resolved via an
+ * `item-or-wound-choice` {@link PendingResolution} — one `choose-item-or-wound`
+ * action per eligible item and per eligible unwounded character, all offered
+ * together so the defender's choice is a single action pick (mirrors A Lie in
+ * Your Eyes's `tap-or-roll-choice` shape).
+ *
+ * Used by Rats! (le-131): "Company discards one minor item of its choice or
+ * chooses one of its unwounded characters to become wounded (no body check
+ * required)."
+ */
+export interface DiscardItemOrWoundCharacterEffect extends EffectBase {
+  readonly type: 'discard-item-or-wound-character';
+  /**
+   * DSL condition every candidate item's card definition must match (Rats!:
+   * `{ "subtype": "minor" }`). Absent = every item qualifies.
+   */
+  readonly itemFilter?: Condition;
+}
+
+/**
  * When this resource short-event resolves on a company, roll 2d6 for each
  * hazard permanent-event attached to characters in that company. If the roll
  * exceeds the hazard's `removalNumber` (or 8 if not set), the hazard is
@@ -9970,6 +9994,7 @@ export type CardEffect =
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | CompanyTapRollEffect
+  | DiscardItemOrWoundCharacterEffect
   | SeizedByTerrorCheckEffect
   | LeftBehindSplitEffect
   | PlayDiscardCostEffect

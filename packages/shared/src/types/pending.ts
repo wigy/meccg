@@ -1386,6 +1386,23 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Rats! (le-131): the defending company's controller must choose
+         * either to discard one item (matching {@link itemFilter}) from any
+         * character in the company, or to have one of the company's
+         * unwounded characters become wounded (no body check). Resolved by a
+         * `choose-item-or-wound` action.
+         */
+        readonly type: 'item-or-wound-choice';
+        /** The company facing the forced choice. */
+        readonly companyId: CompanyId;
+        /**
+         * DSL condition every candidate item's card definition must match
+         * (Rats!: `{ "subtype": "minor" }`). Absent = every item qualifies.
+         */
+        readonly itemFilter?: Condition;
+      }
+    | {
+        /**
          * Long Dark Reach (dm-70): the card-player has revealed the top cards
          * of their own play deck and at least one is an eligible attacker
          * candidate (Nazgûl, Dragon, or non-unique creature, playable outside
