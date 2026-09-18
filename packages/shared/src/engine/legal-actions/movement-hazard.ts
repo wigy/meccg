@@ -3550,9 +3550,8 @@ function playHazardsActions(
             const cDef = ch ? defById(state, ch.definitionId) : undefined;
             return !!cDef && isCharacterCard(cDef) && cDef.race === Race.Ringwraith;
           });
-          // Item-subtype context (Rats! le-131: "a company containing at
-          // least one minor item"), mirroring the character-target block's
-          // per-character itemSubtypes.
+          // Item-subtype aggregation across every character in the company
+          // (Rats! le-131: "a company containing at least one minor item").
           const companyItemSubtypes = targetCompany.characters.flatMap(cId => {
             const ch = resourcePlayer.characters[cId];
             return ch ? itemSubtypesOf(state, ch.items) : [];

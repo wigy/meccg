@@ -611,7 +611,7 @@ export function renderCompanyBlock(
   const buildDiscardTargetClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
     const selectedSE = getSelectedShortEvent();
     if (!selectedSE || !options?.onAction) return undefined;
-    const seAction = viableActions(lastView!.legalActions).find(
+    const seAction = viableActions(view.legalActions).find(
       (a): a is PlayShortEventAction => a.type === 'play-short-event'
         && a.cardInstanceId === selectedSE
         && a.discardTargetInstanceId === instId,
@@ -776,12 +776,22 @@ export function renderCompanyBlock(
 
   /** Build click handler for cards with granted actions (hazards, or bearer-less in-play cards), or for allies eligible as a "skill only" card target (e.g. Stealth tapping a scout ally). */
   const buildHazardClick = (instId: CardInstanceId): { cls: string; handler: (e: Event) => void } | undefined => {
+    // Discard-target short events (The Cock Crows, Marvels Told, ...) name a
+    // hazard's own instance id via `discardTargetInstanceId`, never via
+    // `targetScoutInstanceId` — so this must be checked before
+    // CHARACTER_TARGETING_MODES below. That check's short-event mode only
+    // matches `targetScoutInstanceId`, so for a hazard (never a valid scout
+    // target) it always resolves to zero matches and returns `undefined`,
+    // shadowing the correct discard-target click and leaving the card
+    // unhighlighted and unclickable (bug report 2fd37e5fc884babb: The Cock
+    // Crows highlighted Balrog of Moria in cardsInPlay but not Lure of
+    // Expedience attached to a character as a hazard).
+    const discardClick = buildDiscardTargetClick(instId);
+    if (discardClick) return discardClick;
+
     if (CHARACTER_TARGETING_MODES.some(mode => mode.selected())) {
       return buildTargetingModeClick(instId);
     }
-
-    const discardClick = buildDiscardTargetClick(instId);
-    if (discardClick) return discardClick;
 
     if (!options?.onAction || !options.grantedActions) return undefined;
     const actions = options.grantedActions.get(instId as string);

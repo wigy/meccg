@@ -1763,12 +1763,18 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Rats.jpg",
     "unique": false,
     "eventType": "short",
+    "certified": "2026-09-18",
     "effects": [
       {
         "type": "play-target",
         "target": "company",
         "filter": {
           "$and": [
+            {
+              "target.itemSubtypes": {
+                "$includes": "minor"
+              }
+            },
             {
               "target.siteType": {
                 "$in": [
@@ -1777,13 +1783,14 @@
                   "dark-hold"
                 ]
               }
-            },
-            {
-              "target.itemSubtypes": {
-                "$includes": "minor"
-              }
             }
           ]
+        }
+      },
+      {
+        "type": "discard-item-or-wound-character",
+        "itemFilter": {
+          "subtype": "minor"
         }
       }
     ],

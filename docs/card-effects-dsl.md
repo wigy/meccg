@@ -335,7 +335,19 @@ Optional `target` scopes:
   and
   `{ "stat": "direct-influence", "value": -1, "target": "company", "when": { "bearer.race": "wizard" } }`.
 - *(no target)* on a hazard-creature card — self-modifier applied to the
-  creature's own prowess at combat initiation. The context includes
+  creature's own prowess **or strikes** at combat initiation (`resolveAttackProwess`
+  and `resolveAttackStrikes` both accept the same `creatureSelf` context). Used by
+  The Border-watch (le-63): "Five strikes (two strikes and detainment against hero
+  companies)" — `{ "stat": "strikes", "op": "set", "value": 2, "when": { "$or": [
+  { "defender.alignment": "hero" }, { "defender.alignment": "fallen-wizard" } ] } }`
+  paired with a `combat-detainment` effect of its own. Note the `when` spells out
+  both `"hero"` and `"fallen-wizard"`: this self-modifier context's `defender.alignment`
+  is built from `defenderAlignmentLabel` (Wizard only maps to `"hero"`), whereas
+  `combat-detainment`'s own `when` is separately evaluated against
+  `detainmentAlignmentLabel` (rule 2.IV.vii.F1 — Fallen-wizard also maps to `"hero"`
+  for detainment purposes); a card whose strikes change is textually coupled to its
+  own detainment, like le-63, must OR in `"fallen-wizard"` explicitly to keep the two
+  effects consistent with each other. The context includes
   `company.facedRaces`, derived from `phaseState.hazardsEncountered` by
   looking up each faced hazard's race in the card pool, enabling
   conditions like Orc-lieutenant's +4 prowess. It also includes
@@ -10471,6 +10483,66 @@ Implemented in `engine/combat-hazard-play.ts` (`handleCombatPlayHazard`),
 (`handleBodyCheckRoll`), and `engine/legal-actions/combat.ts`
 (`combatHazardPermanentPlays`).
 
+#### 32c. `attach-corruption-on-strike-wound` (deferred corruption attach, gated on the specific strike's outcome)
+
+A `permanent` hazard-event's `self-enters-play-combat` on-event may apply
+`attach-corruption-on-strike-wound` — played via the same `play-window {
+phase: "combat", step: "resolve-strike" }` / `play-target: character` combat
+window as Dragon's Curse (§32), but for card text of the shape "if the strike
+is not successful, discard this card; otherwise [corruption effects]",
+where the corruption effects apply only if the *specific* strike the card
+was played against goes on to wound its specific target — unlike Dragon's
+Curse, which attaches and grants its corruption unconditionally the instant
+it is played.
+
+A `play-target.filter` may reference `attack.prowess` (the current strike's
+`combat.strikeProwess`, exposed alongside the existing `attack.race`) for
+text like "facing a strike with a prowess of 12 or greater":
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-target", "target": "character",
+  "filter": { "attack.prowess": { "$gte": 12 } } }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "attach-corruption-on-strike-wound" } }
+{ "type": "stat-modifier", "stat": "corruption-points", "value": 1 }
+{ "type": "stat-modifier", "stat": "body", "value": -1 }
+```
+
+On play, `handleCombatPlayHazard` (`combat-hazard-play.ts`) discards the card
+to the hazard player's discard pile immediately — the same immediate-discard
+shape every combat-window hazard play uses — but records
+`CombatState.pendingCharacterCorruptionAttach: { sourceCardInstanceId,
+sourceCardDefinitionId, ownerPlayerIndex, targetCharacterId }`, pinning the
+exact character it was played against (known up front, since the card
+targets whoever is currently facing the strike — unlike the whole-attack
+`attachCorruptionOnWound` of §10e-ter, which only learns the target after
+combat resolves). At `finalizeCombat` (`combat-finalize.ts`), if
+`targetCharacterId` ended up in the attack's `woundedCharIds` set (still in
+play and wounded — the same set §10e-ter's `pendingCorruptionAttach` block
+consults), the card is spliced out of the discard pile and pushed onto that
+character's `hazards`, so its `stat-modifier` effects (corruption points,
+body) take effect exactly as any other attached hazard card. If the strike
+did not wound the target, the card simply stays in the discard pile —
+"if the strike is not successful, discard this card" falls out for free,
+with no extra bookkeeping.
+
+Used by Wound of Long Burden (dm-102): "Corruption. Playable on a character
+facing a strike with a prowess of 12 or greater. If the strike is not
+successful, discard this card. Otherwise, target character receives 1
+corruption point and his body is lowered by 1." Its removal ability (tap
+during organization phase at a Haven/Darkhaven, roll > 7 discards) is the
+ordinary `grant-action` `remove-self-on-roll` (§3) with `cost: { tap:
+"bearer" }` and `when: { "bearer.atHaven": true }` — gating only the
+tap-and-roll variant; every corruption card also gets a no-tap −3 variant
+regardless of location (METD §7 / rule 10.08, `organization.ts`), so the
+`when` gate never needs to (and cannot) suppress that half.
+
+Implemented in `engine/combat-hazard-play.ts` (`handleCombatPlayHazard`),
+`engine/combat-finalize.ts` (`finalizeCombat`), and
+`engine/legal-actions/combat.ts` (`combatHazardPermanentPlays`, for the
+`attack.prowess` filter context field).
+
 ### 33. `combat-protection`
 
 Protects the bearing card (typically an ally) from being assigned
@@ -14080,6 +14152,42 @@ plays — each with an `apply` of type `company-tap-characters` (tap all matchin
 no roll, no mind gate).
 
 Used by: *Heedless Revelry* (le-114).
+
+### 44c. `discard-item-or-wound-character`
+
+A hazard short-event effect, company-targeting like `company-tap-roll`, that
+on chain resolution during the M/H phase hands the **defending company's
+controller** a forced choice: discard one item (matching the optional
+`itemFilter`) from any character in the company, or have one of the
+company's unwounded characters become wounded (no body check).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `itemFilter` | no | DSL condition every candidate item's card definition must match (e.g. `{ "subtype": "minor" }`). Absent = every item qualifies. |
+
+```json
+{ "type": "discard-item-or-wound-character", "itemFilter": { "subtype": "minor" } }
+```
+
+**Resolution**: `chain-reducer.ts` enqueues an `item-or-wound-choice`
+{@link PendingResolution} (`companyId`, `itemFilter?`) instead of resolving
+the entry outright. `itemOrWoundChoiceActions` (`legal-actions/pending.ts`)
+offers every response as one flat family of `choose-item-or-wound` actions
+(`choice: "discard-item" | "wound-character"`, mirroring `tap-or-roll-choice`'s
+single-action-type-with-discriminant shape) — one `discard-item` per matching
+item (via `eligibleCompanyDiscardItems`), one `wound-character` per unwounded
+company character. `applyItemOrWoundChoiceResolution` (`pending-reducers.ts`)
+sets the chosen character's status to `inverted` (the wound, no body check)
+or moves the chosen item to the defender's discard pile, then closes the
+still-open source chain entry via `resolveChainEntryAndContinue` — the same
+close-out `company-tap-roll` uses once its last roll resolves.
+
+The **company** `play-target` filter context also exposes `target.itemSubtypes`
+(the `subtype` of every item borne by any character in the company), so "a
+company containing at least one minor item" is
+`{ "target.itemSubtypes": { "$includes": "minor" } }`.
+
+Used by: *Rats!* (le-131).
 
 ### 45. `force-return-to-origin`
 

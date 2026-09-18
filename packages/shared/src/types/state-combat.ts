@@ -837,6 +837,28 @@ export interface CombatState {
     readonly ownerPlayerIndex: number;
   };
   /**
+   * Wound of Long Burden (dm-102): set when a hand-played permanent-event
+   * carrying `attach-corruption-on-strike-wound` was played on a specific
+   * character facing the current strike. The card was already discarded by
+   * `handleCombatPlayHazard` (same immediate-discard shape as every other
+   * combat-window hazard play); this field marks it as eligible for
+   * reattachment to the exact character it was played on — unlike
+   * `pendingCorruptionAttach`, which scans the whole attack for the first
+   * eligible wound, this targets one specific pre-chosen character since the
+   * card's own play-target already pinned it to the strike it was watching.
+   * At combat finalization, if that character ended up in the wounded set,
+   * `finalizeCombat` splices the referenced instance out of
+   * `ownerPlayerIndex`'s discard pile and onto the character's `hazards`;
+   * otherwise it simply stays discarded ("if the strike is not successful,
+   * discard this card").
+   */
+  readonly pendingCharacterCorruptionAttach?: {
+    readonly sourceCardInstanceId: CardInstanceId;
+    readonly sourceCardDefinitionId: CardDefinitionId;
+    readonly ownerPlayerIndex: number;
+    readonly targetCharacterId: CardInstanceId;
+  };
+  /**
    * True when the creature carries `combat-attacker-chooses-defenders`
    * (e.g. Cave-drake). Determines the post-cancel-window transition:
    * attacker-chooses → `'attacker'` assignment; otherwise → `'defender'`

@@ -1770,7 +1770,47 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WoundofLongBurden.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["corruption"],
+    "removalNumber": 8,
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "resolve-strike"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "attack.prowess": { "$gte": 12 } }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play-combat",
+        "apply": { "type": "attach-corruption-on-strike-wound" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": -1
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "bearer" },
+        "when": { "bearer.atHaven": true },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 8,
+          "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+        }
+      }
+    ],
+    "certified": "2026-09-18",
     "text": "Corruption. Playable on a character facing a strike with a prowess of 12 or greater. If the strike is not successful, discard this card. Otherwise, target character receives 1 corruption point and his body is lowered by 1.During his organization phase, a character at a Haven/Darkhaven [{H}] with this card may tap to attempt to remove it. Make a roll: if this result is greater than 7, discard this card."
   },
   {

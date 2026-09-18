@@ -191,6 +191,21 @@ function synthesizeActsAsSiteDefinition(source: ResourceEventCard, effect: ActsA
   } as HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
 }
 
+/**
+ * Whether a card pool id is a synthesized `acts-as-site` companion
+ * definition (see {@link synthesizeActsAsSiteDefinition}), e.g. `td-171-site`
+ * for Wondrous Maps (`td-171`). Real card ids follow the `{set}-{number}`
+ * convention and never carry this suffix, so the check is unambiguous.
+ *
+ * These entries exist in {@link loadCardPool}'s output purely so engine
+ * site-lookup paths can resolve them like any other site — they are not
+ * real, obtainable cards and must be excluded from any UI that lists cards
+ * a deck can include (e.g. the deck editor's card browser).
+ */
+export function isSynthesizedActsAsSiteId(id: string): boolean {
+  return id.endsWith(ACTS_AS_SITE_ID_SUFFIX);
+}
+
 export function loadCardPool(): Readonly<Record<string, CardDefinition>> {
   const pool: Record<string, CardDefinition> = {};
   for (const card of allCards) {

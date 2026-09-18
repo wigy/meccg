@@ -607,6 +607,24 @@ export interface ChooseTapOrRollAction {
 }
 
 /**
+ * The defending company's forced choice in response to Rats! (le-131):
+ * discard one item of the company's choice, or have one of its unwounded
+ * characters become wounded (no body check). Resolves an
+ * `item-or-wound-choice` pending resolution.
+ */
+export interface ChooseItemOrWoundAction {
+  readonly type: 'choose-item-or-wound';
+  /** The defending company's controller making the forced choice. */
+  readonly player: PlayerId;
+  /** Which response the defender picks. */
+  readonly choice: 'discard-item' | 'wound-character';
+  /** Required when `choice` is `'discard-item'` — the item to discard. */
+  readonly itemInstanceId?: CardInstanceId;
+  /** Required when `choice` is `'wound-character'` — the character to wound. */
+  readonly characterInstanceId?: CardInstanceId;
+}
+
+/**
  * Choose which play deck to look at and shuffle the top of (Mirror of
  * Galadriel, tw-282: "choose to look at the top five cards of any one play
  * deck"). Resolves a `choose-peek-deck` pending resolution; declining the

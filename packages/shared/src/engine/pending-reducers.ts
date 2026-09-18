@@ -64,7 +64,7 @@ import {
 import { autoResolve, initiateChain } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
-import { eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems } from './legal-actions/pending.js';
+import { eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems, itemOrWoundChoiceActions } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -4257,6 +4257,105 @@ export function applyDiscardOneCompanyItemResolution(
   };
 
   return { state: dequeueResolution({ ...state, players: newPlayers }, top.id) };
+}
+
+/** Matches the Rats! (le-131) chain entry that enqueued a given `item-or-wound-choice` resolution, by its source card instance. */
+function itemOrWoundChoiceChainMatcher(top: PendingResolution): (entry: ChainEntry) => boolean {
+  return e => e.payload.type === 'short-event' && e.card?.instanceId === top.source;
+}
+
+/**
+ * Resolve an `item-or-wound-choice` pending resolution (Rats!, le-131): the
+ * defending company's controller either discards one item (matching the
+ * source card's `itemFilter`, "minor") from any character in the company —
+ * the item is removed from its bearer and moved to the defending player's
+ * discard pile — or has one unwounded character become wounded, setting the
+ * chosen character's status to `inverted` (no body check, the same
+ * status-set the `set-character-status`/`target-character` pair uses for
+ * Escape tw-229). Either way, the originating chain entry (still open —
+ * `chain-reducer.ts` enqueued this resolution instead of resolving it
+ * outright, mirroring `company-tap-roll`) is marked resolved so the chain can
+ * finish clearing.
+ */
+export function applyItemOrWoundChoiceResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'item-or-wound-choice') return null;
+
+  if (rawAction.type === 'pass' && rawAction.player === top.actor) {
+    if (itemOrWoundChoiceActions(state, top.actor, top).some(a => a.action.type !== 'pass')) {
+      return { state, error: 'An eligible item or unwounded character exists — this choice cannot be declined' };
+    }
+    logDetail(`item-or-wound-choice: company ${top.kind.companyId as string} has no eligible item or unwounded character — resolution dismissed`);
+    return resolveChainEntryAndContinue(dequeueResolution(state, top.id), itemOrWoundChoiceChainMatcher(top), []);
+  }
+
+  const g = guardResolution(state, rawAction, top, 'choose-item-or-wound', 'item-or-wound-choice');
+  if (!g.ok) return g.result;
+  const { action, kind } = g;
+  const { companyId, itemFilter } = kind;
+
+  const defIdx = state.players.findIndex(p => p.companies.some(co => co.id === companyId));
+  if (defIdx < 0) return { state, error: `Company ${companyId as string} not found` };
+  const defPlayer = state.players[defIdx];
+
+  if (action.choice === 'wound-character') {
+    const characterInstanceId = action.characterInstanceId;
+    if (!characterInstanceId) {
+      return { state, error: 'choose-item-or-wound: wound-character requires characterInstanceId' };
+    }
+    const ch = defPlayer.characters[characterInstanceId];
+    if (!ch || ch.status === CardStatus.Inverted) {
+      return { state, error: `Character ${characterInstanceId as string} is not an unwounded member of company ${companyId as string}` };
+    }
+    logDetail(`item-or-wound-choice: defender lets "${cardName(state, ch.definitionId)}" become wounded`);
+    const wounded = updatePlayer(state, defIdx, p =>
+      updateCharacter(p, characterInstanceId, c => ({ ...c, status: CardStatus.Inverted })));
+    return resolveChainEntryAndContinue(dequeueResolution(wounded, top.id), itemOrWoundChoiceChainMatcher(top), []);
+  }
+
+  // 'discard-item'
+  const itemInstanceId = action.itemInstanceId;
+  if (!itemInstanceId) {
+    return { state, error: 'choose-item-or-wound: discard-item requires itemInstanceId' };
+  }
+
+  const newCharacters = { ...defPlayer.characters };
+  let removedItem: { instanceId: import('../types/common.js').CardInstanceId; definitionId: import('../types/common.js').CardDefinitionId } | null = null;
+  for (const [charId, charData] of Object.entries(newCharacters)) {
+    const idx = charData.items.findIndex(it => it.instanceId === itemInstanceId);
+    if (idx >= 0) {
+      const chosenDef = defById(state, charData.items[idx].definitionId);
+      if (!isItemCard(chosenDef) || (itemFilter && !matchesDefinition(chosenDef, itemFilter))) {
+        return { state, error: `Item ${itemInstanceId as string} is excluded by the source card's item filter` };
+      }
+      const item = charData.items[idx];
+      removedItem = toCardInstance(item);
+      newCharacters[charId as CardInstanceId] = { ...charData, items: charData.items.filter((_, i) => i !== idx) };
+      break;
+    }
+  }
+  if (!removedItem) {
+    return { state, error: `Item ${itemInstanceId as string} not found in company ${companyId as string}` };
+  }
+
+  const itemName = defById(state, removedItem.definitionId)?.name ?? (itemInstanceId as string);
+  logDetail(`item-or-wound-choice: defender discards "${itemName}"`);
+
+  const newPlayers = clonePlayers(state);
+  newPlayers[defIdx] = {
+    ...defPlayer,
+    characters: newCharacters,
+    discardPile: [...defPlayer.discardPile, removedItem],
+  };
+
+  return resolveChainEntryAndContinue(
+    dequeueResolution({ ...state, players: newPlayers }, top.id),
+    itemOrWoundChoiceChainMatcher(top),
+    [],
+  );
 }
 
 /**

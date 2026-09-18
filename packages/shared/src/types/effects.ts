@@ -2311,6 +2311,7 @@ export type TriggeredActionType =
   | 'modify-current-strike-prowess'
   | 'force-attacker-kill-on-resolution'
   | 'force-body-check-on-strike-failure'
+  | 'attach-corruption-on-strike-wound'
   | 'move'
   | 'place-item-on-character'
   | 'place-source-with-item'
@@ -3759,6 +3760,23 @@ export interface ForceBodyCheckOnStrikeFailureAction extends TriggeredActionBase
   readonly itemModifiers: readonly { readonly keyword: Keyword; readonly value: number }[];
 }
 
+/**
+ * `attach-corruption-on-strike-wound` — Wound of Long Burden (dm-102): played
+ * on a character facing a strike whose prowess already meets the card's
+ * `play-target` threshold, before the strike is rolled. The card discards to
+ * the hazard player's discard pile immediately (like any other combat hazard
+ * play — see `handleCombatPlayHazard`), but is marked eligible for
+ * reattachment via `CombatState.pendingCharacterCorruptionAttach`. If the
+ * targeted strike goes on to wound the character, `finalizeCombat` splices
+ * the card back out of the discard pile and attaches it to that character's
+ * `hazards` — "otherwise" (the strike fails against the defender) it simply
+ * stays discarded, satisfying "if the strike is not successful, discard this
+ * card" with no further bookkeeping. Type-only marker.
+ */
+export interface AttachCorruptionOnStrikeWoundAction extends TriggeredActionBase {
+  readonly type: 'attach-corruption-on-strike-wound';
+}
+
 /** `transform-site` — override all versions of the bearer's current site's type, optionally with a bespoke attack (Vile Fumes). */
 export interface TransformSiteAction extends TriggeredActionBase {
   readonly type: 'transform-site';
@@ -3985,6 +4003,7 @@ export type TriggeredAction =
   | ModifyCurrentStrikeProwessAction
   | ForceAttackerKillOnResolutionAction
   | ForceBodyCheckOnStrikeFailureAction
+  | AttachCorruptionOnStrikeWoundAction
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction
@@ -8275,6 +8294,30 @@ export interface CompanyTapRollEffect extends EffectBase {
 }
 
 /**
+ * When this hazard short-event resolves on the active movement/hazard
+ * company, the company's controller (the defending player) must choose
+ * either: discard one item matching the optional {@link itemFilter} borne by
+ * any character in the company, or have one of the company's unwounded
+ * characters become wounded (no body check). Resolved via an
+ * `item-or-wound-choice` {@link PendingResolution} — one `choose-item-or-wound`
+ * action per eligible item and per eligible unwounded character, all offered
+ * together so the defender's choice is a single action pick (mirrors A Lie in
+ * Your Eyes's `tap-or-roll-choice` shape).
+ *
+ * Used by Rats! (le-131): "Company discards one minor item of its choice or
+ * chooses one of its unwounded characters to become wounded (no body check
+ * required)."
+ */
+export interface DiscardItemOrWoundCharacterEffect extends EffectBase {
+  readonly type: 'discard-item-or-wound-character';
+  /**
+   * DSL condition every candidate item's card definition must match (Rats!:
+   * `{ "subtype": "minor" }`). Absent = every item qualifies.
+   */
+  readonly itemFilter?: Condition;
+}
+
+/**
  * When this resource short-event resolves on a company, roll 2d6 for each
  * hazard permanent-event attached to characters in that company. If the roll
  * exceeds the hazard's `removalNumber` (or 8 if not set), the hazard is
@@ -9970,6 +10013,7 @@ export type CardEffect =
   | CompanyStrikeEffect
   | CompanyTapCharactersEffect
   | CompanyTapRollEffect
+  | DiscardItemOrWoundCharacterEffect
   | SeizedByTerrorCheckEffect
   | LeftBehindSplitEffect
   | PlayDiscardCostEffect

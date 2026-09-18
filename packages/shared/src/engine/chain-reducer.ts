@@ -35,6 +35,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { siteAttacksCanceled, getEffectiveSiteType } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
+import { eligibleCompanyDiscardItems } from './legal-actions/pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
@@ -4141,7 +4142,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const strikesBonus = entry.payload.type === 'creature' ? (entry.payload.strikesBonus ?? 0) : 0;
   const bodyBonus = entry.payload.type === 'creature' ? (entry.payload.bodyBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx) + strikesBonus;
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx, undefined, false, creatureSelf) + strikesBonus;
   let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
   if (bodyBonus !== 0 && effectiveBody !== null) {
     effectiveBody = Math.max(0, effectiveBody + bodyBonus);
@@ -6190,6 +6191,58 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         return { state: current, needsInput: true };
       }
       logDetail(`company-tap-roll "${(revelryCardDef as { name?: string }).name ?? '?'}": no qualifying untapped characters — no-op`);
+    }
+  }
+
+  // Rats! (le-131): discard-item-or-wound-character — hazard short event
+  // whose resolution is the defending company's own forced choice: discard
+  // one item (matching the card's itemFilter, "minor") or let one unwounded
+  // character become wounded (no body check). Enqueue an item-or-wound-choice
+  // pending resolution for the company's controller rather than resolving
+  // inline, mirroring company-tap-roll's enqueue-and-wait shape above.
+  if (entry.payload.type === 'short-event'
+    && !entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card
+    && current.phaseState.phase === Phase.MovementHazard) {
+    const ratsCardDef = defById(current, entry.card.definitionId);
+    const itemOrWoundEffect = getCardEffects(ratsCardDef).find(
+      (e): e is import('../index.js').DiscardItemOrWoundCharacterEffect => e.type === 'discard-item-or-wound-character',
+    );
+    if (itemOrWoundEffect) {
+      const activePlayerId = current.activePlayer!;
+      const activeIndex = getPlayerIndex(current, activePlayerId);
+      const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
+      if (company) {
+        const eligibleItems = eligibleCompanyDiscardItems(current, {
+          type: 'discard-one-company-item',
+          companyId: company.id,
+          itemFilter: itemOrWoundEffect.itemFilter,
+        });
+        const hasUnwoundedCharacter = company.characters.some(charId => {
+          const ch = current.players[activeIndex].characters[charId];
+          return !!ch && ch.status !== CardStatus.Inverted;
+        });
+        if (eligibleItems.length > 0 || hasUnwoundedCharacter) {
+          logDetail(
+            `discard-item-or-wound-character "${(ratsCardDef as { name?: string }).name ?? '?'}": ` +
+            `enqueuing item-or-wound-choice for company ${company.id as string} ` +
+            `(${eligibleItems.length} eligible item(s), unwounded character available: ${hasUnwoundedCharacter})`,
+          );
+          current = enqueueResolution(current, {
+            source: entry.card.instanceId,
+            actor: activePlayerId,
+            scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+            kind: {
+              type: 'item-or-wound-choice',
+              companyId: company.id,
+              itemFilter: itemOrWoundEffect.itemFilter,
+            },
+          });
+          return { state: current, needsInput: true };
+        }
+        logDetail(`discard-item-or-wound-character "${(ratsCardDef as { name?: string }).name ?? '?'}": no eligible item or unwounded character — no-op`);
+      }
     }
   }
 

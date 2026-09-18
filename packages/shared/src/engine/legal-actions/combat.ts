@@ -5114,7 +5114,8 @@ function combatHazardPermanentPlays(
     if (playTarget && playTarget.target === 'character' && playTarget.filter) {
       const possessionNames = defNamesOf(state, targetChar.items);
       const itemKeywords = itemKeywordsOf(state, targetChar.items);
-      // Include `attack` in context so filters like `{ "attack.race": "Spider" }` work.
+      // Include `attack` in context so filters like `{ "attack.race": "Spider" }` and
+      // `{ "attack.prowess": { "$gte": 12 } }` (Wound of Long Burden, dm-102) work.
       const ctx = {
         target: {
           race: targetDef.race,
@@ -5126,6 +5127,7 @@ function combatHazardPermanentPlays(
         },
         attack: {
           race: combat.creatureRace ?? null,
+          prowess: combat.strikeProwess,
         },
       };
       if (!matchesCondition(playTarget.filter, ctx)) {
