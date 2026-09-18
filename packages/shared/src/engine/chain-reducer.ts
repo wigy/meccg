@@ -4142,7 +4142,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const strikesBonus = entry.payload.type === 'creature' ? (entry.payload.strikesBonus ?? 0) : 0;
   const bodyBonus = entry.payload.type === 'creature' ? (entry.payload.bodyBonus ?? 0) : 0;
   const effectiveProwess = resolveAttackProwess(state, creatureDef.prowess, inPlayNames, creatureRace, false, creatureSelf, attackBoostCtx) + prowessBonus;
-  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx) + strikesBonus;
+  const effectiveStrikes = resolveAttackStrikes(state, creatureDef.strikes, inPlayNames, creatureRace, false, attackBoostCtx, undefined, false, creatureSelf) + strikesBonus;
   let effectiveBody = resolveAttackBody(state, creatureDef.body, inPlayNames, creatureRace, attackBoostCtx);
   if (bodyBonus !== 0 && effectiveBody !== null) {
     effectiveBody = Math.max(0, effectiveBody + bodyBonus);
