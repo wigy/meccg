@@ -2802,9 +2802,17 @@ function applyShortEventOnEntersPlay(
         continue;
       }
       logDetail(`"${def.name}" played — company ${company.id as string} → specialMovement=${specialMovement}`);
+      const crossingFields = specialMovement === 'named-region-crossing'
+        ? {
+            crossingRegions: onEvent.apply.crossingRegions,
+            crossingSitePath: onEvent.apply.crossingSitePath,
+            crossingHazardLimitDelta: onEvent.apply.crossingHazardLimitDelta,
+            crossingHazardLimitFloor: onEvent.apply.crossingHazardLimitFloor,
+          }
+        : {};
       state = updatePlayer(state, playerIndex, p => ({
         ...p,
-        companies: p.companies.map(c => (c.id === company.id ? { ...c, specialMovement } : c)),
+        companies: p.companies.map(c => (c.id === company.id ? { ...c, specialMovement, ...crossingFields } : c)),
       }));
       continue;
     }

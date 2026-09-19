@@ -3715,11 +3715,23 @@ export interface SiteEntryAttackAction extends TriggeredActionBase {
   readonly attack: SiteEntryAttackSpec;
 }
 
-/** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight, Eagle-mounts flight, Paths of the Dead, Belegaer sea-crossing) on the target company. */
+/** `set-company-special-movement` — flag a special-movement mode (Gwaihir flight, Eagle-mounts flight, Paths of the Dead, Belegaer sea-crossing, or a generic named-region crossing) on the target company. */
 export interface SetCompanySpecialMovementAction extends TriggeredActionBase {
   readonly type: 'set-company-special-movement';
   /** The special-movement mode. */
-  readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer';
+  readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer' | 'named-region-crossing';
+  /**
+   * For `specialMovement: 'named-region-crossing'` only: the card-specific
+   * data generalizing the Belegaer (td-100) mechanic — see
+   * {@link Company.crossingRegions} et al. for what each field means. Forod
+   * (td-117): `crossingRegions` the 7 printed regions, `crossingSitePath`
+   * `['wilderness', 'wilderness', 'wilderness']`, `crossingHazardLimitDelta`
+   * `-2`, `crossingHazardLimitFloor` `2`.
+   */
+  readonly crossingRegions?: readonly string[];
+  readonly crossingSitePath?: readonly RegionType[];
+  readonly crossingHazardLimitDelta?: number;
+  readonly crossingHazardLimitFloor?: number;
 }
 
 /**

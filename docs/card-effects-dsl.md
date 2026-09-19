@@ -11189,6 +11189,58 @@ site-keyed hazard creatures match) exactly like `'gwaihir'`/`'paths-of-the-dead'
   "target": "target-company" }
 ```
 
+A fifth `specialMovement` value, `"named-region-crossing"`, is the **generic,
+data-driven form of `"belegaer"`** — it backs Forod (td-117) and its
+region-list siblings Harad (td-121) and Rhûn (td-147), each "moving without
+region cards" between its own printed region list with its own site-path
+region types and hazard-limit delta. Rather than adding a new hardcoded
+literal (and a new `organization-companies.ts`/`mh-steps.ts` branch, and a new
+region-constant like `BELEGAER_REGIONS`) per card, the `set-company-special-
+movement` apply itself carries the card-specific data, which is copied onto
+the company alongside `specialMovement` (`reducer-events.ts`
+`applyShortEventOnEntersPlay`, and `grant-action-apply.ts` for the grant-action
+route):
+
+- `crossingRegions` (`readonly string[]`) — the shared origin/destination
+  region list. Same role as `BELEGAER_REGIONS`, but per-card: `organization-
+  companies.ts` `planMovementActions`'s `'named-region-crossing'` branch reads
+  `company.crossingRegions` instead of a hardcoded constant to filter
+  destination candidates once `company.specialMovement ===
+  'named-region-crossing'`.
+- `crossingSitePath` (`readonly RegionType[]`) — the region-type path the
+  crossing is treated as, in order (e.g. `["wilderness", "wilderness",
+  "wilderness"]` for Forod's printed `[{w} {w} {w}]`). `mh-steps.ts`'s
+  `declare-path` handler sets `resolvedSitePath` to `company.crossingSitePath`
+  instead of Belegaer's hardcoded three `RegionType.Coastal` entries.
+- `crossingHazardLimitDelta` / `crossingHazardLimitFloor` (`number`) — the flat
+  hazard-limit adjustment and its floor (e.g. `-2` floored at `2`, identical to
+  Belegaer's). `snapshotHazardLimit` (`mh-steps.ts`) applies
+  `Math.max(floor, limit + delta)` when `company.specialMovement ===
+  'named-region-crossing'`, in the same position as the `'belegaer'` check.
+
+The card's own `play-target` filter gates the origin exactly like Belegaer's,
+via `company.siteRegion` `$in` its own region list.
+`legal-actions/movement-hazard.ts` offers `declare-path` with
+`MovementType.Special` for `'named-region-crossing'` alongside the other four
+modes. Cleared (along with `specialMovement`) at the Site→End-of-Turn
+transition (`reducer-site.ts` `endSitePhase`), same lifetime as `'belegaer'`.
+
+```json
+{ "type": "play-window", "phase": "organization" },
+{ "type": "play-target", "target": "character",
+  "filter": { "company.siteRegion": { "$in": ["Lindon", "Forochel", "…"] } } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": {
+    "type": "set-company-special-movement",
+    "specialMovement": "named-region-crossing",
+    "crossingRegions": ["Lindon", "Forochel", "…"],
+    "crossingSitePath": ["wilderness", "wilderness", "wilderness"],
+    "crossingHazardLimitDelta": -2,
+    "crossingHazardLimitFloor": 2
+  },
+  "target": "target-company" }
+```
+
 The `only-race-creatures-on-company` constraint (added by *Paths of the Dead*
 tw-302 via `on-event: self-enters-play` → `add-constraint`, carrying a `race`
 field) restricts the opponent to playing only hazard creatures of the given

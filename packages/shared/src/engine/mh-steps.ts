@@ -391,6 +391,12 @@ export function handleRevealNewSite(
       // actually traversed.
       resolvedSitePath = [RegionType.Coastal, RegionType.Coastal, RegionType.Coastal];
       logDetail(`Special movement (Belegaer): site path treated as [{c} {c} {c}] (3x coastal-sea)`);
+    } else if (company.specialMovement === 'named-region-crossing' && company.crossingSitePath) {
+      // Forod (td-117) and siblings: "The site path is [{w} {w} {w}]" — the
+      // crossing's region-type path is data on the granting card, generalizing
+      // Belegaer's hardcoded three-coastal-sea path above.
+      resolvedSitePath = [...company.crossingSitePath];
+      logDetail(`Special movement (named-region-crossing): site path treated as [${resolvedSitePath.join(' ')}]`);
     } else {
       // Special movement (e.g. Gwaihir): no region path traversed.
       // Only site-type keyed creatures can be played against this company.
@@ -1151,6 +1157,16 @@ export function snapshotHazardLimit(
     const prev = limit;
     limit = Math.max(2, limit - 2);
     logDetail(`Hazard limit modified by -2 (Belegaer sea-crossing, floor 2): ${prev} → ${limit}`);
+  }
+
+  // Named-region crossing (Forod td-117, Harad td-121, Rhûn td-147): "the
+  // hazard limit is decreased by two to a minimum of two" — same shape as
+  // Belegaer above but the delta/floor are data on the granting card.
+  if (company.specialMovement === 'named-region-crossing' && company.crossingHazardLimitDelta !== undefined) {
+    const prev = limit;
+    const floor = company.crossingHazardLimitFloor ?? 0;
+    limit = Math.max(floor, limit + company.crossingHazardLimitDelta);
+    logDetail(`Hazard limit modified by ${company.crossingHazardLimitDelta} (named-region-crossing, floor ${floor}): ${prev} → ${limit}`);
   }
 
   limit = Math.max(limit, 0);
