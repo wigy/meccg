@@ -39,7 +39,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -1361,6 +1361,26 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           const charDef = defById(state, char.definitionId);
           logDetail(`Grant-action ${effect.action} available: ${charDef?.name ?? '?'} can tap to activate (source: ${hazardDef?.name ?? '?'})`);
           actions.push(grantedActionFor(playerId, charId, hazard, effect));
+
+          // Palm to Palm (dm-153) `grant-attempt-support`: an untapped
+          // company-mate (other than the bearer) may additionally tap in
+          // support, one action variant per eligible supporter.
+          if (isCorruptionRemoval) {
+            const supportCompany = findCharacterCompany(player.companies, charId);
+            const supportBonus = supportCompany
+              ? companyAttemptSupportBonus(state, supportCompany.id, 'corruption-removal')
+              : undefined;
+            if (supportCompany && supportBonus !== undefined) {
+              for (const companionId of supportCompany.characters) {
+                if (companionId === charId) continue;
+                const companion = player.characters[companionId];
+                if (!companion || companion.status !== CardStatus.Untapped) continue;
+                const companionDef = defById(state, companion.definitionId);
+                logDetail(`Grant-action ${effect.action}: ${companionDef?.name ?? '?'} may tap in support (+${supportBonus}, source: Palm to Palm-style effect)`);
+                actions.push(grantedActionFor(playerId, charId, hazard, effect, { supportCharacterId: companionId }));
+              }
+            }
+          }
         }
 
         // METD §7 / rule 10.08: also offer the no-tap variant for

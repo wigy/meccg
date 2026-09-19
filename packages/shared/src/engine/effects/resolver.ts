@@ -750,6 +750,9 @@ function collectCompanyPermanentEventEffects(
       for (const effect of getCardEffects(def) as CompanyModifierEffect[]) {
         if (effect.type !== 'company-modifier') continue;
         if (effect.when && !matchesCondition(effect.when, baseCtx)) continue;
+        // "allies" modifiers (Palm to Palm dm-153) never apply to characters
+        // — they are collected separately by `allyEffectiveMind`.
+        if (effect.appliesTo === 'allies') continue;
         if (effect.stat) {
           // Synthesise a stat-modifier so caps and overrides work normally
           const synthesized: StatModifierEffect = {

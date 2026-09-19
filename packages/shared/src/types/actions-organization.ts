@@ -509,6 +509,15 @@ export interface ActivateGrantedAction {
    * attempts on this card for the rest of the turn.
    */
   readonly noTap?: true;
+  /**
+   * Palm to Palm (dm-153) `grant-attempt-support`: an untapped company-mate
+   * (other than `characterId`) tapping "in support" of this
+   * `remove-self-on-roll` attempt, granting the effect's `value` (default 1)
+   * bonus to the roll. Set by the legal-action emitter, one variant per
+   * eligible supporter; validated and the supporter tapped by
+   * `runGrantApply`'s `roll-then-apply` handling.
+   */
+  readonly supportCharacterId?: CardInstanceId;
 }
 
 /**

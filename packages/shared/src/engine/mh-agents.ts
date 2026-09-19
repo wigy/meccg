@@ -26,7 +26,7 @@ import { logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { makeCombatState, characterEntries, defById, findById, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames, influenceModificationsNullified, agentCurrentSiteName, agentMatchesFilter } from './reducer-utils.js';
+import { makeCombatState, characterEntries, defById, findById, findCharacterCompany, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames, influenceModificationsNullified, agentCurrentSiteName, agentMatchesFilter } from './reducer-utils.js';
 import { enqueueResolution, addConstraint } from './pending.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
@@ -487,7 +487,7 @@ export function handleAgentInfluenceAttempt(
         // A converted-creature ally (Ready to His Will) carries its mind on the
         // instance override; otherwise the target must be a real ally card.
         if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
-        targetMind = allyEffectiveMind(state, allyInst);
+        targetMind = allyEffectiveMind(state, allyInst, findCharacterCompany(resourcePlayer.companies, oppCharId));
         controllerDI = controllerUnusedDI(oppCharId);
 
         // Rule 10.14: shared home site → mind = 0, +2 roll
@@ -1160,7 +1160,7 @@ export function handleAgentTapMultiInfluence(
       if (!allyInst) continue;
       const allyDef = defById(state, allyInst.definitionId);
       if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
-      targetMind = allyEffectiveMind(state, allyInst);
+      targetMind = allyEffectiveMind(state, allyInst, findCharacterCompany(resourcePlayer.companies, oppCharId));
       controllerDI = controllerUnusedDI(oppCharId);
 
       const allyHomesites = parseHomesiteNames((allyDef as { homesite?: string }).homesite ?? '');
@@ -1436,7 +1436,7 @@ export function handleAgentTapOpponentInfluence(
       if (allyInst) {
         const allyDef = defById(state, allyInst.definitionId);
         if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
-        targetMind = allyEffectiveMind(state, allyInst);
+        targetMind = allyEffectiveMind(state, allyInst, findCharacterCompany(resourcePlayer.companies, oppCharId));
         controllerDI = controllerUnusedDI(oppCharId);
 
         const playableAt = allyDef && isAllyCard(allyDef) ? allyDef.playableAt ?? [] : [];

@@ -32,7 +32,7 @@ import { getEffectiveSkills } from '../effects/index.js';
 import { buildSiteFilterContext } from '../effective.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
+import { cardName, isSiteProtectedForPlayer, playerById, defById, countCopiesInPlay, countCopiesInPlayTargetedForDiscard, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countFactionAttachedCopies, defNamesOf, itemKeywordsOf, itemSubtypesOf, getCardEffects, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyHasWizard, factionSiegeEligibleSites, findDuplicationLimitEffect, findPlayConditionEffect, findPlayConditionEffects, findFallenWizardAvatarName, keywordDiscardCandidates, namedDiscardCandidates, matchesCompanyContextCondition, isCompanyAtSite, isCompanyEventPlayProhibited, characterHomeSiteTypes, findPlayerAvatar, regionTypeCounts, activePlayerDeckSize } from '../reducer-utils.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
 import { buildPlayerStateContext, playerStateGateMet } from './organization.js';
 import { buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -1082,14 +1082,15 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
             const cDef = defById(state, ch.definitionId);
             return cDef && 'race' in cDef && (cDef as { race: Race }).race === Race.Ringwraith;
           });
+          const hasWizard = companyHasWizard(state, player, company);
           // Wondrous Maps (td-171) / Refuge (td-145): "on a company [not
           // already moving]" — a company that has already declared movement
           // (or special movement) this organization phase cannot also
           // declare movement to the resolving card itself.
           const moving = company.destinationSite !== null || !!company.specialMovement;
-          const ctx = { target: { siteType, memberCount, overt, orcCount, hasRingwraith, moving } };
+          const ctx = { target: { siteType, memberCount, overt, orcCount, hasRingwraith, hasWizard, moving } };
           if (!matchesCondition(playTarget.filter, ctx)) {
-            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount}, overt=${String(overt)}, orcCount=${orcCount}, hasRingwraith=${String(hasRingwraith)}, moving=${String(moving)})`);
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} filter not met (siteType=${siteType}, memberCount=${memberCount}, overt=${String(overt)}, orcCount=${orcCount}, hasRingwraith=${String(hasRingwraith)}, hasWizard=${String(hasWizard)}, moving=${String(moving)})`);
             continue;
           }
         }

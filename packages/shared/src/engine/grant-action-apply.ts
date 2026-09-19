@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
+import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -797,23 +797,51 @@ function runGrantApply(
   }
 
   if (apply.type === 'roll-then-apply') {
+    // Palm to Palm (dm-153) `grant-attempt-support`: an untapped company-mate
+    // tapped in support of this roll — validated defensively even though the
+    // legal-action emitter only offers eligible candidates, since the roll
+    // total below depends on it.
+    const supportCharacterId = (ctx.action as { supportCharacterId?: CardInstanceId }).supportCharacterId;
+    let supportBonus = 0;
+    let supporterName = '';
+    if (supportCharacterId !== undefined) {
+      const actorCompany = findCharacterCompany(newPlayers[ctx.playerIndex].companies, ctx.action.characterId);
+      const supporter = actorCompany?.characters.includes(supportCharacterId)
+        ? newPlayers[ctx.playerIndex].characters[supportCharacterId]
+        : undefined;
+      if (!actorCompany || !supporter || supporter.status !== CardStatus.Untapped || supportCharacterId === ctx.action.characterId) {
+        return { error: `roll-then-apply: invalid support character ${supportCharacterId as string}` };
+      }
+      const bonus = companyAttemptSupportBonus(state, actorCompany.id, 'corruption-removal');
+      if (bonus === undefined) {
+        return { error: `roll-then-apply: no grant-attempt-support effect in play for company ${actorCompany.id as string}` };
+      }
+      supportBonus = bonus;
+      supporterName = defById(state, supporter.definitionId)?.name ?? (supportCharacterId as string);
+    }
+
     const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
     rngRef.rng = rng;
     rngRef.cheatRollTotal = cheatRollTotal;
     // METD §7 / rule 10.08: the no-tap variant of corruption removal
     // applies a -3 modifier to the roll. Standard variant is unmodified.
     const noTap = (ctx.action as { noTap?: true }).noTap === true;
-    const modifier = noTap ? -3 : 0;
+    const modifier = (noTap ? -3 : 0) + supportBonus;
     const total = roll.die1 + roll.die2 + modifier;
     const modText = modifier !== 0 ? ` ${formatSignedNumber(modifier)}` : '';
-    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2}${modText} = ${total} vs threshold ${apply.threshold}${noTap ? ' (no-tap variant)' : ''}`);
+    const supportText = supportCharacterId !== undefined ? ` (${supporterName} taps in support)` : '';
+    logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} rolls ${roll.die1} + ${roll.die2}${modText} = ${total} vs threshold ${apply.threshold}${noTap ? ' (no-tap variant)' : ''}${supportText}`);
 
     const playerName = newPlayers[ctx.playerIndex].name;
-    const rollEffect = diceRollEffect(playerName, roll, `${ctx.sourceName}: ${ctx.charName}${noTap ? ' (no-tap)' : ''}`);
+    const rollEffect = diceRollEffect(playerName, roll, `${ctx.sourceName}: ${ctx.charName}${noTap ? ' (no-tap)' : ''}${supportText}`);
     newPlayers[ctx.playerIndex] = { ...newPlayers[ctx.playerIndex], lastDiceRoll: roll };
 
     const branch = total >= apply.threshold ? apply.onSuccess : apply.onFailure;
     const stateOpsExtra: ((s: GameState) => GameState)[] = [];
+    if (supportCharacterId !== undefined) {
+      stateOpsExtra.push((s: GameState) => updatePlayer(s, ctx.playerIndex, p =>
+        updateCharacter(p, supportCharacterId, ch => ({ ...ch, status: CardStatus.Tapped }))));
+    }
     // Rule 7.3 / METD §7 / rule 10.08 applies only to corruption cards
     // (the 'corruption' keyword), not to the plain remove-self-on-roll
     // mechanic shared by non-corruption hazards like Foolish Words.

@@ -39,7 +39,7 @@ export interface GrantActionSource {
 export type GrantedActionExtras = Partial<Pick<
   ActivateGrantedAction,
   'targetCardId' | 'targetCompanyId' | 'secondCharacterId'
-  | 'secondTargetCardId' | 'recipientCharacterId' | 'noTap'
+  | 'secondTargetCardId' | 'recipientCharacterId' | 'noTap' | 'supportCharacterId'
 >>;
 
 /**

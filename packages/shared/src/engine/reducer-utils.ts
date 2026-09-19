@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -2125,6 +2125,51 @@ export function companyHasBalrog(state: GameState, owner: PlayerState, company: 
     if (charDef && isCharacterCard(charDef) && charDef.race === Race.Balrog) return true;
   }
   return false;
+}
+
+/**
+ * True when any character in `company` has the Wizard race — i.e. the
+ * company "contains a Wizard" (a Wizard avatar). Used by Palm to Palm
+ * (dm-153): playable only on a company without a Wizard, and discarded the
+ * moment a Wizard joins the company it is bound to.
+ */
+export function companyHasWizard(state: GameState, owner: PlayerState, company: Company): boolean {
+  for (const charInstId of company.characters) {
+    const defId = owner.characters[charInstId]?.definitionId ?? resolveInstanceId(state, charInstId);
+    if (!defId) continue;
+    const charDef = defById(state, defId);
+    if (charDef && isCharacterCard(charDef) && charDef.race === Race.Wizard) return true;
+  }
+  return false;
+}
+
+/**
+ * The bonus a company-bound `grant-attempt-support` permanent event (Palm to
+ * Palm dm-153) grants for `check` when a company-mate taps in support of a
+ * roll made by another character in `companyId` — `undefined` when no such
+ * card is in play for that company/check. Shared by the `influence-attempt`
+ * and `remove-self-on-roll` legal-action emitters (which offer one extra
+ * variant per eligible untapped supporter) and their reducers (which apply
+ * the bonus and tap the chosen supporter).
+ */
+export function companyAttemptSupportBonus(
+  state: GameState,
+  companyId: CompanyId,
+  check: 'influence' | 'corruption-removal',
+): number | undefined {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      if (card.companyId !== companyId) continue;
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def) as GrantAttemptSupportEffect[]) {
+        if (effect.type !== 'grant-attempt-support') continue;
+        if (!effect.checks.includes(check)) continue;
+        return effect.value ?? 1;
+      }
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -5655,6 +5700,13 @@ export function sweepProhibitedCompanyEvents(state: GameState): GameState {
  * Fellowship, which must be discarded whenever any character or ally joins or
  * leaves the company it was played on.
  *
+ * An optional `when` on the effect is evaluated against `{ company: {
+ * hasWizard } }` (the company's *post-change* composition) so a card can
+ * narrow "any membership change" down to a specific one — e.g. Palm to Palm
+ * (dm-153) discards only when the change results in a Wizard being present
+ * (`when: { "company.hasWizard": true }`), not on every join/leave. A card
+ * with no `when` fires unconditionally, exactly as Fellowship's does.
+ *
  * Call after any action that changes a company's character or ally roster,
  * passing every affected company ID.
  */
@@ -5666,12 +5718,18 @@ export function sweepCompanyMembershipChangedEvents(
   const affected = new Set(affectedCompanyIds.map(id => id as string));
   return discardCardsInPlayWhere(
     state,
-    card => {
+    (card, player) => {
       if (!affected.has(card.companyId as string)) return false;
       const def = defById(state, card.definitionId);
-      return getOnEventEffects(def, 'company-membership-changes').some(
+      const effect = getOnEventEffects(def, 'company-membership-changes').find(
         e => isSelfDiscardMove(e.apply),
       );
+      if (!effect) return false;
+      if (!effect.when) return true;
+      const company = player.companies.find(c => c.id === card.companyId);
+      if (!company) return false;
+      const ctx = { company: { hasWizard: companyHasWizard(state, player, company) } };
+      return matchesCondition(effect.when, ctx);
     },
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
@@ -5708,6 +5766,46 @@ export function sweepLeaderLeavesCompanyEvents(
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`leader-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
+    },
+  ).state;
+}
+
+/**
+ * Fires the `character-splits-off-company` event against every
+ * company-targeted permanent event (cardsInPlay with a matching `companyId`)
+ * that carries an `on-event: character-splits-off-company` + self-discard
+ * `move` effect. Unlike {@link sweepCompanyMembershipChangedEvents} (any join
+ * or leave, for any reason), this fires only for CoE rule 2.II.3.6/2.II.3.6.1's
+ * "splits off into another company" — a character (and its followers) moving
+ * from the bound company to a distinct company, i.e. `split-company` (the
+ * source company that stays behind) and `move-to-company` (the source
+ * company the character moves out of). A company-bound event normally stays
+ * with the "original" company entity through a split (rule 2.II.3.6.1), so
+ * this only matters for a card whose text overrides that default — Palm to
+ * Palm (dm-153): "Discard ... [when] any character in the company splits off
+ * into another company."
+ *
+ * Call from `handleSplitCompany`/`handleMoveToCompany` with the source
+ * company's ID (the company the character is leaving).
+ */
+export function sweepCharacterSplitsOffCompanyEvents(
+  state: GameState,
+  sourceCompanyIds: readonly CompanyId[],
+): GameState {
+  if (sourceCompanyIds.length === 0) return state;
+  const affected = new Set(sourceCompanyIds.map(id => id as string));
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      if (!affected.has(card.companyId as string)) return false;
+      const def = defById(state, card.definitionId);
+      return getOnEventEffects(def, 'character-splits-off-company').some(
+        e => isSelfDiscardMove(e.apply),
+      );
+    },
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`character-splits-off-company: discarding "${def?.name}" (company ${card.companyId as string})`);
     },
   ).state;
 }

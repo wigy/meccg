@@ -5767,7 +5767,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         // A converted-creature ally (Ready to His Will) carries its stats on the
         // instance override even though its definition is not an ally card.
         if (allyInst.statOverride || (allyDef && isAllyCard(allyDef))) {
-          const allyMindVal = allyEffectiveMind(current, allyInst);
+          const allyMindVal = allyEffectiveMind(current, allyInst, findCharacterCompany(resourcePlayer.companies, hostCharId));
           const allyProwessVal = allyEffectiveProwess(current, allyInst);
           const allyDisplayName = (allyDef?.name ?? allyDefId) as string;
           const activeCompanyIdx = current.phaseState.phase === 'movement-hazard'
