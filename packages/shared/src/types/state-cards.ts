@@ -13,7 +13,7 @@ import {
   CardStatus,
   Race,
 } from './common.js';
-import type { ViewCard } from './common.js';
+import type { ViewCard, RegionType } from './common.js';
 
 // ---- Card Instances (runtime, in-game) ----
 
@@ -611,8 +611,41 @@ export interface Company {
    *   regions (Lindon, Elven Shores, etc. — td-100), bypassing region
    *   adjacency. The path is treated as three coastal-sea regions for hazard
    *   keying purposes, and the hazard limit is reduced by 2 (floor 2).
+   * - `'named-region-crossing'`: the generic form of the same mechanic as
+   *   `'belegaer'`, driven entirely by data on the granting card instead of a
+   *   hardcoded region list/path/hazard-limit per card — see
+   *   {@link crossingRegions}, {@link crossingSitePath},
+   *   {@link crossingHazardLimitDelta}, {@link crossingHazardLimitFloor}.
+   *   Used by Forod (td-117) and its siblings (Harad td-121, Rhûn td-147):
+   *   each names its own region list and a wilderness `[{w} {w} {w}]` path
+   *   instead of Belegaer's coastal one.
    */
-  readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer' | undefined;
+  readonly specialMovement?: 'gwaihir' | 'eagle-mounts' | 'paths-of-the-dead' | 'belegaer' | 'named-region-crossing' | undefined;
+  /**
+   * For `specialMovement: 'named-region-crossing'` only: the shared origin/
+   * destination region list the granting card printed (e.g. Forod td-117's
+   * Lindon/Forochel/Angmar/Gundabad/Grey Mountain Narrows/Withered
+   * Heath/Iron Hills). A company at a site in any one of these may move
+   * directly to a site in any other (or the same) region on the list,
+   * bypassing region adjacency — mirrors `BELEGAER_REGIONS` but per-card.
+   */
+  readonly crossingRegions?: readonly string[] | undefined;
+  /**
+   * For `specialMovement: 'named-region-crossing'` only: the region types the
+   * crossing is treated as for hazard-creature keying and other region-type
+   * consumers, in path order (e.g. `['wilderness', 'wilderness',
+   * 'wilderness']` for Forod's printed `[{w} {w} {w}]`), even though no named
+   * region is actually traversed.
+   */
+  readonly crossingSitePath?: readonly RegionType[] | undefined;
+  /**
+   * For `specialMovement: 'named-region-crossing'` only: the flat hazard-limit
+   * adjustment applied at reveal (e.g. `-2` for Forod's "hazard limit is
+   * decreased by two"), floored at {@link crossingHazardLimitFloor}.
+   */
+  readonly crossingHazardLimitDelta?: number | undefined;
+  /** For `specialMovement: 'named-region-crossing'` only: the floor {@link crossingHazardLimitDelta} cannot reduce the hazard limit below (e.g. `2`). */
+  readonly crossingHazardLimitFloor?: number | undefined;
   /**
    * The named region a company is standing in while `currentSite` resolves
    * to an `acts-as-site` card (Wondrous Maps td-171, Refuge td-145) —

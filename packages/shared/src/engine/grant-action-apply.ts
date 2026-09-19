@@ -316,10 +316,18 @@ function runGrantApply(
       return { error: `${ctx.charName} is not in any company` };
     }
     logDetail(`Grant-action ${ctx.action.actionId}: company ${company.id as string} → specialMovement=${apply.specialMovement}`);
+    const crossingFields = apply.specialMovement === 'named-region-crossing'
+      ? {
+          crossingRegions: apply.crossingRegions,
+          crossingSitePath: apply.crossingSitePath,
+          crossingHazardLimitDelta: apply.crossingHazardLimitDelta,
+          crossingHazardLimitFloor: apply.crossingHazardLimitFloor,
+        }
+      : {};
     newPlayers[ctx.playerIndex] = {
       ...bearerPlayer,
       companies: bearerPlayer.companies.map(c =>
-        c.id === company.id ? { ...c, specialMovement: apply.specialMovement } : c,
+        c.id === company.id ? { ...c, specialMovement: apply.specialMovement, ...crossingFields } : c,
       ),
     };
     return { updatedChar: char, effects: [], stateOps: [] };

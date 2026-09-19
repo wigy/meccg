@@ -5576,7 +5576,14 @@ function endSitePhase(state: GameState): ReducerResult {
   const activeIndex = getPlayerIndex(withRingTests, withRingTests.activePlayer!);
   const withSpecialMovementCleared = updatePlayer(withRingTests, activeIndex, p => ({
     ...p,
-    companies: p.companies.map(c => ({ ...c, specialMovement: undefined })),
+    companies: p.companies.map(c => ({
+      ...c,
+      specialMovement: undefined,
+      crossingRegions: undefined,
+      crossingSitePath: undefined,
+      crossingHazardLimitDelta: undefined,
+      crossingHazardLimitFloor: undefined,
+    })),
   }));
   return {
     state: cleanupEmptyCompanies({
