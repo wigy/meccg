@@ -165,7 +165,7 @@
 | ba-23 | The Reek | — | 8 | ☑ |
 | ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
 | ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |
-| ba-26 | Unabated in Malice | — | 16 | ☑ |
+| ba-26 | Unabated in Malice | — | 17 | ☑ |
 | ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
 | ba-29 | Crept Along Carefully | — | 18 | ☑ |
@@ -832,7 +832,7 @@
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
 | td-170 | Wizard’s Staff | — | 19 | ☑ |
 | td-171 | Wondrous Maps | — | 14 | ☑ |
-| td-172 | Wormsbane | — | 8 | ☑ |
+| td-172 | Wormsbane | — | 9 | ☑ |
 | td-173 | Buhr Widu | — | 7 | ☑ |
 | td-174 | Dale | — | 6 | ☑ |
 | td-175 | Framsburg | — | 18 | ☑ |

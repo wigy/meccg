@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.162.0 — 2026-09-19
+
+Unabated in Malice rides along with Tidings of Bold Spies; Wormsbane's body-check preview tells the truth
+
+### Game Engine
+
+- When Tidings of Bold Spies duplicated a site's automatic-attack into an immediate M/H-phase attack, an Unabated in Malice (ba-26) already placed openly on that not-yet-initiated automatic-attack was ignored, so the copy came in at the site's base strikes and prowess (Moria: 4/7 instead of 5/8). Per CoE Rulings Digest #61/#103 the pending modifier must be duplicated onto the new attack while the original survives to boost the real automatic-attack later, even if the Tidings copy is canceled. A new non-consuming `duplicatePendingAttackModifier` sibling of `consumePendingAttackModifier` folds the strike/prowess/body deltas and cancel protection into the Tidings attack without removing the `pending-attack-modifier` constraint. Reported from game mu85f4le-r74wq7 (#3101)
+- The "need" preview shown before a creature body-check roll quoted the raw creature body, never applying the facing character's enemy-modifier body reduction (Wormsbane td-172's -2 against Dragon and Drake strikes) that the reducer already applied when resolving the roll, so the preview and the actual outcome could disagree. The reducer's body-modifier chain (strike-scoped modifier, enemy-modifier, character-creature-body-modifier constraint) is now a shared `resolveCreatureBodyForCheck` helper used by both the reducer and the legal-action preview so they cannot drift apart again. Reported from bug report a31eee5b1a000012 (#3102)
+
 ## 0.161.0 — 2026-09-19
 
 Palm to Palm, Forod and Wielded Twice join the certified ranks; Burglary asks before it fires
