@@ -42,7 +42,7 @@ import {
 } from '../test-helpers.js';
 import type {
   CardInPlay, CardInstanceId, CardDefinitionId,
-  InfluenceAttemptAction, ActivateGrantedAction, OpponentInfluenceAttemptAction,
+  InfluenceAttemptAction, OpponentInfluenceAttemptAction,
   GameState, EndOfTurnPhaseState,
 } from '../../index.js';
 import { computeLegalActions } from '../../index.js';
