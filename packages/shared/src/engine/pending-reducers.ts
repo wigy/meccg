@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, roll2d6, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, activePlayerState, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -2097,20 +2097,17 @@ export function applyBurglaryAttemptResolution(
   const isHobbit = isCharacterCard(charDef) && charDef.race === Race.Hobbit;
   const bonus = (isScout ? scoutBonus : 0) + (isHobbit ? hobbitBonus : 0);
 
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
+  const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, actorIndex, `Burglary attempt: ${charName}`);
   const total = roll.die1 + roll.die2 + bonus;
   const success = total > threshold;
 
   logDetail(`Burglary attempt by ${charName}: rolled ${roll.die1}+${roll.die2}${isScout ? ` +${scoutBonus} scout` : ''}${isHobbit ? ` +${hobbitBonus} hobbit` : ''} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
-  const newPlayers = clonePlayers(state);
-  newPlayers[actorIndex] = { ...newPlayers[actorIndex], lastDiceRoll: roll };
-
-  const postRoll = dequeueResolution({ ...state, players: newPlayers, rng, cheatRollTotal }, top.id);
+  const postRoll = dequeueResolution(rolledState, top.id);
 
   if (postRoll.phaseState.phase !== Phase.Site) {
     logDetail('Burglary attempt resolved outside the site phase — no-op beyond the roll');
-    return { state: postRoll };
+    return { state: postRoll, effects: [rollEffect] };
   }
   const siteState = postRoll.phaseState;
 
@@ -2121,6 +2118,7 @@ export function applyBurglaryAttemptResolution(
         ...postRoll,
         phaseState: { ...siteState, autoAttacksSkipped: true, burglaryItemUnlock: characterInstanceId },
       },
+      effects: [rollEffect],
     };
   }
 
@@ -2130,6 +2128,7 @@ export function applyBurglaryAttemptResolution(
       ...postRoll,
       phaseState: { ...siteState, soloAutoAttackCharacterId: characterInstanceId },
     },
+    effects: [rollEffect],
   };
 }
 
