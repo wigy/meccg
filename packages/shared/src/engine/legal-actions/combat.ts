@@ -526,8 +526,9 @@ export function assignStrikeActions(
     }
     // Burglary (td-103) failure: restrict assignment to the solo defender —
     // no other company member (nor an ally hosted by one) may face a strike.
-    // An ally hosted by the solo defender himself is still reachable via
-    // `findCompanyAllies`, since it counts as "what he himself can provide".
+    // `excludeSoloDefenderAllies` is always set alongside `soloDefenderInstanceId`
+    // for Burglary, so even an ally hosted by the solo defender himself is
+    // excluded — see the `excludeSoloDefenderAllies` doc for why.
     const company = combat.soloDefenderInstanceId
       ? { ...rawCompany, characters: rawCompany.characters.filter(id => id === combat.soloDefenderInstanceId) }
       : rawCompany;
