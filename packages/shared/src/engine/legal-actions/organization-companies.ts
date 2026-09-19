@@ -830,6 +830,28 @@ export function planMovementActions(state: GameState, playerId: PlayerId): Evalu
       continue;
     }
 
+    // Named-region crossing (Forod td-117, and siblings Harad td-121, Rhûn
+    // td-147): the generic, data-driven form of the Belegaer mechanic above —
+    // the region list comes from the granting card's own effect data
+    // (`company.crossingRegions`) instead of a hardcoded per-card constant.
+    if (company.specialMovement === 'named-region-crossing') {
+      const crossingRegions = company.crossingRegions ?? [];
+      logDetail(`Company ${company.id as string} at ${currentSiteDef.name}: named-region-crossing special movement — filtering to [${crossingRegions.join(', ')}]`);
+      for (const siteDef of candidateSites) {
+        if (siteDef.id === currentSiteDef.id) continue;
+        if (!siteDef.region || !crossingRegions.includes(siteDef.region)) continue;
+        const destInstId = siteInstMap.get(siteDef.id);
+        if (!destInstId) continue;
+        if (blockedByRule_2_II_7_1.has(siteDef.id)) {
+          logDetail(`  ${siteDef.name} blocked by rule 2.II.7.1 (sibling at same origin already targets it)`);
+          continue;
+        }
+        logDetail(`  ${siteDef.name} in ${siteDef.region} reachable via named-region-crossing`);
+        actions.push(regressable(state, planMovement(playerId, company.id, destInstId)));
+      }
+      continue;
+    }
+
     // CoE 3.44 / MEAS §3: region movement spans a maximum of 4 consecutive
     // regions, or 6 when an effect grants extra region distance. The total is
     // hard-capped at 6 no matter how much extra distance is granted.

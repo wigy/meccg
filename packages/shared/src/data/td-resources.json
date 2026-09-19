@@ -784,7 +784,51 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.siteRegion": {
+            "$in": [
+              "Lindon",
+              "Forochel",
+              "Angmar",
+              "Gundabad",
+              "Grey Mountain Narrows",
+              "Withered Heath",
+              "Iron Hills"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "named-region-crossing",
+          "crossingRegions": [
+            "Lindon",
+            "Forochel",
+            "Angmar",
+            "Gundabad",
+            "Grey Mountain Narrows",
+            "Withered Heath",
+            "Iron Hills"
+          ],
+          "crossingSitePath": ["wilderness", "wilderness", "wilderness"],
+          "crossingHazardLimitDelta": -2,
+          "crossingHazardLimitFloor": 2
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-09-19",
     "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Lindon, Forochel, Angmar, Gundabad, Grey Mountain Narrows, Withered Heath, and Iron Hills. The site path is [{w} {w} {w}] and the hazard limit is decreased by two to a minimum of two."
   },
   {
