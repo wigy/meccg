@@ -314,6 +314,15 @@ export interface InfluenceAttemptAction {
     /** The influence-check modifier gained by paying this discard. */
     readonly value: number;
   };
+  /**
+   * Palm to Palm (dm-153) `grant-attempt-support`: an untapped company-mate
+   * (other than `influencingCharacterId`) tapping "in support" of this
+   * influence attempt, granting the effect's `value` (default 1) bonus —
+   * already folded into `need`. Set by the legal-action emitter, one variant
+   * per eligible supporter; validated and the supporter tapped by
+   * `handleInfluenceAttemptDeclare`.
+   */
+  readonly supportCharacterId?: CardInstanceId;
 }
 
 /**

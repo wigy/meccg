@@ -14,8 +14,9 @@
  */
 
 import type { GameState } from '../types/state.js';
-import type { AllyInPlay } from '../types/state-cards.js';
-import { defById } from './reducer-utils.js';
+import type { AllyInPlay, Company } from '../types/state-cards.js';
+import type { CompanyModifierEffect } from '../types/effects.js';
+import { defById, getCardEffects } from './reducer-utils.js';
 import { isAllyCard } from '../types/cards.js';
 
 /**
@@ -43,10 +44,34 @@ export function allyEffectiveBody(state: GameState, ally: AllyInPlay): number | 
 /**
  * Effective mind of an ally (used for influence checks, Stay Her Appetite,
  * etc.): the instance `statOverride` if present, otherwise the ally card
- * definition's mind (0 if the definition is not an ally card).
+ * definition's mind (0 if the definition is not an ally card), plus any
+ * `company-modifier` (`stat: "mind"`, `appliesTo: "allies"`) bonus from a
+ * company-bound permanent event bound to the ally's own company — e.g. Palm
+ * to Palm (dm-153): "The mind of each ... ally in the company is increased
+ * by one." Allies don't flow through the character effective-stats pipeline
+ * (`collectCompanyPermanentEventEffects` explicitly skips `appliesTo:
+ * "allies"` effects), so this bonus is folded in here instead. `company` is
+ * the ally-bearing character's company (omit when unknown — e.g. an ally not
+ * currently in any company — to get the unmodified value).
  */
-export function allyEffectiveMind(state: GameState, ally: AllyInPlay): number {
-  if (ally.statOverride) return ally.statOverride.mind;
-  const def = defById(state, ally.definitionId);
-  return isAllyCard(def) ? def.mind : 0;
+export function allyEffectiveMind(state: GameState, ally: AllyInPlay, company?: Company): number {
+  const base = ally.statOverride ? ally.statOverride.mind : (() => {
+    const def = defById(state, ally.definitionId);
+    return isAllyCard(def) ? def.mind : 0;
+  })();
+  if (!company) return base;
+  let bonus = 0;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      if (card.companyId !== company.id) continue;
+      const def = defById(state, card.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def) as CompanyModifierEffect[]) {
+        if (effect.type !== 'company-modifier') continue;
+        if (effect.stat !== 'mind' || effect.appliesTo !== 'allies') continue;
+        bonus += effect.value;
+      }
+    }
+  }
+  return base + bonus;
 }

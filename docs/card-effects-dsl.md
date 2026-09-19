@@ -1706,7 +1706,7 @@ Information is playable are each worth 2 marshalling points."
 
 Applies a stat or check modifier to every character in the company the
 permanent event was played on. Use `stat` for prowess/body/direct-influence/
-corruption-points modifiers, or `check` for check roll modifiers (e.g.
+corruption-points/mind modifiers, or `check` for check roll modifiers (e.g.
 corruption checks).
 
 An optional `when` condition is evaluated at check time against a context
@@ -1719,6 +1719,57 @@ bound company has race `"troll"` and the `"leader"` keyword) and
 { "type": "company-modifier", "check": "corruption", "value": 1 }
 { "type": "company-modifier", "check": "corruption", "value": 1, "when": { "company.hasTrollLeader": true } }
 ```
+
+An optional `appliesTo: "characters" | "allies"` (default `"characters"`)
+picks whether a `stat` entry targets the company's characters or its allies.
+Allies don't flow through the character effective-stats pipeline, so an
+`"allies"` entry is consulted separately by `allyEffectiveMind` (`ally-stats.ts`,
+via an optional trailing `company` parameter) rather than by
+`collectCompanyPermanentEventEffects` — currently meaningful only for
+`stat: "mind"`. Used by Palm to Palm (dm-153): "The mind of each character and
+ally in the company is increased by one" is two sibling effects, one per
+`appliesTo` value:
+
+```json
+{ "type": "company-modifier", "stat": "mind", "value": 1 }
+{ "type": "company-modifier", "stat": "mind", "value": 1, "appliesTo": "allies" }
+```
+
+### 4a. `grant-attempt-support`
+
+Company-bound (via `play-target: "company"`, like `company-modifier`).
+Grants every company member the ability to tap "in support" of a qualifying
+roll declared by another company member — CoE only grants this natively for
+combat strikes (rule 3.iv.4) and end-of-game corruption checks (rule
+10.3.i), so this effect is for cards that extend the capability to other
+roll types.
+
+- `checks` — which roll kinds may be supported: `"influence"` (a faction
+  influence attempt) and/or `"corruption-removal"` (a hazard-corruption
+  card's own `remove-self-on-roll` removal attempt).
+- `value` — bonus per supporting tap (default 1).
+
+The supporter must be untapped, in the same company as (and different from)
+the character making the roll; tapping is the cost, paid when the roll is
+declared — offered as one extra action variant per eligible supporter,
+alongside the base (unsupported) variant (mirroring `discardForBonus` on
+`influence-attempt` and the `noTap` corruption-removal variant). Resolved via
+a new shared lookup `companyAttemptSupportBonus(state, companyId, check)`
+(`reducer-utils.ts`) consulted by both the legal-action emitters
+(`legal-actions/site.ts` for influence attempts, `legal-actions/organization.ts`
+for `remove-self-on-roll`) and their reducers
+(`handleInfluenceAttemptDeclare` in `reducer-site.ts`;
+`runGrantApply`'s `roll-then-apply` branch in `grant-action-apply.ts`), which
+validate the chosen `supportCharacterId`, tap them, and fold the bonus into
+the roll.
+
+```json
+{ "type": "grant-attempt-support", "checks": ["influence", "corruption-removal"], "value": 1 }
+```
+
+Used by Palm to Palm (dm-153): "Any character designated as tapping in
+support gives +1 to an influence attempt or to an attempt to remove a
+corruption card by any other character in the company."
 
 ### 5. `enemy-modifier`
 
@@ -3492,6 +3543,27 @@ Events:
   { "type": "on-event", "event": "leader-leaves-company",
     "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
   ```
+
+- `company-membership-changes` -- fires against every company-bound permanent event (`CardInPlay.companyId`) whenever the bound company's character/ally roster changes: `play-character`, `move-to-company`, `merge-companies`, item/ally attach, a successful influence attempt, combat elimination, corruption-check discard, Call of Home-style returns to hand, and auto-merge at end of M/H — every call site of `sweepCompanyMembershipChangedEvents` (`reducer-utils.ts`). With no `when`, fires unconditionally on *any* join or leave, for any reason — used by *Fellowship* (tw-240): "Discard this card if a character or ally joins or leaves the company for any reason." An optional `when` narrows this: evaluated against `{ company: { hasWizard } }` (the company's *post-change* composition, via the `companyHasWizard` helper) — e.g. `when: { "company.hasWizard": true }` fires only when the change results in a Wizard being present, not on every membership change. Only supports a self-discard `move` apply.
+
+  ```json
+  { "type": "on-event", "event": "company-membership-changes",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+  { "type": "on-event", "event": "company-membership-changes",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+    "when": { "company.hasWizard": true } }
+  ```
+
+  Used unconditionally by *Fellowship* (tw-240); with the `hasWizard` `when` by *Palm to Palm* (dm-153): "Discard ... [when] a Wizard joins the company" — since the card's own play condition guarantees no Wizard was present when it entered play, the first moment `company.hasWizard` becomes true is necessarily a Wizard joining.
+
+- `character-splits-off-company` -- fires only for CoE rule 2.II.3.6/2.II.3.6.1's "splits off into another company": a character (and followers) moving from the bound company to a *distinct* company — narrower than `company-membership-changes`' "any join or leave, for any reason." A company-bound event normally *stays* with the "original" company entity through a split (rule 2.II.3.6.1's default), so this only matters for a card whose text overrides that default. `sweepCharacterSplitsOffCompanyEvents(state, sourceCompanyIds)` (`reducer-utils.ts`, mirrors `sweepLeaderLeavesCompanyEvents`) is called with the *source* company's ID from both `handleSplitCompany` and `handleMoveToCompany` (`reducer-organization.ts`) — the two actions that move a character to a distinct company. Only supports a self-discard `move` apply; no `when` condition is evaluated.
+
+  ```json
+  { "type": "on-event", "event": "character-splits-off-company",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+  ```
+
+  Used by *Palm to Palm* (dm-153): "Discard ... [when] any character in the company splits off into another company."
 
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.
 - `attack-not-canceled` -- fires after combat finalization on the **attack source card** (creature, on-guard creature, or played auto-attack). Canceling an attack ends it before `finalizeCombat` runs (`combat-cancel.ts` returns straight to the enclosing phase), so reaching finalization *is* the "not canceled" test and the event fires unconditionally there. Models the "Unless this attack is canceled, …" clause. Implemented in `combat-finalize.ts`. Supported apply types:

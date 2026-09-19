@@ -1258,11 +1258,50 @@ export interface OrgPhaseFetchEffect extends EffectBase {
 export interface CompanyModifierEffect extends EffectBase {
   readonly type: 'company-modifier';
   /** Which stat to modify (mutually exclusive with `check`). */
-  readonly stat?: 'prowess' | 'body' | 'direct-influence' | 'corruption-points';
+  readonly stat?: 'prowess' | 'body' | 'direct-influence' | 'corruption-points' | 'mind';
   /** Which check kind to modify (mutually exclusive with `stat`). */
   readonly check?: import('./common.js').CheckKind;
   /** The modifier value (positive to boost, negative to penalise). */
   readonly value: number;
+  /**
+   * Who in the company receives a `stat` modifier: the company's
+   * **characters** (default) or its **allies**. Allies do not flow through
+   * the character effective-stats pipeline, so an `"allies"` modifier is
+   * consulted separately (`allyEffectiveMind`, `ally-stats.ts`) rather than
+   * by `collectCompanyPermanentEventEffects`. Used by Palm to Palm (dm-153):
+   * "The mind of each character and ally in the company is increased by
+   * one" is two sibling effects, one per `appliesTo` value. Only meaningful
+   * for `stat: "mind"` today — no other stat is read from `AllyInPlay`.
+   */
+  readonly appliesTo?: 'characters' | 'allies';
+}
+
+/**
+ * Grants every company member the ability to tap "in support" of a
+ * qualifying roll declared by another company member — a capability CoE only
+ * grants natively for combat strikes (rule 3.iv.4) and end-of-game corruption
+ * checks (rule 10.3.i). Bound to a company via `play-target: "company"`
+ * (`CardInPlay.companyId`), mirroring `company-modifier`.
+ *
+ * - `checks` — which roll kinds may be supported: `"influence"` (a faction
+ *   influence attempt) and/or `"corruption-removal"` (a `remove-self-on-roll`
+ *   attempt to shed an attached corruption card).
+ * - `value` — the bonus granted per supporting tap (default 1).
+ *
+ * The supporter must be untapped, in the same company as (and different
+ * from) the character making the roll; tapping is the cost, paid when the
+ * roll is declared. Declared as one extra action variant per eligible
+ * supporter, alongside the base (unsupported) variant — mirroring how
+ * `discardForBonus` (influence attempts) and the `noTap` corruption-removal
+ * variant are already offered. Used by Palm to Palm (dm-153): "Any character
+ * designated as tapping in support gives +1 to an influence attempt or to an
+ * attempt to remove a corruption card by any other character in the
+ * company."
+ */
+export interface GrantAttemptSupportEffect extends EffectBase {
+  readonly type: 'grant-attempt-support';
+  readonly checks: readonly ('influence' | 'corruption-removal')[];
+  readonly value?: number;
 }
 
 /**
@@ -9956,6 +9995,7 @@ export type CardEffect =
   | DetainmentAttacksNormalEffect
   | AutoAttacksNormalEffect
   | CompanyModifierEffect
+  | GrantAttemptSupportEffect
   | EnemyModifierEffect
   | HandSizeModifierEffect
   | DrawModifierEffect

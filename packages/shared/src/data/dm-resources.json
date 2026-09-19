@@ -1400,8 +1400,39 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company without a Wizard at a Haven [{H}]. Any character designated as tapping in support gives +1 to an influence attempt or to an attempt to remove a corruption card by any other character in the company. The mind of each character and ally in the company is increased by one. Discard when any play deck is exhausted, a Wizard joins the company, or any character in the company splits off into another company."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$and": [
+            { "target.siteType": "haven" },
+            { "target.hasWizard": { "$ne": true } }
+          ]
+        }
+      },
+      { "type": "company-modifier", "stat": "mind", "value": 1 },
+      { "type": "company-modifier", "stat": "mind", "value": 1, "appliesTo": "allies" },
+      { "type": "grant-attempt-support", "checks": ["influence", "corruption-removal"], "value": 1 },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      },
+      {
+        "type": "on-event",
+        "event": "company-membership-changes",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" },
+        "when": { "company.hasWizard": true }
+      },
+      {
+        "type": "on-event",
+        "event": "character-splits-off-company",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      }
+    ],
+    "text": "Playable on a company without a Wizard at a Haven [{H}]. Any character designated as tapping in support gives +1 to an influence attempt or to an attempt to remove a corruption card by any other character in the company. The mind of each character and ally in the company is increased by one. Discard when any play deck is exhausted, a Wizard joins the company, or any character in the company splits off into another company.",
+    "certified": "2026-09-19"
   },
   {
     "cardType": "hero-resource-event",

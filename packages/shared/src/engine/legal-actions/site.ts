@@ -11,6 +11,7 @@
 
 import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardInstanceId, CardEffect, SiteCard } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
+import { allyEffectiveMind } from '../ally-stats.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -20,7 +21,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -2867,6 +2868,36 @@ export function playResourcesActions(
           viable: true,
         });
 
+        // Palm to Palm (dm-153) `grant-attempt-support`: an untapped
+        // company-mate (other than the influencer) may tap in support, one
+        // action variant per eligible supporter — only meaningful for a real
+        // roll (not an automatic influence) by an actual character.
+        if (fullCharacter && !autoInf) {
+          const supportBonus = companyAttemptSupportBonus(state, company.id, 'influence');
+          if (supportBonus !== undefined) {
+            for (const companionId of company.characters) {
+              if (companionId === ch.instanceId) continue;
+              const companion = player.characters[companionId];
+              if (!companion || companion.status !== CardStatus.Untapped) continue;
+              const companionDef = defById(state, companion.definitionId);
+              const supportedNeed = infNeed - supportBonus;
+              logDetail(`Faction ${factionDef.name}: ${companionDef?.name ?? '?'} may tap in support of ${charName} (+${supportBonus}, need ${supportedNeed})`);
+              actions.push({
+                action: {
+                  type: 'influence-attempt',
+                  player: playerId,
+                  factionInstanceId: cardInstanceId,
+                  influencingCharacterId: ch.instanceId,
+                  need: supportedNeed,
+                  explanation: `Need roll >= ${supportedNeed} — ${companionDef?.name ?? '?'} taps in support (${infParts.join(', ')})`,
+                  supportCharacterId: companionId,
+                },
+                viable: true,
+              });
+            }
+          }
+        }
+
         // Dragons "Roused" factions (Smaug Roused le-285): "Modifications:
         // influencer discards a major item (+3) or a greater item (+6)." Offer
         // one extra influence-attempt per eligible carried item — the influencer
@@ -3477,7 +3508,7 @@ function opponentInfluenceActions(
         const allyDef = defById(state, allyInst.definitionId);
         if (!allyDef || !isAllyCard(allyDef)) continue;
 
-        const allyMind = allyDef.mind;
+        const allyMind = allyEffectiveMind(state, allyInst, oppCompany);
 
         // Controller DI for ally = DI of the character controlling it
         const allyControllerDI = unusedDIFor(opponent, oppCharId);

@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -3632,6 +3632,32 @@ function handleInfluenceAttemptDeclare(
   // The gained modifier is threaded onto the chain payload → faction-influence
   // roll (applied whether or not the check then succeeds).
   let bonusModifier: number | undefined;
+
+  // Palm to Palm (dm-153) `grant-attempt-support`: an untapped company-mate
+  // tapped in support of this influence attempt. Validated defensively even
+  // though the legal-action emitter only offers eligible candidates.
+  if (action.supportCharacterId) {
+    if (!charInPlay) return { state, error: 'Support tap requires a real character influencer' };
+    const influencerCompany = findCharacterCompany(player.companies, charId);
+    const supporter = influencerCompany?.characters.includes(action.supportCharacterId)
+      ? player.characters[action.supportCharacterId]
+      : undefined;
+    if (!influencerCompany || !supporter || supporter.status !== CardStatus.Untapped || action.supportCharacterId === charId) {
+      return { state, error: `Invalid support character ${action.supportCharacterId as string}` };
+    }
+    const bonus = companyAttemptSupportBonus(state, influencerCompany.id, 'influence');
+    if (bonus === undefined) {
+      return { state, error: `No grant-attempt-support effect in play for company ${influencerCompany.id as string}` };
+    }
+    const supportCharId = action.supportCharacterId;
+    logDetail(`Site: ${def.name} — ${cardName(state, supporter.definitionId, '?')} taps in support (${formatSignedNumber(bonus)})`);
+    newState = updatePlayer(newState, playerIndex, p => ({
+      ...p,
+      characters: { ...p.characters, [supportCharId as string]: { ...p.characters[supportCharId], status: CardStatus.Tapped } },
+    }));
+    bonusModifier = (bonusModifier ?? 0) + bonus;
+  }
+
   if (action.discardForBonus) {
     const discardForBonus = action.discardForBonus;
     const removed = removeAttachment(newState.players[playerIndex], 'items', discardForBonus.itemInstanceId);
@@ -4286,7 +4312,7 @@ function handleOpponentInfluenceAttempt(
         // A converted-creature ally (Ready to His Will) carries its mind on the
         // instance override; otherwise the target must be a real ally card.
         if (!allyInst.statOverride && (!allyDef || !isAllyCard(allyDef))) return { state, error: 'Target is not an ally' };
-        targetMind = allyEffectiveMind(state, allyInst);
+        targetMind = allyEffectiveMind(state, allyInst, findCharacterCompany(opponent.companies, oppCharId));
         controllerDI = controllerUnusedDI(oppCharId);
         // Allies carry no race field; only kind matters for booster gating.
         targetName = allyDef?.name ?? '';
