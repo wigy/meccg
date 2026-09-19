@@ -36,7 +36,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
-import { getActiveAutoAttacks, isReduceAttacksToOneInPlay } from './manifestations.js';
+import { getActiveAutoAttacks, isReduceAttacksToOneInPlay, consumePendingAttackModifier } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
 import { buildSiteRepeatedAttackCombat, facingAlliesFor } from './site-repeated-attack.js';
@@ -1545,6 +1545,22 @@ function handleSiteAutomaticAttacks(
     }
   }
 
+  // Unabated in Malice (ba-26): consume any pending modify-attack constraint
+  // installed when the card was played openly in M/H directly onto this
+  // not-yet-initiated automatic-attack (rule 9.3.2.3) — see
+  // `consumePendingAttackModifier` and the M/H gating in
+  // `movement-hazard.ts`. Applies the same strike/prowess/body deltas, and
+  // arms cancel protection, that the live combat modify-attack action would.
+  const pendingModifier = consumePendingAttackModifier(boostedState, company.id, siteDef.id, {
+    strikesTotal: effectiveStrikes,
+    strikeProwess: effectiveProwess,
+    creatureBody: effectiveBody,
+  });
+  boostedState = pendingModifier.state;
+  effectiveProwess = pendingModifier.strikeProwess;
+  const finalStrikes = pendingModifier.strikesTotal;
+  const finalBody = pendingModifier.creatureBody;
+
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
   // Burglary (td-103) failure: the tapped character faces the site's
   // automatic-attacks alone — restrict the "each character faces one strike"
@@ -1565,9 +1581,9 @@ function handleSiteAutomaticAttacks(
         ...facingAllies.map(allyId => ({ characterId: allyId, excessStrikes: 0, resolved: false })),
       ]
     : [];
-  const strikesTotalValue = isEachCharacter ? preAssignedStrikes.length : effectiveStrikes;
+  const strikesTotalValue = isEachCharacter ? preAssignedStrikes.length : finalStrikes;
 
-  logDetail(`Site: initiating automatic attack ${resolvedAttackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${effectiveStrikes !== aa.strikes ? ` → ${effectiveStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${effectiveStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
+  logDetail(`Site: initiating automatic attack ${resolvedAttackIndex + 1}/${autoAttacks.length}: ${aa.creatureType} (${aa.strikes} strikes${finalStrikes !== aa.strikes ? ` → ${finalStrikes}` : ''}, ${aa.prowess} prowess${effectiveProwess !== aa.prowess ? ` → ${effectiveProwess}` : ''}${finalStrikes !== aa.strikes || effectiveProwess !== aa.prowess ? ' after global effects' : ''}${isEachCharacter ? `, each-character mode → ${strikesTotalValue} total pre-assigned` : ''})`);
 
   const aaAttackerChooses = resolveAttackerChoosesDefenders(
     state, aa.combatRules?.includes('attacker-chooses-defenders') ?? false, creatureRace,
@@ -1581,7 +1597,7 @@ function handleSiteAutomaticAttacks(
     attackingPlayerId: hazardPlayerId,
     strikesTotal: strikesTotalValue,
     strikeProwess: effectiveProwess,
-    creatureBody: effectiveBody,
+    creatureBody: finalBody,
     creatureRace,
     strikeAssignments: preAssignedStrikes,
     currentStrikeIndex: 0,
@@ -1620,6 +1636,7 @@ function handleSiteAutomaticAttacks(
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
     ...(forcedStrikeDefeat ? { forcedStrikeDefeat: true, forcedDefeatBodyCheckModifier } : {}),
     ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+    ...(pendingModifier.cancelProtection ? { cancelProtection: pendingModifier.cancelProtection } : {}),
   };
 
   // For each-character attacks with multiple characters, start at choose-strike-order.

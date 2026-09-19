@@ -1856,6 +1856,39 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Unabated in Malice (ba-26): per CoE rule 9.3.2.3, a hazard that
+         * affects "automatic-attacks" may target an automatic-attack "at any
+         * time while its site is in play" — not only once the attack has
+         * actually been initiated. Playing such a from-hand `modify-attack`
+         * card openly during the M/H phase (rather than placing it on-guard,
+         * its only other legal mode) installs this single-use constraint on
+         * the moving company instead of resolving against a live attack.
+         *
+         * Consumed by the first automatic-attack the company faces at
+         * {@link siteDefinitionId} — `reducer-site.ts`'s automatic-attacks
+         * step applies {@link strikesModifier}/{@link prowessModifier}/
+         * {@link bodyModifier} to the attack and, when
+         * {@link firstCancelRemovesEffect} is set, arms
+         * `CombatState.cancelProtection` — mirroring what the live combat
+         * `modify-attack` action does when the same card is played on an
+         * attack already underway. Also consumed by Tidings of Bold Spies
+         * (le-143) when it duplicates the site's automatic-attack into an
+         * immediate M/H-phase attack, per CoE Rulings Digest #61/#103.
+         */
+        readonly type: 'pending-attack-modifier';
+        /** Strike-count delta applied when the attack initiates. */
+        readonly strikesModifier: number;
+        /** Strike-prowess delta applied when the attack initiates. */
+        readonly prowessModifier: number;
+        /** Creature-body delta applied when the attack initiates. */
+        readonly bodyModifier: number;
+        /** When set, the first cancellation attempt strips this modifier instead of ending the attack. */
+        readonly firstCancelRemovesEffect: boolean;
+        /** Target site definition the attack must belong to. */
+        readonly siteDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Liquid Fire (wh-52): a single-use constraint on the target company
          * that causes all strikes of the next qualifying automatic-attack the
          * company faces to automatically be defeated (as if parried),
