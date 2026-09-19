@@ -16,6 +16,9 @@
  * 5. enemy-modifier: -2 to Dragon body during body check
  * 6. enemy-modifier: -2 to Drake body during body check
  * 7. No body reduction vs non-Dragon/Drake (e.g. orc)
+ * 8. Bug report a31eee5b1a000012: the pre-roll "need" preview for a
+ *    dragon-at-home automatic-attack's body check must already reflect the
+ *    -2 Dragon/Drake reduction, not just the post-roll reducer outcome.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -25,11 +28,11 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeShadowMHState,
   findCharInstanceId, companyIdAt, executeAction, attachItemToChar,
-  RESOURCE_PLAYER, recomputeDerived,
+  RESOURCE_PLAYER, recomputeDerived, viableActions,
 } from '../test-helpers.js';
 import { getCharacter } from '../test-helpers-assertions.js';
 import { Phase, Race } from '../../index.js';
-import type { CombatState, CardDefinitionId } from '../../index.js';
+import type { CombatState, CardDefinitionId, BodyCheckRollAction } from '../../index.js';
 
 const WORMSBANE = 'td-172' as CardDefinitionId;
 
@@ -299,6 +302,53 @@ describe('Wormsbane (td-172)', () => {
 
     // Roll 10 > 9 (no reduction, full body 9) — body check completes.
     const afterDefeated = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 10);
+    expect(afterDefeated.combat).toBeNull();
+  });
+
+  test('bug a31eee5b1a000012: pre-roll body-check "need" reflects the -2 Dragon reduction on a dragon-at-home automatic-attack with excess strikes', () => {
+    // Mirrors the reported game: a lone defender (excess strikes bundled onto
+    // the one facing character, CoE 3.i) fighting a dragon-at-home
+    // automatic-attack, creature body already reduced by another card (The
+    // Old Thrush, -3) to 5. Wormsbane must further reduce it to 3 — and the
+    // *pre-roll* legal-action preview (not just the post-roll reducer) has to
+    // say so, or the player can't tell whether their roll actually defeats
+    // the creature.
+    const state = buildWormsbaneState();
+    const legolasId = findCharInstanceId(state, RESOURCE_PLAYER, LEGOLAS);
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    const combat: CombatState = {
+      attackSource: { type: 'automatic-attack', siteInstanceId: 'fake-site' as never, attackIndex: 0 },
+      companyId,
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 3,
+      strikeProwess: 11,
+      creatureBody: 5,
+      creatureRace: Race.Dragon,
+      strikeAssignments: [{ characterId: legolasId, excessStrikes: 2, resolved: false }],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike',
+      assignmentPhase: 'done',
+      bodyCheckTarget: null,
+      detainment: false,
+      soloDefenderInstanceId: legolasId,
+    };
+
+    const mhState = makeShadowMHState();
+    const ready = { ...state, phaseState: mhState, combat };
+
+    // Win the strike decisively.
+    const afterStrike = executeAction(ready, PLAYER_1, 'resolve-strike', 12, true);
+    expect(afterStrike.combat?.bodyCheckTarget).toBe('creature');
+
+    // Effective body 5-2=3 → need 4+, not the raw need 6+ (body 5).
+    const preview = viableActions(afterStrike, PLAYER_1, 'body-check-roll')[0].action as BodyCheckRollAction;
+    expect(preview.need).toBe(4);
+    expect(preview.explanation).toContain('creature body 3');
+
+    // Roll 5 > 3 (reduced body) — the creature is actually defeated.
+    const afterDefeated = executeAction(afterStrike, PLAYER_1, 'body-check-roll', 5);
     expect(afterDefeated.combat).toBeNull();
   });
 

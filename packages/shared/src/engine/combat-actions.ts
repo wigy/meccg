@@ -36,7 +36,7 @@ import { findAllyInCompany, findItemInCompany, buildPlayedModifyAttackContext } 
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, resolveCreatureBodyForCheck, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -968,51 +968,11 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
   };
 
   if (combat.bodyCheckTarget === 'creature') {
-    // Body check against creature — apply enemy-modifier effects (e.g. Éowyn halves Nazgûl body)
-    let body = combat.creatureBody ?? 0;
+    // Body check against creature — apply enemy-modifier effects (e.g. Éowyn halves Nazgûl body).
+    // Shared with the legal-action "need" preview via resolveCreatureBodyForCheck
+    // (reducer-utils.ts) so both agree on the same effective body.
     const strike2 = combat.strikeAssignments[combat.currentStrikeIndex];
-    // Per-strike creature body modifier (Arrows Shorn of Ebony td-99: "-2
-    // body") — applies only to this strike's own creature body check, unlike
-    // a whole-attack `modify-attack`'s persistent `CombatState.creatureBody` change.
-    if (strike2?.strikeCreatureBodyModifier) {
-      const modified = body + strike2.strikeCreatureBodyModifier;
-      logDetail(`Strike-scoped creature body modifier: ${body} ${formatSignedNumber(strike2.strikeCreatureBodyModifier)} = ${modified}`);
-      body = modified;
-    }
-    if (strike2 && combat.creatureRace) {
-      const defIdx2 = getPlayerIndex(stateWithRoll, combat.defendingPlayerId);
-      const charData2 = stateWithRoll.players[defIdx2].characters[strike2.characterId];
-      if (charData2) {
-        const inPlayNames2 = buildInPlayNames(stateWithRoll);
-        const enemy2 = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
-        // Mechanical Bow (wh-53): "-1 to the body of any strike its bearer faces
-        // if he taps to face the strike." The recorded `strikeMode` gates the
-        // bearer's `enemy-modifier` body reduction on `combat.strikeMode: tap`.
-        const modifiedBody = resolveEnemyBody(stateWithRoll, charData2, enemy2, body, inPlayNames2, strike2.strikeMode);
-        if (modifiedBody !== body) {
-          logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
-          body = modifiedBody;
-        }
-      }
-    }
-    // Biter and Beater! (as-46): "lower the body of strikes their bearers
-    // face by 1" — a short-event counterpart to an item's `enemy-modifier`,
-    // reaching the bearer without requiring the bonus to live on a borne item.
-    // One `character-creature-body-modifier` constraint per matching weapon
-    // (see `handlePlayResourceShortEvent`'s `company-combat-boost` block).
-    if (strike2) {
-      const creatureBodyMods = stateWithRoll.activeConstraints.filter(
-        c => c.kind.type === 'character-creature-body-modifier' && c.kind.characterId === strike2.characterId,
-      );
-      for (const mod of creatureBodyMods) {
-        if (mod.kind.type !== 'character-creature-body-modifier') continue;
-        const reduced = Math.max(0, body - mod.kind.value);
-        if (reduced !== body) {
-          logDetail(`Creature body modified by character-creature-body-modifier constraint: ${body} → ${reduced}`);
-          body = reduced;
-        }
-      }
-    }
+    const body = resolveCreatureBodyForCheck(stateWithRoll, combat, strike2);
     // Agent hazard attacks (CoE 3.v): when a character defeats an agent's
     // strike, the agent is *wounded* and must make a body check — unlike an
     // ordinary hazard creature, which is never wounded and simply survives or
