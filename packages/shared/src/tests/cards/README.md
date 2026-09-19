@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1338 | 1338 | 0 | 100.0% |
+| 1341 | 1341 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,9 +14,9 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 117 | 117 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 144 | 144 | 100.0% |
+| DM | 145 | 145 | 100.0% |
 | LE | 323 | 323 | 100.0% |
-| TD | 134 | 134 | 100.0% |
+| TD | 136 | 136 | 100.0% |
 | TW | 424 | 424 | 100.0% |
 | WH | 96 | 96 | 100.0% |
 
@@ -165,7 +165,7 @@
 | ba-23 | The Reek | — | 8 | ☑ |
 | ba-24 | Spawn of Ungoliant | — | 10 | ☑ |
 | ba-25 | The Sun Shone Fiercely | — | 8 | ☑ |
-| ba-26 | Unabated in Malice | — | 12 | ☑ |
+| ba-26 | Unabated in Malice | — | 16 | ☑ |
 | ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
 | ba-29 | Crept Along Carefully | — | 18 | ☑ |
@@ -362,6 +362,7 @@
 | dm-148 | Mallorn | — | 18 | ☑ |
 | dm-150 | More Alert than Most | — | 8 | ☑ |
 | dm-152 | Ordered to Kill | — | 8 | ☑ |
+| dm-153 | Palm to Palm | — | 15 | ☑ |
 | dm-154 | Pass the Doors of Dol Guldur | — | 21 | ☑ |
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
@@ -789,6 +790,7 @@
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
 | td-116 | Flatter a Foe | — | 23 | ☑ |
+| td-117 | Forod | — | 7 | ☑ |
 | td-118 | Gift of Comprehension | — | 6 | ☑ |
 | td-119 | Gold Belt of Lórien  | — | 5 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
@@ -825,6 +827,7 @@
 | td-163 | Warm Now Be Heart and Limb | — | 9 | ☑ |
 | td-165 | Waybread | — | 14 | ☑ |
 | td-166 | When I Know Anything | — | 13 | ☑ |
+| td-167 | Wielded Twice | — | 20 | ☑ |
 | td-168 | Wit | — | 7 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
 | td-170 | Wizard’s Staff | — | 19 | ☑ |
