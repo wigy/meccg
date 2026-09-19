@@ -1178,6 +1178,19 @@ export interface RecruitCharacterEffect extends EffectBase {
    * followers".
    */
   readonly allowRingwraithFollowers?: boolean;
+  /**
+   * When true, a recruit's own card-specific `home-site-only` play-flag
+   * (Frodo tw-152, Bilbo tw-131, Sam Gamgee tw-180: "he may only be brought
+   * into play at his home site") is lifted for this event, in addition to the
+   * normal haven / home-site restriction already replaced by {@link
+   * siteTypes}. A Chance Meeting (tw-188) is worded "even a Hobbit" precisely
+   * to call out that its site list overrides this stricter, character-level
+   * restriction too — the golden rule (CoE 9.4.3): a card effect that
+   * actively conflicts with another card's restriction takes precedence over
+   * it. Unset (or false) leaves the restriction in force, as for We Have Come
+   * to Kill (le-252), whose text carries no such clarification.
+   */
+  readonly overridesHomeSiteOnly?: boolean;
   /** When true, the play does not count against the one-character-per-turn limit. */
   readonly bypassOneCharacterLimit?: boolean;
 }
