@@ -6,12 +6,13 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
+import { formatSignedNumber } from '../format-helpers.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { shuffle, nextInt } from '../rng.js';
 import { getPlayerIndex, isMinionOrBalrog } from '../state-utils.js';
@@ -24,7 +25,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildControllerFactionRaces, buildFactionPlayableAt, buildFactionPlayableRegions } from './recompute-derived.js';
 import { matchesCondition, matchesContext } from '../effects/index.js';
-import { resolveDef, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext, resolveAttackerChosenStrikeReduction } from './effects/index.js';
+import { resolveDef, resolveEnemyBody, normalizeCreatureRace, resolveCheckModifier, getEffectiveSkills, buildInfluenceTargetContext, resolveAttackerChosenStrikeReduction } from './effects/index.js';
 import type { ResolverContext } from './effects/index.js';
 import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
 import { revealInstances, forgetDeckReveals } from './visibility.js';
@@ -6718,6 +6719,70 @@ export function excessStrikePenalty(combat: CombatState, excessStrikes: number):
   if (excessStrikes <= 0) return 0;
   if (combat.firstExcessStrikePenalty === undefined) return excessStrikes;
   return combat.firstExcessStrikePenalty + (excessStrikes - 1);
+}
+
+/**
+ * Resolves the effective creature body a `bodyCheckTarget: 'creature'` body
+ * check is rolled against: `combat.creatureBody` with (1) any per-strike
+ * `strikeCreatureBodyModifier` (Arrows Shorn of Ebony td-99), (2) the facing
+ * character's `enemy-modifier` body-reduction effects from their own card and
+ * borne items (e.g. Wormsbane td-172's "-2 to strike's body against a Dragon
+ * or Drake strike"), and (3) any `character-creature-body-modifier` active
+ * constraint (Biter and Beater! as-46) applied in that order.
+ *
+ * Shared by the reducer (`handleBodyCheckRoll` in `combat-actions.ts`, the
+ * actual resolution) and the legal-action "need" preview
+ * (`bodyCheckActions` in `legal-actions/combat.ts`) so both agree on the
+ * same number — the preview quoting an unreduced body previously misled
+ * players about whether a body check would actually defeat the creature.
+ */
+export function resolveCreatureBodyForCheck(
+  state: GameState,
+  combat: CombatState,
+  strike: StrikeAssignment | undefined,
+): number {
+  let body = combat.creatureBody ?? 0;
+  // Per-strike creature body modifier (Arrows Shorn of Ebony td-99: "-2
+  // body") — applies only to this strike's own creature body check, unlike
+  // a whole-attack `modify-attack`'s persistent `CombatState.creatureBody` change.
+  if (strike?.strikeCreatureBodyModifier) {
+    const modified = body + strike.strikeCreatureBodyModifier;
+    logDetail(`Strike-scoped creature body modifier: ${body} ${formatSignedNumber(strike.strikeCreatureBodyModifier)} = ${modified}`);
+    body = modified;
+  }
+  if (strike && combat.creatureRace) {
+    const defIdx = getPlayerIndex(state, combat.defendingPlayerId);
+    const charData = state.players[defIdx].characters[strike.characterId];
+    if (charData) {
+      const inPlayNames = buildInPlayNames(state);
+      const enemy = { race: combat.creatureRace, name: '', prowess: combat.strikeProwess, body: combat.creatureBody };
+      // Mechanical Bow (wh-53): "-1 to the body of any strike its bearer faces
+      // if he taps to face the strike." The recorded `strikeMode` gates the
+      // bearer's `enemy-modifier` body reduction on `combat.strikeMode: tap`.
+      const modifiedBody = resolveEnemyBody(state, charData, enemy, body, inPlayNames, strike.strikeMode);
+      if (modifiedBody !== body) {
+        logDetail(`Enemy body modified by character effects: ${body} → ${modifiedBody}`);
+        body = modifiedBody;
+      }
+    }
+  }
+  // Biter and Beater! (as-46): "lower the body of strikes their bearers
+  // face by 1" — a short-event counterpart to an item's `enemy-modifier`,
+  // reaching the bearer without requiring the bonus to live on a borne item.
+  if (strike) {
+    const creatureBodyMods = state.activeConstraints.filter(
+      c => c.kind.type === 'character-creature-body-modifier' && c.kind.characterId === strike.characterId,
+    );
+    for (const mod of creatureBodyMods) {
+      if (mod.kind.type !== 'character-creature-body-modifier') continue;
+      const reduced = Math.max(0, body - mod.kind.value);
+      if (reduced !== body) {
+        logDetail(`Creature body modified by character-creature-body-modifier constraint: ${body} → ${reduced}`);
+        body = reduced;
+      }
+    }
+  }
+  return body;
 }
 
 export function makeCombatState(
