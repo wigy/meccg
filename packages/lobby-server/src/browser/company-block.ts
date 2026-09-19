@@ -1101,21 +1101,16 @@ export function renderCompanyBlock(
     }
 
     // Single type: declare-burglary (Burglary, td-103) — tap character and site
-    // to attempt burglary in lieu of facing automatic-attacks. Execute directly
-    // if there's only one card/character combination, otherwise show a menu
-    // (multiple copies of Burglary in hand).
+    // to attempt burglary in lieu of facing automatic-attacks. Always show the
+    // confirmation menu rather than firing on the bare click, even when only
+    // one card/character combination exists: declining the automatic-attack
+    // is an optional, consequential choice, and the character's portrait is
+    // otherwise inert during this step, so an ordinary "click my character"
+    // gesture (e.g. to line them up to face the attack normally) must not
+    // silently commit to burglary instead. Bug report 7ad0fe0eb17bfee2 (game
+    // mu7ik4td-ewl6us, seq 773): "I decided to take the auto att by Pallando.
+    // But the burglary auto inserted itself."
     if (hasBurglary) {
-      const onAction = options!.onAction!;
-      if (burglaryActionsForChar.length === 1) {
-        const onlyAction = burglaryActionsForChar[0];
-        return {
-          cls: 'company-card--influence-source',
-          handler: (e) => {
-            e.stopPropagation();
-            onAction(onlyAction);
-          },
-        };
-      }
       return {
         cls: 'company-card--influence-source',
         handler: (e) => {
