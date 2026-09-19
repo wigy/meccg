@@ -247,6 +247,23 @@ describe('Burglary (td-103)', () => {
     expect(burglaryShortEventPlays).toHaveLength(0);
   });
 
+  // ── Regression: roll must be broadcast to clients as a dice-roll effect ──
+
+  test('resolving the roll emits a dice-roll effect so clients animate it', () => {
+    // Bug report f0618c7c20e50ac5 (game mu8m3270-qg70v3, seq 538): the roll
+    // was invisible on screen — applyBurglaryAttemptResolution rolled via the
+    // raw roll2d6() helper and never built/returned a dice-roll effect, unlike
+    // every other 2d6 roll resolution (flattery-attempt, goodwill-attempt,
+    // etc.), which all go through rollDiceForPlayer() for this reason.
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN], heroHand: [BURGLARY] });
+    const state = setupAutoAttackStep({ ...base, phaseState: makeSitePhase() });
+    const { after, rollAction } = declareAndGetRollAction(state, ARAGORN);
+
+    const result = reduce({ ...after, cheatRollTotal: 6 }, rollAction.action);
+    expect(result.error).toBeUndefined();
+    expect(result.effects?.some(e => e.effect === 'dice-roll')).toBe(true);
+  });
+
   // ── Attempting character leaves play while the roll is pending ────────────
 
   test('character eliminated while the roll is pending: attempt fails, game not deadlocked', () => {
