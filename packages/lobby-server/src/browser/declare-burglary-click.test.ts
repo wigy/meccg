@@ -153,7 +153,16 @@ const findBilboImg = (block: StubEl): StubEl | undefined =>
   block.all().find(e => e.tagName === 'img' && e.dataset.instanceId === (BILBO_INST as string));
 
 describe('declare-burglary offered during the automatic-attacks step (Burglary, td-103)', () => {
-  test('with a single Burglary in hand, clicking the character fires the action directly', () => {
+  // Regression test for bug report 7ad0fe0eb17bfee2 (game mu7ik4td-ewl6us,
+  // seq 773): the player clicked their own character intending to face the
+  // site's automatic-attack normally ("take the auto att by Pallando"), but
+  // since declare-burglary was the character's only legal action at that
+  // moment, the click fired it directly with no chance to back out —
+  // "the burglary auto inserted itself so Pallando took a burglary attempt
+  // which was not planned". A single click on a character must never
+  // silently commit to declining the automatic-attack; it must always open
+  // the confirmation menu, even with just one Burglary in hand.
+  test('with a single Burglary in hand, clicking the character opens a confirmation menu instead of firing directly', () => {
     const onAction = vi.fn();
     const view = boardView([declareBurglary(BURGLARY_INST_A)]);
     const block = renderCompanyBlock(company, view.self.characters, view, pool, 'self', {
@@ -166,6 +175,14 @@ describe('declare-burglary offered during the automatic-attacks step (Burglary, 
     expect(img!.classList.contains('company-card--influence-source')).toBe(true);
 
     img!.click();
+    expect(onAction).not.toHaveBeenCalled();
+
+    const tooltip = bodyStub.all().find(e => e.className === 'char-action-tooltip');
+    expect(tooltip).toBeDefined();
+    const buttons = tooltip!.children.filter(c => c.tagName === 'button');
+    expect(buttons).toHaveLength(1);
+
+    buttons[0].click();
     expect(onAction).toHaveBeenCalledWith(declareBurglary(BURGLARY_INST_A));
   });
 
