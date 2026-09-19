@@ -31,6 +31,8 @@
  * | 7 | First cancel strips the buff, attack continues     | IMPLEMENTED | `cancelProtection` + `resolveCancelAttackEntry` |
  * | 8 | A later cancel then ends the attack normally       | IMPLEMENTED | protection consumed after the first attempt     |
  * | 9 | Cannot be duplicated on a given attack             | IMPLEMENTED | `duplication-limit` scope `attack`              |
+ * | 10| Playable openly in M/H onto a moving company's     | IMPLEMENTED | `pending-attack-modifier` constraint (rule      |
+ * |   | destination automatic-attack (rule 9.3.2.3)        |             | 9.3.2.3); consumed at auto-attack initiation    |
  *
  * Playable: YES.
  */
@@ -40,6 +42,7 @@ import {
   buildTestState, resetMint, Phase,
   viableActions, dispatch, nonViableOfType,
   makeCancelWindowCombat, makeMHState, placeOnGuard,
+  buildHazardMovingState, buildSitePhaseState, setupAutoAttackStep, playHazardAndResolve,
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS,
   ORC_PATROL,
@@ -48,7 +51,8 @@ import {
 } from '../test-helpers.js';
 import { Alignment, Race, computeLegalActions, RegionType, SiteType } from '../../index.js';
 import { resolveCancelAttackEntry } from '../../engine/combat-cancel.js';
-import type { CardDefinitionId, GameState, ModifyAttackAction } from '../../index.js';
+import { addConstraint } from '../../engine/pending.js';
+import type { CardDefinitionId, GameState, ModifyAttackAction, CardInstanceId } from '../../index.js';
 
 const UNABATED_IN_MALICE = 'ba-26' as CardDefinitionId;
 const SHELOB = 'tw-86' as CardDefinitionId; // unique Spider, race "spider"
@@ -139,18 +143,14 @@ describe('Unabated in Malice (ba-26)', () => {
     expect(after.combat!.cancelProtection).toBeDefined();
   });
 
-  test('NOT playable as an open hazard during the movement/hazard phase', () => {
-    // Regression (game mruvf51s-a9ge5j, seq 227): the hazard player played
-    // Unabated in Malice openly as a short-event during a company's
-    // movement/hazard phase while it was moving to Glittering Caves (a
-    // Ruins & Lairs with a Pûkel-creature automatic-attack). The card resolved
-    // to a no-op — its +1 strike / +1 prowess / -2 body buff was silently
-    // dropped and never reached the automatic-attack, which stayed at its base
-    // 1 strike / 9 prowess. A from-hand modify-attack is a combat modifier with
-    // no open M/H play: during M/H there is no active attack to modify. It must
-    // be played on the active attack (via the combat modify-attack action) or
-    // placed on-guard to be revealed when the company faces the site's
-    // automatic-attack (rule 2.V.i). The open play must therefore be suppressed.
+  test('NOT playable as an open hazard when the company has no declared destination', () => {
+    // With no `destinationSite` on the company at all (the synthetic state
+    // below never calls select-company/declare-path), there is no site for
+    // Unabated in Malice to target under rule 9.3.2.3 — it must be played on
+    // a live attack (via the combat modify-attack action) or placed on-guard.
+    // See the "playable openly in M/H onto a moving company's destination
+    // automatic-attack" tests below for the case where a destination *is*
+    // declared and does carry an automatic-attack.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -178,6 +178,76 @@ describe('Unabated in Malice (ba-26)', () => {
     const gated = nonViableOfType(computeLegalActions(state, PLAYER_2), 'play-hazard')
       .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === ba26Inst);
     expect(gated).toHaveLength(1);
+  });
+
+  test('playable openly in M/H onto a moving company\'s destination automatic-attack (rule 9.3.2.3)', () => {
+    // Regression (bug report, game mu7hag2a-6wtkop, seq 277; CoE Rulings
+    // Digest #61/#103): a hazard whose `modify-attack` gates on
+    // `attack.automatic: true` may target an automatic-attack "at any time
+    // while its site is in play" — not only once the attack is underway.
+    // Moria has one automatic-attack (4 Orcs @ 7 prowess), so a company
+    // moving there is a legal open-play target even with no live combat.
+    const state = buildHazardMovingState(MORIA, 'Moria', [UNABATED_IN_MALICE]);
+    const card = state.players[HAZARD_PLAYER].hand.find(c => c.definitionId === UNABATED_IN_MALICE)!;
+
+    const viable = viableActions(state, PLAYER_2, 'play-hazard')
+      .filter(a => a.action.type === 'play-hazard' && a.action.cardInstanceId === card.instanceId);
+    expect(viable).toHaveLength(1);
+  });
+
+  test('playing it openly in M/H does not count against the hazard limit', () => {
+    const state = buildHazardMovingState(MORIA, 'Moria', [UNABATED_IN_MALICE]);
+    const card = state.players[HAZARD_PLAYER].hand.find(c => c.definitionId === UNABATED_IN_MALICE)!;
+    const company = state.players[RESOURCE_PLAYER].companies[0];
+
+    const after = playHazardAndResolve(state, PLAYER_2, card.instanceId, company.id);
+
+    expect((after.phaseState as import('../../index.js').MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(0);
+    expect(after.players[HAZARD_PLAYER].hand).toHaveLength(0);
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === UNABATED_IN_MALICE)).toBe(true);
+  });
+
+  test('playing it openly in M/H installs a pending-attack-modifier constraint keyed to the destination site', () => {
+    const state = buildHazardMovingState(MORIA, 'Moria', [UNABATED_IN_MALICE]);
+    const card = state.players[HAZARD_PLAYER].hand.find(c => c.definitionId === UNABATED_IN_MALICE)!;
+    const company = state.players[RESOURCE_PLAYER].companies[0];
+
+    const after = playHazardAndResolve(state, PLAYER_2, card.instanceId, company.id);
+
+    const pending = after.activeConstraints.find(c => c.kind.type === 'pending-attack-modifier');
+    expect(pending).toBeDefined();
+    if (pending?.kind.type !== 'pending-attack-modifier') throw new Error('unreachable');
+    expect(pending.kind.strikesModifier).toBe(1);
+    expect(pending.kind.prowessModifier).toBe(1);
+    expect(pending.kind.bodyModifier).toBe(-2);
+    expect(pending.kind.firstCancelRemovesEffect).toBe(true);
+    expect(pending.kind.siteDefinitionId).toBe(MORIA);
+    expect(pending.scope.kind).toBe('company-site-phase');
+  });
+
+  test('the site automatic-attack initiated afterward carries the buff and arms cancel protection', () => {
+    // Install the pending modifier exactly as the M/H open play above does,
+    // then verify the site phase's automatic-attack initiation consumes it.
+    const siteState = buildSitePhaseState({ site: MORIA });
+    const companyId = siteState.players[0].companies[0].id;
+    const withPending = addConstraint(siteState, {
+      source: 'ba26-src' as CardInstanceId,
+      sourceDefinitionId: UNABATED_IN_MALICE,
+      scope: { kind: 'company-site-phase', companyId },
+      target: { kind: 'company', companyId },
+      kind: { type: 'pending-attack-modifier', strikesModifier: 1, prowessModifier: 1, bodyModifier: -2, firstCancelRemovesEffect: true, siteDefinitionId: MORIA },
+    });
+    const initiated = dispatch(setupAutoAttackStep(withPending), { type: 'pass', player: PLAYER_1 });
+
+    expect(initiated.combat).not.toBeNull();
+    expect(initiated.combat!.strikesTotal).toBe(5);     // 4 + 1
+    expect(initiated.combat!.strikeProwess).toBe(8);    // 7 + 1
+    expect(initiated.combat!.cancelProtection).toBeDefined();
+    expect(initiated.combat!.cancelProtection!.strikesModifier).toBe(1);
+    expect(initiated.combat!.cancelProtection!.prowessModifier).toBe(1);
+    expect(initiated.combat!.cancelProtection!.bodyModifier).toBe(-2);
+    // The single-use constraint is consumed after the attack initiates.
+    expect(initiated.activeConstraints.some(c => c.kind.type === 'pending-attack-modifier')).toBe(false);
   });
 
   test('attacker can play it on an attack from Shelob', () => {
