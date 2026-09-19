@@ -44,6 +44,10 @@ export interface PlayShortEventAction {
    * against — chosen by the player when the character bears more than one
    * item matching the filter. One legal action is emitted per (character,
    * item) combination.
+   *
+   * Reused by an `item-untap` card (Wielded Twice, td-167) to name the
+   * currently-tapped item, borne by any character in the tapping sage's
+   * company, the card untaps on resolution.
    */
   readonly targetItemInstanceId?: CardInstanceId;
   /**

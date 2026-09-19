@@ -31,7 +31,7 @@ import { isCharacterCard, isResourceEventCard, isSiteCard, isAvatarCharacter, is
 import { requirePhaseState, companyContainsBalrogAvatar, canCallEndgameNow, isMinionOrBalrog } from '../../state-utils.js';
 import { CardStatus, cardStatusToName, Race, Skill, type RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect, SiteUntapEffect } from '../../types/effects.js';
+import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
@@ -39,7 +39,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron } from '../reducer-utils.js';
+import { activePlayerState, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -3094,6 +3094,50 @@ export function collectSiteUntapTargets(
 }
 
 /**
+ * Enumerates every currently-tapped item an {@link ItemUntapEffect} (Wielded
+ * Twice, td-167) can untap for a given sage: every item borne by any
+ * character in the sage's own company (found via {@link findCharacterCompany})
+ * whose instance `status` is `Tapped` and whose card definition matches
+ * `effect.filter` (evaluated via {@link matchesDefinition}), the same
+ * definition-level filter `itemFilter` uses elsewhere. Unlike
+ * {@link collectSiteUntapTargets} this is scoped to one sage's company, not
+ * every company on the map — "an item in his company" is company-relative.
+ *
+ * `sageCharId` may name a sage **ally** (CoE rule 2.V.2.2: an ally is treated
+ * as a character for a skill-only tap cost, e.g. Treebeard tapping to pay
+ * Marvels Told's sage requirement) rather than a real character — an ally's
+ * instance id never appears in any `company.characters` array, so it is
+ * first resolved to its host character via {@link findAttachment} before the
+ * company lookup.
+ */
+export function collectItemUntapTargets(
+  state: GameState,
+  player: PlayerState,
+  sageCharId: CardInstanceId,
+  effect: ItemUntapEffect,
+): { itemInstanceId: CardInstanceId; itemName: string }[] {
+  const out: { itemInstanceId: CardInstanceId; itemName: string }[] = [];
+  const hostCharId = sageCharId in player.characters
+    ? sageCharId
+    : findAttachment(player, 'allies', sageCharId)?.charId;
+  if (!hostCharId) return out;
+  const company = findCharacterCompany(player.companies, hostCharId);
+  if (!company) return out;
+  for (const charId of company.characters) {
+    const char = player.characters[charId];
+    if (!char) continue;
+    for (const item of char.items) {
+      if (item.status !== CardStatus.Tapped) continue;
+      const itemDef = defById(state, item.definitionId);
+      if (!itemDef) continue;
+      if (effect.filter && !matchesDefinition(itemDef, effect.filter)) continue;
+      out.push({ itemInstanceId: item.instanceId, itemName: itemDef.name });
+    }
+  }
+  return out;
+}
+
+/**
  * Returns all {@link PlayOptionEffect}s declared on the given card.
  */
 export function getPlayOptionEffects(def: ResourceEventCard): readonly PlayOptionEffect[] {
@@ -4478,6 +4522,15 @@ export function playResourceShortEventActions(
       }
     }
 
+    // Wielded Twice (td-167): "Tap a sage to untap an item in his company."
+    // Unlike site-untap, the target pool is company-relative (one sage's own
+    // company, not every company on the map), so it cannot be precomputed
+    // here independent of which sage taps — the (sage × item) cross happens
+    // below, in the `playTarget.cost?.tap === 'character'` branch.
+    const itemUntapEffect = def.effects?.find(
+      (e): e is ItemUntapEffect => e.type === 'item-untap',
+    );
+
     // duplication-limit: scope "turn" — cannot play if a copy was already
     // played this turn (tracked via active constraints sourced from this def).
     const turnDupLimit = findDuplicationLimitEffect(def, 'turn');
@@ -4628,6 +4681,33 @@ export function playResourceShortEventActions(
         if (!anyOffered) {
           logDetail(`${def.name}: no eligible (sage × item) pair — not playable`);
           actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage bearing a matching item`));
+        }
+      } else if (itemUntapEffect) {
+        // Wielded Twice (td-167): cross each eligible sage with the
+        // currently-tapped item(s) in HIS company (any bearer, not just
+        // himself), emitting targetItemInstanceId so the player picks which
+        // one when more than one qualifies.
+        let anyOffered = false;
+        for (const targetId of tapTargets) {
+          const itemTargets = collectItemUntapTargets(state, player, targetId, itemUntapEffect);
+          for (const { itemInstanceId, itemName } of itemTargets) {
+            logDetail(`Resource short-event playable (sage ${String(targetId)}, untap item ${itemName}): ${def.name}`);
+            actions.push({
+              action: {
+                type: 'play-short-event',
+                player: playerId,
+                cardInstanceId: handCard.instanceId,
+                targetScoutInstanceId: targetId,
+                targetItemInstanceId: itemInstanceId,
+              },
+              viable: true,
+            });
+            anyOffered = true;
+          }
+        }
+        if (!anyOffered) {
+          logDetail(`${def.name}: no eligible (sage × tapped item) pair — not playable`);
+          actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires a sage whose company has a tapped item`));
         }
       } else if (crossesGoldRing) {
         // Cross sage targets with gold rings in each sage's company.

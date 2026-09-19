@@ -850,6 +850,23 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
   }
 
+  // A short event that untaps a chosen item in the tapping sage's own
+  // company (Wielded Twice td-167: "Tap a sage to untap an item in his
+  // company") rides the chain of effects for the same CoE 9.4/9.5 reason as
+  // the site-untap mode above. The sage's tap cost was already paid;
+  // `resolveEntry` untaps the chosen item and enqueues the sage's follow-up
+  // corruption check once both players pass priority.
+  if (action.targetItemInstanceId && def.effects?.some(e => e.type === 'item-untap')) {
+    logDetail(`${def.name} → chain of effects (item ${action.targetItemInstanceId as string} untaps on chain resolution)`);
+    const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      itemUntapInstanceId: action.targetItemInstanceId,
+      ...(action.targetScoutInstanceId ? { costTapCharacterId: action.targetScoutInstanceId } : {}),
+    };
+    return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
+  }
+
   // The sweep sibling of the branch above: a short event that discards *every*
   // matching card in play (Wizard's River-horses tw-364, "All Nazgûl events are
   // discarded"). Same chain treatment — the opponent is owed a response window
