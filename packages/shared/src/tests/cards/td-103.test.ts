@@ -32,12 +32,14 @@ import {
   dispatch, viableActions, phaseStateAs,
   findCharInstanceId, findHandCardId,
   eliminateCharacter, RESOURCE_PLAYER,
+  attachAllyToChar,
 } from '../test-helpers.js';
 import { computeLegalActions, reduce } from '../../index.js';
 import { CardStatus } from '../../types/common.js';
 import type { CardDefinitionId, SitePhaseState } from '../../index.js';
 
 const BURGLARY = 'td-103' as CardDefinitionId;
+const GOLLUM = 'tw-246' as CardDefinitionId;
 
 describe('Burglary (td-103)', () => {
   beforeEach(() => resetMint());
@@ -177,6 +179,34 @@ describe('Burglary (td-103)', () => {
       expect((ea.action as { characterId: unknown }).characterId).toBe(aragornId);
     }
     expect(assignActions.some(ea => (ea.action as { characterId: unknown }).characterId === legolasId)).toBe(false);
+  });
+
+  test('failed roll: the character faces the automatic-attack alone even when he personally hosts an ally', () => {
+    // Bug report (game mu8m3270-qg70v3, turn 13 site phase, stateSeq 546-548):
+    // Gollum (an ally hosted directly by Gimli) was offered — and assigned —
+    // a strike after Gimli's burglary attempt failed. CRF 22 for Burglary:
+    // "the character who fails the burglary roll must face the
+    // automatic-attack as though he were a one-character company. He can
+    // receive no combat support other than what he himself can provide" —
+    // the identical wording used by The Hunt (dm-143), for which CRF 22
+    // separately confirms "a Noble Hound does not shield Alatar ... he is
+    // still alone against them." A hosted ally is combat support from the
+    // ally, not from the character himself, so it cannot take the strike
+    // either.
+    const base = buildSitePhaseTwoPlayer({ site: MORIA, heroChars: [ARAGORN, LEGOLAS], heroHand: [BURGLARY] });
+    const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GOLLUM);
+    const state = setupAutoAttackStep({ ...withAlly, phaseState: makeSitePhase() });
+    const { after, charId: aragornId, rollAction } = declareAndGetRollAction(state, ARAGORN);
+
+    const afterRoll = dispatch({ ...after, cheatRollTotal: 6 }, rollAction.action);
+    const afterPass = dispatch(afterRoll, { type: 'pass', player: PLAYER_1 });
+    expect(afterPass.combat!.excludeSoloDefenderAllies).toBe(true);
+
+    const strikeTargets = new Set(
+      viableActions(afterPass, PLAYER_1, 'assign-strike')
+        .map(ea => (ea.action as { characterId: unknown }).characterId),
+    );
+    expect(strikeTargets).toEqual(new Set([aragornId]));
   });
 
   // ── Success: automatic-attacks skipped, item unlocked with the character ─
