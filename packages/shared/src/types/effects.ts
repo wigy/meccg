@@ -5683,6 +5683,42 @@ export interface SiteUntapEffect extends EffectBase {
 }
 
 /**
+ * A resource short-event that lets the player untap one currently-tapped
+ * item borne by a character in the tapping sage's **own company**, chosen at
+ * play time (Wielded Twice, td-167). The company-scoped sibling of
+ * {@link SiteUntapEffect} — instead of scanning every company on the map for
+ * a matching site, this scans only the characters of the sage's own company
+ * for a `Tapped` item.
+ *
+ * Combined with a `play-target` tap-cost effect naming the sage who pays the
+ * ritual's cost, exactly like `site-untap`/`region-transform`. Resolved as a
+ * top-level effect when the carrying short-event resolves on the chain of
+ * effects (CoE 9.4/9.5): `handlePlayResourceShortEvent` (`reducer-events.ts`)
+ * pushes the chosen item instance onto the chain entry payload
+ * (`itemUntapInstanceId`); on un-negated resolution `applyShortEventItemUntap`
+ * (`short-event-discard.ts`) untaps the item and enqueues the sage's
+ * follow-up corruption check (rule 7.4: skipped when the tap-cost payer is
+ * an ally).
+ *
+ * Used by: *Wielded Twice* (td-167) — "Sage only. Ritual. Tap a sage to
+ * untap an item in his company. Sage makes a corruption check."
+ */
+export interface ItemUntapEffect extends EffectBase {
+  readonly type: 'item-untap';
+  /**
+   * Optional condition evaluated against the item's card definition (via
+   * {@link matchesDefinition}) — e.g. `{ "subtype": "major" }`. An item
+   * qualifies only while its instance `status` is `Tapped` (untapping an
+   * already-untapped item is not offered) AND this filter (when present)
+   * matches. Omitted entirely by Wielded Twice, which imposes no restriction
+   * beyond "an item in his company".
+   */
+  readonly filter?: Condition;
+  /** Modifier applied to the sage's follow-up corruption check (default 0). */
+  readonly corruptionCheck?: { readonly modifier: number };
+}
+
+/**
  * Greed (le-113 / tw-42): a hazard short-event played on a site. Until the
  * end of the turn, every character at the bound site (except the one playing
  * the item) must make a corruption check each time an item is played at the
@@ -9979,6 +10015,7 @@ export type CardEffect =
   | RegionTypeConversionEffect
   | RegionTransformEffect
   | SiteUntapEffect
+  | ItemUntapEffect
   | ItemPlayCorruptionCheckEffect
   | TapAtSiteEffect
   | PlayTargetEffect

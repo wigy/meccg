@@ -1982,12 +1982,33 @@
     "unique": false,
     "eventType": "short",
     "keywords": [
+      "ritual",
       "sage-only"
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Sage only. Ritual. Tap a sage to untap an item in his company. Sage makes a corruption check."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "sage"
+          }
+        },
+        "cost": {
+          "tap": "character"
+        }
+      },
+      {
+        "type": "item-untap",
+        "corruptionCheck": {
+          "modifier": 0
+        }
+      }
+    ],
+    "text": "Sage only. Ritual. Tap a sage to untap an item in his company. Sage makes a corruption check.",
+    "certified": "2026-09-18"
   },
   {
     "cardType": "hero-resource-event",

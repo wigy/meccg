@@ -1276,6 +1276,13 @@ export type ChainEntryPayload =
        */
       readonly siteUntapInstanceId?: CardInstanceId;
       /**
+       * For an {@link ItemUntapEffect} card (Wielded Twice, td-167), the item
+       * instance chosen at declaration time to untap on resolution. Resolved
+       * by the chain resolver — not at play time — so the opponent gets the
+       * response window every action is owed (CoE 9.4/9.5).
+       */
+      readonly itemUntapInstanceId?: CardInstanceId;
+      /**
        * For a hazard short-event played on a stored resource permanent-event
        * (Which Might Be Lies dm-100), the stored permanent-event instance (in
        * the opponent's marshalling-point pile) being targeted. On resolution

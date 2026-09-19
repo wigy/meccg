@@ -14026,6 +14026,58 @@ different name list and is expected to reuse this primitive when certified.
 `grant-creature-keying` `siteFilter.regionNames` branch (see that section) —
 both routes feed the same `attack.keyingRegionNames` context.
 
+### 43f. `item-untap`
+
+A resource short-event that lets the player untap one currently-tapped item
+borne by a character in the tapping sage's **own company**, chosen at play
+time — the company-scoped sibling of `site-untap` (43d): instead of scanning
+every company on the map for a matching site, this scans only the characters
+of the tapping sage's own company for a `Tapped` item.
+
+```json
+{
+  "type": "play-target",
+  "target": "character",
+  "filter": { "target.skills": { "$includes": "sage" } },
+  "cost": { "tap": "character" }
+},
+{
+  "type": "item-untap",
+  "corruptionCheck": { "modifier": 0 }
+}
+```
+
+`filter` (optional) is evaluated against the item's card definition via
+`matchesDefinition` — the same definition-level condition `play-target`'s
+`itemFilter` uses elsewhere (e.g. `{ "subtype": "major" }`). Wielded Twice
+imposes no restriction beyond "an item in his company", so it omits `filter`
+entirely. `collectItemUntapTargets` (`legal-actions/organization.ts`, shared
+by both generic short-event dispatchers — `organization.ts`'s
+`playResourceShortEventActions` and `long-event.ts`'s
+`heroResourceShortEventActions`) resolves the tapping sage's own company —
+first mapping an **ally** sage (CoE 2.V.2.2: an ally pays a skill-only tap
+cost like a character) back to its host character via `findAttachment`, since
+an ally's instance id never appears in any `company.characters` array — then
+scans every member's items for one whose instance `status` is `Tapped` and
+whose definition matches `filter`. One `play-short-event` action is offered
+per (sage × qualifying item), carrying `targetItemInstanceId` (the same field
+`itemFilter` uses); the card is not playable when nothing currently qualifies
+(CoE 9.1).
+
+Per CoE 9.4/9.5 the play rides the chain of effects exactly like
+`site-untap`: `handlePlayResourceShortEvent` (`reducer-events.ts`) pays the
+sage's tap cost immediately, then pushes the card onto the chain carrying
+`itemUntapInstanceId` (plus `costTapCharacterId`). On un-negated resolution
+`applyShortEventItemUntap` (`short-event-discard.ts`) rewrites the target
+item instance's status to `Untapped` via `updateAttachment` (scoped to the
+declaring player's own characters — unlike `site-untap`, the item can never
+belong to the opponent) and enqueues the sage's follow-up corruption check
+(rule 7.4: skipped when the tap-cost payer is an ally). `corruptionCheck.modifier`
+defaults to `0` when omitted.
+
+Used by: *Wielded Twice* (td-167) — "Sage only. Ritual. Tap a sage to untap
+an item in his company. Sage makes a corruption check."
+
 ### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target
