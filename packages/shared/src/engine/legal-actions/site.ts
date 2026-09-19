@@ -188,6 +188,12 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // (e.g. Foul-smelling Paste le-310) at this earliest site-phase
       // window too, not just once play-resources is reached.
       base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+      // Character-recruitment events (A Chance Meeting tw-188): CRF 22 "may
+      // be played on your turn during any phase the company is at a site" —
+      // rule 2.IV.5 holds a company is "at" its site for the entirety of the
+      // site phase, including before a company is selected to act, so this
+      // must be offered here too, not just once play-resources is reached.
+      base.push(...recruitViaEventActions(state, playerId));
     } else {
       // Non-active player may activate `opposingSitePhase: true`
       // grant-actions (e.g. Magical Harp).
@@ -217,6 +223,11 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // Rule 2.1.1: resource player may also activate any-phase grant-actions
       // (e.g. Foul-smelling Paste le-310) at this window.
       base.push(...grantedActionActivations(state, playerId, 'anyPhase'));
+      // Character-recruitment events (A Chance Meeting tw-188): per rule
+      // 2.IV.5 the company is already "at" its site at the enter-or-skip
+      // decision window, before it commits to entering — CRF 22 offers this
+      // during any phase the company is at a site, not just play-resources.
+      base.push(...recruitViaEventActions(state, playerId));
     } else {
       base.push(...grantedActionActivations(state, playerId, 'opposingSitePhase'));
     }
