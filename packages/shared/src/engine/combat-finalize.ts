@@ -1363,6 +1363,35 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         const isDragonAtHome = ((atHomeDef as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [])
           .some(e => e.type === 'dragon-at-home');
 
+        // g.man.3: "<Dragon> at Home" (e.g. Smaug at Home td-71) IS the At
+        // Home Dragon manifestation — the augmented attack it contributes to
+        // its lair stands in for the card itself in combat, unlike the
+        // lair's baseline printed attack ("Dragon automatic-attacks are not
+        // considered manifestations"). Defeating that augmented attack
+        // therefore defeats the manifestation: remove the permanent-event
+        // from its owner's cardsInPlay and award kill MPs to the defender,
+        // same as the onDefeat:'remove-from-play' handling above for
+        // permanent-event-auto-attack cards. `applyManifestationCascade`
+        // (run once per reducer dispatch, see reducer.ts) then sweeps any
+        // sister manifestations and strips the lair's future automatic-attack.
+        if (isDragonAtHome) {
+          const atHomeName = (atHomeDef as { name?: string } | undefined)?.name ?? '?';
+          const defIdxAH = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+          const ownerIdxAH = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
+          const atHomeCard = ownerIdxAH >= 0 ? stateAfterCombat.players[ownerIdxAH].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
+          if (atHomeCard) {
+            const atHomeCardRef = toCardInstance(atHomeCard);
+            const updatedPlayersAH = stateAfterCombat.players.map((p, idx) => {
+              let next = p;
+              if (idx === ownerIdxAH) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
+              if (idx === defIdxAH) next = { ...next, killPile: [...next.killPile, atHomeCardRef] };
+              return next;
+            }) as unknown as typeof stateAfterCombat.players;
+            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAH };
+            logDetail(`Dragon-at-home "${atHomeName}" defeated (g.man.3 manifestation defeat) — removed from play, kill MPs awarded to defender`);
+          }
+        }
+
         // Returned Exiles (td-146): "Playable at a tapped or untapped site
         // where an at home Dragon manifestation was defeated" — unlike King
         // under the Mountain below, this is not restricted to Balin/Dáin
