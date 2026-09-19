@@ -44,7 +44,7 @@ import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { applyCost } from './cost-evaluator.js';
 import { isDetainmentAttack, defenderAlignmentLabel } from './detainment.js';
-import { isReduceAttacksToOneInPlay, getActiveAutoAttacks, installPendingAttackModifier } from './manifestations.js';
+import { isReduceAttacksToOneInPlay, getActiveAutoAttacks, installPendingAttackModifier, duplicatePendingAttackModifier } from './manifestations.js';
 import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
@@ -5864,9 +5864,21 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           const aa0 = autoAttacks[0];
           const race0 = normalizeCreatureRace(aa0.creatureType);
           const tidings0BoostCtx = { companyId: company.id };
-          const prowess0 = resolveAttackProwess(current, aa0.prowess, inPlayNames, race0, true, undefined, tidings0BoostCtx);
-          const strikes0 = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, true, tidings0BoostCtx);
-          const body0 = resolveAttackBody(current, aa0.body ?? null, inPlayNames, race0, tidings0BoostCtx);
+          const prowess0Base = resolveAttackProwess(current, aa0.prowess, inPlayNames, race0, true, undefined, tidings0BoostCtx);
+          const strikes0Base = resolveAttackStrikes(current, aa0.strikes, inPlayNames, race0, true, tidings0BoostCtx);
+          const body0Base = resolveAttackBody(current, aa0.body ?? null, inPlayNames, race0, tidings0BoostCtx);
+          // Unabated in Malice (ba-26) and similar: duplicate (without
+          // consuming) any `pending-attack-modifier` already installed on this
+          // site's automatic-attack — CoE Rulings Digest #61/#103.
+          const tidingsMod = duplicatePendingAttackModifier(current, company.id, destSiteDef.id, {
+            strikesTotal: strikes0Base,
+            strikeProwess: prowess0Base,
+            creatureBody: body0Base,
+          });
+          current = tidingsMod.state;
+          const strikes0 = tidingsMod.strikesTotal;
+          const prowess0 = tidingsMod.strikeProwess;
+          const body0 = tidingsMod.creatureBody;
           const aaAttackerChooses0 = resolveAttackerChoosesDefenders(
             current, aa0.combatRules?.includes('attacker-chooses-defenders') ?? false, race0,
           );
@@ -5889,6 +5901,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(current, current.players[activeIndex]),
             }),
             ...(aaAttackerChooses0 ? { attackerChoosesDefenders: true } : {}),
+            ...(tidingsMod.cancelProtection ? { cancelProtection: tidingsMod.cancelProtection } : {}),
           });
           current = { ...current, combat: combat0 };
           // If more attacks follow, queue them in a constraint on the company.

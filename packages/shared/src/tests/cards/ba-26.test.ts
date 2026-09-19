@@ -33,6 +33,8 @@
  * | 9 | Cannot be duplicated on a given attack             | IMPLEMENTED | `duplication-limit` scope `attack`              |
  * | 10| Playable openly in M/H onto a moving company's     | IMPLEMENTED | `pending-attack-modifier` constraint (rule      |
  * |   | destination automatic-attack (rule 9.3.2.3)        |             | 9.3.2.3); consumed at auto-attack initiation    |
+ * | 11| Duplicated (without being consumed) by Tidings of  | IMPLEMENTED | `duplicatePendingAttackModifier` in             |
+ * |   | Bold Spies (CRF Digest #61/#103)                   |             | manifestations.ts, wired into chain-reducer.ts  |
  *
  * Playable: YES.
  */
@@ -55,6 +57,7 @@ import { addConstraint } from '../../engine/pending.js';
 import type { CardDefinitionId, GameState, ModifyAttackAction, CardInstanceId } from '../../index.js';
 
 const UNABATED_IN_MALICE = 'ba-26' as CardDefinitionId;
+const TIDINGS_OF_BOLD_SPIES = 'le-143' as CardDefinitionId;
 const SHELOB = 'tw-86' as CardDefinitionId; // unique Spider, race "spider"
 
 /** Base two-Wizard state with the hazard player (PLAYER_2) holding the given hand. */
@@ -248,6 +251,40 @@ describe('Unabated in Malice (ba-26)', () => {
     expect(initiated.combat!.cancelProtection!.bodyModifier).toBe(-2);
     // The single-use constraint is consumed after the attack initiates.
     expect(initiated.activeConstraints.some(c => c.kind.type === 'pending-attack-modifier')).toBe(false);
+  });
+
+  test('regression (game mu85f4le-r74wq7, seq 240; CRF Digest #61/#103): Tidings of Bold Spies duplicates a pending Unabated in Malice, without consuming it', () => {
+    // Bug report: the hazard player held Unabated in Malice while their
+    // opponent's company moved toward Moria (an automatic-attack site), but
+    // the open M/H play was never offered — forcing them to play Tidings of
+    // Bold Spies first, which duplicated Moria's attack at its unboosted
+    // stats (4 strikes / 7 prowess) instead of the CRF-mandated combo where
+    // Unabated in Malice resolves on the automatic-attack *before* Tidings
+    // duplicates it. Per CRF Digest #61/#103, the duplicate must carry
+    // Unabated in Malice's buff, and the original constraint must survive so
+    // it still applies to the real automatic-attack faced later.
+    const state = buildHazardMovingState(MORIA, 'Moria', [UNABATED_IN_MALICE, TIDINGS_OF_BOLD_SPIES]);
+    const company = state.players[RESOURCE_PLAYER].companies[0];
+    const uim = state.players[HAZARD_PLAYER].hand.find(c => c.definitionId === UNABATED_IN_MALICE)!;
+    const afterUiM = playHazardAndResolve(state, PLAYER_2, uim.instanceId, company.id);
+
+    const tidings = afterUiM.players[HAZARD_PLAYER].hand.find(c => c.definitionId === TIDINGS_OF_BOLD_SPIES)!;
+    const afterTidings = playHazardAndResolve(afterUiM, PLAYER_2, tidings.instanceId, company.id);
+
+    // Moria's base auto-attack is 4 strikes / 7 prowess; Unabated in Malice's
+    // +1 strike / +1 prowess / -2 body is duplicated onto the Tidings attack.
+    expect(afterTidings.combat).not.toBeNull();
+    expect(afterTidings.combat!.attackSource.type).toBe('tidings-attack');
+    expect(afterTidings.combat!.strikesTotal).toBe(5);
+    expect(afterTidings.combat!.strikeProwess).toBe(8);
+    expect(afterTidings.combat!.cancelProtection).toBeDefined();
+    expect(afterTidings.combat!.cancelProtection!.strikesModifier).toBe(1);
+    expect(afterTidings.combat!.cancelProtection!.prowessModifier).toBe(1);
+    expect(afterTidings.combat!.cancelProtection!.bodyModifier).toBe(-2);
+
+    // The pending-attack-modifier constraint is NOT consumed by Tidings —
+    // it still applies to the real automatic-attack faced later.
+    expect(afterTidings.activeConstraints.some(c => c.kind.type === 'pending-attack-modifier')).toBe(true);
   });
 
   test('attacker can play it on an attack from Shelob', () => {

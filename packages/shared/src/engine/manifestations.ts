@@ -715,24 +715,19 @@ export interface PendingAttackModifierResult extends PendingAttackModifierBase {
 }
 
 /**
- * Consumes the first `pending-attack-modifier` constraint (Unabated in
- * Malice ba-26, played openly in M/H onto a not-yet-initiated site
- * automatic-attack — see {@link ../types/pending.js}) targeting `companyId`
- * and bound to `siteDefinitionId`, applying its deltas to `base` exactly as
- * the live combat `modify-attack` action would. Returns `base` unchanged
- * (with the input `state`) when no such constraint exists.
- *
- * Called from both `reducer-site.ts` (the site phase's real automatic-attack
- * initiation) and `chain-reducer.ts` (Tidings of Bold Spies's immediate
- * M/H-phase duplicate attack), so a card played on the destination site's
- * automatic-attack before either resolves affects both, per CoE Rulings
- * Digest #61/#103.
+ * Shared math for {@link consumePendingAttackModifier} and
+ * {@link duplicatePendingAttackModifier}: finds the `pending-attack-modifier`
+ * constraint targeting `companyId`/`siteDefinitionId` (if any) and applies
+ * its deltas to `base` exactly as the live combat `modify-attack` action
+ * would. `consume` controls whether the constraint is removed from state —
+ * see the two wrappers for when each is appropriate.
  */
-export function consumePendingAttackModifier(
+function applyPendingAttackModifier(
   state: GameState,
   companyId: CompanyId,
   siteDefinitionId: CardDefinitionId,
   base: PendingAttackModifierBase,
+  consume: boolean,
 ): PendingAttackModifierResult {
   const constraint = state.activeConstraints.find(
     c => c.target.kind === 'company'
@@ -748,8 +743,8 @@ export function consumePendingAttackModifier(
   const appliedStrikesDelta = newStrikesTotal - base.strikesTotal;
   const newStrikeProwess = base.strikeProwess + prowessModifier;
   const newCreatureBody = base.creatureBody === null ? null : base.creatureBody + bodyModifier;
-  logDetail(`Consuming pending-attack-modifier from "${cardName(state, constraint.sourceDefinitionId, '?')}": strikes ${base.strikesTotal} → ${newStrikesTotal}, prowess ${base.strikeProwess} → ${newStrikeProwess}, creature body ${base.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
-  const nextState = removeConstraint(state, constraint.id);
+  logDetail(`${consume ? 'Consuming' : 'Duplicating'} pending-attack-modifier from "${cardName(state, constraint.sourceDefinitionId, '?')}": strikes ${base.strikesTotal} → ${newStrikesTotal}, prowess ${base.strikeProwess} → ${newStrikeProwess}, creature body ${base.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
+  const nextState = consume ? removeConstraint(state, constraint.id) : state;
   return {
     state: nextState,
     strikesTotal: newStrikesTotal,
@@ -766,6 +761,52 @@ export function consumePendingAttackModifier(
         }
       : {}),
   };
+}
+
+/**
+ * Consumes the first `pending-attack-modifier` constraint (Unabated in
+ * Malice ba-26, played openly in M/H onto a not-yet-initiated site
+ * automatic-attack — see {@link ../types/pending.js}) targeting `companyId`
+ * and bound to `siteDefinitionId`, applying its deltas to `base` exactly as
+ * the live combat `modify-attack` action would. Returns `base` unchanged
+ * (with the input `state`) when no such constraint exists.
+ *
+ * Called from `reducer-site.ts`'s site phase automatic-attack initiation —
+ * the real automatic-attack, which single-use-consumes the constraint. A
+ * Tidings of Bold Spies duplicate created *before* the real attack instead
+ * calls {@link duplicatePendingAttackModifier}, which does not consume it:
+ * per CoE Rulings Digest #61/#103, "the original auto[matic]-attack is
+ * still affected by Unabated in Malice, because [it] has not been canceled
+ * (and can't be until the site phase)" — the same modifier applies again
+ * when the real automatic-attack is later faced.
+ */
+export function consumePendingAttackModifier(
+  state: GameState,
+  companyId: CompanyId,
+  siteDefinitionId: CardDefinitionId,
+  base: PendingAttackModifierBase,
+): PendingAttackModifierResult {
+  return applyPendingAttackModifier(state, companyId, siteDefinitionId, base, true);
+}
+
+/**
+ * Duplicates (without consuming) the first `pending-attack-modifier`
+ * constraint targeting `companyId`/`siteDefinitionId` onto `base` — used by
+ * Tidings of Bold Spies (le-143) when it duplicates a site's not-yet-faced
+ * automatic-attack into an immediate M/H-phase attack. Per CoE Rulings
+ * Digest #61/#103, a modifier already pending on that automatic-attack (e.g.
+ * Unabated in Malice, played earlier this M/H phase) is duplicated onto the
+ * Tidings attack too, but the constraint itself is left in place so it still
+ * applies to the real automatic-attack later, even if this duplicate's copy
+ * of the effect is subsequently canceled.
+ */
+export function duplicatePendingAttackModifier(
+  state: GameState,
+  companyId: CompanyId,
+  siteDefinitionId: CardDefinitionId,
+  base: PendingAttackModifierBase,
+): PendingAttackModifierResult {
+  return applyPendingAttackModifier(state, companyId, siteDefinitionId, base, false);
 }
 
 /**
