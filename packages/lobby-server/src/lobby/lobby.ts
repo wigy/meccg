@@ -475,7 +475,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         // The Start button always begins a fresh run at step 1: drop any
         // autosaved mid-tutorial progress. Only the reload/rejoin flow
         // ('rejoin-game' with the Mentor) resumes a saved tutorial.
-        deleteTutorialSaves(from.name);
+        deleteSaveFiles(from.name, 'mentor');
         await startTutorialGame(from);
       })();
       break;
@@ -645,7 +645,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         send(from.ws, { type: 'error', message: 'You are not in a game' });
         return;
       }
-      const { port } = from.activeGame;
+      const { port, opponent } = from.activeGame;
       lobbyLog.log('stop-game', { name: fromName, port });
       // Clear synchronously, before awaiting the kill, so: (1) a duplicate
       // stop-game arriving before the kill resolves sees no active game and
@@ -656,7 +656,15 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
       from.activeGame = null;
       from.pendingFrom.clear();
       broadcastPlayerList();
-      void killLingeringGame(port);
+      void (async () => {
+        // Kill the server BEFORE deleting the saves: it writes a final
+        // autosave on shutdown, which would otherwise land after the
+        // delete and resurrect the game the player just stopped — the
+        // opponent's client auto-reconnects on socket-close and would
+        // relaunch straight back into it (rejoin-game above).
+        await killLingeringGame(port);
+        deleteSaveFiles(fromName, opponent);
+      })();
       break;
     }
   }
@@ -843,17 +851,17 @@ async function startAiGame(
 const SAVE_DIR = process.env.SAVE_DIR ?? path.join(os.homedir(), '.meccg', 'saves');
 
 /**
- * Delete a player's tutorial save files, so the next tutorial launch starts
- * a fresh run at step 1 instead of restoring the autosaved cursor.
+ * Delete the save and autosave files for a name pair, so the next game
+ * between them starts fresh instead of restoring the old state.
  */
-function deleteTutorialSaves(playerName: string): void {
-  const key = [playerName.toLowerCase(), 'mentor'].sort().join('_vs_');
+function deleteSaveFiles(name1: string, name2: string): void {
+  const key = [name1.toLowerCase(), name2.toLowerCase()].sort().join('_vs_');
   for (const suffix of ['.json', '-autosave.json']) {
     const savePath = path.join(SAVE_DIR, `${key}${suffix}`);
     try {
       if (fs.existsSync(savePath)) fs.unlinkSync(savePath);
     } catch (err) {
-      lobbyLog.log('error', { context: 'tutorial-save-delete', error: String(err) });
+      lobbyLog.log('error', { context: 'save-delete', error: String(err) });
     }
   }
 }
