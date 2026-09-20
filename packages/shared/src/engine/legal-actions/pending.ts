@@ -1859,19 +1859,48 @@ export function reactiveCorruptionCheckPlays(
 
       // `transfer-item-free` (Pledge of Conduct, td-144): the option itself
       // names no item or destination — the player picks both. Enumerate one
-      // action per (item borne by the checking character, other character in
-      // the same company) pair, mirroring transferItemActions' per-triple
-      // enumeration for the ordinary organization-phase transfer.
+      // action per (item, other character in the same company) pair,
+      // mirroring transferItemActions' per-triple enumeration for the
+      // ordinary organization-phase transfer.
+      //
+      // Eligible items are those the checking character still bears, plus —
+      // for a Transfer-reason check — the item that produced it, even though
+      // it already sits on its new bearer. CoE 2.II.5 makes the check for
+      // "the item's initial bearer" before the transfer completes; this
+      // engine instead moves the item immediately and rolls after (see
+      // `handleTransferItem` in reducer-organization.ts), so by the time this
+      // reactive window opens the item has already left the checking
+      // character. ICE Rules Digest #90/#555 confirm Pledge must still be
+      // offered here so it can redirect that in-flight item to a third
+      // character, fizzling the original transfer and its pending check.
       if (opt.apply.type === 'transfer-item-free') {
         const company = findCharacterCompany(player.companies, targetChar.instanceId);
         if (!company) continue;
-        for (const item of targetChar.items) {
-          const itemDef = defById(state, item.definitionId);
+        const items: { instanceId: CardInstanceId; holderId: CardInstanceId }[] = targetChar.items.map(
+          i => ({ instanceId: i.instanceId, holderId: targetChar.instanceId }),
+        );
+        const inFlightCheck = state.pendingResolutions.find(
+          r => r.kind.type === 'corruption-check'
+            && r.kind.characterId === targetChar.instanceId
+            && !!r.kind.transferredItemId,
+        );
+        if (inFlightCheck && inFlightCheck.kind.type === 'corruption-check' && inFlightCheck.kind.transferredItemId) {
+          const inFlightItemId = inFlightCheck.kind.transferredItemId;
+          if (!items.some(i => i.instanceId === inFlightItemId)) {
+            const holderId = company.characters.find(
+              cid => player.characters[cid]?.items.some(i => i.instanceId === inFlightItemId),
+            );
+            if (holderId) items.push({ instanceId: inFlightItemId, holderId });
+          }
+        }
+        for (const item of items) {
+          const itemDefId = resolveInstanceId(state, item.instanceId);
+          const itemDef = itemDefId ? defById(state, itemDefId) : undefined;
           if (!isItemCard(itemDef)) continue;
           for (const mateId of company.characters) {
-            if (mateId === targetChar.instanceId) continue;
+            if (mateId === item.holderId) continue;
             if (!player.characters[mateId]) continue;
-            logDetail(`Reactive corruption-check play available: ${shortDef.name} option "${opt.id}" transferring ${itemDef.name} from ${targetChar.instanceId as string} to ${mateId as string}`);
+            logDetail(`Reactive corruption-check play available: ${shortDef.name} option "${opt.id}" transferring ${itemDef.name} from ${item.holderId as string} to ${mateId as string}`);
             actions.push({
               action: {
                 type: 'play-short-event',

@@ -7,6 +7,7 @@
  */
 
 import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction, PlayerId } from '../index.js';
+import type { ResolutionId } from '../types/pending.js';
 import { parseConstraintScope } from './constraint-kind.js';
 import { enterMovementHazardPhase } from './mh-phase-state.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -23,7 +24,7 @@ import type { ReducerResult } from './reducer-utils.js';
 import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
-import { addConstraint, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
+import { addConstraint, dequeueResolution, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import type { RingTestTableEffect, RingCategory } from '../types/effects.js';
 import { applyMove, findMoveEffectByShape, moveToFetchToDeckPayload } from './reducer-move.js';
@@ -1056,8 +1057,28 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       return { state, error: `${def.name}: ${itemDef?.name ?? '?'} is not an item card and cannot be transferred` };
     }
     const removed = removeAttachment(newState.players[playerIndex], 'items', itemInstId);
-    if (!removed || removed.charId !== fromCharId) {
+    if (!removed) {
       return { state, error: `${def.name}: item not found on the character facing the corruption check` };
+    }
+    // The item may already sit on a company mate rather than on `fromCharId`
+    // itself: an ordinary item transfer (CoE 2.II.5) moves the item to its
+    // new bearer immediately and only rolls the check afterwards (see
+    // `handleTransferItem` in reducer-organization.ts), so by the time this
+    // reactive window opens the item has already left the checking
+    // character. Per ICE Rules Digest #90/#555, Pledge may still redirect
+    // that in-flight item to a third character — doing so fizzles the
+    // original transfer, so its pending check is dropped rather than rolled.
+    let fizzledResolutionId: ResolutionId | null = null;
+    if (removed.charId !== fromCharId) {
+      const inFlight = newState.pendingResolutions.find(
+        r => r.kind.type === 'corruption-check'
+          && r.kind.characterId === fromCharId
+          && r.kind.transferredItemId === itemInstId,
+      );
+      if (!inFlight) {
+        return { state, error: `${def.name}: item not found on the character facing the corruption check` };
+      }
+      fizzledResolutionId = inFlight.id;
     }
     const item = removed.attachment;
     const fromName = resolveDef(newState, fromCharId)?.name ?? '?';
@@ -1065,6 +1086,10 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     logDetail(`${def.name}: automatically transferring ${itemDef.name} from ${fromName} to ${toName} (no corruption check for the transfer)`);
     const playerAfterTransfer = updateCharacter(removed.player, toCharId, c => ({ ...c, items: [...c.items, item] }));
     newState = updatePlayer(newState, playerIndex, () => playerAfterTransfer);
+    if (fizzledResolutionId) {
+      logDetail(`${def.name}: redirected an in-flight transfer — the original transfer to ${fromName} fizzles, no corruption check`);
+      newState = dequeueResolution(newState, fizzledResolutionId);
+    }
   }
 
   // roll-remove-hazard-events (Glamour of Surpassing Excellance, as-49): enqueue one

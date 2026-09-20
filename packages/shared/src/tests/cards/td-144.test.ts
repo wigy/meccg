@@ -340,6 +340,85 @@ describe('Pledge of Conduct (td-144)', () => {
     expect(offers.length).toBeGreaterThan(0);
   });
 
+  test('transfer-item: redirects an item already moved by an in-flight ordinary transfer (bug report regression)', () => {
+    // Bug report (game mu9szs8t-6uu0uj, seq 789 / seq 786-789): Gimli (a
+    // Diplomat) transfers an item to Aragorn via the ordinary organization
+    // transfer-item action (CoE 2.II.5). That action moves the item to
+    // Aragorn immediately and only then enqueues Gimli's pending corruption
+    // check (handleTransferItem in reducer-organization.ts) — so by the time
+    // this reactive window opens, Gimli no longer bears the item and Pledge
+    // of Conduct found nothing to transfer. Per ICE Rules Digest #90/#555,
+    // Pledge must still be playable here: it redirects the in-flight item
+    // (now on Aragorn) to a third company member, fizzling the original
+    // transfer and its pending check entirely.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [{ defId: GIMLI, items: [DAGGER_OF_WESTERNESSE] }, ARAGORN, BILBO],
+          }],
+          hand: [PLEDGE_OF_CONDUCT],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+      recompute: true,
+    });
+    const gimli = findCharInstanceId(state, RESOURCE_PLAYER, GIMLI);
+    const aragorn = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const bilbo = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+    const dagger = state.players[RESOURCE_PLAYER].characters[gimli].items[0].instanceId;
+    const cardInstance = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === PLEDGE_OF_CONDUCT)!.instanceId;
+
+    const afterTransfer = reduce(state, {
+      type: 'transfer-item',
+      player: PLAYER_1,
+      itemInstanceId: dagger,
+      fromCharacterId: gimli,
+      toCharacterId: aragorn,
+    });
+    expect(afterTransfer.error).toBeUndefined();
+    // The item already moved to Aragorn, and Gimli faces a pending check for it.
+    expect(afterTransfer.state.players[RESOURCE_PLAYER].characters[aragorn].items.some(i => i.instanceId === dagger)).toBe(true);
+    expect(afterTransfer.state.pendingResolutions).toHaveLength(1);
+
+    const offers = computeLegalActions(afterTransfer.state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction)
+      .filter(a => a.optionId === 'transfer-item');
+
+    // Gimli (the original bearer) and Bilbo are offered as destinations —
+    // Aragorn, the item's current holder, is not (transferring "to himself").
+    expect(offers.every(a => a.targetCharacterId === gimli && a.transferItemInstanceId === dagger)).toBe(true);
+    expect(offers.map(a => a.transferToCharacterId).sort()).toEqual([bilbo, gimli].sort());
+
+    const result = reduce(afterTransfer.state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: cardInstance,
+      targetCharacterId: gimli,
+      optionId: 'transfer-item',
+      transferItemInstanceId: dagger,
+      transferToCharacterId: bilbo,
+    });
+    expect(result.error).toBeUndefined();
+    const after = result.state;
+
+    // The item ends up on Bilbo, off both Gimli and Aragorn.
+    expect(after.players[RESOURCE_PLAYER].characters[bilbo].items.some(i => i.instanceId === dagger)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].characters[aragorn].items.some(i => i.instanceId === dagger)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].characters[gimli].items.some(i => i.instanceId === dagger)).toBe(false);
+
+    // The original transfer fizzled — its pending corruption check is gone.
+    expect(after.pendingResolutions).toHaveLength(0);
+
+    expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+  });
+
   test('Free Council: an item transferred by Pledge of Conduct during the check is not discarded with the failing character (regression)', () => {
     // Regression: the Free Council window froze the checked character's
     // possessions (and CP) into `phaseState.pendingCheck` at declare time.
