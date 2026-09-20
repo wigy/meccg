@@ -753,7 +753,7 @@
 | td-66 | Sea Serpent | — | 4 | ☑ |
 | td-67 | Searching Eye | — | 9 | ☑ |
 | td-70 | Smaug Ahunt | — | 17 | ☑ |
-| td-71 | Smaug at Home | — | 13 | ☑ |
+| td-71 | Smaug at Home | — | 14 | ☑ |
 | td-73 | Stormcrow | — | 12 | ☑ |
 | td-76 | Times Are Evil | — | 5 | ☑ |
 | td-77 | True Cold-drake | — | 3 | ☑ |
@@ -779,7 +779,7 @@
 | td-100 | Belegaer  | — | 7 | ☑ |
 | td-101 | Bounty of the Hoard | — | 13 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
-| td-103 | Burglary  | — | 14 | ☑ |
+| td-103 | Burglary  | — | 16 | ☑ |
 | td-104 | Cloudless Day | — | 9 | ☑ |
 | td-105 | Cram | — | 17 | ☑ |
 | td-106 | Dragon’s Hunger | — | 7 | ☑ |
@@ -812,7 +812,7 @@
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 12 | ☑ |
 | td-144 | Pledge of Conduct | — | 9 | ☑ |
-| td-146 | Returned Exiles | — | 11 | ☑ |
+| td-146 | Returned Exiles | — | 12 | ☑ |
 | td-148 | Riddling Talk | — | 16 | ☑ |
 | td-149 | Sated Beast | — | 15 | ☑ |
 | td-150 | Scabbard of Chalcedony | — | 7 | ☑ |
@@ -1031,7 +1031,7 @@
 | tw-185 | Vôteli | — | 9 | ☑ |
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
-| tw-188 | A Chance Meeting | — | 14 | ☑ |
+| tw-188 | A Chance Meeting | — | 16 | ☑ |
 | tw-189 | A Friend or Three | — | 13 | ☑ |
 | tw-190 | Align Palantír | — | 12 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |

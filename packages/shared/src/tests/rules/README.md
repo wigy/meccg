@@ -12,15 +12,15 @@
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 00 | [Engine](00-engine/) | 10 | 10 | 100.0% |
-| 01 | [Deck Construction & Setup](01-deck-construction/) | 60 | 58 | 96.7% |
+| 00 | [Engine](00-engine/) | 14 | 14 | 100.0% |
+| 01 | [Deck Construction & Setup](01-deck-construction/) | 62 | 61 | 98.4% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 26 | 76.5% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 3 | 3 | 100.0% |
-| 08 | [Combat](08-combat/) | 42 | 33 | 78.6% |
+| 08 | [Combat](08-combat/) | 42 | 34 | 81.0% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 29 | 93.5% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 32 | 60.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
@@ -34,13 +34,19 @@
 | — | Engine | [Action Description No Codes](00-engine/action-description-no-codes.test.ts) | ☑ |
 | — | Engine | [Active Constraints](00-engine/active-constraints.test.ts) | ☑ |
 | — | Engine | [Card Image Urls](00-engine/card-image-urls.test.ts) | ☑ |
+| — | Engine | [Cleanup Empty Company Destination Site](00-engine/cleanup-empty-company-destination-site.test.ts) | ☑ |
+| — | Engine | [Cleanup Empty Company Stale Constraints](00-engine/cleanup-empty-company-stale-constraints.test.ts) | ☑ |
 | — | Engine | [Combat Zero Strike Fizzle](00-engine/combat-zero-strike-fizzle.test.ts) | ☑ |
 | — | Engine | [Last Action Card Defs](00-engine/last-action-card-defs.test.ts) | ☑ |
+| — | Engine | [Opponent Company Destination Format](00-engine/opponent-company-destination-format.test.ts) | ☑ |
 | — | Engine | [Ordered Decks](00-engine/ordered-decks.test.ts) | ☑ |
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
 | — | Engine | [Race Vocabulary](00-engine/race-vocabulary.test.ts) | ☑ |
 | — | Engine | [Site Dissolved Company Exit](00-engine/site-dissolved-company-exit.test.ts) | ☑ |
+| — | Engine | [Concede](concede.test.ts) | ☑ |
 | — | Engine | [Move Primitive](move-primitive.test.ts) | ☑ |
+| — | Deck Construction & Setup | [Challenge Deck S Beornings](01-deck-construction/challenge-deck-s-beornings.test.ts) | ☑ |
+| — | Deck Construction & Setup | [Challenge Decks Valid](01-deck-construction/challenge-decks-valid.test.ts) | ☑ |
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☑ |
 | 1.02 | Deck Construction & Setup | [Player Type](01-deck-construction/rule-1.02-player-type.test.ts) | ☑ |
 | 1.03 | Deck Construction & Setup | [Deck Composition](01-deck-construction/rule-1.03-deck-composition.test.ts) | ☑ |
