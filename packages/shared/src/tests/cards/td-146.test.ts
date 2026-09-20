@@ -54,9 +54,10 @@ import {
   runAutoAttackCombatMulti, addCardInPlay,
   findCharInstanceId, findHandCardId,
   withSiteTapped, CardStatus,
+  dispatch, viableActions,
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../index.js';
-import type { CardDefinitionId, GameState, InfluenceAttemptAction } from '../../index.js';
+import type { CardDefinitionId, GameState, InfluenceAttemptAction, FactionInfluenceRollAction } from '../../index.js';
 
 const RETURNED_EXILES = 'td-146' as CardDefinitionId;
 const KING_UNDER_THE_MOUNTAIN = 'td-126' as CardDefinitionId;
@@ -257,5 +258,46 @@ describe('Returned Exiles (td-146)', () => {
     const attempt = influenceAttempts(state2, findHandCardId(state2, RESOURCE_PLAYER, RETURNED_EXILES))
       .find(a => a.influencingCharacterId === balinId);
     expect(attempt!.need).toBe(0);
+  });
+
+  // ─── Regression: the +5 must survive past the declared "need" into the ────
+  // ─── pending roll AND the actual resolution (bug report, mu8n66im-z678rd) ──
+
+  test('the King under the Mountain bearer\'s +5 check-modifier is honored by the pending roll and its resolution, not just the declared need', () => {
+    // Before the fix, `bearer.itemNames` was populated when computing the
+    // declared "need" (legal-actions/site.ts) but omitted from both the
+    // pending faction-influence-roll's own "need" (legal-actions/pending.ts)
+    // and the actual roll resolution (reducer-site.ts:resolveInfluenceAttemptRoll).
+    // Both fell back to Returned Exiles' "other Dwarves (+2)" row instead of
+    // "King under the Mountain Dwarf (+5)", so the roll needed >= 3 instead of
+    // >= 0 and a would-be-successful attempt could wrongly fail.
+    const state = buildSitePhaseState({
+      characters: [{ defId: BALIN, items: [KING_UNDER_THE_MOUNTAIN] }],
+      site: LONELY_MOUNTAIN_HERO,
+      hand: [RETURNED_EXILES],
+    });
+    const state2 = { ...state, dragonAtHomeVictorySiteIds: [LONELY_MOUNTAIN_HERO] };
+    const balinId = findCharInstanceId(state2, RESOURCE_PLAYER, BALIN);
+    const exilesId = findHandCardId(state2, RESOURCE_PLAYER, RETURNED_EXILES);
+    const attempt = influenceAttempts(state2, exilesId).find(a => a.influencingCharacterId === balinId);
+    expect(attempt).toBeDefined();
+    expect(attempt!.need).toBe(0);
+
+    let cur = dispatch(state2, attempt!);
+    for (let i = 0; i < 10 && cur.chain !== null; i++) {
+      const pass = viableActions(cur, cur.chain.priority, 'pass-chain-priority');
+      if (pass.length === 0) break;
+      cur = dispatch(cur, pass[0].action);
+    }
+    const rollActions = viableActions(cur, PLAYER_1, 'faction-influence-roll');
+    expect(rollActions).toHaveLength(1);
+    // The pending roll's own "need" must match the declared need (0), not the
+    // "other Dwarves" fallback (3).
+    expect((rollActions[0].action as FactionInfluenceRollAction).need).toBe(0);
+
+    // A raw 2d6 total of 1 only succeeds under the +5 bonus (need 0); under
+    // the "other Dwarves" +2 fallback (need 3) it would fail.
+    const resolved = dispatch({ ...cur, cheatRollTotal: 1 }, rollActions[0].action);
+    expect(resolved.players[RESOURCE_PLAYER].cardsInPlay.map(c => c.definitionId)).toContain(RETURNED_EXILES);
   });
 });
