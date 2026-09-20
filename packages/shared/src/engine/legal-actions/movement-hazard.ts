@@ -3533,7 +3533,9 @@ function playHazardsActions(
         if (shortPlayTarget?.target === 'company') {
           const compSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
           const compSiteDef = compSiteInst ? resolveDef(state, compSiteInst.instanceId) : undefined;
-          const compSiteType = compSiteDef && isSiteCard(compSiteDef) ? compSiteDef.siteType : null;
+          const compSiteType = compSiteDef && isSiteCard(compSiteDef)
+            ? getEffectiveSiteType(state, compSiteDef.id, compSiteDef.siteType, compSiteInst!.instanceId)
+            : null;
           const compSiteKeywords = compSiteDef && isSiteCard(compSiteDef) ? (compSiteDef.keywords ?? []) : [];
           const allyCount = targetCompany.characters.reduce((sum, cId) => {
             const ch = resourcePlayer.characters[cId];
@@ -4594,7 +4596,9 @@ function playHazardsActions(
           const compSiteDefId = resolveInstanceId(state, destSiteInstId);
           if (compSiteDefId) {
             const compSiteDef = defById(state, compSiteDefId);
-            if (compSiteDef && isSiteCard(compSiteDef)) compSiteType = compSiteDef.siteType;
+            if (compSiteDef && isSiteCard(compSiteDef)) {
+              compSiteType = getEffectiveSiteType(state, compSiteDef.id, compSiteDef.siteType, destSiteInstId);
+            }
           }
         }
         const allyCount = targetCompany.characters.reduce((sum, cId) => {
@@ -4663,7 +4667,9 @@ function playHazardsActions(
         if (playTarget?.filter) {
           const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
           const destSiteDef = destSiteInst ? resolveDef(state, destSiteInst.instanceId) : undefined;
-          const destSiteType = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.siteType : undefined;
+          const destSiteType = destSiteDef && isSiteCard(destSiteDef)
+            ? getEffectiveSiteType(state, destSiteDef.id, destSiteDef.siteType, destSiteInst!.instanceId)
+            : undefined;
           const companyCtx = {
             company: {
               alignment: resourcePlayer.alignment,

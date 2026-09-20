@@ -36,7 +36,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
   P1_COMPANY,
   ARAGORN, LEGOLAS, RIVENDELL, MORIA, BREE,
-  buildTestState, resetMint, makeMHState,
+  buildTestState, resetMint, makeMHState, mint,
   dispatch, resolveChain,
   findHandCardId, findItemInstanceId, findCharInstanceId,
   attachItemToChar, setCharStatus,
@@ -44,9 +44,10 @@ import {
 } from '../test-helpers.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, CardStatus } from '../../index.js';
-import type { GameState, CardDefinitionId, PlayHazardAction, ChooseItemOrWoundAction } from '../../index.js';
+import type { GameState, CardDefinitionId, ConstraintId, PlayHazardAction, ChooseItemOrWoundAction } from '../../index.js';
 
 const RATS = 'le-131' as CardDefinitionId;
+const HIDDEN_HAVEN = 'wh-75' as CardDefinitionId;
 const STING = 'tw-333' as CardDefinitionId;       // hero-item, subtype "minor"
 const GLAMDRING = 'tw-244' as CardDefinitionId;    // hero-item, subtype "major"
 const ETTENMOORS = 'tw-395' as CardDefinitionId;   // hero-site, ruins-and-lairs
@@ -136,6 +137,40 @@ describe('Rats! (le-131)', () => {
   test('NOT playable at a non-qualifying site (a Haven), even with a minor item', () => {
     let s = stateAt(RIVENDELL, [ARAGORN]);
     s = attachItemToChar(s, RESOURCE_PLAYER, ARAGORN, STING);
+    expect(ratsActions(s)).toHaveLength(0);
+  });
+
+  test('NOT playable at a Ruins & Lairs converted into a Wizardhaven by Hidden Haven (wh-75)', () => {
+    // Regression (game mu9szs8t-6uu0uj, turn 6): Hidden Haven's `site.type`
+    // override to `haven` was honoured by creature keying and by the site/
+    // organization play-target matchers, but the movement-hazard company-
+    // target filter for company-targeting hazard events (short and
+    // permanent) read the site's raw printed `siteType` instead of the
+    // effective one, so Rats! still offered itself at a site that had
+    // stopped being a Ruins & Lairs.
+    let s = stateAt(ETTENMOORS, [ARAGORN]);
+    s = attachItemToChar(s, RESOURCE_PLAYER, ARAGORN, STING);
+    const hiddenHavenInstance = mint();
+    s = {
+      ...s,
+      activeConstraints: [
+        ...s.activeConstraints,
+        {
+          id: 'c-hidden-haven-1' as ConstraintId,
+          source: hiddenHavenInstance,
+          sourceDefinitionId: HIDDEN_HAVEN,
+          scope: { kind: 'until-cleared' },
+          target: { kind: 'player', playerId: PLAYER_1 },
+          kind: {
+            type: 'attribute-modifier' as const,
+            attribute: 'site.type' as const,
+            op: 'override' as const,
+            value: 'haven' as import('../../index.js').SiteType,
+            filter: { 'site.definitionId': ETTENMOORS as unknown as string },
+          },
+        },
+      ],
+    };
     expect(ratsActions(s)).toHaveLength(0);
   });
 
