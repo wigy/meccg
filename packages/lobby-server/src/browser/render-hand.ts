@@ -561,7 +561,22 @@ export function buildShortEventTargetChoices(
       // name, two rings on the same sage render as two identical "Play on
       // <sage>" buttons with no way to tell them apart (bug report
       // 3e42ddb1e89ecb46).
-      if (action.targetGoldRingInstanceId) {
+      if (action.transferItemInstanceId && action.transferToCharacterId) {
+        // Pledge of Conduct (td-144) transfer-item option: one action per
+        // (item borne by the checked character, other company member) pair.
+        // All such actions share the same targetCharacterId (the checked
+        // character), so labeling by target alone renders indistinguishable
+        // duplicate "Play on <checked character>" buttons — the player has
+        // no way to tell which item goes to whom, which looked like the
+        // card had no working click at all (msg c17f9b0031e78203).
+        const itemDefId = lookup(action.transferItemInstanceId);
+        const itemDef = itemDefId ? cardPool[itemDefId as string] : undefined;
+        const itemName = itemDef ? itemDef.name : '?';
+        const destDefId = lookup(action.transferToCharacterId);
+        const destDef = destDefId ? cardPool[destDefId as string] : undefined;
+        const destName = destDef ? destDef.name : '?';
+        label = `Transfer ${itemName} to ${destName}`;
+      } else if (action.targetGoldRingInstanceId) {
         const ringDefId = lookup(action.targetGoldRingInstanceId);
         const ringDef = ringDefId ? cardPool[ringDefId as string] : undefined;
         const ringName = ringDef ? ringDef.name : '?';
