@@ -264,11 +264,19 @@ export interface PendingResolution {
         readonly awardKillMpTo?: PlayerId;
         /**
          * When true, the actor may resolve this check in any order relative
-         * to their OTHER queued corruption checks from the same source card:
-         * the legal-action computer offers one roll action per same-source
-         * selectable sibling instead of only the head entry. Used by Ren the
-         * Unclean (tw-83): "Each player decides the order of the corruption
-         * checks for their characters."
+         * to their OTHER queued corruption checks in the same batch — same
+         * actor, same {@link scope}, regardless of which card's effect
+         * enqueued each one: the legal-action computer (`corruptionCheckActions`)
+         * offers one roll action per selectable sibling in that batch instead
+         * of only the head entry. This generalizes CoE 7.1.1 ("each player
+         * decides the order of the corruption checks for their characters")
+         * beyond its original single-source use — Ren the Unclean (tw-83) and
+         * `force-check-all-in-play` cards — to any batch of checks landing on
+         * one player at once, e.g. two characters each carrying an untap-
+         * phase-end "force check" attachment (Lure of the Senses and the
+         * like): the player picks which character checks first, so a
+         * character expected to fail can go first and free a company-mate
+         * to support the other check instead.
          */
         readonly selectableOrder?: boolean;
         /**

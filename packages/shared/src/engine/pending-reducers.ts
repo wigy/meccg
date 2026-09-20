@@ -27,7 +27,7 @@ import type { CardInPlay } from '../types/state-cards.js';
 import type { ChainEntry } from '../types/state-combat.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { splitCharacterOffCompany } from './company-split.js';
-import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint, enqueueCorruptionCheck } from './pending.js';
+import { dequeueResolution, enqueueResolution, replaceResolutionKind, removeConstraint, addConstraint, enqueueCorruptionCheck, scopesMatch } from './pending.js';
 import { advanceMaintenanceChain, discardMaintainedEvent } from './event-maintenance.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
@@ -448,17 +448,21 @@ export function applyCorruptionCheckResolution(
     return { state: supState };
   }
 
-  // Selectable order (Ren the Unclean tw-83): the actor may resolve any of
-  // their same-source queued checks, not just the head — swap `top` for the
-  // sibling entry matching the rolled character.
+  // Selectable order (CoE 7.1.1 — Ren the Unclean tw-83, `force-check-all-in-play`
+  // cards, batches of untap-phase-end triggers): the actor may resolve any of
+  // their same-scope queued checks, not just the head — swap `top` for the
+  // sibling entry matching the rolled character. Matched by actor + scope
+  // rather than by source card, mirroring `corruptionCheckActions`'s sibling
+  // filter, so a batch triggered by several different attached cards still
+  // accepts whichever one the player actually clicked.
   if (action.type === 'corruption-check'
     && top.kind.selectableOrder
     && action.characterId !== top.kind.characterId) {
     const sibling = state.pendingResolutions.find(r =>
       r.actor === top.actor
       && r.kind.type === 'corruption-check'
-      && r.source === top.source
       && r.kind.selectableOrder
+      && scopesMatch(r.scope, top.scope)
       && r.kind.characterId === action.characterId);
     if (sibling) {
       logDetail(`Selectable corruption-check order: resolving sibling entry ${sibling.id} instead of head ${top.id}`);
