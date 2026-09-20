@@ -24,7 +24,7 @@
  * | 1 | A non-Wizard character may be brought in with direct influence | OK     |
  * | 2 | …at a Free-hold, Border-hold, or Ruins & Lairs (not a haven)   | OK     |
  * | 3 | Even a Hobbit                                                  | OK     |
- * | 3.1 | …unless it has its own card-specific home-site-only restriction (Sam Gamgee, Frodo) | OK |
+ * | 3.1 | …even one with its own card-specific home-site-only restriction (Sam Gamgee, Bilbo) | OK |
  * | 4 | Wizards may not be brought in                                  | OK     |
  * | 5 | Requires a controller with enough unused direct influence      | OK     |
  * | 6 | Does not count against the one-character-per-turn limit        | OK     |
@@ -54,6 +54,7 @@ const BREE = 'tw-378' as CardDefinitionId;           // border-hold
 const BANDIT_LAIR = 'tw-373' as CardDefinitionId;    // ruins-and-lairs
 const FILLER = 'tw-155' as CardDefinitionId;         // Gamling — opponent filler
 const SAM_GAMGEE = 'tw-180' as CardDefinitionId;     // hobbit, mind 4, DI 0 — card-specific home-site-only (Bag End)
+const BILBO = 'tw-131' as CardDefinitionId;          // hobbit, mind 5, DI 1 — card-specific home-site-only (Bag End)
 
 /**
  * Recruit plays = viable play-character actions carrying viaEventInstanceId.
@@ -128,9 +129,33 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(recruit.length).toBeGreaterThan(0);
   });
 
-  // ── Rule 3 (negative): a card-specific home-site-only character is excluded ─
+  // ── Rule 3.1: overrides a character's own home-site-only restriction ────────
 
-  test('does not emit a recruit play for a home-site-only character away from its home site (Sam Gamgee)', () => {
+  // Regression: Bilbo (tw-131, "he may only be brought into play at his home
+  // site [Bag End]") was reported unplayable via A Chance Meeting at a Ruins &
+  // Lairs (The Lonely Mountain) — neither during the organization phase (the
+  // company was away from any haven, at another Ruins & Lairs) nor during the
+  // site phase once the company reached the Ruins & Lairs. The card's own text
+  // says "even a Hobbit" precisely to lift a recruit's card-specific
+  // home-site-only restriction, not just the general haven/home-site rule;
+  // `recruitViaEventActions` previously left `home-site-only` enforced
+  // unconditionally regardless of the event (no `recruit-character` effect
+  // could ever lift it), so the recruit action never appeared.
+  test('emits a recruit play for a home-site-only character away from its home site (Bilbo)', () => {
+    // Bilbo's mind (5) exceeds Elrond's direct influence (4); Gandalf's DI
+    // (10) covers it.
+    const state = buildOrg(BANDIT_LAIR, [GANDALF], [A_CHANCE_MEETING, BILBO]);
+    const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+    const bilboId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === BILBO)!.instanceId;
+    const recruit = viableActions(state, PLAYER_1, 'play-character')
+      .filter(a => {
+        const act = a.action as { characterInstanceId: CardInstanceId; viaEventInstanceId?: CardInstanceId };
+        return act.viaEventInstanceId === eventId && act.characterInstanceId === bilboId;
+      });
+    expect(recruit.length).toBeGreaterThan(0);
+  });
+
+  test('also overrides Sam Gamgee\'s home-site-only restriction', () => {
     const state = buildOrg(BREE, [ELROND], [A_CHANCE_MEETING, SAM_GAMGEE]);
     const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
     const samId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === SAM_GAMGEE)!.instanceId;
@@ -139,7 +164,7 @@ describe('A Chance Meeting (tw-188)', () => {
         const act = a.action as { characterInstanceId: CardInstanceId; viaEventInstanceId?: CardInstanceId };
         return act.viaEventInstanceId === eventId && act.characterInstanceId === samId;
       });
-    expect(recruit).toHaveLength(0);
+    expect(recruit.length).toBeGreaterThan(0);
   });
 
   // ── Rule 4: Wizards are excluded ────────────────────────────────────────────

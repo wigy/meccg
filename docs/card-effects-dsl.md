@@ -14810,6 +14810,7 @@ rules.
 | `filter` | no | DSL `Condition` matched against the recruit's card definition (e.g. `{ "$not": { "race": "wizard" } }` to bar Wizards). |
 | `allowAgents` | no | When `true`, an **agent** may be recruited, overriding rule 2.II.2.2.5 (an agent played as a character otherwise enters play only at its home site). Alignment gating is unchanged: Wizard and Balrog players treat agent cards as hazards (1.3.W2/1.3.B2). |
 | `allowRingwraithFollowers` | no | When `true`, the event is "a card or ability that allows a Ringwraith follower to be played" (rule 2.II.2.1.R4) — see below. |
+| `overridesHomeSiteOnly` | no | When `true`, a recruit's own card-specific `home-site-only` play-flag (Frodo tw-152, Bilbo tw-131, Sam Gamgee tw-180) is lifted too, not just the general haven/home-site rule already replaced by `siteTypes`. A Chance Meeting (tw-188) sets this — its text is worded "even a Hobbit" to call out exactly this override. |
 | `bypassOneCharacterLimit` | no | When `true`, the play does **not** consume the one-character-per-turn slot. |
 
 ```json
@@ -14839,6 +14840,10 @@ Behaviour:
   general influence (`generalInfluenceControlLimit − generalInfluenceUsed`),
   overriding rule 2.II.2.2's "only at the avatar's site" restriction exactly as
   `siteTypes` overrides the haven / home-site restriction.
+- **Character-specific home-site restrictions.** A recruit carrying its own
+  `home-site-only` play-flag (Frodo tw-152, Bilbo tw-131, Sam Gamgee tw-180) is
+  only offered at a qualifying company whose site is also that character's
+  actual home site, unless `overridesHomeSiteOnly` lifts that too.
 - **Avatars.** Avatars (null mind) are never ordinary recruits — they enter play
   by their own reveal rules. The one exception is `allowRingwraithFollowers`: a
   **Ringwraith** avatar card in hand may be brought in as a Ringwraith follower
