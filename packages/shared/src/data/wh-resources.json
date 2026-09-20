@@ -2505,8 +2505,38 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Gandalf" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-gandalf",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "in-play-on-character" }
+      },
+      {
+        "type": "grant-action",
+        "action": "ring-of-fire-fetch",
+        "cost": { "tap": "self" },
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": { "name": "Narya" }
+        }
       }
     ],
+    "certified": "2026-09-21",
     "text": "Unique. Gandalf specific. Place this card on Gandalf if he is in play. If on Gandalf, you may tap Ring of Fire during your organization phase to take Narya from your discard pile to your hand."
   },
   {
