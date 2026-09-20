@@ -1296,7 +1296,7 @@ function handleSiteAutomaticAttacks(
           assignmentPhase: dupAttackerChoosesR ? 'cancel-window' : 'defender',
           detainment: dupDetainmentR,
           ...(dupAttackerChoosesR ? { attackerChoosesDefenders: true } : {}),
-          ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+          ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
         });
         return {
           state: {
@@ -1331,7 +1331,11 @@ function handleSiteAutomaticAttacks(
       const dupEachCharacterCompany = siteState.soloAutoAttackCharacterId
         ? { ...company, characters: company.characters.filter(id => id === siteState.soloAutoAttackCharacterId) }
         : company;
-      const dupFacingAllies = dupIsEachCharacter
+      // Burglary (td-103) failure: no combat support at all, not even an
+      // ally hosted by the solo defender himself (CRF 22: "as though he
+      // were a one-character company", mirroring the Hunt's Noble Hound
+      // ruling) — skip the ally pre-assignment entirely.
+      const dupFacingAllies = dupIsEachCharacter && !siteState.soloAutoAttackCharacterId
         ? facingAlliesFor(state, state.players[activePlayerIndex], dupEachCharacterCompany)
         : [];
       const dupPreAssignedStrikes: StrikeAssignment[] = dupIsEachCharacter
@@ -1375,7 +1379,7 @@ function handleSiteAutomaticAttacks(
         ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
         ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
         ...(dupIsEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
-        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
       };
       const dupCombat: CombatState = dupIsEachCharacter && dupPreAssignedStrikes.length > 1
         ? { ...dupBaseCombat, phase: 'choose-strike-order', currentStrikeIndex: 0, bodyCheckTarget: null }
@@ -1436,7 +1440,7 @@ function handleSiteAutomaticAttacks(
         ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
         ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
         ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
-        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
       });
       return {
         state: {
@@ -1564,15 +1568,18 @@ function handleSiteAutomaticAttacks(
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
   // Burglary (td-103) failure: the tapped character faces the site's
   // automatic-attacks alone — restrict the "each character faces one strike"
-  // pre-assignment (and its allies) to just that character, exactly like the
-  // legal-action defender/attacker strike-assignment restriction below.
+  // pre-assignment to just that character, exactly like the legal-action
+  // defender/attacker strike-assignment restriction below.
   const eachCharacterCompany = siteState.soloAutoAttackCharacterId
     ? { ...company, characters: company.characters.filter(id => id === siteState.soloAutoAttackCharacterId) }
     : company;
   // "each character faces 1 strike": total = company size, strikes pre-assigned one per
   // character. Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
   // they are pre-assigned a strike too (unless a play-flag makes them immune to attacks).
-  const facingAllies = isEachCharacter
+  // Burglary failure is the exception: the solo defender receives no combat
+  // support at all, not even an ally he himself hosts (CRF 22: "as though he
+  // were a one-character company", mirroring the Hunt's Noble Hound ruling).
+  const facingAllies = isEachCharacter && !siteState.soloAutoAttackCharacterId
     ? facingAlliesFor(state, state.players[activePlayerIndex], eachCharacterCompany)
     : [];
   const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
@@ -1635,7 +1642,7 @@ function handleSiteAutomaticAttacks(
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
     ...(forcedStrikeDefeat ? { forcedStrikeDefeat: true, forcedDefeatBodyCheckModifier } : {}),
-    ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+    ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
     ...(pendingModifier.cancelProtection ? { cancelProtection: pendingModifier.cancelProtection } : {}),
   };
 
