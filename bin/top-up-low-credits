@@ -105,11 +105,13 @@ fi
 FAILED=0
 while IFS= read -r row; do
   name="$(echo "$row" | jq -r .name)"
+  # Player names may contain spaces; the route decodes the path segment.
+  encoded="$(echo "$row" | jq -r '.name | @uri')"
   before="$(echo "$row" | jq -r .credits)"
   body="$(jq -cn --arg actor "$ACTOR" '{actor: $actor}')"
   tmp="$(mktemp)"
   http_code="$(curl -s --max-time 30 -o "$tmp" -w '%{http_code}' \
-    -X POST "$BASE_URL/api/system/players/$name/credits/top-up" \
+    -X POST "$BASE_URL/api/system/players/$encoded/credits/top-up" \
     -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
     -d "$body" || echo 000)"
   resp="$(cat "$tmp" 2>/dev/null || true)"
