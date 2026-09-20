@@ -2174,6 +2174,7 @@
         "controlledBy": "direct-influence",
         "siteTypes": ["free-hold", "border-hold", "ruins-and-lairs"],
         "filter": { "$not": { "race": "wizard" } },
+        "overridesHomeSiteOnly": true,
         "bypassOneCharacterLimit": true
       }
     ],

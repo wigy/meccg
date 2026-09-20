@@ -563,6 +563,14 @@ export function computeFactionInfluenceRollAction(
         ...buildBearerContext(charDef),
         stagePoints: player.stagePoints,
         homesiteRegions: characterHomeSiteRegions(state, charDef),
+        // Names of items borne by the influencer — including character-
+        // attached permanent events (there is no separate attached-event
+        // zone; see `keyword-replaced.ts`). Mirrors the declare-time `need`
+        // computation (legal-actions/site.ts), so a faction standard keyed to
+        // a named card holder (Returned Exiles td-146: "King under the
+        // Mountain Dwarf (+5)") prices the pending roll identically instead
+        // of drifting from the declared need.
+        itemNames: defNamesOf(state, charInPlay.items),
       },
       // Includes `controller.wizard`, which this pending-roll path previously
       // omitted — the declare-time `need` computation (legal-actions/site.ts)

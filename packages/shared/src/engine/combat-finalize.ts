@@ -1363,35 +1363,32 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         const isDragonAtHome = ((atHomeDef as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [])
           .some(e => e.type === 'dragon-at-home');
 
-        // Glossary g.man.3: "When a Dragon manifestation (e.g. Ahunt, At
-        // Home, Roused, or the creature manifestation of the Dragon...) is
-        // defeated or otherwise removed from play, ... the corresponding
-        // Dragon's lair loses its automatic-attack for the rest of the
-        // game." Unlike the per-card `onDefeat: 'remove-from-play'` flag
-        // above (a card-specific ability), this removal is a blanket rule
-        // for every Dragon manifestation, so it applies unconditionally
-        // here — including Eärcaraxë at Home, which is only exempt from the
-        // King-under-the-Mountain tracking below. Move the At-Home
-        // permanent-event to the defending player's kill pile (CRF
-        // 3.IV.1.3 — defeated Dragon manifestations may be used as
-        // trophies) so `getActiveAutoAttacks`'s `isManifestationDefeated`
-        // check strips the lair augmentation and `applyManifestationCascade`
-        // sweeps any sister manifestations of the same Dragon still in play.
+        // g.man.3: "<Dragon> at Home" (e.g. Smaug at Home td-71) IS the At
+        // Home Dragon manifestation — the augmented attack it contributes to
+        // its lair stands in for the card itself in combat, unlike the
+        // lair's baseline printed attack ("Dragon automatic-attacks are not
+        // considered manifestations"). Defeating that augmented attack
+        // therefore defeats the manifestation: remove the permanent-event
+        // from its owner's cardsInPlay and award kill MPs to the defender,
+        // same as the onDefeat:'remove-from-play' handling above for
+        // permanent-event-auto-attack cards. `applyManifestationCascade`
+        // (run once per reducer dispatch, see reducer.ts) then sweeps any
+        // sister manifestations and strips the lair's future automatic-attack.
         if (isDragonAtHome) {
-          const atHomeOwnerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
-          const atHomeCard = atHomeOwnerIdx >= 0 ? stateAfterCombat.players[atHomeOwnerIdx].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
+          const atHomeName = (atHomeDef as { name?: string } | undefined)?.name ?? '?';
+          const defIdxAH = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+          const ownerIdxAH = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
+          const atHomeCard = ownerIdxAH >= 0 ? stateAfterCombat.players[ownerIdxAH].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
           if (atHomeCard) {
-            const atHomeDefIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
             const atHomeCardRef = toCardInstance(atHomeCard);
-            const atHomeName = (atHomeDef as { name?: string } | undefined)?.name ?? '?';
-            const updatedPlayersAtHomeDefeat = stateAfterCombat.players.map((p, idx) => {
+            const updatedPlayersAH = stateAfterCombat.players.map((p, idx) => {
               let next = p;
-              if (idx === atHomeOwnerIdx) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
-              if (idx === atHomeDefIdx) next = { ...next, killPile: [...next.killPile, atHomeCardRef] };
+              if (idx === ownerIdxAH) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
+              if (idx === defIdxAH) next = { ...next, killPile: [...next.killPile, atHomeCardRef] };
               return next;
             }) as unknown as typeof stateAfterCombat.players;
-            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAtHomeDefeat };
-            logDetail(`Dragon-at-home manifestation "${atHomeName}" defeated — removed from play, kill MPs awarded to defender`);
+            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAH };
+            logDetail(`Dragon-at-home "${atHomeName}" defeated (g.man.3 manifestation defeat) — removed from play, kill MPs awarded to defender`);
           }
         }
 

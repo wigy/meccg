@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -1296,7 +1296,7 @@ function handleSiteAutomaticAttacks(
           assignmentPhase: dupAttackerChoosesR ? 'cancel-window' : 'defender',
           detainment: dupDetainmentR,
           ...(dupAttackerChoosesR ? { attackerChoosesDefenders: true } : {}),
-          ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+          ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
         });
         return {
           state: {
@@ -1331,7 +1331,11 @@ function handleSiteAutomaticAttacks(
       const dupEachCharacterCompany = siteState.soloAutoAttackCharacterId
         ? { ...company, characters: company.characters.filter(id => id === siteState.soloAutoAttackCharacterId) }
         : company;
-      const dupFacingAllies = dupIsEachCharacter
+      // Burglary (td-103) failure: no combat support at all, not even an
+      // ally hosted by the solo defender himself (CRF 22: "as though he
+      // were a one-character company", mirroring the Hunt's Noble Hound
+      // ruling) — skip the ally pre-assignment entirely.
+      const dupFacingAllies = dupIsEachCharacter && !siteState.soloAutoAttackCharacterId
         ? facingAlliesFor(state, state.players[activePlayerIndex], dupEachCharacterCompany)
         : [];
       const dupPreAssignedStrikes: StrikeAssignment[] = dupIsEachCharacter
@@ -1375,7 +1379,7 @@ function handleSiteAutomaticAttacks(
         ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
         ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
         ...(dupIsEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
-        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
       };
       const dupCombat: CombatState = dupIsEachCharacter && dupPreAssignedStrikes.length > 1
         ? { ...dupBaseCombat, phase: 'choose-strike-order', currentStrikeIndex: 0, bodyCheckTarget: null }
@@ -1436,7 +1440,7 @@ function handleSiteAutomaticAttacks(
         ...(aa.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
         ...(aa.combatRules?.includes('wound-eliminates') ? { woundEliminates: true } : {}),
         ...(aa.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
-        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+        ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
       });
       return {
         state: {
@@ -1564,15 +1568,18 @@ function handleSiteAutomaticAttacks(
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;
   // Burglary (td-103) failure: the tapped character faces the site's
   // automatic-attacks alone — restrict the "each character faces one strike"
-  // pre-assignment (and its allies) to just that character, exactly like the
-  // legal-action defender/attacker strike-assignment restriction below.
+  // pre-assignment to just that character, exactly like the legal-action
+  // defender/attacker strike-assignment restriction below.
   const eachCharacterCompany = siteState.soloAutoAttackCharacterId
     ? { ...company, characters: company.characters.filter(id => id === siteState.soloAutoAttackCharacterId) }
     : company;
   // "each character faces 1 strike": total = company size, strikes pre-assigned one per
   // character. Per CoE 2.V.2.2, allies are treated as characters for facing strikes, so
   // they are pre-assigned a strike too (unless a play-flag makes them immune to attacks).
-  const facingAllies = isEachCharacter
+  // Burglary failure is the exception: the solo defender receives no combat
+  // support at all, not even an ally he himself hosts (CRF 22: "as though he
+  // were a one-character company", mirroring the Hunt's Noble Hound ruling).
+  const facingAllies = isEachCharacter && !siteState.soloAutoAttackCharacterId
     ? facingAlliesFor(state, state.players[activePlayerIndex], eachCharacterCompany)
     : [];
   const preAssignedStrikes: StrikeAssignment[] = isEachCharacter
@@ -1635,7 +1642,7 @@ function handleSiteAutomaticAttacks(
     ...(aaAttackerChooses ? { attackerChoosesDefenders: true } : {}),
     ...(isEachCharacter ? { eachCharacterFacesOneStrike: true } : {}),
     ...(forcedStrikeDefeat ? { forcedStrikeDefeat: true, forcedDefeatBodyCheckModifier } : {}),
-    ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId } : {}),
+    ...(siteState.soloAutoAttackCharacterId ? { soloDefenderInstanceId: siteState.soloAutoAttackCharacterId, excludeSoloDefenderAllies: true } : {}),
     ...(pendingModifier.cancelProtection ? { cancelProtection: pendingModifier.cancelProtection } : {}),
   };
 
@@ -3848,6 +3855,14 @@ export function resolveInfluenceAttemptRoll(
         ...buildBearerContext(charDef),
         stagePoints: player.stagePoints,
         homesiteRegions: characterHomeSiteRegions(state, charDef),
+        // Names of items borne by the influencer — including character-
+        // attached permanent events (there is no separate attached-event
+        // zone; see `keyword-replaced.ts`). Lets a faction's printed
+        // modification target a named card holder, e.g. Returned Exiles
+        // (td-146): "King under the Mountain Dwarf (+5)" via
+        // `bearer.itemNames`. Must mirror the legal-actions preview in
+        // `legal-actions/site.ts` so the roll matches the declared "need".
+        itemNames: defNamesOf(state, charInPlay.items),
       },
       controller: buildFactionControllerContext(state, entry.declaredBy),
     };

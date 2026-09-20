@@ -18,10 +18,10 @@
  * - an agent may be recruited only when the event says so (`allowAgents`),
  *   overriding rule 2.II.2.2.5's home-site confinement;
  * - a character carrying its own card-specific `home-site-only` play-flag
- *   (Frodo tw-152, Sam Gamgee tw-180) is only offered at a qualifying company
- *   whose site is also that character's actual home site — the restriction is
- *   on the character, not the recruitment method, and no `recruit-character`
- *   effect currently lifts it;
+ *   (Frodo tw-152, Bilbo tw-131, Sam Gamgee tw-180) is only offered at a
+ *   qualifying company whose site is also that character's actual home site,
+ *   unless the event's `overridesHomeSiteOnly` lifts that restriction too (A
+ *   Chance Meeting tw-188: "even a Hobbit");
  * - a Ringwraith avatar card may be recruited only as a *Ringwraith follower*
  *   of the player's revealed Ringwraith, and only when the event enables it
  *   (`allowRingwraithFollowers`, rule 2.II.2.1.R4–R5);
@@ -278,14 +278,16 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
         continue;
       }
 
-      // A card-specific `home-site-only` play-flag (Frodo tw-152, Sam Gamgee
-      // tw-180: "he may only be brought into play at his home site") restricts
-      // where the character itself may enter play — the recruit-via-event
-      // effect's relaxed site list does not lift it, unlike the agent
-      // home-site rule below which the event can explicitly waive via
-      // `allowAgents`. Filtered per-company below (`homeSiteOnly`), since the
-      // company's site may still happen to be the character's actual home site.
-      const homeSiteOnly = hasPlayFlag(recruitDef, 'home-site-only');
+      // A card-specific `home-site-only` play-flag (Frodo tw-152, Bilbo
+      // tw-131, Sam Gamgee tw-180: "he may only be brought into play at his
+      // home site") restricts where the character itself may enter play —
+      // the recruit-via-event effect's relaxed site list only lifts it when
+      // the event says so (`overridesHomeSiteOnly`; A Chance Meeting tw-188:
+      // "even a Hobbit"), mirroring the agent home-site rule below which the
+      // event can explicitly waive via `allowAgents`. Filtered per-company
+      // below (`homeSiteOnly`), since the company's site may still happen to
+      // be the character's actual home site.
+      const homeSiteOnly = !event.effect.overridesHomeSiteOnly && hasPlayFlag(recruitDef, 'home-site-only');
 
       // Rule 2.II.2.2.5: an agent played as a character enters play only at its
       // own home site, unless the event lifts that (We Have Come to Kill).
