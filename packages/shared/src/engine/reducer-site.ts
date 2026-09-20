@@ -3010,6 +3010,39 @@ export function handleSitePlayHeroResource(
     ? removeById(player.sideboard, handCard.instanceId)
     : player.sideboard;
 
+  // Ireful Flames (td-182): "For any item to be played at [these] sites, its
+  // player must remove an item in his hand from play that would itself be
+  // playable at the site." Validate and pay the cost before attaching — CoE
+  // "remove from play" for an item goes to the out-of-play pile, flagged
+  // `removedFromGame`, never to a discard pile (mirrors the Phial of
+  // Galadriel replace-item-on-play handling further below).
+  const siteDefForCost = defById(state, siteInPlay.definitionId);
+  const itemRemovalCostEffect = isItem && siteDefForCost ? state.players
+    .flatMap(p => p.cardsInPlay)
+    .map(cip => defById(state, cip.definitionId))
+    .filter((cipDef): cipDef is CardDefinition => cipDef !== undefined)
+    .flatMap(cipDef => getCardEffects(cipDef))
+    .find((e): e is import('../index.js').SiteItemRemovalCostEffect =>
+      e.type === 'site-item-removal-cost' && e.siteNames.includes(siteDefForCost.name)) : undefined;
+  let costRemoveCard: CardInstance | undefined;
+  let newHandAfterCost = newHand;
+  if (itemRemovalCostEffect) {
+    const chosen = action.costRemoveInstanceId ? findById(player.hand, action.costRemoveInstanceId) : undefined;
+    const chosenDef = chosen ? defById(state, chosen.definitionId) : undefined;
+    const costPlayableTypes = isSiteCard(siteDefForCost!) ? new Set(siteDefForCost!.playableResources) : new Set<string>();
+    const validCost = chosen !== undefined
+      && chosen.instanceId !== action.cardInstanceId
+      && chosenDef !== undefined
+      && isItemCard(chosenDef)
+      && costPlayableTypes.has(chosenDef.subtype);
+    if (!validCost) {
+      return { state, error: `${def.name}: must remove another eligible item from your hand from play to play an item at ${siteDefForCost!.name} (Ireful Flames)` };
+    }
+    costRemoveCard = chosen;
+    newHandAfterCost = removeById(newHand, chosen!.instanceId);
+    logDetail(`Ireful Flames: removing ${chosenDef!.name} from play (out-of-play pile) to pay the item-play cost at ${siteDefForCost!.name}`);
+  }
+
   // Tap the character and attach the item or ally (unless no-tap-on-play)
   const updatedChar: CharacterInPlay = {
     ...charInPlay,
@@ -3168,7 +3201,15 @@ export function handleSitePlayHeroResource(
   };
 
   let afterAttach: GameState = {
-    ...updatePlayer(state, playerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscardPile, sideboard: newSideboard, characters: newCharacters, companies: newCompaniesActual })),
+    ...updatePlayer(state, playerIndex, p => ({
+      ...p,
+      hand: newHandAfterCost,
+      discardPile: newDiscardPile,
+      sideboard: newSideboard,
+      characters: newCharacters,
+      companies: newCompaniesActual,
+      outOfPlayPile: costRemoveCard ? [...p.outOfPlayPile, { ...toCardInstance(costRemoveCard), removedFromGame: true as const }] : p.outOfPlayPile,
+    })),
     phaseState: {
       ...siteState,
       resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,

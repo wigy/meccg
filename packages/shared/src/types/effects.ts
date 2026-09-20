@@ -5899,6 +5899,28 @@ export interface TapAtSiteEffect extends EffectBase {
 }
 
 /**
+ * A passive item-play tax at named sites, declared on an in-play hazard
+ * permanent-event that names the affected sites directly (matched by name
+ * against the company's current site, like {@link TapAtSiteEffect}, since
+ * the same site name may have several set printings). While any card
+ * carrying this effect is in either player's `cardsInPlay`, playing an item
+ * at a matching site additionally requires removing another item from the
+ * playing player's hand from play (CoE "remove from play" — the
+ * out-of-play pile, `removedFromGame: true`) whose subtype is itself
+ * playable at the site. With no eligible hand item to pay the cost, the
+ * item is not playable there at all.
+ *
+ * Used by Ireful Flames (td-182): "For any item to be played at one of
+ * these sites, its player must remove an item in his hand from play that
+ * would itself be playable at the site."
+ */
+export interface SiteItemRemovalCostEffect extends EffectBase {
+  readonly type: 'site-item-removal-cost';
+  /** Site names (matched against the company's current site) this tax applies at. */
+  readonly siteNames: readonly string[];
+}
+
+/**
  * Declares what this card targets when played. The engine uses this to
  * generate per-target actions (e.g. one per eligible character).
  *
@@ -10279,7 +10301,8 @@ export type CardEffect =
   | DiscardUnrevealedOnGuardEffect
   | SwapNewSiteEffect
   | ActsAsSiteEffect
-  | RollThenSwapNewSiteEffect;
+  | RollThenSwapNewSiteEffect
+  | SiteItemRemovalCostEffect;
 
 /**
  * One consequence of an {@link OpposedRollEffect} contest, run against one of
