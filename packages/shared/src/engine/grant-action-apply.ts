@@ -447,6 +447,13 @@ function runGrantApply(
           modifier,
           reason,
           onSuccess: apply.onSuccess,
+          // CoE 7.1.1: any corruption check declared but not yet resolved
+          // may be supported by tapping untapped company mates for +1
+          // each — not just item-transfer/store checks. Every other
+          // production enqueueCorruptionCheck call site already sets
+          // this; grant-action-triggered checks (Magical Harp td-130,
+          // Arkenstone tw-341, etc.) were missing it.
+          allowSupport: true,
         }),
       ],
     };
