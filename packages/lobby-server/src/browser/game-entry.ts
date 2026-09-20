@@ -25,6 +25,7 @@ import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
 import { resetSpectators } from './spectators.js';
 import { installAskAi, resetObserver } from './ask-ai.js';
 import { renderLog } from './render-log.js';
+import { installRollHistory } from './roll-history.js';
 import { showConfirm } from './dialog.js';
 
 // Import side-effect modules so esbuild includes them in this bundle.
@@ -79,6 +80,7 @@ ns.startReplay = startReplay;
 
 installKeyboardShortcuts();
 installAskAi();
+installRollHistory();
 
 const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
 const debugView = document.getElementById('debug-view') as HTMLElement;

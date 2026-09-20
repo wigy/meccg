@@ -35,7 +35,7 @@ import {
   connectLobbyWs, initLobby, showAuthTab, selectRandomAuthHero,
   findOwnGameOpponent,
 } from './lobby-screens.js';
-import { renderLog, showNotification } from './render-log.js';
+import { renderLog, showSystemNotification } from './render-log.js';
 import { setupCardPreview } from './render-card-preview.js';
 import { loadGameBundle } from './lazy-load.js';
 import { apiGet, apiSend } from './api.js';
@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (r.ok) {
           closeFeatureModal();
-          showNotification('Request sent!');
+          showSystemNotification('Request sent!');
           void openSent();
         } else {
           await showAlert(r.error ?? 'Failed to send feature request');
@@ -560,7 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (r.ok) {
         closeBugModal();
-        showNotification(category === 'improvement' ? 'Improvement suggestion sent!' : 'Bug report sent!');
+        showSystemNotification(category === 'improvement' ? 'Improvement suggestion sent!' : 'Bug report sent!');
       } else {
         await showAlert(r.error ?? 'Failed to send bug report');
       }
