@@ -34,8 +34,11 @@
  * - GET /api/saves/check?opponent=NAME — check if a saved game exists
  * - POST /api/saves/delete — delete saved game files for an opponent
  * - GET /api/system/ai-requests[?all=true] — list unhandled (or with all=true, every) AI request (master key)
+ * - GET /api/system/players — all accounts with name, display name, email, credits (master key)
  * - GET /api/system/players/:name/credits — read credit balance (master key)
  * - POST /api/system/players/:name/credits — add/set credits with audit entry (master key)
+ * - POST /api/system/players/:name/credits/top-up — the admin screen's top-up: add 1.5×
+ *   consumption-since-last-addition, rounded up to the nearest hundred (master key)
  * - POST /api/system/notify — broadcast notification (master key)
  * - POST /api/system/reboot — announce, kill games, shut down (master key)
  * - POST /api/system/reload-clients — force all clients to reload (master key)
@@ -154,6 +157,28 @@ async function authedRoute(
     return;
   }
   await tryRoute(res, context, errorMessage, () => handler(playerName));
+}
+
+/**
+ * Apply the admin screen's top-up to one player: add {@link pendingTopUp}
+ * (1.5× consumption since the last addition, rounded up to the nearest
+ * hundred) and log it. Shared by the admin-session route behind the
+ * "Add X credits" button and the master-key system route that scripts use
+ * to top up every low-balance account, so both add exactly the same amount.
+ * Responds 404 for an unknown player and 400 when there is nothing to add.
+ */
+function topUpPlayer(res: http.ServerResponse, name: string, actor: string, logEvent: string): void {
+  const profile = getPlayerProfile(name);
+  if (!profile) { sendJson(res, 404, { error: 'Player not found' }); return; }
+  const amount = pendingTopUp(readCreditHistory(profile.name));
+  if (amount <= 0) {
+    sendJson(res, 400, { error: 'No credits consumed since the last addition' });
+    return;
+  }
+  const result = updateCredits(profile.name, 'add', amount, `Top-up by ${actor}`);
+  if (!result) { sendJson(res, 404, { error: 'Player not found' }); return; }
+  lobbyLog.log(logEvent, { actor, player: profile.name, amount, balance: result.balance });
+  sendJson(res, 200, { name: profile.name, ...result });
 }
 
 /**
@@ -545,18 +570,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   const adminTopUpMatch = urlPath.match(/^\/api\/admin\/users\/([^/]+)\/credits\/top-up$/);
   if (adminTopUpMatch && method === 'POST') {
     await adminRoute(req, res, 'admin-top-up', 'Failed to add credits', (adminName) => {
-      const name = decodeURIComponent(adminTopUpMatch[1]);
-      const profile = getPlayerProfile(name);
-      if (!profile) { sendJson(res, 404, { error: 'Player not found' }); return; }
-      const amount = pendingTopUp(readCreditHistory(profile.name));
-      if (amount <= 0) {
-        sendJson(res, 400, { error: 'No credits consumed since the last addition' });
-        return;
-      }
-      const result = updateCredits(profile.name, 'add', amount, `Top-up by ${adminName}`);
-      if (!result) { sendJson(res, 404, { error: 'Player not found' }); return; }
-      lobbyLog.log('admin-top-up', { admin: adminName, player: profile.name, amount, balance: result.balance });
-      sendJson(res, 200, { name: profile.name, ...result });
+      topUpPlayer(res, decodeURIComponent(adminTopUpMatch[1]), adminName, 'admin-top-up');
     });
     return;
   }
@@ -1186,6 +1200,24 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         const includeAll = url.searchParams.get('all') === 'true';
         const requests = listUnhandledRequests(['ai', 'admin'], { includeAll });
         sendJson(res, 200, { requests });
+      });
+      return;
+    }
+
+    if (urlPath === '/api/system/players' && method === 'GET') {
+      sendJson(res, 200, { users: listPlayers(), initialCredits: DEFAULT_CREDITS });
+      return;
+    }
+
+    const systemTopUpMatch = urlPath.match(/^\/api\/system\/players\/([a-z0-9-]+)\/credits\/top-up$/);
+    if (systemTopUpMatch && method === 'POST') {
+      await tryRoute(res, 'system-top-up', 'Failed to add credits', async () => {
+        // Optional body { actor } names who is topping up in the audit entry
+        // ("Top-up by <actor>"); scripts pass their own name, default "system".
+        const raw = await readBody(req);
+        const body = raw.trim() ? JSON.parse(raw) as { actor?: string } : {};
+        const actor = body.actor && body.actor.trim() ? body.actor.trim() : 'system';
+        topUpPlayer(res, systemTopUpMatch[1], actor, 'system-top-up');
       });
       return;
     }
