@@ -1363,6 +1363,38 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         const isDragonAtHome = ((atHomeDef as { effects?: readonly { type: string }[] } | undefined)?.effects ?? [])
           .some(e => e.type === 'dragon-at-home');
 
+        // Glossary g.man.3: "When a Dragon manifestation (e.g. Ahunt, At
+        // Home, Roused, or the creature manifestation of the Dragon...) is
+        // defeated or otherwise removed from play, ... the corresponding
+        // Dragon's lair loses its automatic-attack for the rest of the
+        // game." Unlike the per-card `onDefeat: 'remove-from-play'` flag
+        // above (a card-specific ability), this removal is a blanket rule
+        // for every Dragon manifestation, so it applies unconditionally
+        // here — including Eärcaraxë at Home, which is only exempt from the
+        // King-under-the-Mountain tracking below. Move the At-Home
+        // permanent-event to the defending player's kill pile (CRF
+        // 3.IV.1.3 — defeated Dragon manifestations may be used as
+        // trophies) so `getActiveAutoAttacks`'s `isManifestationDefeated`
+        // check strips the lair augmentation and `applyManifestationCascade`
+        // sweeps any sister manifestations of the same Dragon still in play.
+        if (isDragonAtHome) {
+          const atHomeOwnerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
+          const atHomeCard = atHomeOwnerIdx >= 0 ? stateAfterCombat.players[atHomeOwnerIdx].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
+          if (atHomeCard) {
+            const atHomeDefIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
+            const atHomeCardRef = toCardInstance(atHomeCard);
+            const atHomeName = (atHomeDef as { name?: string } | undefined)?.name ?? '?';
+            const updatedPlayersAtHomeDefeat = stateAfterCombat.players.map((p, idx) => {
+              let next = p;
+              if (idx === atHomeOwnerIdx) next = { ...next, cardsInPlay: next.cardsInPlay.filter(c => c.instanceId !== sourceInstId) };
+              if (idx === atHomeDefIdx) next = { ...next, killPile: [...next.killPile, atHomeCardRef] };
+              return next;
+            }) as unknown as typeof stateAfterCombat.players;
+            stateAfterCombat = { ...stateAfterCombat, players: updatedPlayersAtHomeDefeat };
+            logDetail(`Dragon-at-home manifestation "${atHomeName}" defeated — removed from play, kill MPs awarded to defender`);
+          }
+        }
+
         // Returned Exiles (td-146): "Playable at a tapped or untapped site
         // where an at home Dragon manifestation was defeated" — unlike King
         // under the Mountain below, this is not restricted to Balin/Dáin
