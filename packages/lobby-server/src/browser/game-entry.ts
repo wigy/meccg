@@ -215,6 +215,21 @@ disconnectBtn.addEventListener('click', () => {
   disconnect();
 });
 
+// "Replay this game" reuses the ordinary disconnect flow rather than pausing
+// the live connection in place: the game server already tolerates a
+// disconnect fine (autosave + the idle-exit grace period + "Resume Game" in
+// the lobby), so this is the same safe, well-tested path a dropped
+// connection takes — no new live/replay coexistence state to get wrong.
+// Captured before disconnect() runs since it touches appState.
+const replayGameBtn = document.getElementById('replay-game-btn') as HTMLButtonElement | null;
+replayGameBtn?.addEventListener('click', () => {
+  const gameId = appState.currentGameId;
+  if (!gameId) return;
+  const seat = appState.lobbyPlayerName;
+  disconnect();
+  void startReplay(gameId, seat);
+});
+
 const concedeBtn = document.getElementById('concede-btn') as HTMLButtonElement | null;
 concedeBtn?.addEventListener('click', () => { void (async () => {
   if (!appState.ws || appState.ws.readyState !== WebSocket.OPEN) return;

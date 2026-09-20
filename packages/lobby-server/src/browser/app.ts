@@ -19,13 +19,14 @@
 import {
   appState, cardPool, LOBBY_MODE, switchLobbyView,
   VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY, VIEWING_SCOREBOARD_KEY,
-  VIEWING_CHANGELOG_KEY, VIEWING_ADMIN_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
+  VIEWING_MY_GAMES_KEY, VIEWING_CHANGELOG_KEY, VIEWING_ADMIN_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { savePlayerName, loadPlayerName } from './session.js';
 import { openInbox, openSent } from './inbox.js';
 import { setInboxCallbacks } from './inbox.js';
 import { openCreditsPage, setCreditsPageCallbacks } from './credits-page.js';
 import { openScoreboardPage, setScoreboardPageCallbacks } from './scoreboard-page.js';
+import { openMyGamesPage, setMyGamesPageCallbacks } from './my-games-page.js';
 import { openChangelogPage, setChangelogPageCallbacks } from './changelog-page.js';
 import { openAdminPage, setAdminPageCallbacks } from './admin-page.js';
 import { showAlert, showConfirm } from './dialog.js';
@@ -51,6 +52,7 @@ if (versionEl && window.__MECCG_VERSION) {
 setInboxCallbacks(showScreen);
 setCreditsPageCallbacks(showScreen);
 setScoreboardPageCallbacks(showScreen);
+setMyGamesPageCallbacks(showScreen);
 setChangelogPageCallbacks(showScreen);
 setAdminPageCallbacks(showScreen);
 
@@ -453,6 +455,10 @@ document.addEventListener('DOMContentLoaded', () => {
       switchLobbyView(VIEWING_SCOREBOARD_KEY);
       void openScoreboardPage();
     });
+    document.getElementById('nav-my-games')!.addEventListener('click', () => {
+      switchLobbyView(VIEWING_MY_GAMES_KEY);
+      void openMyGamesPage();
+    });
     const goToChangelog = () => {
       switchLobbyView(VIEWING_CHANGELOG_KEY);
       void openChangelogPage();
@@ -557,6 +563,9 @@ document.addEventListener('DOMContentLoaded', () => {
         body: fullBody,
         otherPlayer: appState.opponentName,
         category,
+        // Structured pointer alongside the free-text "Game ID:" line already
+        // embedded in fullBody above — see routes.ts's bug-report handler.
+        gameId: inGame ? appState.currentGameId : undefined,
       });
       if (r.ok) {
         closeBugModal();

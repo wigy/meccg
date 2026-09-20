@@ -18,6 +18,8 @@
  * - GET /api/changelog — the repository CHANGELOG.md as markdown (any session)
  * - GET /api/scoreboard — per-player completed-game tallies, most games first
  * - GET /api/scoreboard/players/:name — every completed game for one player, newest first
+ * - GET /api/games/mine — the caller's own games: in progress, unfinished (saved but not
+ *   currently connected), and recently finished
  * - GET /api/replay/:gameId — the replay timeline (seats + one entry per recorded transition)
  * - GET /api/replay/:gameId/frames/:index?seat=ID — one recorded state, projected for that seat
  * - GET /api/admin/users — all accounts with name, display name, email, credits (admin session)
@@ -58,10 +60,11 @@ import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
 import { DEV, MASTER_KEY, REVIEWER_PLAYERS, isAdminPlayer } from '../config.js';
-import { broadcastNotification, broadcastForceReload, newestObserverTarget } from '../lobby/lobby.js';
+import { broadcastNotification, broadcastForceReload, newestObserverTarget, getOwnActiveGame } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
+import { listMySavedGames } from '../games/my-games.js';
 import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js';
 import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, peekMessage, readMessage, reviewFinalizeDisposition, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
@@ -501,6 +504,21 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         return;
       }
       sendJson(res, 200, { name, games: loadPlayerGames(name) });
+    });
+    return;
+  }
+
+  // ---- My Games ----
+
+  if (urlPath === '/api/games/mine' && method === 'GET') {
+    await authedRoute(req, res, 'games-mine', 'Failed to load your games', (playerName) => {
+      const inProgress = getOwnActiveGame(playerName);
+      // A game already shown as "in progress" also has a save/autosave on
+      // disk (written continuously, not just at game-over) — exclude its
+      // opponent from "unfinished" so it is not listed twice.
+      const unfinished = listMySavedGames(playerName)
+        .filter(g => g.opponent.toLowerCase() !== inProgress?.opponent.toLowerCase());
+      sendJson(res, 200, { inProgress, unfinished, finished: loadPlayerGames(playerName) });
     });
     return;
   }
@@ -1064,6 +1082,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         body?: string;
         otherPlayer?: string;
         category?: string;
+        gameId?: string;
       };
       if (!body.subject || !body.body) {
         sendJson(res, 400, { error: 'subject and body are required' });
@@ -1083,7 +1102,12 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         topic: 'bug-report',
         body: body.body,
         subject: body.subject,
-        keywords: { category },
+        // gameId is a structured pointer to the game/replay alongside the
+        // existing free-text "Game ID: X" line the client embeds in the body
+        // (app.ts) — this lets the AI/admin recipient jump straight to the
+        // matching replay instead of parsing free text. Optional: reports
+        // filed from the lobby (no active game) omit it, same as before.
+        keywords: { category, ...(body.gameId ? { gameId: body.gameId } : {}) },
       });
       // Place a sent copy in both players' sent folders
       const message = readMessage('ai', id);

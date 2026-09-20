@@ -911,6 +911,44 @@ h2 {
   color: #c4a35a;
 }
 
+/* ---- My Games page ---- */
+
+.my-games-section {
+  margin-bottom: 1.5rem;
+}
+
+.my-games-section-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.my-games-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.4rem;
+}
+
+.my-games-row dt {
+  color: #d8d8e0;
+}
+
+.my-games-row-status {
+  margin: 0;
+  color: #a0a8b0;
+  font-size: 0.8rem;
+}
+
+.my-games-row .scoreboard-game-id {
+  margin-left: auto;
+}
+
 /* ---- Admin page (user accounts, credits, games) ---- */
 
 .admin-page {
