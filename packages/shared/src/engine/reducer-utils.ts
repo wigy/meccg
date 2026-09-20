@@ -6166,6 +6166,24 @@ function cardKeptInMarshallingPointPile(def: CardDefinition | null | undefined):
   );
 }
 
+/**
+ * Whether `def` carries a `discard-on-card-leaves-play` effect, meaning its
+ * card text fully specifies its own discard condition (e.g. Stone of Erech
+ * tw-334: "Discard if the Men of Lamedon leave play") rather than relying on
+ * the default "discard when the bound site leaves play" semantics that
+ * `attachedToSite` cards get by default. `attachedToSite` on such a card
+ * records only *where it was played* (its `play-target: "site"` play
+ * condition), not an ongoing tie to that site's occupancy — the card must
+ * survive its site being discarded and only leave play when its own printed
+ * condition fires. Exempts the card from the site-attached orphan sweep
+ * (bug report: game mu8paowa-e04tsn, seq 1135 — Stone of Erech was wrongly
+ * discarded when the company left Vale of Erech, even though the Men of
+ * Lamedon were still in play).
+ */
+function cardHasOwnLeavesPlayDiscardCondition(def: CardDefinition | null | undefined): boolean {
+  return getCardEffects(def).some(e => e.type === 'discard-on-card-leaves-play');
+}
+
 export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
   const occupied = new Set<string>();
   for (const p of state.players) {
@@ -6221,7 +6239,12 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
       // move-to-mp-pile cards (Burning Rick, Cot, and Tree le-173, Smoke on
       // the Wind le-230, Descent through Fire ba-56, …) keep scoring MP from
       // cardsInPlay for the rest of the game — exempt them too.
-      && !cardKeptInMarshallingPointPile(defById(state, card.definitionId)),
+      && !cardKeptInMarshallingPointPile(defById(state, card.definitionId))
+      // Cards with their own `discard-on-card-leaves-play` condition (Stone
+      // of Erech tw-334) fully specify when they leave play; `attachedToSite`
+      // only recorded their play location, not an ongoing site binding —
+      // exempt them from the default "site left play" discard trigger.
+      && !cardHasOwnLeavesPlayDiscardCondition(defById(state, card.definitionId)),
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);
