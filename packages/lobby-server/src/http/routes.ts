@@ -1209,7 +1209,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       return;
     }
 
-    const systemTopUpMatch = urlPath.match(/^\/api\/system\/players\/([a-z0-9-]+)\/credits\/top-up$/);
+    const systemTopUpMatch = urlPath.match(/^\/api\/system\/players\/([^/]+)\/credits\/top-up$/);
     if (systemTopUpMatch && method === 'POST') {
       await tryRoute(res, 'system-top-up', 'Failed to add credits', async () => {
         // Optional body { actor } names who is topping up in the audit entry
@@ -1217,21 +1217,21 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
         const raw = await readBody(req);
         const body = raw.trim() ? JSON.parse(raw) as { actor?: string } : {};
         const actor = body.actor && body.actor.trim() ? body.actor.trim() : 'system';
-        topUpPlayer(res, systemTopUpMatch[1], actor, 'system-top-up');
+        topUpPlayer(res, decodeURIComponent(systemTopUpMatch[1]), actor, 'system-top-up');
       });
       return;
     }
 
-    const systemCreditsMatch = urlPath.match(/^\/api\/system\/players\/([a-z0-9-]+)\/credits$/);
+    const systemCreditsMatch = urlPath.match(/^\/api\/system\/players\/([^/]+)\/credits$/);
     if (systemCreditsMatch && method === 'GET') {
-      const [, playerName] = systemCreditsMatch;
+      const playerName = decodeURIComponent(systemCreditsMatch[1]);
       if (!findPlayer(playerName)) { sendJson(res, 404, { error: 'Player not found' }); return; }
       sendJson(res, 200, { name: playerName, credits: getCredits(playerName) });
       return;
     }
     if (systemCreditsMatch && method === 'POST') {
       await tryRoute(res, 'system-credits', 'Failed to update credits', async () => {
-        const [, playerName] = systemCreditsMatch;
+        const playerName = decodeURIComponent(systemCreditsMatch[1]);
         const body = JSON.parse(await readBody(req)) as { mode?: 'add' | 'set'; amount?: number; reason?: string };
         if (body.mode !== 'add' && body.mode !== 'set') {
           sendJson(res, 400, { error: "mode must be 'add' or 'set'" }); return;
