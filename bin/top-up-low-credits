@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# Top up every account the admin screen's Users page shows in red.
+#
+# The Users page paints an account red when its balance has dropped below the
+# initial credits (DEFAULT_CREDITS). For each such account this script does
+# exactly what the "Add X credits" button on the user's detail view does:
+# POST .../credits/top-up, which adds 1.5 times everything consumed since the
+# last credit addition, rounded up to the nearest hundred, and records
+# "Top-up by <actor>" in the player's credit history.
+#
+# Usage:
+#   bin/top-up-low-credits              Top up every low-balance account
+#   bin/top-up-low-credits --dry-run    Only list who would be topped up
+#   bin/top-up-low-credits -h | --help  Show this help message
+#
+# The list and the top-ups go through the lobby's master-key system API
+# (GET /api/system/players, POST /api/system/players/:name/credits/top-up),
+# so it works against a remote lobby via MECCG_LOBBY_URL. System accounts
+# are never topped up.
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  bin/top-up-low-credits              Top up every account whose credits are
+                                      below the initial balance, adding the
+                                      same amount the admin screen's
+                                      "Add X credits" button would
+  bin/top-up-low-credits --dry-run    Only list who would be topped up
+  bin/top-up-low-credits -h | --help  Show this help message
+
+Environment:
+  MECCG_LOBBY_URL   Lobby base URL (default http://localhost:8080)
+  MECCG_MASTER_KEY  Lobby master key. Falls back to ~/.meccg/secrets.json
+                    when unset.
+  MECCG_TOPUP_ACTOR Name recorded in the credit history as "Top-up by
+                    <actor>" (default: top-up-low-credits)
+USAGE
+}
+
+DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage; exit 0 ;;
+    --dry-run|-n) DRY_RUN=1 ;;
+    *) echo "Unknown argument: $arg" >&2; usage >&2; exit 1 ;;
+  esac
+done
+
+for tool in curl jq; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "ERROR: $tool is required" >&2
+    exit 1
+  fi
+done
+
+BASE_URL="${MECCG_LOBBY_URL:-http://localhost:8080}"
+BASE_URL="${BASE_URL%/}"
+ACTOR="${MECCG_TOPUP_ACTOR:-top-up-low-credits}"
+SECRETS="$HOME/.meccg/secrets.json"
+
+master_key() {
+  if [ -n "${MECCG_MASTER_KEY:-}" ]; then
+    echo "$MECCG_MASTER_KEY"
+    return 0
+  fi
+  if [ -f "$SECRETS" ]; then
+    jq -r .masterKey "$SECRETS"
+    return 0
+  fi
+  echo "ERROR: no master key (set MECCG_MASTER_KEY or provide $SECRETS)" >&2
+  return 1
+}
+
+KEY="$(master_key)"
+
+# Fetch the same list the admin Users page renders.
+if ! LIST="$(curl -sf --max-time 30 "$BASE_URL/api/system/players" -H "Authorization: Bearer $KEY")"; then
+  echo "ERROR: failed to fetch $BASE_URL/api/system/players" >&2
+  exit 1
+fi
+
+INITIAL="$(echo "$LIST" | jq -r '.initialCredits')"
+
+# Low balance = below the initial credits, the Users page's "red" rule.
+# System accounts (ai, admin, ...) are excluded: they never consume credits
+# through requests and the page does not offer them a top-up.
+LOW="$(echo "$LIST" | jq -c --argjson initial "$INITIAL" \
+  '.users[] | select(.system != true and .credits < $initial) | {name, credits}')"
+
+if [ -z "$LOW" ]; then
+  echo "No accounts below $INITIAL credits."
+  exit 0
+fi
+
+echo "Accounts below $INITIAL credits:"
+echo "$LOW" | jq -r '"  \(.name)  \(.credits)"'
+echo
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo "(dry run — nothing changed)"
+  exit 0
+fi
+
+FAILED=0
+while IFS= read -r row; do
+  name="$(echo "$row" | jq -r .name)"
+  before="$(echo "$row" | jq -r .credits)"
+  body="$(jq -cn --arg actor "$ACTOR" '{actor: $actor}')"
+  tmp="$(mktemp)"
+  http_code="$(curl -s --max-time 30 -o "$tmp" -w '%{http_code}' \
+    -X POST "$BASE_URL/api/system/players/$name/credits/top-up" \
+    -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+    -d "$body" || echo 000)"
+  resp="$(cat "$tmp" 2>/dev/null || true)"
+  rm -f "$tmp"
+  if [ "$http_code" = "200" ]; then
+    delta="$(echo "$resp" | jq -r .delta)"
+    balance="$(echo "$resp" | jq -r .balance)"
+    echo "$name: $before -> $balance (+$delta)"
+  elif [ "$http_code" = "400" ]; then
+    # Below the initial balance but nothing consumed since the last addition
+    # (e.g. balance was lowered by hand) — the button would be disabled too.
+    echo "$name: skipped — $(echo "$resp" | jq -r '.error // "no top-up pending"')"
+  else
+    FAILED=1
+    echo "$name: FAILED (HTTP $http_code) $(echo "$resp" | jq -r '.error // .' 2>/dev/null || echo "$resp")" >&2
+  fi
+done <<< "$LOW"
+
+exit "$FAILED"
