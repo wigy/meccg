@@ -295,6 +295,28 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(after.phaseState.phase).toBe(Phase.Site);
   });
 
+  // Regression: rule 2.IV.5 — a company is "at" its site card for the entire
+  // site phase, from immediately before the company's site phases begin, not
+  // only once a company has committed to entering. `recruitViaEventActions`
+  // was wired into the site phase's 'play-resources' step only, so at the
+  // earlier 'enter-or-skip' decision window (before the company commits to
+  // facing automatic-attacks) the event fell through to a bare "cannot be
+  // played during this step" not-playable entry instead of offering the
+  // recruit.
+  test('the recruit action is offered before the company commits to entering the site (enter-or-skip step)', () => {
+    const state = buildSitePhaseState({ characters: [ELROND], site: BAG_END, hand: [A_CHANCE_MEETING, EOWYN] });
+    const beforeEntry: GameState = {
+      ...state,
+      phaseState: { ...state.phaseState, step: 'enter-or-skip', siteEntered: false },
+    };
+    const eventId = beforeEntry.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+
+    const recruit = computeLegalActions(beforeEntry, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-character')
+      .find(a => (a.action as { viaEventInstanceId?: CardInstanceId }).viaEventInstanceId === eventId);
+    expect(recruit).toBeDefined();
+  });
+
   // Regression: at a qualifying site with a viable recruit available, the
   // event card itself must not also show up as a spurious not-playable
   // action. `computeLegalActions`' catchall `fillNotPlayable` only checked
