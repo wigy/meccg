@@ -36,7 +36,7 @@ import {
   expectCharStatus,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import type { CardDefinitionId, ActivateGrantedAction } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, ActivateGrantedAction } from '../../index.js';
 
 const JEWEL_OF_BELERIAND = 'as-70' as CardDefinitionId;
 const LONELY_MOUNTAIN = 'tw-428' as CardDefinitionId; // Smaug's lair, hoard site
@@ -220,6 +220,44 @@ describe('Jewel of Beleriand (as-70)', () => {
       ea => (ea.action as ActivateGrantedAction).actionId === 'tap-roll-untap-bearer',
     );
     expect(jewelActions).toHaveLength(0);
+  });
+
+  // Bug report (msg a1acf4ff5e9d2883): Jewel of Beleriand's untap-on-roll
+  // let a Glorfindel II bearing a Reforging (tw-314) untap despite Reforging's
+  // "the bearer may not untap until Reforging is stored" lock. The granted
+  // action's `set-character-status`/`bearer` apply must honour the same
+  // `bearer-cannot-untap` constraint the organization-phase untap sweep does.
+  test('a successful roll does NOT untap a bearer locked by bearer-cannot-untap (e.g. Reforging)', () => {
+    const state = orgStateWithJewel(CardStatus.Tapped);
+    const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
+    const jewelInstId = state.players[RESOURCE_PLAYER].characters[gandalfId].items[0].instanceId;
+
+    const locked = {
+      ...state,
+      activeConstraints: [
+        ...state.activeConstraints,
+        {
+          id: 'lock-1' as unknown as (typeof state.activeConstraints)[number]['id'],
+          source: 'reforging-1' as CardInstanceId,
+          sourceDefinitionId: 'tw-314' as CardDefinitionId,
+          scope: { kind: 'until-cleared' as const },
+          target: { kind: 'character' as const, characterId: gandalfId },
+          kind: { type: 'bearer-cannot-untap' as const, cardInstanceId: 'reforging-1' as CardInstanceId },
+        },
+      ],
+    };
+
+    const action = viableActions(locked, PLAYER_1, 'activate-granted-action').find(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'tap-roll-untap-bearer',
+    )!.action;
+
+    // Force a roll total of 7 (> 6) — would untap the bearer if unlocked.
+    const next = dispatch({ ...locked, cheatRollTotal: 7 }, action);
+
+    const jewelAfter = next.players[RESOURCE_PLAYER].characters[gandalfId].items
+      .find(i => i.instanceId === jewelInstId)!;
+    expect(jewelAfter.status).toBe(CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, GANDALF, CardStatus.Tapped);
   });
 
   test('roll can be attempted even when the bearer is already untapped (no-op untap)', () => {
