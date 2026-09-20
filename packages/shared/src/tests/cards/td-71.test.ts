@@ -37,11 +37,12 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, BALIN, ELROND, GLORFINDEL_II,
   LORIEN, RIVENDELL, MINAS_TIRITH, MORIA,
   buildTestState, resetMint, makeMHState, dispatch,
   addCardInPlay, handCardId, companyIdAt, playHazardAndResolve,
-  buildMHOrderEffectsDrawState,
+  buildMHOrderEffectsDrawState, buildSitePhaseState, setupAutoAttackStep,
+  runAutoAttackCombatMulti,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { getActiveAutoAttacks } from '../../engine/manifestations.js';
@@ -173,6 +174,47 @@ describe('Smaug at Home (td-71)', () => {
     const state = addCardInPlay(base, HAZARD_PLAYER, SMAUG_AT_HOME);
     // Dancing Spire is Daelomin's lair (lairOf tw-26) → unaffected by Smaug at Home.
     expect(getActiveAutoAttacks(state, state.cardPool[DANCING_SPIRE] as SiteCard)).toHaveLength(1);
+  });
+
+  // ─── combat: defeating the augmented at-home attack (g.man.3) ──────────────
+
+  test('defeating the augmented at-home attack removes Smaug at Home from play and awards kill MPs', () => {
+    // g.man.3: "At Home" is a Dragon manifestation, and the augmented attack
+    // an in-play At-Home card contributes to its lair stands in for the card
+    // in combat (the lair's baseline printed attack does not — "Dragon
+    // automatic-attacks are not considered manifestations"). Defeating that
+    // augmented attack must therefore defeat the manifestation: the card
+    // leaves cardsInPlay for the defender's killPile.
+    const base = setupAutoAttackStep(buildSitePhaseState({
+      site: LONELY_MOUNTAIN_HERO,
+      characters: [BALIN, ELROND, GLORFINDEL_II],
+    }));
+    const state = addCardInPlay(base, HAZARD_PLAYER, SMAUG_AT_HOME);
+    const atHomeInstanceId = state.players[HAZARD_PLAYER].cardsInPlay
+      .find(c => c.definitionId === SMAUG_AT_HOME)!.instanceId;
+
+    // Attack 0: printed Dragon (1 strike, 14 prowess) — Balin defeats it.
+    // The printed attack is not the manifestation, so Smaug at Home survives.
+    const round1 = runAutoAttackCombatMulti(state, [{ characterDefId: BALIN, roll: 12 }]);
+    expect(round1.state.combat).toBeNull();
+    expect(round1.state.players[HAZARD_PLAYER].cardsInPlay.some(c => c.instanceId === atHomeInstanceId)).toBe(true);
+
+    // Attack 1: augmented at-home Dragon (2 strikes, 18 prowess) — Elrond + Glorfindel II defeat it.
+    const round2 = runAutoAttackCombatMulti(round1.state, [
+      { characterDefId: ELROND, roll: 12 },
+      { characterDefId: GLORFINDEL_II, roll: 12 },
+    ]);
+    expect(round2.state.combat).toBeNull();
+
+    const after = round2.state;
+    expect(after.players[HAZARD_PLAYER].cardsInPlay.some(c => c.instanceId === atHomeInstanceId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === atHomeInstanceId)).toBe(true);
+
+    // g.man.3: once a Dragon manifestation is defeated, its lair loses its
+    // automatic-attack for the rest of the game — both the augmentation
+    // (its source is gone) and the lair's own printed attack.
+    const lonely = after.cardPool[LONELY_MOUNTAIN_HERO] as SiteCard;
+    expect(getActiveAutoAttacks(after, lonely)).toHaveLength(0);
   });
 
   // ─── draw-modifier: each moving company draws one less ─────────────────────
