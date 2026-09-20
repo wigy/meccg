@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.164.0 — 2026-09-20
+
+Pledge of Conduct redirects items in flight; Hidden Haven shelters from Rats!; stopping a game now really stops it
+
+### Game Engine
+
+- Pledge of Conduct (td-144) was unplayable during the corruption check of an ordinary organization-phase item transfer: `handleTransferItem` moves the item to its new bearer immediately and only then enqueues the check for the original bearer, so by the time the reactive window opened the checking character bore nothing and `reactiveCorruptionCheckPlays` had no `transferItemInstanceId` candidates to offer. Per ICE Rules Digest #90/#555 the card must be playable during that pending check to redirect the item to another company member, after which "the transfer fizzles and there is no corruption check". The reactive emitter now also considers the item named by a live Transfer-reason pending check even though it has already moved, offering every other company member as its destination, and the `transfer-item-free` handler finds the item off the checking character and dequeues the original transfer's pending check when it is redirected. Regression test drives Gimli's `transfer-item` to Aragorn through a Pledge redirect to Bilbo. Reported from game mu9szs8t-6uu0uj (#3113)
+- Company-targeting hazard events read the site's raw printed `siteType` instead of `getEffectiveSiteType`, so Rats! (le-131) was still offered against a company at Ettenmoors (le-373) after Hidden Haven (wh-75) had converted it into a Wizardhaven, even though the card requires a Ruins & Lairs, Shadow-hold or Dark-hold. Creature keying and the site/organization-phase `play-target` matchers already honoured `site.type` override constraints (Hidden Haven, Mischief in a Mean Way, Chambers in the Royal Court, …); the three company-targeting filters in `movement-hazard.ts` (short events, permanent hazard events, the generic company-targeting permanent-event branch) now do too. Reported from game mu9szs8t-6uu0uj (#3112)
+
+### Web Client
+
+- Pledge of Conduct's transfer option offers one action per (item, destination) pair, but the hand-card disambiguation menu labelled each only by the checked character, so Bofur bearing two items with three eligible recipients produced six identical "Play on Bofur" buttons, indistinguishable from a dead card. `buildShortEventTargetChoices` now labels choices carrying `transferItemInstanceId`/`transferToCharacterId` as "Transfer <item> to <destination>", with a regression test asserting all six labels are distinct. Reported from game mu9szs8t-6uu0uj (#3114)
+
+### Infrastructure
+
+- Two human players who both stopped their game kept being pulled back into it: `stop-game` only cleared in-memory lobby state and killed the shared game-server process, never deleting the pair's on-disk save files. Killing that process also closed the opponent's socket, whose client treated it as a crash and sent `rejoin-game`, relaunching a game-server that silently restored the "stopped" game from its save; the only way out was `concede`, which records an unwanted result. The tutorial-only `deleteTutorialSaves` helper was generalized into `deleteSaveFiles(name1, name2)`, and `stop-game` now awaits the old server's exit before deleting the pair's saves, since the dying process may still write a final autosave. Reported by Gamling (#3111)
+- `bin/top-up-low-credits` (added in 0.163.0) failed with `HTTP 404 Unknown system endpoint` for every low-balance account on ai-meccg.com: the `GET/POST /api/system/players/:name/credits` and `.../credits/top-up` routes matched the player name with `[a-z0-9-]+`, while the player-name rule allows capitals, spaces and underscores, so Droggar, Etel, Galdor and Steve all fell through to the unknown-endpoint fallback. Both routes now match any non-slash segment and URL-decode it like the admin-session top-up route, and the script URL-encodes the name (#3115)
+
 ## 0.163.0 — 2026-09-20
 
 Smaug at Home finally falls; A Chance Meeting brings Bilbo in; Burglary rolls in the open

@@ -497,7 +497,7 @@
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
 | le-129 | Plague | — | 12 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
-| le-131 | Rats! | — | 14 | ☑ |
+| le-131 | Rats! | — | 15 | ☑ |
 | le-132 | Rebel-talk | — | 12 | ☑ |
 | le-134 | River | — | 2 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |
@@ -811,7 +811,7 @@
 | td-141 | Necklace of Silver and Pearls | — | 12 | ☑ |
 | td-142 | Nenseldë the Wingild | — | 13 | ☑ |
 | td-143 | Not at Home | — | 12 | ☑ |
-| td-144 | Pledge of Conduct | — | 9 | ☑ |
+| td-144 | Pledge of Conduct | — | 10 | ☑ |
 | td-146 | Returned Exiles | — | 12 | ☑ |
 | td-148 | Riddling Talk | — | 16 | ☑ |
 | td-149 | Sated Beast | — | 15 | ☑ |
