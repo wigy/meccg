@@ -1216,3 +1216,23 @@ A new shared lookup `companyAttemptSupportBonus(state, companyId, check)` (`redu
 ```
 
 Used by *Palm to Palm* (dm-153).
+
+### `agent-tap-multi-influence` gains `ignoreGeneralInfluenceModification` + `returnToHandInsteadOfDiscard` (Will not Come Down dm-101)
+
+Will not Come Down (dm-101): "Playable on an untapped agent. Tap the agent who may then make an influence attempt against an ally, faction, or character. Unused general influence modification does not apply. If successful, the target is not discarded, but rather it is returned to its owner's hand. Cannot be played if your opponent is a minion player." Reuses Good Sense Revolts' (dm-61, §above) mode-A `agent-tap-multi-influence` grant unchanged (`targetKinds: ["character","ally","faction"]`, `attemptBonus: 0` — this card prints no numeric bonus) plus two new optional fields on the same effect:
+
+| Field | Description |
+|-------|-------------|
+| `ignoreGeneralInfluenceModification` | Strips the defending player's `generalInfluenceBonus` when computing `opponentGI` — the base pool (20, or a fallen-wizard's printed number, or an override) still applies; only the additive bonus (e.g. Bade to Rule) is zeroed. |
+| `returnToHandInsteadOfDiscard` | On a successful attempt, redirects only the target itself to its owner's hand instead of their discard pile. Items/allies still controlled by an influenced character are still discarded per CoE 8.3 — the card's text overrides only the target's own fate. |
+
+```json
+{ "type": "agent-tap-multi-influence", "targetKinds": ["character", "ally", "faction"],
+  "attemptBonus": 0, "ignoreGeneralInfluenceModification": true, "returnToHandInsteadOfDiscard": true }
+```
+
+- `effectiveGeneralInfluence(state, playerId, ignoreBonus?)` (`reducer-utils.ts`) gained a third optional parameter (default `false`); when true it omits `player.generalInfluenceBonus` from the returned pool. `handleAgentTapMultiInfluence` (`mh-agents.ts`) passes `effect.ignoreGeneralInfluenceModification` straight through.
+- `OpponentInfluenceAttempt` (`types/pending.ts`) gained `returnToHandInsteadOfDiscard?: boolean`, threaded from `handleAgentTapMultiInfluence`'s enqueued attempt.
+- `discardInfluencedCard` (`reducer-site.ts`, called from `resolveOpponentInfluenceDefend` on success) checks the flag in all three of its target-kind branches (ally, faction, character) and pushes the target's `CardInstance` onto `opponent.hand` instead of `opponent.discardPile` — the character branch still discards its items/allies/hazards and processes followers/trophies exactly as before; only the character's own final destination changes.
+
+Used by *Will not Come Down* (dm-101).

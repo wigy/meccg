@@ -161,6 +161,15 @@ export interface OpponentInfluenceAttempt {
    * Null if no card was revealed.
    */
   readonly revealedCard: { readonly instanceId: CardInstanceId; readonly definitionId: CardDefinitionId } | null;
+  /**
+   * Will not Come Down (dm-101): "If successful, the target is not
+   * discarded, but rather it is returned to its owner's hand." Only the
+   * target card itself is redirected to the owning player's hand instead of
+   * their discard pile — items/allies it controlled (character targets) are
+   * still discarded normally per CoE 8.3. False/absent for every other
+   * influence attempt (the default rule 8.3 discard).
+   */
+  readonly returnToHandInsteadOfDiscard?: boolean;
 }
 
 /**

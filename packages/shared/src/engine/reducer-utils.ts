@@ -3647,11 +3647,17 @@ export function fetchZoneItemInstanceIds(
  * Radagast Shapeshifter form (wh-112/115/116) adopts a whole attribute line,
  * so its printed general influence *is* the pool while the form is on him.
  * Ordinary bonuses still stack on top of the adopted number.
+ *
+ * `ignoreBonus` drops `generalInfluenceBonus` from the result — Will not Come
+ * Down (dm-101): "Unused general influence modification does not apply." The
+ * base pool (20, a fallen-wizard's printed number, or an override) is not a
+ * "modification" and still applies; only the additive bonus (e.g. Bade to
+ * Rule) is stripped.
  */
-export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId): number {
+export function effectiveGeneralInfluence(state: GameState, playerId: PlayerId, ignoreBonus = false): number {
   const player = playerById(state, playerId);
   if (!player) return GENERAL_INFLUENCE;
-  const bonus = player.generalInfluenceBonus ?? 0;
+  const bonus = ignoreBonus ? 0 : (player.generalInfluenceBonus ?? 0);
   if (player.generalInfluenceOverride !== undefined) return player.generalInfluenceOverride + bonus;
   const avatar = findPlayerAvatar(state, player);
   if (avatar) {
