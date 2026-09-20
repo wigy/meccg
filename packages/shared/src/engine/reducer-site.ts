@@ -3029,7 +3029,7 @@ export function handleSitePlayHeroResource(
   if (itemRemovalCostEffect) {
     const chosen = action.costRemoveInstanceId ? findById(player.hand, action.costRemoveInstanceId) : undefined;
     const chosenDef = chosen ? defById(state, chosen.definitionId) : undefined;
-    const costPlayableTypes = isSiteCard(siteDefForCost!) ? new Set(siteDefForCost!.playableResources) : new Set<string>();
+    const costPlayableTypes = isSiteCard(siteDefForCost) ? new Set(siteDefForCost.playableResources) : new Set<string>();
     const validCost = chosen !== undefined
       && chosen.instanceId !== action.cardInstanceId
       && chosenDef !== undefined
@@ -3039,8 +3039,8 @@ export function handleSitePlayHeroResource(
       return { state, error: `${def.name}: must remove another eligible item from your hand from play to play an item at ${siteDefForCost!.name} (Ireful Flames)` };
     }
     costRemoveCard = chosen;
-    newHandAfterCost = removeById(newHand, chosen!.instanceId);
-    logDetail(`Ireful Flames: removing ${chosenDef!.name} from play (out-of-play pile) to pay the item-play cost at ${siteDefForCost!.name}`);
+    newHandAfterCost = removeById(newHand, chosen.instanceId);
+    logDetail(`Ireful Flames: removing ${chosenDef.name} from play (out-of-play pile) to pay the item-play cost at ${siteDefForCost!.name}`);
   }
 
   // Tap the character and attach the item or ally (unless no-tap-on-play)
