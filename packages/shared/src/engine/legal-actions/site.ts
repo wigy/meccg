@@ -2429,17 +2429,27 @@ export function playResourcesActions(
         continue;
       }
 
-      // Check uniqueness — only one copy of a unique ally can be in play
+      // Check uniqueness — only one copy of a unique ally can be in play, and
+      // (per the glossary's "unique" entry) an eliminated copy sitting in
+      // either player's outOfPlayPile still occupies the slot: a unique ally
+      // may only be replayed once discarded (not eliminated) or removed from
+      // the game entirely. This blocks e.g. the opponent's own Gollum (tw-246)
+      // from being played after this player's Gollum died in combat and
+      // landed in the outOfPlayPile — isUniqueCharacterInPlay doesn't cover
+      // allies (its outOfPlayPile scan is restricted to `hero-character` /
+      // `minion-character` cardTypes), so allies need their own scan here.
       if (allyDef.unique) {
-        const alreadyInPlay = state.players.some(p =>
+        const inPlayAsAlly = state.players.some(p =>
           Object.values(p.characters).some(ch =>
-            ch.allies.some(a => {
-              const aDef = defById(state, a.definitionId);
-              return aDef && aDef.name === allyDef.name;
-            }),
+            ch.allies.some(a => defById(state, a.definitionId)?.name === allyDef.name),
           ),
         );
-        if (alreadyInPlay) {
+        const eliminated = state.players.some(p =>
+          p.outOfPlayPile.some(card =>
+            !card.removedFromGame && defById(state, card.definitionId)?.name === allyDef.name,
+          ),
+        );
+        if (inPlayAsAlly || eliminated) {
           logDetail(`Ally ${allyDef.name}: unique and already in play`);
           actions.push(notPlayable(playerId, cardInstanceId, `${allyDef.name} is unique and already in play`));
           continue;
