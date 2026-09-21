@@ -689,7 +689,31 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // toast can name the card even though no public pile ever held it.
   state = revealInstances(state, [handCard]);
 
-  const newHand = removeById(player.hand, handCard.instanceId);
+  let newHand = removeById(player.hand, handCard.instanceId);
+
+  // play-discard-cost (Drughu as-47: "if you discard a ranger character from
+  // your hand"): pay the play cost immediately by moving the chosen card from
+  // hand to discard before any other effect resolves. Mirrors the hazard-side
+  // handling in mh-hazard-play.ts. The legal-action emitter
+  // (`playResourceShortEventActions`) only ever offers a matching candidate,
+  // but the choice is re-validated here defensively.
+  const shortDiscardCostEffect = def.effects?.find(
+    (e): e is import('../types/effects.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
+  );
+  if (shortDiscardCostEffect) {
+    const costCardId = action.type === 'play-short-event' ? action.costDiscardInstanceId : undefined;
+    const chosenCostCard = costCardId ? findById(newHand, costCardId) : undefined;
+    const costCardDef = chosenCostCard ? defById(state, chosenCostCard.definitionId) : undefined;
+    const costCardMatches = costCardDef
+      ? matchesCondition(shortDiscardCostEffect.filter, costCardDef as unknown as Record<string, unknown>)
+      : false;
+    if (!chosenCostCard || !costCardMatches) {
+      return { state, error: `${def.name} requires discarding a matching card from hand to play` };
+    }
+    logDetail(`"${def.name}": discard cost paid — discarding "${costCardDef?.name ?? chosenCostCard.definitionId}" from hand`);
+    newHand = removeById(newHand, chosenCostCard.instanceId);
+    state = updatePlayer(state, playerIndex, p => ({ ...p, discardPile: [...p.discardPile, chosenCostCard] }));
+  }
 
   // The Ring Leaves Its Mark (le-223) mode 2: "playable on your tapped
   // Ringwraith. Make a roll—if the result is greater than 6, untap your
@@ -3177,6 +3201,35 @@ function applyShortEventOnEntersPlay(
         case 'no-creatures-keyed-to-site': {
           const unless = onEvent.apply.unlessSiteRegionType as import('../types/common.js').RegionType | undefined;
           kind = { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
+          break;
+        }
+        case 'company-stat-modifier': {
+          // Company-targeted bonus for the rest of the turn to every
+          // character in the target company (Miruvor / Orc-draughts style),
+          // played proactively during the organization phase — as opposed to
+          // the player-scoped branch above (Praise to Elbereth) and the
+          // combat-reactive branch in combat-hazard-play.ts (Words of Power
+          // and Terror). An optional `constraintWhen` (Drughu as-47: "against
+          // attacks keyed to Wilderness [{w}] and during combat at Ruins &
+          // Lairs [{R}]") is carried onto the constraint's own `when` and
+          // re-evaluated by `collectCompanyStatModifierEffects` every time
+          // the bonus is synthesised, so it only contributes against a
+          // matching later attack instead of being baked in at play time.
+          const stat = onEvent.apply.stat;
+          const value = onEvent.apply.value;
+          if (!stat || (stat !== 'prowess' && stat !== 'body') || typeof value !== 'number') {
+            logDetail(`add-constraint(company-stat-modifier): missing/unsupported stat or value — fizzle`);
+            continue;
+          }
+          const max = onEvent.apply.max;
+          const constraintWhen = onEvent.apply.constraintWhen;
+          kind = {
+            type: 'company-stat-modifier',
+            stat,
+            value,
+            ...(max !== undefined ? { max } : {}),
+            ...(constraintWhen ? { when: constraintWhen } : {}),
+          };
           break;
         }
         case 'company-cannot-move':

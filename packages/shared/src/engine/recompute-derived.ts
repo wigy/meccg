@@ -2264,6 +2264,21 @@ export function computeCombatProwess(
   const ownerPlayer = state.players.find(
     p => Object.prototype.hasOwnProperty.call(p.characters, char.instanceId as string),
   );
+  // Region-type attack keying and the defending company's current site type —
+  // the region-keying half mirrors what `cancel-attack`/`cancel-strike`
+  // conditions read via `buildAttackKeyingCtx` (legal-actions/combat.ts); the
+  // site-type half reuses the same `site.siteType` field `buildAttackContext`
+  // already exposes for automatic-attack stat resolution. Exposed here as
+  // `attack.keying` / `site.siteType` so a company-wide `stat-modifier` (a
+  // `company-stat-modifier` constraint's `when`) can gate a prowess bonus on
+  // "attacks keyed to Wilderness … and during combat at Ruins & Lairs" (Drughu
+  // as-47). `state.combat` is the combat this strike belongs to; automatic
+  // attacks carry no keying, so `attackKeying` stays empty for them.
+  const combat = state.combat;
+  const attackKeying = combat?.attackKeying;
+  const company = ownerPlayer ? findCharacterCompany(ownerPlayer.companies, char.instanceId) : undefined;
+  const siteDef = company?.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined;
   const context: ResolverContext = {
     reason: 'combat',
     // `stagePoints` is exposed exactly as in the effective-stats context: a
@@ -2276,6 +2291,8 @@ export function computeCombatProwess(
     inPlay: inPlayNames,
     enemy: { race: creatureRace, name: '', prowess: 0, body: null },
     combat: { strikeMode },
+    ...(attackKeying && attackKeying.length > 0 ? { attack: { keying: attackKeying } } : {}),
+    ...(siteType ? { site: { siteType } } : {}),
   };
 
   const charEffects = collectCharacterEffects(state, char, context);

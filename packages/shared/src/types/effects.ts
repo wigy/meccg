@@ -3018,6 +3018,15 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * in any one of your companies" and carries
    * `{ "target.cardType": "minion-character" }`, while Shifter of Hues
    * (wh-115) aids "the characters in one company" wholesale and omits it.
+   *
+   * On a **company-targeted `company-stat-modifier`** constraint (unlike the
+   * `check-modifier` uses above, which gate a one-shot check) it is carried
+   * onto the constraint's own `when` and re-evaluated every time the bonus is
+   * synthesised for a character's combat prowess, against `attack.keying` /
+   * `site.siteType` (populated by `computeCombatProwess`). Used by Drughu
+   * (as-47): "+2 prowess against attacks keyed to Wilderness [{w}] and during
+   * combat at Ruins & Lairs [{R}]" —
+   * `{ "$or": [ { "attack.keying": "wilderness" }, { "site.siteType": "ruins-and-lairs" } ] }`.
    */
   readonly constraintWhen?: Condition;
   /**

@@ -2946,6 +2946,34 @@ Actions:
   each stacked copy of the source item is capped independently. Used by
   Miruvor (tw-283): "+2 body (to a maximum of 10) for all characters in
   bearer's company until the end of the turn."
+
+  A `company-stat-modifier` add-constraint apply may also carry an optional
+  `constraintWhen` (the same field name/shape `check-modifier` constraints
+  already use — see §14's `check-modifier` discussion below), copied onto
+  the constraint's own `when` and re-evaluated by `collectCompanyStatModifierEffects`
+  every time the bonus is synthesised, instead of being baked in at play
+  time. This is what lets a card played *before* any attack exists still
+  gate its bonus on facts only known once a specific later attack is being
+  resolved. `computeCombatProwess` (`recompute-derived.ts`) exposes
+  `attack.keying` (region-type keying; empty for automatic attacks) and
+  `site.siteType` (the defending company's current site type — the same
+  field name `all-automatic-attacks` stat-modifiers already read) to this
+  `when`. Used by Drughu (as-47): "+2 prowess against attacks keyed to
+  Wilderness [{w}] and during combat at Ruins & Lairs [{R}]" —
+  ```json
+  { "type": "on-event", "event": "self-enters-play",
+    "apply": { "type": "add-constraint", "constraint": "company-stat-modifier",
+               "scope": "turn", "stat": "prowess", "value": 2,
+               "constraintWhen": { "$or": [ { "attack.keying": "wilderness" },
+                                            { "site.siteType": "ruins-and-lairs" } ] } },
+    "target": "target-company" }
+  ```
+  played as a company-targeted organization-phase resource short-event
+  (`play-window` phase `organization` step `end-of-org`, `play-target`
+  `target: "company"`) whose ranger-discard play cost uses `play-discard-cost`
+  (§60) — extended to the organization-phase company-target path
+  (`legal-actions/organization.ts` / `reducer-events.ts`), previously wired
+  only for hazard plays.
 - `transform-site` — discard the source item during the active player's
   site phase (declare `sitePhase: true`) to permanently transform the
   bearer's current site. The `apply` (type `"transform-site"`) carries
