@@ -861,7 +861,37 @@ export function prepareArrangeDeckTop(
   }
 }
 
-/** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard, arrange-deck-top) is active (pile highlights should persist). */
+/**
+ * Prepare the reveal-choose-to-hand sub-flow UI (Eyes of Mandos, dm-126):
+ * highlights the player's own play deck pile and wires up the pile browser so
+ * clicking one of the revealed top-of-deck cards sends the corresponding
+ * `choose-revealed-card` action. The pick is mandatory (no pass) and resolves
+ * the whole flow in one click, so unlike `prepareArrangeDeckTop` there is no
+ * multi-step "keep the browser open across picks" behavior to preserve.
+ */
+export function prepareChooseRevealedCard(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const chooseActions = view.legalActions.filter(ea => ea.viable && ea.action.type === 'choose-revealed-card');
+  if (chooseActions.length === 0) return;
+
+  cachedCardPool = cardPool;
+
+  document.getElementById('self-deck-box')?.classList.remove('deck-box--compact');
+  document.getElementById('self-deck-pile')?.classList.add('pile--fetch-active');
+
+  pileSubFlowActive = true;
+  siteSelectionActions = chooseActions;
+  siteSelectionMatcher = (card) => chooseActions.find(
+    ea => ea.action.type === 'choose-revealed-card'
+      && ea.action.cardInstanceId === card.instanceId,
+  );
+  siteSelectionCallback = onAction;
+}
+
+/** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard, arrange-deck-top, reveal-choose-to-hand) is active (pile highlights should persist). */
 let pileSubFlowActive = false;
 
 /** Close the pile browser and clear selection state. */

@@ -15,7 +15,7 @@ import {
 } from './app-state.js';
 import { clearGameSession, clearPlayerName, saveGameSession } from './session.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, prepareChooseRevealedCard, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { clearTutorialPanel, renderTutorialPanel, setExitTutorial } from './tutorial-panel.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
@@ -568,6 +568,13 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   if (!arrangingDeckTop && getTargetingInstruction() === ARRANGE_DECK_TOP_HINT) {
     setTargetingInstruction(null);
   }
+  const CHOOSE_REVEALED_CARD_HINT = 'Click one of the revealed cards atop your play deck to add it to your hand';
+  const choosingRevealedCard = msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'choose-revealed-card');
+  // Same lifecycle as the Hidden Haven / arrange-deck-top hints above — clear
+  // it once the reveal-choose-to-hand resolution finishes.
+  if (!choosingRevealedCard && getTargetingInstruction() === CHOOSE_REVEALED_CARD_HINT) {
+    setTargetingInstruction(null);
+  }
   if (msg.view.legalActions.some(ea => ea.action.type === 'select-starting-site')) {
     prepareSiteSelection(msg.view, cardPool, sendAction);
   } else if (hiddenHavenPairing) {
@@ -583,6 +590,9 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   } else if (arrangingDeckTop) {
     prepareArrangeDeckTop(msg.view, cardPool, sendAction);
     setTargetingInstruction(ARRANGE_DECK_TOP_HINT);
+  } else if (choosingRevealedCard) {
+    prepareChooseRevealedCard(msg.view, cardPool, sendAction);
+    setTargetingInstruction(CHOOSE_REVEALED_CARD_HINT);
   } else {
     clearSelectionState();
   }
