@@ -1397,11 +1397,37 @@
     "unique": true,
     "marshallingPoints": 5,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 14,
     "race": "man",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Manifestation of minion Nûrniags. Playable at Nûrniag Camp  if the influence check is greater than 13 (Muster has no effect on this attempt). Standard Modifications: Wizards (-5), Men (+1)."
+    "playableAt": [
+      {
+        "site": "Nûrniag Camp"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -5,
+        "when": {
+          "bearer.race": "wizard"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 1,
+        "when": {
+          "bearer.race": "man"
+        }
+      },
+      {
+        "type": "block-influence-boost",
+        "blockCards": ["Muster"]
+      }
+    ],
+    "text": "Unique. Manifestation of minion Nûrniags. Playable at Nûrniag Camp  if the influence check is greater than 13 (Muster has no effect on this attempt). Standard Modifications: Wizards (-5), Men (+1).",
+    "certified": "2026-09-20"
   },
   {
     "cardType": "minion-resource-faction",

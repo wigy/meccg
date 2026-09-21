@@ -24,6 +24,7 @@ import { setSpectators } from './spectators.js';
 import { handleAiExplanation, setAskAiSender, setObserver } from './ask-ai.js';
 import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
 import { diceRollLogLine, diceRollNotification } from './dice-roll-log.js';
+import { recordRollHistoryLine } from './roll-history.js';
 import { buildToolbarStatusText } from './render-toolbar-status.js';
 import { applyTapPreview } from './tap-preview.js';
 
@@ -729,7 +730,9 @@ export function connect(name: string): void {
         if (msg.effect.effect === 'dice-roll') {
           const rollEffect = msg.effect;
           queueEffectLog(() => {
-            renderLog(diceRollLogLine(rollEffect));
+            const line = diceRollLogLine(rollEffect);
+            renderLog(line);
+            recordRollHistoryLine(line);
             // CvCC strikes carry a prowess total — the matching result line is
             // shown later via describeRollOutcome once the state arrives.
             const notification = diceRollNotification(rollEffect, name, appState.opponentName);

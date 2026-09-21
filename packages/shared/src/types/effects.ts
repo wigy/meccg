@@ -12682,6 +12682,21 @@ export interface AgentTapMultiInfluenceEffect extends EffectBase {
    * one of the agent's home sites (+8).
    */
   readonly attemptBonusAtHomeSite?: number;
+  /**
+   * Will not Come Down (dm-101): "Unused general influence modification does
+   * not apply." Strips the defending player's `generalInfluenceBonus` from
+   * the pool subtracted at resolution, leaving the base 20 (or fallen-wizard
+   * printed number) unmodified. See {@link effectiveGeneralInfluence}'s
+   * `ignoreBonus` parameter.
+   */
+  readonly ignoreGeneralInfluenceModification?: boolean;
+  /**
+   * Will not Come Down (dm-101): "If successful, the target is not
+   * discarded, but rather it is returned to its owner's hand." Only the
+   * target itself is redirected — items/allies it controlled are still
+   * discarded per CoE 8.3. See {@link OpponentInfluenceAttempt.returnToHandInsteadOfDiscard}.
+   */
+  readonly returnToHandInsteadOfDiscard?: boolean;
 }
 
 /**
