@@ -167,6 +167,71 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect(completedP1.deckExhaustionCount).toBe(1);
   });
 
+  test('Movement/Hazard draw-cards: drawing the card that both hits drawMax and empties the play deck still triggers reshuffle before play-hazards', () => {
+    // Regression test (bug report: game mua6urwn-l5gvhf turn 18 M/H phase —
+    // resource player's last draw both satisfied resourceDrawMax and emptied
+    // the play deck. drawCardsActions checked "already done drawing" before
+    // checking for an empty deck, and the reducer advanced straight to
+    // play-hazards on the same coincidence, so the exhaust/reshuffle sub-flow
+    // never ran: the play deck sat at 0 — with 40+ cards in discard —
+    // unreshuffled for the rest of the game, capping the player's hand well
+    // below maximum turn after turn.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [DAGGER_OF_WESTERNESSE], // Only 1 card left — the sole required draw
+          discardPile: [CAVE_DRAKE, ORC_PATROL],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    // Resource player needs exactly 1 draw; hazard player needs 0 (already done).
+    const drawState = {
+      ...state,
+      phaseState: makeMHState({
+        step: 'draw-cards',
+        resourceDrawMax: 1,
+        hazardDrawMax: 0,
+        siteRevealed: true,
+      }),
+    };
+
+    const afterDraw = dispatch(drawState, { type: 'draw-cards', player: PLAYER_1, count: 1 });
+    const mhStateAfterDraw = afterDraw.phaseState as { step: string };
+
+    // Must NOT have silently advanced to play-hazards with an empty, un-reshuffled deck.
+    expect(mhStateAfterDraw.step).toBe('draw-cards');
+    expect(afterDraw.players[0].playDeck).toHaveLength(0);
+
+    // Only the forced deck-exhaust action is offered.
+    const p1Actions = computeLegalActions(afterDraw, PLAYER_1).filter(a => a.viable);
+    expect(p1Actions.map(a => a.action.type)).toEqual(['deck-exhaust']);
+
+    // Start and complete the exhaust sub-flow.
+    const afterExhaust = dispatch(afterDraw, { type: 'deck-exhaust', player: PLAYER_1 });
+    expect(afterExhaust.players[0].deckExhaustPending).toBe(true);
+    const afterComplete = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
+
+    const p1 = afterComplete.players[0];
+    expect(p1.deckExhaustPending).toBe(false);
+    expect(p1.playDeck.length).toBeGreaterThan(0);
+    expect(p1.deckExhaustionCount).toBe(1);
+    // Both players done → the step must now advance to play-hazards.
+    expect((afterComplete.phaseState as { step: string }).step).toBe('play-hazards');
+  });
+
   test('a card entering the play deck during the exhaust exchange window survives the reshuffle', () => {
     // Regression (card-disappears invariant): completeDeckExhaust built the
     // new play deck from the discard pile alone. The play deck is normally

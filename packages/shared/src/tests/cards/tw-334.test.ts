@@ -29,6 +29,7 @@ import {
   CardStatus, Phase,
 } from '../test-helpers.js';
 import { applyDiscardOnCardLeaves } from '../../engine/discard-on-card-leaves.js';
+import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import type {
   CardDefinitionId, CardInstanceId, CardInPlay, GameState, PlayPermanentEventAction,
 } from '../../index.js';
@@ -141,6 +142,42 @@ describe('Stone of Erech (tw-334)', () => {
 
     const after = applyDiscardOnCardLeaves(withCards, withCards);
     expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === STONE_OF_ERECH)).toBe(true);
+  });
+
+  // ── attachedToSite records only the play location, not an ongoing site
+  // binding: the card must survive Vale of Erech leaving play (bug report:
+  // game mu8paowa-e04tsn, seq 1135 — Stone of Erech was wrongly discarded
+  // when the company moved on from Vale of Erech) ──
+
+  test('stays in play when Vale of Erech (the play-target site) leaves play', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: VALE_OF_ERECH, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: MORIA, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const withStone = pushCardInPlay(base, 0, {
+      instanceId: mint(), definitionId: STONE_OF_ERECH, status: CardStatus.Untapped, attachedToSite: VALE_OF_ERECH,
+    });
+    const withCards = pushCardInPlay(withStone, 0, menOfLamedonCard('m1'));
+
+    // The company moves on — its current site is no longer Vale of Erech.
+    const movedCompany = {
+      ...withCards.players[RESOURCE_PLAYER].companies[0],
+      currentSite: { ...withCards.players[RESOURCE_PLAYER].companies[0].currentSite!, definitionId: MORIA },
+    };
+    const moved: GameState = {
+      ...withCards,
+      players: [
+        { ...withCards.players[RESOURCE_PLAYER], companies: [movedCompany] },
+        withCards.players[1],
+      ] as GameState['players'],
+    };
+
+    const swept = discardOrphanedSiteAttachedEvents(moved);
+    expect(swept.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === STONE_OF_ERECH)).toBe(true);
   });
 
   // ── Printed marshalling points: 2 (misc) ──

@@ -293,6 +293,30 @@ export function newestObserverTarget(observerName: string, since?: string): Obse
   };
 }
 
+/** A player's own game currently in progress, as surfaced on the "My Games" page. */
+export interface OwnActiveGame {
+  readonly opponent: string;
+  readonly opponentDisplayName: string;
+  /** The game server's own game id, when the game is registered as watchable. */
+  readonly gameId: string | null;
+}
+
+/**
+ * The named player's own game in progress, or null if they are not
+ * currently in one. Mirrors the internal use of {@link activeGamesByName} at
+ * connection-restore time; `gameId` comes from {@link watchableGames}, keyed
+ * by the same port, since {@link ActiveGameInfo} does not carry it.
+ */
+export function getOwnActiveGame(name: string): OwnActiveGame | null {
+  const info = activeGamesByName.get(name);
+  if (!info) return null;
+  return {
+    opponent: info.opponent,
+    opponentDisplayName: info.opponentDisplayName,
+    gameId: watchableGames.get(info.port)?.gameId ?? null,
+  };
+}
+
 export function notifyPlayer(name: string, msg: LobbyServerMessage): void {
   const player = onlinePlayers.get(name);
   if (player) {

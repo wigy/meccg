@@ -1760,7 +1760,16 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/WillnotComeDown.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "agent-tap-multi-influence",
+        "targetKinds": ["character", "ally", "faction"],
+        "attemptBonus": 0,
+        "ignoreGeneralInfluenceModification": true,
+        "returnToHandInsteadOfDiscard": true
+      }
+    ],
+    "certified": "2026-09-20",
     "text": "Playable on an untapped agent. Tap the agent who may then make an influence attempt against an ally, faction, or character. Unused general influence modification does not apply. If successful, the target is not discarded, but rather it is returned to its owner’s hand. Cannot be played if your opponent is a minion player."
   },
   {

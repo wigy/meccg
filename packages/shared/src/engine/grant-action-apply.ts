@@ -182,6 +182,16 @@ function runGrantApply(
       return { error: `set-character-status apply missing status on ${ctx.sourceName}` };
     }
     const statusEnum = cardStatusFromName(apply.status);
+    // bearer-cannot-untap (e.g. Reforging tw-314, stored/unstored hoard items):
+    // a granted-action untap (Jewel of Beleriand as-70's tap-roll-untap-bearer)
+    // must respect the same lock the organization-phase untap sweep honours —
+    // it cannot bypass it just because the untap comes from a different source.
+    if (statusEnum === CardStatus.Untapped && state.activeConstraints.some(
+      c => c.kind.type === 'bearer-cannot-untap' && c.target.kind === 'character' && c.target.characterId === char.instanceId,
+    )) {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} is locked by bearer-cannot-untap — untap has no effect`);
+      return { updatedChar: char, effects: [], stateOps: [] };
+    }
     logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} → status ${apply.status}`);
     return { updatedChar: { ...char, status: statusEnum }, effects: [], stateOps: [] };
   }
@@ -447,6 +457,13 @@ function runGrantApply(
           modifier,
           reason,
           onSuccess: apply.onSuccess,
+          // CoE 7.1.1: any corruption check declared but not yet resolved
+          // may be supported by tapping untapped company mates for +1
+          // each — not just item-transfer/store checks. Every other
+          // production enqueueCorruptionCheck call site already sets
+          // this; grant-action-triggered checks (Magical Harp td-130,
+          // Arkenstone tw-341, etc.) were missing it.
+          allowSupport: true,
         }),
       ],
     };

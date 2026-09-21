@@ -11,12 +11,14 @@ import {
   appState, type ScreenId,
   BACKGROUNDS, BG_KEY,
   EDITING_DECK_KEY, VIEWING_INBOX_KEY, VIEWING_DECKS_KEY, VIEWING_CREDITS_KEY,
-  VIEWING_SCOREBOARD_KEY, VIEWING_CHANGELOG_KEY, VIEWING_ADMIN_KEY, MAIL_TAB_KEY, MAIL_MSG_KEY,
+  VIEWING_SCOREBOARD_KEY, VIEWING_MY_GAMES_KEY, VIEWING_CHANGELOG_KEY, VIEWING_ADMIN_KEY,
+  MAIL_TAB_KEY, MAIL_MSG_KEY,
 } from './app-state.js';
 import { restoreGameSession, saveGameSession } from './session.js';
 import { openInbox, openSent, autoSelectMessage, updateMailBadge } from './inbox.js';
 import { openCreditsPage, updateCreditsBadge } from './credits-page.js';
 import { openScoreboardPage } from './scoreboard-page.js';
+import { openMyGamesPage } from './my-games-page.js';
 import { openChangelogPage } from './changelog-page.js';
 import { openAdminPage, updateAdminNavVisibility } from './admin-page.js';
 import { renderLog } from './render-log.js';
@@ -24,7 +26,7 @@ import { challengeReceived, challengeWithdrawn, clearChallenges } from './challe
 import { loadGameBundle, loadDeckEditorBundle } from './lazy-load.js';
 
 /** All screen IDs in the lobby UI. */
-const ALL_SCREENS: ScreenId[] = ['auth-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'scoreboard-screen', 'changelog-screen', 'admin-screen', 'connect-form'];
+const ALL_SCREENS: ScreenId[] = ['auth-screen', 'lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'scoreboard-screen', 'my-games-screen', 'changelog-screen', 'admin-screen', 'connect-form'];
 
 /**
  * Pick a random hero background image for the auth screen and apply it.
@@ -56,7 +58,7 @@ export function showAuthTab(tab: 'login' | 'register'): void {
 }
 
 /** Screens that should show the persistent nav bar. */
-const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'scoreboard-screen', 'changelog-screen', 'admin-screen'];
+const NAV_SCREENS: ScreenId[] = ['lobby-screen', 'decks-screen', 'deck-editor-screen', 'inbox-screen', 'credits-screen', 'scoreboard-screen', 'my-games-screen', 'changelog-screen', 'admin-screen'];
 
 /** Show one screen, hiding all others. */
 export function showScreen(id: ScreenId): void {
@@ -76,6 +78,8 @@ export function showScreen(id: ScreenId): void {
     id === 'inbox-screen');
   document.getElementById('nav-scoreboard')?.classList.toggle('lobby-nav-item--active',
     id === 'scoreboard-screen');
+  document.getElementById('nav-my-games')?.classList.toggle('lobby-nav-item--active',
+    id === 'my-games-screen');
   document.getElementById('nav-changelog')?.classList.toggle('lobby-nav-item--active',
     id === 'changelog-screen');
   document.getElementById('nav-admin')?.classList.toggle('lobby-nav-item--active',
@@ -528,6 +532,13 @@ export async function initLobby(): Promise<void> {
       if (sessionStorage.getItem(VIEWING_SCOREBOARD_KEY)) {
         connectLobbyWs();
         void openScoreboardPage();
+        return;
+      }
+
+      // Restore the My Games page if we were viewing it before reload
+      if (sessionStorage.getItem(VIEWING_MY_GAMES_KEY)) {
+        connectLobbyWs();
+        void openMyGamesPage();
         return;
       }
 

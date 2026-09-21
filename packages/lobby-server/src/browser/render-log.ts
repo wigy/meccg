@@ -25,6 +25,7 @@
 import type { CardDefinition } from '@meccg/shared';
 import { $ } from './render-utils.js';
 import { textToHtml, tagCardImages } from './render-text-format.js';
+import { clearRollHistory } from './roll-history.js';
 
 /** Kind of a game message — drives CSS colouring. */
 export type GameMessageKind = 'info' | 'error' | 'opponent' | 'self' | 'system';
@@ -58,6 +59,7 @@ export function clearGameMessageLog(): void {
   gameMessageLog.nextId = 1;
   gameMessageLog.anchor = null;
   renderGameLogPanel();
+  clearRollHistory();
 }
 
 /** Drop out of anchored mode and follow the tail again. */
@@ -207,4 +209,40 @@ export function showNotification(
   if (gameMessageLog.anchor !== null) return;
 
   renderGameLogPanel();
+}
+
+/** How long an ephemeral system toast stays fully visible before it starts fading. */
+const SYSTEM_TOAST_VISIBLE_MS = 4000;
+
+/** Duration of the fade-out transition (see `.toast--system` in style.css). */
+const SYSTEM_TOAST_FADE_MS = 400;
+
+/**
+ * Show an ephemeral system confirmation (e.g. "Bug report sent!") that
+ * fades out on its own after a few seconds.
+ *
+ * Unlike {@link showNotification}, this does not write into
+ * `gameMessageLog.messages` and renders into `#game-log-system`, a
+ * container separate from `#game-log-entries` — so it cannot evict an
+ * older roll/action line out of the panel's clipped viewport the way
+ * appending one more `showNotification` line would.
+ */
+export function showSystemNotification(message: string): void {
+  const container = document.getElementById('game-log-system');
+  if (!container) return;
+
+  const entry = document.createElement('div');
+  entry.className = 'toast toast--system';
+  entry.innerHTML = textToHtml(message);
+
+  const close = document.createElement('span');
+  close.className = 'toast-close';
+  close.textContent = '✕';
+  const dismiss = () => entry.remove();
+  close.addEventListener('click', dismiss);
+  entry.appendChild(close);
+
+  container.appendChild(entry);
+  setTimeout(() => entry.classList.add('toast--fading'), SYSTEM_TOAST_VISIBLE_MS);
+  setTimeout(dismiss, SYSTEM_TOAST_VISIBLE_MS + SYSTEM_TOAST_FADE_MS);
 }

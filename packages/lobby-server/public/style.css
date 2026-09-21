@@ -34,7 +34,7 @@
   --z-hover: 100;             /* dev toolbar, hovered arcs/rows, tooltips, chain panel */
   --z-loading: 150;           /* game loading cover (below toasts and toolbar) */
   --z-modal: 200;             /* settings modal, toast, floating dice */
-  --z-overlay: 300;           /* site deck modal, dice overlay */
+  --z-overlay: 300;           /* site deck modal, dice overlay, bug-report/feature-request modal */
   --z-set-aside: 400;         /* set-aside pile (above modals during draft) */
   --z-action-backdrop: 999;   /* action/target backdrop */
   --z-action-menu: 1000;      /* action/target tooltip menus */
@@ -909,6 +909,44 @@ h2 {
 
 .scoreboard-mp-adjusted {
   color: #c4a35a;
+}
+
+/* ---- My Games page ---- */
+
+.my-games-section {
+  margin-bottom: 1.5rem;
+}
+
+.my-games-section-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.my-games-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.4rem;
+}
+
+.my-games-row dt {
+  color: #d8d8e0;
+}
+
+.my-games-row-status {
+  margin: 0;
+  color: #a0a8b0;
+  font-size: 0.8rem;
+}
+
+.my-games-row .scoreboard-game-id {
+  margin-left: auto;
 }
 
 /* ---- Admin page (user accounts, credits, games) ---- */
@@ -2011,13 +2049,65 @@ h2 {
   color: #d8d2c2;
 }
 
+/* Roll History modal: the untruncated dice-roll log, reachable from Developer
+ * Tools. Unlike the toast panel's `.toast` entries, lines here are plain
+ * `#log`-style text — no MAX_NAME_LENGTH truncation, no nowrap clipping. */
+#roll-history-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#roll-history-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+#roll-history-dialog {
+  position: relative;
+  background: #1e1e36;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 480px;
+  max-width: 90vw;
+  color: #e0e0e0;
+}
+
+#roll-history-dialog h3 {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+}
+
+#roll-history-list {
+  background: #0f0f23;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  color: #888;
+}
+
+#roll-history-list div {
+  padding: 1px 0;
+}
+
 /* Feature request modal */
 
 #feature-request-modal,
 #bug-report-modal {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
+  /* Above --z-modal so the dice-roll overlay (also --z-overlay) can never
+     visually pierce these modals, even if a caller opens one without first
+     dismissing an in-flight roll. */
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2131,14 +2221,16 @@ h2 {
 
 #feature-request-send,
 #bug-report-send,
-#ask-ai-close {
+#ask-ai-close,
+#roll-history-close {
   background: #c4a35a;
   color: #1a1a2e;
 }
 
 #feature-request-send:hover,
 #bug-report-send:hover,
-#ask-ai-close:hover {
+#ask-ai-close:hover,
+#roll-history-close:hover {
   background: #d4b36a;
 }
 
@@ -5021,6 +5113,11 @@ h2 {
   color: rgba(230, 160, 150, 0.95);
   pointer-events: auto;
   cursor: default;
+  transition: opacity 0.4s ease;
+}
+
+.toast--system.toast--fading {
+  opacity: 0;
 }
 
 .toast--system .toast-close {

@@ -44,7 +44,7 @@ export interface FullDeck extends DeckSummary {
 // ---- Screen type ----
 
 /** All screen IDs used in the lobby UI. */
-export type ScreenId = 'auth-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'credits-screen' | 'scoreboard-screen' | 'changelog-screen' | 'admin-screen' | 'connect-form';
+export type ScreenId = 'auth-screen' | 'lobby-screen' | 'decks-screen' | 'deck-editor-screen' | 'inbox-screen' | 'credits-screen' | 'scoreboard-screen' | 'my-games-screen' | 'changelog-screen' | 'admin-screen' | 'connect-form';
 
 // ---- Global mutable state ----
 
@@ -337,6 +337,7 @@ export const VIEWING_INBOX_KEY = 'meccg-viewing-inbox';
 export const VIEWING_DECKS_KEY = 'meccg-viewing-decks';
 export const VIEWING_CREDITS_KEY = 'meccg-viewing-credits';
 export const VIEWING_SCOREBOARD_KEY = 'meccg-viewing-scoreboard';
+export const VIEWING_MY_GAMES_KEY = 'meccg-viewing-my-games';
 export const VIEWING_CHANGELOG_KEY = 'meccg-viewing-changelog';
 export const VIEWING_ADMIN_KEY = 'meccg-viewing-admin';
 export const MAIL_TAB_KEY = 'meccg-mail-tab';
@@ -357,6 +358,7 @@ export const LOBBY_VIEW_KEYS = [
   VIEWING_DECKS_KEY,
   VIEWING_CREDITS_KEY,
   VIEWING_SCOREBOARD_KEY,
+  VIEWING_MY_GAMES_KEY,
   VIEWING_CHANGELOG_KEY,
   VIEWING_ADMIN_KEY,
 ] as const;
