@@ -43,6 +43,7 @@ import {
 import type {
   ActivateGrantedAction,
   CardDefinitionId,
+  CorruptionCheckAction,
   PlayHazardAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -253,6 +254,55 @@ describe('The Burden of Time (tw-94)', () => {
     const viable = viableFor(afterPass, PLAYER_1);
     expect(viable).toHaveLength(1);
     expect(viable[0].action.type).toBe('corruption-check');
+  });
+
+  test('two characters each carrying the card enqueue selectable-order checks, offered simultaneously', () => {
+    // Regression for CoE 7.1.1 generalized beyond Ren the Unclean: when the
+    // untap-phase-end batch lands more than one corruption check on the same
+    // player at once, the player — not object-iteration order — picks which
+    // character checks first, so a character expected to fail can go first
+    // and free a company-mate to support the other check instead.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [LEGOLAS] }, { site: MORIA, characters: [ELROND] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FRODO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withCards = attachHazardToChar(
+      attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, BURDEN_OF_TIME),
+      RESOURCE_PLAYER, ELROND, BURDEN_OF_TIME,
+    );
+    const afterUntap = dispatch(withCards, { type: 'untap', player: PLAYER_1 });
+    const afterPass = dispatch(afterUntap, { type: 'pass', player: PLAYER_2 });
+
+    expect(afterPass.phaseState.phase).toBe(Phase.Organization);
+
+    const pending = afterPass.pendingResolutions.filter(
+      r => r.actor === PLAYER_1 && r.kind.type === 'corruption-check',
+    );
+    expect(pending).toHaveLength(2);
+    expect(pending.every(r => r.kind.type === 'corruption-check' && r.kind.selectableOrder)).toBe(true);
+
+    const legolasId = findCharInstanceId(afterPass, RESOURCE_PLAYER, LEGOLAS);
+    const elrondId = findCharInstanceId(afterPass, RESOURCE_PLAYER, ELROND);
+
+    // Both characters' roll actions are offered at once — order is the player's choice.
+    const rolls = viableActions(afterPass, PLAYER_1, 'corruption-check')
+      .map(a => (a.action as CorruptionCheckAction).characterId);
+    expect([...rolls].sort()).toEqual([legolasId, elrondId].sort());
+
+    // Resolve Elrond first — not the queue head — proving the order is real.
+    const elrondRoll = viableActions(afterPass, PLAYER_1, 'corruption-check')
+      .find(a => (a.action as CorruptionCheckAction).characterId === elrondId)!;
+    const afterElrond = dispatch(afterPass, elrondRoll.action);
+
+    const remaining = afterElrond.pendingResolutions.filter(r => r.kind.type === 'corruption-check');
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].kind.type === 'corruption-check' && remaining[0].kind.characterId).toBe(legolasId);
   });
 
   test('untap → org transition at a Haven enqueues no corruption check', () => {

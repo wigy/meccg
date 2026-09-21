@@ -755,6 +755,13 @@ function advanceToOrganization(state: GameState): ReducerResult {
   // Collect cards to self-discard from organization-phase-start triggers (routed
   // to each card's owner, so an opponent-owned hazard returns to their pile).
   const orgStartDiscards: Array<{ charId: CardInstanceId; slot: 'items' | 'hazards' | 'allies'; cardInstanceId: string }> = [];
+  // Collect untap-phase-end corruption checks (processed after scan) so we know
+  // the full batch size before enqueuing — CoE 7.1.1's "each player decides the
+  // order of the corruption checks for their characters" applies whenever more
+  // than one check lands in the same pass (e.g. two characters each carrying a
+  // Lure of the Senses); a lone check has nothing to order, so it stays
+  // unordered, matching the pre-existing single-check behaviour.
+  const untapEndCorruptionChecks: Array<{ source: CardInstanceId; characterId: CardInstanceId; modifier: number; reason: string }> = [];
 
   for (const [charId, char] of Object.entries(player.characters)) {
     const siteType = charSiteType.get(charId) ?? null;
@@ -829,19 +836,12 @@ function advanceToOrganization(state: GameState): ReducerResult {
         }
         if (oe.apply.type === 'force-check' && oe.apply.check === 'corruption') {
           const modifier = oe.apply.modifier ?? 0;
-          logDetail(`Untap-phase-end: enqueuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
-          advanced = enqueueCorruptionCheck(advanced, {
+          logDetail(`Untap-phase-end: queuing corruption check for ${def?.name ?? '?'} on ${char.instanceId as string} (modifier ${modifier})`);
+          untapEndCorruptionChecks.push({
             source: card.instanceId,
-            actor: player.id,
-            scope: { kind: 'phase', phase: Phase.Organization },
             characterId: char.instanceId,
             modifier,
             reason: def?.name ?? 'Untap-phase-end',
-            // CoE rule 7.1.1: a resource player may tap other characters in
-            // the same company as the checking character to apply +1 to the
-            // roll each, for any corruption check that hasn't resolved yet —
-            // including this untap-phase-end trigger (Lure of the Senses etc.).
-            allowSupport: true,
           });
         } else if (isSelfDiscardMove(oe.apply)) {
           // Determine which slot (items/hazards/allies) the card lives in
@@ -853,6 +853,30 @@ function advanceToOrganization(state: GameState): ReducerResult {
         }
       }
     }
+  }
+
+  // Enqueue the collected untap-phase-end corruption checks after the scan
+  // loop, now that the batch size is known. When more than one check landed
+  // in this pass, every entry gets `selectableOrder: true` (mirroring
+  // `applyForceCheckAllInPlay`'s pattern in chain-reducer.ts) so the player
+  // chooses which character checks first — e.g. tapping a character expected
+  // to fail first, freeing up a company-mate to support another check instead.
+  const orderable = untapEndCorruptionChecks.length > 1;
+  for (const cc of untapEndCorruptionChecks) {
+    advanced = enqueueCorruptionCheck(advanced, {
+      source: cc.source,
+      actor: player.id,
+      scope: { kind: 'phase', phase: Phase.Organization },
+      characterId: cc.characterId,
+      modifier: cc.modifier,
+      reason: cc.reason,
+      // CoE rule 7.1.1: a resource player may tap other characters in the
+      // same company as the checking character to apply +1 to the roll
+      // each, for any corruption check that hasn't resolved yet — including
+      // this untap-phase-end trigger (Lure of the Senses etc.).
+      allowSupport: true,
+      selectableOrder: orderable ? true : undefined,
+    });
   }
 
   // Apply collected self-discard items after the scan loop to avoid mutation during iteration.

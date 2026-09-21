@@ -11,6 +11,7 @@ import type {
   PlayerView,
   CardDefinition,
   CardInstanceId,
+  CompanyId,
   Company,
   OpponentCompanyView,
   CharacterInPlay,
@@ -230,11 +231,22 @@ export function renderSingleView(
   shrinkToFitViewport(single, 1);
 }
 
-/** Render all companies (both players) at medium scale. */
+/**
+ * Render all companies (both players) at medium scale.
+ *
+ * `visibleCompanyIds`, when provided, narrows the overview to just those
+ * companies (self-company dummy slots, self agents, opponent companies, and
+ * opponent agents are all omitted) — used when a corruption-check batch is
+ * pending in more than one company at once (CoE 7.1.1): support can only
+ * ever be tapped from a character's own company, so the rest of the board
+ * is noise once a check is pending. Omit the parameter for the ordinary
+ * full-board overview.
+ */
 export function renderAllCompaniesView(
   container: HTMLElement,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
+  visibleCompanyIds?: ReadonlySet<CompanyId>,
 ): void {
   const lastOnAction = getLastOnAction()!;
   const mergeSourceCompanyId = getMergeSourceCompanyId();
@@ -311,6 +323,7 @@ export function renderAllCompaniesView(
 
   // Self companies
   for (const company of view.self.companies) {
+    if (visibleCompanyIds && !visibleCompanyIds.has(company.id)) continue;
     const hasLegalMovement = movableIds.has(company.id as string);
     const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, discardItemFromCompanyActions: discardItemFromCompanyActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, tapCharacterByEffectActions: tapByEffectActs, declareBurglaryActions: burglaryActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, discardCharacterActions: discardActs, renderedSiteInstances });
 
@@ -393,8 +406,9 @@ export function renderAllCompaniesView(
     overview.appendChild(block);
   }
 
-  // Dummy companies for site-deck sites with no existing company
-  if (targetActions) {
+  // Dummy companies for site-deck sites with no existing company — omitted
+  // when narrowed to a corruption-check batch (irrelevant to resolving it).
+  if (targetActions && !visibleCompanyIds) {
     for (const [siteInstId, actions] of targetActions) {
       if (companySiteIds.has(siteInstId)) continue;
       const siteInstanceId = siteInstId as CardInstanceId;
@@ -413,16 +427,19 @@ export function renderAllCompaniesView(
     }
   }
 
-  // Self agents — rendered as one-character virtual company blocks
-  for (const agent of view.self.agents) {
-    const selectAction = selectCompanyActions.get(agent.id as string);
-    const block = renderAgentBlock(agent, view, cardPool, lastOnAction, {
-      revealActions: revealAgentActs.get(agent.id as string),
-      moveActions: agentMoveActs.get(agent.id as string),
-      otherActions: agentOtherActs.get(agent.id as string),
-      selectAction,
-    });
-    overview.appendChild(block);
+  // Self agents — rendered as one-character virtual company blocks (omitted
+  // when narrowed to a corruption-check batch: agents don't take checks).
+  if (!visibleCompanyIds) {
+    for (const agent of view.self.agents) {
+      const selectAction = selectCompanyActions.get(agent.id as string);
+      const block = renderAgentBlock(agent, view, cardPool, lastOnAction, {
+        revealActions: revealAgentActs.get(agent.id as string),
+        moveActions: agentMoveActs.get(agent.id as string),
+        otherActions: agentOtherActs.get(agent.id as string),
+        selectAction,
+      });
+      overview.appendChild(block);
+    }
   }
 
   // Opponent companies — add click handlers when opponent influence targeting is active
@@ -435,6 +452,7 @@ export function renderAllCompaniesView(
     : [];
 
   for (const company of view.opponent.companies) {
+    if (visibleCompanyIds && !visibleCompanyIds.has(company.id)) continue;
     const block = renderCompanyBlock(company, view.opponent.characters, view, cardPool, 'opponent', { onAction: lastOnAction, renderedSiteInstances });
 
     // When targeting, add click handlers to opponent cards
@@ -459,9 +477,12 @@ export function renderAllCompaniesView(
     overview.appendChild(block);
   }
 
-  // Opponent agents — display-only (resource player cannot act on them)
-  for (const agent of view.opponent.agents) {
-    overview.appendChild(renderOpponentAgentBlock(agent, view, cardPool));
+  // Opponent agents — display-only (resource player cannot act on them);
+  // omitted when narrowed to a corruption-check batch.
+  if (!visibleCompanyIds) {
+    for (const agent of view.opponent.agents) {
+      overview.appendChild(renderOpponentAgentBlock(agent, view, cardPool));
+    }
   }
 
   container.appendChild(overview);
