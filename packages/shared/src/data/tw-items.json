@@ -606,7 +606,7 @@
         "apply": {
           "type": "add-constraint",
           "constraint": "hand-size-modifier",
-          "scope": "turn",
+          "scope": "next-untap-phase",
           "target": "player",
           "value": 1
         }

@@ -18,7 +18,7 @@ import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilte
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { defById, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
-import { enqueueCorruptionCheck, enqueueResolution } from './pending.js';
+import { enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
@@ -717,8 +717,16 @@ function advanceToOrganization(state: GameState): ReducerResult {
   // `when: { "bearer.atHaven": true }` instead of using a dedicated
   // event name. For every match, enqueue a corruption-check
   // resolution scoped to the Organization phase.
+  //
+  // Raise the untap-phase-end boundary for the active player so that "through
+  // your next untap phase" constraints (Book of Mazarbul tw-201) created on
+  // an earlier turn expire here.
   let advanced: GameState = {
-    ...state,
+    ...sweepExpired(state, {
+      kind: 'untap-phase-end',
+      playerId: state.activePlayer!,
+      turnNumber: state.turnNumber,
+    }),
     phaseState: { phase: Phase.Organization, characterPlayedThisTurn: false, sideboardFetchedThisTurn: 0, sideboardFetchDestination: null },
   };
 

@@ -17635,6 +17635,35 @@ at least one Wilderness [{w}] in their site path)":
   clause; Shifter of Hues omits it, aiding "the characters in one company"
   wholesale.
 
+#### `next-untap-phase` scope
+
+"Tap Book of Mazarbul during your organization phase to increase your hand
+size by 1 until your next untap phase" (Book of Mazarbul tw-201):
+
+```json
+{ "type": "grant-action",
+  "action": "book-of-mazarbul-hand-boost",
+  "cost": { "tap": "self" },
+  "when": { "bearer.skills": { "$includes": "sage" } },
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "hand-size-modifier",
+    "scope": "next-untap-phase",
+    "target": "player",
+    "value": 1
+  } }
+```
+
+- **`scope: "next-untap-phase"`** stamps the current turn number at creation
+  (mirroring `next-organization-phase`). The `untap-phase-end` boundary —
+  raised when the owner leaves their own untap phase — drops the constraint
+  only once it sees a strictly greater turn number, so it survives the rest
+  of the turn it was tapped in *and* the opponent's entire next turn, expiring
+  only at the owner's own next untap phase. A plain `scope: "turn"` would be
+  wrong here: the generic turn-end sweep runs at the end of *every* turn
+  (including the opponent's, which falls between the tap and the owner's next
+  untap phase), clearing the bonus a full turn early.
+
 ### 68. `site-phase-start-attack` + `company-movement-roll` (Siege)
 
 The two ongoing rules of a card that **besieges a site**: a card in play bound

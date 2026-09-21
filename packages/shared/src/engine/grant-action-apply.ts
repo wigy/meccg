@@ -1468,6 +1468,12 @@ function parseConstraintScope(
       // Stamped with the current turn so the organization phase this was
       // activated in does not immediately sweep it (Shifter of Hues wh-115).
       return { kind: 'next-organization-phase', playerId, afterTurn: turnNumber };
+    case 'next-untap-phase':
+      // Stamped with the current turn — mirrors next-organization-phase.
+      // Book of Mazarbul (tw-201) is tapped during the organization phase to
+      // raise hand size "until your next untap phase", which must survive
+      // the rest of this turn plus the opponent's whole next turn.
+      return { kind: 'next-untap-phase', playerId, afterTurn: turnNumber };
     case 'company-site-phase':
     case 'company-mh-phase': {
       const company = findCharacterCompany(player.companies, characterId);
