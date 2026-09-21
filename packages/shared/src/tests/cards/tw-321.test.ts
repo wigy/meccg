@@ -151,6 +151,34 @@ describe('Sacrifice of Form (tw-321)', () => {
     expect(viableActions(state, PLAYER_1, 'play-sacrifice-of-form')).toHaveLength(0);
   });
 
+  test('NOT offered via the generic play-permanent-event path before combat exists (bug: strikes still resolved normally)', () => {
+    // Real-game repro: a creature hazard has just been declared onto the
+    // chain (`state.combat` is still null — combat is only created once
+    // chain declaring resolves) and the resource player holds chain
+    // priority. Rule 2.1.1's "any phase" allowance for resource
+    // permanent-events must not leak Sacrifice of Form through here — its
+    // card text ("played after strikes are assigned") is exactly the kind
+    // of card-effect restriction that provision itself defers to. Playing it
+    // this way used to skip `handleSacrificeOfForm` entirely, so the
+    // strikes it's meant to nullify still resolved normally.
+    const state = gandalfFacingAttack();
+    const noCombatState: GameState = {
+      ...state,
+      combat: null,
+      chain: {
+        mode: 'declaring',
+        entries: [],
+        priority: PLAYER_1,
+        priorityPlayerPassed: false,
+        nonPriorityPlayerPassed: false,
+        deferredPassives: [],
+        parentChain: null,
+        restriction: 'normal',
+      },
+    };
+    expect(viableActions(noCombatState, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   test('NOT offered once a strike of the attack has already resolved', () => {
     let state = gandalfFacingAttack();
     state = {
