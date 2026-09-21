@@ -39,6 +39,7 @@ import { renderLog, showSystemNotification } from './render-log.js';
 import { setupCardPreview } from './render-card-preview.js';
 import { loadGameBundle } from './lazy-load.js';
 import { apiGet, apiSend } from './api.js';
+import { dismissDiceOverlays } from './dice.js';
 
 
 const versionEl = document.getElementById('lobby-nav-version');
@@ -575,6 +576,10 @@ document.addEventListener('DOMContentLoaded', () => {
     brSubject.value = '';
     brBody.value = '';
     resetBugReportCategory();
+    // End any in-flight dice roll so its overlay doesn't bleed through the modal
+    // while the player is filling it in (see dice-view-toggle.test.ts for the
+    // established dismissDiceOverlays() pattern this follows).
+    dismissDiceOverlays();
     brModal.classList.remove('hidden');
     brSubject.focus();
   });

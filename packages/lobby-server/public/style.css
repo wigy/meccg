@@ -34,7 +34,7 @@
   --z-hover: 100;             /* dev toolbar, hovered arcs/rows, tooltips, chain panel */
   --z-loading: 150;           /* game loading cover (below toasts and toolbar) */
   --z-modal: 200;             /* settings modal, toast, floating dice */
-  --z-overlay: 300;           /* site deck modal, dice overlay */
+  --z-overlay: 300;           /* site deck modal, dice overlay, bug-report/feature-request modal */
   --z-set-aside: 400;         /* set-aside pile (above modals during draft) */
   --z-action-backdrop: 999;   /* action/target backdrop */
   --z-action-menu: 1000;      /* action/target tooltip menus */
@@ -2066,7 +2066,10 @@ h2 {
 #bug-report-modal {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
+  /* Above --z-modal so the dice-roll overlay (also --z-overlay) can never
+     visually pierce these modals, even if a caller opens one without first
+     dismissing an in-flight roll. */
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
