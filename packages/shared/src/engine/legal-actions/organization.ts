@@ -1590,6 +1590,37 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         const def = defById(state, item.definitionId);
         const costLabel = effect.cost.tap ? 'tap' : 'discard';
 
+        // Discard→hand fetch (Ring of Fire wh-102): a plain (non-`endOfTurnOnly`)
+        // grant-action whose `apply` is a discard-to-hand `move` — the
+        // organization-phase counterpart of the end-of-turn discard-pile fetch
+        // scanner (`legal-actions/end-of-turn.ts` `isDiscardToHandMove`), for an
+        // item ability that activates during the bearer's own organization phase
+        // instead of end-of-turn (e.g. "tap Ring of Fire during your organization
+        // phase to take Narya from your discard pile to your hand"). Emit one
+        // activation per matching discard-pile card, carried on `targetCardId`.
+        // Kept out of `bareCardGrantActions` by construction: that scanner only
+        // recognizes `add-constraint`/`enqueue-pending-fetch` applies, so a card
+        // sitting bare in `cardsInPlay` (not yet attached to its bearer) never
+        // offers this fetch — matching "if on <character>" text.
+        if (effect.apply?.type === 'move' && effect.apply.select === 'target'
+          && effect.apply.from === 'discard' && effect.apply.to === 'hand') {
+          const filter = effect.apply.filter;
+          const eligible = player.discardPile.filter(card => {
+            const cardDef = defById(state, card.definitionId);
+            return !!cardDef && (!filter || matchesDefinition(cardDef, filter));
+          });
+          if (eligible.length === 0) {
+            logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no matching card in discard pile`);
+            continue;
+          }
+          for (const target of eligible) {
+            const targetDef = defById(state, target.definitionId);
+            logDetail(`Grant-action ${effect.action} available: ${charDefCard?.name ?? '?'} can ${costLabel} ${def?.name ?? '?'} to fetch ${targetDef?.name ?? '?'} from discard`);
+            actions.push(grantedActionFor(playerId, charId, item, effect, { targetCardId: target.instanceId }));
+          }
+          continue;
+        }
+
         // `place-item-on-character` (The Forge-master wh-117): tap the bearer to
         // place a qualifying minor item — fetched from the player's discard pile,
         // sideboard, or hand — onto any of the player's characters at the bearer's

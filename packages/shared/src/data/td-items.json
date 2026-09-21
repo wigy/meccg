@@ -655,6 +655,7 @@
         "cost": {
           "tap": "bearer"
         },
+        "endOfTurnOnly": true,
         "apply": {
           "type": "sequence",
           "apps": [
