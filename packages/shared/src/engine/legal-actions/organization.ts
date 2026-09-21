@@ -4117,32 +4117,70 @@ export function playResourceShortEventActions(
           // check above: a short event attaches nothing, but its rest-of-turn
           // effect leaves a company-targeted active constraint marking the
           // source definition. Skip any company that already bears one.
-          for (const repCharId of eligibility.eligibleTargets) {
-            const company = findCharacterCompany(player.companies, repCharId);
-            if (!company) continue;
-            if (companyDupLimit) {
-              const copiesOnCompany = state.activeConstraints.filter(
-                c =>
-                  constraintFromCard(state, c, def.id) &&
-                  c.target.kind === 'company' &&
-                  c.target.companyId === company.id,
-              ).length;
-              if (copiesOnCompany >= companyDupLimit.max) {
-                logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
+          //
+          // play-discard-cost (Drughu as-47: "if you discard a ranger character
+          // from your hand"): gather matching hand-card candidates once — the
+          // hand does not depend on which company is targeted — and, when the
+          // card carries this effect, cross-multiply each eligible company with
+          // each candidate so the player picks which card to sacrifice. Mirrors
+          // the hazard-side company-target handling in movement-hazard.ts.
+          const companyDiscardCostEffect = getCardEffects(def).find(
+            (e): e is import('../../index.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
+          );
+          const companyDiscardCostCards = companyDiscardCostEffect
+            ? player.hand.filter(c => {
+                if (c.instanceId === handCard.instanceId) return false;
+                const cDef = defById(state, c.definitionId);
+                return cDef ? matchesCondition(companyDiscardCostEffect.filter, cDef as unknown as Record<string, unknown>) : false;
+              })
+            : [];
+          if (companyDiscardCostEffect && companyDiscardCostCards.length === 0) {
+            logDetail(`${def.name}: no card in hand matches the discard cost — not playable`);
+          } else {
+            for (const repCharId of eligibility.eligibleTargets) {
+              const company = findCharacterCompany(player.companies, repCharId);
+              if (!company) continue;
+              if (companyDupLimit) {
+                const copiesOnCompany = state.activeConstraints.filter(
+                  c =>
+                    constraintFromCard(state, c, def.id) &&
+                    c.target.kind === 'company' &&
+                    c.target.companyId === company.id,
+                ).length;
+                if (copiesOnCompany >= companyDupLimit.max) {
+                  logDetail(`${def.name}: cannot be duplicated on company ${company.id as string} (${copiesOnCompany} active constraint(s))`);
+                  continue;
+                }
+              }
+              if (companyDiscardCostEffect) {
+                for (const costCard of companyDiscardCostCards) {
+                  logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}, discard cost "${defById(state, costCard.definitionId)?.name ?? costCard.definitionId}"): ${def.name} (${handCard.instanceId as string})`);
+                  actions.push({
+                    action: {
+                      type: 'play-short-event',
+                      player: playerId,
+                      cardInstanceId: handCard.instanceId,
+                      targetCompanyId: company.id,
+                      costDiscardInstanceId: costCard.instanceId,
+                    },
+                    viable: true,
+                  });
+                  anyModeEmitted = true;
+                }
                 continue;
               }
+              logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
+              actions.push({
+                action: {
+                  type: 'play-short-event',
+                  player: playerId,
+                  cardInstanceId: handCard.instanceId,
+                  targetCompanyId: company.id,
+                },
+                viable: true,
+              });
+              anyModeEmitted = true;
             }
-            logDetail(`Resource short-event playable (end-of-org, company ${company.id as string}): ${def.name} (${handCard.instanceId as string})`);
-            actions.push({
-              action: {
-                type: 'play-short-event',
-                player: playerId,
-                cardInstanceId: handCard.instanceId,
-                targetCompanyId: company.id,
-              },
-              viable: true,
-            });
-            anyModeEmitted = true;
           }
         } else if (!eoTarget || (eoTarget.target !== 'character' && eoTarget.target !== 'company')) {
           logDetail(`Resource short-event playable (end-of-org): ${def.name} (${handCard.instanceId as string})`);

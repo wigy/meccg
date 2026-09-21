@@ -88,6 +88,15 @@ export interface PlayShortEventAction {
    */
   readonly costDiscardInstanceIds?: readonly CardInstanceId[];
   /**
+   * For a company/character-targeting resource short-event carrying a
+   * {@link PlayDiscardCostEffect} (Drughu as-47: "if you discard a ranger
+   * character from your hand"), the hand-card instance the player chooses to
+   * pay as the play cost. One legal action is emitted per eligible (target ×
+   * matching hand card) combination. Mirrors the hazard-side
+   * `PlayHazardAction.costDiscardInstanceId` field for the same DSL effect.
+   */
+  readonly costDiscardInstanceId?: CardInstanceId;
+  /**
    * For a {@link WithdrawAgentEffect} card (Withdrawn to Mordor, dm-165)
    * played in its agent mode, the virtual-company id of the opponent's
    * face-up agent the event removes. One legal action is emitted per

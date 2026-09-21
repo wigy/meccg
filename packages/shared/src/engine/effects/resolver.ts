@@ -183,6 +183,32 @@ export interface ResolverContext {
     readonly prowess: number;
     readonly body: number | null;
   };
+  /**
+   * Attack-keying facts exposed only while resolving a defending character's
+   * combat prowess (`reason: 'combat'`, populated by `computeCombatProwess`).
+   * Mirrors the `attack.keying` field already exposed to `cancel-attack`/
+   * `cancel-strike` conditions (`buildAttackKeyingCtx`, legal-actions/combat.ts),
+   * so a company-wide `stat-modifier` — via a `company-stat-modifier`
+   * constraint's `when` — can gate a prowess bonus on "attacks keyed to
+   * Wilderness [{w}]". Absent for automatic attacks (which carry no keying)
+   * and outside combat-prowess resolution. Used by Drughu (as-47).
+   */
+  readonly attack?: {
+    readonly keying?: readonly RegionType[];
+  };
+  /**
+   * The defending character's company's current site type. Also populated
+   * while resolving combat prowess (`computeCombatProwess`) — reusing the
+   * same `site.siteType` field the attack-stat resolution context
+   * (`buildAttackContext`, consumed by `resolveAttackProwess`/
+   * `resolveAttackStrikes`) already exposes for "at a Shadow-hold / Free-hold
+   * …"-style gates (Awaken Minions tw-10 / Awaken Defenders le-103) — so a
+   * company-wide bonus can gate on the same fact. Used by Drughu (as-47):
+   * "+2 prowess … during combat at Ruins & Lairs [{R}]".
+   */
+  readonly site?: {
+    readonly siteType?: string;
+  };
   /** The faction being influenced (in faction influence check contexts). */
   readonly faction?: {
     readonly name: string;
@@ -655,7 +681,7 @@ export function collectCharacterEffects(
   // Orc-draughts grants +1 prowess to every character in its bearer's
   // company for the turn). Synthesise equivalent stat-modifier effects
   // so they flow through the normal override/cap pipeline.
-  const companyConstraints = collectCompanyStatModifierEffects(state, char);
+  const companyConstraints = collectCompanyStatModifierEffects(state, char, context);
   results.push(...companyConstraints);
 
   // Company-targeting permanent events (e.g. Fellowship) bound to the
@@ -915,10 +941,19 @@ export function collectCompanyAllyEffects(
  * single company) — whose target player controls the character. Returns one
  * entry per matching constraint so caps / overrides are evaluated uniformly
  * with JSON-declared effects.
+ *
+ * An optional `constraint.kind.when` (installed from a DSL `constraintWhen`,
+ * e.g. Drughu as-47's "against attacks keyed to Wilderness [{w}] and during
+ * combat at Ruins & Lairs [{R}]") is re-evaluated against the caller's
+ * `context` on every call, so a conditional company bonus only contributes
+ * while the condition holds for the attack currently being resolved —
+ * unlike the unconditional `stat`/`value` bonus, it is never baked in at
+ * play time.
  */
 function collectCompanyStatModifierEffects(
   state: GameState,
   char: CharacterInPlay,
+  context: ResolverContext,
 ): CollectedEffect[] {
   if (state.activeConstraints.length === 0) return [];
   const results: CollectedEffect[] = [];
@@ -933,6 +968,7 @@ function collectCompanyStatModifierEffects(
     } else {
       continue;
     }
+    if (constraint.kind.when && !matchesCondition(constraint.kind.when, context as unknown as Record<string, unknown>)) continue;
     const sourceDef = state.cardPool[constraint.sourceDefinitionId];
     if (!sourceDef) continue;
     const synthesized: StatModifierEffect = {

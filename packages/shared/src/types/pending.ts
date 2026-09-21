@@ -2550,6 +2550,21 @@ export interface ActiveConstraint {
          * field). Used by Miruvor (tw-283): "+2 body (to a maximum of 10)".
          */
         readonly max?: number;
+        /**
+         * Optional condition re-evaluated against the resolving character's
+         * combat context every time this bonus is synthesised (parallels
+         * `check-modifier`'s `when`) — unlike `stat`/`value`, never baked in
+         * at play time. Lets a proactively-played (organization-phase) short
+         * event grant a bonus that only fires against a later, matching
+         * attack. Used by Drughu (as-47): "+2 prowess against attacks keyed
+         * to Wilderness [{w}] and during combat at Ruins & Lairs [{R}]" —
+         * `{ "$or": [ { "attack.keying": "wilderness" }, { "site.siteType": "ruins-and-lairs" } ] }`,
+         * evaluated against the `attack.keying` / `site.siteType` fields
+         * `computeCombatProwess` populates during strike resolution. A
+         * constraint with no `when` keeps the unconditional legacy behaviour
+         * (Miruvor, Orc-draughts, Praise to Elbereth).
+         */
+        readonly when?: import('./effects.js').Condition;
       }
     | {
         /**
