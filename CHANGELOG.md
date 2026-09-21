@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.166.0 — 2026-09-21
+
+Uniqueness Bugs Fixed, Automated Releases Hardened
+
+### Game Engine
+
+- Fixed a unique ally card's play-legality check only scanning characters' `allies` arrays for a same-named copy already in play — it never looked at `outOfPlayPile`, so once one player's copy of a unique ally died in combat, the opponent could immediately play their own copy of the same ally. Added a dedicated `outOfPlayPile` scan to the ally uniqueness check in `site.ts`'s play-hero-resource legal actions (reported: Gollum tw-246 killed via a failed body check, then the opponent was allowed to play their own Gollum in the same game) (#3137)
+- Fixed Book of Mazarbul's (tw-201) "+1 hand size until your next untap phase" grant-action clearing a full turn early: it used the generic `"turn"` scope, which the end-of-turn sweep clears at the end of the very turn it was created in, instead of surviving through the opponent's turn as the card text requires. Added a next-untap-phase constraint scope (mirroring the existing next-organization-phase pattern used by Shifter of Hues wh-115), wired into the Untap → Organization phase transition (#3138)
+
+### Infrastructure
+
+- Fixed unattended releases tagging versions they could not publish: `bin/nightly-release` now resolves `DOCKER_USER`/`DOCKER_PASSWORD` from the environment or `~/.meccg/secrets.json` and refuses to start without them, before the release begins rather than dying halfway through `bin/build-and-publish` — this is how v0.165.0 shipped its tag but not its Docker image
+- Fixed `/merge-all-and-release`'s headless mode ending the session early ("I'll stop polling and let the monitor notify me") while PRs were still open; the merge-loop step now spells out that a headless run polls in the foreground and does not end the turn until the sweep is actually finished
+
 ## 0.165.0 — 2026-09-21
 
 My Games page brings replays home; corruption checks pick their order; a dozen cards join the certified ranks
