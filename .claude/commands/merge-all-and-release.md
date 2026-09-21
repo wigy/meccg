@@ -104,7 +104,11 @@ For each PR:
 
 ### 5. Merge loop
 
-Write a small driver script in the scratchpad and run it under **Monitor** (or `run_in_background`) so CI waits do not block the session. For each PR in merge order:
+Write a small driver script in the scratchpad and run it under **Monitor** (or `run_in_background`) so CI waits do not block the session.
+
+**Headless runs are different.** When this flow is invoked non-interactively — `claude -p`, e.g. from cron through `bin/claude-run` — there is no session to come back to: ending the turn kills every background process, and the supervisor terminates claude as soon as it prints a terminal result. Backgrounding the merge loop there does not free the session, it ends the sweep. So when no user is present, poll in the **foreground** instead: a blocking `sleep`/re-check loop inside a single Bash call, with its own timeout. Do not end the turn until every PR is merged, skipped or failed *and* the release either shipped or had nothing to ship, and never report success for a partial sweep. A cron fire on 2026-09-21 ended after 68 seconds at "I'll stop polling and let the monitor notify me", reporting `status=success` with five PRs still open.
+
+For each PR in merge order:
 
 1. Poll `gh pr view <n> --json state,mergeable,mergeStateStatus,statusCheckRollup` every 45 s until `mergeable: MERGEABLE` and `mergeStateStatus: CLEAN`. Give up on a PR after ~30 min of `BLOCKED` and go look at why.
 2. Before merging, make sure no worktree has the branch checked out (`git checkout --detach` in the worktree, `git branch -D <branch>` locally) — otherwise `gh pr merge --delete-branch` reports a failure even though the remote merge succeeded.
