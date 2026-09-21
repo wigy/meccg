@@ -286,6 +286,37 @@ describe('Magical Harp (td-130)', () => {
     expect(pending.actor).toBe(PLAYER_1);
   });
 
+  test('company mate can tap in support of the corruption check the harp enqueues (CoE 7.1.1)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: LONELY_MOUNTAIN, characters: [GANDALF, ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withHarp = attachItemToChar(base, RESOURCE_PLAYER, GANDALF, MAGICAL_HARP);
+
+    const gandalfId = charIdAt(withHarp, RESOURCE_PLAYER, 0, 0);
+    const aragornId = charIdAt(withHarp, RESOURCE_PLAYER, 0, 1);
+
+    const actions = viableActions(withHarp, PLAYER_1, 'activate-granted-action');
+    const harpAction = actions.find(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-character-discard',
+    )!;
+    const after = dispatch(withHarp, harpAction.action);
+
+    // The corruption check is now pending — Aragorn, untapped in the same
+    // company as Gandalf, should be offered as a support tap.
+    const supportActions = viableActions(after, PLAYER_1, 'support-corruption-check');
+    const aragornSupport = supportActions.find(
+      ea => ea.action.type === 'support-corruption-check'
+        && ea.action.supportingCharacterId === aragornId
+        && ea.action.targetCharacterId === gandalfId,
+    );
+    expect(aragornSupport).toBeDefined();
+  });
+
   test('tapped harp cannot be activated', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
