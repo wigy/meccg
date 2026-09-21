@@ -46,7 +46,7 @@ import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCh
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -3746,6 +3746,13 @@ export function havenRestoreCharacterActions(
     if (!ch) continue;
     if (ch.status !== CardStatus.Tapped && ch.status !== CardStatus.Inverted) continue;
     const charName = (defById(state, ch.definitionId) as { name?: string })?.name ?? (charId as string);
+    // A bearer-cannot-untap constraint (Reforging tw-314, Rescue Prisoners
+    // tw-315, etc.) blocks untapping but not healing wounded → tapped, per
+    // the same distinction the normal untap phase honours (reducer-untap.ts).
+    if (ch.status === CardStatus.Tapped && characterHasCannotUntapConstraint(state, ch.instanceId)) {
+      logDetail(`haven-restore-character: skipping ${charName} — bearer-cannot-untap constraint active`);
+      continue;
+    }
     const verb = ch.status === CardStatus.Tapped ? 'untap' : 'heal';
     logDetail(`haven-restore-character: offering to ${verb} ${charName}`);
     actions.push({

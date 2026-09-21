@@ -49,12 +49,17 @@ import {
   LEGOLAS, GIMLI, RIVENDELL, MORIA,
   CardStatus, Phase,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
+import { computeLegalActions, reduce } from '../../index.js';
+import { addConstraint } from '../../engine/pending.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 import type { CardDefinitionId, CardInstanceId, CardInPlay, GameState } from '../../index.js';
 
 const HALL_OF_FIRE = 'dm-134' as CardDefinitionId;
 const HIDDEN_HAVEN = 'wh-75' as CardDefinitionId;
+// Sage-only permanent event whose `bearer-cannot-untap-until-stored` play-flag
+// locks its bearer — used to verify that constraint overrides Hall of Fire's
+// untap offer (regression, msg 17db58d1f7732765).
+const REFORGING = 'tw-314' as CardDefinitionId;
 
 // Ettenmoors (le-373): Ruins & Lairs in Rhudaur (wilderness) — Hidden-Haven
 // eligible. Mirrors the reported game (mt08lcl7-ztx6f8, seq 44).
@@ -216,6 +221,58 @@ describe('Hall of Fire (dm-134)', () => {
     const resolved = dispatch(after, { type: 'restore-character-by-effect', player: PLAYER_1, characterInstanceId: legolasId });
     expect(resolved.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Untapped);
     expect(resolved.pendingResolutions.some(r => r.kind.type === 'haven-restore-character')).toBe(false);
+  });
+
+  // ── Regression (msg 17db58d1f7732765): bearer-cannot-untap overrides the offer ──
+  // A tapped bearer of Reforging (tw-314) carries a `bearer-cannot-untap`
+  // constraint ("Sage may not untap until Reforging is stored at a Haven").
+  // Hall of Fire's optional untap must not override that lock: the character
+  // is not offered as a restore target, and resolving on it directly is
+  // rejected by the engine.
+  test('a character locked by a bearer-cannot-untap constraint (Reforging) is not offered to untap and cannot be untapped', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: LEGOLAS, status: CardStatus.Tapped, items: [REFORGING] },
+              GIMLI,
+            ],
+          }],
+          hand: [], siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: MORIA, characters: [] }], hand: [], siteDeck: [] },
+      ],
+      phase: Phase.MovementHazard,
+    });
+    const legolasId = findCharInstanceId(base, RESOURCE_PLAYER, LEGOLAS);
+    const reforgingItem = base.players[RESOURCE_PLAYER].characters[legolasId].items.find(i => i.definitionId === REFORGING)!;
+    const locked = addConstraint(base, {
+      source: reforgingItem.instanceId,
+      sourceDefinitionId: REFORGING,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: legolasId },
+      kind: { type: 'bearer-cannot-untap', cardInstanceId: reforgingItem.instanceId },
+    });
+    const withCard = attachHallOfFire(locked, RIVENDELL);
+    const state = { ...withCard, phaseState: makeMHState({ activeCompanyIndex: 0, resourcePlayerPassed: true }) };
+    const after = endCompanyMH(state);
+
+    expect(after.pendingResolutions.some(r => r.kind.type === 'haven-restore-character')).toBe(true);
+
+    // Legolas (locked, tapped) is not offered as a restore target.
+    const restoreTargets = computeLegalActions(after, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'restore-character-by-effect')
+      .map(a => (a.action as { characterInstanceId: CardInstanceId }).characterInstanceId);
+    expect(restoreTargets).not.toContain(legolasId);
+
+    // Resolving directly on the locked character is rejected; his status is unchanged.
+    const result = reduce(after, { type: 'restore-character-by-effect', player: PLAYER_1, characterInstanceId: legolasId });
+    expect(result.error).toBeDefined();
+    expect(result.state.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Tapped);
   });
 
   // ── Rule 3: heal a wounded character (wounded → tapped) ──────────────────────

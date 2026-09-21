@@ -6963,6 +6963,21 @@ export function companyHasImmobileCharacter(
 }
 
 /**
+ * True when the character has an active `bearer-cannot-untap` constraint
+ * (Reforging tw-314, Rescue Prisoners tw-315, etc.) — the bearer stays tapped
+ * until the source card is stored/discarded, overriding effects that would
+ * otherwise untap them (e.g. Hall of Fire dm-134's "untap or heal" offer).
+ */
+export function characterHasCannotUntapConstraint(
+  state: GameState,
+  characterInstanceId: CardInstanceId,
+): boolean {
+  return state.activeConstraints.some(
+    c => c.target.kind === 'character' && c.target.characterId === characterInstanceId && c.kind.type === 'bearer-cannot-untap',
+  );
+}
+
+/**
  * An in-play `grant-ally-play` permission (Glove of Radagast wh-111) plus the
  * instance id of the character bearing it. Returned by
  * {@link findAllyPlayGrant}.
