@@ -9,7 +9,7 @@
  * CoE rules section 2.V (lines 340–393).
  */
 
-import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardInstanceId, CardEffect, SiteCard } from '../../index.js';
+import type { GameState, PlayerId, GameAction, EvaluatedAction, SitePhaseState, HeroItemCard, HeroResourceEventCard, MinionResourceEventCard, FactionCard, DenyItemSiteRule, ItemPlaySiteEffect, CardDefinition, CardDefinitionId, CardInstanceId, CardEffect, SiteCard, SiteItemRemovalCostEffect } from '../../index.js';
 import { getEffectiveSiteType, siteAttacksCanceled, resolveSiteInstanceTransform, buildSiteFilterContext } from '../effective.js';
 import { allyEffectiveMind } from '../ally-stats.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
@@ -1078,6 +1078,21 @@ export function playResourcesActions(
 
   const siteIsTapped = company.currentSite?.status === CardStatus.Tapped;
   logDetail(`Site ${siteName}: playable resource types: ${[...playableTypes].join(', ') || 'none'}, tapped: ${siteIsTapped}`);
+
+  // Ireful Flames (td-182): a `site-item-removal-cost` effect on any in-play
+  // card (either player's `cardsInPlay`) taxes item plays at its named
+  // sites — matched by name since the same site has several set printings,
+  // mirroring `TapAtSiteEffect`.
+  const itemRemovalCostActive = state.players.some(p => p.cardsInPlay.some(cip => {
+    const cipDef = defById(state, cip.definitionId);
+    if (!cipDef) return false;
+    return getCardEffects(cipDef).some(
+      (e): e is SiteItemRemovalCostEffect => e.type === 'site-item-removal-cost' && e.siteNames.includes(siteName),
+    );
+  }));
+  if (itemRemovalCostActive) {
+    logDetail(`Site ${siteName}: item-removal cost active (Ireful Flames) — items require removing another eligible item from hand from play`);
+  }
 
   // Hour of Need (dm-141): a successful org-phase influence attempt off this
   // site forbids playing a minor item there this turn, on top of tapping the
@@ -2193,6 +2208,24 @@ export function playResourcesActions(
         }
       }
 
+      // Ireful Flames (td-182): "For any item to be played at [these] sites,
+      // its player must remove an item in his hand from play that would
+      // itself be playable at the site." Candidates are other hand items
+      // (never the item being played) whose subtype the site itself
+      // recognises — no candidate makes the play illegal outright.
+      const removalCostCandidates = itemRemovalCostActive
+        ? player.hand.filter(hc => {
+          if (hc.instanceId === cardInstanceId) return false;
+          const costDef = defById(state, hc.definitionId);
+          return !!costDef && isItemCard(costDef) && playableTypes.has(costDef.subtype);
+        })
+        : [];
+      if (itemRemovalCostActive && removalCostCandidates.length === 0) {
+        logDetail(`Item ${itemDef.name}: no eligible hand item to remove from play at ${siteName} (Ireful Flames) — not playable`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${itemDef.name}: no eligible item to remove from play at ${siteName} (Ireful Flames)`));
+        continue;
+      }
+
       // One action per untapped character that could carry the item (plus
       // the burgling character, if a burglary attempt just unlocked one).
       for (const ch of itemEligibleCharacters) {
@@ -2259,19 +2292,24 @@ export function playResourcesActions(
         }
 
         const isFromSetAside = setAsideInstanceIds.has(cardInstanceId as string);
-        logDetail(`Item ${itemDef.name}: playable on ${charName}${isFromSetAside ? ' (from set-aside, as though in hand)' : ''}`);
-        actions.push({
-          action: {
-            type: 'play-hero-resource',
-            player: playerId,
-            cardInstanceId,
-            companyId: company.id,
-            attachToCharacterId: ch.instanceId,
-            ...(isFromSetAside ? { fromSetAside: true } : {}),
-            ...(replaceCompanionId !== undefined ? { companionCharacterId: replaceCompanionId } : {}),
-          },
-          viable: true,
-        });
+        const costCandidates = itemRemovalCostActive ? removalCostCandidates : [undefined];
+        for (const costCard of costCandidates) {
+          const costDef = costCard ? defById(state, costCard.definitionId) : undefined;
+          logDetail(`Item ${itemDef.name}: playable on ${charName}${isFromSetAside ? ' (from set-aside, as though in hand)' : ''}${costCard ? ` (removing ${costDef?.name ?? costCard.instanceId} from play — Ireful Flames)` : ''}`);
+          actions.push({
+            action: {
+              type: 'play-hero-resource',
+              player: playerId,
+              cardInstanceId,
+              companyId: company.id,
+              attachToCharacterId: ch.instanceId,
+              ...(isFromSetAside ? { fromSetAside: true } : {}),
+              ...(replaceCompanionId !== undefined ? { companionCharacterId: replaceCompanionId } : {}),
+              ...(costCard ? { costRemoveInstanceId: costCard.instanceId } : {}),
+            },
+            viable: true,
+          });
+        }
       }
       continue;
     }

@@ -1714,7 +1714,28 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/IrefulFlames.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "certified": "2026-09-21",
+    "effects": [
+      {
+        "type": "site-item-removal-cost",
+        "siteNames": [
+          "The Lonely Mountain",
+          "Irerock",
+          "Zarak Dûm",
+          "Gold Hill"
+        ]
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
     "text": "Affects the following sites: The Lonely Mountain, Irerock, Zarak Dûm, and Gold Hill. For any item to be played at one of these sites, its player must remove an item in his hand from play that would itself be playable at the site.Cannot be revealed as an on-guard card. Discard Ireful Flames when any play deck is exhausted."
   }
 ]
