@@ -863,12 +863,6 @@ function drawCardsActions(
   const drawMax = isResourcePlayer ? mhState.resourceDrawMax : mhState.hazardDrawMax;
   const playerLabel = isResourcePlayer ? 'resource' : 'hazard';
 
-  // Already done (hit max or passed — signaled by drawCount >= drawMax)
-  if (drawnSoFar >= drawMax) {
-    logDetail(`${playerLabel} player already done drawing (${drawnSoFar}/${drawMax})`);
-    return [];
-  }
-
   const player = playerById(state, playerId)!;
 
   // Deck exhaust exchange sub-flow: only exchange + pass actions
@@ -876,12 +870,23 @@ function drawCardsActions(
     return deckExhaustExchangeActions(state, player, playerId);
   }
 
+  // Rule 2.4: an empty play deck with cards in the discard pile must be
+  // reshuffled immediately, even if this player already reached their draw
+  // max on the very draw that emptied it — the exhaust cannot be skipped
+  // just because no further draws are needed this step.
+  if (player.playDeck.length === 0 && player.discardPile.length > 0) {
+    logDetail(`${playerLabel} player deck empty — must exhaust (reshuffle discard)`);
+    return [{ type: 'deck-exhaust', player: playerId }];
+  }
+
+  // Already done (hit max or passed — signaled by drawCount >= drawMax)
+  if (drawnSoFar >= drawMax) {
+    logDetail(`${playerLabel} player already done drawing (${drawnSoFar}/${drawMax})`);
+    return [];
+  }
+
   // Check if player has cards to draw
   if (player.playDeck.length === 0) {
-    if (player.discardPile.length > 0) {
-      logDetail(`${playerLabel} player deck empty — must exhaust (reshuffle discard)`);
-      return [{ type: 'deck-exhaust', player: playerId }];
-    }
     logDetail(`${playerLabel} player has no cards in play deck or discard — only pass`);
     return [{ type: 'pass', player: playerId }];
   }
