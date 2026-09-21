@@ -19579,3 +19579,43 @@ Full card data:
 ```
 
 Used by *Host of Bats* (td-31).
+
+### 70. `site-item-removal-cost` (Ireful Flames)
+
+A passive item-play tax at named sites, declared on an in-play hazard
+permanent-event. Site names are matched against the company's current site
+name — like {@link TapAtSiteEffect} — rather than a `siteIds` list, since the
+same site name commonly has several set printings (e.g. Zarak Dûm is both
+td-181 and le-417).
+
+```json
+{ "type": "site-item-removal-cost",
+  "siteNames": ["The Lonely Mountain", "Irerock", "Zarak Dûm", "Gold Hill"] }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `siteNames` | yes | Site names (matched against the company's current site) this tax applies at. |
+
+While any card carrying this effect sits in either player's `cardsInPlay`,
+playing an item at a matching site costs an extra hand item removed from play
+— CoE "remove from play" (the out-of-play pile, `removedFromGame: true`),
+never the discard pile. `playResourcesActions` (`legal-actions/site.ts`)
+computes eligible cost candidates as other hand items (never the item being
+played) whose subtype is itself in the site's own `playableResources` list —
+the same tier gate ordinary item plays there already use. No candidate makes
+the item unplayable outright (mirroring `play-discard-cost`'s "no candidate ⇒
+not playable"); one or more candidates cross-multiplies the emitted
+`play-hero-resource` actions with one per candidate, each carrying the new
+`costRemoveInstanceId` action field. The reducer
+(`handleSitePlayHeroResource`, `reducer-site.ts`) re-validates the declared
+cost card before attaching the played item, rejecting the action if it is
+missing, is the same instance, or fails the site's tier gate.
+
+Used by *Ireful Flames* (td-182): "For any item to be played at one of these
+sites, its player must remove an item in his hand from play that would itself
+be playable at the site." The card's separate "Cannot be revealed as an
+on-guard card" clause needed no engine change: none of the three on-guard
+reveal pathways ever offer `reveal-on-guard` for a card that neither declares
+an `on-guard-reveal` trigger nor affects a site's automatic-attacks, which
+this card does neither.

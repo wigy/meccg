@@ -271,6 +271,12 @@ export interface PlayHeroResourceAction {
    * Resolved at legal-action time so the reducer need not re-search.
    */
   readonly companionCharacterId?: CardInstanceId;
+  /**
+   * When a `site-item-removal-cost` effect (Ireful Flames td-182) taxes item
+   * plays at this site, the hand item instance the player is removing from
+   * play (CoE "remove from play" — the out-of-play pile) to pay the cost.
+   */
+  readonly costRemoveInstanceId?: CardInstanceId;
 }
 
 /**
