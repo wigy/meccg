@@ -2960,6 +2960,7 @@ Actions:
   field name `all-automatic-attacks` stat-modifiers already read) to this
   `when`. Used by Drughu (as-47): "+2 prowess against attacks keyed to
   Wilderness [{w}] and during combat at Ruins & Lairs [{R}]" —
+
   ```json
   { "type": "on-event", "event": "self-enters-play",
     "apply": { "type": "add-constraint", "constraint": "company-stat-modifier",
@@ -2968,6 +2969,7 @@ Actions:
                                             { "site.siteType": "ruins-and-lairs" } ] } },
     "target": "target-company" }
   ```
+
   played as a company-targeted organization-phase resource short-event
   (`play-window` phase `organization` step `end-of-org`, `play-target`
   `target: "company"`) whose ranger-discard play cost uses `play-discard-cost`
