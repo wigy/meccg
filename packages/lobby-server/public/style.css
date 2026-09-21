@@ -2011,6 +2011,55 @@ h2 {
   color: #d8d2c2;
 }
 
+/* Roll History modal: the untruncated dice-roll log, reachable from Developer
+ * Tools. Unlike the toast panel's `.toast` entries, lines here are plain
+ * `#log`-style text — no MAX_NAME_LENGTH truncation, no nowrap clipping. */
+#roll-history-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#roll-history-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+#roll-history-dialog {
+  position: relative;
+  background: #1e1e36;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 480px;
+  max-width: 90vw;
+  color: #e0e0e0;
+}
+
+#roll-history-dialog h3 {
+  margin: 0 0 0.5rem;
+  color: #c4a35a;
+}
+
+#roll-history-list {
+  background: #0f0f23;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  color: #888;
+}
+
+#roll-history-list div {
+  padding: 1px 0;
+}
+
 /* Feature request modal */
 
 #feature-request-modal,
@@ -2131,14 +2180,16 @@ h2 {
 
 #feature-request-send,
 #bug-report-send,
-#ask-ai-close {
+#ask-ai-close,
+#roll-history-close {
   background: #c4a35a;
   color: #1a1a2e;
 }
 
 #feature-request-send:hover,
 #bug-report-send:hover,
-#ask-ai-close:hover {
+#ask-ai-close:hover,
+#roll-history-close:hover {
   background: #d4b36a;
 }
 
@@ -5021,6 +5072,11 @@ h2 {
   color: rgba(230, 160, 150, 0.95);
   pointer-events: auto;
   cursor: default;
+  transition: opacity 0.4s ease;
+}
+
+.toast--system.toast--fading {
+  opacity: 0;
 }
 
 .toast--system .toast-close {
