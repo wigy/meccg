@@ -438,6 +438,37 @@ describe('Wizard’s Staff (td-170)', () => {
     expect(fetchActions).toHaveLength(0);
   });
 
+  // Bug report: activating during organization gave a corruption check but
+  // no discard-pile selection, because the generic organization-phase
+  // grant-action scanner has no handling for a "move select target from
+  // discard" apply — that shape is only enumerated by the dedicated
+  // end-of-turn fetch scanner. The card text restricts the tap to "the
+  // beginning of your end-of-turn phase", so the ability must not be
+  // offered outside end-of-turn at all.
+  test('grant-action NOT offered during organization phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LONELY_MOUNTAIN, characters: [{ defId: GANDALF, items: [WIZARDS_STAFF] }] }],
+          hand: [],
+          discardPile: [MARVELS_TOLD],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
+    const fetchActions = actions.filter(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'wizards-staff-fetch',
+    );
+    expect(fetchActions).toHaveLength(0);
+  });
+
   test('activating taps the bearer, moves target to hand, enqueues corruption check', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,

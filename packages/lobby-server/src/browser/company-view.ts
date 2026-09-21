@@ -19,6 +19,7 @@ import type {
   PlayerView,
   GameAction,
   CardDefinition,
+  CompanyId,
 } from '@meccg/shared';
 import { Phase, viableActions, buildInstanceLookup, isCharacterCard } from '@meccg/shared';
 import { $ } from './render-utils.js';
@@ -56,6 +57,29 @@ import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
 import { openSideboardForFetch, dismissSideboardModal, openExchangeModal, dismissExchangeModal } from './company-modals.js';
 import { dismissTooltip } from './tooltip-menu.js';
+
+/**
+ * Distinct self-company IDs containing a character with a currently viable
+ * `corruption-check` or `support-corruption-check` action. Support can only
+ * ever be tapped from a character's own company (CoE 7.1.1), so this is the
+ * full set of companies relevant to resolving pending checks right now —
+ * used during Free Council to scope the board to just those companies
+ * instead of the whole "all game view" once a check is pending.
+ */
+function getCompaniesWithPendingCorruptionChecks(view: PlayerView): CompanyId[] {
+  const characterIds = new Set<string>();
+  for (const ea of view.legalActions) {
+    if (!ea.viable) continue;
+    if (ea.action.type === 'corruption-check') characterIds.add(ea.action.characterId as string);
+    else if (ea.action.type === 'support-corruption-check') characterIds.add(ea.action.supportingCharacterId as string);
+  }
+  if (characterIds.size === 0) return [];
+  const companyIds: CompanyId[] = [];
+  for (const c of view.self.companies) {
+    if (c.characters.some(id => characterIds.has(id as string))) companyIds.push(c.id);
+  }
+  return companyIds;
+}
 
 /**
  * Render a situation banner when a pending corruption check is active
@@ -517,7 +541,15 @@ export function renderCompanyViews(
   // prompt telling the player to pick a company.
   if (inSelectCompany) renderSelectCompanyBanner(board, view);
 
-  const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany && !inFreeCouncil;
+  // Companies with a currently-viable corruption-check or
+  // support-corruption-check action — see getCompaniesWithPendingCorruptionChecks.
+  // Only computed during Free Council, the one phase that used to force the
+  // full board unconditionally; other phases keep their existing
+  // single-company-focus behaviour unchanged.
+  const pendingCorruptionCompanyIds = inFreeCouncil ? getCompaniesWithPendingCorruptionChecks(view) : [];
+
+  const showingSingle = focusedCompanyId !== null && !getAllCompaniesOverride() && !inSelectCompany
+    && (!inFreeCouncil || pendingCorruptionCompanyIds.length === 1);
 
   // In all-companies view, hide hand arcs, text log, and score boxes to maximise
   // screen real estate for the company grid. During Free Council, though, CoE
@@ -532,23 +564,34 @@ export function renderCompanyViews(
 
   if (showingSingle) {
     renderSingleView(board, view, cardPool);
+  } else if (inFreeCouncil && pendingCorruptionCompanyIds.length > 1) {
+    // Checks pending in several companies at once (an order-choice batch —
+    // CoE 7.1.1): scope the overview to just those companies instead of the
+    // whole board, matching renderSingleView's noise-free framing.
+    renderAllCompaniesView(board, view, cardPool, new Set(pendingCorruptionCompanyIds));
   } else {
     renderAllCompaniesView(board, view, cardPool);
   }
 
-  // During Free Council, highlight characters with available corruption check
-  // or support actions (clickable) and mark already-checked characters
-  if (inFreeCouncil) {
-    const ccActions = new Map<string, GameAction>();
-    const ccSupportActions = new Map<string, GameAction>();
-    for (const a of viableActions(view.legalActions)) {
-      if (a.type === 'corruption-check') {
-        ccActions.set(a.characterId as string, a);
-      } else if (a.type === 'support-corruption-check') {
-        ccSupportActions.set(a.supportingCharacterId as string, a);
-      }
+  // Highlight characters with a currently available corruption-check or
+  // support-corruption-check action (clickable — the "choose who checks
+  // first" affordance for order-choice batches, CoE 7.1.1 generalized
+  // beyond Free Council to any simultaneous batch, e.g. two untap-phase-end
+  // triggers landing on different characters at once) and, during Free
+  // Council, mark characters already checked this round.
+  const ccActions = new Map<string, GameAction>();
+  const ccSupportActions = new Map<string, GameAction>();
+  for (const a of viableActions(view.legalActions)) {
+    if (a.type === 'corruption-check') {
+      ccActions.set(a.characterId as string, a);
+    } else if (a.type === 'support-corruption-check') {
+      ccSupportActions.set(a.supportingCharacterId as string, a);
     }
-    const checkedSet = new Set(view.phaseState.checkedCharacters);
+  }
+  if (inFreeCouncil || ccActions.size > 0 || ccSupportActions.size > 0) {
+    const checkedSet = new Set<string>(
+      view.phaseState.phase === Phase.FreeCouncil ? view.phaseState.checkedCharacters : [],
+    );
     for (const col of board.querySelectorAll<HTMLElement>('.character-column[data-instance-id]')) {
       const instId = col.dataset.instanceId!;
       const ccAction = ccActions.get(instId);

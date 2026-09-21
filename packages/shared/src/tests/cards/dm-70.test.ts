@@ -44,6 +44,7 @@ import {
   MORIA, LORIEN, RIVENDELL,
   viableActions, dispatch, resolveChain, findInPile, findHandCardId, executeAction,
   companyIdAt, assertEveryInstanceReachable, makeMHState,
+  attachItemToChar, findCharInstanceId, CardStatus,
 } from '../test-helpers.js';
 import { Phase, RegionType } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, GameState, PlayHazardAction, ChooseLongDarkReachAttackerAction } from '../../index.js';
@@ -51,6 +52,7 @@ import type { CardDefinitionId, CardInstanceId, GameState, PlayHazardAction, Cho
 const LONG_DARK_REACH = 'dm-70' as CardDefinitionId;
 const AKHORAHIL = 'tw-4' as CardDefinitionId; // hazard creature, race ringwraith (Nazgûl), keyed to dark-domain/named regions
 const FELL_TURTLE = 'tw-34' as CardDefinitionId; // hazard creature, non-unique animal, keyed ONLY to Coastal Sea
+const THIEF = 'tw-102' as CardDefinitionId; // hazard creature, combat-strike-effect: discard-item ("defending character is not harmed")
 
 // Non-creature, non-unique filler items (each capped at 3 copies, the
 // deck-building limit) used to pad the hazard player's play deck for the
@@ -343,5 +345,36 @@ describe('Long Dark Reach (dm-70)', () => {
     expect(findInPile(working, HAZARD_PLAYER, 'playDeck', orcInstId)).toBeUndefined();
     expect(findInPile(working, RESOURCE_PLAYER, 'killPile', orcInstId)).toBeDefined();
     assertEveryInstanceReachable(working);
+  });
+
+  // ── Chosen creature's own combat-strike-effect must carry over ──────────
+
+  test('a chosen creature with combat-strike-effect (Thief: discard-item) threads strikeEffect onto the forced attack', () => {
+    // Regression: buildLongDarkReachCombat built the CombatState without
+    // reading the chosen creature's own `combat-strike-effect` effect, so a
+    // Thief forced to attack via Long Dark Reach wounded normally instead of
+    // replacing the strike with an item discard ("the defending character is
+    // not harmed").
+    const deck = [THIEF, ...fillerCards(9)];
+    const state = buildLongDarkReach({ ownDeck: deck });
+    const thiefInstId = deckIdAt(state, 0);
+    const withItem = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, DAGGER_OF_WESTERNESSE);
+    const resolved = playLongDarkReach(withItem);
+
+    const afterChoice = dispatch(resolved, {
+      type: 'choose-long-dark-reach-attacker', player: PLAYER_2, cardInstanceId: thiefInstId, definitionId: THIEF,
+    });
+
+    expect(afterChoice.combat).not.toBeNull();
+    expect(afterChoice.combat!.strikeEffect).toBe('discard-item');
+    const aragornId = findCharInstanceId(afterChoice, RESOURCE_PLAYER, ARAGORN);
+
+    let s = dispatch(afterChoice, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2); // 2+ARAGORN prowess < 15 → successful strike
+
+    // Replaced by an item discard, not a wound.
+    expect(s.combat!.phase).toBe('discard-item-from-company');
+    expect(s.players[RESOURCE_PLAYER].characters[aragornId].status).not.toBe(CardStatus.Inverted);
+    assertEveryInstanceReachable(s);
   });
 });

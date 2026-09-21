@@ -45,6 +45,7 @@ import type {
   PlayHazardAction,
   CardInPlay,
   DeclareBurglaryAction,
+  SideboardWithNazgulAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, isAttachedToPresentCharacter, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -1384,6 +1385,23 @@ export function findTapAltPermanentEventActions(
 }
 
 /**
+ * Find the viable `sideboard-with-nazgul` activations for an in-play,
+ * untapped Nazgûl permanent-event (CoE rule 2.IV.vii.5, e.g. Hoarmûrath of
+ * Dír tw-44). Tapping and discarding the Nazgûl accesses the hazard player's
+ * sideboard — the engine offers one action per destination ('discard',
+ * always available; 'deck', only when the play deck is large enough).
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and
+ * the behaviour can be regression-tested without a full DOM render.
+ */
+export function findSideboardWithNazgulActions(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): SideboardWithNazgulAction[] {
+  return actionsOfTypeFor(actions, 'sideboard-with-nazgul', cardInstanceId);
+}
+
+/**
  * Find the viable `activate-granted-action` activations granted by a bare
  * in-play card (a `cardsInPlay` entry with no bearer), e.g. The Lidless Eye
  * (le-203) / Sauron (ba-43) offering `sauron-sideboard-fetch` and
@@ -1608,6 +1626,13 @@ export function renderInPlayCardImage(
     // the pass button's whitelist doesn't cover `pay-event-maintenance`
     // either, so the game looked frozen (bug fc2f6484500c88f1).
     const maintenanceActions = findEventMaintenanceActions(viableActions(view.legalActions), card.instanceId);
+    // Sideboarding with a Nazgûl (rule 2.IV.vii.5, Hoarmûrath of Dír tw-44):
+    // clicking the in-play, untapped Nazgûl permanent-event taps and discards
+    // it to access the hazard sideboard — the hazard-side analogue of tapping
+    // an avatar to access the resource sideboard. Without this the card had
+    // no board affordance and the ability was only reachable from the debug
+    // action panel (bug report d758b623d2af1fb2).
+    const sideboardWithNazgulActs = findSideboardWithNazgulActions(viableActions(view.legalActions), card.instanceId);
     if (tapAltActions.length > 0) {
       const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
       img.classList.add('company-card--movable');
@@ -1663,6 +1688,23 @@ export function renderInPlayCardImage(
           img,
           maintenanceActions.map(action => ({
             label: eventMaintenanceActionLabel(action, sourceName, cardPool),
+            onClick: () => onAction(action),
+          })),
+          { placement: 'auto' },
+        );
+      });
+    } else if (sideboardWithNazgulActs.length > 0) {
+      img.classList.add('company-card--movable');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (sideboardWithNazgulActs.length === 1) {
+          onAction(sideboardWithNazgulActs[0]);
+          return;
+        }
+        showTooltipMenu(
+          img,
+          sideboardWithNazgulActs.map(action => ({
+            label: action.destination === 'deck' ? 'Fetch to Deck' : 'Fetch to Discard',
             onClick: () => onAction(action),
           })),
           { placement: 'auto' },

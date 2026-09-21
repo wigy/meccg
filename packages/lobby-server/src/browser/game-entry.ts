@@ -25,6 +25,7 @@ import { installKeyboardShortcuts } from './keyboard-shortcuts.js';
 import { resetSpectators } from './spectators.js';
 import { installAskAi, resetObserver } from './ask-ai.js';
 import { renderLog } from './render-log.js';
+import { installRollHistory } from './roll-history.js';
 import { showConfirm } from './dialog.js';
 
 // Import side-effect modules so esbuild includes them in this bundle.
@@ -79,6 +80,7 @@ ns.startReplay = startReplay;
 
 installKeyboardShortcuts();
 installAskAi();
+installRollHistory();
 
 const viewToggleBtn = document.getElementById('view-toggle-btn') as HTMLButtonElement;
 const debugView = document.getElementById('debug-view') as HTMLElement;
@@ -213,6 +215,21 @@ if (pseudoAiMinimizeBtn) {
 
 disconnectBtn.addEventListener('click', () => {
   disconnect();
+});
+
+// "Replay this game" reuses the ordinary disconnect flow rather than pausing
+// the live connection in place: the game server already tolerates a
+// disconnect fine (autosave + the idle-exit grace period + "Resume Game" in
+// the lobby), so this is the same safe, well-tested path a dropped
+// connection takes — no new live/replay coexistence state to get wrong.
+// Captured before disconnect() runs since it touches appState.
+const replayGameBtn = document.getElementById('replay-game-btn') as HTMLButtonElement | null;
+replayGameBtn?.addEventListener('click', () => {
+  const gameId = appState.currentGameId;
+  if (!gameId) return;
+  const seat = appState.lobbyPlayerName;
+  disconnect();
+  void startReplay(gameId, seat);
 });
 
 const concedeBtn = document.getElementById('concede-btn') as HTMLButtonElement | null;

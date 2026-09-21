@@ -651,6 +651,7 @@
       {
         "type": "grant-action",
         "action": "wizards-staff-fetch",
+        "endOfTurnOnly": true,
         "cost": {
           "tap": "bearer"
         },

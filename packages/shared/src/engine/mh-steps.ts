@@ -1733,7 +1733,29 @@ export function handleDrawCards(
   // Pass during deck exhaust exchange sub-flow: complete the exhaust
   if (action.type === 'pass' && state.players[actingIndex].deckExhaustPending) {
     logDetail(`Movement/Hazard draw-cards: ${playerLabel} player completed deck exhaust exchange`);
-    return { state: completeDeckExhaust(state, actingIndex) };
+    const exhaustedState = completeDeckExhaust(state, actingIndex);
+
+    // Rule 2.4: if this player had already reached their draw max before
+    // the exhaust started (the reshuffle was triggered by the coincidental
+    // last-card draw) and the other player is also done, the step must now
+    // advance to play-hazards — completeDeckExhaust doesn't touch
+    // phaseState, so without this the draw-cards step would silently offer
+    // no actions to either player.
+    const otherDone = isResourcePlayer
+      ? mhState.hazardDrawCount >= mhState.hazardDrawMax
+      : mhState.resourceDrawCount >= mhState.resourceDrawMax;
+
+    if (drawnSoFar >= drawMax && otherDone) {
+      logDetail(`Movement/Hazard draw-cards: both players done after exhaust → advancing to play-hazards`);
+      return {
+        state: {
+          ...exhaustedState,
+          phaseState: { ...mhState, step: 'play-hazards' as const },
+        },
+      };
+    }
+
+    return { state: exhaustedState };
   }
 
   if (action.type === 'pass') {
@@ -1785,8 +1807,16 @@ export function handleDrawCards(
       : { hazardDrawCount: newDrawCount }),
   };
 
+  // Rule 2.4: this draw may have emptied the play deck on the exact same
+  // action that also reached drawMax. The exhaust/reshuffle must still run
+  // before this step can be considered complete for this player — otherwise
+  // the step silently advances to play-hazards with an empty, un-reshuffled
+  // play deck (bug report: deck stuck at 0 across subsequent phases).
+  const drawnPlayer = drawnState.players[actingIndex];
+  const actingNeedsExhaust = drawnPlayer.playDeck.length === 0 && drawnPlayer.discardPile.length > 0;
+
   // If this player just hit their max, check if both are done
-  if (newDrawCount >= drawMax) {
+  if (newDrawCount >= drawMax && !actingNeedsExhaust) {
     const otherDone = isResourcePlayer
       ? newMhState.hazardDrawCount >= newMhState.hazardDrawMax
       : newMhState.resourceDrawCount >= newMhState.resourceDrawMax;

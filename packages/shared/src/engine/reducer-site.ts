@@ -4886,6 +4886,13 @@ function discardInfluencedCard(
         newAllies.splice(allyIdx, 1);
         const updatedChar = { ...charInPlay, allies: newAllies };
         const newChars = { ...opponent.characters, [charId]: updatedChar };
+        // Will not Come Down (dm-101): the target returns to its owner's
+        // hand instead of the discard pile.
+        if (pending.returnToHandInsteadOfDiscard) {
+          players[opponentIndex] = { ...opponent, characters: newChars, hand: [...opponent.hand, toCardInstance(ally)] };
+          logDetail(`Ally ${ally.instanceId} returned to owner's hand (Will not Come Down)`);
+          return;
+        }
         const newDiscard = [...opponent.discardPile, toCardInstance(ally)];
         players[opponentIndex] = { ...opponent, characters: newChars, discardPile: newDiscard };
         logDetail(`Discarded ally ${ally.instanceId}`);
@@ -4926,6 +4933,13 @@ function discardInfluencedCard(
     const faction = opponent.cardsInPlay[factionIdx];
     const newCardsInPlay = [...opponent.cardsInPlay];
     newCardsInPlay.splice(factionIdx, 1);
+    // Will not Come Down (dm-101): the target returns to its owner's hand
+    // instead of the discard pile.
+    if (pending.returnToHandInsteadOfDiscard) {
+      players[opponentIndex] = { ...opponent, cardsInPlay: newCardsInPlay, hand: [...opponent.hand, toCardInstance(faction)] };
+      logDetail(`Faction ${faction.instanceId as string} returned to owner's hand (Will not Come Down)`);
+      return;
+    }
     const newDiscard = [...opponent.discardPile, toCardInstance(faction)];
     players[opponentIndex] = { ...opponent, cardsInPlay: newCardsInPlay, discardPile: newDiscard };
     logDetail(`Discarded faction ${faction.instanceId as string}`);
@@ -4953,9 +4967,17 @@ function discardInfluencedCard(
     logDetail(`Discarded ally ${ally.instanceId} from influenced character`);
   }
 
-  // Discard the character itself
-  newDiscard.push(toCardInstance(targetChar));
-  logDetail(`Discarded influenced character ${targetChar.instanceId}`);
+  // Discard the character itself — unless Will not Come Down (dm-101)
+  // redirects just this target to its owner's hand instead.
+  const newHand = pending.returnToHandInsteadOfDiscard
+    ? [...opponent.hand, toCardInstance(targetChar)]
+    : opponent.hand;
+  if (pending.returnToHandInsteadOfDiscard) {
+    logDetail(`Influenced character ${targetChar.instanceId} returned to owner's hand (Will not Come Down)`);
+  } else {
+    newDiscard.push(toCardInstance(targetChar));
+    logDetail(`Discarded influenced character ${targetChar.instanceId}`);
+  }
 
   // Discard hazards to their owner's discard pile
   for (const hazard of targetChar.hazards) {
@@ -4993,6 +5015,7 @@ function discardInfluencedCard(
     ...opponent,
     characters: newCharacters,
     companies: newCompanies,
+    hand: newHand,
     discardPile: newDiscard,
     killPile: [...opponent.killPile, ...toKillPile],
     outOfPlayPile: [...opponent.outOfPlayPile, ...toOutOfPlay],

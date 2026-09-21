@@ -1245,7 +1245,7 @@ export function handleAgentTapMultiInfluence(
   const rollEffect = diceRollEffect(hazardPlayer.name, roll, `${def.name}: ${agentDef.name} influences ${targetKind}${rollBonus > 0 ? ` (+${rollBonus} bonus)` : ''}`);
   newState = { ...newState, rng, cheatRollTotal };
 
-  const opponentGI = effectiveGeneralInfluence(newState, resourcePlayer.id) - resourcePlayer.generalInfluenceUsed;
+  const opponentGI = effectiveGeneralInfluence(newState, resourcePlayer.id, effect.ignoreGeneralInfluenceModification) - resourcePlayer.generalInfluenceUsed;
   const crossAlignmentPenalty = crossAlignmentInfluencePenalty(hazardPlayer.alignment, resourcePlayer.alignment);
 
   logDetail(`${def.name}: ${agentDef.name} influences ${targetKind} ${targetInstanceId as string} — roll ${attackerRoll}, DI ${influencerDI}, GI ${opponentGI}, value ${targetMind}, boost +${boostModifier}`);
@@ -1269,6 +1269,7 @@ export function handleAgentTapMultiInfluence(
         crossAlignmentPenalty,
         boostModifier,
         revealedCard: null,
+        ...(effect.returnToHandInsteadOfDiscard ? { returnToHandInsteadOfDiscard: true } : {}),
       },
     },
   });
