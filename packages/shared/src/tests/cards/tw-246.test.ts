@@ -33,7 +33,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
-  attachAllyToChar, attachItemToChar,
+  attachAllyToChar, attachItemToChar, addToPile,
   viableActions, dispatch,
   findCharInstanceId,
   expectInDiscardPile,
@@ -161,6 +161,28 @@ describe('Gollum (tw-246)', () => {
     const gollumInstanceId = state.players[0].hand[0].instanceId;
 
     const playActions = viableActions(state, PLAYER_1, 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === gollumInstanceId);
+    expect(playActions).toHaveLength(0);
+  });
+
+  test('Gollum is NOT playable while the opponent\'s Gollum sits eliminated in their outOfPlayPile (unique — an eliminated copy still blocks the slot)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_2,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [BILBO] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: GOBLIN_GATE, characters: [ARAGORN] }], hand: [GOLLUM], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const withEliminatedGollum = addToPile(base, RESOURCE_PLAYER, 'outOfPlayPile', {
+      instanceId: 'p1-eliminated-gollum' as CardInstanceId,
+      definitionId: GOLLUM,
+    });
+    const state = { ...withEliminatedGollum, phaseState: makeSitePhase() };
+    const gollumInstanceId = state.players[HAZARD_PLAYER].hand[0].instanceId;
+
+    const playActions = viableActions(state, PLAYER_2, 'play-hero-resource')
       .map(a => a.action as PlayHeroResourceAction)
       .filter(a => a.cardInstanceId === gollumInstanceId);
     expect(playActions).toHaveLength(0);
