@@ -565,6 +565,22 @@ export function applyCorruptionCheckResolution(
     outcome = 'discard';
   }
 
+  // Magical Harp (td-130) / CoE 7.1.3: an active `cancel-character-discard`
+  // constraint on the checking character's company cancels any effect that
+  // would discard the character this turn — including a corruption check's
+  // own discard outcome — and the check "is considered successful" instead
+  // of routing the character to the discard pile.
+  if (outcome === 'discard' && checkCompany) {
+    const cancelConstraint = postRollState.activeConstraints.find(c =>
+      c.kind.type === 'cancel-character-discard'
+      && c.target.kind === 'company'
+      && c.target.companyId === checkCompany.id);
+    if (cancelConstraint) {
+      logDetail(`Corruption check for ${charName} would discard the character, but constraint ${cancelConstraint.id} (cancel-character-discard, source ${cancelConstraint.source as string}) cancels it — check considered successful (CoE 7.1.3)`);
+      outcome = 'success';
+    }
+  }
+
   if (outcome === 'success' || outcome === 'tap-success') {
     let successState: GameState = postRollState;
     if (outcome === 'tap-success') {
