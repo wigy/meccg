@@ -728,12 +728,21 @@ export function groupGrantedActionsByAbility(
 /**
  * Show the ability menu for a bearer-less in-play card that grants actions
  * (The Lidless Eye le-203 / Sauron ba-43 during the controller's organization
- * phase).
+ * phase, or a stored card like Reforging tw-314 browsed from the
+ * marshalling-point pile).
  *
  * One menu entry per granted ability. Choosing an ability whose candidates are
- * cards (`targetCardId` — a sideboard card to bring into the play deck, a hand
- * card to discard as the peek cost) opens a card picker so the player sees what
- * they are choosing; a targetless ability fires directly.
+ * plain cards (`targetCardId` only — a sideboard card to bring into the play
+ * deck, a hand card to discard as the peek cost) opens a card picker so the
+ * player sees what they are choosing; a targetless ability fires directly.
+ *
+ * Candidates that also carry a `recipientCharacterId` (Reforging: retrieve an
+ * item and place it on a chosen character in the sage's company) instead go
+ * through {@link buildGrantedActionMenuItems}'s named text menu — the card
+ * grid only shows the fetched item's image, which is identical across every
+ * (actor, recipient) pairing for that item and gives no way to tell them
+ * apart (bug report 3bcd1275c546ace7: "you can't tell which individual is
+ * being given the item").
  */
 export function showInPlayGrantedActionMenu(
   anchor: HTMLElement,
@@ -741,6 +750,11 @@ export function showInPlayGrantedActionMenu(
   cardPool: Readonly<Record<string, CardDefinition>>,
   onAction: (action: GameAction) => void,
 ): void {
+  const resolveName = (id: CardInstanceId): string | undefined => {
+    const cachedInstanceLookup = getCachedInstanceLookup();
+    const defId = cachedInstanceLookup(id);
+    return defId ? cardPool[defId as string]?.name : undefined;
+  };
   const items = groupGrantedActionsByAbility(actions).map((group): TooltipMenuItem => {
     const label = GRANTED_ACTION_LABELS[group[0].actionId] ?? group[0].actionId;
     return {
@@ -751,6 +765,10 @@ export function showInPlayGrantedActionMenu(
           .map(a => ({ action: a as GameAction, instanceId: a.targetCardId as CardInstanceId }));
         if (choices.length === 0) {
           onAction(group[0]);
+          return;
+        }
+        if (group.length > 1 && group.some(a => a.recipientCharacterId !== undefined)) {
+          showTooltipMenu(anchor, buildGrantedActionMenuItems(group, onAction, resolveName));
           return;
         }
         openCardGridModal('granted-target', label, choices, null, cardPool, onAction);
@@ -814,11 +832,24 @@ export function buildGrantedActionMenuItems(
       }
       for (const [itemId, itemGroup] of byItem) {
         const itemName = resolveName(itemId as CardInstanceId) ?? itemId;
+        // Some sources (Reforging tw-314: any of several sages at a Haven may
+        // tap to activate) also vary the *acting* character across otherwise
+        // identical (item, recipient) pairs — e.g. bug report 3bcd1275c546ace7:
+        // five eligible sages × two items × six recipients left every "to
+        // <recipient>" entry duplicated once per sage, with nothing to tell
+        // them apart. Append the actor's name only when it actually varies
+        // within this item's group, so the common single-actor case (The
+        // Forge-master: the bearer always taps) is unaffected.
+        const distinctActors = new Set(itemGroup.map(a => a.characterId));
         items.push({
           label: `${baseLabel} — ${itemName}`,
           children: itemGroup.map((a): TooltipMenuItem => {
             const recipientName = a.recipientCharacterId ? resolveName(a.recipientCharacterId) : undefined;
-            return { label: recipientName ? `to ${recipientName}` : baseLabel, onClick: () => onAction(a) };
+            const actorName = distinctActors.size > 1 ? resolveName(a.characterId) : undefined;
+            const label = recipientName
+              ? (actorName ? `to ${recipientName} (${actorName} taps)` : `to ${recipientName}`)
+              : baseLabel;
+            return { label, onClick: () => onAction(a) };
           }),
         });
       }

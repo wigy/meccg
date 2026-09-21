@@ -414,11 +414,19 @@ function allowStoreEot(state: GameState, playerIndex: number): boolean {
  *    ['discard-pile']` (e.g. Great Shadow ba-62) — the specific card is
  *    chosen via a follow-up `fetch-from-pile` pending resolution, so a
  *    single activation is offered whenever at least one card matches.
+ * Only recognizes grant-actions flagged `endOfTurnOnly: true` — a plain
+ * (organization-phase) discard-to-hand `move` fetch, such as Ring of Fire
+ * (wh-102)'s "tap ... during your organization phase to take Narya ...",
+ * shares this exact apply shape but must NOT also surface here, or it would
+ * leak into the end-of-turn window on top of its own organization-phase
+ * offering (`legal-actions/organization.ts`'s item-attached grant-action
+ * loop).
+ *
  * Returns the apply (carrying the DSL `filter`) or `null` if this
  * grant-action is not an end-of-turn discard-pile fetch.
  */
 function findFetchApply(effect: CardEffect): TriggeredAction | null {
-  if (effect.type !== 'grant-action' || !effect.apply) return null;
+  if (effect.type !== 'grant-action' || !effect.apply || effect.endOfTurnOnly !== true) return null;
   const apply = effect.apply;
   if (isDiscardPileFetch(apply)) return apply;
   if (apply.type === 'sequence') {
