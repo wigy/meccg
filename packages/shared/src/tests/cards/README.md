@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1341 | 1341 | 0 | 100.0% |
+| 1347 | 1347 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 117 | 117 | 100.0% |
+| AS | 120 | 120 | 100.0% |
 | BA | 100 | 100 | 100.0% |
-| DM | 145 | 145 | 100.0% |
+| DM | 146 | 146 | 100.0% |
 | LE | 323 | 323 | 100.0% |
-| TD | 136 | 136 | 100.0% |
+| TD | 137 | 137 | 100.0% |
 | TW | 424 | 424 | 100.0% |
-| WH | 96 | 96 | 100.0% |
+| WH | 97 | 97 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -55,6 +55,7 @@
 | as-44 | All the Bells Ringing | — | 6 | ☑ |
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
 | as-46 | Biter and Beater! | — | 12 | ☑ |
+| as-47 | Drughu | — | 12 | ☑ |
 | as-48 | Farmer Maggot | — | 13 | ☑ |
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-50 | Mount Slain | — | 10 | ☑ |
@@ -66,10 +67,12 @@
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-61 | Petty-dwarves | — | 7 | ☑ |
 | as-63 | Haradrim | — | 9 | ☑ |
+| as-64 | Nûrniags | — | 5 | ☑ |
+| as-65 | Petty-dwarves | — | 6 | ☑ |
 | as-66 | Wain-easterlings | — | 8 | ☑ |
 | as-67 | Woses of the Eryn Vorn | — | 6 | ☑ |
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
-| as-70 | Jewel of Beleriand | — | 11 | ☑ |
+| as-70 | Jewel of Beleriand | — | 12 | ☑ |
 | as-71 | The Balrog | — | 2 | ☑ |
 | as-73 | Creature of an Older World | — | 3 | ☑ |
 | as-74 | Great Bats | — | 17 | ☑ |
@@ -302,7 +305,7 @@
 | dm-66 | In Great Wrath | — | 7 | ☑ |
 | dm-67 | In the Heart of his Realm | — | 15 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
-| dm-70 | Long Dark Reach | — | 12 | ☑ |
+| dm-70 | Long Dark Reach | — | 13 | ☑ |
 | dm-71 | The Moon Is Dead | — | 9 | ☑ |
 | dm-72 | Mordor in Arms | — | 11 | ☑ |
 | dm-73 | Neither so Ancient Nor so Potent | — | 7 | ☑ |
@@ -324,6 +327,7 @@
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-100 | Which Might Be Lies | — | 6 | ☑ |
+| dm-101 | Will not Come Down | — | 15 | ☑ |
 | dm-102 | Wound of Long Burden | — | 8 | ☑ |
 | dm-104 | Your Welcome Is Doubtful | — | 13 | ☑ |
 | dm-105 | Bûthrakaur the Green | — | 15 | ☑ |
@@ -350,7 +354,7 @@
 | dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
 | dm-130 | Fireworks | — | 20 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 15 | ☑ |
-| dm-134 | Hall of Fire | — | 13 | ☑ |
+| dm-134 | Hall of Fire | — | 14 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-139 | Hobbit-lore | — | 13 | ☑ |
@@ -798,7 +802,7 @@
 | td-126 | King under the Mountain | — | 13 | ☑ |
 | td-128 | Look More Closely Later | — | 18 | ☑ |
 | td-129 | Lore of the Ages | — | 11 | ☑ |
-| td-130 | Magical Harp | — | 12 | ☑ |
+| td-130 | Magical Harp | — | 13 | ☑ |
 | td-131 | Many Foes He Fought | — | 9 | ☑ |
 | td-132 | Many Turns and Doublings | — | 12 | ☑ |
 | td-133 | Map to Mithril | — | 14 | ☑ |
@@ -830,7 +834,7 @@
 | td-167 | Wielded Twice | — | 20 | ☑ |
 | td-168 | Wit | — | 7 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
-| td-170 | Wizard’s Staff | — | 19 | ☑ |
+| td-170 | Wizard’s Staff | — | 20 | ☑ |
 | td-171 | Wondrous Maps | — | 14 | ☑ |
 | td-172 | Wormsbane | — | 9 | ☑ |
 | td-173 | Buhr Widu | — | 7 | ☑ |
@@ -842,6 +846,7 @@
 | td-179 | Ovir Hollow | — | 7 | ☑ |
 | td-180 | Tharbad | — | 7 | ☑ |
 | td-181 | Zarak Dûm | — | 10 | ☑ |
+| td-182 | Ireful Flames | — | 12 | ☑ |
 | td-183 | Horn of Defiance | — | 12 | ☑ |
 | td-184 | Ringil | — | 17 | ☑ |
 | td-185 | Belegennon | — | 14 | ☑ |
@@ -938,7 +943,7 @@
 | tw-91 | Snowstorm | — | 5 | ☑ |
 | tw-92 | Storms of Ossë | — | 5 | ☑ |
 | tw-93 | The Balance of Things | — | 6 | ☑ |
-| tw-94 | The Burden of Time | — | 11 | ☑ |
+| tw-94 | The Burden of Time | — | 12 | ☑ |
 | tw-95 | The Great Goblin | — | 8 | ☑ |
 | tw-96 | The Nazgûl are Abroad | — | 17 | ☑ |
 | tw-97 | The Pale Sword | — | 18 | ☑ |
@@ -1158,7 +1163,7 @@
 | tw-330 | Star-glass | — | 15 | ☑ |
 | tw-332 | Stealth | — | 14 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
-| tw-334 | Stone of Erech | — | 7 | ☑ |
+| tw-334 | Stone of Erech | — | 8 | ☑ |
 | tw-335 | Sun | — | 7 | ☑ |
 | tw-336 | Sword of Gondolin | — | 6 | ☑ |
 | tw-337 | Tempering Friendship | — | 8 | ☑ |
@@ -1348,6 +1353,7 @@
 | wh-98 | Gandalf’s Friend | — | 9 | ☑ |
 | wh-99 | Give Welcome to the Unexpected | — | 13 | ☑ |
 | wh-100 | Grey Embassy | — | 17 | ☑ |
+| wh-102 | Ring of Fire | — | 12 | ☑ |
 | wh-103 | Arcane School | — | 9 | ☑ |
 | wh-104 | Pallando’s Apprentice | — | 11 | ☑ |
 | wh-105 | Pallando’s Hood | — | 12 | ☑ |

@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.165.0 — 2026-09-21
+
+My Games page brings replays home; corruption checks pick their order; a dozen cards join the certified ranks
+
+### Game Engine
+
+- Certified Drughu (as-47): a company-wide +2 prowess bonus, granted proactively during the organization phase, that only applies against Wilderness-keyed attacks or during combat at a Ruins & Lairs site. Required a `when`-conditioned `company-stat-modifier`, exposing `attack.keying`/`site.siteType` to `computeCombatProwess`, and extending `play-discard-cost` to organization-phase company-targeted resource plays (#3135)
+- Certified Petty-dwarves (as-65), the minion-faction counterpart to as-61, with no rules beyond its own influence-check/site-restriction structure (#3132)
+- Certified Ring of Fire (wh-102), Gandalf's stage item: its end-of-turn discard-pile fetch had been leaking into the organization phase. Tightened `findFetchApply` to require `endOfTurnOnly: true`, which also caught two latent over-broad matches on The Mouth (le-24) and Ûvatha the Ringwraith (le-57), and backfilled the missing flag on Indûr the Ringwraith (le-54) and Wizard's Staff (td-170) — restoring their own end-of-turn-only fetches, which had silently stopped firing (#3131, #3119)
+- Certified Ireful Flames (td-182) via a new `site-item-removal-cost` DSL primitive: playing an item at a matching site now taxes the player by removing another eligible hand item from play (#3130)
+- Certified Nûrniags (as-64): filled in influence number, playable-at site, wizard/man check modifiers, and the Muster-suppression clause (#3117)
+- Certified Will not Come Down (dm-101), extending the agent-tap-multi-influence effect (Good Sense Revolts, dm-61) with an option to ignore the defender's general-influence bonus and to return only the target itself to hand instead of discard on success (#3116)
+- Generalized the selectable-order mechanism (previously exclusive to Ren the Unclean and force-check-all-in-play cards) to untap-phase-end corruption-check batches such as Lure of the Senses: when several characters need a check in the same pass, the player now picks who checks first instead of the engine resolving them in object-iteration order, freeing support taps for the character most likely to need them (#3128)
+- Hall of Fire's (dm-134) "untap or heal" offer could untap a bearer locked by a bearer-cannot-untap constraint (e.g. Reforging tw-314's "may not untap until stored at a Haven"), because the haven-restore-character legal-action builder and apply handler never checked it, unlike the ordinary untap-phase sweep (#3133)
+- Jewel of Beleriand's (as-70) tap-roll-untap-bearer granted action bypassed the same bearer-cannot-untap constraint by setting the bearer's status directly (#3118)
+- Grant-action corruption checks (Magical Harp td-130, Arkenstone tw-341, and other mid-game grant activations) never set `allowSupport`, so untapped company mates were never offered the CoE 7.1.1 +1 support tap on those checks (#3124)
+- The Movement/Hazard draw-cards step could fail to trigger deck exhaustion when a player's last required draw was also the last card in their play deck, permanently capping their hand below maximum for the rest of the game (#3125)
+- Long Dark Reach (dm-70) didn't thread the forced creature's own `combat-strike-effect` (e.g. Thief, Pick-pocket), so a named creature with a strike-replacing effect wounded the defender normally instead of honoring its own card text (#3122)
+- Stone of Erech (tw-334) was being swept by the generic site-attached orphan cleanup as soon as its company left Vale of Erech, even though the card already fully specifies its own discard condition via a `discard-on-card-leaves-play` effect (#3120)
+
+### Web Client
+
+- Added a "My Games" nav page listing a player's in-progress, unfinished (saved but disconnected), and recently finished games, each with a Replay button; added a "Replay this game" toolbar button to the live game screen; and bug reports now carry a structured `gameId` alongside the existing free-text line (#3129)
+- Opening the in-game "Report Bug" modal left the dice-roll overlay visually on top of it and running its own timers underneath, reading as a roll that silently never returns once the modal closed. The modal now dismisses any in-flight dice overlay first, and both the bug-report and feature-request modals were raised above the overlay's z-index as a backstop (#3127)
+- Bug-report/feature-request confirmations were pushed into the clipped game-log toast view, shoving just-shown roll notifications out of sight. They now render as ephemeral, auto-fading toasts instead, and a new "Roll History" panel in Developer Tools records every roll's untruncated text independent of the toast log (#3123)
+- Reforging's (tw-314) item-recipient disambiguation menu rendered every (sage, item, recipient) candidate as an identical plain image, so a bearer with multiple items and eligible recipients showed several indistinguishable buttons. The menu now labels each choice with the acting sage's name whenever it varies (#3134)
+- The engine's `choose-revealed-card` reveal for Eyes of Mandos (dm-126) had no browser sub-flow to highlight the play-deck pile or make revealed cards clickable — the same class of gap previously fixed for Aware of their Ways and Revealed to all Watchers (#3126)
+- Wired the sideboard-with-nazgul board affordance for in-play Nazgul permanent-events (e.g. Hoarmurath of Dir, tw-44) — previously only reachable through the debug action panel (#3121)
+
+### Infrastructure
+
+- Dropped unnecessary type assertions flagged by lint; corrected documentation describing the scope of the `findFetchApply` end-of-turn-only tightening
+
 ## 0.164.0 — 2026-09-20
 
 Pledge of Conduct redirects items in flight; Hidden Haven shelters from Rats!; stopping a game now really stops it
