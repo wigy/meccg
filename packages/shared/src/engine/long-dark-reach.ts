@@ -56,6 +56,7 @@ import type { GameState } from '../index.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId, PlayerId } from '../types/common.js';
 import type { CombatState } from '../types/state-combat.js';
 import type { CreatureCard } from '../types/cards.js';
+import type { CombatStrikeEffectEffect } from '../types/effects.js';
 import { Race } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { getPlayerIndex } from '../state-utils.js';
@@ -188,6 +189,18 @@ export function buildLongDarkReachCombat(
     + `${normallyPlayable ? 'normally playable on the company, no penalty' : `not normally playable, ${penalty} prowess`}`,
   );
 
+  // combat-strike-effect (Thief tw-102, Pick-pocket tw-79): a successful
+  // strike discards an item instead of wounding the defending character —
+  // must be threaded through here exactly as the ordinary creature-attack
+  // path does in `chain-reducer.ts`, otherwise a creature forced to attack
+  // via Long Dark Reach wounds normally instead of replacing the strike.
+  const strikeEffect = cDef.effects?.find(
+    (e): e is CombatStrikeEffectEffect => e.type === 'combat-strike-effect',
+  )?.strikeEffect;
+  if (strikeEffect) {
+    logDetail(`Long Dark Reach: creature has combat-strike-effect: ${strikeEffect} — successful strikes replaced accordingly`);
+  }
+
   const combat = makeCombatState(working, {
     attackSource: { type: 'long-dark-reach-attack', sourceInstanceId, creatureInstanceId: candidate.instanceId },
     companyId,
@@ -197,6 +210,7 @@ export function buildLongDarkReachCombat(
     strikeProwess: effectiveProwess + penalty,
     creatureBody: effectiveBody,
     creatureRace,
+    strikeEffect: strikeEffect ?? undefined,
     assignmentPhase: 'defender',
     detainment: isDetainmentAttack({
       attackEffects: cDef.effects,
