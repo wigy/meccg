@@ -1516,6 +1516,21 @@ export type ConstraintScope =
    */
   | { readonly kind: 'next-organization-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
   /**
+   * Cleared at the end of {@link playerId}'s **next** untap phase — "until
+   * your next untap phase" (Book of Mazarbul tw-201: tapping it during your
+   * organization phase raises your hand size by 1 until then).
+   *
+   * {@link afterTurn} records `state.turnNumber` at the moment the constraint
+   * was created (necessarily during that turn's organization phase, which
+   * comes *after* the untap phase). The untap-phase-end sweep only drops the
+   * constraint once it sees a strictly greater turn number, mirroring
+   * `next-organization-phase` — this guards against the owner's own untap
+   * phase later that same turn, though in practice untap always precedes
+   * organization so the very next untap-phase-end the owner reaches is
+   * already on a later turn.
+   */
+  | { readonly kind: 'next-untap-phase'; readonly playerId: PlayerId; readonly afterTurn: number }
+  /**
    * Lives exactly as long as a hazard long-event owned by {@link playerId}
    * would — "the long-event effect will remain until the appropriate time"
    * (CRF 22 on Witch-king of Angmar tw-113). Hazard long-events are discarded
@@ -3096,6 +3111,12 @@ export type ScopeBoundary =
    * `next-organization-phase`-scoped constraints created on an earlier turn.
    */
   | { readonly kind: 'organization-phase-end'; readonly playerId: PlayerId; readonly turnNumber: number }
+  /**
+   * Raised when {@link playerId} leaves their untap phase (transitions to
+   * Organization), carrying the turn number that untap phase belonged to.
+   * Clears `next-untap-phase`-scoped constraints created on an earlier turn.
+   */
+  | { readonly kind: 'untap-phase-end'; readonly playerId: PlayerId; readonly turnNumber: number }
   /**
    * Raised when the long-event phase ends ([2.III.3] — the moment the hazard
    * player's hazard long-events are discarded), carrying that hazard player's

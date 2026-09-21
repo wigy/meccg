@@ -27,7 +27,7 @@ import {
   GANDALF, ARAGORN, LEGOLAS, BILBO,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, BLUE_MOUNTAIN_DWARF_HOLD,
   buildTestState, buildSitePhaseState, resetMint,
-  viableActions, dispatch, attachItemToChar, charIdAt,
+  viableActions, dispatch, runActions, attachItemToChar, charIdAt,
   RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
@@ -295,7 +295,7 @@ describe('Book of Mazarbul (tw-201)', () => {
       expect(constraint.kind.value).toBe(1);
     }
     expect(constraint.target.kind).toBe('player');
-    expect(constraint.scope.kind).toBe('turn');
+    expect(constraint.scope.kind).toBe('next-untap-phase');
     expect(constraint.source).toBe(bookInstId);
   });
 
@@ -342,6 +342,68 @@ describe('Book of Mazarbul (tw-201)', () => {
       ea => (ea.action as ActivateGrantedAction).actionId === 'book-of-mazarbul-hand-boost',
     );
     expect(actionsAfter).toHaveLength(0);
+  });
+
+  test('the +1 survives the opponent\'s whole next turn and only expires at the bearer\'s own next untap phase (bug report: Gamling vs AI-MC, game mub6ncye-ed28bi)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [BILBO] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const withBook = attachItemToChar(base, RESOURCE_PLAYER, BILBO, BOOK_OF_MAZARBUL);
+    const startTurn = withBook.turnNumber;
+
+    const bookAction = viableActions(withBook, PLAYER_1, 'activate-granted-action')
+      .map(ea => ea.action as ActivateGrantedAction)
+      .find(a => a.actionId === 'book-of-mazarbul-hand-boost')!;
+    let state = dispatch(withBook, bookAction);
+    expect(resolveHandSize(state, RESOURCE_PLAYER)).toBe(HAND_SIZE + 1);
+
+    const constraintCount = () => state.activeConstraints.filter(c => c.kind.type === 'hand-size-modifier').length;
+    expect(constraintCount()).toBe(1);
+
+    // Jump to the opponent's (P2's) untap phase, on the very next turn. Their
+    // own untap-phase-end boundary must NOT touch P1's constraint.
+    state = {
+      ...state,
+      activePlayer: PLAYER_2,
+      turnNumber: startTurn + 1,
+      phaseState: {
+        phase: Phase.Untap, untapped: false, hazardSideboardDestination: null,
+        hazardSideboardFetched: 0, hazardSideboardAccessed: false,
+        resourcePlayerPassed: false, hazardPlayerPassed: false,
+      },
+    };
+    state = runActions(state, [
+      { type: 'untap', player: PLAYER_2 },
+      { type: 'pass', player: PLAYER_1 },
+    ]);
+    expect(state.phaseState.phase).toBe(Phase.Organization);
+    expect(constraintCount()).toBe(1);
+    expect(resolveHandSize(state, RESOURCE_PLAYER)).toBe(HAND_SIZE + 1);
+
+    // Now reach P1's own next untap phase (two turns after the tap) — this is
+    // where the boost finally expires.
+    state = {
+      ...state,
+      activePlayer: PLAYER_1,
+      turnNumber: startTurn + 2,
+      phaseState: {
+        phase: Phase.Untap, untapped: false, hazardSideboardDestination: null,
+        hazardSideboardFetched: 0, hazardSideboardAccessed: false,
+        resourcePlayerPassed: false, hazardPlayerPassed: false,
+      },
+    };
+    state = runActions(state, [
+      { type: 'untap', player: PLAYER_1 },
+      { type: 'pass', player: PLAYER_2 },
+    ]);
+    expect(state.phaseState.phase).toBe(Phase.Organization);
+    expect(constraintCount()).toBe(0);
+    expect(resolveHandSize(state, RESOURCE_PLAYER)).toBe(HAND_SIZE);
   });
 
   test('grant-action works with any sage bearer (Bilbo)', () => {

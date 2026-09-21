@@ -375,6 +375,9 @@ export function countConstraintsFromDefinition(
  *    `company-site-subphase: C` and constraints with `company-site-phase: C`.
  *  - `turn-end` clears constraints whose scope is `turn`. Resolutions
  *    are not turn-scoped today, so they are unaffected.
+ *  - `untap-phase-end: playerId/turnNumber` clears constraints whose scope
+ *    is `next-untap-phase` owned by `playerId` and created on an earlier
+ *    turn than `turnNumber`.
  */
 export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameState {
   const keepResolution = (r: PendingResolution): boolean => {
@@ -397,6 +400,9 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
         return true;
       case 'organization-phase-end':
         // No ResolutionScope is keyed to the organization phase boundary.
+        return true;
+      case 'untap-phase-end':
+        // No ResolutionScope is keyed to the untap phase boundary.
         return true;
       case 'long-event-phase-end':
         // No ResolutionScope is keyed to the long-event phase boundary.
@@ -428,6 +434,16 @@ export function sweepExpired(state: GameState, boundary: ScopeBoundary): GameSta
         // organization-phase end, but not the one it was created in (same turn
         // number) — that is the phase the card was activated during.
         if (s.kind === 'next-organization-phase'
+          && s.playerId === boundary.playerId
+          && boundary.turnNumber > s.afterTurn) return false;
+        return true;
+      case 'untap-phase-end':
+        // "Through your next untap phase": drop it at the owner's untap-phase
+        // end, but not the one it was created in — Book of Mazarbul is tapped
+        // during the organization phase, which always comes after the untap
+        // phase in the same turn, so `afterTurn` guards this the same way
+        // `next-organization-phase` guards itself.
+        if (s.kind === 'next-untap-phase'
           && s.playerId === boundary.playerId
           && boundary.turnNumber > s.afterTurn) return false;
         return true;
