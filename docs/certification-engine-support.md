@@ -1237,6 +1237,28 @@ Will not Come Down (dm-101): "Playable on an untapped agent. Tap the agent who m
 
 Used by *Will not Come Down* (dm-101).
 
+### `site-item-removal-cost` — a passive item-play tax at named sites (Ireful Flames td-182)
+
+Ireful Flames (td-182): "Affects the following sites: The Lonely Mountain, Irerock, Zarak Dûm, and Gold Hill. For any item to be played at one of these sites, its player must remove an item in his hand from play that would itself be playable at the site. Cannot be revealed as an on-guard card. Discard Ireful Flames when any play deck is exhausted."
+
+**New effect (`types/effects.ts`):**
+
+```json
+{ "type": "site-item-removal-cost", "siteNames": ["The Lonely Mountain", "Irerock", "Zarak Dûm", "Gold Hill"] }
+```
+
+Matched by **site name** rather than a `siteIds` list (mirroring `TapAtSiteEffect`), since each of the four names has several set printings (e.g. Zarak Dûm is both td-181 and le-417). While any card carrying this effect sits in *either* player's `cardsInPlay`, playing an item at a matching site costs an extra hand item removed from play (CoE "remove from play" — the out-of-play pile, `removedFromGame: true`, never the discard pile).
+
+**Legal-action layer (`legal-actions/site.ts`, `playResourcesActions`).** Once per call, scans both players' `cardsInPlay` for a `site-item-removal-cost` effect whose `siteNames` includes the company's current site name (`itemRemovalCostActive`). When active, the item-play branch computes `removalCostCandidates` — other hand items (excluding the one being played) whose subtype is in the site's own `playableResources` set (the same "would itself be playable at the site" tier gate the ordinary item loop already uses). Zero candidates makes the item unplayable outright (mirrors `play-discard-cost`'s "no candidate ⇒ not playable" precedent); one or more candidates cross-multiplies the emitted `play-hero-resource` actions (already cross-multiplied per eligible bearer) with one action per candidate, each carrying `costRemoveInstanceId`.
+
+**Action field.** `PlayHeroResourceAction.costRemoveInstanceId?: CardInstanceId` (`types/actions-site.ts`) — the hand item instance the player is removing from play to pay the cost.
+
+**Reducer (`handleSitePlayHeroResource`, `reducer-site.ts`).** Re-derives the same `site-item-removal-cost` lookup and, when active, validates `action.costRemoveInstanceId` against the player's hand (distinct instance, an item card, subtype in the site's `playableResources`) before attaching the played item — rejecting the action outright if the declared cost card is missing or invalid. On success the cost card is removed from hand and appended to the owner's `outOfPlayPile` with `removedFromGame: true`, alongside (not replacing) the ordinary item-attach flow — the same "remove from play" destination convention documented for Phial of Galadriel's (dm-176) `replace-item-on-play`.
+
+**"Cannot be revealed as an on-guard card" needed no new code.** The three on-guard-reveal pathways (`legal-actions/chain.ts`'s `onGuardRevealChainActions`, `legal-actions/pending.ts`'s `onGuardWindowActions`, `legal-actions/site.ts`'s `revealOnGuardAttacksActions`) each only ever offer `reveal-on-guard` for a hazard-event that either declares an `on-guard-reveal` effect with a matching trigger, or — the site-entry `reveal-on-guard-attacks` step only — carries an effect that "affects the automatic-attack(s)" (`stat-modifier` on `all-automatic-attacks`/`all-attacks`, `site-entry-roll-attack`, `permanent-event-auto-attack`, `auto-attack-boost`, or the matching `on-event`/`add-constraint` shape). Ireful Flames declares none of these, so it is structurally never offered for reveal — while `place-on-guard`'s bluff path (`legal-actions/movement-hazard.ts`) offers every hand card unconditionally, matching "any hand card is eligible... bluffing allowed" against the card's own "cannot be revealed" restriction precisely.
+
+Used by *Ireful Flames* (td-182).
+
 ### `company-stat-modifier` gains a conditional `when` (Drughu as-47), plus `attack.keying`/`site.siteType` on the combat-prowess context, plus organization-phase `play-discard-cost`
 
 Drughu (as-47): "Playable on a hero company during your organization phase if you discard a ranger character from your hand. All characters in the company this turn receive +2 prowess against attacks keyed to Wilderness [{w}] and during combat at Ruins & Lairs [{R}]. Cannot be duplicated on a given company." Three independent gaps, all needed for this one card:

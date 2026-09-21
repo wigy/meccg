@@ -70,7 +70,7 @@ interface PlayerGameSide {
 }
 
 /** One completed game from the selected player's point of view. */
-interface PlayerGame {
+export interface PlayerGame {
   readonly gameId: string | null;
   readonly startedAt: string | null;
   readonly endedAt: string | null;
@@ -198,8 +198,12 @@ function renderGameTable(game: PlayerGame): string {
   `;
 }
 
-/** Render one completed game as a card: outcome, metadata, scoring table. */
-function renderGame(game: PlayerGame): string {
+/**
+ * Render one completed game as a card: outcome, metadata, scoring table.
+ * Exported so the "My Games" page's Finished section can reuse this markup
+ * wholesale rather than duplicating it.
+ */
+export function renderGame(game: PlayerGame): string {
   const label = game.result === 'win' ? 'Win' : game.result === 'loss' ? 'Loss' : 'Draw';
   const opponentName = game.opponent ? game.opponent.name : 'unknown opponent';
   return `

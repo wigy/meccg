@@ -20,6 +20,7 @@ import type {
   CardDefinitionId,
   PendingResolution,
   ResolutionId,
+  ResolutionScope,
   ActiveConstraint,
   ConstraintId,
   ConstraintScope,
@@ -42,6 +43,29 @@ function mintResolutionId(state: GameState): ResolutionId {
 function mintConstraintId(state: GameState): ConstraintId {
   const n = state.activeConstraints.length + state.stateSeq;
   return `c-${n}-${Date.now().toString(36)}` as ConstraintId;
+}
+
+/**
+ * Whether two {@link ResolutionScope}s describe the same sweep boundary.
+ * Used to group a batch of `selectableOrder` corruption checks that were
+ * enqueued together (same actor, same scope) even when they came from
+ * different source cards — e.g. two different attached hazards each
+ * forcing a check on untap-phase-end. Shared between the legal-action
+ * computer (`corruptionCheckActions`, which offers one roll action per
+ * sibling) and the resolver (`applyResolution`'s corruption-check handler,
+ * which must accept whichever sibling the player actually rolled).
+ */
+export function scopesMatch(a: ResolutionScope, b: ResolutionScope): boolean {
+  switch (a.kind) {
+    case 'phase':
+      return b.kind === 'phase' && a.phase === b.phase;
+    case 'phase-step':
+      return b.kind === 'phase-step' && a.phase === b.phase && a.step === b.step;
+    case 'company-mh-subphase':
+      return b.kind === 'company-mh-subphase' && a.companyId === b.companyId;
+    case 'company-site-subphase':
+      return b.kind === 'company-site-subphase' && a.companyId === b.companyId;
+  }
 }
 
 // ---- Pending resolution helpers ----

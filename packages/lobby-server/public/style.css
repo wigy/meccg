@@ -34,7 +34,7 @@
   --z-hover: 100;             /* dev toolbar, hovered arcs/rows, tooltips, chain panel */
   --z-loading: 150;           /* game loading cover (below toasts and toolbar) */
   --z-modal: 200;             /* settings modal, toast, floating dice */
-  --z-overlay: 300;           /* site deck modal, dice overlay */
+  --z-overlay: 300;           /* site deck modal, dice overlay, bug-report/feature-request modal */
   --z-set-aside: 400;         /* set-aside pile (above modals during draft) */
   --z-action-backdrop: 999;   /* action/target backdrop */
   --z-action-menu: 1000;      /* action/target tooltip menus */
@@ -909,6 +909,44 @@ h2 {
 
 .scoreboard-mp-adjusted {
   color: #c4a35a;
+}
+
+/* ---- My Games page ---- */
+
+.my-games-section {
+  margin-bottom: 1.5rem;
+}
+
+.my-games-section-title {
+  font-family: 'Cinzel', serif;
+  color: #c4a35a;
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.my-games-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  background: rgba(20, 20, 36, 0.6);
+  border: 1px solid #334;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.4rem;
+}
+
+.my-games-row dt {
+  color: #d8d8e0;
+}
+
+.my-games-row-status {
+  margin: 0;
+  color: #a0a8b0;
+  font-size: 0.8rem;
+}
+
+.my-games-row .scoreboard-game-id {
+  margin-left: auto;
 }
 
 /* ---- Admin page (user accounts, credits, games) ---- */
@@ -2066,7 +2104,10 @@ h2 {
 #bug-report-modal {
   position: fixed;
   inset: 0;
-  z-index: var(--z-modal);
+  /* Above --z-modal so the dice-roll overlay (also --z-overlay) can never
+     visually pierce these modals, even if a caller opens one without first
+     dismissing an in-flight roll. */
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -39,7 +39,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayOptionEffect, PlayTargetEffect, CardEffect, RingTestTableEffect, RingCategory } from '../../types/effects.js';
 import { resolveInstanceId } from '../../types/state.js';
 import type { OpponentInfluenceAttempt } from '../../types/pending.js';
-import { characterPossessions, constraintFromCard } from '../pending.js';
+import { characterPossessions, constraintFromCard, scopesMatch } from '../pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, resolveAutoInfluenceFaction, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
@@ -1469,10 +1469,14 @@ export function wizardSearchOnStoreActions(
 /**
  * Compute the corruption-check actions that resolve a queued
  * `corruption-check` resolution. Normally that is the single roll action
- * for the head entry; when the head carries `selectableOrder` (Ren the
- * Unclean tw-83: "Each player decides the order of the corruption checks
- * for their characters"), one roll action is offered per same-source
- * selectable sibling so the actor picks which character checks next.
+ * for the head entry; when the head carries `selectableOrder` (CoE 7.1.1:
+ * "each player decides the order of the corruption checks for their
+ * characters" — Ren the Unclean tw-83, `force-check-all-in-play` cards, and
+ * batches of untap-phase-end triggers like Lure of the Senses), one roll
+ * action is offered per selectable sibling in the same batch — matched by
+ * actor + scope rather than by source card, so a batch triggered by
+ * several different attached cards is still offered as one orderable set —
+ * so the actor picks which character checks next.
  */
 export function corruptionCheckActions(
   state: GameState,
@@ -1484,11 +1488,11 @@ export function corruptionCheckActions(
     ? state.pendingResolutions.filter(r =>
       r.actor === playerId
       && r.kind.type === 'corruption-check'
-      && r.source === top.source
-      && r.kind.selectableOrder)
+      && r.kind.selectableOrder
+      && scopesMatch(r.scope, top.scope))
     : [top];
   if (entries.length > 1) {
-    logDetail(`Selectable corruption-check order: ${entries.length} same-source checks offered simultaneously`);
+    logDetail(`Selectable corruption-check order: ${entries.length} same-scope checks offered simultaneously`);
   }
   const actions: EvaluatedAction[] = [];
   for (const entry of entries) {
