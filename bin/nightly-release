@@ -6,16 +6,19 @@
 #   2. Read the current version from packages/shared/package.json
 #   3. Compare master against the matching vX.Y.Z tag
 #   4. If there are no new commits, exit 0 without doing anything
-#   5. Otherwise hand `/release` (no title — claude writes one from the
-#      pending commits) to a headless claude, which bumps the version,
-#      writes the CHANGELOG, tags, pushes and publishes
-#   6. Verify a new tag actually appeared
+#   5. Otherwise resolve the credentials the release needs (claude OAuth,
+#      Docker Hub) and refuse to start when either is missing
+#   6. Hand `/release` (no title — claude writes one from the pending
+#      commits) to a headless claude, which bumps the version, writes the
+#      CHANGELOG, tags, pushes and publishes
+#   7. Verify a new tag actually appeared
 #
 # Exit status is chainable — `bin/nightly-release && bin/update-dev` deploys
 # only when a new version was actually built:
 #   0   a release was made (new version committed, tagged, pushed, published)
 #   10  nothing to release — master is already at the current version tag
-#   1   error (dirty tree, wrong branch, missing tag/token, release failed)
+#   1   error (dirty tree, wrong branch, missing tag/token/credentials,
+#       release failed)
 #   2   bad usage
 #
 # Usage: bin/nightly-release
@@ -61,6 +64,12 @@ Environment:
                   ~/.meccg/secrets.json. Required for unattended runs — see
                   bin/handle-mail for why the rotating subscription token in
                   ~/.claude/.credentials.json will not do.
+  DOCKER_USER, DOCKER_PASSWORD
+                  Docker Hub credentials for the image publish at the end of
+                  the release. Fall back to `dockerUser` / `dockerPassword` in
+                  ~/.meccg/secrets.json. Required: without them the release
+                  bumps, tags and pushes a version whose image never reaches
+                  Docker Hub.
   NIGHTLY_RELEASE_TIMEOUT
                   Hard deadline in seconds for the headless claude
                   (default 7200 — the release builds and pushes two docker
@@ -192,6 +201,34 @@ if [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
   log '       {"claudeOauthToken": "<token>"}.'
   exit 1
 fi
+
+# The release's last step publishes two docker images through
+# bin/build-and-publish, which requires DOCKER_USER/DOCKER_PASSWORD. Cron gets
+# none of the interactive shell's environment and this host has no
+# ~/.docker/config.json, so without these the release runs all the way through
+# the version bump, CHANGELOG, commit, tag and push and only then dies at
+# "DOCKER_USER is not set" — leaving a released, tagged version whose image was
+# never published and which bin/update-dev therefore cannot deploy. That is
+# exactly how v0.165.0 shipped its tag but not its image on 2026-09-21.
+#
+# Checked BEFORE the release rather than left to fail inside it: a missing
+# secret must cost nothing, not a whole release that has to be finished by hand.
+if [ -f "$SECRETS" ]; then
+  if [ -z "${DOCKER_USER:-}" ]; then
+    DOCKER_USER="$(jq -r '.dockerUser // empty' "$SECRETS" 2>/dev/null || true)"
+  fi
+  if [ -z "${DOCKER_PASSWORD:-}" ]; then
+    DOCKER_PASSWORD="$(jq -r '.dockerPassword // empty' "$SECRETS" 2>/dev/null || true)"
+  fi
+fi
+if [ -z "${DOCKER_USER:-}" ] || [ -z "${DOCKER_PASSWORD:-}" ]; then
+  log "ERROR: no Docker Hub credentials — set DOCKER_USER and DOCKER_PASSWORD,"
+  log "       or add them to $SECRETS as"
+  log '       {"dockerUser": "<user>", "dockerPassword": "<token>"}.'
+  log "       Refusing to start: the release would tag a version it cannot publish."
+  exit 1
+fi
+export DOCKER_USER DOCKER_PASSWORD
 
 # No title is passed: /release writes its own from the pending commits.
 PROMPT="$(cat "$COMMANDS_DIR/release.md")"
