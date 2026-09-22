@@ -383,6 +383,25 @@ export function findRingAfterTestAction(
 }
 
 /**
+ * Find the play-dragon-ambush-creature action for a given Dragon hazard-
+ * creature card instance in hand (Rumor of Wealth td-58's `dragon-ambush-
+ * offer` resolution): at most one action exists per hand instance and it
+ * needs no target selection — clicking the card plays it directly against
+ * the ambushed company. Without this finder the offered Dragon hazard
+ * creature had no click handler at all and rendered as if it were unplayable,
+ * even though the engine's pending resolution legally offered it (bug report:
+ * "wasn't able to play (or couldn't figure out how to play)" either dragon
+ * after Rumor of Wealth's window opened).
+ */
+export function findDragonAmbushOfferAction(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction | null {
+  if (!instanceId) return null;
+  return actionsOfTypeFor(legalActions, 'play-dragon-ambush-creature', instanceId)[0] ?? null;
+}
+
+/**
  * Find the play-revealed-card actions for a given hand card instance (CoE
  * rule 10.13: an identical card revealed during a successful opponent-
  * influence attempt may immediately be played with the influencing
@@ -1217,6 +1236,8 @@ export function renderHand(
     const isStrikeEvent = strikeEventActions.length > 0;
     const ringAfterTestAction = findRingAfterTestAction(cardInstanceId, viable);
     const isRingAfterTest = ringAfterTestAction !== null;
+    const dragonAmbushOfferAction = findDragonAmbushOfferAction(cardInstanceId, viable);
+    const isDragonAmbushOffer = dragonAmbushOfferAction !== null;
     const revealedCardPlayActions = findRevealedCardPlayActions(cardInstanceId, viable);
     const isRevealedCardPlay = revealedCardPlayActions.length > 0;
     const declareBurglaryActions = findDeclareBurglaryActions(cardInstanceId, viable);
@@ -1230,7 +1251,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1507,6 +1528,15 @@ export function renderHand(
       if (onAction) {
         const ringAction = ringAfterTestAction;
         img.addEventListener('click', () => onAction(ringAction));
+      }
+    } else if (isDragonAmbushOffer) {
+      // Dragon-ambush-offer (Rumor of Wealth td-58): the ambushed company is
+      // fixed by the pending resolution, so clicking the card plays it
+      // directly against that company — no target step.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        const dragonAction = dragonAmbushOfferAction;
+        img.addEventListener('click', () => onAction(dragonAction));
       }
     } else if (isRevealedCardPlay) {
       // Influence-reveal-play offer (Rule 10.13): an item, ally, or faction
