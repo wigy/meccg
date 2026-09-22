@@ -32,11 +32,24 @@ export interface CancelChallengeMessage {
   readonly opponentName: string;
 }
 
+/**
+ * A `deckId` naming the AI opponent's deck. One of:
+ * - A shared-catalog deck ID (`data/decks/*.json`), same as always.
+ * - `"random"` — the lobby picks uniformly from the *approved* catalog
+ *   decks itself and never tells the human's own browser which one it
+ *   picked, before or during the game (see `resolveAiDeckId` in `lobby.ts`).
+ *   Rejoining a game keeps whatever deck was already resolved rather than
+ *   drawing a new one.
+ * - An ID from the requesting player's own saved decks (`GET /api/my-decks`).
+ *   These are unreviewed (`DeckList.approved` is per-catalog-deck only) and
+ *   may reach states the engine cannot continue from.
+ */
+type AiDeckId = string;
+
 /** Start a game against the Heuristic-AI (rule-based strategy). */
 export interface PlayHeuristicAiMessage {
   readonly type: 'play-heuristic-ai';
-  /** Catalog deck ID for the AI opponent to use. */
-  readonly deckId: string;
+  readonly deckId: AiDeckId;
 }
 
 /**
@@ -48,8 +61,7 @@ export interface PlayHeuristicAiMessage {
  */
 export interface PlayMcAiMessage {
   readonly type: 'play-mc-ai';
-  /** Catalog deck ID for the AI opponent to use. */
-  readonly deckId: string;
+  readonly deckId: AiDeckId;
 }
 
 /**
@@ -59,8 +71,7 @@ export interface PlayMcAiMessage {
  */
 export interface PlayRealAiMessage {
   readonly type: 'play-real-ai';
-  /** Catalog deck ID for the AI opponent to use. */
-  readonly deckId: string;
+  readonly deckId: AiDeckId;
   /** Model file name from /api/models (e.g. "gen2-it3-promoted-2026-07-25.json"). */
   readonly model: string;
 }
@@ -75,8 +86,7 @@ export interface PlayRealAiMessage {
  */
 export interface PlayModularAiMessage {
   readonly type: 'play-modular-ai';
-  /** Catalog deck ID for the AI opponent to use. */
-  readonly deckId: string;
+  readonly deckId: AiDeckId;
 }
 
 /**
@@ -94,10 +104,16 @@ export interface PlayTutorialMessage {
   readonly chapter?: number;
 }
 
-/** Start a game against the pseudo-AI (human controls both sides). */
+/**
+ * Start a game against the pseudo-AI (human controls both sides). Unlike
+ * {@link AiDeckId}, this `deckId` is always a plain shared-catalog deck ID:
+ * the browser itself builds the AI seat's join message from a deck it
+ * already has cached client-side (there is no spawned AI-client process
+ * to resolve `'random'` or a personal deck out of the human's sight), so
+ * neither the `'random'` sentinel nor a personal deck ID would resolve.
+ */
 export interface PlayPseudoAiMessage {
   readonly type: 'play-pseudo-ai';
-  /** Catalog deck ID for the pseudo-AI opponent to use. */
   readonly deckId: string;
 }
 

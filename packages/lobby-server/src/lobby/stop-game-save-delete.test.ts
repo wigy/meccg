@@ -41,6 +41,9 @@ vi.mock('../players/store.js', () => ({
   getDisplayName: (name: string) => name,
   getCredits: () => 0,
   toDirName: (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+  findOwnDeckById: () => null,
+  findDeckById: (_playerName: string, deckId: string) => ({ id: deckId, name: deckId, approved: true }),
+  listCatalogDecks: () => [],
 }));
 vi.mock('../mail/store.js', () => ({
   countUnread: () => 0,

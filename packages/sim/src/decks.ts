@@ -106,10 +106,8 @@ export interface LoadedDeck {
   readonly file: DeckFile;
 }
 
-/** Load and expand a catalog deck by ID (e.g. "challenge-deck-a"). */
-export function loadDeck(deckId: string): LoadedDeck {
-  const filePath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
-  const deck = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DeckFile;
+/** Expand a parsed {@link DeckFile} into the flat card lists the engine consumes. */
+function expandDeckFile(deck: DeckFile): LoadedDeck {
   return {
     id: deck.id,
     name: deck.name,
@@ -127,6 +125,23 @@ export function loadDeck(deckId: string): LoadedDeck {
     sideboard: expandEntries(deck.sideboard ?? []),
     file: deck,
   };
+}
+
+/** Load and expand a catalog deck by ID (e.g. "challenge-deck-a"). */
+export function loadDeck(deckId: string): LoadedDeck {
+  const filePath = path.join(DECK_CATALOG_DIR, `${deckId}.json`);
+  return expandDeckFile(JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DeckFile);
+}
+
+/**
+ * Load and expand a deck from an arbitrary file path, rather than by catalog
+ * ID. Used by the text clients' `--deck-file` argument (see `client-common.ts`'s
+ * `loadDeckJoinFromFile`): a player-owned deck served by the lobby is not in
+ * `DECK_CATALOG_DIR`, so it is written to a temp file and read from there
+ * instead (`launcher.ts`'s `buildAiClientArgs`).
+ */
+export function loadDeckFromFile(filePath: string): LoadedDeck {
+  return expandDeckFile(JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DeckFile);
 }
 
 /** List `{id, name}` of every deck in the catalog. */

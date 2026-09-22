@@ -449,12 +449,22 @@ export async function loadDecks(): Promise<void> {
   }
 
   // Populate AI deck dropdown, preserving the user's current selection.
-  // Only approved decks are offered: an unapproved deck may reach a state
-  // the engine cannot continue from, which strands the game mid-play.
+  // Catalog decks offered here are approved only: an unapproved deck may
+  // reach a state the engine cannot continue from, which strands the game
+  // mid-play. Two exceptions, both resolved server-side by
+  // `resolveAiDeckId` (lobby.ts): "Random" still only ever picks an
+  // approved catalog deck, just without telling this browser which one
+  // until the game ends; "My Decks" lets a player knowingly point the AI at
+  // one of their own unreviewed decks.
   const aiSelect = document.getElementById('ai-deck-select') as HTMLSelectElement | null;
   if (aiSelect) {
     const savedAiDeck = aiSelect.value;
     aiSelect.innerHTML = '';
+    const randomOpt = document.createElement('option');
+    randomOpt.value = 'random';
+    randomOpt.textContent = 'Random (kept secret until the game ends)';
+    if (savedAiDeck === 'random') randomOpt.selected = true;
+    aiSelect.appendChild(randomOpt);
     for (const deck of catalog.filter(d => d.approved === true)) {
       const opt = document.createElement('option');
       opt.value = deck.id;
@@ -462,6 +472,18 @@ export async function loadDecks(): Promise<void> {
       opt.textContent = missing.length > 0 ? `\u26A0 ${deck.name}` : deck.name;
       if (deck.id === savedAiDeck) opt.selected = true;
       aiSelect.appendChild(opt);
+    }
+    if (myDecks.length > 0) {
+      const group = document.createElement('optgroup');
+      group.label = 'My Decks (unreviewed \u2014 may behave unexpectedly)';
+      for (const deck of myDecks) {
+        const opt = document.createElement('option');
+        opt.value = deck.id;
+        opt.textContent = deck.name;
+        if (deck.id === savedAiDeck) opt.selected = true;
+        group.appendChild(opt);
+      }
+      aiSelect.appendChild(group);
     }
   }
 }

@@ -124,9 +124,9 @@
           </div>
           <div class="lobby-actions">
             <label class="lobby-select-label">AI Deck</label>
-            <select id="ai-deck-select" class="lobby-deck-select"></select>
+            <select id="ai-deck-select" class="lobby-deck-select" title="Random keeps the AI's deck secret until the game ends. My Decks entries are your own unreviewed decks — Pseudo-AI does not support Random or My Decks, since you'd see the AI's deck the moment you sat down to play it."></select>
           </div>
-          <p class="lobby-ai-description"><strong>Heuristic-AI</strong> uses rules to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself. <strong>Real-AI</strong> is experimental: it plays with a trained neural network model, and its strength depends on the model you pick. <strong>MC-AI</strong> is experimental: it searches by simulating random continuations, thinks for about two seconds per move, and its strength is unproven. <strong>Modular AI</strong> does not search at all, but every move it makes is one it can explain, in terms of how much the move changes its chances of winning.</p>
+          <p class="lobby-ai-description"><strong>Heuristic-AI</strong> uses rules to make competent decisions. <strong>Pseudo-AI</strong> lets you play both sides, making all decisions yourself. <strong>Real-AI</strong> is experimental: it plays with a trained neural network model, and its strength depends on the model you pick. <strong>MC-AI</strong> is experimental: it searches by simulating random continuations, thinks for about two seconds per move, and its strength is unproven. <strong>Modular AI</strong> does not search at all, but every move it makes is one it can explain, in terms of how much the move changes its chances of winning. Picking one of "My Decks" for the AI Deck lets it play an unreviewed deck of yours — it may behave unexpectedly.</p>
           <!-- Heuristics 2: explainable, no search. -->
           <button id="play-modular-ai-btn" class="lobby-play-btn">Play vs Modular AI</button>
           <button id="play-heuristic-ai-btn" class="lobby-play-btn">Play vs Heuristic-AI</button>

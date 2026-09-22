@@ -6,8 +6,12 @@
  * argmax. Card definitions are loaded once at start so the strategy can
  * score actions against the static card pool.
  *
- * Usage: npx tsx ai-client.ts <port> <playerName> <token> --deck <deckId>
+ * Usage: npx tsx ai-client.ts <port> <playerName> <token> (--deck <deckId> | --deck-file <path>)
  *          [--model <weights.json>] [--agent <spec>]
+ *
+ * `--deck-file` reads a deck JSON file directly instead of looking it up by
+ * id in the shared catalog — how the lobby hands this client a player-owned
+ * AI deck (`resolveAiDeckId` in `lobby.ts`).
  *
  * With `--model`, decisions come from a trained policy net (the sim's
  * `bc` agent: argmax over the masked softmax, with the same load-time

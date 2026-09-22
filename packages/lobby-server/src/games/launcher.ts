@@ -9,9 +9,11 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process';
+import * as fs from 'fs';
 import * as net from 'net';
+import * as os from 'os';
 import * as path from 'path';
-import type { GameAction, EvaluatedAction } from '@meccg/shared';
+import type { DeckList, GameAction, EvaluatedAction } from '@meccg/shared';
 import { GAME_PORT_BASE, JWT_SECRET, DEV } from '../config.js';
 import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
@@ -130,8 +132,20 @@ export interface LaunchResult {
 export interface LaunchOptions {
   /** Whether player2 is an AI (spawn a headless AI client). */
   ai?: boolean;
-  /** Catalog deck ID for the AI opponent to use. */
+  /**
+   * Catalog deck ID for the AI opponent to use, forwarded as `--deck <id>`.
+   * Mutually exclusive with {@link aiDeckContent} — exactly one of the two
+   * is required when `ai` is set.
+   */
   aiDeckId?: string;
+  /**
+   * A player-owned deck's full content for the AI opponent to use, when the
+   * deck is not in the shared catalog (`@meccg/sim`'s catalog-only `loadDeck`
+   * cannot see it — see `resolveAiDeckId` in `lobby/lobby.ts`). Serialized to
+   * a temp file and forwarded as `--deck-file <path>` instead of `--deck
+   * <id>`; the temp file is removed once the game-server child exits.
+   */
+  aiDeckContent?: DeckList;
   /** Whether the AI is a pseudo-AI (human controls both sides via IPC relay). */
   pseudoAi?: boolean;
   /**
@@ -205,6 +219,60 @@ function killAiClient(aiChild: ChildProcess): void {
   } catch {
     // No such group (already exited, or it never formed) — try the child itself.
     if (!aiChild.killed) aiChild.kill();
+  }
+}
+
+/** Directory the lobby writes resolved player-owned AI decks into, one file per game. */
+const AI_DECK_TMP_DIR = path.join(os.tmpdir(), 'meccg-ai-decks');
+
+/**
+ * The argv for a spawned AI client (headless AI or pseudo-AI relay) and the
+ * temp deck file to clean up afterward, if any. Split out from
+ * {@link launchGame} so the deck-file plumbing is testable without spawning a
+ * real process.
+ *
+ * `options.aiDeckContent` takes a player-owned deck (not in the shared
+ * catalog `@meccg/sim`'s `loadDeck` reads from) and writes it to a temp file
+ * passed as `--deck-file <path>`; otherwise `options.aiDeckId` is forwarded
+ * as `--deck <id>` exactly as before this existed. Exactly one of the two
+ * must be set — {@link resolveAiDeckId} in `lobby/lobby.ts` guarantees this
+ * for every real launch.
+ */
+export function buildAiClientArgs(
+  aiScript: string,
+  port: number,
+  playerName: string,
+  token: string,
+  options: LaunchOptions,
+): { readonly args: readonly string[]; readonly deckFilePath?: string } {
+  const args = ['tsx', aiScript, String(port), playerName, token];
+  let deckFilePath: string | undefined;
+  if (options.aiDeckContent) {
+    fs.mkdirSync(AI_DECK_TMP_DIR, { recursive: true });
+    deckFilePath = path.join(AI_DECK_TMP_DIR, `${port}-${Date.now()}.json`);
+    fs.writeFileSync(deckFilePath, JSON.stringify(options.aiDeckContent));
+    args.push('--deck-file', deckFilePath);
+  } else if (options.aiDeckId) {
+    args.push('--deck', options.aiDeckId);
+  } else {
+    throw new Error('aiDeckId or aiDeckContent is required to start an AI game');
+  }
+  // A sim agent spec wins over a trained model: it is the more general
+  // seam (`bc:weights.json` is itself a valid spec), and it is how a
+  // non-model agent such as the flat Monte-Carlo searcher is selected.
+  const agentSpec = options.aiAgentSpec ?? process.env.MECCG_AI_AGENT;
+  if (agentSpec) args.push('--agent', agentSpec);
+  else if (options.aiModelPath) args.push('--model', options.aiModelPath);
+  return { args, deckFilePath };
+}
+
+/** Delete a temp AI-deck file written by {@link buildAiClientArgs}, ignoring errors. */
+export function cleanupAiDeckFile(deckFilePath: string | undefined): void {
+  if (!deckFilePath) return;
+  try {
+    fs.rmSync(deckFilePath, { force: true });
+  } catch (err) {
+    lobbyLog.log('error', { context: 'ai-deck-file-cleanup', error: String(err) });
   }
 }
 
@@ -283,16 +351,7 @@ export async function launchGame(player1: string, player2: string, options?: Lau
   if (options?.ai) {
     const isPseudo = options.pseudoAi ?? false;
     const aiScript = path.join(__dirname, '../../../text-client/src/', isPseudo ? 'pseudo-ai-client.ts' : 'ai-client.ts');
-    if (!options.aiDeckId) {
-      throw new Error('aiDeckId is required to start an AI game');
-    }
-    const aiArgs = ['tsx', aiScript, String(port), player2, tokens[1], '--deck', options.aiDeckId];
-    // A sim agent spec wins over a trained model: it is the more general
-    // seam (`bc:weights.json` is itself a valid spec), and it is how a
-    // non-model agent such as the flat Monte-Carlo searcher is selected.
-    const agentSpec = options.aiAgentSpec ?? process.env.MECCG_AI_AGENT;
-    if (agentSpec) aiArgs.push('--agent', agentSpec);
-    else if (options.aiModelPath) aiArgs.push('--model', options.aiModelPath);
+    const { args: aiArgs, deckFilePath } = buildAiClientArgs(aiScript, port, player2, tokens[1], options);
     const aiChild = spawn('npx', aiArgs, {
       env: process.env,
       stdio: isPseudo ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
@@ -304,6 +363,10 @@ export async function launchGame(player1: string, player2: string, options?: Lau
     forwardChildLines(aiChild.stderr, 'ai-stderr', port);
     child.on('exit', () => {
       killAiClient(aiChild);
+      // The AI client re-reads this file on every reconnect (its join
+      // payload is rebuilt from scratch each time), so it must live for the
+      // whole game — only safe to remove once the game server itself is gone.
+      cleanupAiDeckFile(deckFilePath);
     });
 
     // Wire up IPC relay for pseudo-AI games
