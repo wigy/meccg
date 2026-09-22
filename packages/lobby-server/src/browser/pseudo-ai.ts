@@ -57,9 +57,16 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
   const viable = actions.filter(a => a.viable);
   const nonViable = actions.filter(a => !a.viable);
 
-  // Auto-pick when there is only one viable option
-  if (viable.length === 1) {
-    sendPseudoAiPick(viable[0].action);
+  // Auto-pick when there is only one viable option, but never auto-concede.
+  // The server appends `concede` as an always-viable meta-action to every
+  // seat's legal-action set (see withConcedeAction), so a player who is just
+  // waiting on their opponent (e.g. mid character-draft, right after their
+  // own face-down pick) ends up with `[concede]` as their sole "viable"
+  // action. Auto-firing that would silently forfeit the game for the human
+  // controlling this side — concede must always be an explicit click.
+  const autoPickable = viable.filter(a => a.action.type !== 'concede');
+  if (autoPickable.length === 1) {
+    sendPseudoAiPick(autoPickable[0].action);
     panel.classList.remove('waiting');
     panel.classList.add('hidden');
     return;
