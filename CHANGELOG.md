@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.167.0 — 2026-09-22
+
+Rule-Bypass Exploits Closed, Dragon Ambush Wired Up
+
+### Game Engine
+
+- Fixed Magical Harp's (td-130) `cancel-character-discard` constraint being recorded but never consulted: CoE 7.1.3 says an effect that prevents a character from being discarded due to a corruption-check roll makes the check "considered successful" instead, so the corruption-check resolver now overrides a would-be discard outcome to success when an active `cancel-character-discard` constraint covers the failing character's company (reported via a game where the harp's own bearer failed the check its tap enqueued and was discarded despite the harp's protection being active) (#3141)
+- Fixed Sacrifice of Form (tw-321) being playable through the generic `play-permanent-event` path (backing rule 2.1.1), bypassing its dedicated legal-action generator that only offers it after strikes are assigned and before any strike resolves. The generic path routed through the wrong handler, so `forcedStrikeDefeat`/`pendingSacrificeOfForm` never got set and the strikes it's meant to nullify resolved normally; excluded cards with a sacrifice-of-form effect from `playPermanentEventActions`, matching the existing pattern for other narrowly-gated permanent events (#3139)
+
+### Web Client
+
+- Fixed Rumor of Wealth's dragon-ambush-offer resolution correctly offering `play-dragon-ambush-creature` for eligible Dragon hazard creatures in hand, but the hand renderer had no finder for that action type, so the offered dragon never highlighted and had no click handler; added `findDragonAmbushOfferAction` (mirroring `findRingAfterTestAction` for rule 9.21's ring-play-offer) and wired it into the hand card dispatch (#3140)
+
 ## 0.166.0 — 2026-09-21
 
 Uniqueness Bugs Fixed, Automated Releases Hardened
