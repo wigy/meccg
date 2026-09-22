@@ -284,8 +284,14 @@ export interface StrikeAssignment {
    *   Distinct from `'wounded'` so finalize-time wound triggers (bearer-wounded
    *   discards, wounded-by-race stamps, character-wounded-by-self effects) do
    *   not fire on an un-wounded prisoner.
+   * - `'item-discarded'` -- The strike succeeded against the defender but its
+   *   `discard-item`/`discard-item-character` effect (Thief tw-102, Pick-pocket
+   *   tw-79, An Article Missing dm-43, Taladhan dm-25) replaced the wound with
+   *   an item discard instead. Distinct from `'success'` so `finalizeCombat`
+   *   does not mistake the creature's *own* successful strike for the
+   *   defender having defeated it, which would wrongly award kill-MP.
    */
-  readonly result?: 'success' | 'survived' | 'tie' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed' | 'captured';
+  readonly result?: 'success' | 'survived' | 'tie' | 'wounded' | 'eliminated' | 'canceled' | 'absorbed' | 'captured' | 'item-discarded';
   /**
    * Whether the character was already wounded before this strike was resolved.
    * Used for body check calculation: +1 if already wounded (CoE rule 3.I).
