@@ -25,7 +25,7 @@ import {
   viableActions,
 } from '../../test-helpers.js';
 import type { GameState } from '../../../index.js';
-import type { PlanMovementAction } from '../../../types/actions-organization.js';
+import type { PlanMovementAction, PlayCharacterAction } from '../../../types/actions-organization.js';
 
 // Minion characters with Leader keyword
 const ORC_CAPTAIN = 'le-31' as CardDefinitionId;   // Orc, Leader, mind 5
@@ -178,5 +178,53 @@ describe('Rule 3.26 — Leader Restriction', () => {
     const baradDurInstOneLeader = stateOneLeader.players[0].siteDeck.find(s => s.definitionId === BARAD_DUR)!.instanceId;
     const plansOneLeader = viableActions(stateOneLeader, PLAYER_1, 'plan-movement');
     expect(plansOneLeader.some(ea => (ea.action as PlanMovementAction).destinationSite === baradDurInstOneLeader)).toBe(true);
+  });
+
+  test('The leader restriction also applies to playing a character into an existing company', () => {
+    // Reproduces a reported bug: playing a second Leader (Troll-chief) from
+    // hand into a company that already holds a Leader (Orc Captain) at a
+    // non-haven site (Barad-dûr, a dark-hold) was offered even though rule
+    // 3.26 forbids two Leaders in one company away from a haven. The illegal
+    // company then could never declare movement again (see the test above),
+    // stranding it. `play-character` must not offer a join that immediately
+    // violates the composition it is joining.
+    const stateNonHaven = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: BARAD_DUR, characters: [ORC_CAPTAIN] }],
+          hand: [TROLL_CHIEF],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+      recompute: true,
+    });
+    const nonHavenSite = stateNonHaven.players[0].companies[0].currentSite!.instanceId;
+    const playsNonHaven = viableActions(stateNonHaven, PLAYER_1, 'play-character')
+      .map(ea => ea.action as PlayCharacterAction);
+    expect(playsNonHaven.some(p => p.atSite === nonHavenSite)).toBe(false);
+
+    // The same play into the same company IS legal at a haven (Darkhaven).
+    const stateHaven = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: CARN_DUM, characters: [ORC_CAPTAIN] }],
+          hand: [TROLL_CHIEF],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+      recompute: true,
+    });
+    const havenSite = stateHaven.players[0].companies[0].currentSite!.instanceId;
+    const playsHaven = viableActions(stateHaven, PLAYER_1, 'play-character')
+      .map(ea => ea.action as PlayCharacterAction);
+    expect(playsHaven.some(p => p.atSite === havenSite)).toBe(true);
   });
 });
