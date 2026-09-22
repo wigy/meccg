@@ -20,6 +20,7 @@ import { resolveDef } from '../effects/index.js';
 import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf, parseHomesiteNames } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { companyAtSiteInstance, companyExemptsCharacterFromInfluence, companyExemptsCharacterFromPlayLimit } from '../company-composition.js';
+import { wouldViolateLeaderRestriction } from './organization-companies.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { availableDI } from './organization.js';
 
@@ -835,6 +836,16 @@ export function playCharacterActions(
           logDetail(`  → skip ${site.siteName}: a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)`);
           continue;
         }
+        // Rule 3.26 (glossary "leader"): a company can only contain one
+        // leader unless at a haven. Applies to joining an existing company
+        // by playing a character into it, exactly as it does to merges and
+        // in-company moves (see `wouldViolateLeaderRestriction` call sites).
+        if (joined
+          && !isHavenForPlayer(site.siteDef, player.alignment, { state, siteDefinitionId: site.siteDef.id, playerId })
+          && wouldViolateLeaderRestriction(state, [...joined.characters, cardInstanceId], joined.id)) {
+          logDetail(`  → skip ${site.siteName}: ${joined.id as string} would hold more than one leader away from a haven (rule 3.26)`);
+          continue;
+        }
         logDetail(`  → viable: play avatar at ${site.siteName}`);
         results.push({
           action: {
@@ -948,6 +959,16 @@ export function playCharacterActions(
           && !isDarkhavenSiteDef(site.siteDef)
           && wouldViolateRingwraithComposition(state, [...companyHere.characters, cardInstanceId])) {
           logDetail(`  → skip ${site.siteName}: a Ringwraith's company may only hold other Ringwraiths away from a Darkhaven (rule 3.07)`);
+          continue;
+        }
+        // Rule 3.26 (glossary "leader"): a company can only contain one
+        // leader unless at a haven. Applies to joining an existing company
+        // by playing a character into it, exactly as it does to merges and
+        // in-company moves (see `wouldViolateLeaderRestriction` call sites).
+        if (companyHere
+          && !isHavenForPlayer(site.siteDef, player.alignment, { state, siteDefinitionId: site.siteDef.id, playerId })
+          && wouldViolateLeaderRestriction(state, [...companyHere.characters, cardInstanceId], companyHere.id)) {
+          logDetail(`  → skip ${site.siteName}: ${companyHere.id as string} would hold more than one leader away from a haven (rule 3.26)`);
           continue;
         }
         if (rawPlayLimitReached && (companyHereId === undefined || !playLimitExemptCompanies.has(companyHereId))) {
