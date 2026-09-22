@@ -1297,3 +1297,24 @@ Drughu (as-47): "Playable on a hero company during your organization phase if yo
    ```
 
 Used by *Drughu* (as-47).
+
+### `force-opponent-hazard-shuffle` (new), plus `force-discard-card` gains a `destination` field and multi-pick fixed-candidate support
+
+Show Things Unbidden (ba-32): "Playable during the organization phase on Galadriel if untapped and at Lórien. Tap Galadriel. Opponent must choose and reveal to you 3 non-environment hazards from his hand and shuffle them into his play deck. If these are not available, opponent must reveal his hand to you and shuffle all non-environment hazards there into his play deck." Two gaps:
+
+1. **New `force-opponent-hazard-shuffle` triggered action.** Carried by a resource short-event's `on-event: self-enters-play` (no `target` — it acts on the opponent). `applyShortEventOnEntersPlay` (`reducer-events.ts`) gathers the opponent's hand cards matching "non-environment hazard" (any `hazard-creature`/`hazard-corruption`, or a `hazard-event` lacking the `environment` keyword). With at least `count` matches, it enqueues a `force-discard-card` pending resolution (actor = opponent, `destination: "play-deck"`, `remaining: count`) so the opponent chooses which `count` to shuffle in. With fewer than `count` matches there is nothing to choose — the whole hand is revealed (`revealInstances`) and every matching card found is shuffled into the opponent's play deck immediately, no resolution involved.
+2. **`force-discard-card` gains `destination` + multi-pick fixed-candidate mode.** Every prior fixed-candidate use (rings wh-29, Stage cards wh-17) discarded exactly one chosen card to the actor's discard pile. The pending-resolution kind (`types/pending.ts`) gained an optional `destination?: 'discard' | 'play-deck'` (default `'discard'`): `applyForceDiscardCardResolution` (`pending-reducers.ts`) shuffles the chosen card into the actor's `playDeck` (via `shuffle`, threading a fresh `rng`) instead of pushing it to `discardPile` when set. Separately, the fixed-candidate repeat logic — previously only the `anyFromHand` mode kept the resolution alive across multiple picks — now also applies to fixed-candidate mode: after each pick the chosen instance is dropped from `candidateInstanceIds`, and if `remaining` (decremented) is still positive and candidates remain, the resolution re-queues with the shrunk list instead of dequeuing after one pick.
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.name": "Galadriel" },
+    { "target.status": "untapped" },
+    { "company.siteName": "Lórien" } ] },
+  "cost": { "tap": "character" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "force-opponent-hazard-shuffle", "count": 3 } }
+```
+
+Used by *Show Things Unbidden* (ba-32).

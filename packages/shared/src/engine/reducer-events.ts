@@ -11,7 +11,7 @@ import type { ResolutionId } from '../types/pending.js';
 import { parseConstraintScope } from './constraint-kind.js';
 import { enterMovementHazardPhase } from './mh-phase-state.js';
 import { getPlayerIndex } from '../state-utils.js';
-import { CardStatus, cardStatusFromName, Race } from '../types/common.js';
+import { CardStatus, cardStatusFromName, Race, type CardDefinitionId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
 import { oneRingWin } from './reducer-free-council.js';
@@ -2578,6 +2578,55 @@ function applyShortEventOnEntersPlay(
         // just item-transfer/store checks — see rule-3.35's transfer fix.
         allowSupport: true,
       });
+      continue;
+    }
+
+    // Show Things Unbidden (ba-32): the card-player's opponent must choose
+    // and reveal `count` non-environment hazards (any hazard-creature, or a
+    // hazard-event lacking the `environment` keyword) from hand and shuffle
+    // them into their play deck. With fewer than `count` available, there is
+    // no choice to offer — the opponent instead reveals their entire hand and
+    // every matching card found there is shuffled into their play deck
+    // immediately (deterministic — "all" leaves nothing to choose).
+    if (onEvent.apply.type === 'force-opponent-hazard-shuffle') {
+      const requiredCount = onEvent.apply.count;
+      const opponentIndex = playerIndex === 0 ? 1 : 0;
+      const opponentState = state.players[opponentIndex];
+      const isNonEnvironmentHazard = (defId: CardDefinitionId): boolean => {
+        const hazardDef = defById(state, defId);
+        if (!hazardDef) return false;
+        if (hazardDef.cardType === 'hazard-creature' || hazardDef.cardType === 'hazard-corruption') return true;
+        if (hazardDef.cardType === 'hazard-event') {
+          const kws = (hazardDef as { keywords?: readonly string[] }).keywords ?? [];
+          return !kws.includes('environment');
+        }
+        return false;
+      };
+      const matching = opponentState.hand.filter(c => isNonEnvironmentHazard(c.definitionId));
+      if (matching.length >= requiredCount) {
+        logDetail(`"${def.name}": ${opponentState.name} must choose ${requiredCount} of ${matching.length} non-environment hazard(s) from hand to shuffle into their play deck`);
+        state = enqueueResolution(state, {
+          source: handCard.instanceId,
+          actor: opponentState.id,
+          scope: { kind: 'phase', phase: state.phaseState.phase },
+          kind: {
+            type: 'force-discard-card',
+            candidateInstanceIds: matching.map(c => c.instanceId),
+            sourceDefinitionId: handCard.definitionId,
+            remaining: requiredCount,
+            destination: 'play-deck',
+          },
+        });
+      } else {
+        logDetail(`"${def.name}": ${opponentState.name} has only ${matching.length} non-environment hazard(s) — revealing hand and shuffling all of them into their play deck`);
+        state = revealInstances(state, opponentState.hand);
+        if (matching.length > 0) {
+          const matchingIds = new Set(matching.map(c => c.instanceId));
+          const remainingHand = opponentState.hand.filter(c => !matchingIds.has(c.instanceId));
+          const [shuffledDeck, rng] = shuffle([...opponentState.playDeck, ...matching], state.rng);
+          state = updatePlayer({ ...state, rng }, opponentIndex, p => ({ ...p, hand: remainingHand, playDeck: shuffledDeck }));
+        }
+      }
       continue;
     }
 

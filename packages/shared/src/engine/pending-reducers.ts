@@ -4538,29 +4538,54 @@ export function applyForceDiscardCardResolution(
 
   const cardDef = defById(state, removed.definitionId);
   const cardName = cardDef?.name ?? (cardInstanceId as string);
-  logDetail(`force-discard-card: ${actorPlayer.name} discards "${cardName}"`);
+  const destination = fdKind.destination ?? 'discard';
 
-  const newPlayers = clonePlayers(state);
+  let workingState = state;
+  let newDiscardPile = actorPlayer.discardPile;
+  let newPlayDeck = actorPlayer.playDeck;
+  if (destination === 'play-deck') {
+    logDetail(`force-discard-card: ${actorPlayer.name} shuffles "${cardName}" into their play deck`);
+    const [shuffled, rng] = shuffle([...actorPlayer.playDeck, removed], state.rng);
+    newPlayDeck = shuffled;
+    workingState = { ...state, rng };
+  } else {
+    logDetail(`force-discard-card: ${actorPlayer.name} discards "${cardName}"`);
+    newDiscardPile = [...actorPlayer.discardPile, removed];
+  }
+
+  const newPlayers = clonePlayers(workingState);
   newPlayers[actorIdx] = {
     ...actorPlayer,
     hand: newHand,
     cardsInPlay: newCardsInPlay,
     killPile: newKillPile,
     characters: newCharacters,
-    discardPile: [...actorPlayer.discardPile, removed],
+    discardPile: newDiscardPile,
+    playDeck: newPlayDeck,
   };
   // Discarding a stage card changes the actor's stage-point total, which is
   // derived — recompute so the drop is reflected immediately.
-  const stateAfter = recomputeDerived({ ...state, players: newPlayers });
+  const stateAfter = recomputeDerived({ ...workingState, players: newPlayers });
 
-  // Any-from-hand: keep the resolution alive until the required count is met or
-  // the hand runs out.
+  // Keep the resolution alive until the required count is met or candidates
+  // run out. Any-from-hand: the candidate set is the shrinking hand itself.
+  // Fixed-candidate (e.g. Show Things Unbidden ba-32, choose 3): the chosen
+  // instance is dropped from candidateInstanceIds so it isn't offered twice.
+  const remainingAfter = (fdKind.remaining ?? 1) - 1;
   if (anyFromHand) {
-    const remainingAfter = (fdKind.remaining ?? 1) - 1;
     if (remainingAfter > 0 && newHand.length > 0) {
       logDetail(`force-discard-card: ${actorPlayer.name} must still discard ${remainingAfter} card(s)`);
       const updated = stateAfter.pendingResolutions.map(r =>
         r.id === top.id ? { ...r, kind: { ...fdKind, remaining: remainingAfter } } : r,
+      );
+      return { state: { ...stateAfter, pendingResolutions: updated } };
+    }
+  } else {
+    const remainingCandidates = fdKind.candidateInstanceIds.filter(id => id !== cardInstanceId);
+    if (remainingAfter > 0 && remainingCandidates.length > 0) {
+      logDetail(`force-discard-card: ${actorPlayer.name} must still choose ${remainingAfter} more of ${remainingCandidates.length} candidate(s)`);
+      const updated = stateAfter.pendingResolutions.map(r =>
+        r.id === top.id ? { ...r, kind: { ...fdKind, remaining: remainingAfter, candidateInstanceIds: remainingCandidates } } : r,
       );
       return { state: { ...stateAfter, pendingResolutions: updated } };
     }

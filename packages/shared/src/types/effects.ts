@@ -3407,6 +3407,33 @@ export interface RevealOpponentHandAction extends TriggeredActionBase {
 }
 
 /**
+ * `force-opponent-hazard-shuffle` — the card-player's opponent must choose
+ * and reveal `count` non-environment hazard cards from their hand (any
+ * `hazard-creature`, or `hazard-event` lacking the `environment` keyword)
+ * and shuffle them into their play deck. If fewer than `count` are
+ * available, the "choose" branch cannot be satisfied — the opponent
+ * instead reveals their entire hand and every matching card found there is
+ * shuffled into their play deck (no choice offered; "all" is
+ * deterministic once the hand is fixed).
+ *
+ * The choose-branch enqueues a `force-discard-card` pending resolution
+ * (mirroring `force-opponent-discard`'s opponent-picks mechanic) with
+ * `destination: "play-deck"`, so the same repeat-until-`remaining`-hits-0
+ * machinery routes the picked cards to the play deck instead of the
+ * discard pile. Resolved in `applyShortEventOnEntersPlay`
+ * (`reducer-events.ts`). Used by *Show Things Unbidden* (ba-32): "Opponent
+ * must choose and reveal to you 3 non-environment hazards from his hand
+ * and shuffle them into his play deck. If these are not available,
+ * opponent must reveal his hand to you and shuffle all non-environment
+ * hazards there into his play deck."
+ */
+export interface ForceOpponentHazardShuffleAction extends TriggeredActionBase {
+  readonly type: 'force-opponent-hazard-shuffle';
+  /** How many matching cards the opponent must choose and shuffle in. */
+  readonly count: number;
+}
+
+/**
  * `discard-target-corruption-card` — discard the hazard-corruption card
  * identified by `activate-granted-action.targetCardId` from whichever of the
  * activating player's own characters bears it, moving it to that
@@ -4051,6 +4078,7 @@ export type TriggeredAction =
   | SauronSideboardFetchAction
   | PeekOpponentHandAction
   | RevealOpponentHandAction
+  | ForceOpponentHazardShuffleAction
   | DiscardTargetCorruptionCardAction
   | OfferCorruptionRemovalAtSiteAction
   | RollDiscardOpponentNonUniqueAllyAction

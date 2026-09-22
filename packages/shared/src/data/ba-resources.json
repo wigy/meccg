@@ -171,8 +171,28 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the organization phase on Galadriel if untapped and at Lórien. Tap Galadriel. Opponent must choose and reveal to you 3 non-environment hazards from his hand and shuffle them into his play deck. If these are not available, opponent must reveal his hand to you and shuffle all non-environment hazards there into his play deck."
+    "effects": [
+      { "type": "play-window", "phase": "organization", "step": "end-of-org" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.name": "Galadriel" },
+            { "target.status": "untapped" },
+            { "company.siteName": "Lórien" }
+          ]
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "force-opponent-hazard-shuffle", "count": 3 }
+      }
+    ],
+    "text": "Playable during the organization phase on Galadriel if untapped and at Lórien. Tap Galadriel. Opponent must choose and reveal to you 3 non-environment hazards from his hand and shuffle them into his play deck. If these are not available, opponent must reveal his hand to you and shuffle all non-environment hazards there into his play deck.",
+    "certified": "2026-09-22"
   },
   {
     "cardType": "hero-resource-event",

@@ -815,7 +815,11 @@ export interface PendingResolution {
          *
          * - **Fixed-candidate** (Rolled down to the Sea wh-29): the actor picks
          *   from {@link candidateInstanceIds} — rings gathered from their hand
-         *   and/or held by their in-play characters. `remaining` defaults to 1.
+         *   and/or held by their in-play characters. `remaining` defaults to 1;
+         *   when greater than 1 (Show Things Unbidden ba-32: choose 3 matching
+         *   hazards), the chosen instance is removed from
+         *   {@link candidateInstanceIds} and the resolution re-queues until
+         *   `remaining` hits 0 or the candidate list empties.
          *   The candidates may equally be cards in play: Echoes of the Song
          *   (wh-17) lists every Stage card the actor controls, wherever it sits
          *   (`cardsInPlay`, a bearer's items, or a bearer's allies).
@@ -847,6 +851,14 @@ export interface PendingResolution {
          * any-from-hand mode, when the hand empties).
          */
         readonly remaining?: number;
+        /**
+         * Where the chosen card goes. Absent/`'discard'` — the actor's discard
+         * pile (the original, "force-*discard*-card" behaviour). `'play-deck'`
+         * — shuffled into the actor's play deck instead (Show Things Unbidden
+         * ba-32: "shuffle them into his play deck"), reusing the same
+         * choose-N-of-M machinery for a shuffle instead of a discard.
+         */
+        readonly destination?: 'discard' | 'play-deck';
       }
     | {
         /**
