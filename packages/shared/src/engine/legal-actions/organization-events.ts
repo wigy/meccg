@@ -21,7 +21,7 @@ import type {
   Company,
   SiteInPlay,
 } from '../../index.js';
-import type { ConvertCreatureToAllyEffect, RecruitmentVehicleEffect } from '../../types/effects.js';
+import type { ConvertCreatureToAllyEffect, RecruitmentVehicleEffect, SacrificeOfFormEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { cardsAttachedToCharacter } from '../../character-attachments.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -226,6 +226,25 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
     );
     if (recruitmentVehicle) {
       logDetail(`Permanent event ${def.name}: recruitment-vehicle — only playable bundled with a character recruit, not offered here`);
+      continue;
+    }
+
+    // A `sacrifice-of-form` effect (Sacrifice of Form tw-321) has its own
+    // narrow combat-only play window — "played after strikes are assigned"
+    // (CRF 22), before any strike of that attack resolves, and never in
+    // company-vs-company combat — enforced by `sacrificeOfFormActions`
+    // (legal-actions/combat.ts). Rule 2.1.1's "any phase" allowance for
+    // resource permanent-events is exactly the kind of "unless a rule or
+    // effect restricts them" case that provision itself carves out, so this
+    // card must never reach the generic fallback below (which would offer it
+    // unconditionally, including before combat even exists — bug: playing it
+    // that way skips `handleSacrificeOfForm` entirely, so the strikes it's
+    // meant to nullify still resolve normally).
+    const sacrificeOfForm = getCardEffects(def).find(
+      (e): e is SacrificeOfFormEffect => e.type === 'sacrifice-of-form',
+    );
+    if (sacrificeOfForm) {
+      logDetail(`Permanent event ${def.name}: sacrifice-of-form — combat-only window, not offered here`);
       continue;
     }
 
