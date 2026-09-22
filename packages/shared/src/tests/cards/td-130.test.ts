@@ -17,11 +17,12 @@
  *      Apply: add turn-scoped `cancel-character-discard` constraint to
  *      the bearer's company + enqueue a corruption check on the bearer.
  *
- * The constraint is a vacuous-today protection: no hazard card in the
- * engine currently implements a literal "discard a target character"
- * effect, so the constraint has nothing to cancel yet. Any future
- * character-discard effect must consult active `cancel-character-discard`
- * constraints on the target's company before taking effect.
+ * The constraint is consulted by the corruption-check resolver (CoE
+ * 7.1.3: an effect that prevents a character from being discarded due to
+ * a corruption check roll makes the check "considered successful"), so it
+ * protects the bearer's own company from a failed corruption check's
+ * discard outcome — including the check the harp's own activation enqueues
+ * on its bearer.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -41,9 +42,11 @@ import {
   expectCharStatus,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
+import { computeLegalActions } from '../../index.js';
 import type {
   CardDefinitionId,
   ActivateGrantedAction,
+  CorruptionCheckAction,
   FreeCouncilPhaseState,
   SitePhaseState,
 } from '../../index.js';
@@ -396,5 +399,58 @@ describe('Magical Harp (td-130)', () => {
         && ea.action.actionId === 'cancel-character-discard',
     );
     expect(harpActions).toHaveLength(0);
+  });
+
+  // ─── Rule 2 (CoE 7.1.3): the constraint actually prevents a discard ──────
+
+  test('active cancel-character-discard constraint saves the bearer from its own corruption-check discard (CoE 7.1.3)', () => {
+    // Reproduces a reported bug: tapping the harp enqueues a corruption
+    // check on its own bearer (per the card's text) and simultaneously
+    // places a `cancel-character-discard` constraint on the bearer's own
+    // company. A roll landing in the "discard" band (roll == CP or CP-1)
+    // must NOT discard the bearer — CoE 7.1.3 says an effect that prevents
+    // the discard makes the check "considered successful" instead.
+    //
+    // Aragorn (not Gandalf) is the bearer here: Gandalf's own text grants
+    // "+1 to all of his corruption checks", which — combined with the
+    // harp's CP 2 and a minimum 2d6 roll of 2 — makes the check unfailable
+    // on its own and would mask the bug regardless of the fix.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: LONELY_MOUNTAIN, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withHarp = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, MAGICAL_HARP);
+    const aragornId = charIdAt(withHarp, RESOURCE_PLAYER, 0, 0);
+
+    const grantActions = viableActions(withHarp, PLAYER_1, 'activate-granted-action');
+    const harpAction = grantActions.find(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'cancel-character-discard',
+    )!;
+    const afterTap = dispatch(withHarp, harpAction.action);
+
+    // The constraint is active and the corruption check is queued on Aragorn.
+    expect(afterTap.activeConstraints.some(c => c.kind.type === 'cancel-character-discard')).toBe(true);
+    expect(afterTap.pendingResolutions).toHaveLength(1);
+
+    const rollAction = computeLegalActions(afterTap, PLAYER_1)
+      .find(ea => ea.viable && ea.action.type === 'corruption-check')!.action as CorruptionCheckAction;
+    expect(rollAction.characterId).toBe(aragornId);
+    expect(rollAction.corruptionModifier).toBe(0);
+
+    // Force a dice total equal to CP — the "discard" band for a hero
+    // character (CoE 7.1) — with no modifier in play.
+    const cheatedRoll = { ...afterTap, cheatRollTotal: rollAction.corruptionPoints };
+    const resolved = dispatch(cheatedRoll, rollAction);
+
+    // Aragorn stays in play, in his company, untouched by the discard.
+    expect(resolved.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === aragornId)).toBe(false);
+    expect(resolved.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(false);
+    const company = resolved.players[RESOURCE_PLAYER].companies.find(co => co.characters.includes(aragornId));
+    expect(company).toBeDefined();
+    expect(resolved.pendingResolutions).toHaveLength(0);
   });
 });
