@@ -243,4 +243,39 @@ describe('Thief (tw-102)', () => {
     expectCharItemCount(s, RESOURCE_PLAYER, ARAGORN, 1);
     expect(s.players[RESOURCE_PLAYER].characters[aragornId].status).not.toBe(CardStatus.Inverted);
   });
+
+  // ─── Creature disposal after combat (CoE 3.v) ─────────────────────────────
+
+  test('a successful discard-item strike sends the creature to the attacker\'s discard pile, not the defender\'s kill pile', () => {
+    // Bug report: the Thief's own successful strike (item discarded instead
+    // of a wound) was mistakenly recorded as the defender defeating the
+    // creature, sending Thief to the defender's kill pile (kill-MP) on every
+    // attack instead of the attacker's discard pile.
+    const base = setupThiefCombat([ARAGORN]);
+    const afterChain = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, DAGGER_OF_WESTERNESSE);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+
+    let s = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2); // 2+6=8 < 15 → discard-item strike effect
+
+    const discardAction = viableActions(s, PLAYER_1, 'discard-item-from-company')[0].action;
+    const afterDiscard = dispatch(s, discardAction);
+
+    expect(afterDiscard.combat).toBeNull();
+    expect(afterDiscard.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === THIEF)).toBe(true);
+    expect(afterDiscard.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === THIEF)).toBe(false);
+  });
+
+  test('when the defending character truly defeats the strike, the creature moves to the defender\'s kill pile', () => {
+    const base = setupThiefCombat([ARAGORN]);
+    const afterChain = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, DAGGER_OF_WESTERNESSE);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+
+    let s = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 12); // 12+6=18 > 15 → defeats the strike
+
+    expect(s.combat).toBeNull();
+    expect(s.players[RESOURCE_PLAYER].killPile.some(c => c.definitionId === THIEF)).toBe(true);
+    expect(s.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === THIEF)).toBe(false);
+  });
 });

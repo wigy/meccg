@@ -493,6 +493,10 @@ export function resolveStrikeCore(
     && (combat.strikeEffect === 'discard-item' || combat.strikeEffect === 'discard-item-character');
   if (discardItemEffect) {
     logDetail(`${combat.strikeEffect as string} strike effect: successful strike — character not wounded; must discard one item`);
+    // Reuses the 'success' tap-only (no wound) status logic below, but the
+    // recorded assignment result is downgraded to 'item-discarded' further
+    // down — this was the creature's strike succeeding, not the defender
+    // defeating the creature, so it must not count toward kill-MP.
     result = 'success';
     bodyCheckTarget = null;
   }
@@ -564,7 +568,9 @@ export function resolveStrikeCore(
       ? ('captured' as const)
       : isTie
         ? ('tie' as const)
-        : result;
+        : discardItemEffect
+          ? ('item-discarded' as const)
+          : result;
   const newAssignments = combat.strikeAssignments.map((a, i) =>
     i === combat.currentStrikeIndex
       ? {
