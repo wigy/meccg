@@ -78,6 +78,26 @@ export function discardBenefitsSelf(view: PlayerView, instanceId: CardInstanceId
   return true;
 }
 
+/**
+ * Whether an earlier, still-unresolved chain entry already targets
+ * `instanceId` with a discard-in-play short event (Marvels Told td-134,
+ * Voices of Malice le-250, Ancient Secrets ba-36, The Cock Crows tw-342).
+ *
+ * The discard itself only happens when the chain resolves, so the target
+ * remains visible as "in play" — and thus as a legal target for a second
+ * copy of the same effect — right up until then. Declaring a second one
+ * against the same card is always pure waste: the first resolves the
+ * discard unconditionally once it fires, so by the time the second entry
+ * comes up its target is already gone and it fizzles, having spent the
+ * card (and any tap cost) for nothing (bug report: the AI playing two
+ * Marvels Told against the same single hazard-event, one of them a no-op).
+ */
+export function discardTargetAlreadyDeclared(view: PlayerView, instanceId: CardInstanceId): boolean {
+  return (view.chain?.entries ?? []).some(
+    e => !e.resolved && !e.negated && e.payload.type === 'short-event' && e.payload.discardTargetInstanceId === instanceId,
+  );
+}
+
 /** Find a character in either player's in-play roster by instance ID. */
 export function findCharacterInPlay(
   view: PlayerView,

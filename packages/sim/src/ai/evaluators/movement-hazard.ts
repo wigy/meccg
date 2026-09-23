@@ -27,6 +27,7 @@ import {
   boostsCreatureAttack,
   enablesHandCardBonus,
   discardBenefitsSelf,
+  discardTargetAlreadyDeclared,
   diceSuccessPct,
 } from './common.js';
 
@@ -315,6 +316,11 @@ export const movementHazardEvaluator: ActionEvaluator = {
         // placement on the opponent's character (bug report: Marvels Told
         // removing Foolish Words from Faramir, an opponent character).
         if (action.discardTargetInstanceId) {
+          // A second copy of the effect against a target already claimed by
+          // an earlier, still-unresolved chain entry is always a wasted play
+          // (bug report: the AI declaring two Marvels Told against the same
+          // single hazard-event) — see discardTargetAlreadyDeclared.
+          if (discardTargetAlreadyDeclared(view, action.discardTargetInstanceId)) return 0;
           return discardBenefitsSelf(view, action.discardTargetInstanceId) ? 20 : 0;
         }
         return null;

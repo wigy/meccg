@@ -384,6 +384,41 @@ describe('movementHazardEvaluator play-short-event discard targeting', () => {
 
     expect(movementHazardEvaluator.score(marvelsTold('p1-52'), context)).toBeGreaterThan(0);
   });
+
+  // Bug report: the AI played two copies of Marvels Told against the very
+  // same in-play hazard-event, one right after the other. The discard only
+  // happens when the chain resolves, so the target is still "in play" — and
+  // thus still offered as a legal target — for the second copy. But the
+  // first entry always discards it unconditionally once it fires, so the
+  // second is guaranteed to fizzle against an already-vanished target,
+  // wasting the card and its tap cost for nothing.
+  test('scores discarding a target already claimed by an unresolved chain entry as zero', () => {
+    const context: AiContext = {
+      view: {
+        self: { hand: [], characters: {}, cardsInPlay: [] },
+        opponent: {
+          companies: [],
+          characters: {},
+          cardsInPlay: [{ instanceId: 'p1-52', definitionId: 'as-34' }],
+        },
+        chain: {
+          entries: [
+            {
+              index: 0,
+              declaredBy: 'p2',
+              resolved: false,
+              negated: false,
+              payload: { type: 'short-event', discardTargetInstanceId: 'p1-52' },
+            },
+          ],
+        },
+      } as unknown as PlayerView,
+      cardPool: POOL,
+      legalActions: [],
+    };
+
+    expect(movementHazardEvaluator.score(marvelsTold('p1-52'), context)).toBe(0);
+  });
 });
 
 function placeOnGuard(cardInstanceId: string): GameAction {
