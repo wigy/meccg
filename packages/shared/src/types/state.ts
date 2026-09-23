@@ -63,6 +63,12 @@ export interface HazardHost {
   readonly prisoners: readonly CardInstanceId[];
   /** PlayerId of the hazard player who controls this host. */
   readonly ownedBy: PlayerId;
+  /**
+   * Rescue-attack fixed at capture time, overriding the host card's own
+   * definition — set when the attack's shape depends on the capturer
+   * (To Get You Away dm-92: "Same race as agent").
+   */
+  readonly rescueAttacks?: readonly import('./effects.js').RescueAttack[];
 }
 
 // ---- RNG ----

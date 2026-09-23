@@ -23,7 +23,7 @@ import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId,
 import { addConstraint } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { CollectedEffect } from '../engine/effects/index.js';
-import { ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR, GANDALF, GLAMDRING, STING, THE_MITHRIL_COAT, DAGGER_OF_WESTERNESSE, HAUBERK_OF_BRIGHT_MAIL, CAVE_DRAKE, ORC_WARBAND, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG, SUN, EYE_OF_SAURON, AN_UNEXPECTED_OUTPOST, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, HENNETH_ANNUN, EDHELLOND, ISENGARD } from '../index.js';
+import { ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR, GANDALF, GLAMDRING, STING, THE_MITHRIL_COAT, DAGGER_OF_WESTERNESSE, HAUBERK_OF_BRIGHT_MAIL, CAVE_DRAKE, ORC_WARBAND, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG, SUN, EYE_OF_SAURON, AN_UNEXPECTED_OUTPOST, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, HENNETH_ANNUN, EDHELLOND, ISENGARD, BREE } from '../index.js';
 import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test-helpers-constants.js';
 import { companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 import { getCharacter } from './test-helpers-assertions.js';
@@ -367,6 +367,86 @@ export function buildAgentHazardVsOpponent(
       { ...state.players[1], agents: [makeBillFernyAgent()] },
     ] as typeof state.players,
   };
+}
+
+/**
+ * A movement/hazard state for To Get You Away (dm-92): Aragorn's company moves
+ * Rivendell → Bree; the hazard player (PLAYER_2) holds `hazard` with Bree and
+ * Cameth Brin (Bill Ferny's two home sites) in the location deck and — unless
+ * `agent: false` — a face-down Bill Ferny agent at home at Bree, with the
+ * given status (untapped by default).
+ */
+export function buildAgentAtBreeMHState(
+  hazard: CardDefinitionId,
+  camethBrin: CardDefinitionId,
+  opts: { agent?: boolean; agentStatus?: CardStatus; alignment?: Alignment } = {},
+): GameState {
+  const state = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    players: [
+      {
+        id: PLAYER_1,
+        ...(opts.alignment ? { alignment: opts.alignment } : {}),
+        companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: BREE }],
+        hand: [],
+        siteDeck: [],
+      },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [] }],
+        hand: [hazard],
+        siteDeck: [BREE, camethBrin],
+      },
+    ],
+  });
+  const mhState = { ...state, phaseState: makeMHState() };
+  if (opts.agent === false) return mhState;
+  const agent = makeBillFernyAgent();
+  return {
+    ...mhState,
+    players: [
+      mhState.players[RESOURCE_PLAYER],
+      {
+        ...mhState.players[HAZARD_PLAYER],
+        agents: [{ ...agent, character: { ...agent.character, status: opts.agentStatus ?? CardStatus.Untapped } }],
+      },
+    ] as typeof mhState.players,
+  };
+}
+
+/** Instance id of the first `defId` site card in the hazard player's location deck. */
+export function hazardSiteDeckId(state: GameState, defId: CardDefinitionId): CardInstanceId {
+  return state.players[HAZARD_PLAYER].siteDeck.find(s => s.definitionId === defId)!.instanceId;
+}
+
+/**
+ * Dispatch the hazard player's viable `play-hazard` action whose declared
+ * prison site (`prisonSiteInstanceId`, To Get You Away dm-92) is the
+ * location-deck card of `prisonDef`.
+ */
+export function playHazardWithPrisonSite(state: GameState, prisonDef: CardDefinitionId): GameState {
+  const prisonId = hazardSiteDeckId(state, prisonDef);
+  const play = viableActions(state, PLAYER_2, 'play-hazard')
+    .map(a => a.action as import('../index.js').PlayHazardAction)
+    .find(a => a.prisonSiteInstanceId === prisonId);
+  expect(play).toBeDefined();
+  return dispatch(state, play!);
+}
+
+/**
+ * Drive a single-strike, attacker-assigned agent attack: the hazard player
+ * assigns the strike to the resource player's first character, the agent
+ * rolls `agentRoll`, and the defender resolves (tapping) with `defenderRoll`.
+ */
+export function fightAgentStrike(state: GameState, agentRoll: number, defenderRoll: number): GameState {
+  const targetId = state.players[RESOURCE_PLAYER].companies[0].characters[0];
+  let s = dispatch(state, { type: 'assign-strike', player: PLAYER_2, characterId: targetId });
+  s = dispatch({ ...s, cheatRollTotal: agentRoll }, { type: 'agent-strike-roll', player: PLAYER_2 });
+  const resolve = viableActions({ ...s, cheatRollTotal: defenderRoll }, PLAYER_1, 'resolve-strike')
+    .find(a => a.action.type === 'resolve-strike');
+  expect(resolve).toBeDefined();
+  return dispatch({ ...s, cheatRollTotal: defenderRoll }, resolve!.action);
 }
 
 /** Returns a copy of `state` with every company's current site tapped. */

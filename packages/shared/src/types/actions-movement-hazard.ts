@@ -181,6 +181,14 @@ export interface PlayHazardAction {
    */
   readonly homeSiteInstanceId?: CardInstanceId;
   /**
+   * For a tap-agent-at-site effect with `strikeEffect:
+   * "take-prisoner-at-agent-home"` (To Get You Away dm-92): the attacker's
+   * chosen home site of the agent where a captured character is held — either
+   * the agent's own site card (when its site is a home site) or a home-site
+   * card from the hazard player's location deck.
+   */
+  readonly prisonSiteInstanceId?: CardInstanceId;
+  /**
    * For Stay Her Appetite (le-140): the ally instance being targeted.
    * The ally must be in the target company's characters' ally lists.
    */

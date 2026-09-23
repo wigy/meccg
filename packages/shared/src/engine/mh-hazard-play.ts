@@ -870,17 +870,20 @@ export function handlePlayHazardCard(
     return { state: newState };
   }
 
-  // --- Short event handling (via chain of effects) ---
-  if (def.cardType === 'hazard-event' && def.eventType === 'short') {
-    // Tap-agent-at-site (An Article Missing, Cunning Foes): taps an agent at
-    // the company's new site to initiate an M/H phase attack, bypassing the
-    // chain mechanism entirely.
+  // Tap-agent-at-site (An Article Missing, Cunning Foes short-events; To Get
+  // You Away dm-92 permanent-event): taps an agent at the company's new site
+  // to initiate an M/H phase attack, bypassing the chain mechanism entirely.
+  if (def.cardType === 'hazard-event' && (def.eventType === 'short' || def.eventType === 'permanent')) {
     const tapAgentEff = def.effects?.find(
       (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
     );
     if (tapAgentEff && action.type === 'play-hazard' && action.agentInstanceId) {
       return handleTapAgentAtSite(state, action, mhState, hazardPlayer, hazardIndex, handCard, def, tapAgentEff);
     }
+  }
+
+  // --- Short event handling (via chain of effects) ---
+  if (def.cardType === 'hazard-event' && def.eventType === 'short') {
 
     // Pilfer Anything Unwatched (as-33): tap an untapped agent and roll to
     // return an opponent character (home site == agent's current site) to hand.

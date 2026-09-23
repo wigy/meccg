@@ -4984,8 +4984,20 @@ export interface TapAgentEffect extends EffectBase {
    * Special strike resolution effect.
    * `"discard-item"`: a successful strike does not wound; instead the
    * defending company must discard one item (defender's choice).
+   * `"take-prisoner-at-agent-home"`: a successful strike does not wound;
+   * instead the character is taken prisoner at one of the agent's home sites
+   * (attacker's choice, declared as the play action's `prisonSiteInstanceId`)
+   * and the agent moves to that site. The card itself (a permanent-event)
+   * becomes the prisoner's hazard host (CoE 8.35); it is discarded if the
+   * attack ends without taking a prisoner. Used by To Get You Away (dm-92).
    */
-  readonly strikeEffect?: 'discard-item';
+  readonly strikeEffect?: 'discard-item' | 'take-prisoner-at-agent-home';
+  /**
+   * With `strikeEffect: "take-prisoner-at-agent-home"`: the rescue-attack
+   * (CoE 8.36) guarding the prisoner. Its race is the capturing agent's race
+   * ("Rescue-attack: Same race as agent — 3 strikes with 8 prowess").
+   */
+  readonly rescueAttack?: { readonly strikes: number; readonly prowess: number };
 }
 
 /**

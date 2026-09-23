@@ -11508,6 +11508,51 @@ Used by *The Grimburgoth* (dm-15).
 { "type": "agent-tap-attack", "prowessBonus": 2 }
 ```
 
+### 40.0.1. `tap-agent-at-site`
+
+A hazard event that taps one of the hazard player's untapped agents at the
+target company's new site (current site if stationary); the agent then attacks
+the company during the M/H phase with 1 strike. The card counts against the
+hazard limit; the attack does not. Never playable against a minion
+(Ringwraith/Balrog) opponent. Prowess is computed before reveal exactly like
+`agent-tap-attack`; a face-down agent is revealed (optionally with a matching
+home-site card from the location deck, `homeSiteInstanceId`).
+
+| Field             | Required | Description                                                    |
+|-------------------|----------|----------------------------------------------------------------|
+| `skill`           | no       | Required agent skill (e.g. `"scout"`). Omit for any agent.     |
+| `prowessBonus`    | yes      | Added to the agent's attack prowess.                           |
+| `attackerAssigns` | yes      | Attacker chooses the defending character.                      |
+| `strikeEffect`    | no       | `"discard-item"`: a successful strike does not wound; the company discards one item (defender's choice). `"take-prisoner-at-agent-home"`: a successful strike does not wound; the character is taken prisoner (CoE 8.35) at one of the agent's home sites and the agent moves there — see below. |
+| `rescueAttack`    | no       | `{ strikes, prowess }` — with `take-prisoner-at-agent-home`, the rescue-attack guarding the prisoner; its race is the capturing agent's race. |
+
+`take-prisoner-at-agent-home` (permanent-event host):
+
+- The prison site is the attacker's choice, declared with the play as
+  `prisonSiteInstanceId`: the agent's own site card when that site is one of
+  its home sites, or a home-site card from the hazard player's location deck
+  ("regardless of site's location"). One `play-hazard` action is offered per
+  available home site; with none available the card is not playable.
+- The card sits in the hazard player's `cardsInPlay` during the attack. On a
+  capture it moves into a `HazardHost` record (rescue site = the prison site,
+  `rescueAttacks` = agent race × `rescueAttack`), the agent's site becomes the
+  prison site (its old site cards return to the location deck). If the attack
+  ends without a capture, a post-reduce sweep discards the card.
+- Rescue follows the generic rule-8.36 flow (`rescue-prisoner` at the site).
+
+Implementation: `tapAgentAtSiteActions()` in `legal-actions/movement-hazard.ts`;
+`handleTapAgentAtSite()` in `mh-agents.ts`; capture in `combat-strike.ts` via
+`CombatState.agentPrisoner` → `applyTakePrisonerAtAgentHome()`
+(`combat-hazard-play.ts`); `sweepUnusedAgentPrisonerHost()`.
+
+Used by *An Article Missing* (dm-43), *Cunning Foes* (dm-50), *To Get You
+Away* (dm-92).
+
+```json
+{ "type": "tap-agent-at-site", "skill": "scout", "prowessBonus": 4, "attackerAssigns": true, "strikeEffect": "discard-item" }
+{ "type": "tap-agent-at-site", "prowessBonus": 0, "attackerAssigns": true, "strikeEffect": "take-prisoner-at-agent-home", "rescueAttack": { "strikes": 3, "prowess": 8 } }
+```
+
 ### 40.1. `agent-attack-modifier`
 
 Modifies how the agent's own **standard site-phase attack** (rule 2.V.iii, the

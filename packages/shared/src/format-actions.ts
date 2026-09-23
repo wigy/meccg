@@ -365,6 +365,9 @@ export function describeAction(
         : `against ${compName(action.targetCompanyId)}`;
       const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
       const raceTag = action.chosenCreatureRace ? ` (race: ${action.chosenCreatureRace})` : '';
+      if (action.prisonSiteInstanceId && action.agentInstanceId) {
+        return `${base} (tap agent ${instName(action.agentInstanceId)}; prisoner held at ${instName(action.prisonSiteInstanceId)})`;
+      }
       if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})${raceTag}`;
       return `${base}${raceTag}`;
     }

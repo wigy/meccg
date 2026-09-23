@@ -1095,6 +1095,21 @@ export interface CombatState {
     readonly siteInstanceId: CardInstanceId;
   };
   /**
+   * Set on an agent attack granted by a `tap-agent-at-site` card with
+   * `strikeEffect: "take-prisoner-at-agent-home"`: a successful strike does
+   * not wound the character but takes them prisoner at the agent's chosen
+   * home site, and the agent moves there. `hostInstanceId` is the playing
+   * card (in the hazard player's `cardsInPlay` for the attack's duration).
+   *
+   * Used by To Get You Away (dm-92).
+   */
+  readonly agentPrisoner?: {
+    readonly hostInstanceId: CardInstanceId;
+    readonly agentInstanceId: CardInstanceId;
+    readonly prisonSiteInstanceId: CardInstanceId;
+    readonly rescueAttacks: readonly import('./effects.js').RescueAttack[];
+  };
+  /**
    * Records an active "cancel protection" buff on this attack, set by a
    * from-hand `modify-attack` effect with `firstCancelRemovesEffect: true`
    * (Unabated in Malice ba-26). Holds the modifiers this card applied so

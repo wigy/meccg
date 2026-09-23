@@ -34,7 +34,7 @@ import { applyBearerWoundedDiscards, clonePlayers, companyById, defById, diceRol
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from './recompute-derived.js';
 import { enemyRaceContext } from './effects/index.js';
-import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
+import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite, applyTakePrisonerAtAgentHome } from './combat-hazard-play.js';
 import { finalizeCombat } from './combat-finalize.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 
@@ -516,12 +516,19 @@ export function resolveStrikeCore(
     ? combat.trollPursePrisoner ?? null
     : null;
 
+  // To Get You Away (dm-92): a successful strike of the granted agent attack
+  // takes the character prisoner at the agent's chosen home site instead of
+  // wounding. Carried on the combat as `agentPrisoner`.
+  const agentPrisoner = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && !trollPursePrisoner && charData
+    ? combat.agentPrisoner ?? null
+    : null;
+
   // absorb-wound (e.g. Sable Shield le-341): if a successful strike would wound
   // the bearer (not an ally, not detainment, not already handled), check if any
   // item on the character has an absorb-wound effect. If so, the wound is
   // prevented; the combat transitions to shield-discard-roll so the attacker
   // rolls to determine whether the shield is discarded.
-  const absorbWoundItem = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && !trollPursePrisoner && charData
+  const absorbWoundItem = result === 'wounded' && !combat.detainment && !allyMatch && !discardItemEffect && !takePrisonerResult && !trollPursePrisoner && !agentPrisoner && charData
     ? charData.items.find(item => {
         const def = state.cardPool[item.definitionId] as { effects?: readonly AbsorbWoundEffect[] } | undefined;
         return (def?.effects ?? []).some(e => e.type === 'absorb-wound');
@@ -559,12 +566,13 @@ export function resolveStrikeCore(
   // When a cancel-prisoner-taking ally can still intervene, keep 'wounded'
   // for now: an accepted cancel wounds the character normally, and the
   // decline handler rewrites the assignment to 'captured'.
-  const cancelPrisonerAlly = (takePrisonerResult || trollPursePrisoner) && charData
+  const capturesCharacter = !!(takePrisonerResult || trollPursePrisoner || agentPrisoner);
+  const cancelPrisonerAlly = capturesCharacter && charData
     ? findCancelPrisonerTakingAlly(state, charData)
     : null;
   const assignmentResult = absorbWoundItem
     ? ('absorbed' as const)
-    : (takePrisonerResult || trollPursePrisoner) && !cancelPrisonerAlly
+    : capturesCharacter && !cancelPrisonerAlly
       ? ('captured' as const)
       : isTie
         ? ('tie' as const)
@@ -590,7 +598,7 @@ export function resolveStrikeCore(
   // replace the wound entirely (absorb-wound and discard-item set result to
   // 'success'; take-prisoner is excluded explicitly) were handled above, so
   // only a genuine wound reaches here. Detainment strikes tap, never wound.
-  if (combat.woundEliminates && result === 'wounded' && !combat.detainment && !takePrisonerResult && !trollPursePrisoner) {
+  if (combat.woundEliminates && result === 'wounded' && !combat.detainment && !capturesCharacter) {
     logDetail(`wound-eliminates: ${strike.characterId as string} wounded by ${combat.creatureRace ?? 'attack'} — immediately eliminated (no body check)`);
     return eliminateCombatantFromStrike(
       { ...state, rng, cheatRollTotal },
@@ -636,7 +644,7 @@ export function resolveStrikeCore(
       logDetail(`take-prisoner: ${strike.characterId as string} is an ally — untargeted prisoner-taking attack leaves it neither tapped nor wounded (rule 8.36)`);
     }
   } else {
-    if (takePrisonerResult || trollPursePrisoner) {
+    if (capturesCharacter) {
       // cancel-prisoner-taking (Noble Hound dm-179): the controlling character
       // may carry an ally the player can discard to cancel the prisoner-taking
       // outcome and resolve the strike as a normal wound instead. Pause here
@@ -656,7 +664,7 @@ export function resolveStrikeCore(
       }
       // take-prisoner: character is not wounded; instead they become a prisoner.
       // Status stays as-is (not tapped, not wounded). Rule 8.35.
-      const captor = takePrisonerResult?.hostCard.instanceId ?? trollPursePrisoner?.hostInstanceId;
+      const captor = takePrisonerResult?.hostCard.instanceId ?? trollPursePrisoner?.hostInstanceId ?? agentPrisoner?.hostInstanceId;
       logDetail(`take-prisoner: ${strike.characterId as string} is taken prisoner by ${captor as string}`);
     } else {
       if (tapOnNonWounded && charData.status === CardStatus.Untapped) {
@@ -718,6 +726,9 @@ export function resolveStrikeCore(
       trollPursePrisoner.siteInstanceId,
     );
     bodyCheckTarget = null;
+  } else if (agentPrisoner && charData) {
+    postPrisonerState = applyTakePrisonerAtAgentHome(postPrisonerState, defPlayerIndex, strike.characterId, agentPrisoner);
+    bodyCheckTarget = null;
   }
 
   // bearer-strike-defeated: a strike against the defender failed outright —
@@ -736,7 +747,7 @@ export function resolveStrikeCore(
   // resolved immediately" — before the body check that follows, and before
   // any later strike of the same attack, so a discarded ally cannot still
   // tap to support a subsequent strike in this combat.
-  if (result === 'wounded' && !combat.detainment && !allyMatch && charData && !takePrisonerResult && !trollPursePrisoner) {
+  if (result === 'wounded' && !combat.detainment && !allyMatch && charData && !capturesCharacter) {
     postPrisonerState = applyBearerWoundedDiscards(postPrisonerState, defPlayerIndex, [strike.characterId]);
   }
 
