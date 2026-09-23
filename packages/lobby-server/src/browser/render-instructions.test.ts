@@ -987,3 +987,56 @@ describe('renderPassButton — top-tier special actions (activate-granted-action
     expect(tierSpecial.children).toHaveLength(0);
   });
 });
+
+/**
+ * Regression test for bug report 76f10a4472a2479f (game mud1o3t3-9noe2r, seq
+ * 796): "The UI did not give me an option to look at either play book. The
+ * only option the UI provided was to pass." Playing Mirror of Galadriel
+ * (tw-282) enqueues a `choose-peek-deck` pending resolution offering two
+ * viable `choose-peek-deck` actions (look at the top of one's own or the
+ * opponent's play deck) plus the ordinary `pass` action to decline. Unlike
+ * `choose-great-hunt-source`/`choose-hunt-target` above, declining is always
+ * viable here, so `pass` alone satisfied {@link renderPassButton}'s pass-like
+ * whitelist and became the sole bottom-tier button — `choose-peek-deck` had
+ * no dedicated branch, so its two options never rendered anywhere. Now one
+ * button per offered deck renders alongside the existing Pass button.
+ */
+const choosePeekDeck = (deckOwner: 'self' | 'opponent'): EvaluatedAction => ({
+  action: {
+    type: 'choose-peek-deck',
+    player: 'p1',
+    deckOwner,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — choose-peek-deck (Mirror of Galadriel)', () => {
+  test('renders a Look button per offered deck alongside the Pass button', () => {
+    renderPassButton(viewWith([passEval(), choosePeekDeck('self'), choosePeekDeck('opponent')]), () => { /* no-op */ });
+
+    expect(passBtn.classList.contains('hidden')).toBe(false);
+    expect(passBtn.textContent).toBe('Continue');
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual(["Look at Own Deck", "Look at Opponent's Deck"]);
+  });
+
+  test('clicking a Look button sends that deck\'s action', () => {
+    let sent: unknown = null;
+    const ownDeck = choosePeekDeck('self');
+    const opponentDeck = choosePeekDeck('opponent');
+    renderPassButton(viewWith([passEval(), ownDeck, opponentDeck]), action => { sent = action; });
+
+    tierInPhasePass.children[1].onclick?.();
+
+    expect(sent).toEqual(opponentDeck.action);
+  });
+
+  test('clicking Pass sends the decline action', () => {
+    let sent: unknown = null;
+    const pass = passEval();
+    renderPassButton(viewWith([pass, choosePeekDeck('self'), choosePeekDeck('opponent')]), action => { sent = action; });
+
+    passBtn.onclick?.();
+
+    expect(sent).toEqual(pass.action);
+  });
+});

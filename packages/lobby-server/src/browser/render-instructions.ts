@@ -331,6 +331,27 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
   btn.classList.remove('hidden');
   btn.onclick = () => onAction(passAction);
 
+  // Mirror of Galadriel (tw-282): after looking at the opponent's hand, the
+  // card-player may choose to look at the top of their own or the opponent's
+  // play deck (`choose-peek-deck`), or decline via the ordinary `pass`
+  // action ("You may …"). Because declining is always viable here, `pass`
+  // satisfies the whitelist above and becomes the primary button on its own
+  // — `choose-peek-deck` has no dedicated branch, so its two options never
+  // got a button and only "Pass" appeared. Bug report 76f10a4472a2479f (game
+  // mud1o3t3-9noe2r, seq 796): "The UI did not give me an option to look at
+  // either play book. The only option the UI provided was to pass." Add a
+  // button per offered deck alongside the existing Pass button.
+  const peekDeckEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'choose-peek-deck');
+  for (const ea of peekDeckEvals) {
+    const peekAction = ea.action;
+    if (peekAction.type !== 'choose-peek-deck') continue;
+    const peekBtn = document.createElement('button');
+    peekBtn.className = 'enter-site-btn peek-deck-choice-btn';
+    peekBtn.textContent = peekAction.deckOwner === 'self' ? 'Look at Own Deck' : "Look at Opponent's Deck";
+    peekBtn.onclick = () => onAction(peekAction);
+    inPhaseTier?.appendChild(peekBtn);
+  }
+
   // When the primary button is a non-pass action (e.g. Draw) and a pass action
   // also exists, show a secondary Pass button so both options are available.
   if (passAction.type !== 'pass') {
