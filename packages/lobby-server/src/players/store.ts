@@ -78,19 +78,35 @@ export function listPlayerDecks(name: string): unknown[] {
 }
 
 /**
+ * Sanitize a deck id into a bare filename BEFORE it touches any path — a
+ * deckId reaches these lookups from a caller-controlled current-deck
+ * selection, and the raw value ("../../../players/victim/info") would
+ * otherwise let path.join walk out of the deck directories and read any
+ * .json on disk (e.g. another player's password hash). Real deck ids are
+ * already `[a-z0-9-]`.
+ */
+function deckFilename(deckId: string): string {
+  return deckId.replace(/[^a-z0-9-]/g, '-') + '.json';
+}
+
+/**
+ * Find a deck in the player's OWN collection only — no catalog fallback.
+ * Used where a caller must tell a personal deck apart from the shared
+ * catalog (e.g. resolving an AI opponent's deck: a personal deck's content
+ * must be forwarded to the AI client directly, since the catalog-only
+ * `loadDeck` in `@meccg/sim` cannot see it).
+ */
+export function findOwnDeckById(playerName: string, deckId: string): DeckList | null {
+  return readJson<DeckList>(path.join(decksDir(playerName), deckFilename(deckId)));
+}
+
+/**
  * Find a deck by ID, checking the player's collection first, then the stock catalog.
  * Returns null if the deck is not found in either location.
  */
 export function findDeckById(playerName: string, deckId: string): DeckList | null {
-  // Sanitize the id into a bare filename BEFORE it touches any path — a deckId
-  // reaches here from a caller-controlled current-deck selection, and the raw
-  // value ("../../../players/victim/info") would otherwise let path.join walk
-  // out of the deck directories and read any .json on disk (e.g. another
-  // player's password hash). Both the personal-collection and catalog lookups
-  // use the sanitized name; real deck ids are already `[a-z0-9-]`.
-  const filename = deckId.replace(/[^a-z0-9-]/g, '-') + '.json';
-  return readJson<DeckList>(path.join(decksDir(playerName), filename))
-    ?? readJson<DeckList>(path.join(DECK_CATALOG_DIR, filename));
+  return findOwnDeckById(playerName, deckId)
+    ?? readJson<DeckList>(path.join(DECK_CATALOG_DIR, deckFilename(deckId)));
 }
 
 /** List all stock decks from the catalog directory. */

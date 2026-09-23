@@ -7,7 +7,7 @@
  *
  * Spawned as a child process by the game launcher with IPC enabled.
  *
- * Usage: npx tsx pseudo-ai-client.ts <port> <playerName> <token> --deck <deckId>
+ * Usage: npx tsx pseudo-ai-client.ts <port> <playerName> <token> (--deck <deckId> | --deck-file <path>)
  */
 
 import { WebSocket } from 'ws';

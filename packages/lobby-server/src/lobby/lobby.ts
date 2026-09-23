@@ -11,13 +11,14 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type WebSocket from 'ws';
+import type { DeckList } from '@meccg/shared';
 import type { GameStartingMessage, LobbyClientMessage, LobbyServerMessage } from './protocol.js';
 import { killGame, launchGame } from '../games/launcher.js';
 import type { LaunchOptions, LaunchResult } from '../games/launcher.js';
 import { resolveModelFile } from '../games/models.js';
 import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
-import { getDisplayName, getCredits } from '../players/store.js';
+import { getDisplayName, getCredits, findOwnDeckById, findDeckById, listCatalogDecks } from '../players/store.js';
 import { countUnread } from '../mail/store.js';
 
 /**
@@ -81,6 +82,56 @@ const MC_AGENT_SPEC = `mc:jobs=${Math.max(1, os.cpus().length - 2)}/ms=2000/turn
  * playing and reporting on, not as the strongest one available.
  */
 const MODULAR_AGENT_SPEC = 'h2';
+
+/**
+ * `deckId` sentinel meaning "pick an approved catalog deck at random,
+ * server-side" (see {@link PlayHeuristicAiMessage} and siblings in
+ * `protocol.ts`). Never forwarded past {@link resolveAiDeckId}: the result of
+ * the roll — not the sentinel — is what gets launched, remembered for
+ * rejoin, and logged.
+ */
+const RANDOM_DECK_SENTINEL = 'random';
+
+/** Outcome of resolving a client-supplied AI `deckId` (see {@link resolveAiDeckId}). */
+type ResolvedAiDeck =
+  | { readonly kind: 'catalog'; readonly id: string }
+  | { readonly kind: 'custom'; readonly id: string; readonly deck: DeckList };
+
+/**
+ * Resolve a client-supplied AI `deckId` into either a catalog deck id
+ * (unchanged) or a player-owned deck's content, ready for {@link launchGame}.
+ *
+ * - {@link RANDOM_DECK_SENTINEL} picks uniformly from the approved catalog
+ *   right here — never re-resolved once picked. The concrete id this returns
+ *   is what the caller must remember for rejoin ({@link ActiveGameInfo.aiDeckId})
+ *   and is the only thing ever echoed back to the human's own socket:
+ *   re-resolving 'random' on every rejoin would swap the AI's deck mid-match,
+ *   and echoing the sentinel's *result* to the player who asked for a
+ *   surprise would defeat the point of asking.
+ * - Anything else is looked up first in `requestingPlayerName`'s own
+ *   collection, then the shared catalog (mirroring `findDeckById`'s
+ *   precedence, which already sanitizes the id against path traversal — see
+ *   `players/store.ts`). A personal deck resolves to `kind: 'custom'` with
+ *   its content, which the caller must forward to the AI client directly
+ *   (`@meccg/sim`'s catalog-only `loadDeck` cannot see a personal deck); a
+ *   catalog deck resolves to `kind: 'catalog'` unchanged, same as before this
+ *   function existed.
+ *
+ * Returns null when the id names neither an approved catalog deck (for
+ * 'random') nor any deck reachable by the requesting player.
+ */
+function resolveAiDeckId(deckId: string, requestingPlayerName: string): ResolvedAiDeck | null {
+  if (deckId === RANDOM_DECK_SENTINEL) {
+    const approved = listCatalogDecks().filter(d => d.approved === true);
+    if (approved.length === 0) return null;
+    const pick = approved[Math.floor(Math.random() * approved.length)];
+    return { kind: 'catalog', id: pick.id };
+  }
+  const owned = findOwnDeckById(requestingPlayerName, deckId);
+  if (owned) return { kind: 'custom', id: deckId, deck: owned };
+  const deck = findDeckById(requestingPlayerName, deckId);
+  return deck ? { kind: 'catalog', id: deckId } : null;
+}
 
 /** Connection info for an active game that a player can rejoin. */
 interface ActiveGameInfo {
@@ -809,7 +860,20 @@ async function launchSoloGame(
       launchedAt: new Date().toISOString(),
     });
 
-    send(player.ws, { type: 'game-starting', ...gameInfo, ...startingExtra?.(result) });
+    // Built from named fields rather than `...gameInfo`: `gameInfoExtra` (the
+    // AI's resolved deck id, its model file, ...) must stay server-side book-
+    // keeping only. It used to be spread wholesale into this message — which
+    // TypeScript's excess-property check does not catch on a spread — so a
+    // 'random'-resolved AI deck id was handed straight back to the human's
+    // own socket, defeating the point of asking for a surprise opponent.
+    send(player.ws, {
+      type: 'game-starting',
+      port: gameInfo.port,
+      token: gameInfo.token,
+      opponent: gameInfo.opponent,
+      opponentDisplayName: gameInfo.opponentDisplayName,
+      ...startingExtra?.(result),
+    });
     broadcastPlayerList();
 
     result.onEnd(() => {
@@ -845,6 +909,11 @@ async function startAiGame(
     send(player.ws, { type: 'error', message: 'Select a deck for the AI before starting' });
     return;
   }
+  const resolvedDeck = resolveAiDeckId(deckId, player.name);
+  if (!resolvedDeck) {
+    send(player.ws, { type: 'error', message: 'Unknown AI deck' });
+    return;
+  }
   let aiModelPath: string | undefined;
   if (modelFile !== undefined) {
     const resolved = resolveModelFile(modelFile);
@@ -863,11 +932,17 @@ async function startAiGame(
         : 'AI-Heuristic';
 
   await launchSoloGame(player, aiName, {
-    ai: true, aiDeckId: deckId, aiModelPath, aiAgentSpec: agentSpec,
+    ai: true,
+    aiDeckId: resolvedDeck.kind === 'catalog' ? resolvedDeck.id : undefined,
+    aiDeckContent: resolvedDeck.kind === 'custom' ? resolvedDeck.deck : undefined,
+    aiModelPath, aiAgentSpec: agentSpec,
   }, {
     logFields: { ai: true },
     errorContext: 'ai-game-start',
-    gameInfoExtra: { aiDeckId: deckId, aiModelFile: modelFile },
+    // Remember the RESOLVED id, never the 'random' sentinel — a rejoin looks
+    // this back up through resolveAiDeckId, and a personal deck id
+    // round-trips through it too (findOwnDeckById re-reads the same file).
+    gameInfoExtra: { aiDeckId: resolvedDeck.id, aiModelFile: modelFile },
   });
 }
 

@@ -64,12 +64,14 @@ class StubEl {
 
 let myContainer: StubEl;
 let catContainer: StubEl;
+let aiDeckSelect: StubEl;
 let docListeners: Record<string, Array<(e: unknown) => void>>;
 
 function installFreshDom(): void {
   myContainer = new StubEl('div');
   catContainer = new StubEl('div');
-  const byId: Record<string, StubEl> = { 'my-decks': myContainer, 'deck-catalog': catContainer };
+  aiDeckSelect = new StubEl('select');
+  const byId: Record<string, StubEl> = { 'my-decks': myContainer, 'deck-catalog': catContainer, 'ai-deck-select': aiDeckSelect };
   docListeners = {};
   (globalThis as unknown as { document: unknown }).document = {
     createElement: (tag: string) => new StubEl(tag),
@@ -186,6 +188,72 @@ describe('renaming an owned deck from the "My Decks" list', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(apiSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('AI deck dropdown', () => {
+  const approvedCatalogDeck: FullDeck = {
+    id: 'approved-stock',
+    name: 'Approved Stock Deck',
+    alignment: 'hero',
+    approved: true,
+    pool: [],
+    deck: { characters: [], hazards: [], resources: [] },
+    sites: [],
+    sideboard: [],
+  };
+
+  /** Every `<option>` in the AI deck select, depth-first (so optgroup children are included). */
+  const aiOptions = (): { value: string; text: string }[] =>
+    aiDeckSelect.all().filter(el => el.tagName === 'option').map(el => ({ value: el.value, text: el.textContent }));
+
+  test('offers "Random" and the player\'s own decks alongside approved catalog decks', async () => {
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/api/decks') return Promise.resolve({ ok: true, data: [approvedCatalogDeck, catalogDeck] });
+      return Promise.resolve({ ok: true, data: { decks: [myDeck], currentDeck: null, currentFullDeck: null } });
+    });
+
+    await loadDecks();
+
+    const options = aiOptions();
+    expect(options[0]).toEqual({ value: 'random', text: 'Random (kept secret until the game ends)' });
+    // catalogDeck (from the outer fixtures) has no `approved: true`, so only
+    // the explicitly-approved stock deck is offered as a bare option — the
+    // same "approved catalog decks only" rule as before this feature.
+    expect(options.some(o => o.value === 'approved-stock')).toBe(true);
+    expect(options.some(o => o.value === catalogDeck.id)).toBe(false);
+    // The player's own (unreviewed) deck is offered too, in its own group.
+    expect(options.some(o => o.value === myDeck.id && o.text === myDeck.name)).toBe(true);
+  });
+
+  test('omits the "My Decks" group entirely when the player has no decks of their own', async () => {
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/api/decks') return Promise.resolve({ ok: true, data: [approvedCatalogDeck] });
+      return Promise.resolve({ ok: true, data: { decks: [], currentDeck: null, currentFullDeck: null } });
+    });
+
+    await loadDecks();
+
+    const options = aiOptions();
+    expect(options.map(o => o.value)).toEqual(['random', 'approved-stock']);
+  });
+
+  test('preserves the previously selected deck across a refresh', async () => {
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/api/decks') return Promise.resolve({ ok: true, data: [approvedCatalogDeck] });
+      return Promise.resolve({ ok: true, data: { decks: [myDeck], currentDeck: null, currentFullDeck: null } });
+    });
+
+    await loadDecks();
+    aiDeckSelect.value = myDeck.id;
+
+    await loadDecks();
+
+    const selected = aiDeckSelect.all().filter(el => el.tagName === 'option')
+      // StubEl doesn't model `.selected` as a getter off `.value`; read the
+      // property the source code sets directly.
+      .find(el => (el as unknown as { selected?: boolean }).selected === true);
+    expect(selected?.value).toBe(myDeck.id);
   });
 });
 

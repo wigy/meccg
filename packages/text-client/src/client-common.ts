@@ -11,14 +11,13 @@
 import type { WebSocket } from 'ws';
 import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, GameAction, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
 import { Alignment, buildInstanceLookup, formatCardList } from '@meccg/shared';
-import { loadDeck, listDecks } from '@meccg/sim';
-import type { Agent, AgentContext, AgentDecision } from '@meccg/sim';
+import { loadDeck, loadDeckFromFile, listDecks } from '@meccg/sim';
+import type { Agent, AgentContext, AgentDecision, LoadedDeck } from '@meccg/sim';
 
 // ---- Deck catalog (shared with the sim harness in @meccg/sim) ----
 
-/** Load a catalog deck into a join message for the given player. */
-export function loadDeckJoin(deckId: string, playerName: string): JoinMessage {
-  const deck = loadDeck(deckId);
+/** Build a join message for `playerName` from an already-loaded deck. */
+function joinFromLoadedDeck(deck: LoadedDeck, playerName: string): JoinMessage {
   return {
     type: 'join',
     name: playerName,
@@ -27,13 +26,30 @@ export function loadDeckJoin(deckId: string, playerName: string): JoinMessage {
     playDeck: deck.playDeck,
     siteDeck: deck.siteDeck,
     sideboard: deck.sideboard,
-    // The structured catalog deck, so the server validates what the editor
-    // would have sent and records this seat's deck identity in the
-    // completed-game record. The catalog file is a `DeckList` apart from the
-    // branded `card` ids and the narrow alignment union — the same bridge the
-    // browser client uses for its own deck lists.
+    // The structured deck, so the server validates what the editor would
+    // have sent and records this seat's deck identity in the completed-game
+    // record. The deck file is a `DeckList` apart from the branded `card`
+    // ids and the narrow alignment union — the same bridge the browser
+    // client uses for its own deck lists.
     deckList: deck.file as unknown as DeckList,
   };
+}
+
+/** Load a catalog deck into a join message for the given player. */
+export function loadDeckJoin(deckId: string, playerName: string): JoinMessage {
+  return joinFromLoadedDeck(loadDeck(deckId), playerName);
+}
+
+/**
+ * Load a deck from an arbitrary file path into a join message — the
+ * `--deck-file` counterpart to {@link loadDeckJoin}'s catalog-by-id lookup.
+ * Used for a player-owned AI deck: the lobby resolves it server-side
+ * (`resolveAiDeckId` in `lobby.ts`) and writes it to a temp file
+ * (`launcher.ts`'s `buildAiClientArgs`), since `@meccg/sim`'s catalog-only
+ * `loadDeck` cannot see a deck outside `DECK_CATALOG_DIR`.
+ */
+export function loadDeckJoinFromFile(filePath: string, playerName: string): JoinMessage {
+  return joinFromLoadedDeck(loadDeckFromFile(filePath), playerName);
 }
 
 /**
@@ -51,12 +67,18 @@ export function listCatalogDecks(): { id: string; name: string }[] {
 
 // ---- Spawned-client scaffolding (headless AI and pseudo-AI) ----
 
-/** Parsed CLI args for lobby-spawned clients: `<port> <name> <token> [--deck id]`. */
+/** Parsed CLI args for lobby-spawned clients: `<port> <name> <token> [--deck id | --deck-file path]`. */
 export interface SpawnedClientArgs {
   port: number;
   playerName: string;
   token: string;
   deckId?: string;
+  /**
+   * Path to a deck JSON file, read directly instead of looked up by id in
+   * the shared catalog — how a player-owned AI deck reaches this client
+   * (see `loadDeckJoinFromFile`). Takes precedence over `deckId`.
+   */
+  deckFilePath?: string;
   /** Trained-model weights path (Real-AI games): passed as `--model <path>`. */
   modelPath?: string;
   /**
@@ -78,25 +100,31 @@ export function parseSpawnedClientArgs(usageName: string): SpawnedClientArgs {
   const token = args[4];
   const deckIdx = process.argv.indexOf('--deck');
   const deckId = deckIdx >= 0 ? process.argv[deckIdx + 1] : undefined;
+  const deckFileIdx = process.argv.indexOf('--deck-file');
+  const deckFilePath = deckFileIdx >= 0 ? process.argv[deckFileIdx + 1] : undefined;
   const modelIdx = process.argv.indexOf('--model');
   const modelPath = modelIdx >= 0 ? process.argv[modelIdx + 1] : undefined;
   const agentIdx = process.argv.indexOf('--agent');
   const agentSpec = agentIdx >= 0 ? process.argv[agentIdx + 1] : undefined;
   if (!port || !playerName || !token) {
-    console.error(`Usage: ${usageName} <port> <playerName> <token> [--deck <deckId>] [--agent <spec>]`);
+    console.error(`Usage: ${usageName} <port> <playerName> <token> [--deck <deckId> | --deck-file <path>] [--agent <spec>]`);
     process.exit(1);
   }
-  return { port, playerName, token, deckId, modelPath, agentSpec };
+  return { port, playerName, token, deckId, deckFilePath, modelPath, agentSpec };
 }
 
 /**
  * Build the serialized join a spawned client sends on socket open: a full
- * deck join when a deck was given, or a minimal rejoin when the server is
- * restoring the game from autosave. The auth token is attached either way.
+ * deck join when a deck was given (by file path or catalog id), or a minimal
+ * rejoin when the server is restoring the game from autosave. The auth token
+ * is attached either way.
  */
 export function spawnedJoinPayload(clientArgs: SpawnedClientArgs, logPrefix: string): string {
   let joinMsg: JoinMessage;
-  if (clientArgs.deckId) {
+  if (clientArgs.deckFilePath) {
+    console.log(`${logPrefix} connected, sending join with a custom deck file...`);
+    joinMsg = loadDeckJoinFromFile(clientArgs.deckFilePath, clientArgs.playerName);
+  } else if (clientArgs.deckId) {
     console.log(`${logPrefix} connected, sending join with deck "${clientArgs.deckId}"...`);
     joinMsg = loadDeckJoin(clientArgs.deckId, clientArgs.playerName);
   } else {

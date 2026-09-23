@@ -23,10 +23,28 @@ vi.mock('../auth/jwt.js', () => ({
 vi.mock('../lobby-log.js', () => ({
   lobbyLog: { log: () => undefined },
 }));
+/** Approved catalog decks the 'random' sentinel can resolve to in tests. */
+const APPROVED_CATALOG_DECKS = [
+  { id: 'approved-a', name: 'Approved A', approved: true },
+  { id: 'approved-b', name: 'Approved B', approved: true },
+];
+
 vi.mock('../players/store.js', () => ({
   getDisplayName: (name: string) => name,
   getCredits: () => 0,
   toDirName: (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+  // Every id not covered by a specific fixture below resolves as a plain
+  // catalog deck, matching pre-existing tests that pass arbitrary ids
+  // (e.g. 'deck-1') straight through with no deck actually on disk.
+  findOwnDeckById: (playerName: string, deckId: string) =>
+    playerName === 'Alice' && deckId === 'alices-custom-deck'
+      ? { id: 'alices-custom-deck', name: 'Alice’s Custom Deck', approved: false }
+      : null,
+  // 'bobs-custom-deck' stands in for an id nobody can resolve (e.g. another
+  // player's own deck) — every other id resolves as a plain catalog deck.
+  findDeckById: (_playerName: string, deckId: string) =>
+    deckId === 'bobs-custom-deck' ? null : { id: deckId, name: deckId, approved: true },
+  listCatalogDecks: () => APPROVED_CATALOG_DECKS,
 }));
 vi.mock('../mail/store.js', () => ({
   countUnread: () => 0,
@@ -146,6 +164,103 @@ describe('lobby AI games in the watchable list', () => {
 
     carol.emit('close');
     dave.emit('close');
+  });
+});
+
+describe('AI deck resolution', () => {
+  test('deckId "random" resolves to a concrete approved catalog deck, never revealed to the human', async () => {
+    launchGame.mockClear();
+    let endGame: (() => void) | undefined;
+    launchGame.mockResolvedValueOnce({
+      port: 9010,
+      tokens: ['tok-alice', 'tok-ai'],
+      onEnd: (cb: () => void) => { endGame = cb; },
+    });
+    // Math.random() * 2 -> 1, so the second approved deck ('approved-b') is picked.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.9);
+
+    const alice = fakeWs();
+    playerConnected('Alice', alice.ws);
+    say(alice, { type: 'play-heuristic-ai', deckId: 'random' });
+    await settle();
+
+    expect(launchGame).toHaveBeenCalledWith('Alice', 'AI-Heuristic', expect.objectContaining({
+      aiDeckId: 'approved-b',
+      aiDeckContent: undefined,
+    }));
+
+    // The human's own socket must never learn which deck the roll picked —
+    // that is the whole point of asking for a surprise opponent.
+    const starting = alice.sent.filter(m => m.type === 'game-starting').pop()!;
+    expect(starting).not.toHaveProperty('aiDeckId');
+    expect(JSON.stringify(starting)).not.toContain('approved-b');
+
+    randomSpy.mockRestore();
+    endGame!();
+    alice.emit('close');
+  });
+
+  test('a plain catalog deckId is forwarded unchanged, as before', async () => {
+    launchGame.mockClear();
+    let endGame: (() => void) | undefined;
+    launchGame.mockResolvedValueOnce({
+      port: 9011,
+      tokens: ['tok-alice', 'tok-ai'],
+      onEnd: (cb: () => void) => { endGame = cb; },
+    });
+
+    const alice = fakeWs();
+    playerConnected('Alice', alice.ws);
+    say(alice, { type: 'play-heuristic-ai', deckId: 'stock-deck' });
+    await settle();
+
+    expect(launchGame).toHaveBeenCalledWith('Alice', 'AI-Heuristic', expect.objectContaining({
+      aiDeckId: 'stock-deck',
+      aiDeckContent: undefined,
+    }));
+
+    endGame!();
+    alice.emit('close');
+  });
+
+  test('a player-owned deckId resolves to its content, forwarded as aiDeckContent', async () => {
+    launchGame.mockClear();
+    let endGame: (() => void) | undefined;
+    launchGame.mockResolvedValueOnce({
+      port: 9012,
+      tokens: ['tok-alice', 'tok-ai'],
+      onEnd: (cb: () => void) => { endGame = cb; },
+    });
+
+    const alice = fakeWs();
+    playerConnected('Alice', alice.ws);
+    say(alice, { type: 'play-heuristic-ai', deckId: 'alices-custom-deck' });
+    await settle();
+
+    expect(launchGame).toHaveBeenCalledTimes(1);
+    const launchOptions = launchGame.mock.calls[0]?.[2] as { aiDeckId?: string; aiDeckContent?: { id?: string } };
+    expect(launchOptions.aiDeckId).toBeUndefined();
+    expect(launchOptions.aiDeckContent?.id).toBe('alices-custom-deck');
+
+    endGame!();
+    alice.emit('close');
+  });
+
+  test('an unresolvable deckId is rejected with an error, not launched', async () => {
+    launchGame.mockClear();
+
+    const alice = fakeWs();
+    playerConnected('Alice', alice.ws);
+    // Bob's own decks are invisible to Alice: findOwnDeckById/findDeckById
+    // (mocked above) only resolve 'alices-custom-deck' for player 'Alice'.
+    say(alice, { type: 'play-heuristic-ai', deckId: 'bobs-custom-deck' });
+    await settle();
+
+    expect(launchGame).not.toHaveBeenCalled();
+    const err = alice.sent.filter(m => m.type === 'error').pop()!;
+    expect(err.message).toBe('Unknown AI deck');
+
+    alice.emit('close');
   });
 });
 

@@ -362,6 +362,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     playPseudoAiBtn.addEventListener('click', () => { void (async () => {
+      // Pseudo-AI has no spawned AI-client process to resolve 'random' or a
+      // personal deck out of the human's sight — the browser itself builds
+      // the AI seat's join message from a deck it looks up in the public
+      // catalog it already has cached (see `pendingAiDeck` below), so only a
+      // plain catalog deck id works here.
+      const aiDeckSelect = document.getElementById('ai-deck-select') as HTMLSelectElement;
+      if (!appState.cachedCatalog.some(d => d.id === aiDeckSelect.value)) {
+        await showAlert('Pseudo-AI needs a stock catalog deck for the AI Deck — Random and My Decks entries are not supported here, since you would see the AI\'s deck the moment you sat down to play it.');
+        return;
+      }
       const r = await apiGet<{ hasSave: boolean }>('/api/saves/check?opponent=AI-Pseudo');
       if (r.ok && r.data?.hasSave) {
         const cont = await showConfirm(
