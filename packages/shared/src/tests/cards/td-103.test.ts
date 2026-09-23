@@ -40,6 +40,7 @@ import type { CardDefinitionId, SitePhaseState } from '../../index.js';
 
 const BURGLARY = 'td-103' as CardDefinitionId;
 const GOLLUM = 'tw-246' as CardDefinitionId;
+const SCROLL_OF_ISILDUR = 'tw-323' as CardDefinitionId;
 
 describe('Burglary (td-103)', () => {
   beforeEach(() => resetMint());
@@ -251,6 +252,38 @@ describe('Burglary (td-103)', () => {
     expect(afterItem.players[0].characters[aragornId].items.some(i => i.definitionId === DAGGER_OF_WESTERNESSE)).toBe(true);
     // The allowance is one-shot: consumed after the item is played.
     expect(phaseStateAs<SitePhaseState>(afterItem).burglaryItemUnlock).toBeUndefined();
+  });
+
+  test('successful roll: a non-minor item is offered only with the burgling character, not with other untapped company members', () => {
+    // Bug report ccc6ee778f85d24d (game muempjvo-foqk84, turn 22, seq 984):
+    // after a successful burglary roll, Scroll of Isildur (greater, not
+    // minor) was offered as playable with every character in the company
+    // instead of just the burgling character. Card text: "an item normally
+    // playable at the site may be played with the character" — restricted
+    // to the burglar. CRF 22 "Burglary Attempts" only widens this to "another
+    // character may tap to play a minor item", so a non-minor item must stay
+    // restricted to the burglar alone.
+    const base = buildSitePhaseTwoPlayer({
+      site: MORIA, heroChars: [ARAGORN, LEGOLAS], heroHand: [BURGLARY, SCROLL_OF_ISILDUR],
+    });
+    const state = setupAutoAttackStep({ ...base, phaseState: makeSitePhase() });
+    const legolasId = findCharInstanceId(state, 0, LEGOLAS);
+    const { after, charId: aragornId, rollAction } = declareAndGetRollAction(state, ARAGORN);
+
+    const afterRoll = dispatch({ ...after, cheatRollTotal: 9 }, rollAction.action);
+    const afterAutoAttacks = dispatch(afterRoll, { type: 'pass', player: PLAYER_1 });
+    const afterAgentAttack = dispatch(afterAutoAttacks, { type: 'pass', player: PLAYER_1 });
+    const afterResolveAttacks = dispatch(afterAgentAttack, { type: 'pass', player: PLAYER_1 });
+    expect(phaseStateAs<SitePhaseState>(afterResolveAttacks).step).toBe('play-resources');
+
+    const scroll = findHandCardId(afterResolveAttacks, 0, SCROLL_OF_ISILDUR);
+    const itemActions = computeLegalActions(afterResolveAttacks, PLAYER_1).filter(
+      ea => ea.viable && ea.action.type === 'play-hero-resource'
+        && (ea.action as { cardInstanceId: unknown }).cardInstanceId === scroll,
+    );
+    const targets = new Set(itemActions.map(ea => (ea.action as { attachToCharacterId: unknown }).attachToCharacterId));
+    expect(targets).toEqual(new Set([aragornId]));
+    expect(targets.has(legolasId)).toBe(false);
   });
 
   // ── Regression: must not be offered as a generic play-short-event ────────
