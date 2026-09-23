@@ -16,6 +16,11 @@
  * previously auto-picked whenever there was exactly one viable action,
  * without excluding `concede` — silently ending the game on the human's
  * behalf. `concede` must always be an explicit click.
+ *
+ * Complements `pseudo-ai-concede-exclusion.test.ts`, which unit-tests the
+ * `getPseudoAiAutoPick` decision itself; this file drives the full
+ * `renderPseudoAiActions` path to assert nothing is actually sent over the
+ * pseudo-AI socket.
  */
 
 import './test-dom-bootstrap.js'; // must precede pseudo-ai.js import (load-time window access)

@@ -45,6 +45,22 @@ export function cleanActionText(text: string): string {
 /** Action types that represent "pass" or "do nothing". */
 const PASS_ACTION_TYPES = new Set(['pass', 'draft-stop']);
 
+/**
+ * The action the pseudo-AI panel should auto-fire because it's the only real
+ * option, or `null` if the human must choose. Excludes `concede` from the
+ * "only one viable option" count: `withConcedeAction` (`@meccg/shared`)
+ * unconditionally appends a viable `concede` entry to every legal-actions
+ * view, so a seat that is simply waiting on the opponent (e.g. mid-round in
+ * the character draft, `draft.currentPick !== null`) sees `concede` as its
+ * lone viable action. Without this exclusion the panel silently sent
+ * `concede` on the human's behalf — mirrors `getAutoPassAction` in
+ * `game-connection.ts`, which excludes it from the human panel's auto-pass
+ * tally for the identical reason.
+ */
+export function getPseudoAiAutoPick(actions: readonly DescribedAction[]): GameAction | null {
+  const autoPickable = actions.filter(a => a.viable && a.action.type !== 'concede');
+  return autoPickable.length === 1 ? autoPickable[0].action : null;
+}
 
 /** Render the pseudo-AI action panel with pre-described actions. */
 export function renderPseudoAiActions(actions: readonly DescribedAction[]): void {
@@ -57,16 +73,9 @@ export function renderPseudoAiActions(actions: readonly DescribedAction[]): void
   const viable = actions.filter(a => a.viable);
   const nonViable = actions.filter(a => !a.viable);
 
-  // Auto-pick when there is only one viable option, but never auto-concede.
-  // The server appends `concede` as an always-viable meta-action to every
-  // seat's legal-action set (see withConcedeAction), so a player who is just
-  // waiting on their opponent (e.g. mid character-draft, right after their
-  // own face-down pick) ends up with `[concede]` as their sole "viable"
-  // action. Auto-firing that would silently forfeit the game for the human
-  // controlling this side — concede must always be an explicit click.
-  const autoPickable = viable.filter(a => a.action.type !== 'concede');
-  if (autoPickable.length === 1) {
-    sendPseudoAiPick(autoPickable[0].action);
+  const autoPick = getPseudoAiAutoPick(actions);
+  if (autoPick) {
+    sendPseudoAiPick(autoPick);
     panel.classList.remove('waiting');
     panel.classList.add('hidden');
     return;
