@@ -30,7 +30,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
 import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
-import { clonePlayers, companyById, defById, diceRollEffect, excessStrikePenalty, getCardEffects, getOnEventEffects, isSelfDiscardMove, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { applyBearerWoundedDiscards, clonePlayers, companyById, defById, diceRollEffect, excessStrikePenalty, getCardEffects, getOnEventEffects, isSelfDiscardMove, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { defenderAlignmentLabel } from './detainment.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from './recompute-derived.js';
 import { enemyRaceContext } from './effects/index.js';
@@ -728,6 +728,18 @@ export function resolveStrikeCore(
     postPrisonerState = dischargeBearerStrikeDefeatedItems(postPrisonerState, defPlayerIndex, strike.characterId);
   }
 
+  // bearer-wounded (Great Bats as-74, Regiment of Black Crows as-76, Await the
+  // Advent of Allies dm-117): the character just wounded above is a genuine
+  // wound (not absorbed, not converted to item-discard/prisoner-taking) —
+  // discard any of its self-discarding allies/items right away. CoE rule
+  // 3.iv.5: "any passive condition actions of the strike succeeding are
+  // resolved immediately" — before the body check that follows, and before
+  // any later strike of the same attack, so a discarded ally cannot still
+  // tap to support a subsequent strike in this combat.
+  if (result === 'wounded' && !combat.detainment && !allyMatch && charData && !takePrisonerResult && !trollPursePrisoner) {
+    postPrisonerState = applyBearerWoundedDiscards(postPrisonerState, defPlayerIndex, [strike.characterId]);
+  }
+
   // absorb-wound: shield absorbed the strike; transition to shield-discard-roll
   // so the attacking player rolls to determine if the shield is discarded.
   if (absorbWoundItem) {
@@ -1168,6 +1180,21 @@ export function resolveStrikeCvCC(
       defPlayerIdx,
       strike.characterId,
     );
+    newPlayers = [dischargedState.players[0], dischargedState.players[1]];
+  }
+
+  // bearer-wounded (Great Bats as-74, Regiment of Black Crows as-76, Await the
+  // Advent of Allies dm-117): whichever side was just wounded above — discard
+  // any of its self-discarding allies/items right away (CoE 3.iv.5, applies
+  // symmetrically to CvCC's dual-roll wound).
+  if (defResult === 'wounded' || atkResult === 'wounded') {
+    let dischargedState: GameState = { ...state, players: newPlayers };
+    if (defResult === 'wounded') {
+      dischargedState = applyBearerWoundedDiscards(dischargedState, defPlayerIdx, [strike.characterId]);
+    }
+    if (atkResult === 'wounded') {
+      dischargedState = applyBearerWoundedDiscards(dischargedState, atkPlayerIdx, [strike.attackingCharacterId]);
+    }
     newPlayers = [dischargedState.players[0], dischargedState.players[1]];
   }
 

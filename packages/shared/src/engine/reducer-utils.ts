@@ -1163,6 +1163,70 @@ export function isSelfDiscardMove(
 }
 
 /**
+ * Discard any of a wounded character's attached allies/items carrying an
+ * `on-event: bearer-wounded` self-discard effect (Great Bats as-74, Regiment
+ * of Black Crows as-76, Await the Advent of Allies dm-117). Per CoE rule
+ * 3.iv.5, "any passive condition actions of the strike succeeding are
+ * resolved immediately" — before the body check that follows — so callers
+ * must invoke this as soon as a character is actually wounded (not deferred
+ * to end-of-combat), or an already-forfeit ally could still act (e.g. tap to
+ * support a later strike in the same attack) before the discard catches up.
+ */
+export function applyBearerWoundedDiscards(
+  state: GameState,
+  defPlayerIdx: number,
+  charIds: readonly CardInstanceId[],
+): GameState {
+  let defPlayer = state.players[defPlayerIdx];
+  let anyDiscarded = false;
+  for (const charId of charIds) {
+    const charData = defPlayer.characters[charId];
+    if (!charData) continue;
+    const alliesToDiscard: (typeof charData.allies)[number][] = [];
+    for (const ally of charData.allies) {
+      const allyDef = defById(state, ally.definitionId);
+      const bearerWoundedEvents = getOnEventEffects(allyDef, 'bearer-wounded');
+      if (bearerWoundedEvents.some(e => isSelfDiscardMove(e.apply))) {
+        const allyName = allyDef?.name ?? (ally.definitionId as string);
+        logDetail(`bearer-wounded: discarding ally "${allyName}" from wounded character ${charId as string}`);
+        alliesToDiscard.push(ally);
+        anyDiscarded = true;
+      }
+    }
+    const itemsToDiscard: (typeof charData.items)[number][] = [];
+    for (const item of charData.items) {
+      const itemDef = defById(state, item.definitionId);
+      const bearerWoundedEvents = getOnEventEffects(itemDef, 'bearer-wounded');
+      if (bearerWoundedEvents.some(e => isSelfDiscardMove(e.apply))) {
+        const itemName = itemDef?.name ?? (item.definitionId as string);
+        logDetail(`bearer-wounded: discarding attached card "${itemName}" from wounded character ${charId as string}`);
+        itemsToDiscard.push(item);
+        anyDiscarded = true;
+      }
+    }
+    if (alliesToDiscard.length > 0 || itemsToDiscard.length > 0) {
+      const remainingAllies = charData.allies.filter(a => !alliesToDiscard.some(d => d.instanceId === a.instanceId));
+      const remainingItems = charData.items.filter(i => !itemsToDiscard.some(d => d.instanceId === i.instanceId));
+      const newDiscard = [
+        ...defPlayer.discardPile,
+        ...alliesToDiscard.map(a => toCardInstance(a)),
+        ...itemsToDiscard.map(i => toCardInstance(i)),
+      ];
+      defPlayer = {
+        ...defPlayer,
+        characters: {
+          ...defPlayer.characters,
+          [charId as string]: { ...charData, allies: remainingAllies, items: remainingItems },
+        },
+        discardPile: newDiscard,
+      };
+    }
+  }
+  if (!anyDiscarded) return state;
+  return updatePlayer(state, defPlayerIdx, () => defPlayer);
+}
+
+/**
  * True when a triggered-action `apply` is a "store this card too" move — the
  * `move` shape `{ select: 'self', to: 'kill-pile' }`. Mirrors
  * {@link isSelfDiscardMove}; used by `host-item-stored` handlers (e.g. Align
