@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.168.0 — 2026-09-23
+
+Custom AI Decks Arrive, Accidental Concessions Ended
+
+### Game Engine
+
+- Fixed recruitment-vehicle cards (Open to the Summons wh-46, Thrall of the Voice wh-82) being playable standalone during the site phase. Rule 2.1.1's "any phase" resource permanent-event allowance is emitted by two separate generators; `organization-events.ts` already excluded cards carrying a `recruitment-vehicle` effect from its untargeted fallback, but `site.ts`'s mirror fallback did not, so the card could enter play loose in `cardsInPlay` with no character ever attached, permanently wasting the copy. Added the same guard to `site.ts` plus a defense-in-depth rejection in `handlePlayPermanentEvent` (#3152)
+- Fixed bearer-wounded allies and items (Great Bats as-74 and similar "discard this ally if its controlling character is wounded" cards) only being discarded at `finalizeCombat` instead of immediately. CoE 3.iv.5 resolves a strike's passive condition actions right away — before the following body check and before any later strike of the same attack — so an ally that should already have been discarded could still tap to support another character's strike. Extracted `applyBearerWoundedDiscards` and call it as each combat wound is applied, in both the normal and CvCC strike-resolution paths (#3151)
+- Fixed a hazard creature's discard-item strike effect (Thief tw-102, Pick-pocket tw-79, and the agent variants An Article Missing dm-43 and Taladhan dm-25) wrongly awarding kill marshalling points. Rewriting the strike result to `success` to suppress the wound also told `finalizeCombat`'s `allDefeated` check that the defender had defeated the strike (CoE 3.iv.7), routing the creature to the defender's marshalling-point pile instead of the attacker's discard pile on every attack. Added a distinct `item-discarded` strike result that keeps the tap-only status logic without claiming a defeat (#3143)
+- Fixed playing a character into an existing company never checking rule 3.26's leader restriction. Every other way to join a company (`move-to-company`, `merge-companies`) already called `wouldViolateLeaderRestriction`, so a player could assemble an illegal two-leader company away from a haven, which the movement generator then correctly refused to move — stranding it for the rest of the game. Added the haven-gated check to both the avatar and non-avatar branches of `playCharacterActions` (#3142)
+- Certified Show Things Unbidden (ba-32): the end-of-organization play restriction (untapped Galadriel at Lórien, tap cost) plus the opponent-facing effect that shuffles three non-environment hazards from hand into the play deck, or reveals the hand and shuffles all matches when fewer than three exist. Added a `force-opponent-hazard-shuffle` triggered action and extended the shared `force-discard-card` pending resolution with a `destination` field and multi-pick support in fixed-candidate mode (#3148)
+- Certified Escape (tw-230), the second printing of tw-229: `play-target` on an unwounded character, `cancel-attack`, and `set-character-status` (wound, no body check), all existing engine primitives with direct precedent from tw-229 (#3147)
+
+### Web Client
+
+- Fixed the pseudo-AI panel silently conceding the game on the human's behalf. The server appends an always-viable `concede` meta-action to every seat's legal actions, so a seat waiting on its opponent's simultaneous character-draft pick had `[concede]` as its lone viable entry and the panel's "auto-pick the sole viable option" shortcut fired it with nobody clicking anything. Excluded `concede` from the auto-pick tally — extracted as `getPseudoAiAutoPick` — mirroring the identical fix already applied to the human panel's auto-pass logic (#3144, #3145)
+- Fixed Mirror of Galadriel (tw-282) offering no buttons for its choose-peek-deck options. The pending resolution offers two `choose-peek-deck` actions (look at the top of one's own or the opponent's play deck) plus the ordinary pass to decline; because declining is always viable, `pass` alone satisfied `renderPassButton`'s pass-like whitelist and became the sole button, leaving the player with only "Continue". Now renders one button per offered deck alongside Pass, matching the other `choose-*` pending resolutions (#3149)
+
+### Lobby & AI Opponents
+
+- Added custom and random deck selection for AI opponents: the picker now accepts "Random" — resolved server-side, so the human never learns the deck before or during play — or any of the player's own saved decks, alongside the existing approved-catalog picker. A player-owned deck is forwarded to the spawned AI client as a temp `--deck-file` rather than `--deck <id>`, since `@meccg/sim`'s catalog-only `loadDeck` cannot see it. Pseudo-AI keeps catalog-only selection, since the browser resolves that seat's deck itself and no server-side secrecy is possible (#3146)
+- Fixed the heuristic AI wastefully double-declaring Marvels Told. The movement-hazard evaluator scored every discard-in-play target (Marvels Told, Voices of Malice, Ancient Secrets, The Cock Crows) identically regardless of whether an earlier unresolved chain entry already claimed it — the target stays visible in play until the chain resolves, so a second copy was a legal but guaranteed fizzle, spending the card and a sage's tap for nothing. Added `discardTargetAlreadyDeclared()` to score such targets 0 (#3150)
+
 ## 0.167.0 — 2026-09-22
 
 Rule-Bypass Exploits Closed, Dragon Ambush Wired Up
