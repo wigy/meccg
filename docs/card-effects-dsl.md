@@ -2223,6 +2223,54 @@ one is available, opponent must discard a hazard creature from his hand; this
 reduces the company's hazard limit by one. Otherwise, the attack is canceled
 and the opponent must reveal his hand."
 
+### 6e-bis. `force-opponent-hazard-shuffle`
+
+Carried by a **resource** short-event's `on-event: self-enters-play` (no
+`target` — it acts on the opponent, not on any played-on character or
+company). Resolved in `applyShortEventOnEntersPlay` (`reducer-events.ts`)
+when the card enters play:
+
+1. Gathers the card-player's opponent's hand cards matching "non-environment
+   hazard": any `hazard-creature` or `hazard-corruption`, or a `hazard-event`
+   lacking the `environment` keyword.
+2. If at least `count` matches exist, enqueues a `force-discard-card` pending
+   resolution for the opponent with `destination: "play-deck"` and
+   `remaining: count` — the same choose-one-of-N-repeat-until-0 machinery
+   `force-opponent-discard` uses (§6e), reused here to shuffle the chosen
+   cards into the actor's **play deck** instead of their discard pile. Each
+   pick removes the card from `candidateInstanceIds` so it isn't offered
+   twice; the resolution clears once `remaining` hits 0.
+3. Otherwise (fewer than `count` matches — the "choose" branch has nothing
+   to choose from), there is no decision to offer: the opponent's entire
+   hand is revealed via `revealInstances` and every matching card found
+   (0 or more) is shuffled directly into their play deck, no pending
+   resolution involved.
+
+The `force-discard-card` pending resolution's `destination` field (`'discard'`
+default, or `'play-deck'`) and its generalized `remaining`-driven repeat for
+the fixed-candidate mode (previously only the `anyFromHand` mode supported
+picking more than one) are the two extensions this effect made to the shared
+machinery — see §6e's `force-discard-card` resolution doc.
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.name": "Galadriel" },
+    { "target.status": "untapped" },
+    { "company.siteName": "Lórien" } ] },
+  "cost": { "tap": "character" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "force-opponent-hazard-shuffle", "count": 3 } }
+```
+
+Used by Show Things Unbidden (ba-32): "Playable during the organization
+phase on Galadriel if untapped and at Lórien. Tap Galadriel. Opponent must
+choose and reveal to you 3 non-environment hazards from his hand and
+shuffle them into his play deck. If these are not available, opponent must
+reveal his hand to you and shuffle all non-environment hazards there into
+his play deck."
+
 ### 6f. `cycle-hand`
 
 Carried by a (hazard) short-event. When the event resolves on the chain, the
