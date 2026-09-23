@@ -60,6 +60,24 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   if (!handCard) return { state, error: 'Card not found in hand' };
   const def = state.cardPool[handCard.definitionId] as import('../types/cards-resources.js').HeroResourceEventCard;
 
+  // A `recruitment-vehicle` effect (Thrall of the Voice wh-82, Open to the
+  // Summons wh-46) is never playable as a bare permanent event — its only
+  // play mode is bundled with a character recruit via `play-character`'s
+  // `viaRecruitmentInstanceId` (see `recruitmentVehiclesInHand` in
+  // organization-characters.ts). The legal-action emitters already withhold
+  // this action, but a gap in one of them once let it through (game
+  // mu3shhqh-68ah6m, seq 821): the site-phase "any phase" permanent-event
+  // fallback lacked the same guard organization-events.ts has, so the card
+  // entered play loose in `cardsInPlay`, permanently spent with no character
+  // ever attached. Reject it here too as defense in depth, independent of
+  // which emitter is consulted.
+  const recruitmentVehicle = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').RecruitmentVehicleEffect => e.type === 'recruitment-vehicle',
+  );
+  if (recruitmentVehicle) {
+    return { state, error: `${def.name}: can only be played bundled with a character recruit, not as a standalone permanent event` };
+  }
+
   logDetail(`Playing permanent event: ${def.name} → enters chain`);
 
   // Remove card from hand — it now resides on the chain

@@ -63,7 +63,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, LORIEN, MORIA,
-  resetMint, buildTestState, getCharacter,
+  resetMint, buildTestState, getCharacter, makeSitePhase,
   recomputeDerived, dispatch, createGame, draftInstId, runActions, makePlayDeck, pool,
   Phase, Alignment, RESOURCE_PLAYER,
 } from '../test-helpers.js';
@@ -146,6 +146,34 @@ describe('Open to the Summons (wh-46)', () => {
     const plays = summonPlays(state, BILL_FERNY);
     expect(plays.length).toBeGreaterThan(0);
     expect((plays[0].action as { viaRecruitmentInstanceId?: CardInstanceId }).viaRecruitmentInstanceId).toBe(summonsId);
+  });
+
+  // ── Never playable as a bare permanent event ────────────────────────────────
+
+  test('is NOT offered as a standalone permanent event during the site phase (game mu3shhqh-68ah6m, seq 821)', () => {
+    // Regression: the site-phase "any resource permanent-event, any phase"
+    // fallback (rule 2.1.1, legal-actions/site.ts) lacked the
+    // recruitment-vehicle guard that organization-events.ts already applies to
+    // its own generic permanent-event fallback. That let the card be played
+    // loose into cardsInPlay with no character ever attached, permanently
+    // wasting the player's only copy — later leaving them unable to summon an
+    // otherwise-eligible agent (held in hand) with it, and reproducing exactly
+    // the reported "won't let me play the agent with Open to the Summons" bug.
+    const state = {
+      ...rwOrgState(MINAS_MORGUL, [OPEN_TO_THE_SUMMONS]),
+      phaseState: makeSitePhase({ step: 'play-resources', siteEntered: true }),
+    };
+    const cardId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === OPEN_TO_THE_SUMMONS)!.instanceId;
+
+    const plays = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'play-permanent-event'
+        && (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === cardId,
+    );
+    expect(plays).toHaveLength(0);
+
+    // The reducer also rejects a direct attempt, independent of legal-actions.
+    const result = reduce(state, { type: 'play-permanent-event', player: PLAYER_1, cardInstanceId: cardId });
+    expect(result.error).toBeDefined();
   });
 
   // ── Rule 6: only a Ringwraith/Fallen-wizard, only at a Darkhaven ────────────

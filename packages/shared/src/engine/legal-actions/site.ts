@@ -1302,6 +1302,25 @@ export function playResourcesActions(
           continue;
         }
 
+        // A `recruitment-vehicle` effect (Thrall of the Voice wh-82, Open to the
+        // Summons wh-46) is never playable as a bare permanent event — its card
+        // text is explicit: "Instead of a normal character... bring into play
+        // one character... Place this card with the character." The card's only
+        // play mode is bundled with a character recruit via `play-character`'s
+        // `viaRecruitmentInstanceId` (see `recruitmentVehiclesInHand` in
+        // organization-characters.ts). Mirrors the equivalent guard in
+        // organization-events.ts — without it, the generic untargeted fallback
+        // below would let the card enter play loose in `cardsInPlay` here during
+        // the site phase (rule 2.1.1's "any phase" allowance), permanently spent
+        // with no character ever attached.
+        const recruitmentVehicle = getCardEffects(eventDef).find(
+          (e): e is import('../../types/effects.js').RecruitmentVehicleEffect => e.type === 'recruitment-vehicle',
+        );
+        if (recruitmentVehicle) {
+          logDetail(`Permanent event ${eventDef.name}: recruitment-vehicle — only playable bundled with a character recruit, not offered during the site phase`);
+          continue;
+        }
+
         const stageActiveCompanyCond = (eventDef as { alignment?: string }).alignment === 'stage'
           ? findPlayConditionEffect(eventDef, 'active-company')
           : undefined;
