@@ -39,7 +39,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -894,56 +894,15 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // and Await the Advent of Allies (dm-117) — an attached permanent-event stored in
   // the host character's `items` ("Discard this card when the character … becomes
   // wounded").
+  //
+  // This is a safety net, not the primary trigger: `combat-strike.ts` already
+  // applies this immediately when a character wound is resolved mid-attack
+  // (CoE 3.iv.5 — passive condition actions resolve immediately, before the
+  // body check). It still catches wound sources that finalize here without
+  // ever going through that per-strike path (CvC combat wounds).
   if (woundedCharIds.length > 0) {
     const defPlayerIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
-    let defPlayer = stateAfterCombat.players[defPlayerIdx];
-    let anyDiscarded = false;
-    for (const charId of woundedCharIds) {
-      const charData = defPlayer.characters[charId];
-      if (!charData) continue;
-      const alliesToDiscard: (typeof charData.allies)[number][] = [];
-      for (const ally of charData.allies) {
-        const allyDef = defById(stateAfterCombat, ally.definitionId);
-        const bearerWoundedEvents = getOnEventEffects(allyDef, 'bearer-wounded');
-        if (bearerWoundedEvents.some(e => isSelfDiscardMove(e.apply))) {
-          const allyName = allyDef?.name ?? (ally.definitionId as string);
-          logDetail(`bearer-wounded: discarding ally "${allyName}" from wounded character ${charId as string}`);
-          alliesToDiscard.push(ally);
-          anyDiscarded = true;
-        }
-      }
-      const itemsToDiscard: (typeof charData.items)[number][] = [];
-      for (const item of charData.items) {
-        const itemDef = defById(stateAfterCombat, item.definitionId);
-        const bearerWoundedEvents = getOnEventEffects(itemDef, 'bearer-wounded');
-        if (bearerWoundedEvents.some(e => isSelfDiscardMove(e.apply))) {
-          const itemName = itemDef?.name ?? (item.definitionId as string);
-          logDetail(`bearer-wounded: discarding attached card "${itemName}" from wounded character ${charId as string}`);
-          itemsToDiscard.push(item);
-          anyDiscarded = true;
-        }
-      }
-      if (alliesToDiscard.length > 0 || itemsToDiscard.length > 0) {
-        const remainingAllies = charData.allies.filter(a => !alliesToDiscard.some(d => d.instanceId === a.instanceId));
-        const remainingItems = charData.items.filter(i => !itemsToDiscard.some(d => d.instanceId === i.instanceId));
-        const newDiscard = [
-          ...defPlayer.discardPile,
-          ...alliesToDiscard.map(a => toCardInstance(a)),
-          ...itemsToDiscard.map(i => toCardInstance(i)),
-        ];
-        defPlayer = {
-          ...defPlayer,
-          characters: {
-            ...defPlayer.characters,
-            [charId as string]: { ...charData, allies: remainingAllies, items: remainingItems },
-          },
-          discardPile: newDiscard,
-        };
-      }
-    }
-    if (anyDiscarded) {
-      stateAfterCombat = updatePlayer(stateAfterCombat, defPlayerIdx, () => defPlayer);
-    }
+    stateAfterCombat = applyBearerWoundedDiscards(stateAfterCombat, defPlayerIdx, woundedCharIds);
   }
 
   // Elven Rope (ba-34): "Discard the creature if Elven Rope's bearer becomes

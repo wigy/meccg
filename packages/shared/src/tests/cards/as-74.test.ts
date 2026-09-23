@@ -53,6 +53,7 @@ const GREAT_BATS = 'as-74' as CardDefinitionId;
 // Minion characters (LE pool — ringwraith alignment, no inherent effects)
 const ASTERNAK = 'le-1' as CardDefinitionId;   // man, prowess 5, body 7, mind 5
 const LUITPRAND = 'le-23' as CardDefinitionId; // man, prowess 3, body 7, mind 1
+const CALENDAL = 'le-4' as CardDefinitionId;   // man, prowess 4, body 8
 
 // Minion sites
 const MORIA_MINION = 'le-392' as CardDefinitionId;  // minion shadow-hold
@@ -260,6 +261,57 @@ describe('Great Bats (as-74)', () => {
     // Ally must not still be attached to Asternak
     const asternakChar = s.players[RESOURCE_PLAYER].characters[asternakId];
     expect(asternakChar.allies).toHaveLength(0);
+  });
+
+  test('ally is discarded immediately when bearer is wounded — before a later strike in the same combat resolves', () => {
+    // Bug report (game mue2h1vh-6krm7z, turn 7, M/H phase): a multi-strike
+    // attack wounded Great Bats' bearer on the first strike, but the ally
+    // stayed attached (and tappable to support a *different* character's
+    // strike) until the whole attack finished. CoE rule 3.iv.5: "any passive
+    // condition actions of the strike succeeding are resolved immediately" —
+    // before the body check, and therefore before any later strike of the
+    // same attack.
+    //
+    // Company: Asternak (bears Great Bats) + Calendal, both facing strikes
+    // from a 2-strike creature. Asternak's strike resolves first and wounds
+    // him; Calendal's strike is still unresolved (combat still active) when
+    // Great Bats must already be gone.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [ASTERNAK, CALENDAL] }], hand: [] as CardDefinitionId[], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [LUITPRAND] }], hand: [] as CardDefinitionId[], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ASTERNAK, GREAT_BATS);
+    const combatState = makeCancelWindowCombat(withAlly, {
+      creatureDefId: HOBGOBLINS,
+      creatureRace: Race.Orc,
+      strikesTotal: 2,
+      strikeProwess: 9,
+    });
+
+    const asternakId = findCharInstanceId(combatState, RESOURCE_PLAYER, ASTERNAK);
+    const calendalId = findCharInstanceId(combatState, RESOURCE_PLAYER, CALENDAL);
+
+    let s = dispatch(combatState, { type: 'assign-strike', player: PLAYER_1, characterId: asternakId });
+    s = dispatch(s, { type: 'assign-strike', player: PLAYER_1, characterId: calendalId });
+    expect(s.combat!.phase).toBe('choose-strike-order');
+
+    const asternakIdx = s.combat!.strikeAssignments.findIndex(sa => sa.characterId === asternakId);
+    s = dispatch(s, { type: 'choose-strike-order', player: PLAYER_1, strikeIndex: asternakIdx });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2);     // roll 2: 2+5=7 < 9 → wounded
+    s = executeAction(s, PLAYER_2, 'body-check-roll', 7);    // roll 7: 7 >= 7 → survives wounded
+
+    // The attack is not finished — Calendal's strike is still pending.
+    expect(s.combat).not.toBeNull();
+    expect(s.combat!.strikeAssignments.some(sa => sa.characterId === calendalId && !sa.resolved)).toBe(true);
+
+    // Great Bats must already be discarded, not still attached to Asternak.
+    expectInDiscardPile(s, RESOURCE_PLAYER, GREAT_BATS);
+    expect(s.players[RESOURCE_PLAYER].characters[asternakId].allies).toHaveLength(0);
   });
 
   test('ally is NOT discarded when bearer wins the strike (not wounded)', () => {
