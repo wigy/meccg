@@ -2760,8 +2760,13 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an unwounded character facing an attack. The attack is canceled and the character is wounded (no body check is required)."
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.status": { "$ne": "inverted" } } },
+      { "type": "cancel-attack" },
+      { "type": "set-character-status", "status": "inverted", "target": "target-character" }
+    ],
+    "text": "Playable on an unwounded character facing an attack. The attack is canceled and the character is wounded (no body check is required).",
+    "certified": "2026-09-22"
   },
   {
     "cardType": "hero-resource-event",
