@@ -193,6 +193,18 @@ function recover(
   return { skipped: matches.length === 0 ? 'no-match' : 'ambiguous' };
 }
 
+/**
+ * A key for structural equality of two actions, ignoring key order — the same
+ * canonical form `export-human` matches logged moves with.
+ */
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).filter(key => record[key] !== undefined).sort();
+  return `{${keys.map(key => `${JSON.stringify(key)}:${canonical(record[key])}`).join(',')}}`;
+}
+
 /** Read one game's attributable human decisions. */
 function decisionsOf(logRef: string, gameId: string, player: PlayerId): {
   decisions: HumanDecision[];
@@ -221,6 +233,34 @@ function decisionsOf(logRef: string, gameId: string, player: PlayerId): {
     const candidates = forwardActions(viable.map(e => e.action));
     if (candidates.length < 2) {
       skips.forced++;
+      continue;
+    }
+
+    // Recent logs carry the move itself, player included. That settles
+    // attribution outright: the record names only an action *type* otherwise,
+    // and in a window both seats act in (the hazard window above all, where
+    // both hold a `pass`) the opponent's pass was credited to the human. In
+    // two recorded games 70 of 88 hazard-window "human passes" were the
+    // resource player's — which read as the AI playing hazards where strong
+    // players held back, when they in fact pass only 16% of the time.
+    const moved = records[i + 1].action;
+    if (moved !== undefined && (moved.player as unknown as string) !== (player as unknown as string)) {
+      skips['opponent-acted']++;
+      continue;
+    }
+    const exact = moved === undefined ? [] : candidates.filter(c => canonical(c) === canonical(moved));
+    if (exact.length > 0) {
+      decisions.push({
+        gameId,
+        stateSeq: record.stateSeq,
+        turn: record.turn,
+        phase: record.phase,
+        player,
+        state: withStandardCardPool(record.state),
+        legalActions: candidates,
+        chosen: exact[0],
+      });
+      if (decisions.length >= maxDecisions) break;
       continue;
     }
 
