@@ -45,7 +45,7 @@ import {
   ARAGORN, ELROND, GANDALF, LEGOLAS,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   charIdAt, findCharInstanceId, dispatch, executeAction, makeCancelWindowCombat, makeMHState,
-  viableActions, grantedActionsFor, expectInDiscardPile, expectCharStatus,
+  viableActions, grantedActionsFor, expectInDiscardPile, expectCharStatus, resolveChain,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { CardDefinitionId, EndOfTurnPhaseState, GameState, MovementHazardPhaseState, PlayHazardAction } from '../../index.js';
@@ -187,6 +187,44 @@ describe('Pale Dream-maker (dm-78)', () => {
     const aragornId = charIdAt(atCap, RESOURCE_PLAYER);
     const plays = viableActions(atCap, PLAYER_2, 'play-hazard') as { action: PlayHazardAction }[];
     expect(plays.filter(p => p.action.targetCharacterId === aragornId)).toHaveLength(1);
+  });
+
+  test('attaches to the bearer at resolution instead of fizzling, even though playing it pushed the declared count past the hazard limit', () => {
+    // Regression: the hazard limit was already at its cap (2) from an earlier
+    // creature attack (Stirring Bones) when Pale Dream-maker was played.
+    // Because the card did not increment `hazardsPlayedThisCompany` correctly
+    // exempt itself, the engine used to see 3 declared > limit 2 at
+    // resolution and negate the entry — discarding the card instead of
+    // attaching it to the wounded bearer.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [PALE_DREAM_MAKER], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const wounded = setWoundedByRaceThisTurn(base, RESOURCE_PLAYER, ARAGORN, [Race.Undead]);
+    const atCap: GameState = {
+      ...wounded,
+      phaseState: {
+        ...makeMHState({ activeCompanyIndex: 0 }),
+        hazardsPlayedThisCompany: 2,
+        hazardLimitAtReveal: 2,
+      } as MovementHazardPhaseState,
+    };
+    const aragornId = charIdAt(atCap, RESOURCE_PLAYER);
+    const cardInstanceId = atCap.players[HAZARD_PLAYER].hand[0].instanceId;
+
+    const played = dispatch(atCap, {
+      type: 'play-hazard', player: PLAYER_2, cardInstanceId, targetCharacterId: aragornId,
+    } as PlayHazardAction);
+    const resolved = resolveChain(played);
+
+    const hazards = resolved.players[RESOURCE_PLAYER].characters[aragornId].hazards;
+    expect(hazards.map(h => h.definitionId)).toContain(PALE_DREAM_MAKER);
+    expect(resolved.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === PALE_DREAM_MAKER)).toBe(false);
   });
 
   // ─── Rule 3: +2 corruption points while attached ─────────────────────────────
