@@ -47,6 +47,7 @@ import { DEFAULT_BODY, bodyOf as bodyOfTarget, predictedNeed, strikeTargets } fr
 import { attackerChoiceAt, resolveSequentially } from '../../services/strike/sequence.js';
 import type { CharacterValue } from '../../services/character-value.js';
 import { computeCharacterValue } from '../../services/character-value.js';
+import { cancelAttackPrice } from '../../services/cancel-price.js';
 
 /**
  * Action types this module scores.
@@ -739,13 +740,14 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
     }
 
     case 'cancel-attack': {
-      // The attack simply does not happen. What it costs is the card or the
-      // tap that paid for it, which the provisional price stands in for.
-      const price = tunables.provisionalCardPrice;
+      // The attack simply does not happen. What it costs is what the action
+      // names — see `services/cancel-price`.
+      const price = cancelAttackPrice(action, context.characterValue, tunables,
+        id => nameOfInstance(context, id));
       return evaluationFrom(context, action, 'cancel the attack',
-        [{ p: 1, label: 'the attack is cancelled before it is assigned', dtsd: -price }],
-        [leaf('price paid', price, { unit: 'tsd', tunable: 'provisionalCardPrice', note: 'a card or a tap' })],
-        [...ASSUMPTIONS, 'the cancelling card or tap is priced at the flat provisional card price']);
+        [{ p: 1, label: 'the attack is cancelled before it is assigned', dtsd: -price.tsd }],
+        price.parts,
+        [...ASSUMPTIONS, 'a cancelling card is priced at the flat provisional card price']);
     }
 
     case 'cancel-by-tap': {

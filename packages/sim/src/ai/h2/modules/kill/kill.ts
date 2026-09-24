@@ -22,12 +22,23 @@
  * the question is tactical again and `combat` has the better model of it.
  */
 
-import type { CombatState, GameAction } from '@meccg/shared';
+import type { CardInstanceId, CombatState, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { scoredEvaluation } from '../../core/evaluation.js';
 import { killMpOnOffer } from '../../services/attack-value.js';
+import { cancelAttackPrice } from '../../services/cancel-price.js';
+import { computeCharacterValue } from '../../services/character-value.js';
+
+/** A character's printed name, for a rationale. */
+function nameOfCharacter(context: ModuleContext, instanceId: CardInstanceId): string {
+  const character = context.view.self.characters[instanceId];
+  const name = character
+    ? (context.cardPool[character.definitionId] as unknown as { name?: string } | undefined)?.name
+    : undefined;
+  return name ?? (instanceId as string);
+}
 
 /**
  * Action types this module scores.
@@ -93,7 +104,14 @@ export const killModule: H2Module = {
     // fight attacks the exact lookahead (`oracle.test.ts`) says to refuse.
     // What is left on the table is reported, so the reader can see why the
     // fight looks attractive, but the price of refusing is the price alone.
-    const price = action.type === 'cancel-by-tap' ? tunables.tapTempoCost : tunables.provisionalCardPrice;
+    // A `cancel-attack` costs what it names — the card, the scout it taps, the
+    // character it wounds — through the same service `combat` uses.
+    const cancel = action.type === 'cancel-attack'
+      ? cancelAttackPrice(action, computeCharacterValue(context.view, context.cardPool, standing, tunables),
+        tunables, id => nameOfCharacter(context, id))
+      : null;
+    const price = cancel?.tsd
+      ?? (action.type === 'cancel-by-tap' ? tunables.tapTempoCost : tunables.provisionalCardPrice);
     const forfeited = action.type === 'halve-strikes' ? killTsd / 2 : killTsd;
     const dtsd = netTsdDelta({ realized: 0, tempo: price }, tunables);
 
@@ -116,10 +134,12 @@ export const killModule: H2Module = {
         unit: 'tsd',
         note: 'not charged here — the candidates that face the attack carry it on the branches that beat it',
       }),
-      leaf('price of refusing', price, {
-        unit: 'tsd',
-        tunable: action.type === 'cancel-by-tap' ? 'tapTempoCost' : 'provisionalCardPrice',
-      }),
+      cancel
+        ? node('price of refusing', price, cancel.parts, { unit: 'tsd' })
+        : leaf('price of refusing', price, {
+          unit: 'tsd',
+          tunable: action.type === 'cancel-by-tap' ? 'tapTempoCost' : 'provisionalCardPrice',
+        }),
     ];
 
     return scoredEvaluation({

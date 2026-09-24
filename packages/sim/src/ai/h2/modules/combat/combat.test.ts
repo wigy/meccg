@@ -476,6 +476,33 @@ describe('a tie in the defender\'s assignment window', () => {
   });
 });
 
+describe('cancelling an attack costs what the action names', () => {
+  // Every `cancel-attack` used to cost one flat card, so tapping Galadriel for
+  // a Concealment tied tapping Frodo, and the scout was chosen at random.
+  const SCENARIO = 'combat/concealment-which-scout-taps';
+  const scout = (evaluation: Evaluation): string =>
+    (evaluation.action as unknown as { scoutInstanceId?: string }).scoutInstanceId ?? '';
+
+  test('charges the tap of the scout it taps', () => {
+    const context = contextFor(SCENARIO);
+    const cancels = context.legalActions.filter(a => a.type === 'cancel-attack')
+      .map(a => combatModule.evaluate(a, context)!);
+    expect(cancels.length).toBeGreaterThan(1);
+    const nameOf = (id: string): string | undefined => {
+      const character = context.view.self.characters[id as never];
+      return (CARD_POOL[character.definitionId] as unknown as { name?: string }).name;
+    };
+    const galadriel = cancels.find(e => nameOf(scout(e)) === 'Galadriel')!;
+    const frodo = cancels.find(e => nameOf(scout(e)) === 'Frodo')!;
+    expect(galadriel.expectedTsd).toBeLessThan(frodo.expectedTsd);
+    expect(leavesOf(frodo).some(l => l.label === 'taps Frodo')).toBe(true);
+    // Never cheaper than the card alone.
+    for (const cancel of cancels) {
+      expect(cancel.expectedTsd).toBeLessThanOrEqual(-DEFAULT_TUNABLES.provisionalCardPrice);
+    }
+  });
+});
+
 describe('weakening an attack before it is assigned', () => {
   // `modify-attack` had no owner, so the defence never tapped a Black Arrow
   // (-1 prowess and body on one attack) or played a Vanish in Sunlight! —
