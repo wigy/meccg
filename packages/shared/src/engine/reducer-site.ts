@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
+import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -66,6 +66,7 @@ const SITE_STEP_HANDLERS: Readonly<Partial<Record<SitePhaseState['step'], SiteHa
   'select-company': handleSiteSelectCompany,
   'siege-attacks': handleSiteSiegeAttacks,
   'enter-or-skip': handleSiteEnterOrSkip,
+  'skip-site-reveal-on-guard': handleSkipSiteRevealOnGuard,
   'reveal-on-guard-attacks': handleRevealOnGuardAttacks,
   'forewarned-select-attack': handleForewarnedSelectAttack,
   'play-site-auto-attack': handleSitePlaySiteAutoAttack,
@@ -323,6 +324,7 @@ function handleSiteSelectCompany(
       step: 'enter-or-skip' as const,
       activeCompanyIndex: companyIndex,
       automaticAttacksResolved: 0,
+      skippedSiteEntry: undefined,
       siteEntered: false,
       resourcePlayed: false,
       minorItemAvailable: false,
@@ -531,8 +533,22 @@ function handleSiteEnterOrSkip(
   const player = playerById(state, state.activePlayer)!;
   const company = player.companies[siteState.activeCompanyIndex];
 
-  // Pass = do nothing, company's site phase ends immediately
+  // Pass = do nothing, company's site phase ends immediately — unless Near to
+  // Hear a Whisper (as-31) is in play, or the company holds a matching
+  // on-guard card, in which case the hazard player still gets a window before
+  // the company's slot closes (CoE default has no such window on a skip).
   if (action.type === 'pass') {
+    const skipEligible = agentAttackAllowedOnSkip(state)
+      || companySkipsSiteOnGuardCards(state, company).length > 0;
+    if (skipEligible) {
+      logDetail(`Site: company ${company.id} does nothing, but an agent-attack-on-skip rule applies → offering reveal/agent-attack window`);
+      return {
+        state: {
+          ...state,
+          phaseState: { ...siteState, step: 'skip-site-reveal-on-guard' as const, skippedSiteEntry: true },
+        },
+      };
+    }
     logDetail(`Site: company ${company.id} does nothing → advancing to next company`);
     return advanceSiteToNextCompany(state, siteState, company.id);
   }
@@ -574,6 +590,74 @@ function handleSiteEnterOrSkip(
     entryStep = 'declare-agent-attack';
   }
   return advanceThroughSiteEntryGates(state, siteState, entryStep);
+}
+
+/**
+ * Handle the `skip-site-reveal-on-guard` step (Near to Hear a Whisper as-31):
+ * entered instead of an immediate advance-to-next-company when a company
+ * chooses not to enter its site while the card's rule applies. The hazard
+ * player may reveal any eligible `company-skips-site` on-guard card (which
+ * enters play exactly like a normal on-guard reveal of a permanent/long
+ * event — CoE rule 2.V.6), or pass. Passing moves on to `declare-agent-attack`
+ * if `agent-attack-on-skip` is now active (the just-revealed card counts, since
+ * revealing it added it to `cardsInPlay`), or returns straight to the next
+ * company otherwise.
+ */
+function handleSkipSiteRevealOnGuard(
+  state: GameState,
+  action: GameAction,
+  siteState: SitePhaseState,
+): ReducerResult {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const resourcePlayer = state.players[activeIndex];
+  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+  if (!company) {
+    logDetail('Site skip-site-reveal-on-guard: active company dissolved — finishing its site-phase slot');
+    return finishDissolvedCompanySlot(state, siteState);
+  }
+
+  if (action.type === 'reveal-on-guard') {
+    const ogIdx = company.onGuardCards.findIndex(c => c.instanceId === action.cardInstanceId);
+    if (ogIdx === -1) return { state, error: 'On-guard card not found' };
+    const revealedCard = company.onGuardCards[ogIdx];
+    const def = defById(state, revealedCard.definitionId);
+    logDetail(`Site: hazard player reveals on-guard "${def?.name ?? revealedCard.definitionId}" (company chose not to enter the site)`);
+
+    const newOnGuardCards = [...company.onGuardCards];
+    newOnGuardCards.splice(ogIdx, 1);
+    const newCompanies = [...resourcePlayer.companies];
+    newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+    const hazardIndex = getPlayerIndex(state, action.player);
+    const newPlayers = clonePlayers(state);
+    newPlayers[activeIndex] = { ...resourcePlayer, companies: newCompanies };
+    newPlayers[hazardIndex] = {
+      ...newPlayers[hazardIndex],
+      cardsInPlay: [...newPlayers[hazardIndex].cardsInPlay, {
+        instanceId: revealedCard.instanceId,
+        definitionId: revealedCard.definitionId,
+        status: CardStatus.Untapped,
+      }],
+    };
+
+    return { state: { ...state, players: newPlayers } };
+  }
+
+  if (action.type === 'pass') {
+    if (agentAttackAllowedOnSkip(state)) {
+      logDetail('Site: skip-site reveal window closed, agent-attack-on-skip active → declare-agent-attack');
+      return {
+        state: {
+          ...state,
+          phaseState: { ...siteState, step: 'declare-agent-attack' as const },
+        },
+      };
+    }
+    logDetail('Site: skip-site reveal window closed, no agent-attack-on-skip rule active → advancing to next company');
+    return advanceSiteToNextCompany(state, siteState, company.id);
+  }
+
+  return { state, error: `Expected 'reveal-on-guard' or 'pass' during skip-site-reveal-on-guard step, got '${action.type}'` };
 }
 
 /**
@@ -1976,7 +2060,12 @@ function handleDeclareAgentAttack(
     return {
       state: {
         ...state,
-        phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: true },
+        // Near to Hear a Whisper (as-31): a company going through the
+        // skip-site sequence never actually entered the site, even when it
+        // faces this agent attack — `siteEntered` stays false so the
+        // resolve-attacks step returns to the next company instead of
+        // opening play-resources.
+        phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: !siteState.skippedSiteEntry },
       },
     };
   }
@@ -2213,7 +2302,9 @@ function handleDeclareAgentAttack(
     state: {
       ...stateAfterReveal,
       combat,
-      phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: true },
+      // See the `pass` branch above: as-31's skip-site sequence never
+      // counts as having entered the site.
+      phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: !siteState.skippedSiteEntry },
     },
   };
 }
@@ -2401,6 +2492,10 @@ function handleSiteResolveAttacks(
         ...p,
         discardPile: [...p.discardPile, ...canceled.map(c => toCardInstance(c))],
       }));
+      if (siteState.skippedSiteEntry) {
+        logDetail('Site: as-31 skip-site sequence — advancing to next company instead of play-resources');
+        return advanceSiteToNextCompany(newState, siteState, company.id);
+      }
       return {
         state: { ...newState, phaseState: { ...siteState, step: 'play-resources' as const } },
       };
@@ -2435,7 +2530,13 @@ function handleSiteResolveAttacks(
     }
   }
 
-  // All attacks resolved — advance to play-resources
+  // All attacks resolved. Near to Hear a Whisper (as-31): a company that
+  // never entered the site has no resources to play — return to the next
+  // company instead of opening play-resources.
+  if (siteState.skippedSiteEntry) {
+    logDetail('Site: as-31 skip-site sequence — all attacks resolved, advancing to next company');
+    return advanceSiteToNextCompany(state, siteState, company.id);
+  }
   logDetail('Site: all attacks resolved → play-resources');
   return {
     state: {
@@ -5653,6 +5754,7 @@ function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState)
         soloAutoAttackCharacterId: undefined,
         burglaryItemUnlock: undefined,
         tappedSiteItemUnlock: undefined,
+        skippedSiteEntry: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
@@ -5737,6 +5839,7 @@ function advanceSiteToNextCompany(
         soloAutoAttackCharacterId: undefined,
         burglaryItemUnlock: undefined,
         tappedSiteItemUnlock: undefined,
+        skippedSiteEntry: undefined,
         siteEntered: false,
         resourcePlayed: false,
         minorItemAvailable: false,
