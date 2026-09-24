@@ -940,3 +940,32 @@ describe('spectator face-down agent redaction', () => {
     expect(agent.siteStack[0].definitionId).toBe(RIVENDELL);
   });
 });
+
+describe("The opponent's revealed cards are remembered (revealedInstances)", () => {
+  // A played card sinks face down into a discard pile the view redacts, but
+  // its identity was public when it was played. The view carries that memory
+  // as `opponent.revealedCards`, restricted to cards the opponent owns.
+  test('lists the opponent\'s once-public cards, even from the redacted discard pile', () => {
+    const { state } = gameWithBobDiscardPile(false);
+    // Engine-minted instance IDs are `<owner>-<n>` (see `ownerOf`).
+    const played = 'p2-901' as CardInstanceId;
+    const neverShown = 'p2-902' as CardInstanceId;
+    const mine = 'p1-903' as CardInstanceId;
+    const remembered: GameState = {
+      ...state,
+      players: [state.players[0], { ...state.players[1], discardPile: [
+        { instanceId: played, definitionId: ARAGORN },
+        { instanceId: neverShown, definitionId: BALIN },
+      ] }],
+      revealedInstances: { ...state.revealedInstances, [played]: ARAGORN, [mine]: BALIN },
+    };
+    const aliceView = projectPlayerView(remembered, ALICE);
+    // The discard pile itself stays redacted...
+    expect(aliceView.opponent.discardPile.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+    // ...but the card that was public is remembered, and only Bob's cards are.
+    const revealed = aliceView.opponent.revealedCards ?? [];
+    expect(revealed).toContainEqual({ instanceId: played, definitionId: ARAGORN });
+    expect(revealed.some(c => c.instanceId === neverShown)).toBe(false);
+    expect(revealed.some(c => c.instanceId === mine)).toBe(false);
+  });
+});
