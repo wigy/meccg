@@ -19777,3 +19777,94 @@ on-guard card" clause needed no engine change: none of the three on-guard
 reveal pathways ever offer `reveal-on-guard` for a card that neither declares
 an `on-guard-reveal` trigger nor affects a site's automatic-attacks, which
 this card does neither.
+
+### 86. `on-event` `self-enters-play` → `roll-return-mind-threshold` + `return-to-hand-mind-threshold` pending resolution (Unhappy Blows)
+
+A company-targeting hazard short-event that rolls once on resolution to set a
+variable **mind threshold**, then forces the defending company's controller
+to give up a *chosen subset* of qualifying characters whose combined mind
+reaches it — as opposed to every other roll-based hazard effect in the
+engine, which either gates a fixed pass/fail outcome (`roll-then-apply`) or
+runs one independent per-target roll (`roll-discard-opponent-non-unique-ally`).
+This is the first "opponent picks a variable-size subset whose summed
+attribute meets a threshold" primitive.
+
+```json
+{ "type": "on-event", "event": "self-enters-play", "target": "target-company",
+  "apply": { "type": "roll-return-mind-threshold",
+    "raceGroups": [
+      { "races": ["dwarf", "elf"], "subtract": 5 },
+      { "races": ["orc", "troll"], "subtract": 7 }
+    ] } }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `raceGroups` | yes | Race pairs recognized by the card, checked in order; the first entry whose both `races` are present among the target company's characters applies. Each entry's `subtract` is taken off the roll total to form the mind threshold. |
+
+Behaviour (`applyRollReturnMindThreshold`, `chain-reducer.ts`, wired into the
+short-event chain-resolution sequence alongside `applyShortEventSelfEntersPlayConstraints`):
+
+- The target company is read directly from the chain entry's `targetCompanyId`
+  payload (set by the card's own `play-target: company`) — not re-derived from
+  the active M/H company index — so the roll always binds to the company the
+  card was actually played on.
+- Rolls 2d6 for the declaring (hazard) player via `rollDiceForPlayer`, subtracts
+  the matching race pair's `subtract`, and logs the resulting mind threshold.
+  A `duplication-limit scope: "turn"` marker (`attack-card-played`, the
+  established generic "cannot be duplicated on a given turn" constraint — see
+  Scourge of Fire ba-75) is added regardless of outcome, since the card
+  resolved either way.
+- **"If available" gate.** Sums the effective mind of every character in the
+  company whose race is in the matching pair. If that total falls short of
+  the threshold, no combination can satisfy the card — it fizzles silently
+  (no pending resolution, no characters affected).
+- Otherwise enqueues a `return-to-hand-mind-threshold` pending resolution
+  (`pending.ts`) on the company's controller:
+
+```ts
+{ type: 'return-to-hand-mind-threshold', companyId, threshold,
+  candidateInstanceIds, selectedInstanceIds: [], sourceName }
+```
+
+  `candidateInstanceIds` lists every matching-race character in the company
+  (not just enough to meet the threshold — "any number" is the controller's
+  choice). Legal actions (`returnToHandMindThresholdActions`,
+  `legal-actions/pending.ts`): one `select-return-to-hand-character` per
+  remaining candidate (moves it from `candidateInstanceIds` to
+  `selectedInstanceIds`, repeatable), plus `pass` — offered only once the
+  combined effective mind of `selectedInstanceIds` meets `threshold` (a
+  threshold ≤ 0 is met trivially by the empty selection, so `pass` is legal
+  immediately in that case — "any number" then requires giving up nobody).
+  Resolved by `applyReturnToHandMindThresholdResolution`
+  (`pending-reducers.ts`): `pass` returns every selected character to the
+  owner's hand via `returnCharacterToHand(..., itemsToHand: true)`.
+
+**`returnCharacterToHand`'s `itemsToHand` parameter** (`pending-reducers.ts`):
+normally a returned character's items are discarded (CoE default — Call of
+Home and friends). Passing `itemsToHand: true` instead pushes them into the
+same hand as the character ("Items played with these characters are also
+returned to opponent's hand") — allies and hazards are unaffected, still
+discarded as usual.
+
+**Company-filter `target.races`** (`legal-actions/movement-hazard.ts`): the
+generic company-targeting hazard short-event filter context gained a `races`
+field — every character race present in the target company, aggregated the
+same way `itemSubtypes` already is — so a card's `play-target` filter can
+require specific race combinations:
+
+```json
+{ "type": "play-target", "target": "company",
+  "filter": { "$or": [
+    { "$and": [ { "target.races": { "$includes": "dwarf" } }, { "target.races": { "$includes": "elf" } } ] },
+    { "$and": [ { "target.races": { "$includes": "orc" } }, { "target.races": { "$includes": "troll" } } ] }
+  ] } }
+```
+
+Used by *Unhappy Blows* (as-42): "Playable on a company containing both
+Dwarves and Elves, or both Orcs and Trolls. Make a roll and subtract five
+(seven for Orcs and Trolls). If available, your opponent must choose and
+return to his hand any number of Elves and Dwarves (or Orcs and Trolls) in
+the company whose total mind equals or exceeds this result. Items played
+with these characters are also returned to opponent's hand. Cannot be
+duplicated on a given turn."

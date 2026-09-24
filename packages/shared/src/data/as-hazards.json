@@ -466,7 +466,32 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/UnhappyBlows.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$or": [
+            { "$and": [ { "target.races": { "$includes": "dwarf" } }, { "target.races": { "$includes": "elf" } } ] },
+            { "$and": [ { "target.races": { "$includes": "orc" } }, { "target.races": { "$includes": "troll" } } ] }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "target": "target-company",
+        "apply": {
+          "type": "roll-return-mind-threshold",
+          "raceGroups": [
+            { "races": ["dwarf", "elf"], "subtract": 5 },
+            { "races": ["orc", "troll"], "subtract": 7 }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 }
+    ],
+    "certified": "2026-09-24",
     "text": "Playable on a company containing both Dwarves and Elves, or both Orcs and Trolls. Make a roll and subtract five (seven for Orcs and Trolls). If available, your opponent must choose and return to his hand any number of Elves and Dwarves (or Orcs and Trolls) in the company whose total mind equals or exceeds this result. Items played with these characters are also returned to opponent’s hand. Cannot be duplicated on a given turn."
   },
   {

@@ -4040,6 +4040,49 @@ export function revealHazardsChoiceActions(
 }
 
 /**
+ * Legal actions while a `return-to-hand-mind-threshold` resolution is
+ * pending (Unhappy Blows as-42):
+ *
+ *  - `select-return-to-hand-character` — one action per remaining
+ *    `candidateInstanceIds` entry, repeatable.
+ *  - `pass` — finalizes the selection, offered only once the combined mind
+ *    of `selectedInstanceIds` meets the resolution's `threshold` (a lower
+ *    or zero/negative threshold is met trivially by the empty selection, so
+ *    `pass` is available immediately in that case).
+ */
+export function returnToHandMindThresholdActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'return-to-hand-mind-threshold') return [];
+  const { candidateInstanceIds, selectedInstanceIds, threshold } = top.kind;
+  const player = playerById(state, actor);
+  const actions: EvaluatedAction[] = [];
+
+  for (const characterInstanceId of candidateInstanceIds) {
+    actions.push({
+      action: { type: 'select-return-to-hand-character', player: actor, characterInstanceId },
+      viable: true,
+    });
+  }
+
+  const selectedMind = player
+    ? selectedInstanceIds.reduce((sum, cId) => {
+      const ch = player.characters[cId];
+      if (!ch) return sum;
+      const cDef = defById(state, ch.definitionId);
+      return sum + (ch.effectiveStats.mind ?? (cDef && isCharacterCard(cDef) ? cDef.mind : 0) ?? 0);
+    }, 0)
+    : 0;
+  if (selectedMind >= threshold) {
+    actions.push({ action: { type: 'pass', player: actor }, viable: true });
+  }
+
+  return actions;
+}
+
+/**
  * Legal actions while a `play-or-discard-fetched-item` resolution is
  * pending (Dwarven Ring of Bávor's Tribe tw-214): the found item must be
  * played immediately or discarded — no other action is offered.

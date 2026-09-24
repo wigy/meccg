@@ -1319,3 +1319,30 @@ Show Things Unbidden (ba-32): "Playable during the organization phase on Galadri
 ```
 
 Used by *Show Things Unbidden* (ba-32).
+
+### `roll-return-mind-threshold` (new) + `return-to-hand-mind-threshold` pending resolution, plus `target.races` on the company filter (Unhappy Blows as-42)
+
+Unhappy Blows (as-42): "Playable on a company containing both Dwarves and Elves, or both Orcs and Trolls. Make a roll and subtract five (seven for Orcs and Trolls). If available, your opponent must choose and return to his hand any number of Elves and Dwarves (or Orcs and Trolls) in the company whose total mind equals or exceeds this result. Items played with these characters are also returned to opponent's hand. Cannot be duplicated on a given turn."
+
+No existing mechanic let a player choose a *variable-size subset* of candidates whose summed attribute meets a roll-derived threshold — every prior roll-based hazard effect was either a single pass/fail gate (`roll-then-apply`) or a set of independent per-target rolls (`roll-discard-opponent-non-unique-ally`). This card needed three new pieces:
+
+1. **`target.races` company-filter field** (`legal-actions/movement-hazard.ts`): the generic company-targeting hazard short-event filter context (`companyCtx`) gained a `races` array — every character race present in the target company, aggregated the same way `itemSubtypes` already is — so `play-target` can require a race combination (`$and`/`$or`/`$includes`) rather than a single race.
+2. **`roll-return-mind-threshold`** (`on-event: self-enters-play` apply, `types/effects.ts`): declares `raceGroups`, each an ordered `{ races: [A, B], subtract }`. `applyRollReturnMindThreshold` (`chain-reducer.ts`, wired into the short-event chain-resolution sequence) reads the target company straight off the chain entry's `targetCompanyId` payload, picks the first race group whose both races are present, rolls 2d6 (`rollDiceForPlayer`), subtracts `subtract` to get the threshold, and always adds the turn-scoped `attack-card-played` duplication marker regardless of outcome. If the combined mind of every matching-race character in the company falls short of the threshold, it fizzles silently ("if available"); otherwise it enqueues the resolution below.
+3. **`return-to-hand-mind-threshold` pending resolution** (`types/pending.ts`): holds `candidateInstanceIds` (every matching-race character), `selectedInstanceIds`, and `threshold`. `returnToHandMindThresholdActions` (`legal-actions/pending.ts`) offers one `select-return-to-hand-character` per remaining candidate (repeatable) plus `pass` — gated on the combined effective mind of `selectedInstanceIds` meeting `threshold` (trivially true at ≤ 0, so `pass` is legal immediately with nothing selected). `applyReturnToHandMindThresholdResolution` (`pending-reducers.ts`) resolves `pass` by returning every selected character to the owner's hand via `returnCharacterToHand(..., itemsToHand: true)` — a new parameter on that shared helper that routes a returned character's items into the same hand instead of discarding them (as-42's "Items played with these characters are also returned to opponent's hand"; every other caller keeps discarding items, the default).
+
+```json
+{ "type": "play-target", "target": "company",
+  "filter": { "$or": [
+    { "$and": [ { "target.races": { "$includes": "dwarf" } }, { "target.races": { "$includes": "elf" } } ] },
+    { "$and": [ { "target.races": { "$includes": "orc" } }, { "target.races": { "$includes": "troll" } } ] }
+  ] } },
+{ "type": "on-event", "event": "self-enters-play", "target": "target-company",
+  "apply": { "type": "roll-return-mind-threshold",
+    "raceGroups": [
+      { "races": ["dwarf", "elf"], "subtract": 5 },
+      { "races": ["orc", "troll"], "subtract": 7 }
+    ] } },
+{ "type": "duplication-limit", "scope": "turn", "max": 1 }
+```
+
+Used by *Unhappy Blows* (as-42).

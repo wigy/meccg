@@ -38,7 +38,7 @@ import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCh
 import { eligibleCompanyDiscardItems } from './legal-actions/pending.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, rollDiceForPlayer, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findDuplicationLimitEffect, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -1627,6 +1627,129 @@ function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): Ga
   }
 
   return next;
+}
+
+/**
+ * Resolve an `on-event: self-enters-play` → `roll-return-mind-threshold`
+ * apply (Unhappy Blows as-42): roll 2d6, subtract the matching race pair's
+ * `subtract`, and — if any combination of that race pair's characters in
+ * the target company can reach the resulting mind threshold — enqueue a
+ * `return-to-hand-mind-threshold` pending resolution on the company's
+ * controller. "If available" fails silently (no resolution) when even every
+ * qualifying character combined falls short of the threshold.
+ *
+ * The target company is read directly from the chain entry's
+ * `targetCompanyId` payload (set by the card's `play-target: company`),
+ * rather than re-derived from the active M/H company index, so the roll and
+ * threshold always bind to the company the card was actually played on.
+ *
+ * The turn-scoped `duplication-limit` marker is recorded here too (an
+ * `attack-card-played` constraint, the established generic marker for
+ * "cannot be duplicated on a given turn" — see Scourge of Fire ba-75),
+ * regardless of whether the threshold check finds anything available: the
+ * card still resolved.
+ */
+function applyRollReturnMindThreshold(
+  state: GameState,
+  entry: ChainEntry,
+): { state: GameState; effect?: import('../index.js').GameEffect } {
+  const card = entry.card;
+  if (!card) return { state };
+  const def = defById(state, card.definitionId);
+  const onEvent = getOnEventEffects(def, 'self-enters-play').find(
+    (e): e is OnEventEffect & { apply: import('../types/effects.js').RollReturnMindThresholdAction } =>
+      e.apply.type === 'roll-return-mind-threshold',
+  );
+  if (!onEvent) return { state };
+  const cardName = def?.name ?? (card.definitionId as string);
+
+  const companyId = entry.payload.type === 'short-event' ? entry.payload.targetCompanyId : undefined;
+  let ownerIndex = -1;
+  let company: import('../types/state-cards.js').Company | undefined;
+  if (companyId) {
+    for (let i = 0; i < state.players.length; i++) {
+      const found = state.players[i].companies.find(c => c.id === companyId);
+      if (found) {
+        ownerIndex = i;
+        company = found;
+        break;
+      }
+    }
+  }
+  if (!company || ownerIndex < 0) {
+    logDetail(`"${cardName}": no target company found on resolution — fizzle`);
+    return { state };
+  }
+  const owner = state.players[ownerIndex];
+
+  const companyRaces = new Set<string>();
+  for (const cId of company.characters) {
+    const ch = owner.characters[cId];
+    const cDef = ch ? defById(state, ch.definitionId) : undefined;
+    if (cDef && isCharacterCard(cDef)) companyRaces.add(cDef.race);
+  }
+  const group = onEvent.apply.raceGroups.find(g => g.races.every(r => companyRaces.has(r)));
+  if (!group) {
+    logDetail(`"${cardName}": company ${companyId as string} has neither qualifying race pair — fizzle`);
+    return { state };
+  }
+
+  const declaringIndex = getPlayerIndex(state, entry.declaredBy);
+  const { total, rollEffect, state: rolledState } = rollDiceForPlayer(
+    state,
+    declaringIndex,
+    (roll, t) => `${cardName}: rolls ${roll.die1} + ${roll.die2} = ${t}`,
+  );
+  let current: GameState = rolledState;
+  const threshold = total - group.subtract;
+  logDetail(`"${cardName}": rolled ${total}, race pair [${group.races.join(', ')}] subtracts ${group.subtract} → mind threshold ${threshold}`);
+
+  if (findDuplicationLimitEffect(def, 'turn')) {
+    current = addConstraint(current, {
+      source: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'player', playerId: entry.declaredBy },
+      kind: { type: 'attack-card-played' },
+    });
+    logDetail(`"${cardName}": added turn-scoped duplication marker (cannot be duplicated on a given turn)`);
+  }
+
+  const mindOf = (charId: import('../index.js').CardInstanceId): number => {
+    const ch = owner.characters[charId];
+    if (!ch) return 0;
+    const cDef = defById(current, ch.definitionId);
+    return ch.effectiveStats.mind ?? (cDef && isCharacterCard(cDef) ? cDef.mind : 0) ?? 0;
+  };
+  const candidateIds = company.characters.filter(cId => {
+    const ch = owner.characters[cId];
+    const cDef = ch ? defById(current, ch.definitionId) : undefined;
+    return !!cDef && isCharacterCard(cDef) && (group.races as readonly string[]).includes(cDef.race);
+  });
+  const totalAvailableMind = candidateIds.reduce((sum, cId) => sum + mindOf(cId), 0);
+
+  if (threshold > totalAvailableMind) {
+    logDetail(`"${cardName}": threshold ${threshold} exceeds the ${totalAvailableMind} mind available among qualifying characters — not available, no-op`);
+    return { state: current, effect: rollEffect };
+  }
+
+  logDetail(`"${cardName}": enqueuing return-to-hand-mind-threshold on ${owner.name} (threshold ${threshold}, ${candidateIds.length} candidate(s))`);
+  return {
+    state: enqueueResolution(current, {
+      source: card.instanceId,
+      actor: owner.id,
+      scope: { kind: 'phase', phase: current.phaseState.phase },
+      kind: {
+        type: 'return-to-hand-mind-threshold',
+        companyId: company.id,
+        candidateInstanceIds: candidateIds,
+        selectedInstanceIds: [],
+        threshold,
+        sourceName: cardName,
+      },
+    }),
+    effect: rollEffect,
+  };
 }
 
 /**
@@ -4578,6 +4701,14 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already moved to discard at play time.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     current = applyShortEventSelfEntersPlayConstraints(current, entry);
+  }
+
+  // Unhappy Blows (as-42): roll a mind threshold and offer the defending
+  // company's controller a forced (if reachable) return-to-hand selection.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
+    const rollReturnResult = applyRollReturnMindThreshold(current, entry);
+    current = rollReturnResult.state;
+    if (rollReturnResult.effect) resolveEffects.push(rollReturnResult.effect);
   }
 
   // Which Might Be Lies (dm-100): a hazard short-event played on a stored
