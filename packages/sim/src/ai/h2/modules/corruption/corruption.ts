@@ -37,6 +37,7 @@
  * `character-value.corruptionRelief`, which both sides of the question share.
  */
 
+import { Phase } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { MpDelta, MpSource } from '../../core/tsd.js';
@@ -140,6 +141,27 @@ function failureCostOf(
 }
 
 /**
+ * The check a Free Council support would help, read from the phase state.
+ *
+ * There the check is declared before the supporters are offered, so it is
+ * never among the candidates — only the supporters and the `pass` that rolls.
+ */
+function freeCouncilCheck(context: ModuleContext): {
+  characterId: CardInstanceId; need: number; possessions: readonly CardInstanceId[];
+} | undefined {
+  const phaseState = context.view.phaseState;
+  if (phaseState.phase !== Phase.FreeCouncil || !phaseState.pendingCheck) return undefined;
+  const pending = phaseState.pendingCheck;
+  // Each supporter already tapped adds +1 to the roll (`reducer-free-council`
+  // adds `supportCount` to the modifier), so the need left is that much lower.
+  return {
+    characterId: pending.characterId,
+    need: pending.need - pending.supportCount,
+    possessions: pending.possessions,
+  };
+}
+
+/**
  * Score tapping a character to add +1 to somebody else's corruption check.
  *
  * The rules make this exactly computable and there is nothing to guess at: an
@@ -168,17 +190,19 @@ function evaluateSupport(action: GameAction, context: ModuleContext): Evaluation
   };
   if (!fields.supportingCharacterId) return null;
 
-  // The check being supported is on the table beside it. Matched by the
-  // character it names, or taken as the only one on offer — which is the Free
-  // Council flow, where the action omits the target because the phase state
-  // already holds it.
-  const checks = context.legalActions.filter(a => a.type === 'corruption-check');
-  const check = (fields.targetCharacterId
-    ? checks.find(a => (a as unknown as { characterId?: CardInstanceId }).characterId
-      === fields.targetCharacterId)
-    : checks.length === 1 ? checks[0] : undefined) as unknown as {
-      characterId?: CardInstanceId; need?: number; possessions?: readonly CardInstanceId[];
-    } | undefined;
+  // The check being supported is on the table beside it, matched by the
+  // character it names. In the Free Council it is not: the check has already
+  // been declared, the action omits the target, and the only candidates are the
+  // supporters and the `pass` that rolls — the check itself is the phase
+  // state's `pendingCheck`. Reading only the candidates found nothing there, so
+  // every Free Council support was declined and the agent rolled unsupported
+  // where the human tapped the whole company for it.
+  const check = fields.targetCharacterId
+    ? context.legalActions.find(a => a.type === 'corruption-check'
+      && (a as unknown as { characterId?: CardInstanceId }).characterId === fields.targetCharacterId) as unknown as {
+        characterId?: CardInstanceId; need?: number; possessions?: readonly CardInstanceId[];
+      } | undefined
+    : freeCouncilCheck(context);
   // No check to read means no opinion: declining is what the module does with
   // a window it cannot price, rather than inventing one.
   if (!check || typeof check.need !== 'number' || !check.characterId) return null;
@@ -190,8 +214,11 @@ function evaluateSupport(action: GameAction, context: ModuleContext): Evaluation
   const failure = failureCostOf(context, check.characterId, check.possessions ?? []);
   // The support is worth the mass it moves out of the failing band.
   const averted = (pWith - pWithout) * -failure.dtsd;
-  const tap = computeCharacterValue(view, cardPool, standing, tunables)
-    .tapCost(fields.supportingCharacterId);
+  // The Free Council is the last thing the game does: once the checks are
+  // rolled the points are tallied, so a tap there forgoes nothing at all.
+  const tap = view.phaseState.phase === Phase.FreeCouncil
+    ? { tsd: 0, reason: 'the Free Council ends the game — a tap there forgoes nothing' }
+    : computeCharacterValue(view, cardPool, standing, tunables).tapCost(fields.supportingCharacterId);
 
   const dtsd = netTsdDelta({ realized: averted, tempo: tap.tsd }, tunables);
   const outcomes: Outcome[] = [{

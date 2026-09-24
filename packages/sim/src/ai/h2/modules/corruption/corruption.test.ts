@@ -8,12 +8,15 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { CardStatus } from '@meccg/shared';
+import { CardStatus, computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
+import { loadScenario, scenarioView } from '../../scenario-store.js';
+import type { AgentContext } from '../../../../types.js';
+import { createHeuristic2Agent } from '../../agent.js';
 import { corruptionModule } from './corruption.js';
 
 const HERO = 'tw-hero';
@@ -39,8 +42,10 @@ function contextWith(
   opponent: Record<string, number>,
   action: GameAction = CHECK,
   extra: readonly GameAction[] = [],
+  phaseState: unknown = { phase: 'movement-hazard' },
 ): ModuleContext {
   const view = {
+    phaseState,
     self: {
       id: 'p1',
       marshallingPoints: testMarshallingPoints(self),
@@ -206,5 +211,64 @@ describe('supporting somebody else\'s check', () => {
     )!;
     expect(capped.expectedTsd).toBeLessThan(rich.expectedTsd);
     expect(JSON.stringify(rich.rationale)).toContain('the tap it spends');
+  });
+});
+
+describe('supporting a check in the Free Council', () => {
+  // There the check is declared first and the supporters offered after, so the
+  // check is never among the candidates: the decision is the supporters plus
+  // the `pass` that rolls. The check is the phase state's `pendingCheck`.
+  // Reading only the candidates declined every such support, and the agent
+  // rolled unsupported where the human tapped a company-mate for +1
+  // (recorded game mueo5wjv-d52rsz, turn 16).
+  const SUPPORT = {
+    type: 'support-corruption-check',
+    supportingCharacterId: 'hero-1',
+  } as unknown as GameAction;
+  const PASS = { type: 'pass' } as unknown as GameAction;
+  const councilWith = (supportCount: number): unknown => ({
+    phase: 'free-council',
+    step: 'corruption-checks',
+    pendingCheck: {
+      characterId: 'hero-1', corruptionPoints: 5, corruptionModifier: 0,
+      possessions: ['ring-1'], need: 6, explanation: '', supportCount,
+    },
+  });
+
+  test('reads the check off the phase state, less the support already given', () => {
+    const fresh = corruptionModule.evaluate(
+      SUPPORT, contextWith(BALANCED, BALANCED, PASS, [SUPPORT], councilWith(0)),
+    )!;
+    expect(fresh).not.toBeNull();
+    expect(JSON.stringify(fresh.rationale)).toContain('"label":"need on 2d6","value":6');
+    // Each supporter already tapped is +1 on the roll (`reducer-free-council`).
+    const helped = corruptionModule.evaluate(
+      SUPPORT, contextWith(BALANCED, BALANCED, PASS, [SUPPORT], councilWith(2)),
+    )!;
+    expect(JSON.stringify(helped.rationale)).toContain('"label":"need on 2d6","value":4');
+  });
+
+  test('charges nothing for the tap, because the game ends after it', () => {
+    const evaluation = corruptionModule.evaluate(
+      SUPPORT, contextWith(BALANCED, BALANCED, PASS, [SUPPORT], councilWith(0)),
+    )!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('the Free Council ends the game');
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('is what the agent does in the recorded position', () => {
+    const scenario = loadScenario('corruption/free-council-support');
+    const view = scenarioView(scenario);
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const decision = createHeuristic2Agent().chooseAction({
+      view,
+      cardPool: loadCardPool(),
+      legalActions,
+      evaluated: view.legalActions,
+      random: () => 0.5,
+    } as unknown as AgentContext);
+    expect(decision.action.type).toBe('support-corruption-check');
   });
 });
