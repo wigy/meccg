@@ -647,7 +647,16 @@ export function heroResourceShortEventActions(
         actions.push(...optionActions);
       }
     } else if (playTarget && playTarget.cost?.tap === 'character') {
-      const targets = eligibleTapTargets(state, player, playTarget);
+      // Allies count as characters for skill-only cards (CoE 2.V.2.2), but a
+      // deck-search attack (Lucky Search tw-269) needs a real character: the
+      // scout "takes control of" the revealed item and faces the strike from
+      // his company, and the reducer looks him up among the company's
+      // characters. Offering a scout ally (Gollum borne by Dori) was accepted
+      // here and rejected by the reducer — "scout not in any company" — which
+      // ended 5 of 800 gate games on challenge decks c/d.
+      const needsCharacter = def.effects?.some(e => e.type === 'deck-search-attack') ?? false;
+      const targets = eligibleTapTargets(state, player, playTarget)
+        .filter(id => !needsCharacter || player.characters[id] !== undefined);
       if (targets.length === 0) {
         logDetail(`${def.name}: no eligible targets — not playable`);
         actions.push(notPlayable(playerId, cardInstanceId, `No eligible ${playTarget.target} to target`));
