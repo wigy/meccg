@@ -21,7 +21,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -234,6 +234,10 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
     return base;
   }
 
+  if (siteState.step === 'skip-site-reveal-on-guard') {
+    return viable(skipSiteRevealOnGuardActions(state, playerId, siteState));
+  }
+
   if (siteState.step === 'reveal-on-guard-attacks') {
     return viable(revealOnGuardAttacksActions(state, playerId, siteState));
   }
@@ -355,6 +359,43 @@ function enterOrSkipActions(
  * to the company's current site, or pass. If there are no on-guard
  * cards or no eligible creatures, only pass is offered.
  */
+/**
+ * Generate actions for the `skip-site-reveal-on-guard` step (Near to Hear a
+ * Whisper as-31). Only the hazard player acts: reveal any on-guard card whose
+ * `on-guard-reveal` effect carries the `company-skips-site` trigger, or pass.
+ */
+function skipSiteRevealOnGuardActions(
+  state: GameState,
+  playerId: PlayerId,
+  siteState: SitePhaseState,
+): GameAction[] {
+  const isActive = state.activePlayer === playerId;
+  if (isActive) {
+    logDetail(`Active player waits during skip-site-reveal-on-guard step`);
+    return [];
+  }
+
+  const resourcePlayer = playerById(state, state.activePlayer)!;
+  const company = resourcePlayer.companies[siteState.activeCompanyIndex];
+  if (!company) return [{ type: 'pass', player: playerId }];
+
+  const eligible = companySkipsSiteOnGuardCards(state, company);
+  const actions: GameAction[] = eligible.map(ogCard => ({
+    type: 'reveal-on-guard',
+    player: playerId,
+    cardInstanceId: ogCard.instanceId,
+  }));
+
+  if (actions.length > 0) {
+    logDetail(`Skip-site reveal: ${actions.length} on-guard card(s) eligible for reveal`);
+  } else {
+    logDetail(`Skip-site reveal: no eligible on-guard cards`);
+  }
+
+  actions.push({ type: 'pass', player: playerId });
+  return actions;
+}
+
 function revealOnGuardAttacksActions(
   state: GameState,
   playerId: PlayerId,
@@ -1299,6 +1340,24 @@ export function playResourcesActions(
         );
         if (convertCreatureToAlly) {
           logDetail(`Permanent event ${eventDef.name}: convert-creature-to-ally is combat-only — not offered during the site phase`);
+          continue;
+        }
+
+        // A `sacrifice-of-form` effect (Sacrifice of Form tw-321) has its own
+        // narrow combat-only play window — "played after strikes are assigned"
+        // (CRF 22), before any strike of that attack resolves, and never in
+        // company-vs-company combat — enforced by `sacrificeOfFormActions`
+        // (legal-actions/combat.ts). Rule 2.1.1's "any phase" allowance for
+        // resource permanent-events is exactly the kind of "unless a rule or
+        // effect restricts them" case that provision itself carves out, so this
+        // card must never reach the generic fallback below (which would offer
+        // it unconditionally during the site phase, even with no attack in
+        // progress and no Wizard in the company).
+        const sacrificeOfForm = getCardEffects(eventDef).find(
+          (e): e is import('../../types/effects.js').SacrificeOfFormEffect => e.type === 'sacrifice-of-form',
+        );
+        if (sacrificeOfForm) {
+          logDetail(`Permanent event ${eventDef.name}: sacrifice-of-form — combat-only window, not offered during the site phase`);
           continue;
         }
 

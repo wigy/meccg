@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, DiscardAgentAtSiteEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -3576,6 +3576,13 @@ function playHazardsActions(
             const ch = resourcePlayer.characters[cId];
             return ch ? itemSubtypesOf(state, ch.items) : [];
           });
+          // Race composition (Unhappy Blows as-42: "a company containing both
+          // Dwarves and Elves, or both Orcs and Trolls").
+          const companyRaces = targetCompany.characters.flatMap(cId => {
+            const ch = resourcePlayer.characters[cId];
+            const cDef = ch ? defById(state, ch.definitionId) : undefined;
+            return cDef && isCharacterCard(cDef) ? [cDef.race] : [];
+          });
           const companyCtx = {
             target: {
               siteType: compSiteType,
@@ -3588,6 +3595,7 @@ function playHazardsActions(
               moving: !!targetCompany.destinationSite,
               hasRingwraith,
               itemSubtypes: companyItemSubtypes,
+              races: companyRaces,
             },
           };
           if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
@@ -3922,6 +3930,19 @@ function playHazardsActions(
         );
         if (tapAgentEffect) {
           actions.push(...tapAgentAtSiteActions(state, player, resourcePlayer, targetCompany, def, action, tapAgentEffect));
+          continue;
+        }
+
+        // Discard-agent-at-site (Seek without Success dm-87): discards a
+        // skill-matching agent at the company's new site to force the
+        // company back to its site of origin (CoE rule 2.IV.4). The actual
+        // return is performed by the card's paired `company-return-to-origin`
+        // effect once the chain resolves.
+        const discardAgentEffect = def.effects?.find(
+          (e): e is DiscardAgentAtSiteEffect => e.type === 'discard-agent-at-site',
+        );
+        if (discardAgentEffect) {
+          actions.push(...discardAgentAtSiteActions(state, player, resourcePlayer, targetCompany, def, action, discardAgentEffect));
           continue;
         }
 
@@ -4488,6 +4509,42 @@ function playHazardsActions(
               viable: true,
             });
           }
+        }
+      } else if (playTarget?.target === 'faction') {
+        // Faction-targeting permanent hazard events (Trouble on All Borders
+        // as-40): one action per the resource player's own qualifying
+        // in-play faction — hazard events target the opponent's entities
+        // (CoE 2.IV.vii.3), never the hazard player's own factions in play
+        // (mirrors the short-event faction-targeting branch above).
+        const factionDupLimit = findDuplicationLimitEffect(def, 'faction');
+        let anyFactionTarget = false;
+        for (const cip of resourcePlayer.cardsInPlay) {
+          const factionDef = defById(state, cip.definitionId);
+          if (!factionDef || !isFactionCard(factionDef)) continue;
+          if (playTarget.filter) {
+            const ctx = { target: { name: factionDef.name, race: factionDef.race, unique: factionDef.unique } };
+            if (!matchesCondition(playTarget.filter, ctx)) {
+              logDetail(`Hazard event "${def.name}": faction ${factionDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          if (factionDupLimit) {
+            const copiesOnFaction = countFactionAttachedCopies(state, def.name, cip.instanceId);
+            if (copiesOnFaction >= factionDupLimit.max) {
+              logDetail(`Hazard event "${def.name}": duplication limit on faction ${factionDef.name} (${copiesOnFaction}/${factionDupLimit.max})`);
+              continue;
+            }
+          }
+          anyFactionTarget = true;
+          logDetail(`Hazard event "${def.name}" playable on faction ${factionDef.name}`);
+          actions.push({
+            action: { ...action, targetFactionInstanceId: cip.instanceId },
+            viable: true,
+          });
+        }
+        if (!anyFactionTarget) {
+          logDetail(`Hazard event "${def.name}": no valid faction target`);
+          actions.push({ action, viable: false, reason: `${def.name} has no valid faction target` });
         }
       } else if (playTarget?.target === 'agent') {
         // Agent-targeting permanent hazard events (Never Seen Him dm-74): one
@@ -6032,6 +6089,78 @@ function tapAgentAtSiteActions(
     }
   }
   return expanded;
+}
+
+/**
+ * Generate `play-hazard` actions for a `discard-agent-at-site` short-event
+ * (Seek without Success dm-87): discards one of the hazard player's agents
+ * matching the required skill at the target company's new site, which forces
+ * the company back to its site of origin via the card's paired
+ * `company-return-to-origin` effect (CoE rule 2.IV.4). Modeled on
+ * {@link tapAgentAtSiteActions}, but simpler: discarding doesn't require the
+ * agent to be untapped, and a face-down agent needs no home-site reveal (the
+ * discard itself reveals its identity).
+ *
+ * Conditions mirror `agent-discard-return-to-origin` (Baduila dm-2): the
+ * agent must have been in play at turn start and must not be wounded — a
+ * tapped agent still qualifies.
+ */
+function discardAgentAtSiteActions(
+  state: GameState,
+  player: PlayerState,
+  resourcePlayer: PlayerState,
+  targetCompany: Company,
+  def: CardDefinition,
+  action: PlayHazardAction,
+  discardAgentEffect: DiscardAgentAtSiteEffect,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  // Cannot play against a minion (Ringwraith/Balrog) player.
+  if (isMinionOrBalrog(resourcePlayer)) {
+    logDetail(`Hazard event "${def.name}" not playable — opponent is a minion player`);
+    actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+    return actions;
+  }
+
+  // "Target company's new site": the company must be moving to a new site.
+  if (!targetCompany.destinationSite) {
+    logDetail(`Hazard event "${def.name}" not playable — company is not moving to a new site`);
+    actions.push({ action, viable: false, reason: 'Company is not moving to a new site' });
+    return actions;
+  }
+  const destSiteDefId = resolveInstanceId(state, targetCompany.destinationSite.instanceId);
+  const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
+  const destSiteName = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.name : undefined;
+  if (!destSiteName) {
+    logDetail(`Hazard event "${def.name}" not playable — cannot resolve destination site`);
+    actions.push({ action, viable: false, reason: 'No target site for agent discard' });
+    return actions;
+  }
+
+  let foundAgent = false;
+  for (const agent of player.agents) {
+    if (!agent.inPlayAtTurnStart) continue;
+    if (agent.character.status === CardStatus.Inverted) continue; // wounded
+
+    const agentDef = defById(state, agent.character.definitionId);
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    if (discardAgentEffect.skill && !agentDef.skills.includes(discardAgentEffect.skill as Skill)) continue;
+    if (agentCurrentSiteName(state, agent, agentDef) !== destSiteName) continue;
+
+    foundAgent = true;
+    logDetail(`Hazard event "${def.name}": can discard agent ${agentDef.name} at "${destSiteName}" — forces company to return to its site of origin`);
+    actions.push({
+      action: { ...action, agentInstanceId: agent.character.instanceId },
+      viable: true,
+    });
+  }
+
+  if (!foundAgent) {
+    logDetail(`Hazard event "${def.name}" not playable — no matching agent at company's new site`);
+    actions.push({ action, viable: false, reason: 'No matching agent at company\'s new site' });
+  }
+  return actions;
 }
 
 /**

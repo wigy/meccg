@@ -58,6 +58,8 @@ import { computeReach } from '../../services/reach.js';
 import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
+import { storedValue } from '../../services/stored-value.js';
+import { companyMayPlay } from '../../services/named-target.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -116,14 +118,25 @@ function allyDiscardedByArrivingIn(ally: CardDefinition | undefined, region: str
     && (!e.when || matchesCondition(e.when, { site: { region } })));
 }
 
-/** Cards in hand that could be played at a site, valued through the standing. */
+/**
+ * Cards in hand that could be played at a site, valued through the standing.
+ *
+ * With `companyId`, only cards that company may play: a card restricted to a
+ * named character (Return of the King, "Aragorn II only") or needing a card to
+ * discard (The White Tree) is worth nothing to a company without them, however
+ * right the site. See `services/named-target`.
+ */
 function playableAt(
   context: ModuleContext,
   siteDefinitionId: string,
+  companyId?: string,
 ): PlayableCard[] {
   const { view, cardPool, standing } = context;
   const siteDef = cardPool[siteDefinitionId];
   if (!siteDef) return [];
+  const company = companyId === undefined
+    ? undefined
+    : view.self.companies.find(c => (c.id as string) === companyId);
   const cards: PlayableCard[] = [];
   for (const card of view.self.hand) {
     const def = cardPool[card.definitionId];
@@ -131,6 +144,7 @@ function playableAt(
     // Playability is the engine's rule, not a heuristic: reuse the predicate
     // rather than restate which site types accept which item classes.
     if (!resourcePlayableAt(def, siteDef as never, view.self.alignment)) continue;
+    if (company && !companyMayPlay(def, company.characters, company.id, view, cardPool)) continue;
     const record = def as unknown as { name?: string; marshallingPoints?: number; marshallingCategory?: string };
     const source = (record.marshallingCategory ?? 'misc') as MpSource;
     const points = record.marshallingPoints ?? 0;
@@ -140,7 +154,10 @@ function playableAt(
       marshallingPoints: points,
       // The whole point: a point in this source, priced by the tournament
       // scorer at the current standing, not by a constant.
-      tsd: points > 0 ? standing.tsdAfter({ [source]: points }) - standing.tsd : 0,
+      tsd: (points > 0 ? standing.tsdAfter({ [source]: points }) - standing.tsd : 0)
+        // A card worth more stored than printed (Earth of Galadriel's Orchard)
+        // is worth playing for that too, discounted as potential.
+        + context.tunables.potentialDiscount * storedValue(def, standing).potentialTsd,
     });
   }
   return cards;
@@ -229,7 +246,7 @@ function evaluateSelectCompany(context: ModuleContext, action: GameAction): Eval
     detail.push(leaf('cards seen this phase', draws, { note: 'every company\'s draws, plus what this pick banks' }));
     detail.push(leaf('worth per card', tunables.resourceDrawValue, { unit: 'tsd', tunable: 'resourceDrawValue' }));
   } else {
-    const playable = site ? playableAt(context, siteDefinitionOf(context, company.id) ?? '') : [];
+    const playable = site ? playableAt(context, siteDefinitionOf(context, company.id) ?? '', company.id) : [];
     const taps = budget.untappedIn(company.id).length;
     const now = playable.slice(0, Math.max(0, taps));
     dtsd = now.reduce((sum, c) => sum + c.tsd, 0);
@@ -579,7 +596,7 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
   if (!site) return null;
 
   // What entering unlocks: the cards that become playable, capped by taps.
-  const playable = playableAt(context, siteDefinitionId);
+  const playable = playableAt(context, siteDefinitionId, company.id);
   const taps = budget.untappedIn(company.id).length;
   const playableNow = playable.slice(0, Math.max(0, taps));
   const realized = playableNow.reduce((sum, c) => sum + c.tsd, 0);
@@ -674,7 +691,7 @@ function evaluateCancelMovement(context: ModuleContext, action: GameAction): Eva
     action,
     site,
     arrivingDefinitionId: planned.definitionId,
-    playable: playableAt(context, planned.definitionId),
+    playable: playableAt(context, planned.definitionId, company.id),
     tapsAvailable: budget.untappedIn(company.id).length,
   });
 
@@ -892,7 +909,7 @@ export const travelModule: H2Module = {
       action,
       site,
       arrivingDefinitionId: destination.definitionId,
-      playable: playableAt(context, destination.definitionId),
+      playable: playableAt(context, destination.definitionId, companyId),
       tapsAvailable: taps,
     });
   },

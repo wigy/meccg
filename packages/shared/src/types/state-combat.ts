@@ -1312,6 +1312,15 @@ export type ChainEntryPayload =
        * its owner's discard pile.
        */
       readonly targetStoredPermanentEventInstanceId?: CardInstanceId;
+      /**
+       * For a `discard-agent-at-site` short-event (Seek without Success
+       * dm-87), the hazard player's own agent instance chosen at play time to
+       * be discarded. Resolved by the chain resolver — not at play time — so
+       * the opponent gets the response window every action is owed (CoE
+       * 9.4/9.5); the card's paired `company-return-to-origin` effect then
+       * forces the company back to its site of origin.
+       */
+      readonly agentInstanceId?: CardInstanceId;
     }
   | {
       readonly type: 'creature';
@@ -1435,10 +1444,15 @@ export type ChainEntryPayload =
        */
       readonly targetItemInstanceId?: CardInstanceId;
       /**
-       * For a resource permanent-event played on one of the controller's own
-       * in-play factions (Long Grievous Siege ba-40), the target faction
-       * instance. On resolution the chain reducer places the card into the
-       * controller's `cardsInPlay` with `attachedTo` set to this value.
+       * The target faction instance a `play-target: "faction"` permanent
+       * event attaches to. On resolution the chain reducer places the card
+       * into the controller's `cardsInPlay` with `attachedTo` set to this
+       * value. For a resource permanent-event (Long Grievous Siege ba-40)
+       * this is one of the controller's own in-play factions; for a hazard
+       * permanent-event (Trouble on All Borders as-40) it is instead one of
+       * the *opponent's* own in-play factions (CoE 2.IV.vii.3: hazard events
+       * target the opponent's entities) — the binding mechanism itself does
+       * not care which player owns the target.
        */
       readonly targetFactionInstanceId?: CardInstanceId;
       /**

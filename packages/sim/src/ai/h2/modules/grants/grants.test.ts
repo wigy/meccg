@@ -10,6 +10,8 @@
 import { describe, expect, test } from 'vitest';
 import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction } from '@meccg/shared';
+import type { AgentContext } from '../../../../types.js';
+import { createHeuristic2Agent } from '../../agent.js';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
@@ -18,8 +20,8 @@ import { testWinProbModel } from '../../test-support.js';
 import { grantsModule } from './grants.js';
 
 /** A position where a bearer is offered the roll to shake a Lure off. */
-function position() {
-  const scenario = loadScenario('organization/shed-corruption');
+function position(id = 'organization/shed-corruption') {
+  const scenario = loadScenario(id);
   const view = scenarioView(scenario);
   const cardPool = loadCardPool();
   const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
@@ -90,5 +92,68 @@ describe('what it will not price', () => {
       sourceCardDefinitionId: 'tw-1',
     } as unknown as GameAction;
     expect(grantsModule.evaluate(bogus, context)).toBeNull();
+  });
+});
+
+/** Cram's "discard to untap bearer", as the engine offers it in a position. */
+function cramUntaps(legalActions: readonly GameAction[]): GameAction[] {
+  return legalActions.filter(a => a.type === 'activate-granted-action'
+    && (a as unknown as { actionId?: string }).actionId === 'untap-bearer');
+}
+
+/** What the whole agent plays in a scenario. */
+function agentChoice(id: string): GameAction {
+  const { context, legalActions } = position(id);
+  return createHeuristic2Agent().chooseAction({
+    view: context.view,
+    cardPool: context.cardPool,
+    legalActions,
+    evaluated: context.view.legalActions,
+    random: () => 0.5,
+  } as unknown as AgentContext).action;
+}
+
+/**
+ * Cram (td-105) discards itself to untap its bearer, in any phase. Recorded
+ * human games show when that is worth a card: at the moment a play needs him
+ * standing — 129 of 2424 site-phase offers taken, one of 1051 in the untap
+ * phase, none of 979 at end of turn.
+ */
+describe('discarding a card to untap its bearer', () => {
+  test('costs the card, even one that carries no points', () => {
+    const { context, legalActions } = position('grants/cram-in-untap-phase');
+    const cram = cramUntaps(legalActions);
+    expect(cram.length).toBeGreaterThan(0);
+    for (const action of cram) {
+      const evaluation = grantsModule.evaluate(action, context)!;
+      expect(evaluation.expectedTsd).toBeCloseTo(-DEFAULT_TUNABLES.provisionalCardPrice, 9);
+    }
+  });
+
+  test('is worth nothing in the untap phase, which untaps him anyway', () => {
+    const { context, legalActions } = position('grants/cram-in-untap-phase');
+    const text = JSON.stringify(grantsModule.evaluate(cramUntaps(legalActions)[0], context)!.rationale);
+    expect(text).toContain('no play needs him standing yet');
+    expect(agentChoice('grants/cram-in-untap-phase').type).toBe('untap');
+  });
+
+  test('is worth nothing at a site where no play is refused for want of him', () => {
+    const { context, legalActions } = position('grants/cram-with-nothing-to-play');
+    const [cram] = cramUntaps(legalActions);
+    expect(grantsModule.evaluate(cram, context)!.utility).toBeLessThan(0);
+    expect(agentChoice('grants/cram-with-nothing-to-play').type).toBe('pass');
+  });
+
+  test('is worth what his tap forfeits when it unlocks a refused play', () => {
+    // The whole company is tapped and the engine refuses three items for want
+    // of an untapped character. Before, the bearer's own tap cost — zero, since
+    // he is tapped — was the price, so every untap grant scored nothing and
+    // lost to `pass`. The human ate the Cram and played an item.
+    const { context, legalActions } = position('grants/cram-unlocks-a-play');
+    const [cram] = cramUntaps(legalActions);
+    const evaluation = grantsModule.evaluate(cram, context)!;
+    expect(evaluation.utility).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('untaps him for a play that needs him');
+    expect(agentChoice('grants/cram-unlocks-a-play')).toMatchObject({ actionId: 'untap-bearer' });
   });
 });

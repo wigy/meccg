@@ -52,7 +52,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   viableActions, dispatch, mint, addP1CardsInPlay,
-  makeCancelWindowCombat, findCharInstanceId, findHandCardId,
+  makeCancelWindowCombat, makeSitePhase, findCharInstanceId, findHandCardId,
   attachItemToChar, attachAllyToChar, attachHazardToChar,
   getCharacter, expectInDiscardPile, expectNotInPile, assertEveryInstanceReachable,
   executeAction,
@@ -177,6 +177,31 @@ describe('Sacrifice of Form (tw-321)', () => {
       },
     };
     expect(viableActions(noCombatState, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  test('NOT offered via the generic play-permanent-event path during the site phase (bug: lit up with no attack and no Wizard in company)', () => {
+    // Real-game repro: Aragorn's company enters a site (Gandalf not in the
+    // company at all) and reaches the play-resources step with no attack in
+    // progress. `playResourcesActions` (legal-actions/site.ts) applies rule
+    // 2.1.1's "any phase" allowance for resource permanent-events to every
+    // hero-resource-event in hand — Sacrifice of Form has none of the special
+    // guards (play-window, convert-creature-to-ally, recruitment-vehicle,
+    // stage alignment, phase condition) that would exclude it, so it used to
+    // fall through to the generic "playable" tail unconditionally, even
+    // though the card text restricts it to "played after strikes are
+    // assigned" (CRF 22) and it is only ever meant to be offered by
+    // `sacrificeOfFormActions` (legal-actions/combat.ts).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [SACRIFICE_OF_FORM], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, alignment: Alignment.Ringwraith, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
   });
 
   test('NOT offered once a strike of the attack has already resolved', () => {

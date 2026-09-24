@@ -2327,6 +2327,7 @@ export type TriggeredActionType =
   | 'offer-restore-character'
   | 'tap-one-character'
   | 'roll-discard-opponent-non-unique-ally'
+  | 'roll-return-mind-threshold'
   | 'set-site-phase-flag'
   | 'set-character-status'
   | 'set-company-special-movement'
@@ -2419,7 +2420,7 @@ export interface RollBand {
 }
 
 /** Dynamic roll modifiers summed into a {@link WinConditionRollAction} 2d6 total. */
-export type RollModifier = 'sages-in-company' | 'copies-in-play' | 'other-copies-in-play';
+export type RollModifier = 'sages-in-company' | 'copies-in-play' | 'other-copies-in-play' | 'stage-points';
 
 /**
  * Common base for every discriminated {@link TriggeredAction} member. Mirrors
@@ -3472,6 +3473,32 @@ export interface RollDiscardOpponentNonUniqueAllyAction extends TriggeredActionB
   readonly threshold?: number;
 }
 
+/**
+ * `roll-return-mind-threshold` — Unhappy Blows (as-42): roll 2d6, subtract
+ * the matching race pair's `subtract`, and require the target company's
+ * controller to return, from hand, any number of that race pair's
+ * characters in the company (with their attached items) whose combined mind
+ * meets or exceeds the result.
+ *
+ * `raceGroups` is checked in order; the first entry whose both `races` are
+ * present among the target company's characters applies (the card's own
+ * `play-target` filter already guarantees at least one entry matches).
+ * Enqueues a `return-to-hand-mind-threshold` pending resolution (chosen one
+ * character at a time by the company's controller, finalized with `pass`
+ * once the running mind total qualifies) — but only when at least one
+ * combination of that race pair's characters can reach the threshold; "if
+ * available" fails silently (no resolution, no effect) otherwise.
+ */
+export interface RollReturnMindThresholdAction extends TriggeredActionBase {
+  readonly type: 'roll-return-mind-threshold';
+  /** Race pairs recognized by this card, in priority order. */
+  readonly raceGroups: readonly {
+    readonly races: readonly [Race, Race];
+    /** Subtracted from the 2d6 roll total to form the mind threshold. */
+    readonly subtract: number;
+  }[];
+}
+
 /** `offer-char-join-attack` — offer a haven character the option to join the attack (Alatar). */
 export interface OfferCharJoinAttackAction extends TriggeredActionBase {
   readonly type: 'offer-char-join-attack';
@@ -4082,6 +4109,7 @@ export type TriggeredAction =
   | DiscardTargetCorruptionCardAction
   | OfferCorruptionRemovalAtSiteAction
   | RollDiscardOpponentNonUniqueAllyAction
+  | RollReturnMindThresholdAction
   | OfferCharJoinAttackAction
   | OfferResourcePlayAction
   | OfferRestoreCharacterAction
@@ -5085,6 +5113,35 @@ export interface AgentAttackModifierEffect extends EffectBase {
  */
 export interface AgentDiscardReturnToOriginEffect extends EffectBase {
   readonly type: 'agent-discard-return-to-origin';
+}
+
+/**
+ * A hazard short-event that discards one of the hazard player's own agents
+ * matching the required `skill` at the target company's new site, forcing
+ * the company to return to its site of origin (CoE rule 2.IV.4 — paired with
+ * a `company-return-to-origin` effect on the same card, which performs the
+ * actual return once this effect's chosen agent is discarded). Unlike
+ * {@link AgentDiscardReturnToOriginEffect} (an ability printed on the
+ * agent's own card, e.g. Baduila dm-2), this ability is granted by playing
+ * the hazard event itself — any qualifying agent may be sacrificed, not
+ * just one carrying its own self-ability.
+ *
+ * Conditions mirror `agent-discard-return-to-origin`: the agent must have
+ * been in play at turn start and must not be wounded; a tapped agent
+ * qualifies, and a face-down agent may be discarded too (the discard itself
+ * reveals it, so no home-site binding is needed).
+ *
+ * Used by Seek without Success (dm-87): "Discard a ranger agent at target
+ * company's new site. Company must immediately return to its site of
+ * origin. Cannot be played if your opponent is a minion player."
+ */
+export interface DiscardAgentAtSiteEffect extends EffectBase {
+  readonly type: 'discard-agent-at-site';
+  /**
+   * Required agent skill (e.g. `"ranger"`). If omitted, any agent may be
+   * discarded.
+   */
+  readonly skill?: string;
 }
 
 /**
@@ -6127,6 +6184,15 @@ export interface PlayTargetEffect extends EffectBase {
  * of initiating a nested chain for the revealed card. Currently used by
  * Searching Eye: reveal cancels the deferred resource play whose source
  * card matches the enclosed `requiredSkill` (if any).
+ *
+ * The `company-skips-site` trigger opens a reveal window when a company
+ * chooses not to enter its current site (`enter-or-skip`'s `pass` action),
+ * consumed by the dedicated `skip-site-reveal-on-guard` site step
+ * (`legal-actions/site.ts` / `reducer-site.ts`) rather than the generic
+ * `on-guard-window` pending resolution the other triggers use — there is no
+ * deferred play to intercept, only the pass itself. Used by Near to Hear a
+ * Whisper (as-31): "May be revealed on-guard if the company chooses not to
+ * enter the site."
  */
 export interface OnGuardRevealEffect extends EffectBase {
   readonly type: 'on-guard-reveal';
@@ -8602,8 +8668,40 @@ export interface AhuntAttackEffect extends EffectBase {
    * cards such as Mordor in Arms (dm-72) whose Orc/Troll attacks list no body.
    */
   readonly body?: number;
-  /** Race of the attacking creature (e.g. "dragon"). */
-  readonly race: Race;
+  /**
+   * Race of the attacking creature (e.g. "dragon"). Optional only when
+   * {@link raceFromAttachedFaction} is set, in which case the race is read
+   * from the card's attached faction target instead of being printed here.
+   */
+  readonly race?: Race;
+  /**
+   * When `true`, `regionNames` is ignored (set to `[]` in the card data) and
+   * the matching region set is instead computed dynamically from the card's
+   * `CardInPlay.attachedTo` faction target: the region containing every site
+   * where that faction is playable, plus every region adjacent to one of
+   * those. Used by Trouble on All Borders (as-40): "Any company moving
+   * through the region containing a site where the faction is playable, or
+   * through any region adjacent to this one, faces an attack." See
+   * `factionPlayableRegionsAndAdjacent` (`reducer-utils.ts`).
+   */
+  readonly regionsFromAttachedFaction?: boolean;
+  /**
+   * When `true`, the attack's race is read from the `CardInPlay.attachedTo`
+   * faction target's own `race` field rather than a static {@link race}. Used
+   * by Trouble on All Borders (as-40): "The attack is the same type as the
+   * faction."
+   */
+  readonly raceFromAttachedFaction?: boolean;
+  /**
+   * When `true`, this ahunt attack is detainment exactly when the moving
+   * (defending) player's alignment "side" (hero: Wizard/Fallen-wizard, or
+   * minion: Ringwraith/Balrog) matches the `CardInPlay.attachedTo` faction
+   * target's own alignment side — bypassing the standard §3.II keying-based
+   * detainment derivation entirely, the same way {@link detainmentAgainstMinion}
+   * short-circuits it. Used by Trouble on All Borders (as-40): "The attack is
+   * detainment if the company and faction are both minion or both hero."
+   */
+  readonly detainmentMatchesAttachedFactionAlignment?: boolean;
   /** Combat rules that apply to the attack (e.g. "attacker-chooses-defenders"). */
   readonly combatRules?: readonly string[];
   /**
@@ -10195,6 +10293,7 @@ export type CardEffect =
   | AgentTapAttackEffect
   | AgentAttackModifierEffect
   | AgentDiscardReturnToOriginEffect
+  | DiscardAgentAtSiteEffect
   | AgentMoveRestrictionEffect
   | AhuntAttackEffect
   | InfluenceModificationEffect
@@ -10348,6 +10447,7 @@ export type CardEffect =
   | RemovalProtectionEffect
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
+  | AgentAttackOnSkipEffect
   | SwapNewSiteEffect
   | ActsAsSiteEffect
   | RollThenSwapNewSiteEffect
@@ -10832,6 +10932,32 @@ export interface ForceAgentAttackEffect extends EffectBase {
  */
 export interface DiscardUnrevealedOnGuardEffect extends EffectBase {
   readonly type: 'discard-unrevealed-on-guard';
+}
+
+/**
+ * Global rule (in-play, either player's `cardsInPlay`): when a company
+ * chooses not to enter its current site (the `enter-or-skip` `pass` action),
+ * the hazard player still gets the normal declare-agent-attack opportunity
+ * at that site before the company's site-phase slot ends — the CoE default
+ * (`handleSiteEnterOrSkip`) skips straight to the next company on a skip,
+ * omitting the agent-attack window entirely.
+ *
+ * Computed by `agentAttackAllowedOnSkip` (`reducer-utils.ts`) and consulted
+ * by `handleSiteEnterOrSkip` (`reducer-site.ts`): while active, a `pass`
+ * routes through the `skip-site-reveal-on-guard` step (offering any eligible
+ * on-guard reveal first, see {@link OnGuardRevealEffect}'s
+ * `company-skips-site` trigger) and then `declare-agent-attack` /
+ * `resolve-attacks`, exactly like a normal site entry with no
+ * automatic-attacks — except the company never counts as having entered the
+ * site (`siteEntered` stays `false`), so the flow returns to the next
+ * company afterward instead of opening `play-resources`.
+ *
+ * Used by Near to Hear a Whisper (as-31): "Any agent may attack a company at
+ * his site at the start of the site phase if the company chooses not to
+ * enter the site."
+ */
+export interface AgentAttackOnSkipEffect extends EffectBase {
+  readonly type: 'agent-attack-on-skip';
 }
 
 /**
