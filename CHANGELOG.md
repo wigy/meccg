@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.171.0 — 2026-09-24
+
+Modular AI Replays Its Nazgul, Stops Banking Doomed Points
+
+### AI
+
+- The modular AI (h2) can now replay a Nazgul with In Great Wrath (#3177)
+- The modular AI no longer banks marshalling points for a permanent event (such as Align Palantir or Choice of Luthien) that its company's next move would discard; played before movement they are worth nothing, played after they count only as potential points (#3178)
+
 ## 0.170.0 — 2026-09-24
 
 Nine Cards Certified, Modular AI Learns From Human Play

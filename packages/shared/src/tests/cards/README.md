@@ -1163,7 +1163,7 @@
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 8 | ☑ |
 | tw-320 | Roäc the Raven | — | 7 | ☑ |
-| tw-321 | Sacrifice of Form | — | 18 | ☑ |
+| tw-321 | Sacrifice of Form | — | 19 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-324 | Secret Entrance | — | 8 | ☑ |
@@ -1201,7 +1201,7 @@
 | tw-360 | Wizard’s Fire | — | 3 | ☑ |
 | tw-361 | Wizard’s Flame | — | 7 | ☑ |
 | tw-362 | Wizard’s Laughter | — | 4 | ☑ |
-| tw-363 | Wizard’s Ring | — | 11 | ☑ |
+| tw-363 | Wizard’s Ring | — | 12 | ☑ |
 | tw-364 | Wizard’s River-horses | — | 9 | ☑ |
 | tw-365 | Wizard’s Test | — | 21 | ☑ |
 | tw-366 | Wizard’s Voice | — | 9 | ☑ |
