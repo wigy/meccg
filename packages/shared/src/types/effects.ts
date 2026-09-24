@@ -2327,6 +2327,7 @@ export type TriggeredActionType =
   | 'offer-restore-character'
   | 'tap-one-character'
   | 'roll-discard-opponent-non-unique-ally'
+  | 'roll-return-mind-threshold'
   | 'set-site-phase-flag'
   | 'set-character-status'
   | 'set-company-special-movement'
@@ -3472,6 +3473,32 @@ export interface RollDiscardOpponentNonUniqueAllyAction extends TriggeredActionB
   readonly threshold?: number;
 }
 
+/**
+ * `roll-return-mind-threshold` — Unhappy Blows (as-42): roll 2d6, subtract
+ * the matching race pair's `subtract`, and require the target company's
+ * controller to return, from hand, any number of that race pair's
+ * characters in the company (with their attached items) whose combined mind
+ * meets or exceeds the result.
+ *
+ * `raceGroups` is checked in order; the first entry whose both `races` are
+ * present among the target company's characters applies (the card's own
+ * `play-target` filter already guarantees at least one entry matches).
+ * Enqueues a `return-to-hand-mind-threshold` pending resolution (chosen one
+ * character at a time by the company's controller, finalized with `pass`
+ * once the running mind total qualifies) — but only when at least one
+ * combination of that race pair's characters can reach the threshold; "if
+ * available" fails silently (no resolution, no effect) otherwise.
+ */
+export interface RollReturnMindThresholdAction extends TriggeredActionBase {
+  readonly type: 'roll-return-mind-threshold';
+  /** Race pairs recognized by this card, in priority order. */
+  readonly raceGroups: readonly {
+    readonly races: readonly [Race, Race];
+    /** Subtracted from the 2d6 roll total to form the mind threshold. */
+    readonly subtract: number;
+  }[];
+}
+
 /** `offer-char-join-attack` — offer a haven character the option to join the attack (Alatar). */
 export interface OfferCharJoinAttackAction extends TriggeredActionBase {
   readonly type: 'offer-char-join-attack';
@@ -4082,6 +4109,7 @@ export type TriggeredAction =
   | DiscardTargetCorruptionCardAction
   | OfferCorruptionRemovalAtSiteAction
   | RollDiscardOpponentNonUniqueAllyAction
+  | RollReturnMindThresholdAction
   | OfferCharJoinAttackAction
   | OfferResourcePlayAction
   | OfferRestoreCharacterAction

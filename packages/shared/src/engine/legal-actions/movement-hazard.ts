@@ -3576,6 +3576,13 @@ function playHazardsActions(
             const ch = resourcePlayer.characters[cId];
             return ch ? itemSubtypesOf(state, ch.items) : [];
           });
+          // Race composition (Unhappy Blows as-42: "a company containing both
+          // Dwarves and Elves, or both Orcs and Trolls").
+          const companyRaces = targetCompany.characters.flatMap(cId => {
+            const ch = resourcePlayer.characters[cId];
+            const cDef = ch ? defById(state, ch.definitionId) : undefined;
+            return cDef && isCharacterCard(cDef) ? [cDef.race] : [];
+          });
           const companyCtx = {
             target: {
               siteType: compSiteType,
@@ -3588,6 +3595,7 @@ function playHazardsActions(
               moving: !!targetCompany.destinationSite,
               hasRingwraith,
               itemSubtypes: companyItemSubtypes,
+              races: companyRaces,
             },
           };
           if (shortPlayTarget.filter && !matchesContext(shortPlayTarget.filter, companyCtx)) {
