@@ -58,6 +58,7 @@ import { computeReach } from '../../services/reach.js';
 import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
+import { storedValue } from '../../services/stored-value.js';
 import { companyMayPlay } from '../../services/named-target.js';
 
 /** Action types this module scores. */
@@ -153,7 +154,10 @@ function playableAt(
       marshallingPoints: points,
       // The whole point: a point in this source, priced by the tournament
       // scorer at the current standing, not by a constant.
-      tsd: points > 0 ? standing.tsdAfter({ [source]: points }) - standing.tsd : 0,
+      tsd: (points > 0 ? standing.tsdAfter({ [source]: points }) - standing.tsd : 0)
+        // A card worth more stored than printed (Earth of Galadriel's Orchard)
+        // is worth playing for that too, discounted as potential.
+        + context.tunables.potentialDiscount * storedValue(def, standing).potentialTsd,
     });
   }
   return cards;

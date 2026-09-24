@@ -21,12 +21,18 @@ const HERO = 'tw-hero';
 const ITEM = 'tw-item';
 const ALLY = 'tw-ally';
 const TRINKET = 'tw-trinket';
+/** Earth of Galadriel's Orchard (tw-221): no points printed, 2 once stored at Bag End. */
+const ORCHARD = 'tw-orchard';
 
 const POOL = {
   [HERO]: { name: 'A Bearer', cardType: 'hero-character', mind: 3, marshallingPoints: 1, marshallingCategory: 'character' },
   [ITEM]: { name: 'Glamdring', marshallingPoints: 2, marshallingCategory: 'item', corruptionPoints: 1 },
   [ALLY]: { name: 'Eagle', marshallingPoints: 2, marshallingCategory: 'ally' },
   [TRINKET]: { name: 'A Trinket', marshallingPoints: 0, marshallingCategory: 'item' },
+  [ORCHARD]: {
+    name: 'Earth of Galadriel’s Orchard', marshallingPoints: 0, marshallingCategory: 'item',
+    effects: [{ type: 'storable-at', sites: ['Bag End'], marshallingPoints: 2 }],
+  },
 } as unknown as Readonly<Record<string, CardDefinition>>;
 
 /** A `play-hero-resource` naming one of the pool's cards. */
@@ -40,7 +46,7 @@ function contextWith(self: Record<string, number>, opponent: Record<string, numb
     self: {
       id: 'p1',
       marshallingPoints: testMarshallingPoints(self),
-      hand: [ITEM, ALLY, TRINKET].map(d => ({ instanceId: `card-${d}`, definitionId: d })),
+      hand: [ITEM, ALLY, TRINKET, ORCHARD].map(d => ({ instanceId: `card-${d}`, definitionId: d })),
       characters: {},
       companies: [],
       cardsInPlay: [],
@@ -148,5 +154,27 @@ describe('what it reports', () => {
   test('declines an action naming a card it cannot find', () => {
     const unknown = { type: 'play-hero-resource', cardInstanceId: 'nope' } as unknown as GameAction;
     expect(resourcesModule.evaluate(unknown, context)).toBeNull();
+  });
+});
+
+describe('a card worth more stored than printed', () => {
+  // Earth of Galadriel's Orchard prints nothing and scores 2 once stored. Read
+  // off the printed number alone it was never worth the tap, and in recorded
+  // game mubd54lk-rrl8p4 the agent passed where the human played it.
+  test('is worth playing for what storing it will bank, discounted as potential', () => {
+    const context = contextWith(
+      { character: 3, item: 3, faction: 3, ally: 3 },
+      { character: 3, item: 3, faction: 3, ally: 3 },
+    );
+    expect(context.standing.marginal.item).toBeGreaterThan(0);
+    const orchard = resourcesModule.evaluate(play(ORCHARD), context)!;
+    const trinket = resourcesModule.evaluate(play(TRINKET), context)!;
+    expect(trinket.expectedTsd).toBeLessThan(0);
+    expect(orchard.expectedTsd).toBeGreaterThan(0);
+    const worth = context.standing.tsdAfter({ item: 2 }) - context.standing.tsd;
+    expect(orchard.expectedTsd).toBeCloseTo(
+      DEFAULT_TUNABLES.potentialDiscount * worth - DEFAULT_TUNABLES.tapTempoCost, 9,
+    );
+    expect(JSON.stringify(orchard.rationale)).toContain('worth once stored');
   });
 });
