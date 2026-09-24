@@ -239,6 +239,7 @@ export function playGame(options: PlayGameOptions): GameRunResult {
         legalActions,
         evaluated: view.legalActions,
         random: randomStreams[actingIndex],
+        ownDeck: options.decks[actingIndex],
       });
       const thinkMs = Date.now() - thinkStart;
 

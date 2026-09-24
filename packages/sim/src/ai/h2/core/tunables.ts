@@ -445,6 +445,21 @@ export interface Tunables {
    */
   readonly revisitedSiteCost: number;
   /**
+   * What moving the whole of the deck's remaining points into one-move reach
+   * is worth, in TSD — `travel` credits a move by the *change* in the share of
+   * marshalling-point value (hand plus unseen deck) playable within
+   * `BASE_MAX_REGION_DISTANCE` regions of where the company stands. See
+   * `services/deck-reach`.
+   *
+   * Charged through the potential channel. At 3, a move that strands the
+   * company one move from none of the deck's points costs 1.5 after the
+   * discount — a site's draws and more, so a far haven with nothing to heal no
+   * longer beats staying near the cluster, while the same haven healing a
+   * wounded character (a realized `woundTempoCost`, 1.5 each) plus its draws
+   * still does.
+   */
+  readonly deckReachValue: number;
+  /**
    * What resolving a *gating* pending resolution is worth, in TSD.
    *
    * Some resolutions block everything else until they are answered — a pending
@@ -536,6 +551,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   decisiveMargin: 0,
   gatingResolutionTsd: 1,
   revisitedSiteCost: 1.5,
+  deckReachValue: 3,
   resourceDrawValue: 1,
   hazardBeamWidth: 4,
   deniedPlayMp: 1,

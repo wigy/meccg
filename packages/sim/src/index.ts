@@ -12,6 +12,7 @@
 export type {
   Agent,
   AgentContext,
+  OwnDeckList,
   AgentDecision,
   ConsideredAction,
   GameObserver,

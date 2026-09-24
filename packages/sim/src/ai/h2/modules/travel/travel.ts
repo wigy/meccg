@@ -19,9 +19,12 @@
  * nothing is worth nothing, and that is invisible to a linear weight — it is
  * the single clearest case in the whole design (§2.1).
  *
- * What is missing is stated on every evaluation: the acquisition modules'
- * strategic view is absent, so only cards already in hand count toward a
- * destination's worth. Hazards en route *are* priced now, though only as the
+ * What is missing is stated on every evaluation: only cards already in hand
+ * count toward what a destination banks on arrival. The rest of the deck —
+ * known to its owner by subtraction — counts only as *reach*: how much of the
+ * points still to play stay within one movement of the destination (see
+ * `services/deck-reach`), which keeps a company near the cluster its deck is
+ * built around instead of wandering between havens. Hazards en route *are* priced now, though only as the
  * likelihood that the opponent holds a creature at all — `beliefs` estimates
  * kinds, not cards. A destination's own printed automatic attacks are priced
  * too, against the roster that would face them, the same way
@@ -40,7 +43,7 @@
  * the output would say which was wrong.
  */
 
-import { CardStatus, isSiteCard, matchesCondition } from '@meccg/shared';
+import { BASE_MAX_REGION_DISTANCE, CardStatus, isSiteCard, matchesCondition } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, CompanyId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
@@ -60,6 +63,7 @@ import type { SiteExposure } from '../../services/exposure.js';
 import { resourcePlayableAt } from '../../../evaluators/common.js';
 import { storedValue } from '../../services/stored-value.js';
 import { companyMayPlay } from '../../services/named-target.js';
+import { computeDeckReach } from '../../services/deck-reach.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -293,8 +297,8 @@ const ASSUMPTIONS: readonly string[] = [
   'hazards en route are priced only as a likelihood that the opponent holds *a* creature, not by '
   + 'which creature or whether it is playable on this path — the belief model estimates kinds, '
   + 'not cards',
-  'only cards already in hand count toward a destination\'s worth; the acquisition modules\' '
-  + 'strategic view (which sources are worth chasing at all) does not exist yet',
+  'only cards in hand count toward what a destination banks on arrival; the rest of the deck '
+  + 'counts only as whether its points stay within one movement, not as which card comes next',
   'a resource play is assumed to need one tap, and no card is assumed to be playable twice',
   'a destination\'s automatic attacks are priced as printed; a card that suppresses them — a '
   + 'defeated Dragon at its lair, a site effect — is not modelled',
@@ -461,10 +465,26 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
     return sum + (standing.tsd - standing.tsdAfter(delta)) + tunables.eliminationTempoCost;
   }, 0);
 
+  // Where the deck can still score. A deck keeps its marshalling-point sites
+  // within one movement of each other, and a company inside that cluster is one
+  // move from any card it draws; a company that wanders out — to a far haven
+  // that heals or draws — is one move from none of them, and nothing above can
+  // tell: with no cluster card in hand, the far haven and the near one priced
+  // the same. So the move is charged (or credited) by how much of the points
+  // still to play — hand plus the unseen deck, which the owner knows by
+  // subtraction — it takes out of (or brings into) one-move reach. Potential,
+  // not realized: those cards are still to be drawn and played.
+  const deckReach = computeDeckReach(context.view, context.cardPool, standing, context.ownDeck);
+  const standingOn = company?.currentSite?.definitionId;
+  const coverageHere = standingOn === undefined ? null : deckReach.coverage(standingOn);
+  const coverageThere = deckReach.coverage(arriving);
+  const reachShift = coverageHere === null ? 0 : coverageThere - coverageHere;
+  const deckReachGain = reachShift * tunables.deckReachValue;
+
   const dtsd = netTsdDelta(
     {
       realized: realized + healing,
-      potential: potential + draws,
+      potential: potential + draws + deckReachGain,
       tempo: tempo + revisit + attackHarm + allyLossHarm,
     },
     tunables,
@@ -537,11 +557,16 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
       note: 'unlocked, not banked',
     }));
   }
-  detail.push(leaf('acquisition modules', 0, {
-    unit: 'tsd',
-    note: 'items / factions / allies do not exist yet — a destination worth chasing for '
-      + 'a card still in the deck scores nothing here',
-  }));
+  if (reachShift !== 0) {
+    const pct = (share: number): string => `${(share * 100).toFixed(0)}%`;
+    detail.push(leaf('deck points within one move', deckReachGain, {
+      unit: 'tsd',
+      tunable: 'deckReachValue',
+      note: `${pct(coverageThere)} of the ${deckReach.cards.length} MP card(s) still to play `
+        + `(hand + unseen deck) within ${BASE_MAX_REGION_DISTANCE} regions of the destination, `
+        + `against ${pct(coverageHere ?? 0)} from here; discounted as potential`,
+    }));
+  }
 
   return { dtsd, label, detail, playableNow, playableCount: playable.length };
 }

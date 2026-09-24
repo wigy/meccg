@@ -12,7 +12,7 @@ import type { WebSocket } from 'ws';
 import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, GameAction, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
 import { Alignment, buildInstanceLookup, formatCardList } from '@meccg/shared';
 import { loadDeck, loadDeckFromFile, listDecks } from '@meccg/sim';
-import type { Agent, AgentContext, AgentDecision, LoadedDeck } from '@meccg/sim';
+import type { Agent, AgentContext, AgentDecision, LoadedDeck, OwnDeckList } from '@meccg/sim';
 
 // ---- Deck catalog (shared with the sim harness in @meccg/sim) ----
 
@@ -111,6 +111,21 @@ export function parseSpawnedClientArgs(usageName: string): SpawnedClientArgs {
     process.exit(1);
   }
   return { port, playerName, token, deckId, deckFilePath, modelPath, agentSpec };
+}
+
+/**
+ * The deck a spawned seat plays, for the agent's own use: a player knows the
+ * contents of what they shuffled even though the view keeps the play deck
+ * face down. Undefined for a minimal rejoin, which carries no deck — the
+ * agent then plays from the hand alone.
+ */
+export function spawnedOwnDeck(clientArgs: SpawnedClientArgs): OwnDeckList | undefined {
+  const join = clientArgs.deckFilePath
+    ? loadDeckJoinFromFile(clientArgs.deckFilePath, clientArgs.playerName)
+    : clientArgs.deckId
+      ? loadDeckJoin(clientArgs.deckId, clientArgs.playerName)
+      : undefined;
+  return join ? { playDeck: join.playDeck, draftPool: join.draftPool } : undefined;
 }
 
 /**

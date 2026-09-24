@@ -41,6 +41,26 @@ export interface AgentContext {
    * Agents must draw all randomness from here so games are reproducible.
    */
   readonly random: () => number;
+  /**
+   * The acting player's own deck list, when the seat knows it.
+   *
+   * A player always knows what they shuffled: the play deck is face down in
+   * the view, but its *contents* are the deck list minus every card the view
+   * already shows, which is public knowledge to its owner and nobody else.
+   * Absent when the harness has no deck list for the seat (a rejoin without
+   * a deck, a replayed corpus view); agents must degrade to hand-only play.
+   */
+  readonly ownDeck?: OwnDeckList;
+}
+
+/**
+ * The card lists a seat was built from — the slice of a loaded deck an agent
+ * may read. Drafted-out pool characters can be shuffled into the play deck at
+ * setup, so the unseen universe is `playDeck` + `draftPool`.
+ */
+export interface OwnDeckList {
+  readonly playDeck: readonly string[];
+  readonly draftPool: readonly string[];
 }
 
 /** A candidate action with the weight the agent assigned to it. */
