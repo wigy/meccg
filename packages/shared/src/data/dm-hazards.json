@@ -1571,8 +1571,17 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SeekwithoutSuccess.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Discard a ranger agent at target company's new site. Company must immediately return to its site of origin.Cannot be played if your opponent is a minion player."
+    "effects": [
+      {
+        "type": "discard-agent-at-site",
+        "skill": "ranger"
+      },
+      {
+        "type": "company-return-to-origin"
+      }
+    ],
+    "text": "Discard a ranger agent at target company's new site. Company must immediately return to its site of origin.Cannot be played if your opponent is a minion player.",
+    "certified": "2026-09-24"
   },
   {
     "cardType": "hazard-event",

@@ -77,6 +77,7 @@ import {
   applyInfluenceRevealPlayOfferResolution,
   applyInfluenceOverflowDiscardResolution,
   applyRevealHazardsChoiceResolution,
+  applyReturnToHandMindThresholdResolution,
   applyPlayOrDiscardFetchedItemResolution,
 } from './pending-reducers.js';
 import {
@@ -131,6 +132,7 @@ import {
   influenceRevealPlayOfferActions,
   influenceOverflowDiscardActions,
   revealHazardsChoiceActions,
+  returnToHandMindThresholdActions,
   playOrDiscardFetchedItemActions,
 } from './legal-actions/pending.js';
 
@@ -213,6 +215,7 @@ export const PENDING_HANDLERS: { readonly [K in PendingKindType]: PendingHandler
   'influence-reveal-play-offer': { legalActions: influenceRevealPlayOfferActions, apply: applyInfluenceRevealPlayOfferResolution },
   'influence-overflow-discard': { legalActions: influenceOverflowDiscardActions, apply: applyInfluenceOverflowDiscardResolution },
   'reveal-hazards-choice': { legalActions: revealHazardsChoiceActions, apply: applyRevealHazardsChoiceResolution },
+  'return-to-hand-mind-threshold': { legalActions: returnToHandMindThresholdActions, apply: applyReturnToHandMindThresholdResolution },
   'play-or-discard-fetched-item': { legalActions: playOrDiscardFetchedItemActions, apply: applyPlayOrDiscardFetchedItemResolution },
 };
 

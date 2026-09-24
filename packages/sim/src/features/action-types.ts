@@ -241,6 +241,8 @@ export const ACTION_TYPES: readonly string[] = [
   'rearrange-defender-deck-card',
   // Added by certifying dm-174 (Necklace of Girion).
   'play-item-placement-offer',
+  // Added by certifying as-42 (Unhappy Blows).
+  'select-return-to-hand-character',
   // Added by certifying dm-89 (Shadow out of the Dark).
   'agent-tap-grant-creature-keying',
 ];

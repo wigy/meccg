@@ -1411,6 +1411,22 @@ export interface RevealHazardForSnakeAction {
 }
 
 /**
+ * Select one character to return to hand while resolving a
+ * `return-to-hand-mind-threshold` pending resolution (Unhappy Blows as-42).
+ * Repeatable — one action per remaining eligible candidate — with `pass`
+ * finalizing the selection once the combined mind of selected characters
+ * meets the resolution's threshold.
+ */
+export interface SelectReturnToHandCharacterAction {
+  /** Action discriminant. */
+  readonly type: 'select-return-to-hand-character';
+  /** The defending company's controller, choosing which characters to give up. */
+  readonly player: PlayerId;
+  /** The candidate character instance being added to the return set. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * The alternative to `reveal-hazard-for-snake`: tap and reveal a face-down,
  * untapped agent instead of revealing any hazards from hand (Here Is a Snake!
  * dm-137). Only legal while the `reveal-hazards-choice` resolution's

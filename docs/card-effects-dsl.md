@@ -9265,9 +9265,10 @@ strikes)."
 ```
 
 `race: "special"` is used here because Rock Fall has no printed creature race
-— `AhuntAttackEffect.race` is required (it becomes `CombatState.creatureRace`,
-which the strike-resolution path needs truthy to route through
-`computeCombatProwess` rather than plain `effectiveStats.prowess`), and
+— `AhuntAttackEffect.race` must still be set whenever `raceFromAttachedFaction`
+is not (it becomes `CombatState.creatureRace`, which the strike-resolution
+path needs truthy to route through `computeCombatProwess` rather than plain
+`effectiveStats.prowess`), and
 `Race.Special` is the engine's existing "no race" bucket (Army of the Dead
 tw-193). The `weapons-ineffective` combat rule now genuinely suppresses the
 defender's own weapon prowess bonus for the strike (previously it only
@@ -9276,6 +9277,61 @@ ability, Dwarven Light-stone dm-168) — see
 `computeCombatProwess`'s `weaponsIneffective` parameter in
 `recompute-derived.ts` and `passiveModifyAttackProwessBonus` in
 `combat-strike.ts`.
+
+`regionsFromAttachedFaction` / `raceFromAttachedFaction` /
+`detainmentMatchesAttachedFactionAlignment` — a region attack whose region
+set, race, and detainment are not printed on the card at all, but derived at
+match time from a `play-target: "faction"` target chosen when the card was
+played (`CardInPlay.attachedTo`). Used by Trouble on All Borders (as-40):
+"Playable on a unique faction in play. Any company moving through the region
+containing a site where the faction is playable, or through any region
+adjacent to this one, faces an attack. The attack is the same type as the
+faction and has 4 strikes with 8 prowess. The attack is detainment if the
+company and faction are both minion or both hero." The hazard-event targets
+the *resource* player's own in-play faction (CoE 2.IV.vii.3 — hazard events
+target the opponent's entities), the opposite of Long Grievous Siege
+(ba-40)'s resource-event targeting its controller's own faction; both share
+the same generic `attachedTo` binding and `play-target: "faction"` DSL, so
+the faction-targeting legal-action branch was generalized to a permanent
+hazard-event mode (`legal-actions/movement-hazard.ts`) and `targetFactionInstanceId`
+threaded onto the hazard `permanent-event` chain payload (`mh-hazard-play.ts`).
+
+```json
+[
+  { "type": "play-target", "target": "faction", "filter": { "target.unique": true } },
+  { "type": "ahunt-attack", "regionNames": [],
+    "regionsFromAttachedFaction": true, "raceFromAttachedFaction": true,
+    "detainmentMatchesAttachedFactionAlignment": true,
+    "strikes": 4, "prowess": 8 },
+  { "type": "duplication-limit", "scope": "faction", "max": 1 }
+]
+```
+
+- `regionsFromAttachedFaction` — `regionNames` is set to `[]` and ignored;
+  `collectMatchingAhuntAttacks` (`mh-steps.ts`) instead calls
+  `attachedFactionDef` (`reducer-utils.ts`, searches *both* players'
+  `cardsInPlay` for the source card and then its `attachedTo` target — a
+  hazard card's faction target lives in the opponent's play area, not its
+  own) and, when resolved, `factionPlayableRegionsAndAdjacent` (the region
+  half of `factionSiegeEligibleSites`, extracted so both cards share it): the
+  region of every site where the target faction is playable, plus every
+  region adjacent to one of those. The moving company's path is matched
+  against that set directly (region names only — no region-type match).
+- `raceFromAttachedFaction` — `buildAhuntCombat` (`mh-steps.ts`) reads
+  `creatureRace` from the attached faction definition's own `race` field
+  instead of a static `race` (which is why `AhuntAttackEffect.race` is
+  optional whenever this flag is set), and threads that resolved race into
+  the same `resolveAttackProwess`/`resolveAttackStrikes`/
+  `resolveAttackerChoosesDefenders` calls every other ahunt-attack uses, so
+  race-conditioned stat modifiers apply correctly regardless of which
+  faction was targeted.
+- `detainmentMatchesAttachedFactionAlignment` — short-circuits
+  `isDetainmentAttack` the same way `detainmentAgainstMinion` does: detainment
+  is `true` exactly when the moving (defending) player's alignment side
+  (`isMinionOrBalrog`) equals the attached faction's own alignment side
+  (`isMinionFactionAlignment`, `mh-steps.ts` — Ringwraith/Balrog factions vs.
+  Wizard-aligned hero factions), still deferring to
+  `playerConvertsDetainmentToNormal` (Alatar wh-1).
 
 ### 25a. `faction-influence-restriction`
 
@@ -11658,6 +11714,56 @@ target company's new site, company must return to its site of origin."
 
 ```json
 { "type": "agent-discard-return-to-origin" }
+```
+
+### 40c. `discard-agent-at-site`
+
+A hazard short-event that discards one of the hazard player's own agents
+matching the required `skill` at the target company's new site, forcing the
+company to return to its site of origin (CoE rule 2.IV.4). Unlike
+`agent-discard-return-to-origin` (§40b — an ability printed on the agent's
+own card, e.g. Baduila dm-2), this ability is granted by playing the hazard
+event itself: any qualifying agent may be sacrificed, not just one carrying
+its own self-ability. Always paired with a top-level `company-return-to-origin`
+effect (§56b) on the same card, which performs the actual return once this
+effect's chosen agent is discarded.
+
+| Field   | Required | Description                                                   |
+|---------|----------|-----------------------------------------------------------------|
+| `skill` | no       | Required agent skill (e.g. `"ranger"`). Omit for any agent.      |
+
+Conditions (mirroring `agent-discard-return-to-origin`):
+
+- Agent must have been in play at turn start (`inPlayAtTurnStart`).
+- Agent must not be wounded (`CardStatus.Inverted`); a tapped agent qualifies
+  — no tap is required.
+- The company must be moving to a new site this turn (a stationary company has
+  no "new site") and the agent must be at that destination site.
+- A face-down agent may be discarded too (no home-site binding is needed —
+  the discard itself reveals the card; its site-stack sites return to the
+  location deck).
+- Never playable against a minion (Ringwraith/Balrog) opponent.
+
+Unlike `tap-agent-at-site` (§40.0.1), which bypasses the chain to initiate an
+immediate M/H-phase attack, this effect resolves through the ordinary
+short-event chain (`initiateOrPushChain`) since it has no combat to start —
+the chosen agent's instance ID rides the chain payload
+(`ChainEntryPayload['short-event'].agentInstanceId`), giving the opponent the
+normal CoE 9.4/9.5 response window before the discard and return resolve.
+
+Implementation:
+
+- Legal actions: `discardAgentAtSiteActions()` in `legal-actions/movement-hazard.ts`.
+- Reducer: `applyDiscardAgentAtSite()` in `chain-reducer.ts`, dispatched on
+  chain resolution just before `applyCompanyReturnToOrigin`.
+
+Used by *Seek without Success* (dm-87): "Discard a ranger agent at target
+company's new site. Company must immediately return to its site of origin.
+Cannot be played if your opponent is a minion player."
+
+```json
+{ "type": "discard-agent-at-site", "skill": "ranger" }
+{ "type": "company-return-to-origin" }
 ```
 
 ### 41. `permanent-event-auto-attack`
@@ -19841,3 +19947,150 @@ on-guard card" clause needed no engine change: none of the three on-guard
 reveal pathways ever offer `reveal-on-guard` for a card that neither declares
 an `on-guard-reveal` trigger nor affects a site's automatic-attacks, which
 this card does neither.
+
+### 86. `on-event` `self-enters-play` → `roll-return-mind-threshold` + `return-to-hand-mind-threshold` pending resolution (Unhappy Blows)
+
+A company-targeting hazard short-event that rolls once on resolution to set a
+variable **mind threshold**, then forces the defending company's controller
+to give up a *chosen subset* of qualifying characters whose combined mind
+reaches it — as opposed to every other roll-based hazard effect in the
+engine, which either gates a fixed pass/fail outcome (`roll-then-apply`) or
+runs one independent per-target roll (`roll-discard-opponent-non-unique-ally`).
+This is the first "opponent picks a variable-size subset whose summed
+attribute meets a threshold" primitive.
+
+```json
+{ "type": "on-event", "event": "self-enters-play", "target": "target-company",
+  "apply": { "type": "roll-return-mind-threshold",
+    "raceGroups": [
+      { "races": ["dwarf", "elf"], "subtract": 5 },
+      { "races": ["orc", "troll"], "subtract": 7 }
+    ] } }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `raceGroups` | yes | Race pairs recognized by the card, checked in order; the first entry whose both `races` are present among the target company's characters applies. Each entry's `subtract` is taken off the roll total to form the mind threshold. |
+
+Behaviour (`applyRollReturnMindThreshold`, `chain-reducer.ts`, wired into the
+short-event chain-resolution sequence alongside `applyShortEventSelfEntersPlayConstraints`):
+
+- The target company is read directly from the chain entry's `targetCompanyId`
+  payload (set by the card's own `play-target: company`) — not re-derived from
+  the active M/H company index — so the roll always binds to the company the
+  card was actually played on.
+- Rolls 2d6 for the declaring (hazard) player via `rollDiceForPlayer`, subtracts
+  the matching race pair's `subtract`, and logs the resulting mind threshold.
+  A `duplication-limit scope: "turn"` marker (`attack-card-played`, the
+  established generic "cannot be duplicated on a given turn" constraint — see
+  Scourge of Fire ba-75) is added regardless of outcome, since the card
+  resolved either way.
+- **"If available" gate.** Sums the effective mind of every character in the
+  company whose race is in the matching pair. If that total falls short of
+  the threshold, no combination can satisfy the card — it fizzles silently
+  (no pending resolution, no characters affected).
+- Otherwise enqueues a `return-to-hand-mind-threshold` pending resolution
+  (`pending.ts`) on the company's controller:
+
+```ts
+{ type: 'return-to-hand-mind-threshold', companyId, threshold,
+  candidateInstanceIds, selectedInstanceIds: [], sourceName }
+```
+
+  `candidateInstanceIds` lists every matching-race character in the company
+  (not just enough to meet the threshold — "any number" is the controller's
+  choice). Legal actions (`returnToHandMindThresholdActions`,
+  `legal-actions/pending.ts`): one `select-return-to-hand-character` per
+  remaining candidate (moves it from `candidateInstanceIds` to
+  `selectedInstanceIds`, repeatable), plus `pass` — offered only once the
+  combined effective mind of `selectedInstanceIds` meets `threshold` (a
+  threshold ≤ 0 is met trivially by the empty selection, so `pass` is legal
+  immediately in that case — "any number" then requires giving up nobody).
+  Resolved by `applyReturnToHandMindThresholdResolution`
+  (`pending-reducers.ts`): `pass` returns every selected character to the
+  owner's hand via `returnCharacterToHand(..., itemsToHand: true)`.
+
+**`returnCharacterToHand`'s `itemsToHand` parameter** (`pending-reducers.ts`):
+normally a returned character's items are discarded (CoE default — Call of
+Home and friends). Passing `itemsToHand: true` instead pushes them into the
+same hand as the character ("Items played with these characters are also
+returned to opponent's hand") — allies and hazards are unaffected, still
+discarded as usual.
+
+**Company-filter `target.races`** (`legal-actions/movement-hazard.ts`): the
+generic company-targeting hazard short-event filter context gained a `races`
+field — every character race present in the target company, aggregated the
+same way `itemSubtypes` already is — so a card's `play-target` filter can
+require specific race combinations:
+
+```json
+{ "type": "play-target", "target": "company",
+  "filter": { "$or": [
+    { "$and": [ { "target.races": { "$includes": "dwarf" } }, { "target.races": { "$includes": "elf" } } ] },
+    { "$and": [ { "target.races": { "$includes": "orc" } }, { "target.races": { "$includes": "troll" } } ] }
+  ] } }
+```
+
+Used by *Unhappy Blows* (as-42): "Playable on a company containing both
+Dwarves and Elves, or both Orcs and Trolls. Make a roll and subtract five
+(seven for Orcs and Trolls). If available, your opponent must choose and
+return to his hand any number of Elves and Dwarves (or Orcs and Trolls) in
+the company whose total mind equals or exceeds this result. Items played
+with these characters are also returned to opponent's hand. Cannot be
+duplicated on a given turn."
+
+### 87. `agent-attack-on-skip` + `on-guard-reveal` `company-skips-site` trigger + `skip-site-reveal-on-guard` step (Near to Hear a Whisper)
+
+Near to Hear a Whisper (as-31): "Any agent may attack a company at his site at
+the start of the site phase if the company chooses not to enter the site. May
+be revealed on-guard if the company chooses not to enter the site. Discard
+when any play deck is exhausted. Cannot be duplicated."
+
+```json
+{ "type": "agent-attack-on-skip" },
+{ "type": "on-guard-reveal", "trigger": "company-skips-site" },
+{ "type": "duplication-limit", "scope": "game", "max": 1 },
+{ "type": "on-event", "event": "play-deck-exhausted",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+The CoE default (`handleSiteEnterOrSkip`, `reducer-site.ts`) treats a
+company's `pass` at `enter-or-skip` as the end of its site-phase slot: it
+calls `advanceSiteToNextCompany` immediately, so neither the
+`declare-agent-attack` window (CoE 2.V.iii) nor the `reveal-on-guard-attacks`
+window is ever offered when a company does nothing at its site. This card is
+an explicit exception to that skip.
+
+- **`agent-attack-on-skip`** — global rule (either player's in-play permanent
+  events). Detected by `agentAttackAllowedOnSkip` (`reducer-utils.ts`),
+  mirroring `agentAttackIsMandatory`'s scan shape (§80, Ordered to Kill).
+- **`on-guard-reveal` trigger `company-skips-site`** — this on-guard card may
+  be revealed the moment its company passes on entering its site. Detected by
+  `companySkipsSiteOnGuardCards` (`reducer-utils.ts`). Unlike the
+  `resource-play`/`resource-short-event`/`influence-attempt` triggers (which
+  intercept a deferred play via the generic `on-guard-window` pending
+  resolution), a `pass` defers nothing — so this trigger is consumed by its
+  own dedicated site step rather than that generic mechanism.
+- **`skip-site-reveal-on-guard`** (new `SiteStep`) — entered (with
+  `SitePhaseState.skippedSiteEntry: true`) instead of `advanceSiteToNextCompany`
+  whenever `agentAttackAllowedOnSkip` already holds, or the passing company
+  carries an eligible `company-skips-site` on-guard card.
+  `skipSiteRevealOnGuardActions` (`legal-actions/site.ts`) offers one
+  `reveal-on-guard` per eligible card plus `pass`; revealing moves the card
+  from `onGuardCards` straight into the hazard player's `cardsInPlay` (CoE
+  2.V.6 permanent/long-event reveal, same shape as the
+  `reveal-on-guard-attacks` step's own handling), which is what actually
+  turns on its `agent-attack-on-skip` rule if newly revealed there. On `pass`,
+  the step advances to the ordinary `declare-agent-attack` step when
+  `agent-attack-on-skip` is (now) active — reusing `declareAgentAttackActions`
+  / `handleDeclareAgentAttack` unmodified, since an agent's eligibility is
+  already keyed off the company's `currentSite`, not whether it "entered" —
+  or calls `advanceSiteToNextCompany` directly otherwise.
+- **`skippedSiteEntry` threading** — while set, `handleDeclareAgentAttack`'s
+  two `resolve-attacks` transitions set `siteEntered: false` instead of
+  `true`, and `handleSiteResolveAttacks`'s two completion points return to
+  `advanceSiteToNextCompany` instead of opening `play-resources` — a company
+  that never entered its site has no resources to play there. Reset to
+  `undefined` everywhere a fresh per-company `SitePhaseState` is built.
+
+Used by *Near to Hear a Whisper* (as-31).
