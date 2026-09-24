@@ -227,3 +227,31 @@ describe('the end-of-turn hand', () => {
     expect(text).toContain('31');
   });
 });
+
+describe('the end-of-turn discard, which the reset draws back', () => {
+  // With the hand at or below hand size, the reset after the discard step
+  // draws straight back up, so a discard there trades a card for a fresh one.
+  // Good players cycle their weakest card nearly every turn.
+  const discard = (instanceId: string): GameAction =>
+    ({ type: 'discard-card', player: 'p1', cardInstanceId: instanceId } as unknown as GameAction);
+  const atStep = (step: string): ModuleContext => {
+    const base = contextWith(30, 0);
+    return {
+      ...base,
+      view: {
+        ...base.view, activeConstraints: [], phaseState: { phase: 'end-of-turn', step },
+      } as unknown as PlayerView,
+    };
+  };
+
+  test('trades the weakest card for a draw worth the hand\'s average', () => {
+    const cycle = handModule.evaluate(discard('c-blank'), atStep('discard'))!;
+    expect(cycle.expectedTsd).toBeGreaterThan(0);
+    expect(JSON.stringify(cycle.rationale)).toContain('card drawn back');
+  });
+
+  test('is a bare loss anywhere the hand is not refilled', () => {
+    const forced = handModule.evaluate(discard('c-blank'), atStep('reset-hand'))!;
+    expect(forced.expectedTsd).toBeLessThan(0);
+  });
+});
