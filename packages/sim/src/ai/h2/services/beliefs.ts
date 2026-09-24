@@ -62,6 +62,14 @@ export interface Beliefs {
    * memory (see {@link PlayerView} `opponent.revealedCards`).
    */
   readonly seen: ReadonlyMap<string, number>;
+  /** How many of the opponent's creatures have been seen (copies counted). */
+  readonly creaturesSeen: number;
+  /**
+   * Share of the creatures they have shown that can be keyed to a region of
+   * this type (`keyedTo[].regionTypes`), copies counted — the theme of their
+   * hazards, by where it can strike. Null when no creature has been seen.
+   */
+  creatureKeyShare(regionType: string): number | null;
 }
 
 /**
@@ -162,11 +170,26 @@ function buildComputeBeliefs(
     return (1 - confidence) * PRIOR[kind] + confidence * empirical;
   };
 
+  let creaturesSeen = 0;
+  const keyableCounts = new Map<string, number>();
+  for (const [definitionId, copies] of seen) {
+    const def = cardPool[definitionId] as unknown as {
+      cardType?: string; keyedTo?: readonly { regionTypes?: readonly string[] }[];
+    } | undefined;
+    if (def?.cardType !== 'hazard-creature') continue;
+    creaturesSeen += copies;
+    const types = new Set((def.keyedTo ?? []).flatMap(k => k.regionTypes ?? []));
+    for (const type of types) keyableCounts.set(type, (keyableCounts.get(type) ?? 0) + copies);
+  }
+
   return {
     observed,
     handSize,
     confidence,
     seen,
+    creaturesSeen,
+    creatureKeyShare: (regionType: string): number | null =>
+      (creaturesSeen === 0 ? null : (keyableCounts.get(regionType) ?? 0) / creaturesSeen),
     share,
     expectedInHand: (kind: CardKind): number => handSize * share(kind),
     holdsAtLeastOne: (kind: CardKind): number => {

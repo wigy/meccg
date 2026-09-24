@@ -355,3 +355,41 @@ describe('a detour to a starter-movement-adjacent haven', () => {
     expect(probability).toBeCloseTo(DEFAULT_TUNABLES.planUnroutedReachProbability, 6);
   });
 });
+
+describe('route danger from the creatures the opponent has shown', () => {
+  // A deck repeats its creatures by theme, and a creature can only be played
+  // where it can be keyed. With the opponent's shown cards remembered
+  // (`opponent.revealedCards`), a region type none of them can reach is safer
+  // than the flat per-region charge, and one they all key to is worse.
+  const WILDERNESS = 'tw-440';
+  const FREE = 'tw-445';
+  const HOBGOBLINS = 'td-30'; // keyed to wilderness only
+  const declare = (region: string): GameAction =>
+    ({ type: 'declare-path', player: 'p1', movementType: 'region', regionPath: [region] } as unknown as GameAction);
+  const withShown = (shown: readonly string[]): ModuleContext => {
+    const { context } = position();
+    const view = {
+      ...context.view,
+      opponent: {
+        ...context.view.opponent,
+        revealedCards: shown.map((definitionId, i) => ({ instanceId: `p2-9${i}`, definitionId })),
+      },
+    } as unknown as ModuleContext['view'];
+    return { ...context, view, standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES) };
+  };
+
+  test('with no creature shown, every region costs the same', () => {
+    const context = withShown([]);
+    const wild = travelModule.evaluate(declare(WILDERNESS), context)!;
+    const free = travelModule.evaluate(declare(FREE), context)!;
+    expect(wild.expectedTsd).toBeCloseTo(free.expectedTsd, 9);
+  });
+
+  test('a region their creatures can be keyed to costs more than one they cannot reach', () => {
+    const context = withShown([HOBGOBLINS, HOBGOBLINS, HOBGOBLINS, HOBGOBLINS]);
+    const wild = travelModule.evaluate(declare(WILDERNESS), context)!;
+    const free = travelModule.evaluate(declare(FREE), context)!;
+    expect(wild.expectedTsd).toBeLessThan(free.expectedTsd);
+    expect(JSON.stringify(wild.rationale)).toContain('creature(s) they have shown');
+  });
+});
