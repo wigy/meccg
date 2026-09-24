@@ -12197,6 +12197,70 @@ Mirkwood, Brown Lands and Dagorlad; the Dark-domain grant
 Lands and Dagorlad; and its `on-event: attack-defeated` self-discard is gated
 on `attack.keyingRegionNames` naming any of its ten regions.
 
+### `agent-tap-grant-creature-keying`
+
+Carried by a permanent event attached to an agent (`CardInPlay.attachedToAgentId`,
+from a `play-target: "agent"` play). Grants the bearer agent a **new tap
+ability** — usable only while the agent is revealed and untapped, and only at
+a site whose effective type is not in `excludeSiteTypes` — that unlocks
+hazard-creature keying matching `creatureFilter` at the agent's current site
+for the rest of the turn. Exposed as the `agent-tap-grant-creature-keying`
+action (`agentTapGrantCreatureKeyingActions` / `handleAgentTapGrantCreatureKeying`
+in `legal-actions/movement-hazard.ts` / `mh-agents.ts`).
+
+This is *not* an agent action — rule 4.1's list of agent-action options is
+closed and this ability isn't on it — so activating it does not consume the
+agent's once-per-turn action and does not itself cost a hazard slot.
+
+The tap installs a turn-scoped `site-flag` constraint (`flag`, gated to the
+hazard player) bound to the agent's current site's definition id. This effect
+type is a second source `collectCreatureKeyingGrants` recognizes alongside
+`grant-creature-keying`: at creature-play time, `grantsCreatureKeying` treats
+an active matching flag exactly like an in-play `grant-creature-keying`
+grant — except the site match is by **name**, not by `CardDefinitionId`. The
+agent's own alignment-specific site card and the target company's
+opposite-alignment copy of what may be the same named location are different
+`CardDefinitionId`s, so the two sides are compared by `siteDef.name`
+(mirroring how `agentCurrentSiteName` / `companyTargetSiteName` already
+compare agent and company locations elsewhere in the module). `hazardLimitExempt`
+mirrors {@link GrantCreatureKeyingEffect.hazardLimitExempt}: a creature played
+on the strength of this grant also skips the hazard-limit charge.
+
+| Field | Required | Description |
+|-------|----------|--------------|
+| `creatureFilter` | yes | DSL condition on the hazard-creature's card definition. |
+| `excludeSiteTypes` | yes | The tap is unusable while the agent sits at a site of one of these effective types. |
+| `flag` | yes | The site-flag name set by the tap and consulted by the creature-keying grant resolver. |
+| `hazardLimitExempt` | no | When true, a creature played on the strength of this grant does not count against the hazard limit. |
+
+Used by Shadow out of the Dark (dm-89): "Playable on a face-up agent who can
+use shadow-magic. If agent is revealed and not in a Free-hold [{F}] or Haven
+[{H}], he can tap to allow any Undead hazard creatures to be played at his
+site this turn. Any Undead hazard creatures so played do not count against
+the hazard limit."
+
+```json
+{ "type": "agent-tap-grant-creature-keying",
+  "creatureFilter": { "race": "undead" },
+  "excludeSiteTypes": ["free-hold", "haven"],
+  "flag": "undead-keying-unlocked",
+  "hazardLimitExempt": true }
+```
+
+The card's own play-target restriction ("a face-up agent who can use
+shadow-magic") rides on `play-target`'s optional `filter`, now supported for
+`target: "agent"` too — evaluated against `{ target: { name, race, skills,
+keywords, revealed } }`, where `revealed` comes from the candidate
+`AgentInPlay` and the rest from its card definition:
+
+```json
+{ "type": "play-target", "target": "agent",
+  "filter": { "$and": [
+    { "target.revealed": true },
+    { "$or": [ { "target.race": "ringwraith" },
+               { "target.skills": { "$includes": "shadow-magic" } } ] } ] } }
+```
+
 ### Site auto-attack `combatRules`
 
 A site's printed `automaticAttacks[]` entries (and the runtime-injected

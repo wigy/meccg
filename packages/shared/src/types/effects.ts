@@ -9625,6 +9625,57 @@ export interface GrantCreatureKeyingEffect extends EffectBase {
 }
 
 /**
+ * Carried by a permanent event attached to an agent (`CardInPlay.attachedToAgentId`,
+ * from a `play-target: "agent"` play). Grants the bearer agent a tap ability —
+ * usable only while the agent is revealed and untapped, and only at a site
+ * whose effective type is not in `excludeSiteTypes` — that unlocks
+ * hazard-creature keying matching `creatureFilter` at the agent's current site
+ * for the rest of the turn. Exposed to the player as the `agent-tap-grant-creature-keying`
+ * action (`legal-actions/movement-hazard.ts`'s `agentTapGrantCreatureKeyingActions`,
+ * `mh-agents.ts`'s `handleAgentTapGrantCreatureKeying`).
+ *
+ * This is NOT an agent action — rule 4.1's list of agent-action options is
+ * closed, and this ability isn't on it — so it does not consume the agent's
+ * once-per-turn action, does not tap toward `remainingActions`, and does not
+ * itself cost a hazard slot.
+ *
+ * The tap installs a turn-scoped `site-flag` constraint (`flag`, gated to the
+ * hazard player) bound to the agent's current site's definition id. The
+ * shared creature-keying grant resolver (`grantsCreatureKeying` in
+ * `legal-actions/movement-hazard.ts`) treats an active matching flag exactly
+ * like an in-play `grant-creature-keying` grant: a hazard creature matching
+ * `creatureFilter` may be played at that site regardless of its own printed
+ * `keyedTo`. `hazardLimitExempt` mirrors {@link GrantCreatureKeyingEffect.hazardLimitExempt} —
+ * a creature played on the strength of this grant also skips the hazard-limit
+ * charge.
+ *
+ * Used by Shadow out of the Dark (dm-89): "Playable on a face-up agent who
+ * can use shadow-magic. If agent is revealed and not in a Free-hold [{F}] or
+ * Haven [{H}], he can tap to allow any Undead hazard creatures to be played
+ * at his site this turn. Any Undead hazard creatures so played do not count
+ * against the hazard limit."
+ *
+ * ```json
+ * { "type": "agent-tap-grant-creature-keying",
+ *   "creatureFilter": { "race": "undead" },
+ *   "excludeSiteTypes": ["free-hold", "haven"],
+ *   "flag": "undead-keying-unlocked",
+ *   "hazardLimitExempt": true }
+ * ```
+ */
+export interface AgentTapGrantCreatureKeyingEffect extends EffectBase {
+  readonly type: 'agent-tap-grant-creature-keying';
+  /** DSL condition on the hazard-creature's card definition (dot-path keys). */
+  readonly creatureFilter: Condition;
+  /** The tap is unusable while the agent sits at a site of one of these effective types. */
+  readonly excludeSiteTypes: readonly SiteType[];
+  /** The site-flag name set by the tap and consulted by the creature-keying grant resolver. */
+  readonly flag: string;
+  /** When true, a creature played on the strength of this grant does not count against the hazard limit. */
+  readonly hazardLimitExempt?: boolean;
+}
+
+/**
  * Triggers the "call the council" endgame transition — the card-based
  * equivalent of the `call-free-council` action. Sets `freeCouncilCalled`
  * on the caller, advances the turn, and marks who gets the final last
@@ -10226,6 +10277,7 @@ export type CardEffect =
   | SiteInstanceTransformEffect
   | ConditionalMpEffect
   | GrantCreatureKeyingEffect
+  | AgentTapGrantCreatureKeyingEffect
   | PassiveMovementBonusEffect
   | UnderDeepsRollModifierEffect
   | ProhibitCardPlayEffect

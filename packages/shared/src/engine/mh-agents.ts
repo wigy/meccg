@@ -32,6 +32,7 @@ import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import { formatSignedNumber } from '../format-helpers.js';
+import { getEffectiveSiteType } from './effective.js';
 
 /**
  * Count the total extra agent actions in play, e.g. Great Need or Purpose
@@ -794,6 +795,69 @@ export function handleAgentTapAttack(
       phaseState: { ...mhState, hazardPlayerPassed: false, resourcePlayerPassed: false },
     },
   };
+}
+
+/**
+ * Handle `agent-tap-grant-creature-keying` (Shadow out of the Dark dm-89): tap
+ * a revealed agent bearing an `agent-tap-grant-creature-keying` permanent
+ * event to unlock hazard-creature keying matching the effect's
+ * `creatureFilter` at the agent's current site for the rest of the turn.
+ *
+ * Not an agent action (rule 4.1's option list is closed and this ability
+ * isn't on it) — taps the agent without consuming `remainingActions` and
+ * without charging a hazard slot. Installs a turn-scoped `site-flag`
+ * constraint (gated to the acting player) bound to the agent's current
+ * site's definition id; `grantsCreatureKeying`
+ * (`legal-actions/movement-hazard.ts`) consults it for any subsequent
+ * hazard-creature play against a company at that site this turn.
+ */
+export function handleAgentTapGrantCreatureKeying(
+  state: GameState,
+  action: GameAction,
+): ReducerResult {
+  if (action.type !== 'agent-tap-grant-creature-keying') return wrongActionType(state, action, 'agent-tap-grant-creature-keying');
+
+  const r = resolveAgent(state, action.player, action.agentId);
+  if ('error' in r) return { state, error: r.error };
+  const { hazardIndex, hazardPlayer, agentIdx, agent } = r;
+
+  if (!agent.revealed) return { state, error: 'Agent must be revealed' };
+  if (agent.character.status !== CardStatus.Untapped) return { state, error: 'Agent must be untapped' };
+
+  const sourceCard = findById(hazardPlayer.cardsInPlay, action.sourceInstanceId);
+  if (!sourceCard || sourceCard.attachedToAgentId !== agent.id) {
+    return { state, error: 'Source card is not attached to this agent' };
+  }
+  const sourceDef = defById(state, sourceCard.definitionId);
+  if (!sourceDef) return { state, error: 'Source card definition not found' };
+  const eff = getCardEffects(sourceDef).find(
+    (e): e is import('../types/effects.js').AgentTapGrantCreatureKeyingEffect => e.type === 'agent-tap-grant-creature-keying',
+  );
+  if (!eff) return { state, error: `${sourceDef.name} does not have an agent-tap-grant-creature-keying effect` };
+
+  if (agent.siteStack.length === 0) return { state, error: 'Agent has no current site' };
+  const siteEntry = agent.siteStack[agent.siteStack.length - 1];
+  const siteDef = defById(state, siteEntry.definitionId);
+  if (!siteDef || !isSiteCard(siteDef)) return { state, error: 'Agent site definition not found' };
+  const effSiteType = getEffectiveSiteType(state, siteEntry.definitionId, siteDef.siteType, siteEntry.instanceId);
+  if (eff.excludeSiteTypes.includes(effSiteType)) {
+    return { state, error: `${sourceDef.name} cannot be used at ${siteDef.name} (${effSiteType})` };
+  }
+
+  logDetail(`${sourceDef.name}: tapping ${agent.id as string} at "${siteDef.name}" — unlocking creature keying (flag "${eff.flag}")`);
+
+  const newState = updateAgent(state, hazardIndex, agentIdx,
+    a => ({ ...a, character: { ...a.character, status: CardStatus.Tapped } }));
+
+  const finalState = addConstraint(newState, {
+    source: sourceCard.instanceId,
+    sourceDefinitionId: sourceCard.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: hazardPlayer.id },
+    kind: { type: 'site-flag', flag: eff.flag as import('../types/pending.js').SiteFlag, siteDefinitionId: siteEntry.definitionId },
+  });
+
+  return { state: finalState };
 }
 
 /**

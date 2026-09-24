@@ -633,6 +633,8 @@ export function describeAction(
       return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${instName(action.targetInstanceId)}`;
     case 'agent-tap-attack':
       return `Agent ${action.agentId as string} taps to attack`;
+    case 'agent-tap-grant-creature-keying':
+      return `Agent ${action.agentId as string} taps to unlock creature keying at its site`;
     case 'agent-discard-return-to-origin':
       return `Agent ${action.agentId as string} is discarded to return company to its site of origin`;
     case 'agent-strike-roll':

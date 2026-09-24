@@ -1593,7 +1593,9 @@ export type SiteFlag =
   /** King under the Mountain (td-126): the bound site counts as a Dwarf-hold (the `dwarf-hold` site keyword) for every purpose that consults it. */
   | 'dwarf-hold-override'
   /** Hour of Need (dm-141): a minor item may not be played at the bound site this turn, on top of the site's tapped status. */
-  | 'minor-item-play-blocked';
+  | 'minor-item-play-blocked'
+  /** Shadow out of the Dark (dm-89): Undead hazard creatures may be keyed to the bound site (not counting against the hazard limit) for the rest of the turn the flagged agent tapped there. */
+  | 'undead-keying-unlocked';
 
 /**
  * A scoped restriction on the legal actions available to some target.
