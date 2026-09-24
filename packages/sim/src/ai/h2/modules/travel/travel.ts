@@ -55,6 +55,7 @@ import { scoredEvaluation } from '../../core/evaluation.js';
 import { computeBudget } from '../../services/budget.js';
 import { computeExposure } from '../../services/exposure.js';
 import { computeBeliefs } from '../../services/beliefs.js';
+import type { Beliefs } from '../../services/beliefs.js';
 import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
 import { computeReach } from '../../services/reach.js';
@@ -187,6 +188,45 @@ function destinationOf(view: PlayerView, action: GameAction): { definitionId: st
     }
   }
   return null;
+}
+
+/** The region types a path can cross. */
+const REGION_TYPES = ['wilderness', 'shadow', 'dark', 'coastal', 'free', 'border'] as const;
+
+/**
+ * Creatures seen before a region's danger is read mostly off their deck rather
+ * than charged flat. Shrinkage, like `beliefs`' own: four creatures shown are
+ * enough to see a theme — a spider deck, an orc deck — without betting the
+ * route on one card.
+ */
+const CREATURE_THEME_HALF_LIFE = 4;
+
+/**
+ * How dangerous a region of this type is, relative to the average region.
+ *
+ * A deck repeats its creatures by theme, and a creature can only be played
+ * where it can be keyed. So a region type none of their shown creatures can
+ * be keyed to is safer than the flat per-region charge says, and one they
+ * nearly all key to is worse. The factor redistributes the same total charge
+ * across region types by the share of their shown creatures keyable there,
+ * averaging 1 over the six types, and is shrunk toward 1 while they have shown
+ * few creatures — so with no memory it is exactly the old flat charge.
+ */
+function regionDanger(beliefs: Beliefs, regionType: string): number {
+  const share = beliefs.creatureKeyShare(regionType);
+  if (share === null) return 1;
+  const mean = REGION_TYPES.reduce((sum, type) => sum + (beliefs.creatureKeyShare(type) ?? 0), 0)
+    / REGION_TYPES.length;
+  if (mean <= 0) return 1;
+  const confidence = beliefs.creaturesSeen / (beliefs.creaturesSeen + CREATURE_THEME_HALF_LIFE);
+  return (1 - confidence) + confidence * (share / mean);
+}
+
+/** The charge for crossing these regions: one per region, scaled by its danger. */
+function crossingCost(beliefs: Beliefs, regionTypes: readonly string[], tunables: ModuleContext['tunables']): number {
+  const threat = beliefs.holdsAtLeastOne('creature');
+  return regionTypes.reduce((sum, type) => sum + regionDanger(beliefs, type), 0)
+    * tunables.regionCrossingCost * (1 + threat);
 }
 
 /**
@@ -340,7 +380,8 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // charge is close to the old flat one.
   const beliefs = computeBeliefs(context.view, context.cardPool);
   const threat = beliefs.holdsAtLeastOne('creature');
-  const tempo = site.pathLength * tunables.regionCrossingCost * (1 + threat);
+  // …and by *where* it can answer: see `regionDanger`.
+  const tempo = crossingCost(beliefs, site.sitePath, tunables);
 
   // A site this company has already worked is a site whose *new* options are
   // the ones the hand has drawn since — and `route-compare` says human players
@@ -764,7 +805,9 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
   const regions = declared.regionPath ?? [];
   const beliefs = computeBeliefs(context.view, context.cardPool);
   const threat = beliefs.holdsAtLeastOne('creature');
-  const dtsd = -(regions.length * tunables.regionCrossingCost * (1 + threat));
+  const regionTypes = regions.map(id =>
+    (context.cardPool[id] as unknown as { regionType?: string } | undefined)?.regionType ?? 'wilderness');
+  const dtsd = -crossingCost(beliefs, regionTypes, tunables);
 
   const outcomes: Outcome[] = [{
     p: 1,
@@ -790,14 +833,19 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
           tunable: 'regionCrossingCost',
           note: `scaled by a ${(threat * 100).toFixed(0)}% chance the opponent holds a creature`,
         }),
+        leaf('danger of these regions', regionTypes.reduce((sum, t) => sum + regionDanger(beliefs, t), 0), {
+          note: beliefs.creaturesSeen > 0
+            ? `by where the ${beliefs.creaturesSeen} creature(s) they have shown can be keyed `
+              + `(${regionTypes.map(t => `${t} ×${regionDanger(beliefs, t).toFixed(2)}`).join(', ')})`
+            : 'no creature shown yet — every region charged alike',
+        }),
       ], { unit: 'tsd' }),
     ],
     assumptions: [
       'the destination is already fixed by this point, so only the route is priced — what differs '
       + 'between movement types beyond the regions they cross is not modelled',
-      'each region is charged the same, because `exposure` reports which regions are crossed and '
-      + 'deliberately does not rank them: H1\'s hand-tuned region-danger table is the thing this '
-      + 'design removed',
+      'regions are ranked only by the opponent\'s own shown creatures and where they can be keyed, '
+      + 'never by a hand-tuned region-danger table; region-name keyings are not read',
       ...ASSUMPTIONS,
     ],
   });
