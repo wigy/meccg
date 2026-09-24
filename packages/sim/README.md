@@ -1704,6 +1704,45 @@ built part of the design: `resolve-strike` 79.0% against 40.7%,
 human play closely. `play-hazard`, which H2 owns and has never calibrated,
 goes the other way — 32.9% against 46.1%.
 
+#### Cram: an untap priced as free, and at the wrong moment
+
+Five more recent human seats (2134 attributed decisions) showed the modular AI
+activating Cram's "discard to untap bearer" where the human did not: 21 times
+in the untap phase in place of the `untap` step, 14 at company selection, 15 in
+place of resolving a strike. Its note read *no opinion — tied at random*.
+Three defects, all in the grant's price:
+
+- **The gain was always zero.** `grants` priced an untap as the bearer's own
+  `tapCost`, which is zero for a character already tapped — and the grant is
+  only offered while he is.
+- **The cost was zero.** Discarding a card with no marshalling points cost
+  nothing, although it takes every other use of the card with it (Cram's extra
+  region of movement). It now costs `provisionalCardPrice`. A grant that both
+  taps and discards (Healing Herbs, Athelas, Dragon-lore) now pays both, where
+  it used to pay only the tap.
+- **Nothing owned `untap`.** The untap phase has no `pass`, so the zero-priced
+  grant was the only scored candidate and the tie-break took it. `untap` is the
+  untap phase's spelling of doing nothing, so `core/baseline.ts` owns it.
+
+The one earlier attempt at this action type found no zero-cost branch firing
+and concluded `grants` was fine. The discard branch was not zero-cost on
+paper, but it was on every card that carries no points.
+
+Pricing the untap at the bearer's reservation value *as if standing* went too
+far: 148 new disagreements, the AI eating Cram at end of turn and in movement.
+The corpus says when the untap is worth a card. Offered 7129 times, humans took
+it in 129 of 2424 site-phase offers, 1 of 1051 untap-phase offers and 0 of 979
+end-of-turn offers. The ability is instant and keeps, so the right moment is
+when a play needs him. `grants` now credits the untap only in our own site
+phase, for the company whose site phase it is, while the engine is refusing a
+resource with "no untapped character in company". This is the **option value
+of not acting yet** that the section above names, in one place where the engine
+spells it out. Agreement on those five seats: 1158 → **1198**. The only disagreement that
+grew is `resolve-strike → resolve-strike` (+7): strikes where the AI used to eat
+the Cram and now picks the other tap/no-tap variant from the human, which is a
+combat question of its own. Scenarios: `grants/cram-in-untap-phase`,
+`grants/cram-with-nothing-to-play`, `grants/cram-unlocks-a-play`.
+
 ### Coverage is no longer the problem
 
 Cross-referencing every action type a human decided in the corpus against the
