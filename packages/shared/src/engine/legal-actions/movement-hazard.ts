@@ -26,7 +26,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -4488,6 +4488,42 @@ function playHazardsActions(
               viable: true,
             });
           }
+        }
+      } else if (playTarget?.target === 'faction') {
+        // Faction-targeting permanent hazard events (Trouble on All Borders
+        // as-40): one action per the resource player's own qualifying
+        // in-play faction — hazard events target the opponent's entities
+        // (CoE 2.IV.vii.3), never the hazard player's own factions in play
+        // (mirrors the short-event faction-targeting branch above).
+        const factionDupLimit = findDuplicationLimitEffect(def, 'faction');
+        let anyFactionTarget = false;
+        for (const cip of resourcePlayer.cardsInPlay) {
+          const factionDef = defById(state, cip.definitionId);
+          if (!factionDef || !isFactionCard(factionDef)) continue;
+          if (playTarget.filter) {
+            const ctx = { target: { name: factionDef.name, race: factionDef.race, unique: factionDef.unique } };
+            if (!matchesCondition(playTarget.filter, ctx)) {
+              logDetail(`Hazard event "${def.name}": faction ${factionDef.name} does not match play-target filter`);
+              continue;
+            }
+          }
+          if (factionDupLimit) {
+            const copiesOnFaction = countFactionAttachedCopies(state, def.name, cip.instanceId);
+            if (copiesOnFaction >= factionDupLimit.max) {
+              logDetail(`Hazard event "${def.name}": duplication limit on faction ${factionDef.name} (${copiesOnFaction}/${factionDupLimit.max})`);
+              continue;
+            }
+          }
+          anyFactionTarget = true;
+          logDetail(`Hazard event "${def.name}" playable on faction ${factionDef.name}`);
+          actions.push({
+            action: { ...action, targetFactionInstanceId: cip.instanceId },
+            viable: true,
+          });
+        }
+        if (!anyFactionTarget) {
+          logDetail(`Hazard event "${def.name}": no valid faction target`);
+          actions.push({ action, viable: false, reason: `${def.name} has no valid faction target` });
         }
       } else if (playTarget?.target === 'agent') {
         // Agent-targeting permanent hazard events (Never Seen Him dm-74): one

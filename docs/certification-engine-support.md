@@ -1323,3 +1323,27 @@ Show Things Unbidden (ba-32): "Playable during the organization phase on Galadri
 ```
 
 Used by *Show Things Unbidden* (ba-32).
+
+### `ahunt-attack` gains `regionsFromAttachedFaction` / `raceFromAttachedFaction` / `detainmentMatchesAttachedFactionAlignment`, and `play-target: "faction"` is generalized to hazard permanent-events (Trouble on All Borders as-40)
+
+"Playable on a unique faction in play. Any company moving through the region containing a site where the faction is playable, or through any region adjacent to this one, faces an attack. The attack is the same type as the faction and has 4 strikes with 8 prowess. The attack is detainment if the company and faction are both minion or both hero. Cannot be duplicated on a given faction. Discard when any play deck is exhausted." Unlike every prior `ahunt-attack` card, none of the region set, the attacking race, or the detainment rule is printed on the card — all three are derived from a faction chosen at play time.
+
+1. **`play-target: "faction"` on a hazard permanent-event.** Previously this play-target only had two consumers, both resource-side: the faction-influence-check legal-action generator (organization-events.ts, e.g. Long Grievous Siege ba-40, Tribute Garnered as-104) and the hazard *short*-event branch (movement-hazard.ts, e.g. Muster Disperses). Long/permanent hazard events had no faction-targeting branch at all. Added `else if (playTarget?.target === 'faction')` alongside the existing agent/company/site branches in the permanent-event play-hazard legal-action generator: one action per the *resource* player's own in-play faction matching the effect's `filter` (CoE 2.IV.vii.3 — hazard events target the opponent's entities, never the hazard player's own factions, mirroring the short-event branch's convention), gated by a `duplication-limit` scope `"faction"` check (`countFactionAttachedCopies`). `mh-hazard-play.ts` threads `action.targetFactionInstanceId` onto the hazard `permanent-event` chain payload — the existing `targetFactionInstanceId` chain-reducer binding (which sets `CardInPlay.attachedTo`) already worked generically regardless of which player owns the target, since it was written for ba-40's same-player case but never assumed it.
+2. **`regionsFromAttachedFaction`** — `regionNames` is `[]` and ignored; `collectMatchingAhuntAttacks` (`mh-steps.ts`) calls the new `attachedFactionDef` (`reducer-utils.ts`: resolves `CardInPlay.attachedTo` by searching *both* players' `cardsInPlay` for the source card and then its target — a hazard card's faction target lives in the opponent's play area) and `factionPlayableRegionsAndAdjacent`, a new export that is the "region half" of `factionSiegeEligibleSites` (Long Grievous Siege ba-40) extracted so both cards share the exact "region of a site where the faction is playable, plus every adjacent region" computation. The moving company's path is matched by name only (no region-type match, since the set is names).
+3. **`raceFromAttachedFaction`** — `buildAhuntCombat` (`mh-steps.ts`) reads `creatureRace` from the attached faction's own `race` field and threads that resolved race into `resolveAttackProwess`/`resolveAttackStrikes`/`resolveAttackerChoosesDefenders`, the same calls every other ahunt-attack uses (so e.g. a "+prowess vs Orcs" effect still applies correctly regardless of which faction was targeted). `AhuntAttackEffect.race` is optional exactly when this flag (or `regionsFromAttachedFaction`/`detainmentMatchesAttachedFactionAlignment`) is set.
+4. **`detainmentMatchesAttachedFactionAlignment`** — short-circuits `isDetainmentAttack` the same way `detainmentAgainstMinion` (Spider of the Môrlat dm-110) does: detainment is `true` exactly when the moving (defending) player's alignment side (`isMinionOrBalrog`) equals the attached faction's own alignment side (new local `isMinionFactionAlignment` helper — hero factions carry `alignment: "wizard"`, minion factions carry `"ringwraith"`), still deferring to `playerConvertsDetainmentToNormal` (Alatar wh-1).
+
+```json
+[
+  { "type": "play-target", "target": "faction", "filter": { "target.unique": true } },
+  { "type": "ahunt-attack", "regionNames": [],
+    "regionsFromAttachedFaction": true, "raceFromAttachedFaction": true,
+    "detainmentMatchesAttachedFactionAlignment": true,
+    "strikes": 4, "prowess": 8 },
+  { "type": "duplication-limit", "scope": "faction", "max": 1 },
+  { "type": "on-event", "event": "play-deck-exhausted",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+]
+```
+
+Used by Trouble on All Borders (as-40).
