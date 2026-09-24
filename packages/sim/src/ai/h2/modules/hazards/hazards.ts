@@ -90,9 +90,10 @@ import { automaticAttacksOf } from '../../services/defence.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
 import {
-  ALL_RACES, attackBoostOf, boostFor, boostInPlay, facedRacesFromHistory, mergeBoosts, nameOfDefinition,
-  sameBoost, selfFacedRaceBoostOf,
+  ALL_RACES, attackBoostOf, boostFor, boostForRace, boostInPlay, facedRacesFromHistory, mergeBoosts,
+  nameOfDefinition, sameBoost, selfFacedRaceBoostOf,
 } from '../../services/attack-modifiers.js';
+import { unseenDeckCards } from '../../services/deck-reach.js';
 import type { AttackBoost } from '../../services/attack-modifiers.js';
 
 /** Action types this module scores. */
@@ -686,6 +687,16 @@ function boostGain(
   const shift = current === null
     ? describe(hypothetical)
     : `${describe(current)} becomes ${describe(hypothetical)}`;
+  const future = futureBoostGain(def, hypothetical, context, company);
+  const now = after - before > 0 ? after : 0;
+  if (future) {
+    return {
+      tsd: now + future.tsd,
+      reason: (now > 0
+        ? `${shift} — the best bundle against this company goes from ${before.toFixed(1)} to ${after.toFixed(1)}`
+        : `${shift} — nothing in hand it improves now`) + `; ${future.reason}`,
+    };
+  }
   return {
     // The value of playing this now is the *whole* boosted plan it unlocks —
     // the same total a bundle starting with the creature it boosts would
@@ -707,6 +718,91 @@ function boostGain(
       ? `${shift} — the best bundle against this company goes from ${before.toFixed(1)} to `
         + `${after.toFixed(1)}`
       : `${shift} — but the plan has no attack left it would improve`,
+  };
+}
+
+/**
+ * What a boost is worth to the creatures still in our own deck.
+ *
+ * A boost outlasts the attack in hand: a long event runs to the end of the
+ * opponent's turn, a permanent one until it is discarded, and the hand is
+ * refilled after every company. Strong players play one ahead of the creatures
+ * it serves — Full of Froth and Rage with no Spider in hand — because they know
+ * their deck is built around those creatures. The owner knows exactly what is
+ * left to draw (`ownDeck`), so the same bet can be priced:
+ *
+ * - **Per attack**: the most common affected creature still in the deck,
+ *   attacking this company with the boost and without, through the same
+ *   sequence model as a creature in hand.
+ * - **How often**: the share of affected creatures in the unseen deck times the
+ *   draws over the boost's life — one refill per company still to move this
+ *   turn for a long event, two a turn over `planHorizonTurns` for a permanent
+ *   one — capped by the windows it lasts.
+ * - Discounted as potential: none of it is on the table yet.
+ *
+ * Null without a deck list, or when nothing left in the deck is affected.
+ */
+function futureBoostGain(
+  def: CardDefinition | undefined,
+  boost: AttackBoost | null,
+  context: ModuleContext,
+  company: OpponentCompanyView,
+): { tsd: number; reason: string } | null {
+  const { view, cardPool, standing, tunables, ownDeck } = context;
+  if (!ownDeck || !boost) return null;
+  const unseen = unseenDeckCards(view, ownDeck);
+  if (unseen.length === 0) return null;
+  const affected = unseen.filter(id => {
+    const card = cardPool[id] as unknown as { cardType?: string; race?: string } | undefined;
+    if (card?.cardType !== 'hazard-creature') return false;
+    const added = boostForRace(boost, card.race);
+    return added.prowess !== 0 || added.strikes !== 0;
+  });
+  if (affected.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const id of affected) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const typical = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+  const creature = creatureProfile(cardPool, typical, false);
+  if (!creature) return null;
+
+  const eventType = (def as unknown as { eventType?: string } | undefined)?.eventType;
+  const handled = new Set(((view.phaseState as unknown as { handledCompanyIds?: readonly string[] })
+    .handledCompanyIds ?? []));
+  const companiesLeft = view.opponent.companies
+    .filter(c => c.id !== company.id && !handled.has(c.id as string)).length;
+  const windows = eventType === 'permanent' ? tunables.planHorizonTurns : companiesLeft;
+  const draws = eventType === 'permanent' ? 2 * tunables.planHorizonTurns : companiesLeft;
+  const share = affected.length / unseen.length;
+  const uses = Math.min(windows, draws * share);
+  if (uses <= 0) return null;
+
+  const attackOf = (boosted: boolean) => {
+    const added = boosted ? boostForRace(boost, creature.race) : { prowess: 0, strikes: 0 };
+    const killTsd = creature.killMp > 0 ? standing.tsdAfter({}, { kill: creature.killMp }) - standing.tsd : 0;
+    const plan = planFor(context, company, null, 0, () => [{
+      instanceId: 'future',
+      name: creature.name,
+      killMp: creature.killMp,
+      race: creature.race,
+      selfFacedRaceBoost: creature.selfFacedRaceBoost,
+      profile: {
+        ...creature.profile,
+        strikeProwess: creature.profile.strikeProwess + added.prowess,
+        strikes: creature.profile.strikes + added.strikes,
+        killTsd,
+        killLabel: killLabelFor(creature.name, creature.killMp, false),
+      },
+    }]);
+    return plan.search.bundles[0]?.expectedTsd ?? 0;
+  };
+  const perAttack = Math.max(0, attackOf(true) - attackOf(false));
+  if (perAttack <= 0) return null;
+  const tsd = uses * perAttack * tunables.potentialDiscount;
+  return {
+    tsd,
+    reason: `${affected.length} of the ${unseen.length} cards left in the deck are creatures it boosts `
+      + `(mostly ${creature.name}); about ${uses.toFixed(1)} of them met while it lasts, `
+      + `${perAttack.toFixed(1)} each — discounted as potential`,
   };
 }
 
