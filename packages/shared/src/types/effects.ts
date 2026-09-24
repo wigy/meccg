@@ -6127,6 +6127,15 @@ export interface PlayTargetEffect extends EffectBase {
  * of initiating a nested chain for the revealed card. Currently used by
  * Searching Eye: reveal cancels the deferred resource play whose source
  * card matches the enclosed `requiredSkill` (if any).
+ *
+ * The `company-skips-site` trigger opens a reveal window when a company
+ * chooses not to enter its current site (`enter-or-skip`'s `pass` action),
+ * consumed by the dedicated `skip-site-reveal-on-guard` site step
+ * (`legal-actions/site.ts` / `reducer-site.ts`) rather than the generic
+ * `on-guard-window` pending resolution the other triggers use — there is no
+ * deferred play to intercept, only the pass itself. Used by Near to Hear a
+ * Whisper (as-31): "May be revealed on-guard if the company chooses not to
+ * enter the site."
  */
 export interface OnGuardRevealEffect extends EffectBase {
   readonly type: 'on-guard-reveal';
@@ -10348,6 +10357,7 @@ export type CardEffect =
   | RemovalProtectionEffect
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
+  | AgentAttackOnSkipEffect
   | SwapNewSiteEffect
   | ActsAsSiteEffect
   | RollThenSwapNewSiteEffect
@@ -10832,6 +10842,32 @@ export interface ForceAgentAttackEffect extends EffectBase {
  */
 export interface DiscardUnrevealedOnGuardEffect extends EffectBase {
   readonly type: 'discard-unrevealed-on-guard';
+}
+
+/**
+ * Global rule (in-play, either player's `cardsInPlay`): when a company
+ * chooses not to enter its current site (the `enter-or-skip` `pass` action),
+ * the hazard player still gets the normal declare-agent-attack opportunity
+ * at that site before the company's site-phase slot ends — the CoE default
+ * (`handleSiteEnterOrSkip`) skips straight to the next company on a skip,
+ * omitting the agent-attack window entirely.
+ *
+ * Computed by `agentAttackAllowedOnSkip` (`reducer-utils.ts`) and consulted
+ * by `handleSiteEnterOrSkip` (`reducer-site.ts`): while active, a `pass`
+ * routes through the `skip-site-reveal-on-guard` step (offering any eligible
+ * on-guard reveal first, see {@link OnGuardRevealEffect}'s
+ * `company-skips-site` trigger) and then `declare-agent-attack` /
+ * `resolve-attacks`, exactly like a normal site entry with no
+ * automatic-attacks — except the company never counts as having entered the
+ * site (`siteEntered` stays `false`), so the flow returns to the next
+ * company afterward instead of opening `play-resources`.
+ *
+ * Used by Near to Hear a Whisper (as-31): "Any agent may attack a company at
+ * his site at the start of the site phase if the company chooses not to
+ * enter the site."
+ */
+export interface AgentAttackOnSkipEffect extends EffectBase {
+  readonly type: 'agent-attack-on-skip';
 }
 
 /**

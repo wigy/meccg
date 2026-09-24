@@ -6,7 +6,7 @@
  * and card effect resolution helpers.
  */
 
-import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment } from '../index.js';
+import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment, OnGuardCard } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
 import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
@@ -1914,6 +1914,50 @@ export function agentAttackIsMandatory(state: GameState): boolean {
  * leftover on-guard cards to the hazard player's discard pile instead of
  * their hand at site-phase cleanup.
  */
+/**
+ * True when some in-play permanent-event (either player's `cardsInPlay`)
+ * carries an `agent-attack-on-skip` effect — Near to Hear a Whisper (as-31):
+ * "Any agent may attack a company at his site at the start of the site phase
+ * if the company chooses not to enter the site." While true,
+ * `handleSiteEnterOrSkip` routes a company's `pass` action through the
+ * `skip-site-reveal-on-guard` / `declare-agent-attack` steps instead of
+ * advancing straight to the next company.
+ */
+export function agentAttackAllowedOnSkip(state: GameState): boolean {
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      const def = resolveDef(state, card.instanceId);
+      for (const effect of getCardEffects(def)) {
+        if (effect.type === 'agent-attack-on-skip') return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * True when the given company holds an unrevealed on-guard card whose
+ * definition carries an `on-guard-reveal` effect with the
+ * `company-skips-site` trigger — Near to Hear a Whisper (as-31): "May be
+ * revealed on-guard if the company chooses not to enter the site." Consulted
+ * by `handleSiteEnterOrSkip` (to decide whether a `pass` opens the
+ * `skip-site-reveal-on-guard` window) and `skipSiteRevealOnGuardActions`
+ * (`legal-actions/site.ts`, to build the actual reveal actions).
+ */
+export function companySkipsSiteOnGuardCards(state: GameState, company: Company): OnGuardCard[] {
+  const eligible: OnGuardCard[] = [];
+  for (const ogCard of company.onGuardCards) {
+    if (ogCard.revealed) continue;
+    const def = defById(state, ogCard.definitionId);
+    if (!def) continue;
+    const hasTrigger = getCardEffects(def).some(
+      e => e.type === 'on-guard-reveal' && e.trigger === 'company-skips-site',
+    );
+    if (hasTrigger) eligible.push(ogCard);
+  }
+  return eligible;
+}
+
 export function unrevealedOnGuardDiscarded(state: GameState): boolean {
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {

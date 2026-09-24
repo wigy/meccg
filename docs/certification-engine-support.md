@@ -1319,3 +1319,24 @@ Show Things Unbidden (ba-32): "Playable during the organization phase on Galadri
 ```
 
 Used by *Show Things Unbidden* (ba-32).
+
+### `agent-attack-on-skip` (new) + `on-guard-reveal` gains a `company-skips-site` trigger, plus a `skip-site-reveal-on-guard` site step (Near to Hear a Whisper)
+
+Near to Hear a Whisper (as-31): "Any agent may attack a company at his site at the start of the site phase if the company chooses not to enter the site. May be revealed on-guard if the company chooses not to enter the site. Discard when any play deck is exhausted. Cannot be duplicated."
+
+**The gap.** `handleSiteEnterOrSkip`'s `pass` branch (`reducer-site.ts`) — a company declining to enter its site — calls `advanceSiteToNextCompany` immediately: the `declare-agent-attack` step (CoE 2.V.iii) and the `reveal-on-guard-attacks` window are both entirely skipped, by design, whenever a company does nothing at its site. This card carves out an exception to that skip for both windows at once.
+
+```json
+{ "type": "agent-attack-on-skip" },
+{ "type": "on-guard-reveal", "trigger": "company-skips-site" },
+{ "type": "duplication-limit", "scope": "game", "max": 1 },
+{ "type": "on-event", "event": "play-deck-exhausted",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+- **`agent-attack-on-skip`** — global rule (either player's in-play permanent events), detected by `agentAttackAllowedOnSkip` (`reducer-utils.ts`, mirroring `agentAttackIsMandatory`'s scan shape).
+- **`on-guard-reveal` trigger `company-skips-site`** — declares that this on-guard card may be revealed when the company passes on entering its site. Detected by `companySkipsSiteOnGuardCards` (`reducer-utils.ts`), which returns the passing company's unrevealed on-guard cards carrying the trigger. Unlike the `resource-play`/`resource-short-event`/`influence-attempt` triggers (which flow through the generic `on-guard-window` pending resolution because they intercept a deferred play), this trigger has no deferred play to intercept — the pass itself is the event — so it is consumed by its own dedicated site step instead.
+- **`skip-site-reveal-on-guard`** (new `SiteStep`) — `handleSiteEnterOrSkip`'s `pass` branch routes here (with `SitePhaseState.skippedSiteEntry: true`) instead of calling `advanceSiteToNextCompany` whenever `agentAttackAllowedOnSkip` is already true, or the passing company holds an eligible `company-skips-site` on-guard card. `skipSiteRevealOnGuardActions` (`legal-actions/site.ts`) offers one `reveal-on-guard` action per eligible on-guard card plus `pass`. The reducer's `reveal-on-guard` handling mirrors the existing `reveal-on-guard-attacks` step's permanent/long-event branch: the card moves from `onGuardCards` straight into the hazard player's `cardsInPlay` (CoE 2.V.6), which is what actually activates its `agent-attack-on-skip` rule if the card carries one. On `pass`, if `agentAttackAllowedOnSkip` now holds, the step advances to the ordinary `declare-agent-attack` step (reusing `declareAgentAttackActions`/`handleDeclareAgentAttack` verbatim — an agent's eligibility is already keyed off the company's `currentSite`, not whether it "entered"); otherwise it calls `advanceSiteToNextCompany` directly.
+- **`skippedSiteEntry` threading** — `handleDeclareAgentAttack`'s two `resolve-attacks` transitions (`pass`, and an attack declared) now set `siteEntered: !siteState.skippedSiteEntry` instead of unconditionally `true`, and `handleSiteResolveAttacks`'s two completion points (the Hidden-Haven-cancel branch and the normal "all attacks resolved" tail) call `advanceSiteToNextCompany` instead of transitioning to `play-resources` when `skippedSiteEntry` is set — a company that never entered its site has nothing to play there. The flag is reset to `undefined` everywhere `SitePhaseState` is rebuilt for a new company (`handleSiteSelectCompany`, `finishDissolvedCompanySlot`, `advanceSiteToNextCompany`).
+
+Used by *Near to Hear a Whisper* (as-31).
