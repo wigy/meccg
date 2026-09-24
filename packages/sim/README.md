@@ -1289,6 +1289,17 @@ unattributable, 2 ambiguous):
 
 #### The finding: the AI acts when humans do nothing
 
+> **Caveat, found 2026-09-24.** Until then `human-compare` credited a record to
+> the human whenever exactly one of the human's candidates had the logged
+> action *type*, even when that candidate did not reproduce the next state.
+> In windows where both seats act — the hazard window above all, where both
+> hold a `pass` — that credited the *opponent's* pass to the human. In one
+> recorded game it was 54 of the 113 "human passes". The logs now carry the
+> move and its player, and the tool attributes by them. Re-measured, strong
+> players pass in only 16% of hazard windows where a hazard is playable
+> (the AI: 38%) — the opposite of the reading below for the hazard seat. The
+> figures in this section predate the fix.
+
 `pass` is 42% of all attributed decisions and the agreement on it is 22.6%.
 What H2 does instead:
 
