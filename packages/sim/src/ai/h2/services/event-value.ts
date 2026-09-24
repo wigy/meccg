@@ -26,6 +26,7 @@
  * nothing in the output would explain.
  */
 
+import { Phase } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, ModuleContext, Outcome, Rationale } from '../core/types.js';
 import type { MpSource } from '../core/tsd.js';
@@ -497,6 +498,17 @@ const EVENT_ASSUMPTIONS: readonly string[] = [
   + 'asking it from here would be a cycle',
 ];
 
+/** Whether a card leaves play when its bearer's company moves. */
+function discardsWhenCompanyMoves(effects: readonly Effect[]): boolean {
+  return effects.some(effect => {
+    const e = effect as unknown as {
+      type?: string; event?: string; apply?: { type?: string; select?: string; to?: string };
+    };
+    return e.type === 'on-event' && e.event === 'bearer-company-moves'
+      && e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard';
+  });
+}
+
 /** What crediting a permanent event's printed points assumes. */
 const PERMANENT_ASSUMPTIONS: readonly string[] = [
   'a permanent event\'s printed points are scored as though the card simply stays in play; a '
@@ -553,7 +565,20 @@ export function declaredEventEvaluation(
   const printed = def as unknown as { marshallingPoints?: number; marshallingCategory?: string } | undefined;
   const mp = options.creditPoints === true ? printed?.marshallingPoints ?? 0 : 0;
   const source = (printed?.marshallingCategory ?? 'misc') as MpSource;
-  const points = mp > 0 ? standing.tsdAfter({ [source]: mp }) - standing.tsd : 0;
+  const worth = mp > 0 ? standing.tsdAfter({ [source]: mp }) - standing.tsd : 0;
+  // …unless the card leaves play when its company moves (Align Palantír,
+  // Choice of Lúthien: `on-event bearer-company-moves → discard`). Played
+  // before this turn's movement, the move that follows throws the points away;
+  // played after it, they last only until the company next moves, so they are
+  // potential rather than banked. The recorded human played Align Palantír in
+  // a site phase, after moving; the modular AI would have played it in 99
+  // organization-phase decisions of game mu2aozy8-47zyul and lost it to the
+  // very next move.
+  const lostOnMove = mp > 0 && discardsWhenCompanyMoves(effects);
+  const beforeMovement = lostOnMove && context.view.activePlayer === context.view.self.id
+    && (context.view.phaseState.phase === Phase.Organization || context.view.phaseState.phase === Phase.LongEvent);
+  const points = lostOnMove ? 0 : worth;
+  const potential = lostOnMove && !beforeMovement ? worth : 0;
 
   // A family this cannot read is declined, not charged. Charging for the card
   // and crediting nothing would make H2 refuse every event in the game, which
@@ -573,18 +598,27 @@ export function declaredEventEvaluation(
 
   const does = gain?.tsd ?? 0;
   const reason = gain?.reason ?? `${mp} ${source} MP, and an effect family this cannot read`;
-  const dtsd = netTsdDelta({ realized: does + points, tempo: spent }, tunables);
+  const dtsd = netTsdDelta({ realized: does + points, potential, tempo: spent }, tunables);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${reason}`, dtsd }];
 
   const detail: Rationale[] = [
     leaf('event', name),
     leaf('what it does', does, { unit: 'tsd', note: reason }),
   ];
-  if (mp > 0) {
+  if (mp > 0 && !lostOnMove) {
     detail.push(leaf('points it puts on the table', points, {
       unit: 'tsd',
       note: `${mp} ${source} MP, at the standing this play would create — a permanent event `
         + 'stays in play, so they are scored now',
+    }));
+  } else if (lostOnMove) {
+    detail.push(leaf('points it puts on the table', potential, {
+      unit: 'tsd',
+      tunable: beforeMovement ? undefined : 'potentialDiscount',
+      note: beforeMovement
+        ? `${mp} ${source} MP, but the card is discarded when its company moves and this turn's `
+          + 'movement is still to come — nothing is kept'
+        : `${mp} ${source} MP, kept only until the company next moves — potential, not banked`,
     }));
   }
   detail.push(leaf('the card it spends', spent, {
