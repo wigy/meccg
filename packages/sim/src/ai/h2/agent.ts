@@ -83,6 +83,7 @@ import { DEFAULT_TUNABLES } from './core/tunables.js';
 import type { WinProbModel } from './core/winprob.js';
 import { loadWinProbModel } from './core/winprob.js';
 import { ALL_MODULES, evaluateDecision, proposePlans, resolveModules } from './core/registry.js';
+import type { Commitment } from './core/plan.js';
 import { createPlanPortfolio } from './services/portfolio.js';
 import { rankWithPlans } from './services/plan-value.js';
 import { computeStanding } from './services/standing.js';
@@ -267,7 +268,19 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       // Proposers get the bare context above, so the ordering — propose,
       // commit, then evaluate — is what makes a commitment feedback loop
       // structurally impossible rather than merely discouraged.
-      const plannedContext: ModuleContext = { ...moduleContext, commitment };
+      // The commitment is made once per turn, but the card a plan exists to
+      // play can leave the hand inside that turn — played, which is the plan
+      // succeeding, or discarded. Either way the plan has nothing left to
+      // credit, and keeping it let a spent goal go on pricing its route: in
+      // recorded game mudqquu2-ant7t3 the agent wanted to enter Minas Tirith
+      // for a Return of the King played three decisions earlier.
+      const held = new Set(context.view.self.hand.map(card => card.instanceId as string));
+      const live: Commitment = {
+        ...commitment,
+        plans: commitment.plans.filter(plan =>
+          plan.goal.cardInstanceId === undefined || held.has(plan.goal.cardInstanceId as string)),
+      };
+      const plannedContext: ModuleContext = { ...moduleContext, commitment: live };
       const { modules: contributors, evaluations: tactical, complete }
         = evaluateDecision(modules, plannedContext);
       // The plan contributions are folded in here rather than inside
@@ -276,7 +289,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
       // is the wrong place for a number no module owns. Re-ranking is the whole
       // point: a candidate that serves a commitment has to be able to outrank
       // one that looked better tactically.
-      const planned = rankWithPlans(modules, tactical, commitment, plannedContext);
+      const planned = rankWithPlans(modules, tactical, live, plannedContext);
       const evaluations = planned.map(p => p.evaluation);
       const best = evaluations[0];
       // A ranking whose candidates all score the same is not an opinion, it is

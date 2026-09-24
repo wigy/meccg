@@ -45,6 +45,12 @@ import { leaf, node } from './rationale.js';
  * - `draft-stop` ends the character draft. Heuristics 1 has grouped it with
  *   `pass` since before H2 existed (`PASS_ACTIONS` in `ai/heuristic`), which is
  *   the same reading of it.
+ * - `untap` is the untap phase's step forward: the phase untaps everything it
+ *   untaps whether or not anything else is done first, so taking the step is
+ *   the do-nothing move there. The untap phase offers no `pass`, and without
+ *   this spelling the only scored candidates were granted actions such as
+ *   Cram's "discard to untap bearer" — which the no-opinion tie-break then
+ *   took over the unscored step, even when priced below zero.
  *
  * What this does *not* claim is that stopping is a good idea — only that it is
  * the zero every alternative is measured against. A draft where every pick also
@@ -55,6 +61,7 @@ export const BASELINE_ACTION_TYPES: readonly string[] = [
   'pass',
   'pass-chain-priority',
   'draft-stop',
+  'untap',
 ];
 
 /** Name reported as the contributor, so a reader can see it was not a module. */
