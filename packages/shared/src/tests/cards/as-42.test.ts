@@ -50,7 +50,7 @@ import {
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { Phase, Alignment } from '../../index.js';
 import type {
-  GameState, CardDefinitionId, CardInstanceId, CompanyId,
+  GameState, CardDefinitionId, CompanyId,
   PlayHazardAction, SelectReturnToHandCharacterAction,
 } from '../../index.js';
 
