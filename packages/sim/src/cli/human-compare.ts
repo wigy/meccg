@@ -59,7 +59,7 @@ import { hashState, withStandardCardPool } from '../ai/h2/scenario-store.js';
 import { readGameLog } from '../ai/h2/game-log.js';
 import { forwardActions } from '../ai/regress.js';
 import { namedCard } from '../ai/h2/core/action-fields.js';
-import type { AgentContext } from '../types.js';
+import type { AgentContext, OwnDeckList } from '../types.js';
 
 /** Flag reference, printed by `--help`. */
 const USAGE = `human-compare — does the AI choose what the human chose?
@@ -191,6 +191,29 @@ function recover(
   // step, not a different choice. Anything less certain is refused.
   if (matches.length === 0 && ofType.length === 1) return { chosen: ofType[0] };
   return { skipped: matches.length === 0 ? 'no-match' : 'ambiguous' };
+}
+
+/**
+ * The deck list a seat played, rebuilt from the log's `-cards.json` sidecar.
+ *
+ * A live agent is handed `AgentContext.ownDeck`; a replayed game is not, so
+ * without this every deck-aware price (`deck-reach`, the value of a draw)
+ * would silently degrade to hand-only play and the comparison could not see
+ * it. The sidecar maps every instance to its definition. Sites are left out —
+ * they are never drawn — and everything else is listed; `unseenDeckCards`
+ * subtracts whatever the owner can see, sideboard included.
+ */
+function ownDeckOf(logRef: string, player: PlayerId): OwnDeckList | undefined {
+  const sidecar = logRef.replace(/\.jsonl$/, '-cards.json');
+  if (!fs.existsSync(sidecar)) return undefined;
+  const parsed = JSON.parse(fs.readFileSync(sidecar, 'utf-8')) as { instances?: Record<string, string> };
+  const prefix = `${player as unknown as string}-`;
+  const playDeck = Object.entries(parsed.instances ?? {})
+    .filter(([instanceId]) => instanceId.startsWith(prefix))
+    .map(([, definitionId]) => definitionId)
+    .filter(definitionId => !String((cardPool[definitionId] as unknown as { cardType?: string } | undefined)?.cardType ?? '')
+      .endsWith('-site'));
+  return playDeck.length > 0 ? { playDeck, draftPool: [] } : undefined;
 }
 
 /**
@@ -353,6 +376,7 @@ for (const target of targets) {
   totals.reducerError += skips['reducer-error'];
 
   agent.startGame?.();
+  const ownDeck = ownDeckOf(target.ref, target.player);
   for (const decision of decisions) {
     const view = projectPlayerView(decision.state, decision.player);
     const context: AgentContext = {
@@ -361,6 +385,7 @@ for (const target of targets) {
       legalActions: decision.legalActions,
       evaluated: view.legalActions,
       random: () => 0.5,
+      ownDeck,
     } as unknown as AgentContext;
 
     let played: GameAction;
