@@ -433,7 +433,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TroubleonAllBorders.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "faction", "filter": { "target.unique": true } },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [],
+        "regionsFromAttachedFaction": true,
+        "raceFromAttachedFaction": true,
+        "detainmentMatchesAttachedFactionAlignment": true,
+        "strikes": 4,
+        "prowess": 8
+      },
+      { "type": "duplication-limit", "scope": "faction", "max": 1 },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      }
+    ],
+    "certified": "2026-09-24",
     "text": "Playable on a unique faction in play. Any company moving through the region containing a site where the faction is playable, or through any region adjacent to this one, faces an attack. The attack is the same type as the faction and has 4 strikes with 8 prowess. The attack is detainment if the company and faction are both minion or both hero. Cannot be duplicated on a given  faction. Discard when any play deck is  exhausted."
   },
   {
