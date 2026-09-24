@@ -41,7 +41,7 @@ import { storeItemMpGain } from '../../../evaluators/common.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['store-item', 'transfer-item', 'restore-character-by-effect'] as const;
+const OWNED_ACTION_TYPES = ['store-item', 'transfer-item', 'salvage-item', 'restore-character-by-effect'] as const;
 
 /** The item an action names, wherever it is attached. */
 function itemOf(
@@ -74,6 +74,50 @@ const ASSUMPTIONS: readonly string[] = [
   + '(CoE 2.II.4.1, 2.II.5), priced at the odds of failing it as the bearer stands right now — '
   + 'not a preference between destinations, but the real cost of acting at all',
 ];
+
+/**
+ * Salvaging an item from a character just eliminated (CoE 3.I.2): each item
+ * may go to one unwounded company-mate, and `pass` discards every item still
+ * left. So salvaging keeps the item — its marshalling points and the card
+ * itself — at the price of the corruption it hands the recipient.
+ *
+ * It had no owner, so `pass` won on the baseline's zero and the AI threw away
+ * every item a dead character carried. In recorded game mu6un0sq-qitwwa the
+ * human salvaged a Dagger of Westernesse and a Cram off the fallen.
+ */
+function evaluateSalvage(action: GameAction, context: ModuleContext): Evaluation | null {
+  const record = action as unknown as { itemInstanceId?: CardInstanceId; recipientCharacterId?: CardInstanceId };
+  const item = context.view.combat?.salvageItems?.find(i => i.instanceId === record.itemInstanceId);
+  if (!item || !record.recipientCharacterId) return null;
+  const { standing, tunables } = context;
+  const fields = context.cardPool[item.definitionId] as unknown as {
+    name?: string; marshallingPoints?: number; marshallingCategory?: string; corruptionPoints?: number;
+  } | undefined;
+  const name = fields?.name ?? (item.definitionId as string);
+  const mp = fields?.marshallingPoints ?? 0;
+  const source = (fields?.marshallingCategory ?? 'item') as MpSource;
+  const points = mp > 0 ? standing.tsdAfter({ [source]: mp }) - standing.tsd : 0;
+  const corruption = fields?.corruptionPoints ?? 0;
+  const risk = corruption > 0
+    ? computeCharacterValue(context.view, context.cardPool, standing, tunables)
+      .corruptionRisk(record.recipientCharacterId, corruption)
+    : { tsd: 0, reason: 'the item carries no corruption' };
+  const kept = points + tunables.provisionalCardPrice;
+  const dtsd = netTsdDelta({ realized: kept, tempo: risk.tsd }, tunables);
+  return scoredEvaluation({
+    action,
+    module: 'health',
+    outcomes: [{ p: 1, label: `salvage ${name} rather than discard it`, dtsd }],
+    standing,
+    headline: `salvage ${name}`,
+    detail: [node('item', dtsd, [
+      leaf('marshalling points kept', points, { unit: 'tsd', note: `${mp} ${source} MP, at this standing` }),
+      leaf('the card kept', tunables.provisionalCardPrice, { unit: 'tsd', tunable: 'provisionalCardPrice' }),
+      leaf('corruption handed to the recipient', risk.tsd, { unit: 'tsd', note: risk.reason }),
+    ])],
+    assumptions: ['`pass` discards every unsalvaged item, so salvaging is priced against losing it'],
+  });
+}
 
 /**
  * Untapping or healing a character for free (Hall of Fire, dm-134: "may choose
@@ -130,6 +174,7 @@ export const healthModule: H2Module = {
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
+    if (action.type === 'salvage-item') return evaluateSalvage(action, context);
     if (action.type === 'restore-character-by-effect') return evaluateRestore(action, context);
     const record = action as unknown as {
       itemInstanceId?: CardInstanceId;

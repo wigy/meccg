@@ -8,12 +8,13 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { CardStatus } from '@meccg/shared';
+import { CardStatus, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
+import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { healthModule } from './health.js';
 
 const HERO = 'tw-hero';
@@ -140,6 +141,30 @@ describe('what it declines', () => {
   test('an action naming an item it cannot find', () => {
     const unknown = { type: 'store-item', itemInstanceId: 'nope' } as unknown as GameAction;
     expect(healthModule.evaluate(unknown, contextWith(BALANCED, BALANCED))).toBeNull();
+  });
+});
+
+describe('salvaging the items of a character just eliminated', () => {
+  // Passing discards every item not salvaged, so salvaging keeps the item. It
+  // had no owner, and the AI threw away what the fallen carried — where the
+  // human, in recorded game mu6un0sq-qitwwa, salvaged a Dagger and a Cram.
+  test('beats passing, which discards the items', () => {
+    const scenario = loadScenario('combat/salvage-items-of-the-fallen');
+    const view = scenarioView(scenario);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions: view.legalActions.filter(e => e.viable).map(e => e.action),
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const salvages = context.legalActions.filter(a => a.type === 'salvage-item');
+    expect(salvages.length).toBeGreaterThan(0);
+    for (const salvage of salvages) {
+      const evaluation = healthModule.evaluate(salvage, context)!;
+      expect(evaluation.utility).toBeGreaterThan(0);
+      expect(JSON.stringify(evaluation.rationale)).toContain('the card kept');
+    }
   });
 });
 
