@@ -317,6 +317,33 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(recruit).toBeDefined();
   });
 
+  // Regression: offering the recruit at the earlier steps is only half of it —
+  // the select-company and enter-or-skip reducers rejected the play they had
+  // just advertised ("Expected 'select-company' during select-company step,
+  // got 'play-character'"), which ended 60 of 200 m/p bench games.
+  test.each(['select-company', 'enter-or-skip'] as const)(
+    'the recruit offered at the %s step is accepted and leaves the step unchanged',
+    step => {
+      const state = buildSitePhaseState({ characters: [ELROND], site: BAG_END, hand: [A_CHANCE_MEETING, EOWYN] });
+      const early: GameState = {
+        ...state,
+        phaseState: { ...state.phaseState, step, siteEntered: false },
+      };
+      const eventId = early.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+
+      const recruit = computeLegalActions(early, PLAYER_1)
+        .filter(a => a.viable && a.action.type === 'play-character')
+        .find(a => (a.action as { viaEventInstanceId?: CardInstanceId }).viaEventInstanceId === eventId);
+      expect(recruit).toBeDefined();
+
+      const after = dispatch(early, recruit!.action);
+      expect(getCharacter(after, RESOURCE_PLAYER, EOWYN)).toBeDefined();
+      expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventId)).toBe(true);
+      expect(after.phaseState.phase).toBe(Phase.Site);
+      expect((after.phaseState as { step?: string }).step).toBe(step);
+    },
+  );
+
   // Regression: at a qualifying site with a viable recruit available, the
   // event card itself must not also show up as a spurious not-playable
   // action. `computeLegalActions`' catchall `fillNotPlayable` only checked
