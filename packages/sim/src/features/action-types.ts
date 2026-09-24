@@ -243,6 +243,8 @@ export const ACTION_TYPES: readonly string[] = [
   'play-item-placement-offer',
   // Added by certifying as-42 (Unhappy Blows).
   'select-return-to-hand-character',
+  // Added by certifying dm-89 (Shadow out of the Dark).
+  'agent-tap-grant-creature-keying',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

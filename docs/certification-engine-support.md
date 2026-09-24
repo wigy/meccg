@@ -1324,6 +1324,28 @@ Show Things Unbidden (ba-32): "Playable during the organization phase on Galadri
 
 Used by *Show Things Unbidden* (ba-32).
 
+### `agent-tap-grant-creature-keying` (new) + `play-target` `target: "agent"` gains `filter` (Shadow out of the Dark dm-89)
+
+Shadow out of the Dark (dm-89): "Playable on a face-up agent who can use shadow-magic. If agent is revealed and not in a Free-hold [{F}] or Haven [{H}], he can tap to allow any Undead hazard creatures to be played at his site this turn. Any Undead hazard creatures so played do not count against the hazard limit. Cannot be played if your opponent is a minion player." Two gaps:
+
+1. **`play-target` `target: "agent"` gains an optional `filter`.** Previously every `play-target: "agent"` card (Never Seen Him dm-74) offered every one of the hazard player's own agents unconditionally. The agent-targeting branch (`legal-actions/movement-hazard.ts`) now evaluates `filter` per candidate against `{ target: { name, race, skills, keywords, revealed } }` — the first four from the agent's card definition, `revealed` from its `AgentInPlay` instance — skipping non-matching agents. The `race: "ringwraith"` disjunct mirrors the CoE rule that a Ringwraith always counts as a shadow-magic user (`companyShadowMagicUsers`, `reducer-utils.ts`), even though no agent-keyword card in the current pool has that race.
+2. **New `agent-tap-grant-creature-keying` effect** on a permanent event attached to an agent. Grants the bearer a brand-new tap ability, gated on the agent being revealed, untapped, and at a site whose effective type is not in `excludeSiteTypes` — offered by `agentTapGrantCreatureKeyingActions`, resolved by `handleAgentTapGrantCreatureKeying` (`mh-agents.ts`) as the `agent-tap-grant-creature-keying` action. This is *not* one of rule 4.1's closed agent-action options, so it costs neither the agent's once-per-turn action nor a hazard slot. The tap installs a turn-scoped `site-flag` constraint (`flag`, target: the hazard player) bound to the agent's current site's definition id. `collectCreatureKeyingGrants`/`grantsCreatureKeying` (`legal-actions/movement-hazard.ts`) now recognize this effect as a second grant source alongside `grant-creature-keying`: active only for the carrying card's own controller, matched against a hazard-creature play by `creatureFilter`, and gated on a matching `site-flag` constraint being active for a site with the **same name** as the target company's effective site — the agent's own alignment-specific site card and the target company's opposite-alignment copy of what may be the same real-world location are different `CardDefinitionId`s, so the two sides are compared by `siteDef.name` (mirroring `agentCurrentSiteName`/`companyTargetSiteName`, which already do the same cross-alignment name comparison elsewhere in the module). `hazardLimitExempt` reuses the exact `GrantCreatureKeyingEffect.hazardLimitExempt` wiring: a creature played on the strength of this grant skips the hazard-limit charge via `action.keyedBy.hazardLimitExempt` in `mh-hazard-play.ts`.
+
+```json
+{ "type": "play-target", "target": "agent",
+  "filter": { "$and": [
+    { "target.revealed": true },
+    { "$or": [ { "target.race": "ringwraith" },
+               { "target.skills": { "$includes": "shadow-magic" } } ] } ] } },
+{ "type": "agent-tap-grant-creature-keying",
+  "creatureFilter": { "race": "undead" },
+  "excludeSiteTypes": ["free-hold", "haven"],
+  "flag": "undead-keying-unlocked",
+  "hazardLimitExempt": true }
+```
+
+Used by *Shadow out of the Dark* (dm-89).
+
 ### `agent-attack-on-skip` (new) + `on-guard-reveal` gains a `company-skips-site` trigger, plus a `skip-site-reveal-on-guard` site step (Near to Hear a Whisper)
 
 Near to Hear a Whisper (as-31): "Any agent may attack a company at his site at the start of the site phase if the company chooses not to enter the site. May be revealed on-guard if the company chooses not to enter the site. Discard when any play deck is exhausted. Cannot be duplicated."

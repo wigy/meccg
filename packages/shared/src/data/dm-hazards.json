@@ -1590,7 +1590,31 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/ShadowoutoftheDark.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "agent",
+        "filter": {
+          "$and": [
+            { "target.revealed": true },
+            {
+              "$or": [
+                { "target.race": "ringwraith" },
+                { "target.skills": { "$includes": "shadow-magic" } }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent-tap-grant-creature-keying",
+        "creatureFilter": { "race": "undead" },
+        "excludeSiteTypes": ["free-hold", "haven"],
+        "flag": "undead-keying-unlocked",
+        "hazardLimitExempt": true
+      }
+    ],
+    "certified": "2026-09-24",
     "text": "Playable on a face-up agent who can use shadow-magic. If agent is revealed and not in a Free-hold [{F}] or Haven [{H}], he can tap to allow any Undead hazard creatures to be played at his site this turn. Any Undead hazard creatures so played do not count against the hazard limit. Cannot be played if your opponent is a minion player."
   },
   {

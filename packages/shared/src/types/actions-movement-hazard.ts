@@ -1627,6 +1627,27 @@ export interface AgentTapAttackAction {
 }
 
 /**
+ * The hazard player taps a revealed agent bearing an `agent-tap-grant-creature-keying`
+ * permanent event (Shadow out of the Dark dm-89) to unlock hazard-creature
+ * keying matching the effect's `creatureFilter` at the agent's current site
+ * for the rest of the turn.
+ *
+ * This does NOT count as an agent action (actedThisTurn is not set) and does
+ * NOT count against the hazard limit — rule 4.1's agent-action list is
+ * closed and this ability isn't on it.
+ */
+export interface AgentTapGrantCreatureKeyingAction {
+  /** Action discriminant. */
+  readonly type: 'agent-tap-grant-creature-keying';
+  /** The hazard player activating the ability. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent tapping. */
+  readonly agentId: CompanyId;
+  /** The permanent event (attached to the agent) carrying the granting effect. */
+  readonly sourceInstanceId: CardInstanceId;
+}
+
+/**
  * The hazard player discards an agent at the moving company's new site to
  * force the company to return to its site of origin (the
  * `agent-discard-return-to-origin` effect, e.g. Baduila dm-2).

@@ -52,7 +52,7 @@ import { resolveAdjacency, isUnderDeepsAdjacent, getUnderDeepsReachable, ringwra
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
-import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
+import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleAgentTapGrantCreatureKeying, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
 
 /**
  * Handle actions during the play-hazards step (CoE step 7).
@@ -142,6 +142,7 @@ export function handlePlayHazards(
   if (action.type === 'agent-key-creatures') return handleAgentKeyCreatures(state, action, mhState);
   if (action.type === 'agent-influence-attempt') return handleAgentInfluenceAttempt(state, action, mhState);
   if (action.type === 'agent-tap-attack') return handleAgentTapAttack(state, action, mhState);
+  if (action.type === 'agent-tap-grant-creature-keying') return handleAgentTapGrantCreatureKeying(state, action);
   if (action.type === 'agent-discard-return-to-origin') return handleAgentDiscardReturnToOrigin(state, action, mhState);
 
   // --- Tap an in-play dual-mode creature-permanent-event → short-event (tw-2, tw-107) ---

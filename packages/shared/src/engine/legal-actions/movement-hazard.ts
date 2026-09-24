@@ -6,8 +6,8 @@
  * sub-states further constrain available actions.
  */
 
-import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, DiscardAgentAtSiteEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect } from '../../types/effects.js';
+import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentTapGrantCreatureKeyingAction, AgentDiscardReturnToOriginAction } from '../../index.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AgentTapGrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect, Condition, DiscardAgentAtSiteEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -1567,6 +1567,66 @@ function agentTapAttackActions(
 }
 
 /**
+ * Generate `agent-tap-grant-creature-keying` actions for agents bearing an
+ * attached permanent event with the `agent-tap-grant-creature-keying` effect
+ * (Shadow out of the Dark dm-89).
+ *
+ * - Does NOT count as an agent action (actedThisTurn is not set).
+ * - Does NOT count against the hazard limit.
+ * - Agent must be revealed (face-up) and untapped.
+ * - Agent's current site's effective type must not be one of the effect's
+ *   `excludeSiteTypes`.
+ */
+function agentTapGrantCreatureKeyingActions(
+  state: GameState,
+  playerId: PlayerId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const hazardIndex = getPlayerIndex(state, playerId);
+  const hazardPlayer = state.players[hazardIndex];
+
+  for (const agent of hazardPlayer.agents) {
+    if (!agent.revealed) continue;
+    if (agent.character.status !== CardStatus.Untapped) continue;
+    const agentDef = defById(state, agent.character.definitionId);
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+    if (agent.siteStack.length === 0) continue;
+
+    const siteEntry = agent.siteStack[agent.siteStack.length - 1];
+    const siteDef = defById(state, siteEntry.definitionId);
+    if (!siteDef || !isSiteCard(siteDef)) continue;
+    const effSiteType = getEffectiveSiteType(state, siteEntry.definitionId, siteDef.siteType, siteEntry.instanceId);
+
+    const attached = hazardPlayer.cardsInPlay.filter(cip => cip.attachedToAgentId === agent.id);
+    for (const cip of attached) {
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      const eff = getCardEffects(def).find(
+        (e): e is AgentTapGrantCreatureKeyingEffect => e.type === 'agent-tap-grant-creature-keying',
+      );
+      if (!eff) continue;
+      if (eff.excludeSiteTypes.includes(effSiteType)) {
+        logDetail(`Agent tap-grant-creature-keying "${def.name}" on ${agentDef.name}: site "${siteDef.name}" (${effSiteType}) excluded — skipping`);
+        continue;
+      }
+
+      logDetail(`Agent tap-grant-creature-keying "${def.name}" on ${agentDef.name}: offering at site "${siteDef.name}"`);
+      actions.push({
+        action: {
+          type: 'agent-tap-grant-creature-keying',
+          player: playerId,
+          agentId: agent.id,
+          sourceInstanceId: cip.instanceId,
+        } as AgentTapGrantCreatureKeyingAction,
+        viable: true,
+      });
+    }
+  }
+
+  return actions;
+}
+
+/**
  * Generate `agent-discard-return-to-origin` actions for agents with the
  * `agent-discard-return-to-origin` effect (e.g. Baduila dm-2).
  *
@@ -1835,7 +1895,7 @@ function summonsFromLongSleepActions(
         }
 
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
-        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
+        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, (creatureDef).race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
@@ -1965,7 +2025,7 @@ function playCreatureFromDiscardActions(
       const creatureName = (creatureDef as { name?: string })?.name ?? (discardCard.definitionId as string);
 
       const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
-      const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
+      const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
       const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
         || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
         || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
@@ -2080,7 +2140,7 @@ function nazgulPermanentEventAttackActions(
         const nazgulName = (creatureDef as { name?: string })?.name ?? (cip.definitionId as string);
 
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
-        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef);
+        const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
         const keyingBypassed = hasCreatureKeyingBypass(state, targetCompany.id, creatureDef.race)
           || siteAllowsCreatureByRace(state, targetCompany, creatureDef)
           || siteAllowsCreatureByKeying(state, targetCompany, creatureDef)
@@ -2513,7 +2573,7 @@ function playHazardsActions(
       // `hazardLimitExempt` grant (Umagaur the Pale dm-112) exempts the play
       // even when the hazard limit is otherwise already reached.
       const keyingGrant = isCreature
-        ? grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def)
+        ? grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, def, playerId)
         : { granted: false };
 
       // Hazard limit reached (cards with no-hazard-limit bypass this)
@@ -4562,6 +4622,27 @@ function playHazardsActions(
           // agent, counted by name across cardsInPlay entries bound to it.
           const agentDupLimit = findDuplicationLimitEffect(def, 'agent');
           for (const agent of player.agents) {
+            // Optional `filter` (Shadow out of the Dark dm-89: "Playable on
+            // a face-up agent who can use shadow-magic"): evaluated against
+            // the candidate agent's definition + current revealed status.
+            // Non-matching agents are simply not offered as targets.
+            if (playTarget.filter) {
+              const agentDef = defById(state, agent.character.definitionId);
+              if (!agentDef || !isCharacterCard(agentDef)) continue;
+              const matchesFilter = matchesCondition(playTarget.filter, {
+                target: {
+                  name: agentDef.name,
+                  race: agentDef.race,
+                  skills: agentDef.skills ?? [],
+                  keywords: agentDef.keywords ?? [],
+                  revealed: agent.revealed,
+                },
+              });
+              if (!matchesFilter) {
+                logDetail(`Hazard event "${def.name}": agent ${agent.id as string} (${agentDef.name}) does not match the target filter — skipping`);
+                continue;
+              }
+            }
             if (agentDupLimit) {
               const copiesOnAgent = player.cardsInPlay.filter(cip =>
                 cip.attachedToAgentId === agent.id
@@ -4728,6 +4809,12 @@ function playHazardsActions(
     // Agents with the `agent-tap-attack` effect tap (not as an agent action,
     // not against hazard limit) to attack during M/H phase.
     actions.push(...agentTapAttackActions(state, playerId, mhState));
+
+    // --- Agent tap to grant creature keying (Shadow out of the Dark dm-89) ---
+    // Agents bearing the `agent-tap-grant-creature-keying` effect tap (not as
+    // an agent action, not against hazard limit) to unlock matching hazard
+    // creatures at the agent's current site for the rest of the turn.
+    actions.push(...agentTapGrantCreatureKeyingActions(state, playerId));
 
     // --- Agent discard to return company to origin (e.g. Baduila dm-2) ---
     // Agents with the `agent-discard-return-to-origin` effect may be discarded
@@ -5569,21 +5656,50 @@ function siteAllowsCreatureByKeying(
  *   company's `hazardsEncountered` list. The carrier is no longer in play by
  *   the time the grant is used (it was discarded, or taken as a trophy), so it
  *   is resolved from the card pool by name. Used by Dwarven Travelers (as-9).
+ *
+ * A third, differently-shaped source rides along in the same list: an
+ * `agent-tap-grant-creature-keying` effect (Shadow out of the Dark dm-89)
+ * attached to an agent. Unlike the two above, it isn't unconditionally active
+ * while its carrier sits in `cardsInPlay` — it only applies once the bearer
+ * agent has tapped this turn, tracked via a turn-scoped `site-flag` constraint
+ * bound to the agent's site and gated to the carrying card's controller.
  */
+type CollectedKeyingGrant =
+  | { readonly kind: 'standard'; readonly sourceName: string; readonly effect: GrantCreatureKeyingEffect }
+  | {
+      readonly kind: 'site-flag';
+      readonly sourceName: string;
+      readonly creatureFilter: Condition;
+      readonly flag: string;
+      readonly hazardLimitExempt?: boolean;
+      readonly ownerId: PlayerId;
+    };
+
 function collectCreatureKeyingGrants(
   state: GameState,
   mhState: MovementHazardPhaseState,
-): { readonly sourceName: string; readonly effect: GrantCreatureKeyingEffect }[] {
-  const grants: { sourceName: string; effect: GrantCreatureKeyingEffect }[] = [];
+): readonly CollectedKeyingGrant[] {
+  const grants: CollectedKeyingGrant[] = [];
 
   for (const player of state.players) {
     for (const cardInPlay of player.cardsInPlay) {
       const def = defById(state, cardInPlay.definitionId);
       if (!def) continue;
+      const sourceName = (def as { name?: string }).name ?? (cardInPlay.definitionId as string);
       for (const e of getCardEffects(def)) {
-        if (e.type !== 'grant-creature-keying') continue;
-        if ((e.source ?? 'in-play') !== 'in-play') continue;
-        grants.push({ sourceName: (def as { name?: string }).name ?? (cardInPlay.definitionId as string), effect: e });
+        if (e.type === 'grant-creature-keying') {
+          if ((e.source ?? 'in-play') !== 'in-play') continue;
+          grants.push({ kind: 'standard', sourceName, effect: e });
+        } else if (e.type === 'agent-tap-grant-creature-keying') {
+          grants.push({
+            kind: 'site-flag',
+            sourceName,
+            creatureFilter: e.creatureFilter,
+            flag: e.flag,
+            hazardLimitExempt: e.hazardLimitExempt,
+            ownerId: player.id,
+          });
+        }
       }
     }
   }
@@ -5600,7 +5716,7 @@ function collectCreatureKeyingGrants(
       for (const e of getCardEffects(def)) {
         if (e.type !== 'grant-creature-keying') continue;
         if (e.source !== 'faced-this-turn') continue;
-        grants.push({ sourceName: name, effect: e });
+        grants.push({ kind: 'standard', sourceName: name, effect: e });
       }
     }
   }
@@ -5642,6 +5758,7 @@ function grantsCreatureKeying(
   owner: PlayerState,
   targetCompany: Company,
   creatureDef: CardDefinition,
+  hazardPlayerId: PlayerId,
 ): { readonly granted: boolean; readonly regionName?: string; readonly hazardLimitExempt?: boolean } {
   const grants = collectCreatureKeyingGrants(state, mhState);
   if (grants.length === 0) return { granted: false };
@@ -5659,7 +5776,32 @@ function grantsCreatureKeying(
   const pathNames = mhState.resolvedSitePathNames;
 
   const creatureCtx = creatureDef as unknown as Record<string, unknown>;
-  for (const { sourceName, effect: e } of grants) {
+  for (const grant of grants) {
+    if (grant.kind === 'site-flag') {
+      // Shadow out of the Dark (dm-89): active only for the controller of the
+      // carrying card, and only once its agent has tapped at this site this
+      // turn (a turn-scoped `site-flag` constraint — see
+      // `handleAgentTapGrantCreatureKeying`). The constraint is bound to the
+      // *agent's own alignment-specific* site card definition id, while
+      // `siteDef` here is the target company's (opposite-alignment) copy of
+      // what may be the same named location — so the two sides are matched
+      // by site **name**, mirroring how `agentCurrentSiteName` /
+      // `companyTargetSiteName` compare agent and company locations
+      // elsewhere in this module.
+      if (grant.ownerId !== hazardPlayerId) continue;
+      if (!matchesCondition(grant.creatureFilter, creatureCtx)) continue;
+      if (!siteDef || !isSiteCard(siteDef)) continue;
+      const flagActive = state.activeConstraints.some(c => {
+        if (c.kind.type !== 'site-flag' || c.kind.flag !== grant.flag) return false;
+        if (c.target.kind !== 'player' || c.target.playerId !== hazardPlayerId) return false;
+        const flagSiteDef = defById(state, c.kind.siteDefinitionId);
+        return !!flagSiteDef && isSiteCard(flagSiteDef) && flagSiteDef.name === siteDef.name;
+      });
+      if (!flagActive) continue;
+      logDetail(`Creature keying granted by "${grant.sourceName}" (site-flag "${grant.flag}" at "${siteDef.name}")${grant.hazardLimitExempt ? ' [hazard-limit exempt]' : ''}`);
+      return { granted: true, hazardLimitExempt: grant.hazardLimitExempt };
+    }
+    const { sourceName, effect: e } = grant;
     if (!matchesCondition(e.creatureFilter, creatureCtx)) continue;
     // The creature must be playable in a non-Coastal-Sea region (tw-497).
     if (e.requiresNonCoastalKeying && creatureDef.cardType === 'hazard-creature'
