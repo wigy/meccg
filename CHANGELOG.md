@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.172.0 — 2026-09-24
+
+Modular AI Remembers What It Has Seen, Plays Hazards Like the Pros
+
+### Game Engine
+
+- The player view now exposes the opponent's share of the public record of revealed cards as `opponent.revealedCards`, so cards the opponent has shown stay known after they sink face down into a discard pile (#3184)
+
+### AI
+
+- The modular AI (h2) cycles its weakest card at the end of turn: with the hand at or below hand size a discard trades a card for a fresh draw, as strong players do in most end-of-turn windows (#3179)
+- Agents receive their own deck list (`AgentContext.ownDeck`); a new deck-reach service keeps travelling companies within one move of the sites where the deck's remaining marshalling-point cards can be played (#3180)
+- The modular AI's beliefs use the opponent's revealed cards as evidence instead of a fixed prior (#3184)
+- Route risk is charged by where the opponent's shown creatures can be keyed: regions whose type matches the creatures they have shown cost more, and with nothing shown the charge is the old flat one (#3185)
+- The hazard planner prices the hazard events strong players play and it used to decline: the Lures, Despair of the Heart and Alone and Unadvised by the corruption checks they cause, plus other hazard-event families by their DSL (#3183)
+- Attack boosts (Wake of War, Full of Froth and Rage, Rank upon Rank) are priced against the creatures still in the hazard player's deck, not only those in hand (#3186)
+- Foolish Words (td-25) is priced by the influence it spoils, aimed at the opponent's avatar or diplomat (#3187)
+- Human-compare no longer credits the opponent's pass to the human in windows where both seats act, which had inflated the human hazard-pass rate from 16% to 60% (#3181)
+- Human-compare gives replayed seats their own deck list, rebuilt from the log's card sidecar, so deck-aware prices can be measured (#3182)
+
 ## 0.171.0 — 2026-09-24
 
 Modular AI Replays Its Nazgul, Stops Banking Doomed Points
