@@ -42,7 +42,7 @@ import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired, countConstraintsFromDefinition } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
-import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite } from './combat-hazard-play.js';
+import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite, applyTakePrisonerAtAgentHome } from './combat-hazard-play.js';
 import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, completeCombat } from './combat-finalize.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
@@ -2882,6 +2882,8 @@ export function finalizeCombatFromCancelPrisonerTakingOffer(state: GameState, co
         state, defPlayerIndex, strike.characterId,
         combat.trollPursePrisoner.hostInstanceId, combat.trollPursePrisoner.siteInstanceId,
       );
+    } else if (combat.agentPrisoner) {
+      newState = applyTakePrisonerAtAgentHome(state, defPlayerIndex, strike.characterId, combat.agentPrisoner);
     }
   }
 

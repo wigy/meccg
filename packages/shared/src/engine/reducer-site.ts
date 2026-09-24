@@ -1823,6 +1823,8 @@ function handleSiteBellsRingingAttacks(
 /**
  * The rescue-attack a company must face to rescue prisoners held by `host`
  * (CoE rule 8.36), expressed as a list of automatic-attack shapes:
+ * - a host whose record carries capture-time `rescueAttacks` (To Get You Away
+ *   dm-92: an agent-race attack) faces those;
  * - a `take-prisoner` host (e.g. Flies and Spiders dm-58) faces the effect's
  *   fixed `rescueAttacks` (race / strikes / prowess), at the rescue site drawn
  *   from the hazard player's location deck;
@@ -1835,6 +1837,11 @@ function rescueAttacksForHost(
   host: GameState['hazardHosts'][number],
   currentSiteDef: import('../types/cards.js').SiteCard | undefined,
 ): readonly AutomaticAttack[] {
+  // A rescue-attack fixed at capture time (To Get You Away dm-92: "Same race
+  // as agent") takes precedence over the host definition.
+  if (host.rescueAttacks) {
+    return host.rescueAttacks.map(ra => ({ creatureType: ra.race, strikes: ra.strikes, prowess: ra.prowess }));
+  }
   const hostDef = defById(state, host.hostCard.definitionId);
   for (const eff of getCardEffects(hostDef)) {
     if (eff.type === 'take-prisoner') {

@@ -1549,13 +1549,43 @@ export function handleTapAgentAtSite(
   if ('error' in revealed) return { state, error: revealed.error };
   let stateAfterReveal = revealed;
 
-  // --- Remove card from hand, add to discard ---
+  // take-prisoner-at-agent-home (To Get You Away dm-92): validate the
+  // attacker's chosen prison site — the agent's own (post-reveal) site card
+  // when that is one of its home sites, else a home-site card in the hazard
+  // player's location deck.
+  const takesPrisoner = tapAgentEff.strikeEffect === 'take-prisoner-at-agent-home';
+  let agentPrisoner: CombatState['agentPrisoner'];
+  if (takesPrisoner) {
+    const prisonSiteId = action.prisonSiteInstanceId;
+    if (!prisonSiteId) return { state, error: `${def.name}: a prison site (one of the agent's home sites) must be chosen` };
+    const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+    const revealedAgent = stateAfterReveal.players[hazardIndex].agents.find(a => a.character.instanceId === agentInstanceId);
+    const agentSite = revealedAgent?.siteStack[revealedAgent.siteStack.length - 1];
+    const prisonSite = agentSite?.instanceId === prisonSiteId
+      ? agentSite
+      : findById(stateAfterReveal.players[hazardIndex].siteDeck, prisonSiteId);
+    const prisonSiteDef = prisonSite ? defById(state, prisonSite.definitionId) : undefined;
+    if (!prisonSiteDef || !isSiteCard(prisonSiteDef) || !homesiteNames.includes(prisonSiteDef.name)) {
+      return { state, error: `${def.name}: prison site ${prisonSiteId as string} is not an available home site of ${agentDef.name}` };
+    }
+    const rescue = tapAgentEff.rescueAttack ?? { strikes: 1, prowess: agentDef.prowess };
+    agentPrisoner = {
+      hostInstanceId: handCard.instanceId,
+      agentInstanceId,
+      prisonSiteInstanceId: prisonSiteId,
+      rescueAttacks: [{ race: agentDef.race, strikes: rescue.strikes, prowess: rescue.prowess }],
+    };
+    logDetail(`Tap-agent-at-site "${def.name}": a successful strike takes the character prisoner at "${prisonSiteDef.name}" (rescue-attack: ${agentDef.race} ${rescue.strikes}×${rescue.prowess})`);
+  }
+
+  // --- Remove card from hand. A short-event is discarded; a prisoner-taking
+  // permanent-event stays in play for the attack, becoming the prisoner's
+  // hazard host on capture (discarded if the attack ends without one — see
+  // `sweepUnusedAgentPrisonerHost`).
   const newHand = removeById(stateAfterReveal.players[hazardIndex].hand, handCard.instanceId);
-  stateAfterReveal = updatePlayer(stateAfterReveal, hazardIndex, p => ({
-    ...p,
-    hand: newHand,
-    discardPile: [...p.discardPile, handCard],
-  }));
+  stateAfterReveal = updatePlayer(stateAfterReveal, hazardIndex, p => takesPrisoner
+    ? { ...p, hand: newHand, cardsInPlay: [...p.cardsInPlay, { instanceId: handCard.instanceId, definitionId: handCard.definitionId, status: CardStatus.Untapped }] }
+    : { ...p, hand: newHand, discardPile: [...p.discardPile, handCard] });
 
   // --- Increment hazard count (the card counts; the attack does not) ---
   const bypassesLimit = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'no-hazard-limit');
@@ -1581,7 +1611,8 @@ export function handleTapAgentAtSite(
     assignmentPhase: tapAgentEff.attackerAssigns ? 'attacker' : 'defender',
     detainment,
     ...(tapAgentEff.attackerAssigns ? { forceSingleTarget: true } : {}),
-    ...(tapAgentEff.strikeEffect ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
+    ...(tapAgentEff.strikeEffect === 'discard-item' ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
+    ...(agentPrisoner ? { agentPrisoner } : {}),
   });
 
   return {

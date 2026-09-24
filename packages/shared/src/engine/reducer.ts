@@ -101,7 +101,12 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   const afterStoredCreatureSweep = prevState
     ? sweepOrphanedStoredCreatures(prevState, afterSacrificeReturn)
     : afterSacrificeReturn;
-  return accrueRevealedInstances(recomputeDerived(afterStoredCreatureSweep));
+  // To Get You Away (dm-92): discard the prisoner-taking permanent-event once
+  // its agent attack ends without a capture (prev/next `combat` diff).
+  const afterAgentPrisonerSweep = prevState
+    ? sweepUnusedAgentPrisonerHost(prevState, afterStoredCreatureSweep)
+    : afterStoredCreatureSweep;
+  return accrueRevealedInstances(recomputeDerived(afterAgentPrisonerSweep));
 }
 
 export type { ReducerResult } from './reducer-utils.js';
@@ -114,6 +119,7 @@ import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
 import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
 import { discardOrphanedLongEventAttachedEvents, sweepProtectedLongEventCascade } from './protected-long-event.js';
 import { enqueuePostAttackPlayOffers } from './post-attack-play.js';
+import { sweepUnusedAgentPrisonerHost } from './combat-hazard-play.js';
 import { applyHandDiscardCorruptionChecks } from './hand-discard-trigger.js';
 import { applyHandDiscardRecycleOffers } from './hand-discard-recycle-trigger.js';
 import { applyResolution } from './pending-handlers.js';

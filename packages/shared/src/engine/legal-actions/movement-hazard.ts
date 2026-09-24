@@ -2732,6 +2732,19 @@ function playHazardsActions(
         continue;
       }
 
+      // --- Tap-agent-at-site permanent-event (To Get You Away dm-92) ---
+      // Same agent-tap attack as the short-event form (below); the card stays
+      // in play to hold a captured prisoner.
+      if (isEvent && def.cardType === 'hazard-event' && def.eventType === 'permanent') {
+        const tapAgentEffect = def.effects?.find(
+          (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
+        );
+        if (tapAgentEffect) {
+          actions.push(...tapAgentAtSiteActions(state, player, resourcePlayer, targetCompany, def, action, tapAgentEffect));
+          continue;
+        }
+      }
+
       // --- Short event ---
       if (isShortEvent) {
         // Exhalation of Decay (dm-55) and similar: these short events play a
@@ -3908,85 +3921,7 @@ function playHazardsActions(
           (e): e is TapAgentEffect => e.type === 'tap-agent-at-site',
         );
         if (tapAgentEffect) {
-          // Cannot play against a minion (Ringwraith/Balrog) player.
-          if (isMinionOrBalrog(resourcePlayer)) {
-            logDetail(`Hazard short-event "${def.name}" not playable — opponent is a minion player`);
-            actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
-            continue;
-          }
-
-          // Identify the company's new (destination) site, falling back to current.
-          const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
-          const destSiteDefId = destSiteInst
-            ? resolveInstanceId(state, destSiteInst.instanceId)
-            : null;
-          const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
-          const destSiteName = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.name : undefined;
-
-          if (!destSiteDefId || !destSiteName) {
-            logDetail(`Hazard short-event "${def.name}" not playable — cannot resolve destination site`);
-            actions.push({ action, viable: false, reason: 'No target site for agent tap' });
-            continue;
-          }
-
-          // Find agents with the required skill at the destination site.
-          let foundAgent = false;
-          for (const agent of player.agents) {
-            const agentDef = defById(state, agent.character.definitionId);
-            if (!agentDef || !isCharacterCard(agentDef)) continue;
-
-            // Skill check
-            if (tapAgentEffect.skill && !agentDef.skills.includes(tapAgentEffect.skill as Skill)) continue;
-
-            // Location check: agent must be at the destination site.
-            const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
-            const isAtDest = agent.revealed
-              ? (agent.siteStack.length > 0 && agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId)
-              : (agent.siteStack.length > 0
-                  ? agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId
-                  : homesiteNames.includes(destSiteName));
-            if (!isAtDest) continue;
-
-            foundAgent = true;
-
-            if (!agent.revealed) {
-              // Face-down: offer one action per available home site card matching the destination.
-              // Only the destination site is valid — other home sites of the agent are irrelevant here.
-              const seenHome = new Set<string>();
-              let offeredAny = false;
-              for (const siteInst of player.siteDeck) {
-                const siteDef = defById(state, siteInst.definitionId);
-                if (!siteDef || !isSiteCard(siteDef)) continue;
-                if (siteDef.name !== destSiteName) continue;
-                if (seenHome.has(siteDef.name)) continue;
-                seenHome.add(siteDef.name);
-                logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} via home site "${siteDef.name}"`);
-                actions.push({
-                  action: { ...action, agentInstanceId: agent.character.instanceId, homeSiteInstanceId: siteInst.instanceId },
-                  viable: true,
-                });
-                offeredAny = true;
-              }
-              if (!offeredAny) {
-                logDetail(`Hazard short-event "${def.name}": can tap face-down agent ${agentDef.name} (no home site — will discard at EOT)`);
-                actions.push({
-                  action: { ...action, agentInstanceId: agent.character.instanceId },
-                  viable: true,
-                });
-              }
-            } else {
-              logDetail(`Hazard short-event "${def.name}": can tap face-up agent ${agentDef.name}`);
-              actions.push({
-                action: { ...action, agentInstanceId: agent.character.instanceId },
-                viable: true,
-              });
-            }
-          }
-
-          if (!foundAgent) {
-            logDetail(`Hazard short-event "${def.name}" not playable — no matching agent at company's new site`);
-            actions.push({ action, viable: false, reason: 'No matching agent at company\'s new site' });
-          }
+          actions.push(...tapAgentAtSiteActions(state, player, resourcePlayer, targetCompany, def, action, tapAgentEffect));
           continue;
         }
 
@@ -5976,3 +5911,169 @@ function checkRegionMovement(mhState: MovementHazardPhaseState): boolean {
 // now produced via the unified pending-resolution system. See
 // `legal-actions/pending.ts` (corruptionCheckActions) and
 // `engine/pending-reducers.ts` (applyCorruptionCheckResolution).
+
+/**
+ * Legal `play-hazard` actions for a `tap-agent-at-site` hazard event (An
+ * Article Missing dm-43, Cunning Foes dm-50 short-events; To Get You Away
+ * dm-92 permanent-event): one action per agent with the required skill at the
+ * target company's new site (plus, for a face-down agent, per matching home
+ * site card to reveal with). A `take-prisoner-at-agent-home` effect expands
+ * each into one action per available prison site
+ * ({@link agentPrisonSiteOptions}).
+ */
+function tapAgentAtSiteActions(
+  state: GameState,
+  player: PlayerState,
+  resourcePlayer: PlayerState,
+  targetCompany: Company,
+  def: CardDefinition,
+  action: PlayHazardAction,
+  tapAgentEffect: TapAgentEffect,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  // Cannot play against a minion (Ringwraith/Balrog) player.
+  if (isMinionOrBalrog(resourcePlayer)) {
+    logDetail(`Hazard event "${def.name}" not playable — opponent is a minion player`);
+    actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+    return actions;
+  }
+
+  // Identify the company's new (destination) site, falling back to current.
+  const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+  const destSiteDefId = destSiteInst
+    ? resolveInstanceId(state, destSiteInst.instanceId)
+    : null;
+  const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
+  const destSiteName = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.name : undefined;
+
+  if (!destSiteDefId || !destSiteName) {
+    logDetail(`Hazard event "${def.name}" not playable — cannot resolve destination site`);
+    actions.push({ action, viable: false, reason: 'No target site for agent tap' });
+    return actions;
+  }
+
+  // Find agents with the required skill at the destination site.
+  let foundAgent = false;
+  for (const agent of player.agents) {
+    const agentDef = defById(state, agent.character.definitionId);
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    // Skill check
+    if (tapAgentEffect.skill && !agentDef.skills.includes(tapAgentEffect.skill as Skill)) continue;
+
+    // Location check: agent must be at the destination site.
+    const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+    const isAtDest = agent.revealed
+      ? (agent.siteStack.length > 0 && agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId)
+      : (agent.siteStack.length > 0
+          ? agent.siteStack[agent.siteStack.length - 1].definitionId === destSiteDefId
+          : homesiteNames.includes(destSiteName));
+    if (!isAtDest) continue;
+    // "Tap an agent": a tapped or wounded agent cannot be tapped.
+    if (agent.character.status !== CardStatus.Untapped) {
+      logDetail(`Hazard event "${def.name}": agent ${agentDef.name} is not untapped`);
+      continue;
+    }
+
+    foundAgent = true;
+
+    if (!agent.revealed) {
+      // Face-down: offer one action per available home site card matching the destination.
+      // Only the destination site is valid — other home sites of the agent are irrelevant here.
+      const seenHome = new Set<string>();
+      let offeredAny = false;
+      for (const siteInst of player.siteDeck) {
+        const siteDef = defById(state, siteInst.definitionId);
+        if (!siteDef || !isSiteCard(siteDef)) continue;
+        if (siteDef.name !== destSiteName) continue;
+        if (seenHome.has(siteDef.name)) continue;
+        seenHome.add(siteDef.name);
+        logDetail(`Hazard event "${def.name}": can tap face-down agent ${agentDef.name} via home site "${siteDef.name}"`);
+        actions.push({
+          action: { ...action, agentInstanceId: agent.character.instanceId, homeSiteInstanceId: siteInst.instanceId },
+          viable: true,
+        });
+        offeredAny = true;
+      }
+      if (!offeredAny) {
+        logDetail(`Hazard event "${def.name}": can tap face-down agent ${agentDef.name} (no home site — will discard at EOT)`);
+        actions.push({
+          action: { ...action, agentInstanceId: agent.character.instanceId },
+          viable: true,
+        });
+      }
+    } else {
+      logDetail(`Hazard event "${def.name}": can tap face-up agent ${agentDef.name}`);
+      actions.push({
+        action: { ...action, agentInstanceId: agent.character.instanceId },
+        viable: true,
+      });
+    }
+  }
+
+  if (!foundAgent) {
+    logDetail(`Hazard event "${def.name}" not playable — no matching agent at company's new site`);
+    actions.push({ action, viable: false, reason: 'No matching agent at company\'s new site' });
+  }
+  if (tapAgentEffect.strikeEffect !== 'take-prisoner-at-agent-home') return actions;
+  const expanded: EvaluatedAction[] = [];
+  for (const ea of actions) {
+    const a = ea.action as PlayHazardAction;
+    if (!ea.viable || !a.agentInstanceId) { expanded.push(ea); continue; }
+    const agent = player.agents.find(ag => ag.character.instanceId === a.agentInstanceId)!;
+    const options = agentPrisonSiteOptions(state, player, agent, a.homeSiteInstanceId);
+    if (options.length === 0) {
+      logDetail(`Hazard event "${def.name}": agent ${a.agentInstanceId as string} has no available home site to hold a prisoner`);
+      expanded.push({ action: a, viable: false, reason: 'No available home site of the agent to hold a prisoner' });
+      continue;
+    }
+    for (const prisonSiteInstanceId of options) {
+      expanded.push({ action: { ...a, prisonSiteInstanceId }, viable: true });
+    }
+  }
+  return expanded;
+}
+
+/**
+ * The home sites at which a To Get You Away (dm-92) agent may hold a captured
+ * character ("one of the agent's home sites (attacker's choice, regardless of
+ * site's location)"): the agent's own site card after the attack's reveal,
+ * when that site is one of its home sites, plus one home-site card per
+ * further home-site name available in the hazard player's location deck.
+ * `revealHomeSiteId` is the deck card a face-down agent is revealed with (it
+ * becomes the agent's site, so is not offered twice).
+ */
+function agentPrisonSiteOptions(
+  state: GameState,
+  player: PlayerState,
+  agent: AgentInPlay,
+  revealHomeSiteId: CardInstanceId | undefined,
+): CardInstanceId[] {
+  const agentDef = defById(state, agent.character.definitionId);
+  if (!agentDef || !isCharacterCard(agentDef)) return [];
+  const homesiteNames = parseHomesiteNames(agentDef.homesite ?? '');
+  const siteName = (defId: CardDefinitionId): string | undefined => {
+    const d = defById(state, defId);
+    return d && isSiteCard(d) ? d.name : undefined;
+  };
+  const options: CardInstanceId[] = [];
+  const seen = new Set<string>();
+  const top = agent.siteStack[agent.siteStack.length - 1];
+  const revealCard = revealHomeSiteId ? player.siteDeck.find(c => c.instanceId === revealHomeSiteId) : undefined;
+  const ownSite = top ?? revealCard;
+  if (ownSite) {
+    const name = siteName(ownSite.definitionId);
+    if (name && homesiteNames.includes(name)) {
+      options.push(ownSite.instanceId);
+      seen.add(name);
+    }
+  }
+  for (const site of player.siteDeck) {
+    if (site.instanceId === revealHomeSiteId) continue;
+    const name = siteName(site.definitionId);
+    if (!name || !homesiteNames.includes(name) || seen.has(name)) continue;
+    seen.add(name);
+    options.push(site.instanceId);
+  }
+  return options;
+}

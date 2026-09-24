@@ -572,3 +572,99 @@ export function applyTakePrisonerAtSite(
   logDetail(`take-prisoner (Troll-purse): ${charInstanceId as string} is now a prisoner at site ${siteDefId as string}`);
   return newState;
 }
+
+/**
+ * Apply the prisoner-taking outcome of a To Get You Away (dm-92) agent attack:
+ * "the character is taken prisoner at one of the agent's home sites
+ * (attacker's choice, regardless of site's location) and the agent returns to
+ * the same site."
+ *
+ * The prison site was declared with the play (`prisonSiteInstanceId`): either
+ * the agent's own site card (its site is already that home site — the agent
+ * stays put) or a home-site card from the hazard player's location deck, in
+ * which case the agent moves there (its previous site cards return to the
+ * location deck). The card leaves the general play area and becomes the
+ * prisoner's hazard host, carrying the capture-time rescue-attack (race of
+ * the agent). Shares {@link bindPrisoner} with the other capture paths.
+ */
+export function applyTakePrisonerAtAgentHome(
+  state: GameState,
+  defPlayerIndex: number,
+  charInstanceId: CardInstanceId,
+  capture: NonNullable<CombatState['agentPrisoner']>,
+): GameState {
+  const hazardPlayerIndex = 1 - defPlayerIndex;
+  const hazardPlayer = state.players[hazardPlayerIndex];
+  const hostInPlay = hazardPlayer.cardsInPlay.find(c => c.instanceId === capture.hostInstanceId);
+  if (!hostInPlay) {
+    logDetail(`take-prisoner (agent home): host ${capture.hostInstanceId as string} no longer in play — skipping`);
+    return state;
+  }
+  const agent = hazardPlayer.agents.find(a => a.character.instanceId === capture.agentInstanceId);
+  const agentSite = agent?.siteStack[agent.siteStack.length - 1];
+
+  let newState = state;
+  let rescueSiteCard: import('../types/state-cards.js').CardInstance;
+  if (agentSite?.instanceId === capture.prisonSiteInstanceId) {
+    rescueSiteCard = { instanceId: agentSite.instanceId, definitionId: agentSite.definitionId };
+    logDetail(`take-prisoner (agent home): agent already at its home site ${agentSite.definitionId as string} — stays there`);
+  } else {
+    const deckSite = findById(hazardPlayer.siteDeck, capture.prisonSiteInstanceId);
+    if (!deckSite) {
+      logDetail(`take-prisoner (agent home): prison site ${capture.prisonSiteInstanceId as string} not available — skipping`);
+      return state;
+    }
+    rescueSiteCard = toCardInstance(deckSite);
+    logDetail(`take-prisoner (agent home): agent returns to its home site ${deckSite.definitionId as string}`);
+    newState = updatePlayer(newState, hazardPlayerIndex, p => ({
+      ...p,
+      siteDeck: [...removeById(p.siteDeck, deckSite.instanceId), ...(agent?.siteStack ?? [])],
+      agents: p.agents.map(a => a.character.instanceId === capture.agentInstanceId
+        ? { ...a, siteStack: [{ instanceId: deckSite.instanceId, definitionId: deckSite.definitionId, status: CardStatus.Untapped }] }
+        : a),
+    }));
+  }
+
+  newState = updatePlayer(newState, hazardPlayerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== capture.hostInstanceId),
+  }));
+  const charData = newState.players[defPlayerIndex].characters[charInstanceId];
+  if (!charData) return state;
+  newState = bindPrisoner(
+    newState, defPlayerIndex, charInstanceId, charData,
+    toCardInstance(hostInPlay), rescueSiteCard, hazardPlayer.id, false, 'take-prisoner (agent home)',
+  );
+  newState = {
+    ...newState,
+    hazardHosts: newState.hazardHosts.map(h => h.hostCard.instanceId === capture.hostInstanceId
+      ? { ...h, rescueAttacks: capture.rescueAttacks }
+      : h),
+  };
+  logDetail(`take-prisoner (agent home): ${charInstanceId as string} is now a prisoner at ${rescueSiteCard.definitionId as string}`);
+  return newState;
+}
+
+/**
+ * Post-reduce sweep: when a To Get You Away (dm-92) agent attack ends (by any
+ * teardown path — strikes resolved, attack canceled) without taking a
+ * prisoner, the permanent-event that granted it is still in its player's
+ * `cardsInPlay` with nothing to hold: discard it. Same prev/next `combat`
+ * diff as the after-attack play window.
+ */
+export function sweepUnusedAgentPrisonerHost(prev: GameState, next: GameState): GameState {
+  const capture = prev.combat?.agentPrisoner;
+  if (!capture) return next;
+  if (next.combat?.agentPrisoner?.hostInstanceId === capture.hostInstanceId) return next;
+  const ownerIdx = next.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === capture.hostInstanceId));
+  if (ownerIdx === -1) return next;
+  logDetail(`take-prisoner (agent home): attack ended without a capture — discarding ${capture.hostInstanceId as string}`);
+  return updatePlayer(next, ownerIdx, p => {
+    const host = p.cardsInPlay.find(c => c.instanceId === capture.hostInstanceId)!;
+    return {
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== capture.hostInstanceId),
+      discardPile: [...p.discardPile, toCardInstance(host)],
+    };
+  });
+}
