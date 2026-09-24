@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1349 | 1349 | 0 | 100.0% |
+| 1350 | 1350 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 120 | 120 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 146 | 146 | 100.0% |
+| DM | 147 | 147 | 100.0% |
 | LE | 323 | 323 | 100.0% |
 | TD | 137 | 137 | 100.0% |
 | TW | 425 | 425 | 100.0% |
@@ -323,6 +323,7 @@
 | dm-86 | Scimitars of Steel | — | 6 | ☑ |
 | dm-88 | Seized by Terror | — | 11 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
+| dm-92 | To Get You Away | — | 9 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-96 | Twisted Tales | — | 15 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
@@ -784,7 +785,7 @@
 | td-100 | Belegaer  | — | 7 | ☑ |
 | td-101 | Bounty of the Hoard | — | 13 | ☑ |
 | td-102 | Bow of Dragon-horn | — | 8 | ☑ |
-| td-103 | Burglary  | — | 16 | ☑ |
+| td-103 | Burglary  | — | 17 | ☑ |
 | td-104 | Cloudless Day | — | 9 | ☑ |
 | td-105 | Cram | — | 17 | ☑ |
 | td-106 | Dragon’s Hunger | — | 7 | ☑ |

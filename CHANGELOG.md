@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.169.0 — 2026-09-24
+
+Agents Take Prisoners, Burglary Loot Restricted
+
+### Game Engine
+
+- Certified To Get You Away (dm-92): extended `tap-agent-at-site` with a `take-prisoner-at-agent-home` strike effect and `rescueAttack`, and let permanent hazard events use it. The tap-agent emitter is extracted into a shared `tapAgentAtSiteActions` used by both short- and permanent-events, now requires the agent to be untapped, and offers one action per available prison site (the agent's own home site or a home-site card from the location deck). A successful strike takes the character prisoner at the chosen site with a capture-time rescue attack of the agent's race; the card is discarded when the attack ends without a capture (#3153)
+- Fixed Burglary (td-103) offering any unlocked item to every untapped character in the company after a successful roll. The card restricts the unlocked item to the burgling character; CRF 22 only lets another character tap to play a minor item, so non-minor items (e.g. Scroll of Isildur) are now playable by the burglar alone (#3154)
+
 ## 0.168.0 — 2026-09-23
 
 Custom AI Decks Arrive, Accidental Concessions Ended
