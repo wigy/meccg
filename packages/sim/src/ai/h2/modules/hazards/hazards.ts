@@ -93,7 +93,9 @@ import {
 import type { AttackBoost } from '../../services/attack-modifiers.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['play-hazard', 'place-on-guard', 'assign-strike', 'pass'] as const;
+const OWNED_ACTION_TYPES = [
+  'play-hazard', 'place-on-guard', 'assign-strike', 'pass', 'play-creature-from-discard',
+] as const;
 
 /** Assumptions every hazard evaluation rests on. */
 const ASSUMPTIONS: readonly string[] = [
@@ -295,6 +297,12 @@ function planFor(
    * every hazard played against a company, events included).
    */
   reserved = 0,
+  /**
+   * Price one attack alone instead of the hand's bundles: a creature brought
+   * back from the discard pile (In Great Wrath, dm-66), which attacks at once
+   * and is not counted against the hazard limit.
+   */
+  only?: (killTsdOf: (killMp: number) => number) => Candidate | null,
 ): Plan {
   const { view, cardPool, standing, tunables } = context;
   const beliefs = computeBeliefs(view, cardPool);
@@ -310,13 +318,16 @@ function planFor(
   const killTsdOf = (killMp: number): number =>
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
 
-  const candidates = candidatesFor(
-    context, company, killTsdOf, boost ?? boostInPlay(context.view, context.cardPool) ?? undefined,
-  );
+  const single = only ? only(killTsdOf) : null;
+  const candidates = only
+    ? (single ? [single] : [])
+    : candidatesFor(
+      context, company, killTsdOf, boost ?? boostInPlay(context.view, context.cardPool) ?? undefined,
+    );
   const limit = exposure.hazardLimit(company.id);
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
     .hazardsPlayedThisCompany ?? 0;
-  const slots = Math.max(0, (limit ?? 0) - played - reserved);
+  const slots = only ? 1 : Math.max(0, (limit ?? 0) - played - reserved);
   const initialFacedRaces = facedRacesFromHistory(hazardsEncounteredThisSubPhase(view), cardPool);
   const search = planBundles(candidates, roster, cardPool, price, standing, tunables, slots, initialFacedRaces);
 
@@ -468,9 +479,63 @@ export const hazardsModule: H2Module = {
 
     if (action.type === 'place-on-guard') return evaluateOnGuard(action, context);
 
+    if (action.type === 'play-creature-from-discard') return evaluateCreatureFromDiscard(action, context);
+
     return null;
   },
 };
+
+/**
+ * Bring a creature back from the discard pile to attack at once — In Great
+ * Wrath (dm-66): a Nazgûl in the discard attacks with +2 prowess and -1 body,
+ * not counting against the hazard limit.
+ *
+ * It had no owner, so `pass` won on the baseline's zero and the AI never
+ * replayed a Nazgûl this way, where the human in recorded game
+ * mu3jpl3u-7aceoo did twice. Priced as that one attack against the target
+ * company, with the same sequence model and card price as any creature from
+ * hand; since it takes no slot, it is priced alone rather than as part of the
+ * hand's bundle.
+ */
+function evaluateCreatureFromDiscard(action: GameAction, context: ModuleContext): Evaluation | null {
+  const play = action as unknown as {
+    cardInstanceId: string; creatureInstanceId: string; targetCompanyId: string; keyedBy?: CreatureKeyingMatch;
+  };
+  const { view, cardPool } = context;
+  const company = view.opponent.companies.find(c => (c.id as string) === play.targetCompanyId);
+  const creatureCard = view.self.discardPile.find(c => (c.instanceId as string) === play.creatureInstanceId);
+  const driver = view.self.hand.find(c => (c.instanceId as string) === play.cardInstanceId);
+  if (!company || !creatureCard || !driver) return null;
+  const effect = ((cardPool[driver.definitionId] as unknown as {
+    effects?: readonly { type?: string; prowessModifier?: number; bodyModifier?: number }[];
+  } | undefined)?.effects ?? []).find(e => e.type === 'play-creature-from-discard');
+  if (!effect) return null;
+  const definitionId = creatureCard.definitionId as string;
+  const detainment = attackIsDetainment(view, cardPool, company, definitionId, play.keyedBy);
+  const creature = creatureProfile(cardPool, definitionId, detainment);
+  if (!creature) return null;
+
+  const plan = planFor(context, company, null, 0, killTsdOf => {
+    const body = creature.profile.creatureBody;
+    return {
+      instanceId: play.creatureInstanceId,
+      name: creature.name,
+      killMp: creature.killMp,
+      race: creature.race,
+      selfFacedRaceBoost: creature.selfFacedRaceBoost,
+      profile: {
+        ...creature.profile,
+        strikeProwess: creature.profile.strikeProwess + (effect.prowessModifier ?? 0),
+        creatureBody: body === null ? null : body + (effect.bodyModifier ?? 0),
+        killTsd: killTsdOf(creature.killMp),
+        killLabel: killLabelFor(creature.name, creature.killMp, creature.detainment),
+      },
+    };
+  });
+  const bundle = bestBundleStartingWith(plan.search, play.creatureInstanceId);
+  if (!bundle) return null;
+  return evaluateBundle(action, plan, bundle, context, 1, `bring back ${creature.name} to attack`);
+}
 
 /** The do-nothing baseline, shared by both windows this module claims. */
 function passEvaluation(action: GameAction, context: ModuleContext): Evaluation {

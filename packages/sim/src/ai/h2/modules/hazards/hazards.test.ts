@@ -806,3 +806,28 @@ describe('an event that enables another card rather than acting itself', () => {
     } as unknown as GameAction, context)).toBeNull();
   });
 });
+
+describe('a creature brought back from the discard pile', () => {
+  // In Great Wrath (dm-66): a Nazgûl in the discard attacks at once, +2
+  // prowess and -1 body, outside the hazard limit. The action had no owner, so
+  // `pass` won it — where the human in recorded game mu3jpl3u-7aceoo played it.
+  test('is priced as that attack, and beats passing', () => {
+    const scenario = loadScenario('hazards/in-great-wrath-from-discard');
+    const view = scenarioView(scenario);
+    const legalActions = viableActions(scenario);
+    const context = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const replays = legalActions.filter(a => a.type === 'play-creature-from-discard');
+    expect(replays.length).toBeGreaterThan(0);
+    for (const replay of replays) {
+      const evaluation = hazardsModule.evaluate(replay, context)!;
+      expect(evaluation).not.toBeNull();
+      expect(evaluation.utility).toBeGreaterThan(0);
+    }
+  });
+});
