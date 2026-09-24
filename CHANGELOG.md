@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.170.0 — 2026-09-24
+
+Nine Cards Certified, Modular AI Learns From Human Play
+
+### Cards
+
+- Certified Galadhrim (as-10): named-region keying (with non-Haven sites in those regions), detainment against hero and covert fallen-wizard companies, -2 prowess against hero companies, and discarding every item of a character it wounds (#3155)
+- Certified Gondorian Rangers (le-76): one strike per character, detainment against hero/Wizard or covert Fallen-wizard companies, and region keying including sites in those regions (#3156)
+- Certified Arouse Denizens (le-102), the LE reprint of tw-6, reusing the existing `auto-attack-boost` machinery (#3157)
+- Certified Cast from the Order (wh-15): a 2d6 + stage points roll on entering play decides whether it stays on the Fallen-wizard, forcing minion site cards and making the company overt. The `win-condition-roll` band table is generalized beyond the one-ring win cards (#3158)
+- Certified Trouble on All Borders (as-40): a faction-hosted hazard that attacks companies moving through the faction's region or adjacent regions, detainment when alignments match (#3159)
+- Certified Unhappy Blows (as-42): a roll-based return of Dwarves and Elves (or Orcs and Trolls) with their items to the opponent's hand (#3160)
+- Certified Near to Hear a Whisper (as-31): new `agent-attack-on-skip` effect, `company-skips-site` on-guard trigger and a `skip-site-reveal-on-guard` site step (#3169)
+- Certified Seek without Success (dm-87): new `discard-agent-at-site` effect that discards a ranger agent to send the company back to its site of origin (#3171)
+- Certified Shadow out of the Dark (dm-89): `play-target` on agents gains a per-candidate `filter`, and a tapped shadow-magic agent lets Undead creatures be played at his site outside the hazard limit (#3173)
+
+### Game Engine
+
+- Fixed Sacrifice of Form (tw-321) being offered as a playable permanent event during the site phase with no attack in progress (#3167)
+- Fixed Wizard's Ring (tw-363) +2 prowess being dropped in combat: `computeCombatProwess` now applies the structural `prowessModifier` fallback that `computeEffectiveStats` already used (#3175)
+
+### Web Client
+
+- Fixed Sacrifice of Form never highlighting as playable in hand when it was a legal play during combat (#3166)
+
+### AI
+
+- Compared the modular AI (h2) against recorded human seats and closed the gaps found:
+  - Stopped discarding Cram to untap when the untap gains nothing (#3161)
+  - Supports pending corruption checks at the Free Council (#3162)
+  - Stopped routing companies to sites for cards they cannot play there (#3163)
+  - Draw events are no longer valued as cards when the hand resets before they can be used (#3164)
+  - Prices the marshalling points a card is worth once stored (#3168)
+  - Values Hall of Fire's free heal (#3170)
+  - Weakens attacks with `modify-attack` cards such as Black Arrow and Vanish in Sunlight! (#3172)
+  - Salvages a fallen character's items instead of letting them be discarded (#3174)
+  - Charges a cancel-attack for the characters and cards it actually spends, not a flat card (#3176)
+- Fixed the AI declining the free item transfer offered by Call of Home (#3165)
+
 ## 0.169.0 — 2026-09-24
 
 Agents Take Prisoners, Burglary Loot Restricted

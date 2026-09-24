@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1350 | 1350 | 0 | 100.0% |
+| 1359 | 1359 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 120 | 120 | 100.0% |
+| AS | 124 | 124 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 147 | 147 | 100.0% |
-| LE | 323 | 323 | 100.0% |
+| DM | 149 | 149 | 100.0% |
+| LE | 325 | 325 | 100.0% |
 | TD | 137 | 137 | 100.0% |
 | TW | 425 | 425 | 100.0% |
-| WH | 97 | 97 | 100.0% |
+| WH | 98 | 98 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -33,6 +33,7 @@
 | as-7 | Alatar the Hunter | — | 19 | ☑ |
 | as-8 | Durin’s Folk | — | 6 | ☑ |
 | as-9 | Dwarven Travelers | — | 15 | ☑ |
+| as-10 | Galadhrim | — | 8 | ☑ |
 | as-11 | Gandalf the White Rider | — | 18 | ☑ |
 | as-12 | Knights of the Prince | — | 8 | ☑ |
 | as-13 | Lady of the Golden Wood | — | 14 | ☑ |
@@ -47,11 +48,14 @@
 | as-27 | Enchanted Stream | — | 13 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
+| as-31 | Near to Hear a Whisper | — | 10 | ☑ |
 | as-33 | Pilfer Anything Unwatched | — | 13 | ☑ |
 | as-34 | Power Built by Waiting | — | 13 | ☑ |
 | as-35 | Returned Beyond All Hope | — | 17 | ☑ |
 | as-39 | Summons from Long Sleep | — | 9 | ☑ |
+| as-40 | Trouble on All Borders | — | 11 | ☑ |
 | as-41 | Turning Hope to Despair | — | 12 | ☑ |
+| as-42 | Unhappy Blows | — | 14 | ☑ |
 | as-44 | All the Bells Ringing | — | 6 | ☑ |
 | as-45 | Alliance of Free Peoples | — | 10 | ☑ |
 | as-46 | Biter and Beater! | — | 12 | ☑ |
@@ -321,7 +325,9 @@
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
 | dm-86 | Scimitars of Steel | — | 6 | ☑ |
+| dm-87 | Seek without Success | — | 12 | ☑ |
 | dm-88 | Seized by Terror | — | 11 | ☑ |
+| dm-89 | Shadow out of the Dark | — | 14 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
 | dm-92 | To Get You Away | — | 9 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
@@ -462,6 +468,7 @@
 | le-72 | Ghosts | — | 6 | ☑ |
 | le-73 | Ghouls | — | 9 | ☑ |
 | le-75 | Giant Spiders | — | 8 | ☑ |
+| le-76 | Gondorian Rangers | — | 9 | ☑ |
 | le-77 | Hobgoblins | — | 4 | ☑ |
 | le-78 | Horse-lords | — | 6 | ☑ |
 | le-79 | Huorn | — | 10 | ☑ |
@@ -481,6 +488,7 @@
 | le-99 | Watcher in the Water | — | 9 | ☑ |
 | le-100 | Wild Trolls | — | 5 | ☑ |
 | le-101 | Arouse Defenders | — | 10 | ☑ |
+| le-102 | Arouse Denizens | — | 9 | ☑ |
 | le-103 | Awaken Defenders | — | 7 | ☑ |
 | le-104 | Awaken Denizens | — | 5 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
@@ -1290,6 +1298,7 @@
 | wh-12 | Uglúk | — | 9 | ☑ |
 | wh-13 | Goblin-faces | — | 8 | ☑ |
 | wh-14 | Blind to the West | — | 5 | ☑ |
+| wh-15 | Cast from the Order | — | 10 | ☑ |
 | wh-16 | Cruel Claw Perceived | — | 9 | ☑ |
 | wh-17 | Echoes of the Song | — | 8 | ☑ |
 | wh-18 | Flotsam and Jetsam | — | 15 | ☑ |
