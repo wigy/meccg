@@ -3,7 +3,7 @@
  *
  * The baseline makes one claim — declining to act is worth zero — so the tests
  * are about *which* declinings it recognises. The engine spells the same
- * non-act three ways depending on where it offers it, and a spelling this list
+ * non-act four ways depending on where it offers it, and a spelling this list
  * has not learned is a whole decision handed to Heuristics 1 for want of the
  * candidate that means "nothing".
  *

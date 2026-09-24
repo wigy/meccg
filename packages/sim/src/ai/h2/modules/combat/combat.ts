@@ -70,6 +70,7 @@ const OWNED_ACTION_TYPES = [
   'cancel-attack',
   'cancel-by-tap',
   'halve-strikes',
+  'modify-attack',
   'pass',
 ] as const;
 
@@ -791,6 +792,42 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
         [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS]);
     }
 
+    case 'modify-attack': {
+      // A weaker attack, bought with a card or a tap. Priced as facing the same
+      // attack with the modifier applied, which is the comparison `pass` and
+      // `assign-strike` already make — before this the type had no owner, and
+      // the defence never used a Black Arrow or a Vanish in Sunlight! that the
+      // human, in the recorded games, reached for first.
+      const modification = attackModification(context, action);
+      if (!modification) return null;
+      const weakened: StrikeContext = {
+        ...context,
+        combat: {
+          ...combat,
+          strikeProwess: combat.strikeProwess + modification.prowess,
+          creatureBody: combat.creatureBody === null ? null : combat.creatureBody + modification.body,
+        },
+      };
+      const { outcomes, opening } = facingOutcomes(weakened, remaining, assignedTargets(context));
+      return evaluationFrom(context, action,
+        `weaken the attack with ${modification.name}`,
+        outcomes.map(o => ({ ...o, dtsd: o.dtsd - modification.cost })),
+        [
+          leaf('prowess', modification.prowess, { note: `${combat.strikeProwess} → ${combat.strikeProwess + modification.prowess}` }),
+          ...(modification.body !== 0 && combat.creatureBody !== null
+            ? [leaf('body', modification.body, { note: `${combat.creatureBody} → ${combat.creatureBody + modification.body}` })]
+            : []),
+          ...opening.map((strike, i) => leaf(`strike ${i + 1} → ${strike.target.name}`, strike.need, {
+            note: 'projected need on 2d6 against the weakened attack',
+          })),
+          leaf('what it costs', modification.cost, { unit: 'tsd', note: modification.costReason }),
+        ],
+        [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS,
+          'a card with several modifier modes is priced at its weakest one — which mode the engine applies '
+          + 'depends on conditions (another card in play) this does not read'],
+      );
+    }
+
     case 'assign-strike': {
       // Scored on the whole attack, because the alternative on the table is
       // `pass` — which is the whole attack. Pricing one strike against two
@@ -883,6 +920,86 @@ function situationFor(context: StrikeContext, target: StrikeTarget): StrikeSitua
     characterBody: bodyOfTarget(target, context.cardPool),
     alreadyWounded: target.status === CardStatus.Inverted,
     bodyCheckModifier: context.combat.bodyCheckModifier ?? 0,
+  };
+}
+
+/** What a `modify-attack` action would do to the attack, and what it costs. */
+interface AttackModification {
+  readonly name: string;
+  readonly prowess: number;
+  readonly body: number;
+  readonly cost: number;
+  readonly costReason: string;
+}
+
+/** The `modify-attack` effect fields this reads; any other shape is declined. */
+interface ModifyAttackFields {
+  readonly type?: string;
+  readonly fromHand?: boolean;
+  readonly fromAltPermanentEvent?: boolean;
+  readonly player?: string;
+  readonly cost?: { readonly tap?: string };
+  readonly prowessModifier?: number;
+  readonly bodyModifier?: number;
+  readonly prowessModifierExpr?: unknown;
+  readonly discardIfBearerNot?: { readonly race?: readonly string[] };
+}
+
+/** Effect keys whose meaning this prices; an effect carrying any other is declined. */
+const PRICED_MODIFY_KEYS = new Set([
+  'type', 'fromHand', 'player', 'cost', 'prowessModifier', 'bodyModifier', 'when', 'discardIfBearerNot',
+]);
+
+/**
+ * Read a defender's `modify-attack`: a card played from hand (Vanish in
+ * Sunlight!) or an item tapped by its bearer (Black Arrow). Other shapes —
+ * a Nazgûl permanent event tapped, an on-guard reveal, a modifier computed by
+ * expression or one that also changes the strike count — are declined rather
+ * than guessed at.
+ */
+function attackModification(context: StrikeContext, action: GameAction): AttackModification | null {
+  const record = action as unknown as { cardInstanceId?: CardInstanceId; characterInstanceId?: CardInstanceId };
+  if (!record.cardInstanceId) return null;
+  const { view, cardPool, tunables } = context;
+  const inHand = view.self.hand.find(c => c.instanceId === record.cardInstanceId);
+  const bearer = record.characterInstanceId ? view.self.characters[record.characterInstanceId] : undefined;
+  const item = bearer?.items.find(i => i.instanceId === record.cardInstanceId);
+  const definitionId = inHand?.definitionId ?? item?.definitionId;
+  if (!definitionId) return null;
+  const def = cardPool[definitionId] as unknown as { name?: string; effects?: readonly ModifyAttackFields[] } | undefined;
+  const fromHand = inHand !== undefined;
+  const modes = (def?.effects ?? []).filter(e => e.type === 'modify-attack'
+    && (fromHand ? e.fromHand === true : e.fromHand !== true && e.fromAltPermanentEvent !== true)
+    && (e.player === undefined || e.player === 'defender'));
+  if (modes.length === 0) return null;
+  if (modes.some(e => Object.keys(e).some(key => !PRICED_MODIFY_KEYS.has(key)))) return null;
+  // Several modes are gated by conditions this does not read (Vanish in
+  // Sunlight! is -4 with Gates of Morning in play, -2 otherwise): the weakest.
+  const mode = modes.reduce((weakest, e) =>
+    Math.abs(e.prowessModifier ?? 0) < Math.abs(weakest.prowessModifier ?? 0) ? e : weakest);
+  const prowess = mode.prowessModifier ?? 0;
+  const body = mode.bodyModifier ?? 0;
+  if (prowess >= 0 && body >= 0) return null;
+  const name = def?.name ?? definitionId;
+
+  if (fromHand) {
+    return {
+      name, prowess, body,
+      cost: tunables.provisionalCardPrice,
+      costReason: 'the card played from hand',
+    };
+  }
+  // An item tapped: it untaps with its bearer next turn. Black Arrow is also
+  // discarded when its bearer is not of a named race.
+  const races = mode.discardIfBearerNot?.race;
+  const bearerRace = bearer ? (cardPool[bearer.definitionId] as unknown as { race?: string } | undefined)?.race : undefined;
+  const discarded = races !== undefined && (bearerRace === undefined || !races.includes(bearerRace));
+  return {
+    name, prowess, body,
+    cost: tunables.tapTempoCost + (discarded ? tunables.provisionalCardPrice : 0),
+    costReason: discarded
+      ? 'the item taps, and is discarded because its bearer is not of the race it names'
+      : 'the item taps until its bearer untaps',
   };
 }
 

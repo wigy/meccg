@@ -613,6 +613,8 @@ export function describeAction(
       return action.homeSiteInstanceId
         ? `${playerName(action.player)} taps and reveals agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)} instead of revealing hazards (Here Is a Snake!)`
         : `${playerName(action.player)} taps and reveals agent ${action.agentId as string} (no home site — discarded at end of turn) instead of revealing hazards (Here Is a Snake!)`;
+    case 'select-return-to-hand-character':
+      return `${playerName(action.player)} selects ${instName(action.characterInstanceId)} to return to hand (Unhappy Blows)`;
     case 'agent-move':
       return `Agent ${action.agentId as string} moves to ${instName(action.destinationSiteInstanceId)}`;
     case 'agent-move-back':
@@ -633,6 +635,8 @@ export function describeAction(
       return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${instName(action.targetInstanceId)}`;
     case 'agent-tap-attack':
       return `Agent ${action.agentId as string} taps to attack`;
+    case 'agent-tap-grant-creature-keying':
+      return `Agent ${action.agentId as string} taps to unlock creature keying at its site`;
     case 'agent-discard-return-to-origin':
       return `Agent ${action.agentId as string} is discarded to return company to its site of origin`;
     case 'agent-strike-roll':

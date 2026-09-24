@@ -1411,6 +1411,22 @@ export interface RevealHazardForSnakeAction {
 }
 
 /**
+ * Select one character to return to hand while resolving a
+ * `return-to-hand-mind-threshold` pending resolution (Unhappy Blows as-42).
+ * Repeatable — one action per remaining eligible candidate — with `pass`
+ * finalizing the selection once the combined mind of selected characters
+ * meets the resolution's threshold.
+ */
+export interface SelectReturnToHandCharacterAction {
+  /** Action discriminant. */
+  readonly type: 'select-return-to-hand-character';
+  /** The defending company's controller, choosing which characters to give up. */
+  readonly player: PlayerId;
+  /** The candidate character instance being added to the return set. */
+  readonly characterInstanceId: CardInstanceId;
+}
+
+/**
  * The alternative to `reveal-hazard-for-snake`: tap and reveal a face-down,
  * untapped agent instead of revealing any hazards from hand (Here Is a Snake!
  * dm-137). Only legal while the `reveal-hazards-choice` resolution's
@@ -1608,6 +1624,27 @@ export interface AgentTapAttackAction {
    * is revealed without a home site and discarded at end of turn (rule 9.04).
    */
   readonly homeSiteInstanceId?: CardInstanceId;
+}
+
+/**
+ * The hazard player taps a revealed agent bearing an `agent-tap-grant-creature-keying`
+ * permanent event (Shadow out of the Dark dm-89) to unlock hazard-creature
+ * keying matching the effect's `creatureFilter` at the agent's current site
+ * for the rest of the turn.
+ *
+ * This does NOT count as an agent action (actedThisTurn is not set) and does
+ * NOT count against the hazard limit — rule 4.1's agent-action list is
+ * closed and this ability isn't on it.
+ */
+export interface AgentTapGrantCreatureKeyingAction {
+  /** Action discriminant. */
+  readonly type: 'agent-tap-grant-creature-keying';
+  /** The hazard player activating the ability. */
+  readonly player: PlayerId;
+  /** The CompanyId of the agent tapping. */
+  readonly agentId: CompanyId;
+  /** The permanent event (attached to the agent) carrying the granting effect. */
+  readonly sourceInstanceId: CardInstanceId;
 }
 
 /**

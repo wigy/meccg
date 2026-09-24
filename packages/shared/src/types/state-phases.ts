@@ -786,6 +786,19 @@ export type SiteStep =
    */
   | 'enter-or-skip'
   /**
+   * Near to Hear a Whisper (as-31) window: entered instead of advancing
+   * straight to the next company when a company chooses not to enter its
+   * site (`enter-or-skip`'s `pass`) while an `agent-attack-on-skip` effect is
+   * in play, or while the company holds an eligible `company-skips-site`
+   * on-guard card. The hazard player may reveal such an on-guard card (it
+   * enters play like any other revealed permanent/long event); passing here
+   * moves on to `declare-agent-attack` if `agent-attack-on-skip` is (now)
+   * active, or straight back to the next company otherwise. Every step this
+   * window feeds into runs with {@link SitePhaseState.skippedSiteEntry} set,
+   * so the company still never counts as having entered the site.
+   */
+  | 'skip-site-reveal-on-guard'
+  /**
    * Step 1 (CoE line 345): If the site has automatic-attacks, the hazard
    * player may reveal on-guard cards that are either creatures keyed to
    * the site or events affecting the automatic-attacks. No other actions
@@ -1025,6 +1038,17 @@ export interface SitePhaseState {
    * reset to absent when a new company's site phase begins.
    */
   readonly autoAttacksSkipped?: boolean;
+  /**
+   * Set while the company is going through the Near to Hear a Whisper
+   * (as-31) `skip-site-reveal-on-guard` / `declare-agent-attack` /
+   * `resolve-attacks` sequence after choosing not to enter its site. Routes
+   * `resolve-attacks`'s completion back to the next company instead of
+   * `play-resources`, and keeps `siteEntered` false throughout — the company
+   * never actually entered the site, it merely faced an agent attack allowed
+   * by the card. Absent (undefined → treated as false) for a normal site
+   * entry; reset to absent when a new company's site phase begins.
+   */
+  readonly skippedSiteEntry?: boolean;
   /** Whether the company has successfully entered the site (past all auto-attacks). */
   readonly siteEntered: boolean;
   /** Whether a resource that taps the site has been played by the current company. */

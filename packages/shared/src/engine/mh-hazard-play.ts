@@ -52,7 +52,7 @@ import { resolveAdjacency, isUnderDeepsAdjacent, getUnderDeepsReachable, ringwra
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from './region-keying.js';
 import { resolveCreatureKeyingSiteType } from './effective.js';
-import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
+import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleAgentTapGrantCreatureKeying, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
 
 /**
  * Handle actions during the play-hazards step (CoE step 7).
@@ -142,6 +142,7 @@ export function handlePlayHazards(
   if (action.type === 'agent-key-creatures') return handleAgentKeyCreatures(state, action, mhState);
   if (action.type === 'agent-influence-attempt') return handleAgentInfluenceAttempt(state, action, mhState);
   if (action.type === 'agent-tap-attack') return handleAgentTapAttack(state, action, mhState);
+  if (action.type === 'agent-tap-grant-creature-keying') return handleAgentTapGrantCreatureKeying(state, action);
   if (action.type === 'agent-discard-return-to-origin') return handleAgentDiscardReturnToOrigin(state, action, mhState);
 
   // --- Tap an in-play dual-mode creature-permanent-event → short-event (tw-2, tw-107) ---
@@ -1094,6 +1095,9 @@ export function handlePlayHazardCard(
       ...(action.type === 'play-hazard' && action.targetStoredPermanentEventInstanceId
         ? { targetStoredPermanentEventInstanceId: action.targetStoredPermanentEventInstanceId }
         : {}),
+      ...(action.type === 'play-hazard' && action.agentInstanceId
+        ? { agentInstanceId: action.agentInstanceId }
+        : {}),
     };
     newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
 
@@ -1213,6 +1217,9 @@ export function handlePlayHazardCard(
         targetAgentId: action.type === 'play-hazard' ? action.targetAgentId : undefined,
         // Helms of Iron (dm-64): the Nazgûl permanent-event chosen to discard.
         targetNazgulInstanceId: action.type === 'play-hazard' ? action.targetNazgulInstanceId : undefined,
+        // Trouble on All Borders (as-40): the resource player's own unique
+        // faction this hazard permanent-event attaches to via `attachedTo`.
+        targetFactionInstanceId: action.type === 'play-hazard' ? action.targetFactionInstanceId : undefined,
       }
     : { type: 'long-event' };
   newState = initiateOrPushChain(newState, action.player, handCard, payload, true);

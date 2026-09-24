@@ -1397,6 +1397,30 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Unhappy Blows (as-42): the defending company's controller must
+         * return, from hand, any number of the qualifying race pair's
+         * characters in the company whose combined mind meets or exceeds
+         * {@link threshold} — chosen one at a time via
+         * `select-return-to-hand-character` (moved from
+         * {@link candidateInstanceIds} to {@link selectedInstanceIds}),
+         * finalized with `pass` once the running mind total among
+         * `selectedInstanceIds` qualifies. Each returned character's
+         * attached items return to hand with it (CRF: not discarded).
+         */
+        readonly type: 'return-to-hand-mind-threshold';
+        /** The company facing the forced return. */
+        readonly companyId: CompanyId;
+        /** Eligible (qualifying-race) characters not yet selected. */
+        readonly candidateInstanceIds: readonly CardInstanceId[];
+        /** Characters chosen so far, in selection order. */
+        readonly selectedInstanceIds: readonly CardInstanceId[];
+        /** Combined mind required among `selectedInstanceIds` before `pass` is offered. */
+        readonly threshold: number;
+        /** Source card name, for logging. */
+        readonly sourceName: string;
+      }
+    | {
+        /**
          * A Lie in Your Eyes (as-23): the defending player (the targeted
          * character's controller) picks how to respond to the hazard-event's
          * threat — tap the character, tap an untapped ally the character
@@ -1593,7 +1617,9 @@ export type SiteFlag =
   /** King under the Mountain (td-126): the bound site counts as a Dwarf-hold (the `dwarf-hold` site keyword) for every purpose that consults it. */
   | 'dwarf-hold-override'
   /** Hour of Need (dm-141): a minor item may not be played at the bound site this turn, on top of the site's tapped status. */
-  | 'minor-item-play-blocked';
+  | 'minor-item-play-blocked'
+  /** Shadow out of the Dark (dm-89): Undead hazard creatures may be keyed to the bound site (not counting against the hazard limit) for the rest of the turn the flagged agent tapped there. */
+  | 'undead-keying-unlocked';
 
 /**
  * A scoped restriction on the legal actions available to some target.

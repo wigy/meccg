@@ -383,6 +383,24 @@ export function findRingAfterTestAction(
 }
 
 /**
+ * Find the play-sacrifice-of-form action for a given Sacrifice of Form
+ * (tw-321) hand instance. The Wizard being sacrificed is fixed by the live
+ * attack (the sole Wizard avatar in the defending company), so clicking the
+ * card plays it directly with no target step — same one-click pattern as
+ * `findRingAfterTestAction`. Without a finder for this action type the card
+ * rendered as a plain dimmed/unclickable hand card even while the engine
+ * offered it as legal (bug report: no "highlighted clickable" Sacrifice of
+ * Form during the choose-strike-order window on Gandalf's company).
+ */
+export function findSacrificeOfFormAction(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction | null {
+  if (!instanceId) return null;
+  return actionsOfTypeFor(legalActions, 'play-sacrifice-of-form', instanceId)[0] ?? null;
+}
+
+/**
  * Find the play-dragon-ambush-creature action for a given Dragon hazard-
  * creature card instance in hand (Rumor of Wealth td-58's `dragon-ambush-
  * offer` resolution): at most one action exists per hand instance and it
@@ -1238,6 +1256,8 @@ export function renderHand(
     const isRingAfterTest = ringAfterTestAction !== null;
     const dragonAmbushOfferAction = findDragonAmbushOfferAction(cardInstanceId, viable);
     const isDragonAmbushOffer = dragonAmbushOfferAction !== null;
+    const sacrificeOfFormAction = findSacrificeOfFormAction(cardInstanceId, viable);
+    const isSacrificeOfForm = sacrificeOfFormAction !== null;
     const revealedCardPlayActions = findRevealedCardPlayActions(cardInstanceId, viable);
     const isRevealedCardPlay = revealedCardPlayActions.length > 0;
     const declareBurglaryActions = findDeclareBurglaryActions(cardInstanceId, viable);
@@ -1251,7 +1271,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1537,6 +1557,15 @@ export function renderHand(
       if (onAction) {
         const dragonAction = dragonAmbushOfferAction;
         img.addEventListener('click', () => onAction(dragonAction));
+      }
+    } else if (isSacrificeOfForm) {
+      // Sacrifice of Form (tw-321): the Wizard being sacrificed is fixed by
+      // the live attack (the sole Wizard avatar in the defending company),
+      // so clicking the card plays it directly — no target step.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        const sacrificeAction = sacrificeOfFormAction;
+        img.addEventListener('click', () => onAction(sacrificeAction));
       }
     } else if (isRevealedCardPlay) {
       // Influence-reveal-play offer (Rule 10.13): an item, ally, or faction
