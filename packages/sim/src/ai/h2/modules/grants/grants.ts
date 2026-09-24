@@ -32,12 +32,14 @@
  * type, one owner, dispatching on what the card declares.
  */
 
-import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
+import { CardStatus, Phase } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, GameAction, PlayerView } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { pAtLeast } from '../../core/dice.js';
 import { leaf, node } from '../../core/rationale.js';
 import { scoredEvaluation } from '../../core/evaluation.js';
+import type { Tunables } from '../../core/tunables.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import type { CharacterValue } from '../../services/character-value.js';
 import { nameOf } from '../../services/strike/prowess.js';
@@ -101,26 +103,110 @@ function attachedCorruption(def: CardDefinition | undefined): number {
   return fromEffects > 0 ? fromEffects : (fields.corruptionPoints ?? 0);
 }
 
-/** What activating costs, priced from the cost the grant declares. */
+/**
+ * What activating costs, priced from the cost the grant declares.
+ *
+ * A grant may declare both halves — Healing Herbs, Athelas and Dragon-lore tap
+ * the bearer *and* discard themselves — so they are summed, not either-or.
+ *
+ * Discarding the card is charged at least `provisionalCardPrice`, on top of any
+ * marshalling points it carries. A card of ours leaves play for good, along
+ * with every other use it had: Cram discarded to untap its bearer can no
+ * longer buy the extra region of movement it also grants. Priced at zero, a
+ * pointless activation tied the do-nothing move and won the random draw — the
+ * modular AI would have eaten a Cram in every untap phase of recorded game
+ * mueq69r2-wyopxj, where the bearer was about to untap anyway, while the
+ * human took the untap step.
+ */
 function costOf(
   grant: GrantEffect,
   characterId: CardInstanceId,
   characterValue: CharacterValue,
   sourceMpLoss: number,
+  tunables: Tunables,
 ): { tsd: number; reason: string } {
+  const parts: { tsd: number; reason: string }[] = [];
   if (grant.cost?.tap) {
     const tap = characterValue.tapCost(characterId);
-    return { tsd: tap.tsd, reason: `taps ${grant.cost.tap} — ${tap.reason}` };
+    parts.push({ tsd: tap.tsd, reason: `taps ${grant.cost.tap} — ${tap.reason}` });
   }
   if (grant.cost?.discard) {
-    return {
-      tsd: sourceMpLoss,
+    parts.push({
+      tsd: sourceMpLoss + tunables.provisionalCardPrice,
       reason: sourceMpLoss > 0
-        ? 'discards the card itself, and its marshalling points with it'
-        : 'discards the card itself, which carries no points',
-    };
+        ? 'discards the card itself, its marshalling points and every other use it had'
+        : 'discards the card itself and every other use it had, at the price of a card',
+    });
   }
-  return { tsd: 0, reason: 'the grant declares no cost' };
+  if (parts.length === 0) return { tsd: 0, reason: 'the grant declares no cost' };
+  return {
+    tsd: parts.reduce((sum, part) => sum + part.tsd, 0),
+    reason: parts.map(part => part.reason).join('; '),
+  };
+}
+
+/**
+ * The engine's refusal of a resource play for want of a character standing up.
+ *
+ * Items, allies and factions are refused with exactly this wording
+ * (`legal-actions/site.ts`) when the company has nobody untapped to carry or
+ * influence them — the one refusal an untap can lift.
+ */
+const NO_UNTAPPED_CHARACTER = 'no untapped character in company';
+
+/**
+ * Whether standing this character up lets his company make a play *now*.
+ *
+ * True only in our own site phase, for the company whose site phase it is,
+ * when the engine is refusing some resource play because nobody in the company
+ * is untapped.
+ */
+function untapUnlocksAPlay(view: PlayerView, characterId: CardInstanceId): boolean {
+  if (view.activePlayer !== view.self.id) return false;
+  const phaseState = view.phaseState as { phase: string; activeCompanyIndex?: number };
+  if (phaseState.phase !== Phase.Site) return false;
+  const company = view.self.companies[phaseState.activeCompanyIndex ?? -1];
+  if (!company?.characters.includes(characterId)) return false;
+  return view.legalActions.some(e => !e.viable && e.reason?.includes(NO_UNTAPPED_CHARACTER) === true);
+}
+
+/**
+ * What untapping a tapped bearer is worth.
+ *
+ * The ability is instant and can be used in any phase, so it is worth using
+ * only at the moment a play needs him standing: our site phase, with the
+ * engine refusing a resource for want of an untapped character. Anywhere else
+ * spending the card now buys nothing that spending it then would not — and in
+ * the untap phase or at end of turn, the next untap step stands him up for
+ * free. The recorded human games agree: offered this 7129 times, humans took
+ * it in 129 of 2424 site-phase offers, once in 1051 untap-phase offers, and
+ * never in 979 end-of-turn ones.
+ *
+ * When it does unlock a play, it is worth exactly what tapping him would
+ * forfeit *were he untapped* — which cannot be read off his own `tapCost`,
+ * since that is zero for a character already tapped, and the grant is only
+ * ever offered while he is. So the price is taken from the same view with the
+ * bearer standing up.
+ */
+function untapGainOf(context: ModuleContext, characterId: CardInstanceId): { tsd: number; reason: string } {
+  const { view } = context;
+  const character = view.self.characters[characterId];
+  if (!character || character.status !== CardStatus.Tapped) {
+    return { tsd: 0, reason: 'he is not tapped — there is nothing to untap' };
+  }
+  if (!untapUnlocksAPlay(view, characterId)) {
+    return { tsd: 0, reason: 'no play needs him standing yet — the ability keeps until one does' };
+  }
+  const upright: PlayerView = {
+    ...view,
+    self: {
+      ...view.self,
+      characters: { ...view.self.characters, [characterId]: { ...character, status: CardStatus.Untapped } },
+    },
+  };
+  const tap = computeCharacterValue(upright, context.cardPool, context.standing, context.tunables)
+    .tapCost(characterId);
+  return { tsd: tap.tsd, reason: `untaps him for a play that needs him — worth what tapping him would forfeit (${tap.reason})` };
 }
 
 /** What the grant is worth if it resolves, or null when it cannot be priced. */
@@ -159,6 +245,9 @@ function gainOf(
   }
 
   // Untapping the bearer gives back exactly what tapping him costs.
+  if (apply.type === 'set-character-status' && apply.status === 'untapped' && apply.target === 'bearer') {
+    return untapGainOf(context, characterId);
+  }
   if (apply.type === 'set-character-status' && apply.status === 'untapped') {
     const tap = characterValue.tapCost(characterId);
     return { tsd: tap.tsd, reason: `untaps him — worth what tapping him forfeits (${tap.reason})` };
@@ -216,7 +305,7 @@ export const grantsModule: H2Module = {
     const noTap = (action as unknown as { noTap?: true }).noTap === true;
     const cost = noTap
       ? { tsd: 0, reason: 'declines to tap — at -3 on the roll' }
-      : costOf(grant, characterId, characterValue, sourceMpLoss);
+      : costOf(grant, characterId, characterValue, sourceMpLoss, tunables);
     const threshold = (record.rollThreshold ?? 0) + (noTap ? NO_TAP_PENALTY : 0);
     const success = pAtLeast(threshold);
     const name = printed?.name ?? sourceCardDefinitionId;
