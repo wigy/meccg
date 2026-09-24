@@ -5116,6 +5116,35 @@ export interface AgentDiscardReturnToOriginEffect extends EffectBase {
 }
 
 /**
+ * A hazard short-event that discards one of the hazard player's own agents
+ * matching the required `skill` at the target company's new site, forcing
+ * the company to return to its site of origin (CoE rule 2.IV.4 — paired with
+ * a `company-return-to-origin` effect on the same card, which performs the
+ * actual return once this effect's chosen agent is discarded). Unlike
+ * {@link AgentDiscardReturnToOriginEffect} (an ability printed on the
+ * agent's own card, e.g. Baduila dm-2), this ability is granted by playing
+ * the hazard event itself — any qualifying agent may be sacrificed, not
+ * just one carrying its own self-ability.
+ *
+ * Conditions mirror `agent-discard-return-to-origin`: the agent must have
+ * been in play at turn start and must not be wounded; a tapped agent
+ * qualifies, and a face-down agent may be discarded too (the discard itself
+ * reveals it, so no home-site binding is needed).
+ *
+ * Used by Seek without Success (dm-87): "Discard a ranger agent at target
+ * company's new site. Company must immediately return to its site of
+ * origin. Cannot be played if your opponent is a minion player."
+ */
+export interface DiscardAgentAtSiteEffect extends EffectBase {
+  readonly type: 'discard-agent-at-site';
+  /**
+   * Required agent skill (e.g. `"ranger"`). If omitted, any agent may be
+   * discarded.
+   */
+  readonly skill?: string;
+}
+
+/**
  * Restricts the site types an agent (acting as a hazard moving around the map)
  * may move to. When the bearer takes an `agent-move` action, any destination
  * whose {@link SiteType} appears in `siteTypes` is excluded from the legal
@@ -10264,6 +10293,7 @@ export type CardEffect =
   | AgentTapAttackEffect
   | AgentAttackModifierEffect
   | AgentDiscardReturnToOriginEffect
+  | DiscardAgentAtSiteEffect
   | AgentMoveRestrictionEffect
   | AhuntAttackEffect
   | InfluenceModificationEffect
