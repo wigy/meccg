@@ -831,3 +831,53 @@ describe('a creature brought back from the discard pile', () => {
     }
   });
 });
+
+describe('hazard events priced by family', () => {
+  // Strong players played these in hazard windows where the modular AI passed,
+  // because `hazards` could not read their family and declined them.
+  const contextFor = (id: string) => {
+    const scenario = loadScenario(id);
+    const view = scenarioView(scenario);
+    const legalActions = viableActions(scenario);
+    return {
+      legalActions,
+      context: {
+        view, cardPool: loadCardPool(), legalActions, tunables: DEFAULT_TUNABLES,
+        standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+      },
+    };
+  };
+  const named = (context: ReturnType<typeof contextFor>['context'], action: GameAction, name: string): boolean => {
+    const id = (action as unknown as { cardInstanceId?: string }).cardInstanceId;
+    const card = context.view.self.hand.find(c => (c.instanceId as string) === id);
+    return (context.cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === name;
+  };
+
+  test('a corruption hazard is worth the checks it forces and the tap to shed it', () => {
+    const { context, legalActions } = contextFor('hazards/alone-and-unadvised');
+    const plays = legalActions.filter(a => a.type === 'play-hazard' && named(context, a, 'Alone and Unadvised'));
+    expect(plays.length).toBeGreaterThan(0);
+    const evaluation = hazardsModule.evaluate(plays[0], context)!;
+    expect(evaluation).not.toBeNull();
+    expect(evaluation.utility).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('check(s) forced this movement/hazard phase');
+  });
+
+  test('Tidings of Bold Spies is priced as the duplicated automatic-attacks', () => {
+    const { context, legalActions } = contextFor('hazards/tidings-of-bold-spies');
+    const tidings = legalActions.find(a => a.type === 'play-hazard' && named(context, a, 'Tidings of Bold Spies'))!;
+    const evaluation = hazardsModule.evaluate(tidings, context)!;
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation.rationale)).toContain('(duplicated)');
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('River against a company with an untapped ranger costs them at least the ranger\'s tap', () => {
+    const { context, legalActions } = contextFor('hazards/river-with-ranger');
+    const river = legalActions.find(a => a.type === 'play-hazard' && named(context, a, 'River'))!;
+    const evaluation = hazardsModule.evaluate(river, context)!;
+    expect(evaluation).not.toBeNull();
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('untapped ranger');
+  });
+});

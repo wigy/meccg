@@ -84,6 +84,9 @@ import type { StrikeTarget } from '../../services/strike/prowess.js';
 import type { AttackProfile } from '../../services/strike/sequence.js';
 import { attackerChoosesDefenders } from '../../services/strike/ability.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
+import { corruptionHazardGain } from './corruption-hazard.js';
+import { callOfHomeGain, siteDenialGain } from './event-families.js';
+import { automaticAttacksOf } from '../../services/defence.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
 import {
@@ -298,11 +301,12 @@ function planFor(
    */
   reserved = 0,
   /**
-   * Price one attack alone instead of the hand's bundles: a creature brought
-   * back from the discard pile (In Great Wrath, dm-66), which attacks at once
-   * and is not counted against the hazard limit.
+   * Price these attacks alone instead of the hand's bundles, one slot each:
+   * attacks that happen outside the hazard limit — a creature brought back from
+   * the discard pile (In Great Wrath, dm-66), a site's automatic-attacks
+   * duplicated (Tidings of Bold Spies).
    */
-  only?: (killTsdOf: (killMp: number) => number) => Candidate | null,
+  only?: (killTsdOf: (killMp: number) => number) => readonly Candidate[],
 ): Plan {
   const { view, cardPool, standing, tunables } = context;
   const beliefs = computeBeliefs(view, cardPool);
@@ -318,16 +322,15 @@ function planFor(
   const killTsdOf = (killMp: number): number =>
     (killMp > 0 ? standing.tsdAfter({}, { kill: killMp }) - standing.tsd : 0);
 
-  const single = only ? only(killTsdOf) : null;
   const candidates = only
-    ? (single ? [single] : [])
+    ? only(killTsdOf)
     : candidatesFor(
       context, company, killTsdOf, boost ?? boostInPlay(context.view, context.cardPool) ?? undefined,
     );
   const limit = exposure.hazardLimit(company.id);
   const played = (view.phaseState as unknown as { hazardsPlayedThisCompany?: number })
     .hazardsPlayedThisCompany ?? 0;
-  const slots = only ? 1 : Math.max(0, (limit ?? 0) - played - reserved);
+  const slots = only ? candidates.length : Math.max(0, (limit ?? 0) - played - reserved);
   const initialFacedRaces = facedRacesFromHistory(hazardsEncounteredThisSubPhase(view), cardPool);
   const search = planBundles(candidates, roster, cardPool, price, standing, tunables, slots, initialFacedRaces);
 
@@ -517,7 +520,7 @@ function evaluateCreatureFromDiscard(action: GameAction, context: ModuleContext)
 
   const plan = planFor(context, company, null, 0, killTsdOf => {
     const body = creature.profile.creatureBody;
-    return {
+    return [{
       instanceId: play.creatureInstanceId,
       name: creature.name,
       killMp: creature.killMp,
@@ -530,7 +533,7 @@ function evaluateCreatureFromDiscard(action: GameAction, context: ModuleContext)
         killTsd: killTsdOf(creature.killMp),
         killLabel: killLabelFor(creature.name, creature.killMp, creature.detainment),
       },
-    };
+    }];
   });
   const bundle = bestBundleStartingWith(plan.search, play.creatureInstanceId);
   if (!bundle) return null;
@@ -745,6 +748,8 @@ function evaluateHazardEvent(
     cardInstanceId: string;
     targetFactionInstanceId?: string;
     targetStoredItemInstanceId?: string;
+    targetCharacterId?: string;
+    targetSiteDefinitionId?: string;
   };
   const { view, cardPool, standing, tunables } = context;
   const card = view.self.hand.find(c => (c.instanceId as string) === record.cardInstanceId);
@@ -754,8 +759,14 @@ function evaluateHazardEvent(
   } | undefined;
   const name = def?.name ?? (card.definitionId as string);
 
+  const tidings = duplicatedAutoAttacks(action, context, company, cardPool[card.definitionId]);
+  if (tidings) return tidings;
+
   const gain = boostGain(cardPool[card.definitionId], card.definitionId as string, context, company)
     ?? removalGain(record, context)
+    ?? corruptionHazardGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
+    ?? siteDenialGain(cardPool[card.definitionId], record.targetSiteDefinitionId, company, context)
+    ?? callOfHomeGain(cardPool[card.definitionId], record.targetCharacterId as never, context)
     ?? recoveryGain(def?.effects ?? [], tunables);
   if (!gain) return null;
 
@@ -793,6 +804,38 @@ function evaluateHazardEvent(
   });
 }
 
+/**
+ * Tidings of Bold Spies (le-143): the company faces its destination's
+ * automatic-attacks again, "duplicated exactly", and none of them counts
+ * against the hazard limit. Priced with the same sequence model as any
+ * creature, one attack per automatic-attack; the bundle charges a card per
+ * attack, so all but one of those card prices are handed back.
+ */
+function duplicatedAutoAttacks(
+  action: GameAction,
+  context: ModuleContext,
+  company: OpponentCompanyView,
+  def: CardDefinition | undefined,
+): Evaluation | null {
+  const effects = (def as unknown as { effects?: readonly { type?: string }[] } | undefined)?.effects ?? [];
+  if (!effects.some(e => e.type === 'duplicate-site-auto-attacks')) return null;
+  const destination = company.revealedDestinationSite?.definitionId as string | undefined;
+  if (!destination) return null;
+  const attacks = automaticAttacksOf(context.cardPool, destination);
+  if (attacks.length === 0) return null;
+  const ids = attacks.map((_, i) => `auto-attack-${i}`);
+  const plan = planFor(context, company, null, 0, () => attacks.map((profile, i) => ({
+    instanceId: ids[i],
+    name: `${profile.name ?? 'automatic-attack'} (duplicated)`,
+    killMp: 0,
+    profile: { ...profile, killTsd: 0, killLabel: 'an automatic-attack beaten — no kill MP' },
+  })));
+  const bundle = bestBundleStartingWith(plan.search, ids[0]);
+  if (!bundle) return null;
+  const refund = context.tunables.provisionalCardPrice * (bundle.cards.length - 1);
+  return evaluateBundle(action, plan, bundle, context, 1, `duplicate the site's automatic-attacks`, -refund);
+}
+
 /** What taking a named card out of the opponent's play is worth. */
 function removalGain(
   record: { targetFactionInstanceId?: string; targetStoredItemInstanceId?: string },
@@ -809,7 +852,9 @@ function removalGain(
   const points = printed?.marshallingPoints ?? 0;
   if (points <= 0) return null;
   const source = printed?.marshallingCategory ?? 'misc';
-  const tsd = standing.tsd - standing.tsdAfter({}, { [source]: -points });
+  // They lose the points, so our differential *rises*: after minus now. The
+  // reverse had every removal priced as a loss, so none was ever played.
+  const tsd = standing.tsdAfter({}, { [source]: -points }) - standing.tsd;
   return {
     tsd,
     reason: tsd > 0
