@@ -152,7 +152,12 @@ describe('a support event in hand', () => {
    */
   function withSupport(supportName = 'Full of Froth and Rage') {
     const scenario = loadScenario(SCENARIO);
-    const view = scenarioView(scenario);
+    const remembered = scenarioView(scenario);
+    // Pinned to the belief the regression was written against: the opponent's
+    // card memory (`revealedCards`) moves what a tap denies, which shifts both
+    // arms' quotes by more than this test's half-card tolerance for reasons
+    // unrelated to the subtraction leak it guards.
+    const view = { ...remembered, opponent: { ...remembered.opponent, revealedCards: undefined } };
     const cardPool = loadCardPool();
     const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
       (cardPool[id] as unknown as { name?: string }).name === name)!;

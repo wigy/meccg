@@ -129,6 +129,17 @@ export interface OpponentView {
   readonly killPile: readonly ViewCard[];
   /** The opponent's out-of-play pile: eliminated cards and items stored at sites (public information). */
   readonly outOfPlayPile: readonly ViewCard[];
+  /**
+   * Every card of the opponent's whose identity has been public at some
+   * point this game — the engine's `revealedInstances` restricted to cards
+   * the opponent owns. A played hazard or short event sinks face down into a
+   * discard pile the view redacts, but a player at the table saw it and
+   * remembers; this is that memory. Includes what is still visible (cards in
+   * play, characters, kill pile), so it is the whole public record of the
+   * opponent's deck, not only what has left view. Optional for views built
+   * outside the projection (tests, stubs).
+   */
+  readonly revealedCards?: readonly ViewCard[];
   /** Cards in the opponent's sideboard (hidden — each has `UNKNOWN_CARD` definition, use `.length` for count). */
   readonly sideboard: readonly ViewCard[];
   /** The opponent's companies with destination information redacted. */

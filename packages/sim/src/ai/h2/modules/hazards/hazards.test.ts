@@ -223,7 +223,12 @@ describe('bundles', () => {
 describe('detainment attacks (CoE §3.II)', () => {
   /** The scenario roster, denial pricer and a free-card tunable set. */
   function bench() {
-    const { view, cardPool, standing } = position();
+    const { view: remembered, cardPool, standing } = position();
+    // These two tests are about the planner's sequencing of a detainment
+    // attack, measured against a fixed belief. The opponent's card memory
+    // (`revealedCards`) sharpens that belief and moves the absolute numbers —
+    // how much a tap denies — so it is left out to keep the test on its subject.
+    const view = { ...remembered, opponent: { ...remembered.opponent, revealedCards: undefined } };
     const company = view.opponent.companies[0];
     const beliefs = computeBeliefs(view, cardPool);
     const context = denialContext(view, company, beliefs, standing, DEFAULT_TUNABLES);

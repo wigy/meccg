@@ -32,7 +32,7 @@ import type {
   DraftPlayerState,
   CharacterDeckDraftPlayerState,
 } from '@meccg/shared';
-import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, PALLANDO, THE_GREAT_HUNT } from '@meccg/shared';
+import { UNKNOWN_CARD, UNKNOWN_SITE, getPlayerIndex, Phase, effectiveGeneralInfluence, ownerOf, PALLANDO, THE_GREAT_HUNT } from '@meccg/shared';
 import { computeLegalActions, stampActionIds } from '@meccg/shared';
 import type { EvaluatedAction } from '@meccg/shared';
 
@@ -270,6 +270,11 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     sideboard: hiddenCardPile(player.sideboard),
     companies,
     agents,
+    revealedCards: Object.entries(state.revealedInstances)
+      .filter(([instanceId]) => ownerOf(instanceId as CardInstanceId) === player.id)
+      .map(([instanceId, definitionId]) => ({
+        instanceId: instanceId as CardInstanceId, definitionId,
+      })),
   };
 }
 

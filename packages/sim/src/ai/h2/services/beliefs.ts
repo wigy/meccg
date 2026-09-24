@@ -54,6 +54,14 @@ export interface Beliefs {
   holdsAtLeastOne(kind: CardKind): number;
   /** How much of the estimate is evidence rather than prior, in [0, 1]. */
   readonly confidence: number;
+  /**
+   * The opponent's cards seen so far this game, by definition, with how many
+   * copies. A deck repeats its cards by theme — the same creatures keyed to the
+   * same regions, the same corruption hazards — so what they have played is the
+   * best evidence of what they will play. Empty when the view carries no
+   * memory (see {@link PlayerView} `opponent.revealedCards`).
+   */
+  readonly seen: ReadonlyMap<string, number>;
 }
 
 /**
@@ -113,26 +121,36 @@ function buildComputeBeliefs(
     creature: 0, 'hazard-event': 0, corruption: 0, resource: 0, character: 0,
   };
   let observed = 0;
+  const seen = new Map<string, number>();
 
   const opponent = view.opponent;
-  const publicZones = [
-    opponent.discardPile,
-    opponent.killPile,
-    opponent.outOfPlayPile,
-    opponent.cardsInPlay,
-  ];
-  for (const zone of publicZones) {
-    for (const card of zone) {
-      const kind = kindOf(cardPool[card.definitionId]);
-      if (!kind) continue;
-      counts[kind]++;
-      observed++;
+  const tally = (definitionId: string): void => {
+    const kind = kindOf(cardPool[definitionId]);
+    if (!kind) return;
+    counts[kind]++;
+    observed++;
+    seen.set(definitionId, (seen.get(definitionId) ?? 0) + 1);
+  };
+  if (opponent.revealedCards) {
+    // The whole public record: everything they have shown this game, including
+    // what has since sunk face down into a discard pile the view redacts. The
+    // zones below miss exactly those — every hazard already played on us.
+    for (const card of opponent.revealedCards) tally(card.definitionId as string);
+  } else {
+    const publicZones = [
+      opponent.discardPile,
+      opponent.killPile,
+      opponent.outOfPlayPile,
+      opponent.cardsInPlay,
+    ];
+    for (const zone of publicZones) {
+      for (const card of zone) tally(card.definitionId as string);
     }
+    // Characters in play are public too, and a company on the board says as
+    // much about a deck as a discard pile does.
+    counts.character += Object.keys(opponent.characters).length;
+    observed += Object.keys(opponent.characters).length;
   }
-  // Characters in play are public too, and a company on the board says as much
-  // about a deck as a discard pile does.
-  counts.character += Object.keys(opponent.characters).length;
-  observed += Object.keys(opponent.characters).length;
 
   // Shrinkage: the estimate is the prior with nothing seen, and approaches the
   // observed composition as evidence accumulates.
@@ -148,6 +166,7 @@ function buildComputeBeliefs(
     observed,
     handSize,
     confidence,
+    seen,
     share,
     expectedInHand: (kind: CardKind): number => handSize * share(kind),
     holdsAtLeastOne: (kind: CardKind): number => {

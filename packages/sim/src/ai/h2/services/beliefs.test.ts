@@ -109,3 +109,27 @@ describe('what it tells a consumer', () => {
     expect(computeBeliefs(tempting, POOL).share('creature')).toBe(honest.share('creature'));
   });
 });
+
+describe('with a memory of what the opponent has shown', () => {
+  // `opponent.revealedCards` is the public record of their deck, including the
+  // hazards already played that the redacted discard pile no longer shows.
+  test('counts the remembered cards, and keeps them by definition', () => {
+    const base = viewWith([], 8);
+    const view = {
+      ...base,
+      opponent: {
+        ...base.opponent,
+        discardPile: [{ instanceId: 'd0', definitionId: 'unknown' }],
+        revealedCards: [
+          { instanceId: 'p2-1', definitionId: CREATURE },
+          { instanceId: 'p2-2', definitionId: CREATURE },
+          { instanceId: 'p2-3', definitionId: RESOURCE },
+        ],
+      },
+    } as unknown as PlayerView;
+    const beliefs = computeBeliefs(view, POOL);
+    expect(beliefs.observed).toBe(3);
+    expect(beliefs.seen.get(CREATURE)).toBe(2);
+    expect(beliefs.share('creature')).toBeGreaterThan(computeBeliefs(viewWith([], 8), POOL).share('creature'));
+  });
+});
