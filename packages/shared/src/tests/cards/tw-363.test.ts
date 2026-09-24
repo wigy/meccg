@@ -43,13 +43,13 @@ import {
   charIdAt, findCharInstanceId,
   getCharacter, attachItemToChar,
   RESOURCE_PLAYER,
-  dispatch,
+  dispatch, pool,
 } from '../test-helpers.js';
 import type {
-  CardDefinitionId, TransferItemAction, StoreItemAction,
+  CardDefinitionId, TransferItemAction, StoreItemAction, CharacterCard,
 } from '../../index.js';
-import { Phase, Alignment } from '../../index.js';
-import { recomputeDerived } from '../../engine/recompute-derived.js';
+import { Phase, Alignment, Race } from '../../index.js';
+import { recomputeDerived, computeCombatProwess } from '../../engine/recompute-derived.js';
 
 const WIZARDS_RING = 'tw-363' as CardDefinitionId;
 /** Ordinary transferable/storable major item, for contrast. */
@@ -183,6 +183,26 @@ describe('Wizard’s Ring (tw-363)', () => {
     });
 
     expect(getCharacter(state, RESOURCE_PLAYER, GANDALF).effectiveStats.prowess).toBe(8); // base 6 + 2
+  });
+
+  test('bearer\'s combat prowess (used for the pre-strike "need" and to resolve a strike) also includes the +2', () => {
+    // Regression: `computeCombatProwess` — used for the tap/untap "need to hit"
+    // shown before a strike is assigned, and to resolve the strike itself — only
+    // reads DSL `stat-modifier` effects, never the legacy structural
+    // `prowessModifier` fallback applied by `computeEffectiveStats`. A bearer's
+    // real prowess during combat silently dropped the +2 even though the
+    // character's effective stats (rule above) showed it correctly. Reported
+    // from a live game: Alatar bearing Wizard's Ring facing an Orc strike.
+    const state = buildSitePhaseState({
+      site: LORIEN,
+      characters: [{ defId: GANDALF, items: [WIZARDS_RING] }],
+    });
+
+    const gandalfId = charIdAt(state, RESOURCE_PLAYER, 0, 0);
+    const gandalfDef = pool[GANDALF as string] as CharacterCard;
+    const char = state.players[RESOURCE_PLAYER].characters[gandalfId];
+
+    expect(computeCombatProwess(state, char, gandalfDef, Race.Orc)).toBe(8); // base 6 + 2
   });
 
   // ─── Rule 5: corruption check on play ───────────────────────────────────
