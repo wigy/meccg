@@ -30,6 +30,7 @@
  * will say so with a positive utility of its own.
  */
 
+import { CardStatus } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { MpSource } from '../../core/tsd.js';
@@ -40,7 +41,7 @@ import { storeItemMpGain } from '../../../evaluators/common.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 
 /** Action types this module scores. */
-const OWNED_ACTION_TYPES = ['store-item', 'transfer-item'] as const;
+const OWNED_ACTION_TYPES = ['store-item', 'transfer-item', 'restore-character-by-effect'] as const;
 
 /** The item an action names, wherever it is attached. */
 function itemOf(
@@ -74,12 +75,62 @@ const ASSUMPTIONS: readonly string[] = [
   + 'not a preference between destinations, but the real cost of acting at all',
 ];
 
-/** The health module. No context gate: both actions are always its own. */
+/**
+ * Untapping or healing a character for free (Hall of Fire, dm-134: "may choose
+ * for one of its characters to untap or heal (from wounded to tapped)").
+ *
+ * Nobody owned the decision, so `pass` won it on the baseline's zero every
+ * time. The two choices are not worth the same, and the recorded human games
+ * split exactly along that line:
+ *
+ * - **A heal** takes a character from wounded to tapped. The untap phase at a
+ *   haven would do only that next turn (`performUntap` heals to tapped, not
+ *   untapped), so healing now saves a whole turn of being wounded: the wound's
+ *   cost, `woundTempoCost`, less the tap it still leaves.
+ * - **An untap** comes after the company's movement/hazard phase at a haven,
+ *   where little is left this turn that needs him standing, and the next untap
+ *   phase stands him up anyway. Worth nothing, and priced at exactly that, so
+ *   `pass` keeps the tie. Humans offered only untaps took one 53 times in 125.
+ */
+function evaluateRestore(action: GameAction, context: ModuleContext): Evaluation | null {
+  const characterId = (action as unknown as { characterInstanceId?: CardInstanceId }).characterInstanceId;
+  const character = characterId ? context.view.self.characters[characterId] : undefined;
+  if (!character) return null;
+  const { standing, tunables } = context;
+  const wounded = character.status === CardStatus.Inverted;
+  const gain = wounded ? Math.max(0, tunables.woundTempoCost - tunables.tapTempoCost) : 0;
+  const name = (context.cardPool[character.definitionId] as unknown as { name?: string } | undefined)?.name
+    ?? (characterId as string);
+  const label = wounded ? `heal ${name} to tapped` : `untap ${name}`;
+  return scoredEvaluation({
+    action,
+    module: 'health',
+    outcomes: [{ p: 1, label, dtsd: netTsdDelta({ realized: gain }, tunables) }],
+    standing,
+    headline: label,
+    detail: [node('restore', gain, [
+      wounded
+        ? leaf('a wound shortened by a turn', gain, {
+          unit: 'tsd',
+          tunable: 'woundTempoCost',
+          note: 'the untap phase at a haven heals only to tapped, so this is a turn sooner — less the tap it leaves',
+        })
+        : leaf('a tap given back', gain, {
+          unit: 'tsd',
+          note: 'after movement/hazard at a haven nothing needs him standing, and the untap phase stands him up anyway',
+        }),
+    ], { unit: 'tsd' })],
+    assumptions: ['the benefit is free and optional, so it is priced only by the state it improves'],
+  });
+}
+
+/** The health module. No context gate: its actions are always its own. */
 export const healthModule: H2Module = {
   name: 'health',
   ownedActionTypes: OWNED_ACTION_TYPES,
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
+    if (action.type === 'restore-character-by-effect') return evaluateRestore(action, context);
     const record = action as unknown as {
       itemInstanceId?: CardInstanceId;
       cardInstanceId?: CardInstanceId;
