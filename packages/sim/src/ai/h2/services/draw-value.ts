@@ -132,6 +132,11 @@ export interface DrawValue {
    */
   handDeficit(): number;
   /**
+   * The player's hand size: the base eight plus every `hand-size-modifier` in
+   * play. What the end-of-turn reset draws or discards the hand back to.
+   */
+  handSize(): number;
+  /**
    * Cards the rest of this movement/hazard phase will let us see if
    * `companyId` is resolved next: every still-unresolved company's site draws,
    * plus whatever of the hand deficit this one's own draws leave unclaimed.
@@ -370,6 +375,7 @@ function buildDrawValue(
     siteDraws,
 
     handDeficit,
+    handSize,
 
     phaseDrawsIfFirst(companyId: CompanyId): number {
       const rest = unresolvedCompanies()

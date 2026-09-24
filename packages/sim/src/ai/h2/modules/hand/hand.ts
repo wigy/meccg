@@ -49,6 +49,7 @@
  * thing went to Heuristics 1, which is not an opinion but the absence of one.
  */
 
+import { Phase } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import { leaf, node } from '../../core/rationale.js';
@@ -57,6 +58,7 @@ import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeHazardPlan } from '../../services/hazard-plan.js';
+import { computeDrawValue } from '../../services/draw-value.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { CARD_STEP } from '../../core/plan.js';
 
@@ -128,6 +130,39 @@ function isHazard(def: CardDefinition | undefined): boolean {
 }
 
 /**
+ * Whether an end-of-turn discard is drawn straight back.
+ *
+ * In the end-of-turn discard step (CoE 2.VI.i) a player may discard one card;
+ * the reset step after it (2.VI.ii) draws or discards to hand size. So the
+ * discard is replaced by a draw exactly when it leaves the hand below hand
+ * size and the play deck still has a card to give.
+ */
+function refillsAfterDiscard(context: ModuleContext): boolean {
+  const { view } = context;
+  const phaseState = view.phaseState as { phase: string; step?: string } | undefined;
+  if (phaseState?.phase !== Phase.EndOfTurn || phaseState.step !== 'discard') return false;
+  if (view.self.playDeck.length === 0) return false;
+  return view.self.hand.length <= computeDrawValue(view, context.cardPool, context.tunables).handSize();
+}
+
+/**
+ * What a card drawn from the play deck is worth to keep, on average.
+ *
+ * Not `resourceDrawValue`, which is pinned to the held-card floor: a drawn card
+ * is held under the same floor, so its expected worth is at least that and more
+ * whenever some cards are worth more. Pricing the refill at the floor made
+ * trading a floored card for a fresh one tie at zero, and `pass` wins ties. The
+ * hand is a sample of the same deck, so its mean held worth is the estimate the
+ * view supports.
+ */
+function expectedDrawWorth(context: ModuleContext): number {
+  const held = computeCardPrices(context.view, context.cardPool, context.standing, context.tunables).ranked();
+  if (held.length === 0) return context.tunables.resourceDrawValue;
+  const mean = held.reduce((sum, card) => sum + card.tsd, 0) / held.length;
+  return Math.max(context.tunables.resourceDrawValue, mean);
+}
+
+/**
  * The hand module. No context gate: a sideboard action is always its own.
  */
 export const handModule: H2Module = {
@@ -181,13 +216,21 @@ export const handModule: H2Module = {
       // worth on average. This is the whole point of the shadow price: the
       // module can now prefer throwing the faction it can never score over the
       // creature that would tap their company.
+      // The end-of-turn discard is a *trade*, not a loss, whenever it leaves
+      // the hand below hand size: the reset that follows draws straight back up
+      // (CoE 2.VI), so one card goes and a fresh draw arrives. Good players
+      // cycle their worst card nearly every turn — in the recorded games several
+      // did so in 60–92% of these windows. Priced as a bare loss, no discard
+      // could ever beat `pass`, and the modular AI never cycled at all.
+      const drawnBack = discarding && refillsAfterDiscard(context) ? expectedDrawWorth(context) : 0;
       const dtsd = discarding
-        ? -(discarded?.tsd ?? tunables.provisionalCardPrice)
+        ? -(discarded?.tsd ?? tunables.provisionalCardPrice) + drawnBack
         : tunables.resourceDrawValue;
       const outcomes: Outcome[] = [{
         p: 1,
         label: discarding
           ? `discard ${discarded?.name ?? 'a card'} — ${discarded?.reason ?? 'the flat price'}`
+            + (drawnBack > 0 ? '; the end-of-turn reset draws a card back in its place' : '')
           : 'draw to refill the hand',
         dtsd,
       }];
@@ -199,11 +242,19 @@ export const handModule: H2Module = {
         headline: discarding ? 'discard' : 'draw',
         detail: [
           node('hand economy', dtsd, [
-            leaf(discarding ? `${discarded?.name ?? 'card'} given up` : 'card gained', Math.abs(dtsd), {
-              unit: 'tsd',
-              tunable: discarding ? 'potentialDiscount' : 'resourceDrawValue',
-              note: discarding ? discarded?.reason : undefined,
-            }),
+            leaf(discarding ? `${discarded?.name ?? 'card'} given up` : 'card gained',
+              discarding ? (discarded?.tsd ?? tunables.provisionalCardPrice) : tunables.resourceDrawValue, {
+                unit: 'tsd',
+                tunable: discarding ? 'potentialDiscount' : 'resourceDrawValue',
+                note: discarding ? discarded?.reason : undefined,
+              }),
+            ...(drawnBack > 0
+              ? [leaf('card drawn back', drawnBack, {
+                unit: 'tsd',
+                note: 'the end-of-turn reset refills the hand; a fresh draw is worth what the average card '
+                  + 'in this hand is worth to keep, since the hand is a sample of the same deck',
+              })]
+              : []),
             leaf('hand size', view.self.hand.length),
             leaf('deck remaining', view.self.playDeck.length),
           ]),
