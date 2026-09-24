@@ -2312,10 +2312,72 @@ export function computeCombatProwess(
     ))
     : collectedAll;
 
-  if (collected.length > 0) {
-    return resolveStatModifiers(collected, 'prowess', charDef.prowess, context);
+  const base = collected.length > 0
+    ? resolveStatModifiers(collected, 'prowess', charDef.prowess, context)
+    : charDef.prowess;
+
+  // Legacy structural `prowessModifier` fallback (see the comment on the
+  // matching loop in `computeEffectiveStats`): an item like Wizard's Ring
+  // (tw-363) declares its +2 prowess only via the card's printed
+  // `prowessModifier` field, not a DSL `stat-modifier` effect, so
+  // `collectCharacterEffects` above never sees it. Without this, a bearer's
+  // prowess during an actual strike (and any "need to hit" shown before
+  // resolving it) silently drops the bonus even though the character's
+  // effective stats include it.
+  const bearerCannotUseItems = charEffects.some(
+    ce => ce.effect.type === 'play-flag' && ce.effect.flag === 'bearer-cannot-use-items',
+  );
+  const structuralBonus = structuralItemProwessBonus(state, char, charDef, ownerPlayer?.alignment, bearerCannotUseItems, weaponsIneffective);
+  return base + structuralBonus;
+}
+
+/**
+ * Sums the legacy structural `prowessModifier` of a character's active items
+ * that declare their prowess bonus that way instead of via a DSL
+ * `stat-modifier` effect (e.g. Wizard's Ring tw-363: +2 prowess printed
+ * structurally, only its +5 direct influence is DSL). Mirrors the exclusion
+ * rules `computeEffectiveStats` applies to the same structural fallback: an
+ * Orc/Troll bearer ignores a hero item's bonus (MEWH §9), a Wizard/Ringwraith
+ * player can't use a minion/hero item respectively (rule 9.20), a Ringwraith
+ * or Balrog avatar can't use any item, a `bearer-cannot-use-items` flag blocks
+ * it, an item cancelled/suppressed for this combat (Whip of Many Thongs
+ * ba-82) contributes nothing, and an item already declaring its bonus via DSL
+ * is skipped here to avoid double-counting. `weaponsIneffective` additionally
+ * drops weapon-keyworded items, matching the DSL-effect filter above.
+ */
+function structuralItemProwessBonus(
+  state: GameState,
+  char: CharacterInPlay,
+  charDef: CharacterCard,
+  bearerPlayerAlignment: Alignment | undefined,
+  bearerCannotUseItems: boolean,
+  weaponsIneffective: boolean | undefined,
+): number {
+  const bearerIsOrcOrTroll = charDef.race === Race.Orc || charDef.race === Race.Troll;
+  const bearerBlocksMinionItems = bearerPlayerAlignment === Alignment.Wizard;
+  const bearerBlocksHeroItems = bearerPlayerAlignment === Alignment.Ringwraith;
+  const bearerIsRingwraithAvatar = charDef.race === Race.Ringwraith;
+  const bearerIsBalrogAvatar = isBalrogAvatarDef(charDef);
+  const activeItems = pickActiveItemsForCharacter(state, char);
+  const suppressedWeapons = state.combat?.suppressedWeaponInstanceIds;
+
+  let bonus = 0;
+  for (const item of char.items) {
+    const itemDef = resolveDef(state, item.instanceId);
+    if (!isItemCard(itemDef)) continue;
+    if ((itemDef.effects ?? []).some(e => e.type === 'stat-modifier' && e.stat === 'prowess')) continue;
+    const weaponSuppressed = !!suppressedWeapons?.includes(item.instanceId);
+    const heroItemOnOrcTroll = bearerIsOrcOrTroll && itemDef.cardType === 'hero-resource-item';
+    const itemUnusableByAlignment = (bearerBlocksMinionItems && itemDef.cardType === 'minion-resource-item')
+      || (bearerBlocksHeroItems && itemDef.cardType === 'hero-resource-item')
+      || bearerIsRingwraithAvatar
+      || bearerCannotUseItems;
+    if (heroItemOnOrcTroll || bearerIsBalrogAvatar || itemUnusableByAlignment || weaponSuppressed) continue;
+    if (!activeItems.has(item.instanceId as string)) continue;
+    if (weaponsIneffective && (itemDef.keywords as readonly string[] | undefined)?.includes('weapon')) continue;
+    bonus += itemDef.prowessModifier;
   }
-  return charDef.prowess;
+  return bonus;
 }
 
 /**
