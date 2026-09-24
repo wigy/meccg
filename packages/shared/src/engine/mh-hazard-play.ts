@@ -1095,6 +1095,9 @@ export function handlePlayHazardCard(
       ...(action.type === 'play-hazard' && action.targetStoredPermanentEventInstanceId
         ? { targetStoredPermanentEventInstanceId: action.targetStoredPermanentEventInstanceId }
         : {}),
+      ...(action.type === 'play-hazard' && action.agentInstanceId
+        ? { agentInstanceId: action.agentInstanceId }
+        : {}),
     };
     newState = initiateOrPushChain(newState, action.player, handCard, shortEventPayload, !bypassesLimit);
 

@@ -11716,6 +11716,56 @@ target company's new site, company must return to its site of origin."
 { "type": "agent-discard-return-to-origin" }
 ```
 
+### 40c. `discard-agent-at-site`
+
+A hazard short-event that discards one of the hazard player's own agents
+matching the required `skill` at the target company's new site, forcing the
+company to return to its site of origin (CoE rule 2.IV.4). Unlike
+`agent-discard-return-to-origin` (§40b — an ability printed on the agent's
+own card, e.g. Baduila dm-2), this ability is granted by playing the hazard
+event itself: any qualifying agent may be sacrificed, not just one carrying
+its own self-ability. Always paired with a top-level `company-return-to-origin`
+effect (§56b) on the same card, which performs the actual return once this
+effect's chosen agent is discarded.
+
+| Field   | Required | Description                                                   |
+|---------|----------|-----------------------------------------------------------------|
+| `skill` | no       | Required agent skill (e.g. `"ranger"`). Omit for any agent.      |
+
+Conditions (mirroring `agent-discard-return-to-origin`):
+
+- Agent must have been in play at turn start (`inPlayAtTurnStart`).
+- Agent must not be wounded (`CardStatus.Inverted`); a tapped agent qualifies
+  — no tap is required.
+- The company must be moving to a new site this turn (a stationary company has
+  no "new site") and the agent must be at that destination site.
+- A face-down agent may be discarded too (no home-site binding is needed —
+  the discard itself reveals the card; its site-stack sites return to the
+  location deck).
+- Never playable against a minion (Ringwraith/Balrog) opponent.
+
+Unlike `tap-agent-at-site` (§40.0.1), which bypasses the chain to initiate an
+immediate M/H-phase attack, this effect resolves through the ordinary
+short-event chain (`initiateOrPushChain`) since it has no combat to start —
+the chosen agent's instance ID rides the chain payload
+(`ChainEntryPayload['short-event'].agentInstanceId`), giving the opponent the
+normal CoE 9.4/9.5 response window before the discard and return resolve.
+
+Implementation:
+
+- Legal actions: `discardAgentAtSiteActions()` in `legal-actions/movement-hazard.ts`.
+- Reducer: `applyDiscardAgentAtSite()` in `chain-reducer.ts`, dispatched on
+  chain resolution just before `applyCompanyReturnToOrigin`.
+
+Used by *Seek without Success* (dm-87): "Discard a ranger agent at target
+company's new site. Company must immediately return to its site of origin.
+Cannot be played if your opponent is a minion player."
+
+```json
+{ "type": "discard-agent-at-site", "skill": "ranger" }
+{ "type": "company-return-to-origin" }
+```
+
 ### 41. `permanent-event-auto-attack`
 
 While this hazard permanent event is in play, each site listed in `siteIds`
@@ -19988,3 +20038,59 @@ return to his hand any number of Elves and Dwarves (or Orcs and Trolls) in
 the company whose total mind equals or exceeds this result. Items played
 with these characters are also returned to opponent's hand. Cannot be
 duplicated on a given turn."
+
+### 87. `agent-attack-on-skip` + `on-guard-reveal` `company-skips-site` trigger + `skip-site-reveal-on-guard` step (Near to Hear a Whisper)
+
+Near to Hear a Whisper (as-31): "Any agent may attack a company at his site at
+the start of the site phase if the company chooses not to enter the site. May
+be revealed on-guard if the company chooses not to enter the site. Discard
+when any play deck is exhausted. Cannot be duplicated."
+
+```json
+{ "type": "agent-attack-on-skip" },
+{ "type": "on-guard-reveal", "trigger": "company-skips-site" },
+{ "type": "duplication-limit", "scope": "game", "max": 1 },
+{ "type": "on-event", "event": "play-deck-exhausted",
+  "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+```
+
+The CoE default (`handleSiteEnterOrSkip`, `reducer-site.ts`) treats a
+company's `pass` at `enter-or-skip` as the end of its site-phase slot: it
+calls `advanceSiteToNextCompany` immediately, so neither the
+`declare-agent-attack` window (CoE 2.V.iii) nor the `reveal-on-guard-attacks`
+window is ever offered when a company does nothing at its site. This card is
+an explicit exception to that skip.
+
+- **`agent-attack-on-skip`** — global rule (either player's in-play permanent
+  events). Detected by `agentAttackAllowedOnSkip` (`reducer-utils.ts`),
+  mirroring `agentAttackIsMandatory`'s scan shape (§80, Ordered to Kill).
+- **`on-guard-reveal` trigger `company-skips-site`** — this on-guard card may
+  be revealed the moment its company passes on entering its site. Detected by
+  `companySkipsSiteOnGuardCards` (`reducer-utils.ts`). Unlike the
+  `resource-play`/`resource-short-event`/`influence-attempt` triggers (which
+  intercept a deferred play via the generic `on-guard-window` pending
+  resolution), a `pass` defers nothing — so this trigger is consumed by its
+  own dedicated site step rather than that generic mechanism.
+- **`skip-site-reveal-on-guard`** (new `SiteStep`) — entered (with
+  `SitePhaseState.skippedSiteEntry: true`) instead of `advanceSiteToNextCompany`
+  whenever `agentAttackAllowedOnSkip` already holds, or the passing company
+  carries an eligible `company-skips-site` on-guard card.
+  `skipSiteRevealOnGuardActions` (`legal-actions/site.ts`) offers one
+  `reveal-on-guard` per eligible card plus `pass`; revealing moves the card
+  from `onGuardCards` straight into the hazard player's `cardsInPlay` (CoE
+  2.V.6 permanent/long-event reveal, same shape as the
+  `reveal-on-guard-attacks` step's own handling), which is what actually
+  turns on its `agent-attack-on-skip` rule if newly revealed there. On `pass`,
+  the step advances to the ordinary `declare-agent-attack` step when
+  `agent-attack-on-skip` is (now) active — reusing `declareAgentAttackActions`
+  / `handleDeclareAgentAttack` unmodified, since an agent's eligibility is
+  already keyed off the company's `currentSite`, not whether it "entered" —
+  or calls `advanceSiteToNextCompany` directly otherwise.
+- **`skippedSiteEntry` threading** — while set, `handleDeclareAgentAttack`'s
+  two `resolve-attacks` transitions set `siteEntered: false` instead of
+  `true`, and `handleSiteResolveAttacks`'s two completion points return to
+  `advanceSiteToNextCompany` instead of opening `play-resources` — a company
+  that never entered its site has no resources to play there. Reset to
+  `undefined` everywhere a fresh per-company `SitePhaseState` is built.
+
+Used by *Near to Hear a Whisper* (as-31).

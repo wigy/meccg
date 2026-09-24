@@ -301,8 +301,32 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/NeartoHearaWhisper.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Any agent may attack a company at his site at the start of the site phase if the company chooses not to enter the site. May be revealed on-guard if the company chooses not to enter the site. Discard when any play deck is exhausted. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "agent-attack-on-skip"
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "company-skips-site"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "text": "Any agent may attack a company at his site at the start of the site phase if the company chooses not to enter the site. May be revealed on-guard if the company chooses not to enter the site. Discard when any play deck is exhausted. Cannot be duplicated.",
+    "certified": "2026-09-24"
   },
   {
     "cardType": "hazard-event",
