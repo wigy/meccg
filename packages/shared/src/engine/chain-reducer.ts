@@ -3350,7 +3350,10 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
       } else if (effect.apply.type === 'win-condition-roll') {
         // Challenge the Power (ba-52): roll immediately on entering play.
         // The card is attached to the avatar (targetCharId); the roll table
-        // decides eliminate / discard / keep / win. (CoE 10.39.)
+        // decides eliminate / discard / keep / win. (CoE 10.39.) Cast from
+        // the Order (wh-15) reuses the same band table on a non-avatar
+        // Fallen-wizard target, with only discard-self/keep bands (no win
+        // condition of its own).
         if (targetCharId) {
           const rollResult = resolveWinConditionRoll(newState, {
             sourceInstanceId: card.instanceId,

@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -2441,6 +2441,35 @@ export function siteDeniesCompanyMove(
 }
 
 /**
+ * Every `fw-site-alignment-restriction` effect currently in play, game-wide —
+ * carried either by a general permanent event (`cardsInPlay`, e.g. Heart Grown
+ * Cold wh-21) or by a hazard permanent-event attached to a character
+ * (`character.hazards[]`, e.g. Cast from the Order wh-15, which is "playable on
+ * a Fallen-wizard" and so lands on its bearer rather than in `cardsInPlay`).
+ * Paired with the owning definition so callers can name the source card in logs.
+ */
+function collectInPlayFwSiteAlignmentRestrictions(
+  state: GameState,
+): { def: CardDefinition; eff: FwSiteAlignmentRestrictionEffect }[] {
+  const found: { def: CardDefinition; eff: FwSiteAlignmentRestrictionEffect }[] = [];
+  const collect = (definitionId: CardDefinitionId): void => {
+    const def = defById(state, definitionId);
+    if (!def) return;
+    for (const eff of getCardEffects(def)) {
+      if (eff.type !== 'fw-site-alignment-restriction') continue;
+      found.push({ def, eff });
+    }
+  };
+  for (const other of state.players) {
+    for (const card of other.cardsInPlay) collect(card.definitionId);
+    for (const [, char] of characterEntries(other)) {
+      for (const hazard of char.hazards) collect(hazard.definitionId);
+    }
+  }
+  return found;
+}
+
+/**
  * Whether an in-play `fw-site-alignment-restriction` bars the Fallen-wizard
  * `player` from using `siteDef` — i.e. forces him to use the *other* alignment's
  * version of that location.
@@ -2469,24 +2498,17 @@ export function fwSiteVersionForbidden(
   if (siteDef.cardType !== 'hero-site' && siteDef.cardType !== 'minion-site') return false;
 
   const ctx = { player: { alignment: player.alignment, stagePoints: player.stagePoints } };
-  for (const other of state.players) {
-    for (const card of other.cardsInPlay) {
-      const def = defById(state, card.definitionId);
-      if (!def) continue;
-      for (const eff of getCardEffects(def)) {
-        if (eff.type !== 'fw-site-alignment-restriction') continue;
-        // The barred version is the opposite of the one the card demands.
-        const barredCardType = eff.require === 'minion' ? 'hero-site' : 'minion-site';
-        if (siteDef.cardType !== barredCardType) continue;
-        if (!eff.siteTypes.includes(siteDef.siteType)) continue;
-        if (eff.when && !matchesCondition(eff.when, ctx)) {
-          logDetail(`${def.name}: ${siteDef.name} (${siteDef.siteType}) not locked for ${player.id as string} — condition not met (${player.stagePoints} stage points)`);
-          continue;
-        }
-        logDetail(`${def.name}: Fallen-wizard ${player.id as string} must use the ${eff.require} version of ${siteDef.name} — the ${siteDef.cardType} card (${siteDef.siteType}) is unusable`);
-        return true;
-      }
+  for (const { def, eff } of collectInPlayFwSiteAlignmentRestrictions(state)) {
+    // The barred version is the opposite of the one the card demands.
+    const barredCardType = eff.require === 'minion' ? 'hero-site' : 'minion-site';
+    if (siteDef.cardType !== barredCardType) continue;
+    if (!eff.siteTypes.includes(siteDef.siteType)) continue;
+    if (eff.when && !matchesCondition(eff.when, ctx)) {
+      logDetail(`${def.name}: ${siteDef.name} (${siteDef.siteType}) not locked for ${player.id as string} — condition not met (${player.stagePoints} stage points)`);
+      continue;
     }
+    logDetail(`${def.name}: Fallen-wizard ${player.id as string} must use the ${eff.require} version of ${siteDef.name} — the ${siteDef.cardType} card (${siteDef.siteType}) is unusable`);
+    return true;
   }
   return false;
 }
@@ -2517,16 +2539,9 @@ function fwCardRestrictionGoverns(
 ): boolean {
   const ctx = { player: { alignment: player.alignment, stagePoints: player.stagePoints } };
   const governed = new Set<string>();
-  for (const other of state.players) {
-    for (const card of other.cardsInPlay) {
-      const def = defById(state, card.definitionId);
-      if (!def) continue;
-      for (const eff of getCardEffects(def)) {
-        if (eff.type !== 'fw-site-alignment-restriction') continue;
-        if (eff.when && !matchesCondition(eff.when, ctx)) continue;
-        for (const siteType of eff.siteTypes) governed.add(siteType);
-      }
-    }
+  for (const { eff } of collectInPlayFwSiteAlignmentRestrictions(state)) {
+    if (eff.when && !matchesCondition(eff.when, ctx)) continue;
+    for (const siteType of eff.siteTypes) governed.add(siteType);
   }
   if (governed.size === 0) return false;
   if (governed.has(siteDef.siteType)) return true;
@@ -7586,6 +7601,9 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
  * - The Balrog avatar (an avatar character of a Balrog-alignment player).
  * - Any ally carrying a `company-overt` effect (e.g. Regiment of Black Crows,
  *   Great Bats, Great Lord of Goblin-gate, Last Child of Ungoliant).
+ * - Any hazard permanent-event attached to a member character carrying a
+ *   `company-overt` effect (e.g. Cast from the Order wh-15: "the Fallen-wizard's
+ *   company is overt").
  *
  * Ringwraith in Fell Rider mode also makes a company overt, but Fell Rider mode
  * is not yet tracked — when it is implemented, add the check here.
@@ -7617,6 +7635,15 @@ export function isCovertCompany(
       const allyDef = defById(state, ally.definitionId);
       if (!allyDef || !isAllyCard(allyDef)) continue;
       if (getCardEffects(allyDef).some(e => e.type === 'company-overt')) {
+        return false; // overt
+      }
+    }
+
+    // Check attached hazard permanent-events for company-overt effect
+    for (const hazard of charData.hazards) {
+      const hazardDef = defById(state, hazard.definitionId);
+      if (!hazardDef) continue;
+      if (getCardEffects(hazardDef).some(e => e.type === 'company-overt')) {
         return false; // overt
       }
     }
