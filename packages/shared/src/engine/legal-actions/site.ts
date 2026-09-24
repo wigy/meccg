@@ -1343,6 +1343,24 @@ export function playResourcesActions(
           continue;
         }
 
+        // A `sacrifice-of-form` effect (Sacrifice of Form tw-321) has its own
+        // narrow combat-only play window — "played after strikes are assigned"
+        // (CRF 22), before any strike of that attack resolves, and never in
+        // company-vs-company combat — enforced by `sacrificeOfFormActions`
+        // (legal-actions/combat.ts). Rule 2.1.1's "any phase" allowance for
+        // resource permanent-events is exactly the kind of "unless a rule or
+        // effect restricts them" case that provision itself carves out, so this
+        // card must never reach the generic fallback below (which would offer
+        // it unconditionally during the site phase, even with no attack in
+        // progress and no Wizard in the company).
+        const sacrificeOfForm = getCardEffects(eventDef).find(
+          (e): e is import('../../types/effects.js').SacrificeOfFormEffect => e.type === 'sacrifice-of-form',
+        );
+        if (sacrificeOfForm) {
+          logDetail(`Permanent event ${eventDef.name}: sacrifice-of-form — combat-only window, not offered during the site phase`);
+          continue;
+        }
+
         // A `recruitment-vehicle` effect (Thrall of the Voice wh-82, Open to the
         // Summons wh-46) is never playable as a bare permanent event — its card
         // text is explicit: "Instead of a normal character... bring into play

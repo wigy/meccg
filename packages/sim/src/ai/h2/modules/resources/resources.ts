@@ -29,6 +29,7 @@ import type { MpSource } from '../../core/tsd.js';
 import { netTsdDelta } from '../../core/tsd.js';
 import { leaf, node } from '../../core/rationale.js';
 import { computeCharacterValue } from '../../services/character-value.js';
+import { storedValue } from '../../services/stored-value.js';
 import { computeBudget } from '../../services/budget.js';
 import { enumerateOpportunities, opportunityPlan } from '../../services/opportunities.js';
 
@@ -39,7 +40,7 @@ const OWNED_ACTION_TYPES = ['play-hero-resource', 'play-minor-item'] as const;
 function cardOf(
   context: ModuleContext,
   action: GameAction,
-): { name: string; source: MpSource; marshallingPoints: number; corruption: number } | null {
+): { name: string; source: MpSource; marshallingPoints: number; corruption: number; def: CardDefinition } | null {
   const record = action as unknown as { cardInstanceId?: CardInstanceId; itemInstanceId?: CardInstanceId };
   const instanceId = record.cardInstanceId ?? record.itemInstanceId;
   if (!instanceId) return null;
@@ -57,6 +58,7 @@ function cardOf(
     source: (fields.marshallingCategory ?? 'misc') as MpSource,
     marshallingPoints: fields.marshallingPoints ?? 0,
     corruption: fields.corruptionPoints ?? 0,
+    def,
   };
 }
 
@@ -149,13 +151,20 @@ export const resourcesModule: H2Module = {
           .corruptionRisk(bearerId, card.corruption)
         : { tsd: 0, reason: `carries ${card.corruption} corruption, but the action names no bearer to charge it to` };
 
-    const dtsd = netTsdDelta({ realized: gain, tempo: tunables.tapTempoCost + risk.tsd }, tunables);
+    // A card worth more stored than printed carries the difference as
+    // potential: the play unlocks it, a later store banks it.
+    const stored = storedValue(card.def, standing);
+    const dtsd = netTsdDelta(
+      { realized: gain, potential: stored.potentialTsd, tempo: tunables.tapTempoCost + risk.tsd },
+      tunables,
+    );
 
     const outcomes: Outcome[] = [{
       p: 1,
-      label: card.marshallingPoints > 0
+      label: (card.marshallingPoints > 0
         ? `play ${card.name} — ${card.marshallingPoints} ${card.source} MP`
-        : `play ${card.name} — no marshalling points`,
+        : `play ${card.name} — no marshalling points`)
+        + (stored.potentialTsd > 0 ? `, ${stored.storedMp} once stored` : ''),
       dtsd,
     }];
     const scored = standing.score(outcomes);
@@ -171,6 +180,14 @@ export const resourcesModule: H2Module = {
           : 'CoE 10.3, after doubling and the diversity cap',
       }),
       leaf('gain', gain, { unit: 'tsd' }),
+      ...(stored.potentialTsd > 0
+        ? [leaf('worth once stored', stored.potentialTsd, {
+          unit: 'tsd',
+          tunable: 'potentialDiscount',
+          note: `${stored.storedMp} MP stored, over the ${card.marshallingPoints} printed — banked only by a `
+            + 'later store, so discounted as potential',
+        })]
+        : []),
       leaf('tap tempo', tunables.tapTempoCost, { unit: 'tsd', tunable: 'tapTempoCost' }),
     ];
     if (card.corruption > 0) {

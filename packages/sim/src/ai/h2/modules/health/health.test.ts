@@ -142,3 +142,33 @@ describe('what it declines', () => {
     expect(healthModule.evaluate(unknown, contextWith(BALANCED, BALANCED))).toBeNull();
   });
 });
+
+describe('a free untap or heal (Hall of Fire)', () => {
+  // Offered after a company's movement/hazard phase at a haven, optional and
+  // costless. It had no owner, so `pass` won it every time.
+  const RESTORE = {
+    type: 'restore-character-by-effect', player: 'p1', characterInstanceId: 'hero-1',
+  } as unknown as GameAction;
+  const withStatus = (status: CardStatus): ModuleContext => {
+    const base = contextWith(BALANCED, BALANCED);
+    const hero = base.view.self.characters['hero-1' as never];
+    const view = {
+      ...base.view,
+      self: { ...base.view.self, characters: { 'hero-1': { ...hero, status } } },
+    } as unknown as PlayerView;
+    return { ...base, view, standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES) };
+  };
+
+  test('heals a wounded character a turn sooner than the haven would', () => {
+    const evaluation = healthModule.evaluate(RESTORE, withStatus(CardStatus.Inverted))!;
+    expect(evaluation.expectedTsd).toBeCloseTo(
+      DEFAULT_TUNABLES.woundTempoCost - DEFAULT_TUNABLES.tapTempoCost, 9,
+    );
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('is worth nothing as an untap, which the next untap phase gives anyway', () => {
+    const evaluation = healthModule.evaluate(RESTORE, withStatus(CardStatus.Tapped))!;
+    expect(evaluation.expectedTsd).toBe(0);
+  });
+});
