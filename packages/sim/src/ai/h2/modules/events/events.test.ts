@@ -170,6 +170,7 @@ function context(): ModuleContext {
       outOfPlayPile: [],
     },
     turnNumber: 12,
+    phaseState: { phase: 'organization' },
   } as unknown as PlayerView;
   return {
     view,
@@ -288,6 +289,31 @@ describe('a card that draws straight off the deck', () => {
     ];
     const evaluation = eventsModule.evaluate(play('c-dark-tryst'), shallow)!;
     expect(JSON.stringify(evaluation.rationale)).toContain('the deck holds only that many');
+  });
+
+  test('and nothing when the hand is reset before the cards can be used', () => {
+    // Movement/hazard resets the hand to hand size after every company, and the
+    // end of turn does the same; a draw before either ends on the same eight
+    // cards. Humans in the recorded games played Dark Tryst in 1.3% of
+    // long-event windows against 14–19% in organization and the site phase.
+    const at = (phaseState: unknown): ModuleContext => {
+      const base = context();
+      (base.view.self as unknown as { playDeck: unknown[] }).playDeck =
+        Array.from({ length: 20 }, (_, i) => ({ instanceId: `d-${i}`, definitionId: 'unknown' }));
+      return { ...base, view: { ...base.view, phaseState } as unknown as PlayerView };
+    };
+    for (const phaseState of [
+      { phase: 'long-event' },
+      { phase: 'movement-hazard', step: 'play-hazards' },
+      { phase: 'end-of-turn', step: 'discard' },
+    ]) {
+      const evaluation = eventsModule.evaluate(play('c-dark-tryst'), at(phaseState))!;
+      expect(evaluation.expectedTsd).toBeLessThan(0);
+      expect(JSON.stringify(evaluation.rationale)).toContain('reset to hand size');
+    }
+    // After the end-of-turn reset the three cards are kept into the next turn.
+    const after = eventsModule.evaluate(play('c-dark-tryst'), at({ phase: 'end-of-turn', step: 'signal-end' }))!;
+    expect(after.expectedTsd).toBeGreaterThan(0);
   });
 });
 
