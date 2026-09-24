@@ -2419,7 +2419,7 @@ export interface RollBand {
 }
 
 /** Dynamic roll modifiers summed into a {@link WinConditionRollAction} 2d6 total. */
-export type RollModifier = 'sages-in-company' | 'copies-in-play' | 'other-copies-in-play';
+export type RollModifier = 'sages-in-company' | 'copies-in-play' | 'other-copies-in-play' | 'stage-points';
 
 /**
  * Common base for every discriminated {@link TriggeredAction} member. Mirrors
