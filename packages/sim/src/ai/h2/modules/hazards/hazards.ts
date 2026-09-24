@@ -85,7 +85,7 @@ import type { AttackProfile } from '../../services/strike/sequence.js';
 import { attackerChoosesDefenders } from '../../services/strike/ability.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { corruptionHazardGain } from './corruption-hazard.js';
-import { callOfHomeGain, siteDenialGain } from './event-families.js';
+import { callOfHomeGain, influencePenaltyGain, siteDenialGain } from './event-families.js';
 import { automaticAttacksOf } from '../../services/defence.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
@@ -863,6 +863,7 @@ function evaluateHazardEvent(
     ?? corruptionHazardGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
     ?? siteDenialGain(cardPool[card.definitionId], record.targetSiteDefinitionId, company, context)
     ?? callOfHomeGain(cardPool[card.definitionId], record.targetCharacterId as never, context)
+    ?? influencePenaltyGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
     ?? recoveryGain(def?.effects ?? [], tunables);
   if (!gain) return null;
 
