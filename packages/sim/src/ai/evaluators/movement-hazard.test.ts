@@ -113,7 +113,20 @@ const WANDERING_ELDAR: CardDefinition = {
   effects: [{ type: 'combat-detainment', when: { 'defender.alignment': 'hero' } }],
 } as unknown as CardDefinition;
 
+// Hauberk of Bright Mail (tw-254): a major armor item, used to score a
+// returned character's item-transfer choice (Call of Home / Pilfer Anything
+// Unwatched).
+const HAUBERK_OF_BRIGHT_MAIL: CardDefinition = {
+  cardType: 'hero-resource-item',
+  id: 'tw-254',
+  name: 'Hauberk of Bright Mail',
+  subtype: 'major',
+  marshallingPoints: 2,
+  corruptionPoints: 1,
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
+  'tw-254': HAUBERK_OF_BRIGHT_MAIL,
   'as-30': FULL_OF_FROTH_AND_RAGE,
   'td-42': LESSER_SPIDERS,
   'dm-111': STIRRING_BONES,
@@ -589,5 +602,72 @@ describe('movementHazardEvaluator support-corruption-check tap-in-support weight
   test('falls back to a flat weight when the paired roll action is not offered', () => {
     const context = { ...makeContext([]), legalActions: [supportCorruptionCheck('scout', 'balin')] };
     expect(movementHazardEvaluator.score(supportCorruptionCheck('scout', 'balin'), context)).toBe(3);
+  });
+});
+
+function transferReturnedItem(itemInstanceId?: string, targetCharacterId?: string): GameAction {
+  return { type: 'transfer-returned-item', player: 'p2', itemInstanceId, targetCharacterId } as unknown as GameAction;
+}
+
+describe('movementHazardEvaluator transfer-returned-item weighting', () => {
+  // Bug report: Call of Home was played on Sam Gamgee, and the returned
+  // character's item (Hauberk of Bright Mail) could have been transferred to
+  // any of four untapped company-mates for free, but the AI declined the
+  // transfer for no reason — "decline" and every "transfer to X" option
+  // shared the same default weight, making the outcome a coin flip
+  // regardless of the item's value or how much corruption headroom the
+  // mates had left.
+  test('prefers transferring a valuable item to a low-corruption mate over declining', () => {
+    const context = {
+      ...makeContext([]),
+      view: {
+        self: {
+          hand: [],
+          characters: {
+            'p2-102': { effectiveStats: { body: 9, corruptionPoints: 3 } },
+          },
+          cardsInPlay: [],
+          discardPile: [{ instanceId: 'p2-5', definitionId: 'tw-254' }],
+        },
+        opponent: { companies: [], characters: {}, cardsInPlay: [] },
+      } as unknown as PlayerView,
+    };
+    const decline = movementHazardEvaluator.score(transferReturnedItem(), context);
+    const transfer = movementHazardEvaluator.score(transferReturnedItem('p2-5', 'p2-102'), context);
+    expect(transfer).not.toBeNull();
+    expect(transfer as number).toBeGreaterThan(decline as number);
+  });
+
+  test('discounts the transfer score as the mate has less corruption headroom left', () => {
+    const context = {
+      ...makeContext([]),
+      view: {
+        self: {
+          hand: [],
+          characters: {
+            'p2-102': { effectiveStats: { body: 9, corruptionPoints: 3 } },
+            'p2-98': { effectiveStats: { body: 6, corruptionPoints: 5 } },
+          },
+          cardsInPlay: [],
+          discardPile: [{ instanceId: 'p2-5', definitionId: 'tw-254' }],
+        },
+        opponent: { companies: [], characters: {}, cardsInPlay: [] },
+      } as unknown as PlayerView,
+    };
+    const safeMate = movementHazardEvaluator.score(transferReturnedItem('p2-5', 'p2-102'), context);
+    const riskyMate = movementHazardEvaluator.score(transferReturnedItem('p2-5', 'p2-98'), context);
+    expect(safeMate).not.toBeNull();
+    expect(safeMate as number).toBeGreaterThan(riskyMate as number);
+  });
+
+  test('falls back to the decline baseline when the item cannot be resolved', () => {
+    const context = {
+      ...makeContext([]),
+      view: {
+        self: { hand: [], characters: {}, cardsInPlay: [], discardPile: [] },
+        opponent: { companies: [], characters: {}, cardsInPlay: [] },
+      } as unknown as PlayerView,
+    };
+    expect(movementHazardEvaluator.score(transferReturnedItem('p2-5', 'p2-102'), context)).toBe(2);
   });
 });

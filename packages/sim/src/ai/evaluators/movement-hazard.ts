@@ -23,12 +23,14 @@ import {
   isCreature,
   isCorruption,
   isHazardEvent,
+  isItem,
   freeDi,
   boostsCreatureAttack,
   enablesHandCardBonus,
   discardBenefitsSelf,
   discardTargetAlreadyDeclared,
   diceSuccessPct,
+  mpValue,
 } from './common.js';
 
 /**
@@ -324,6 +326,32 @@ export const movementHazardEvaluator: ActionEvaluator = {
           return discardBenefitsSelf(view, action.discardTargetInstanceId) ? 20 : 0;
         }
         return null;
+      }
+
+      case 'transfer-returned-item': {
+        // Call of Home / Pilfer Anything Unwatched: the returned character's
+        // owner may move one of the items that would otherwise sit in the
+        // discard pile onto an untapped company-mate instead, for free. Left
+        // unscored, "decline" and every "transfer to X" option shared the
+        // same default weight, so the AI discarded a valuable item about as
+        // often as it kept it (bug report: Call of Home on Sam Gamgee — the
+        // AI declined to move Hauberk of Bright Mail onto any of four other
+        // company-mates, with no risk or tapped-character shortage forcing
+        // that choice). Keeping the item in play preserves its marshalling
+        // points and stat bonuses, at the cost of the mate inheriting its
+        // corruption points, so discount by how little headroom the mate has
+        // left under their body rating before crediting the item's value.
+        if (!action.itemInstanceId || !action.targetCharacterId) return 2;
+        const itemInst = view.self.discardPile.find(c => c.instanceId === action.itemInstanceId);
+        const itemDef = itemInst ? lookupDef(pool, itemInst.definitionId) : undefined;
+        if (!isItem(itemDef)) return 2;
+        const mate = view.self.characters[action.targetCharacterId];
+        if (!mate) return 2;
+        const projectedCorruption = mate.effectiveStats.corruptionPoints + itemDef.corruptionPoints;
+        const headroomPct = mate.effectiveStats.body > 0
+          ? Math.max(0, 1 - projectedCorruption / mate.effectiveStats.body)
+          : 1;
+        return 4 + (4 + mpValue(itemDef) * 2) * headroomPct;
       }
 
       case 'support-corruption-check': {
