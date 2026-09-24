@@ -1,21 +1,30 @@
 /**
  * @module reducer-win-conditions
  *
- * Shared resolver for the dice-roll One Ring win conditions (CoE rule 10.39):
- * A New Ringlord (wh-60, Fallen-wizard) and Challenge the Power (ba-52,
- * Balrog). Both cards are permanent events attached to the player's avatar
- * that roll 2d6 and branch on threshold *bands* into one of four outcomes:
- * eliminate the avatar, discard the card, keep it in play, or win the game.
+ * Shared resolver for the `win-condition-roll` band table (CoE rule 10.39's
+ * One Ring win rolls, plus other on-play rolls that reuse the same
+ * roll-a-band-of-outcomes shape): A New Ringlord (wh-60, Fallen-wizard),
+ * Challenge the Power (ba-52, Balrog), and Cast from the Order (wh-15,
+ * Fallen-wizard — a hazard permanent-event whose own play roll decides
+ * whether it stays attached or is discarded, with no win/eliminate band).
+ * The carrying card is a permanent event attached to a character (the
+ * player's avatar for the win-condition cards; any Fallen-wizard for wh-15)
+ * that rolls 2d6 and branches on threshold *bands* into one of several
+ * outcomes: eliminate the avatar, discard the card, keep it in play, gain
+ * marshalling points, or win the game.
  *
  * The roll is resolved synchronously (there is no support/interaction window
- * on these rolls), so the modifier — `+1 per sage in the company` and/or
- * `+1 per copy of the card in play` — is summed here and the outcome applied
- * immediately. Tests drive the roll via `GameState.cheatRollTotal`.
+ * on these rolls), so the modifier — `+1 per sage in the company`, `+1 per
+ * copy of the card in play`, and/or `+1 per stage point` — is summed here and
+ * the outcome applied immediately. Tests drive the roll via
+ * `GameState.cheatRollTotal`.
  *
- * Triggers funnel here from two places: Challenge the Power rolls when it
- * enters play (`chain-reducer.ts` `resolvePermanentEvent`); A New Ringlord
- * rolls during each of the controller's end-of-turn phases
- * (`reducer-end-of-turn.ts` scanner).
+ * Triggers funnel here from two places: a card's own `on-event:
+ * self-enters-play` rolls when it enters play (`chain-reducer.ts`
+ * `resolvePermanentEvent`, used by Challenge the Power and Cast from the
+ * Order); A New Ringlord instead rolls during each of the controller's
+ * end-of-turn phases (`reducer-end-of-turn.ts` scanner) via `on-event:
+ * owner-end-of-turn`.
  */
 
 import type { GameState, CardDefinitionId, CardInstanceId } from '../index.js';
@@ -34,6 +43,21 @@ import type { ReducerResult } from './reducer-utils.js';
 // types/effects.ts (a `win-condition-roll` is a discriminated TriggeredAction
 // member). Re-exported here so existing importers keep their path.
 export type { RollBand, RollModifier } from '../types/effects.js';
+
+/**
+ * The player index whose `characters` map holds `charId` — the character's
+ * *bearer*, as opposed to a card's *owner* (the player who played/controls
+ * it). The two coincide for the self-played win-condition cards (A New
+ * Ringlord, Challenge the Power) but differ for a hazard like Cast from the
+ * Order (wh-15), which its owner plays onto the *opponent's* Fallen-wizard.
+ * Returns -1 when no player currently has the character in play.
+ */
+function findBearerPlayerIndex(state: GameState, charId: CardInstanceId): number {
+  for (let pi = 0; pi < 2; pi++) {
+    if (state.players[pi].characters[charId]) return pi;
+  }
+  return -1;
+}
 
 /** Count untapped-or-not characters in the avatar's company with the sage skill. */
 function countSagesInCompany(state: GameState, player: PlayerState, avatarCharId: CardInstanceId): number {
@@ -74,6 +98,7 @@ function sumModifiers(
     if (m === 'sages-in-company') total += countSagesInCompany(state, player, avatarCharId);
     else if (m === 'copies-in-play') total += countCopiesInPlay(state, sourceDefId);
     else if (m === 'other-copies-in-play') total += Math.max(0, countCopiesInPlay(state, sourceDefId) - 1);
+    else if (m === 'stage-points') total += player.stagePoints;
   }
   return total;
 }
@@ -104,29 +129,41 @@ function eliminateAvatar(state: GameState, playerIndex: number, avatarCharId: Ca
   return eliminateCharacter(state, playerIndex, avatarCharId, avatar);
 }
 
-/** Move the source card (an item attached to the avatar) to the owner's discard pile. */
+/**
+ * Move the source card — attached to the target character as either a
+ * resource item (A New Ringlord, Challenge the Power, always self-attached to
+ * the card owner's own avatar) or a hazard permanent-event (Cast from the
+ * Order wh-15, which fails its own play roll and is attached to a character
+ * belonging to the *opponent* of the card's owner) — to the card owner's
+ * discard pile.
+ *
+ * The bearer is looked up independently of `ownerPlayerIndex`: for wh-15 the
+ * hazard player owns the card but the Fallen-wizard opponent bears it, so the
+ * two indices differ; for the same-player win-condition cards they coincide.
+ */
 function discardSourceFromAvatar(
   state: GameState,
-  playerIndex: number,
+  ownerPlayerIndex: number,
   avatarCharId: CardInstanceId,
   sourceInstanceId: CardInstanceId,
 ): GameState {
-  const player = state.players[playerIndex];
-  const avatar = player.characters[avatarCharId];
-  if (!avatar) return state;
-  const card = avatar.items.find(i => i.instanceId === sourceInstanceId);
+  const bearerPi = findBearerPlayerIndex(state, avatarCharId);
+  if (bearerPi < 0) return state;
+  const bearerPlayer = state.players[bearerPi];
+  const avatar = bearerPlayer.characters[avatarCharId];
+  const fromItems = avatar.items.find(i => i.instanceId === sourceInstanceId);
+  const slot: 'items' | 'hazards' = fromItems ? 'items' : 'hazards';
+  const card = fromItems ?? avatar.hazards.find(h => h.instanceId === sourceInstanceId);
   if (!card) return state;
 
   const newCharacters = {
-    ...player.characters,
-    [avatarCharId as string]: { ...avatar, items: avatar.items.filter(i => i.instanceId !== sourceInstanceId) },
+    ...bearerPlayer.characters,
+    [avatarCharId as string]: { ...avatar, [slot]: avatar[slot].filter(c => c.instanceId !== sourceInstanceId) },
   };
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-  newPlayers[playerIndex] = {
-    ...player,
-    characters: newCharacters,
-    discardPile: [...player.discardPile, toCardInstance(card)],
-  };
+  newPlayers[bearerPi] = { ...bearerPlayer, characters: newCharacters };
+  const ownerPlayer = newPlayers[ownerPlayerIndex];
+  newPlayers[ownerPlayerIndex] = { ...ownerPlayer, discardPile: [...ownerPlayer.discardPile, toCardInstance(card)] };
   return { ...state, players: newPlayers };
 }
 
@@ -151,7 +188,12 @@ export function resolveWinConditionRoll(
   const sourceDef = defById(state, sourceDefinitionId);
   const cardName = sourceDef?.name ?? (sourceDefinitionId as string);
 
-  const modifier = sumModifiers(state, player, avatarCharId, sourceDefinitionId, modifiers);
+  // Dynamic modifiers (sages in company, stage points) read off the
+  // character's *bearer* — the owner for the self-played win-condition cards,
+  // but the opponent Fallen-wizard for a hazard like Cast from the Order.
+  const bearerPi = findBearerPlayerIndex(state, avatarCharId);
+  const bearerPlayer = bearerPi >= 0 ? state.players[bearerPi] : player;
+  const modifier = sumModifiers(state, bearerPlayer, avatarCharId, sourceDefinitionId, modifiers);
   const { roll, rng, cheatRollTotal } = roll2d6(state);
   const total = roll.die1 + roll.die2 + modifier;
   const rollEffect = diceRollEffect(player.name, roll, cardName);

@@ -2416,12 +2416,19 @@ export function applyGoodwillAttemptResolution(
 /**
  * Return a character to the player's hand, discarding all attached cards.
  * Items, allies, and hazards are discarded to their respective owners'
- * discard piles. Followers fall to GI if room, otherwise are discarded.
+ * discard piles (unless `itemsToHand` redirects items — see below). Followers
+ * fall to GI if room, otherwise are discarded.
  *
- * Two callers: the `return-character-to-hand` dice-check branch (Call of Home
- * and friends) and the CoE 3.47 influence overflow, which sends a character
- * brought into play during the just-ended organization phase back to hand
- * rather than to the discard pile.
+ * Three callers: the `return-character-to-hand` dice-check branch (Call of
+ * Home and friends), the CoE 3.47 influence overflow (a character brought
+ * into play during the just-ended organization phase goes back to hand
+ * rather than to the discard pile), and the `return-to-hand-mind-threshold`
+ * pending resolution (Unhappy Blows as-42).
+ *
+ * `itemsToHand` (as-42: "Items played with these characters are also
+ * returned to opponent's hand") sends the character's items into the same
+ * hand as the character instead of the owner's discard pile — allies and
+ * hazards are unaffected, still discarded normally.
  */
 export function returnCharacterToHand(
   state: GameState,
@@ -2430,6 +2437,7 @@ export function returnCharacterToHand(
   charInPlay: import('../index.js').CharacterInPlay,
   allowItemTransfer = false,
   sourceInstanceId: import('../index.js').CardInstanceId | null = null,
+  itemsToHand = false,
 ): GameState {
   // Tookish Blood (tw-104) resource mode: a character protected this turn
   // "cannot be … returned to its owner's hand for any reason" — fizzle.
@@ -2444,11 +2452,18 @@ export function returnCharacterToHand(
   const opponent = newPlayers[opponentIndex];
   const newDiscard = [...player.discardPile];
   const newOpponentDiscard = [...opponent.discardPile];
+  const itemsToOwnerHand: import('../index.js').CardInstance[] = [];
 
-  // Discard items to owning player's discard pile
+  // Items return to the owner's hand alongside the character when itemsToHand
+  // is set (Unhappy Blows as-42); otherwise discarded as usual.
   for (const item of charInPlay.items) {
-    newDiscard.push(toCardInstance(item));
-    logDetail(`return-character-to-hand: discarding item ${item.definitionId as string} from returned character`);
+    if (itemsToHand) {
+      itemsToOwnerHand.push(toCardInstance(item));
+      logDetail(`return-character-to-hand: returning item ${item.definitionId as string} to hand with the character`);
+    } else {
+      newDiscard.push(toCardInstance(item));
+      logDetail(`return-character-to-hand: discarding item ${item.definitionId as string} from returned character`);
+    }
   }
 
   // Discard allies
@@ -2488,7 +2503,7 @@ export function returnCharacterToHand(
   });
 
   // Add character card to hand
-  const newHand = [...player.hand, toCardInstance(charInPlay)];
+  const newHand = [...player.hand, toCardInstance(charInPlay), ...itemsToOwnerHand];
 
   newPlayers[playerIndex] = {
     ...player,
@@ -5234,6 +5249,72 @@ export function applyRevealHazardsChoiceResolution(
   }
 
   return { state, error: `Pending reveal-hazards-choice requires reveal-hazard-for-snake, tap-reveal-agent-for-snake, or pass, got '${action.type}'` };
+}
+
+/**
+ * Resolve a `return-to-hand-mind-threshold` pending resolution (Unhappy
+ * Blows as-42). Two actions apply:
+ *
+ *  - `select-return-to-hand-character` — move one candidate from
+ *    `candidateInstanceIds` to `selectedInstanceIds`; repeatable, resolution
+ *    stays queued.
+ *  - `pass` — finalize: return every selected character to the company
+ *    owner's hand via {@link returnCharacterToHand} with `itemsToHand: true`
+ *    (as-42: "Items played with these characters are also returned to
+ *    opponent's hand"), then dequeue. Re-verifies the combined mind meets
+ *    the threshold (the legal-action gate already enforces this, but a
+ *    stale/forged action must not be allowed to short-circuit it).
+ */
+export function applyReturnToHandMindThresholdResolution(
+  state: GameState,
+  action: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'return-to-hand-mind-threshold') return null;
+
+  if (action.type === 'select-return-to-hand-character') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for return-to-hand-mind-threshold' };
+    }
+    const { candidateInstanceIds, selectedInstanceIds } = top.kind;
+    if (!candidateInstanceIds.includes(action.characterInstanceId)) {
+      return { state, error: `Character ${action.characterInstanceId as string} is not an eligible candidate` };
+    }
+    logDetail(`${top.kind.sourceName}: ${action.player as string} selects ${action.characterInstanceId as string} to return to hand`);
+    const newKind = {
+      ...top.kind,
+      candidateInstanceIds: candidateInstanceIds.filter(id => id !== action.characterInstanceId),
+      selectedInstanceIds: [...selectedInstanceIds, action.characterInstanceId],
+    };
+    return { state: replaceResolutionKind(state, top.id, newKind) };
+  }
+
+  if (action.type === 'pass') {
+    if (action.player !== top.actor) {
+      return { state, error: 'Wrong player for return-to-hand-mind-threshold' };
+    }
+    const { selectedInstanceIds, threshold, sourceName } = top.kind;
+    const playerIdx = getPlayerIndex(state, action.player);
+    const selectedMind = selectedInstanceIds.reduce((sum, cId) => {
+      const ch = state.players[playerIdx].characters[cId];
+      if (!ch) return sum;
+      const cDef = defById(state, ch.definitionId);
+      return sum + (ch.effectiveStats.mind ?? (cDef && isCharacterCard(cDef) ? cDef.mind : 0) ?? 0);
+    }, 0);
+    if (selectedMind < threshold) {
+      return { state, error: `${sourceName}: selected characters' combined mind ${selectedMind} does not meet threshold ${threshold}` };
+    }
+    logDetail(`${sourceName}: ${action.player as string} finalizes — returning ${selectedInstanceIds.length} character(s) to hand (combined mind ${selectedMind} ≥ ${threshold})`);
+    let newState = dequeueResolution(state, top.id);
+    for (const charId of selectedInstanceIds) {
+      const charInPlay = newState.players[playerIdx].characters[charId];
+      if (!charInPlay) continue;
+      newState = returnCharacterToHand(newState, playerIdx, charId, charInPlay, false, null, true);
+    }
+    return { state: newState };
+  }
+
+  return { state, error: `Pending return-to-hand-mind-threshold requires select-return-to-hand-character or pass, got '${action.type}'` };
 }
 
 /**
