@@ -2124,14 +2124,20 @@ export function playResourcesActions(
       }
 
       // Burglary (td-103): a successful attempt unlocks one item play with
-      // the (tapped) burgling character despite the untapped-character gate.
+      // the (tapped) burgling character despite the untapped-character gate
+      // — "an item normally playable at the site may be played with the
+      // character" (card text), so a non-minor item may only be borne by the
+      // burglar, never by another company member. CRF 22 "Burglary Attempts"
+      // additionally allows "another character may tap to play a minor
+      // item" — mirroring the generic rule 2.V.5 additional-minor-item bonus
+      // — so only minor items extend eligibility to the rest of the company.
       const burglarChar = siteState.burglaryItemUnlock
         ? company.characters
           .map(cId => player.characters[cId])
           .find(ch => ch?.instanceId === siteState.burglaryItemUnlock)
         : undefined;
       const itemEligibleCharactersUnraced = burglarChar
-        ? [...untappedCharacters, burglarChar]
+        ? (itemDef.subtype === 'minor' ? [...untappedCharacters, burglarChar] : [burglarChar])
         : untappedCharacters;
 
       // King under the Mountain (td-126): "Only Dwarves may play items at
