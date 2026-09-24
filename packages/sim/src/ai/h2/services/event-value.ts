@@ -26,6 +26,7 @@
  * nothing in the output would explain.
  */
 
+import { Phase } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, ModuleContext, Outcome, Rationale } from '../core/types.js';
 import type { MpSource } from '../core/tsd.js';
@@ -279,6 +280,28 @@ export function gainOf(
   const drawing = flatten(effects).find(e => e.type === 'draw-cards');
   if (drawing) {
     const cards = drawing.count ?? 1;
+    // …but only if the cards are still there to use. The movement/hazard
+    // phase resets the hand to hand size after every company (step 8b draws
+    // up and discards down), and so does the end of turn (CoE 2.VI.ii); no
+    // resource is played before that reset from the long-event phase, inside
+    // movement/hazard, or in the end-of-turn steps before it. A draw there
+    // ends on the same eight cards either way: it gains nothing but a look at
+    // a few more, and spends the event to get it. Humans know this — offered
+    // Dark Tryst in the recorded games, they played it in 1.3% of long-event,
+    // 5.1% of movement/hazard and 1.3% of end-of-turn discard windows, against
+    // 14–19% in organization, the site phase and after the end-of-turn reset,
+    // where the cards are kept.
+    const phaseState = context.view.phaseState as { phase: string; step?: string };
+    const resetPending = phaseState.phase === Phase.LongEvent
+      || phaseState.phase === Phase.MovementHazard
+      || (phaseState.phase === Phase.EndOfTurn && phaseState.step !== 'signal-end');
+    if (resetPending) {
+      return {
+        tsd: 0,
+        reason: `${cards} card(s) drawn, but the hand is reset to hand size before any of them `
+          + 'can be played — a look at more cards, not more cards',
+      };
+    }
     // A draw stops at deck exhaustion, and the deck is the one zone whose size
     // the view reports honestly even though its contents are hidden.
     const available = Math.min(cards, context.view.self.playDeck.length);
