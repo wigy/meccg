@@ -1500,6 +1500,40 @@ function queueFetchToDecEffects(state: GameState, entry: ChainEntry): GameState 
 }
 
 /**
+ * Applies a `discard-agent-at-site` short-event effect on chain resolution
+ * (Seek without Success dm-87): discards the hazard player's agent chosen at
+ * play time (`entry.payload.agentInstanceId`) — the discard half of CoE rule
+ * 2.IV.4. The card's paired `company-return-to-origin` effect (dispatched
+ * right after this one) performs the actual return to origin.
+ */
+function applyDiscardAgentAtSite(state: GameState, entry: ChainEntry): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  const effect = getCardEffects(def).find(e => e.type === 'discard-agent-at-site');
+  if (!effect) return state;
+
+  const agentInstanceId = entry.payload.type === 'short-event' ? entry.payload.agentInstanceId : undefined;
+  if (!agentInstanceId) return state;
+
+  const hazardIndex = getPlayerIndex(state, entry.declaredBy);
+  const hazardPlayer = state.players[hazardIndex];
+  const agentIdx = hazardPlayer.agents.findIndex(a => a.character.instanceId === agentInstanceId);
+  if (agentIdx === -1) return state;
+  const agent = hazardPlayer.agents[agentIdx];
+  const agentDef = defById(state, agent.character.definitionId);
+
+  logDetail(`${def?.name ?? 'card'}: discarding agent "${agentDef?.name ?? agentInstanceId as string}" at target company's new site (rule 2.IV.4)`);
+
+  return updatePlayer(state, hazardIndex, p => ({
+    ...p,
+    agents: p.agents.filter((_, i) => i !== agentIdx),
+    discardPile: [...p.discardPile, toCardInstance(agent.character)],
+    siteDeck: [...p.siteDeck, ...agent.siteStack],
+  }));
+}
+
+/**
  * Applies a `company-return-to-origin` short-event effect on chain resolution.
  * Forces the active movement/hazard company to keep its site of origin (CoE
  * rule 2.IV.4 mechanism, shared with `agent-discard-return-to-origin`): sets
@@ -4627,6 +4661,13 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && !entry.payload.discardTargetInstanceId) {
     current = queueFetchToDecEffects(current, entry);
+  }
+
+  // Discard-agent-at-site short events (Seek without Success dm-87): discard
+  // the hazard player's chosen agent before the paired company-return-to-origin
+  // effect (dispatched next) forces the return.
+  if (entry.payload.type === 'short-event' && !entry.negated && entry.card && entry.payload.agentInstanceId) {
+    current = applyDiscardAgentAtSite(current, entry);
   }
 
   // Short events that force the active M/H company back to its site of origin

@@ -1312,6 +1312,15 @@ export type ChainEntryPayload =
        * its owner's discard pile.
        */
       readonly targetStoredPermanentEventInstanceId?: CardInstanceId;
+      /**
+       * For a `discard-agent-at-site` short-event (Seek without Success
+       * dm-87), the hazard player's own agent instance chosen at play time to
+       * be discarded. Resolved by the chain resolver — not at play time — so
+       * the opponent gets the response window every action is owed (CoE
+       * 9.4/9.5); the card's paired `company-return-to-origin` effect then
+       * forces the company back to its site of origin.
+       */
+      readonly agentInstanceId?: CardInstanceId;
     }
   | {
       readonly type: 'creature';

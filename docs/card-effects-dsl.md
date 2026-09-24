@@ -11660,6 +11660,56 @@ target company's new site, company must return to its site of origin."
 { "type": "agent-discard-return-to-origin" }
 ```
 
+### 40c. `discard-agent-at-site`
+
+A hazard short-event that discards one of the hazard player's own agents
+matching the required `skill` at the target company's new site, forcing the
+company to return to its site of origin (CoE rule 2.IV.4). Unlike
+`agent-discard-return-to-origin` (§40b — an ability printed on the agent's
+own card, e.g. Baduila dm-2), this ability is granted by playing the hazard
+event itself: any qualifying agent may be sacrificed, not just one carrying
+its own self-ability. Always paired with a top-level `company-return-to-origin`
+effect (§56b) on the same card, which performs the actual return once this
+effect's chosen agent is discarded.
+
+| Field   | Required | Description                                                   |
+|---------|----------|-----------------------------------------------------------------|
+| `skill` | no       | Required agent skill (e.g. `"ranger"`). Omit for any agent.      |
+
+Conditions (mirroring `agent-discard-return-to-origin`):
+
+- Agent must have been in play at turn start (`inPlayAtTurnStart`).
+- Agent must not be wounded (`CardStatus.Inverted`); a tapped agent qualifies
+  — no tap is required.
+- The company must be moving to a new site this turn (a stationary company has
+  no "new site") and the agent must be at that destination site.
+- A face-down agent may be discarded too (no home-site binding is needed —
+  the discard itself reveals the card; its site-stack sites return to the
+  location deck).
+- Never playable against a minion (Ringwraith/Balrog) opponent.
+
+Unlike `tap-agent-at-site` (§40.0.1), which bypasses the chain to initiate an
+immediate M/H-phase attack, this effect resolves through the ordinary
+short-event chain (`initiateOrPushChain`) since it has no combat to start —
+the chosen agent's instance ID rides the chain payload
+(`ChainEntryPayload['short-event'].agentInstanceId`), giving the opponent the
+normal CoE 9.4/9.5 response window before the discard and return resolve.
+
+Implementation:
+
+- Legal actions: `discardAgentAtSiteActions()` in `legal-actions/movement-hazard.ts`.
+- Reducer: `applyDiscardAgentAtSite()` in `chain-reducer.ts`, dispatched on
+  chain resolution just before `applyCompanyReturnToOrigin`.
+
+Used by *Seek without Success* (dm-87): "Discard a ranger agent at target
+company's new site. Company must immediately return to its site of origin.
+Cannot be played if your opponent is a minion player."
+
+```json
+{ "type": "discard-agent-at-site", "skill": "ranger" }
+{ "type": "company-return-to-origin" }
+```
+
 ### 41. `permanent-event-auto-attack`
 
 While this hazard permanent event is in play, each site listed in `siteIds`

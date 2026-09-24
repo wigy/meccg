@@ -7,7 +7,7 @@
  */
 
 import type { GameState, PlayerId, PlayerState, GameAction, EvaluatedAction, MovementHazardPhaseState, SiteCard, CardDefinition, CardDefinitionId, CardInstanceId, CompanyId, Company, CharacterCard, AgentInPlay, CreatureCard, CreatureKeyingMatch, PlayHazardAction, PlaceOnGuardAction, PlayConditionEffect, CreatureRaceChoiceEffect, PlayAgentHazardAction, RevealAgentAction, AgentMoveAction, AgentMoveBackAction, AgentReturnHomeAction, AgentHealAction, AgentUntapAction, AgentTurnFaceDownAction, AgentKeyCreaturesAction, AgentInfluenceAttemptAction, AgentTapAttackAction, AgentDiscardReturnToOriginAction } from '../../index.js';
-import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect } from '../../types/effects.js';
+import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffect, AgentDiscardReturnToOriginEffect, DiscardAgentAtSiteEffect, HazardLimitSwapEffect, DiscardForHazardLimitEffect, ForceDiscardTargetItemEffect, TargetCharacterStatModifierEffect, GrantCreatureKeyingEffect, AllyTapExtraMHPhaseEffect, CharacterTapExtraMHPhaseEffect, ActsAsSiteEffect } from '../../types/effects.js';
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
@@ -3925,6 +3925,19 @@ function playHazardsActions(
           continue;
         }
 
+        // Discard-agent-at-site (Seek without Success dm-87): discards a
+        // skill-matching agent at the company's new site to force the
+        // company back to its site of origin (CoE rule 2.IV.4). The actual
+        // return is performed by the card's paired `company-return-to-origin`
+        // effect once the chain resolves.
+        const discardAgentEffect = def.effects?.find(
+          (e): e is DiscardAgentAtSiteEffect => e.type === 'discard-agent-at-site',
+        );
+        if (discardAgentEffect) {
+          actions.push(...discardAgentAtSiteActions(state, player, resourcePlayer, targetCompany, def, action, discardAgentEffect));
+          continue;
+        }
+
         // play-restriction: only-at-site-with-auto-attack (Tidings of Bold Spies)
         // Card text: "Playable on a company moving to a site with an automatic-attack."
         // The company must be moving (destinationSite !== null) AND the destination
@@ -6032,6 +6045,78 @@ function tapAgentAtSiteActions(
     }
   }
   return expanded;
+}
+
+/**
+ * Generate `play-hazard` actions for a `discard-agent-at-site` short-event
+ * (Seek without Success dm-87): discards one of the hazard player's agents
+ * matching the required skill at the target company's new site, which forces
+ * the company back to its site of origin via the card's paired
+ * `company-return-to-origin` effect (CoE rule 2.IV.4). Modeled on
+ * {@link tapAgentAtSiteActions}, but simpler: discarding doesn't require the
+ * agent to be untapped, and a face-down agent needs no home-site reveal (the
+ * discard itself reveals its identity).
+ *
+ * Conditions mirror `agent-discard-return-to-origin` (Baduila dm-2): the
+ * agent must have been in play at turn start and must not be wounded — a
+ * tapped agent still qualifies.
+ */
+function discardAgentAtSiteActions(
+  state: GameState,
+  player: PlayerState,
+  resourcePlayer: PlayerState,
+  targetCompany: Company,
+  def: CardDefinition,
+  action: PlayHazardAction,
+  discardAgentEffect: DiscardAgentAtSiteEffect,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  // Cannot play against a minion (Ringwraith/Balrog) player.
+  if (isMinionOrBalrog(resourcePlayer)) {
+    logDetail(`Hazard event "${def.name}" not playable — opponent is a minion player`);
+    actions.push({ action, viable: false, reason: 'Cannot be played against a minion player' });
+    return actions;
+  }
+
+  // "Target company's new site": the company must be moving to a new site.
+  if (!targetCompany.destinationSite) {
+    logDetail(`Hazard event "${def.name}" not playable — company is not moving to a new site`);
+    actions.push({ action, viable: false, reason: 'Company is not moving to a new site' });
+    return actions;
+  }
+  const destSiteDefId = resolveInstanceId(state, targetCompany.destinationSite.instanceId);
+  const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
+  const destSiteName = destSiteDef && isSiteCard(destSiteDef) ? destSiteDef.name : undefined;
+  if (!destSiteName) {
+    logDetail(`Hazard event "${def.name}" not playable — cannot resolve destination site`);
+    actions.push({ action, viable: false, reason: 'No target site for agent discard' });
+    return actions;
+  }
+
+  let foundAgent = false;
+  for (const agent of player.agents) {
+    if (!agent.inPlayAtTurnStart) continue;
+    if (agent.character.status === CardStatus.Inverted) continue; // wounded
+
+    const agentDef = defById(state, agent.character.definitionId);
+    if (!agentDef || !isCharacterCard(agentDef)) continue;
+
+    if (discardAgentEffect.skill && !agentDef.skills.includes(discardAgentEffect.skill as Skill)) continue;
+    if (agentCurrentSiteName(state, agent, agentDef) !== destSiteName) continue;
+
+    foundAgent = true;
+    logDetail(`Hazard event "${def.name}": can discard agent ${agentDef.name} at "${destSiteName}" — forces company to return to its site of origin`);
+    actions.push({
+      action: { ...action, agentInstanceId: agent.character.instanceId },
+      viable: true,
+    });
+  }
+
+  if (!foundAgent) {
+    logDetail(`Hazard event "${def.name}" not playable — no matching agent at company's new site`);
+    actions.push({ action, viable: false, reason: 'No matching agent at company\'s new site' });
+  }
+  return actions;
 }
 
 /**
