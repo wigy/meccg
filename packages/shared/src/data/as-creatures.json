@@ -304,7 +304,72 @@
     "killMarshallingPoints": 2,
     "starredKillMarshallingPoints": true,
     "race": "elf",
-    "keyedTo": []
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Lindon",
+          "Rhudaur",
+          "Wold & Foothills",
+          "Anfalas"
+        ]
+      },
+      {
+        "siteInRegionNames": [
+          "Lindon",
+          "Rhudaur",
+          "Wold & Foothills",
+          "Anfalas"
+        ],
+        "when": {
+          "destinationSite.siteType": {
+            "$ne": "haven"
+          }
+        }
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": -2,
+        "when": {
+          "defender.alignment": "hero"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "character-wounded-by-self",
+        "target": "wounded-character",
+        "apply": {
+          "type": "move",
+          "select": "filter-all",
+          "from": "items-on-wounded",
+          "to": "discard",
+          "toOwner": "defender"
+        }
+      }
+    ],
+    "certified": "2026-09-24"
   },
   {
     "cardType": "hazard-creature",
