@@ -35,6 +35,7 @@ import type { Reach } from './reach.js';
 import { computeReach } from './reach.js';
 import { rosterOf } from './strike/prowess.js';
 import { resourcePlayableAt } from '../../evaluators/common.js';
+import { companyMayPlay } from './named-target.js';
 
 /** Site card types across every alignment — the site deck holds only these. */
 const SITE_CARD_TYPES = new Set([
@@ -294,6 +295,10 @@ function buildEnumerateOpportunities(
         if (!siteDef || !isSiteDefinition(siteDef)) continue;
         // Playability is the engine's own rule, reused rather than restated.
         if (!resourcePlayableAt(def, siteDef as never, view.self.alignment)) continue;
+        // …and it names the site, not the player: a card restricted to one
+        // character, or needing a card to discard, is no goal for a company
+        // without them.
+        if (!companyMayPlay(def, company.characters, company.id, view, cardPool)) continue;
 
         // A goal worth less than the trip is not a goal: the filter that
         // already dropped points capped to zero also drops the ones the
@@ -408,6 +413,8 @@ function buildEnumerateGoalCandidates(
       const siteDef = cardPool[siteDefinitionId];
       if (!siteDef || !isSiteDefinition(siteDef)) continue;
       if (!resourcePlayableAt(def, siteDef as never, view.self.alignment)) continue;
+      // A card nobody in play may play is no goal for any company.
+      if (!companyMayPlay(def, Object.keys(view.self.characters) as CardInstanceId[], null, view, cardPool)) continue;
       const attacks = automaticAttacksOf(cardPool, siteDefinitionId);
       candidates.push({
         cardInstanceId: card.instanceId,

@@ -383,3 +383,63 @@ describe('a ranking that does not discriminate', () => {
     expect(agent.chooseAction(decisionContext([PASS_A, PASS_B])).action).toBe(PASS_B);
   });
 });
+
+describe('a committed plan whose card has left the hand', () => {
+  // The portfolio commits once per turn, but a plan's card can leave the hand
+  // inside that turn — played, which is the plan succeeding. A plan with no
+  // card left must stop pricing the steps towards it: in recorded game
+  // mudqquu2-ant7t3 the agent wanted to enter Minas Tirith for a Return of the
+  // King played three decisions earlier.
+  const CARD = 'card-1';
+  const PLANNER: H2Module = {
+    name: 'planner',
+    ownedActionTypes: ['pass'],
+    evaluate(action): Evaluation {
+      return {
+        action,
+        module: 'planner',
+        outcomes: [{ p: 1, label: 'nothing now', dtsd: 0 }],
+        expectedTsd: 0,
+        sigmaTsd: 0,
+        utility: 0,
+        method: 'integrated',
+        rationale: leaf('nothing now', 0, { unit: 'tsd' }),
+        assumptions: ['stub module'],
+      };
+    },
+    proposePlans() {
+      return [{
+        id: 'play-card-1',
+        module: 'planner',
+        goal: { label: 'play the card', source: 'item', mp: 2, cardInstanceId: CARD as never },
+        payoffTsd: 4,
+        deadline: 99,
+        requirements: [],
+        steps: [{ label: 'get there', p: 0.2, owner: 'planner', tag: 'route' }],
+      }];
+    },
+    // PASS_B is the step towards the plan; PASS_A leaves it where it was.
+    planStepDelta(action) {
+      return action === PASS_B ? 1 : null;
+    },
+  };
+
+  const decide = (agent: ReturnType<typeof createHeuristic2Agent>, hand: readonly string[]): GameAction => {
+    const view = testStandingView({ character: 4 }, { character: 4 }, 12);
+    const withHand = {
+      ...view,
+      self: { ...view.self, hand: hand.map(id => ({ instanceId: id, definitionId: 'tw-1' })) },
+    };
+    return agent.chooseAction({
+      view: withHand, cardPool: {}, legalActions: [PASS_A, PASS_B], evaluated: [], random: () => 0,
+    } as unknown as AgentContext).action;
+  };
+
+  test('credits the step while the card is held, and nothing once it is gone', () => {
+    const agent = createHeuristic2Agent({ available: [PLANNER], model: testWinProbModel() });
+    agent.startGame?.();
+    expect(decide(agent, [CARD])).toBe(PASS_B);
+    // Same turn, so the same commitment — but the card has been played.
+    expect(decide(agent, [])).toBe(PASS_A);
+  });
+});
