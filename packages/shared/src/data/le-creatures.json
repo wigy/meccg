@@ -1114,9 +1114,62 @@
     "body": 6,
     "killMarshallingPoints": 2,
     "race": "dunadan",
-    "keyedTo": [],
-    "effects": [],
-    "text": "Dúnedain. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Ithilien, Dagorlad, Harondor, Mouths of the Anduin, and Brown Lands; and may also be played at sites in these regions. May not be played against a company containing a character with Henneth Annûn as a home site."
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Ithilien",
+          "Dagorlad",
+          "Harondor",
+          "Mouths of the Anduin",
+          "Brown Lands"
+        ]
+      },
+      {
+        "siteInRegionNames": [
+          "Ithilien",
+          "Dagorlad",
+          "Harondor",
+          "Mouths of the Anduin",
+          "Brown Lands"
+        ]
+      }
+    ],
+    "effects": [
+      {
+        "type": "combat-one-strike-per-character"
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": {
+          "$not": {
+            "company.homeSites": "Henneth Annûn"
+          }
+        }
+      }
+    ],
+    "text": "Dúnedain. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Ithilien, Dagorlad, Harondor, Mouths of the Anduin, and Brown Lands; and may also be played at sites in these regions. May not be played against a company containing a character with Henneth Annûn as a home site.",
+    "certified": "2026-09-24"
   },
   {
     "cardType": "hazard-creature",
