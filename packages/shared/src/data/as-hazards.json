@@ -301,8 +301,32 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/NeartoHearaWhisper.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Any agent may attack a company at his site at the start of the site phase if the company chooses not to enter the site. May be revealed on-guard if the company chooses not to enter the site. Discard when any play deck is exhausted. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "agent-attack-on-skip"
+      },
+      {
+        "type": "on-guard-reveal",
+        "trigger": "company-skips-site"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "text": "Any agent may attack a company at his site at the start of the site phase if the company chooses not to enter the site. May be revealed on-guard if the company chooses not to enter the site. Discard when any play deck is exhausted. Cannot be duplicated.",
+    "certified": "2026-09-24"
   },
   {
     "cardType": "hazard-event",
@@ -433,7 +457,25 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/TroubleonAllBorders.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "faction", "filter": { "target.unique": true } },
+      {
+        "type": "ahunt-attack",
+        "regionNames": [],
+        "regionsFromAttachedFaction": true,
+        "raceFromAttachedFaction": true,
+        "detainmentMatchesAttachedFactionAlignment": true,
+        "strikes": 4,
+        "prowess": 8
+      },
+      { "type": "duplication-limit", "scope": "faction", "max": 1 },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+      }
+    ],
+    "certified": "2026-09-24",
     "text": "Playable on a unique faction in play. Any company moving through the region containing a site where the faction is playable, or through any region adjacent to this one, faces an attack. The attack is the same type as the faction and has 4 strikes with 8 prowess. The attack is detainment if the company and faction are both minion or both hero. Cannot be duplicated on a given  faction. Discard when any play deck is  exhausted."
   },
   {
@@ -466,7 +508,32 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/UnhappyBlows.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "$or": [
+            { "$and": [ { "target.races": { "$includes": "dwarf" } }, { "target.races": { "$includes": "elf" } } ] },
+            { "$and": [ { "target.races": { "$includes": "orc" } }, { "target.races": { "$includes": "troll" } } ] }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "target": "target-company",
+        "apply": {
+          "type": "roll-return-mind-threshold",
+          "raceGroups": [
+            { "races": ["dwarf", "elf"], "subtract": 5 },
+            { "races": ["orc", "troll"], "subtract": 7 }
+          ]
+        }
+      },
+      { "type": "duplication-limit", "scope": "turn", "max": 1 }
+    ],
+    "certified": "2026-09-24",
     "text": "Playable on a company containing both Dwarves and Elves, or both Orcs and Trolls. Make a roll and subtract five (seven for Orcs and Trolls). If available, your opponent must choose and return to his hand any number of Elves and Dwarves (or Orcs and Trolls) in the company whose total mind equals or exceeds this result. Items played with these characters are also returned to opponent’s hand. Cannot be duplicated on a given turn."
   },
   {

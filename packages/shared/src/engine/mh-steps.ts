@@ -21,7 +21,7 @@ import type { CardInstanceId } from '../types/common.js';
 import type { ActiveConstraint } from '../types/pending.js';
 import { BASE_MAX_REGION_DISTANCE } from '../rules/definitions/movement.js';
 import { getPlayerIndex, companyContainsBalrogAvatar, isMinionOrBalrog } from '../state-utils.js';
-import { isCharacterCard, isSiteCard } from '../types/cards.js';
+import { isCharacterCard, isSiteCard, isFactionCard } from '../types/cards.js';
 import { RegionType, Race, Skill, Alignment, MovementType, CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { collectCharacterEffects, collectPlayerInPlayEffects, resolveDrawModifier } from './effects/index.js';
@@ -31,7 +31,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, companyMovesUnderDeeps, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCardNameEffectCanceled, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect } from './reducer-utils.js';
+import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, companyMovesUnderDeeps, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCardNameEffectCanceled, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect, attachedFactionDef, factionPlayableRegionsAndAdjacent } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll, collectPassiveMovementBonus } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
@@ -1278,7 +1278,20 @@ export function collectMatchingAhuntAttacks(
         const typeMatch = regionTypes.some(rt => pathTypes.includes(rt));
         const underDeepsMatch = effect.underDeepsMove === true && underDeepsMove;
 
-        if (nameMatch || typeMatch || underDeepsMatch) {
+        // Trouble on All Borders (as-40): the matched region set is not
+        // printed on the card — it is derived from the attached faction
+        // target's own playability, so it is recomputed per source card
+        // instance rather than read from `effect.regionNames`.
+        let attachedFactionMatch = false;
+        if (effect.regionsFromAttachedFaction) {
+          const factionDef = attachedFactionDef(state, card.instanceId);
+          if (factionDef) {
+            const regions = factionPlayableRegionsAndAdjacent(state, factionDef);
+            attachedFactionMatch = pathNames.some(n => regions.has(n));
+          }
+        }
+
+        if (nameMatch || typeMatch || underDeepsMatch || attachedFactionMatch) {
           results.push({ instanceId: card.instanceId, effect });
         }
       }
@@ -1354,6 +1367,19 @@ function applyAhuntGroupRewards(
 }
 
 /**
+ * True when a faction's own {@link Alignment} sits on the "minion" side
+ * (Ringwraith or Balrog) rather than the "hero" side (Wizard — hero factions
+ * carry `alignment: "wizard"`, never `"fallen-wizard"`). The faction-side
+ * counterpart of {@link isMinionOrBalrog}, which reads a *player's*
+ * alignment; used to compare a company's side against its attached faction
+ * target's side (Trouble on All Borders as-40: "detainment if the company
+ * and faction are both minion or both hero").
+ */
+function isMinionFactionAlignment(alignment: Alignment): boolean {
+  return alignment === Alignment.Ringwraith || alignment === Alignment.Balrog;
+}
+
+/**
  * Construct the {@link CombatState} for one resolved ahunt-attack effect
  * against the given moving company. Shared by {@link handleOrderEffects}
  * (CoE step 4, replaying ongoing effects already in play) and
@@ -1373,13 +1399,23 @@ function buildAhuntCombat(
   const activePlayerIndex = getPlayerIndex(state, state.activePlayer!);
   const hazardPlayerId = hazardPlayer(state).id;
 
+  // Trouble on All Borders (as-40): "the same type as the faction" / "if the
+  // company and faction are both minion or both hero" both read off the
+  // card's attached faction target rather than static effect fields.
+  const attachedFaction = effect.raceFromAttachedFaction || effect.detainmentMatchesAttachedFactionAlignment
+    ? attachedFactionDef(state, instanceId)
+    : undefined;
+  const effectiveRace = effect.raceFromAttachedFaction && attachedFaction && isFactionCard(attachedFaction)
+    ? attachedFaction.race
+    : effect.race;
+
   const inPlayNames = buildInPlayNames(state);
   const ahuntBoostCtx = { companyId: company.id };
-  const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effect.race, false, undefined, ahuntBoostCtx);
-  const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effect.race, false, ahuntBoostCtx);
+  const effectiveProwess = resolveAttackProwess(state, effect.prowess, inPlayNames, effectiveRace, false, undefined, ahuntBoostCtx);
+  const effectiveStrikes = resolveAttackStrikes(state, effect.strikes, inPlayNames, effectiveRace, false, ahuntBoostCtx);
 
   const attackerChooses = resolveAttackerChoosesDefenders(
-    state, effect.combatRules?.includes('attacker-chooses-defenders') ?? false, effect.race,
+    state, effect.combatRules?.includes('attacker-chooses-defenders') ?? false, effectiveRace,
   );
   if (attackerChooses) {
     logDetail(`Ahunt attack has attacker-chooses-defenders`);
@@ -1395,7 +1431,7 @@ function buildAhuntCombat(
     strikesTotal: effectiveStrikes,
     strikeProwess: effectiveProwess,
     creatureBody: effect.body ?? null,
-    creatureRace: effect.race,
+    creatureRace: effectiveRace,
     assignmentPhase: attackerChooses ? 'cancel-window' : 'defender',
     ...(attackerChooses ? { attackerChoosesDefenders: true } : {}),
     // Earth-tremors (dm-53): "faces an attack (cannot be canceled) … (weapons
@@ -1409,11 +1445,14 @@ function buildAhuntCombat(
     ...(effect.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     detainment: effect.detainmentAgainstMinion
       ? isMinionOrBalrog(state.players[activePlayerIndex]) && !playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
-      : isDetainmentAttack({
-        attackRace: effect.race,
-        defendingAlignment: state.players[activePlayerIndex].alignment,
-        defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
-      }),
+      : effect.detainmentMatchesAttachedFactionAlignment && attachedFaction && isFactionCard(attachedFaction)
+        ? isMinionOrBalrog(state.players[activePlayerIndex]) === isMinionFactionAlignment(attachedFaction.alignment)
+          && !playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+        : isDetainmentAttack({
+          attackRace: effectiveRace,
+          defendingAlignment: state.players[activePlayerIndex].alignment,
+          defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
+        }),
   });
 }
 
