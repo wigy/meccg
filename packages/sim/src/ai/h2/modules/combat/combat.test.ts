@@ -475,3 +475,44 @@ describe('a tie in the defender\'s assignment window', () => {
     expect(pass.utility).toBeCloseTo(assign.utility, 9);
   });
 });
+
+describe('weakening an attack before it is assigned', () => {
+  // `modify-attack` had no owner, so the defence never tapped a Black Arrow
+  // (-1 prowess and body on one attack) or played a Vanish in Sunlight! —
+  // which the human, in recorded game mu7dqqli-hsmh3m, did first against an
+  // 11-prowess troll.
+  const SCENARIO = 'combat/black-arrow-weakens-attack';
+  const isModify = (action: GameAction): boolean => action.type === 'modify-attack';
+
+  test('is priced as facing the weaker attack, less the tap', () => {
+    const evaluations = rank(SCENARIO);
+    const modify = find(evaluations, isModify);
+    expect(modify).toBeDefined();
+    const leaves = leavesOf(modify!);
+    expect(leaves.find(l => l.label === 'prowess')?.value).toBe(-1);
+    expect(leaves.find(l => l.label === 'what it costs')?.value).toBe(DEFAULT_TUNABLES.tapTempoCost);
+  });
+
+  test('is the best thing to do against the troll', () => {
+    expect(isModify(rank(SCENARIO)[0].action)).toBe(true);
+  });
+
+  test('declines a modifier shape it does not read', () => {
+    const context = contextFor(SCENARIO);
+    const modify = context.legalActions.find(isModify)!;
+    const bearer = (modify as unknown as { characterInstanceId: string }).characterInstanceId;
+    const item = context.view.self.characters[bearer as never].items
+      .find(i => i.instanceId === (modify as unknown as { cardInstanceId: string }).cardInstanceId)!;
+    const computed = {
+      ...context,
+      cardPool: {
+        ...context.cardPool,
+        [item.definitionId]: {
+          ...context.cardPool[item.definitionId],
+          effects: [{ type: 'modify-attack', cost: { tap: 'self' }, prowessModifierExpr: 'x' }],
+        },
+      },
+    } as unknown as ModuleContext;
+    expect(combatModule.evaluate(modify, computed)).toBeNull();
+  });
+});
