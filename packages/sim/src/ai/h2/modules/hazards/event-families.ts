@@ -10,7 +10,7 @@
 import { CardStatus } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, OpponentCompanyView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
-import { pAtMost } from '../../core/dice.js';
+import { pAtLeast, pAtMost } from '../../core/dice.js';
 import { computeBeliefs } from '../../services/beliefs.js';
 import { denialContext } from '../../services/denial.js';
 
@@ -19,6 +19,10 @@ interface Effect {
   readonly type?: string;
   readonly event?: string;
   readonly threshold?: number;
+  readonly check?: string | readonly string[];
+  readonly value?: unknown;
+  readonly action?: string;
+  readonly cost?: { readonly tap?: string };
   readonly apply?: {
     readonly type?: string;
     readonly constraint?: string;
@@ -126,5 +130,62 @@ export function callOfHomeGain(
     tsd,
     reason: `${(pHome * 100).toFixed(0)}% he goes back to their hand (${unused} general influence unused) — `
       + 'the tempo of playing him again, discounted as potential',
+  };
+}
+
+/**
+ * The influence roll an attempt is assumed to need, when nothing says which
+ * faction they will try: seven on 2d6, the middle of the range, where a
+ * modifier moves the odds the most.
+ */
+const TYPICAL_INFLUENCE_NEED = 7;
+
+/**
+ * Foolish Words (td-25): -4 to one character's influence, riddling and offering
+ * attempts, until he taps and rolls it off.
+ *
+ * Strong players aim it at the opponent's influencer — their avatar or a
+ * diplomat, often travelling alone. So the price is the influence it spoils,
+ * weighted by how likely this character is the one who makes the company's
+ * attempts (his share of its direct influence), at a typical need of seven on
+ * 2d6, times what a faction is worth to them at this standing — discounted as
+ * potential, because no attempt is on the table yet. And, like a Lure, the tap
+ * it costs him to shed it.
+ */
+export function influencePenaltyGain(
+  def: CardDefinition | undefined,
+  characterId: CardInstanceId | undefined,
+  company: OpponentCompanyView,
+  context: ModuleContext,
+): FamilyGain | null {
+  if (!characterId) return null;
+  const effects = (def as unknown as { effects?: readonly Effect[] } | undefined)?.effects ?? [];
+  const penalty = effects
+    .filter(e => e.type === 'check-modifier' && typeof e.value === 'number' && e.value < 0
+      && (e.check === 'influence' || (Array.isArray(e.check) && e.check.includes('influence'))))
+    .reduce((sum, e) => sum + (e.value as number), 0);
+  if (penalty >= 0) return null;
+  const { view, cardPool, standing, tunables } = context;
+  const character = view.opponent.characters[characterId];
+  if (!character) return null;
+  const influenceOf = (id: CardInstanceId): number => Math.max(0,
+    view.opponent.characters[id]?.effectiveStats.directInfluence ?? 0);
+  const total = company.characters.reduce((sum, id) => sum + influenceOf(id), 0);
+  const share = total > 0 ? influenceOf(characterId) / total : 0;
+  const spoiled = pAtLeast(TYPICAL_INFLUENCE_NEED) - pAtLeast(TYPICAL_INFLUENCE_NEED - penalty);
+  // Two faction points is the typical faction; what they are worth to them is
+  // what their gaining them would cost us.
+  const factionWorth = Math.max(0, standing.tsd - standing.tsdAfter({}, { faction: 2 }));
+  const shedTap = effects.some(e => e.type === 'grant-action' && e.action === 'remove-self-on-roll'
+    && e.cost?.tap === 'bearer') ? tunables.tapTempoCost : 0;
+  const tsd = tunables.potentialDiscount * share * spoiled * factionWorth + shedTap;
+  const name = (cardPool[character.definitionId as string] as unknown as { name?: string } | undefined)?.name
+    ?? (characterId as string);
+  return {
+    tsd,
+    reason: `${name} holds ${(share * 100).toFixed(0)}% of his company's direct influence; ${penalty} spoils `
+      + `${(spoiled * 100).toFixed(0)}% of a typical attempt, against ${factionWorth.toFixed(1)} tsd a faction `
+      + `is worth to them — discounted as potential`
+      + (shedTap > 0 ? '; and a tap in his organization phase to shed it' : ''),
   };
 }

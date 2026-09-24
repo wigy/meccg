@@ -886,3 +886,27 @@ describe('hazard events priced by family', () => {
     expect(text).toContain('untapped ranger');
   });
 });
+
+describe('Foolish Words on the company\'s influencer', () => {
+  test('is priced by the influence it spoils and the tap to shed it', () => {
+    const scenario = loadScenario('hazards/foolish-words-on-the-influencer');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = viableActions(scenario);
+    const context = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const words = legalActions.filter(a => {
+      const id = (a as unknown as { cardInstanceId?: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return a.type === 'play-hazard'
+        && (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === 'Foolish Words';
+    });
+    expect(words.length).toBeGreaterThan(0);
+    const evaluation = hazardsModule.evaluate(words[0], context)!;
+    expect(evaluation).not.toBeNull();
+    expect(evaluation.utility).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('of his company\'s direct influence');
+  });
+});
