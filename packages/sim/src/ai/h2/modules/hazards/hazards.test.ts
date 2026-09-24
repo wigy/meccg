@@ -881,3 +881,45 @@ describe('hazard events priced by family', () => {
     expect(text).toContain('untapped ranger');
   });
 });
+
+describe('a boost played ahead of its creatures', () => {
+  // Full of Froth and Rage with no Spider or Animal in hand: the planner finds
+  // nothing to improve now. What it is for is the creatures still in the deck,
+  // which the owner knows (`ownDeck`).
+  const setup = (deck: readonly string[] | undefined) => {
+    const scenario = loadScenario('hazards/boost-ahead-of-its-creatures');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = viableActions(scenario);
+    const froth = legalActions.find(a => {
+      const id = (a as unknown as { cardInstanceId?: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return a.type === 'play-hazard'
+        && (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === 'Full of Froth and Rage';
+    })!;
+    const context = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+      ownDeck: deck ? { playDeck: deck, draftPool: [] } : undefined,
+    };
+    return { froth, context };
+  };
+  const spiderId = (): string => {
+    const pool = loadCardPool();
+    return Object.keys(pool).find(id => (pool[id] as unknown as { name?: string }).name === 'Lesser Spiders')!;
+  };
+
+  test('is worth nothing without a deck list', () => {
+    const { froth, context } = setup(undefined);
+    const evaluation = hazardsModule.evaluate(froth, context)!;
+    expect(evaluation.expectedTsd).toBeLessThanOrEqual(0);
+  });
+
+  test('is worth playing when the deck still holds the creatures it boosts', () => {
+    const spiders = new Array(20).fill(spiderId());
+    const { froth, context } = setup(spiders);
+    const evaluation = hazardsModule.evaluate(froth, context)!;
+    expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('cards left in the deck are creatures it boosts');
+  });
+});
