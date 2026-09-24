@@ -8602,8 +8602,40 @@ export interface AhuntAttackEffect extends EffectBase {
    * cards such as Mordor in Arms (dm-72) whose Orc/Troll attacks list no body.
    */
   readonly body?: number;
-  /** Race of the attacking creature (e.g. "dragon"). */
-  readonly race: Race;
+  /**
+   * Race of the attacking creature (e.g. "dragon"). Optional only when
+   * {@link raceFromAttachedFaction} is set, in which case the race is read
+   * from the card's attached faction target instead of being printed here.
+   */
+  readonly race?: Race;
+  /**
+   * When `true`, `regionNames` is ignored (set to `[]` in the card data) and
+   * the matching region set is instead computed dynamically from the card's
+   * `CardInPlay.attachedTo` faction target: the region containing every site
+   * where that faction is playable, plus every region adjacent to one of
+   * those. Used by Trouble on All Borders (as-40): "Any company moving
+   * through the region containing a site where the faction is playable, or
+   * through any region adjacent to this one, faces an attack." See
+   * `factionPlayableRegionsAndAdjacent` (`reducer-utils.ts`).
+   */
+  readonly regionsFromAttachedFaction?: boolean;
+  /**
+   * When `true`, the attack's race is read from the `CardInPlay.attachedTo`
+   * faction target's own `race` field rather than a static {@link race}. Used
+   * by Trouble on All Borders (as-40): "The attack is the same type as the
+   * faction."
+   */
+  readonly raceFromAttachedFaction?: boolean;
+  /**
+   * When `true`, this ahunt attack is detainment exactly when the moving
+   * (defending) player's alignment "side" (hero: Wizard/Fallen-wizard, or
+   * minion: Ringwraith/Balrog) matches the `CardInPlay.attachedTo` faction
+   * target's own alignment side — bypassing the standard §3.II keying-based
+   * detainment derivation entirely, the same way {@link detainmentAgainstMinion}
+   * short-circuits it. Used by Trouble on All Borders (as-40): "The attack is
+   * detainment if the company and faction are both minion or both hero."
+   */
+  readonly detainmentMatchesAttachedFactionAlignment?: boolean;
   /** Combat rules that apply to the attack (e.g. "attacker-chooses-defenders"). */
   readonly combatRules?: readonly string[];
   /**

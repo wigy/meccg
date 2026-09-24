@@ -9265,9 +9265,10 @@ strikes)."
 ```
 
 `race: "special"` is used here because Rock Fall has no printed creature race
-— `AhuntAttackEffect.race` is required (it becomes `CombatState.creatureRace`,
-which the strike-resolution path needs truthy to route through
-`computeCombatProwess` rather than plain `effectiveStats.prowess`), and
+— `AhuntAttackEffect.race` must still be set whenever `raceFromAttachedFaction`
+is not (it becomes `CombatState.creatureRace`, which the strike-resolution
+path needs truthy to route through `computeCombatProwess` rather than plain
+`effectiveStats.prowess`), and
 `Race.Special` is the engine's existing "no race" bucket (Army of the Dead
 tw-193). The `weapons-ineffective` combat rule now genuinely suppresses the
 defender's own weapon prowess bonus for the strike (previously it only
@@ -9276,6 +9277,61 @@ ability, Dwarven Light-stone dm-168) — see
 `computeCombatProwess`'s `weaponsIneffective` parameter in
 `recompute-derived.ts` and `passiveModifyAttackProwessBonus` in
 `combat-strike.ts`.
+
+`regionsFromAttachedFaction` / `raceFromAttachedFaction` /
+`detainmentMatchesAttachedFactionAlignment` — a region attack whose region
+set, race, and detainment are not printed on the card at all, but derived at
+match time from a `play-target: "faction"` target chosen when the card was
+played (`CardInPlay.attachedTo`). Used by Trouble on All Borders (as-40):
+"Playable on a unique faction in play. Any company moving through the region
+containing a site where the faction is playable, or through any region
+adjacent to this one, faces an attack. The attack is the same type as the
+faction and has 4 strikes with 8 prowess. The attack is detainment if the
+company and faction are both minion or both hero." The hazard-event targets
+the *resource* player's own in-play faction (CoE 2.IV.vii.3 — hazard events
+target the opponent's entities), the opposite of Long Grievous Siege
+(ba-40)'s resource-event targeting its controller's own faction; both share
+the same generic `attachedTo` binding and `play-target: "faction"` DSL, so
+the faction-targeting legal-action branch was generalized to a permanent
+hazard-event mode (`legal-actions/movement-hazard.ts`) and `targetFactionInstanceId`
+threaded onto the hazard `permanent-event` chain payload (`mh-hazard-play.ts`).
+
+```json
+[
+  { "type": "play-target", "target": "faction", "filter": { "target.unique": true } },
+  { "type": "ahunt-attack", "regionNames": [],
+    "regionsFromAttachedFaction": true, "raceFromAttachedFaction": true,
+    "detainmentMatchesAttachedFactionAlignment": true,
+    "strikes": 4, "prowess": 8 },
+  { "type": "duplication-limit", "scope": "faction", "max": 1 }
+]
+```
+
+- `regionsFromAttachedFaction` — `regionNames` is set to `[]` and ignored;
+  `collectMatchingAhuntAttacks` (`mh-steps.ts`) instead calls
+  `attachedFactionDef` (`reducer-utils.ts`, searches *both* players'
+  `cardsInPlay` for the source card and then its `attachedTo` target — a
+  hazard card's faction target lives in the opponent's play area, not its
+  own) and, when resolved, `factionPlayableRegionsAndAdjacent` (the region
+  half of `factionSiegeEligibleSites`, extracted so both cards share it): the
+  region of every site where the target faction is playable, plus every
+  region adjacent to one of those. The moving company's path is matched
+  against that set directly (region names only — no region-type match).
+- `raceFromAttachedFaction` — `buildAhuntCombat` (`mh-steps.ts`) reads
+  `creatureRace` from the attached faction definition's own `race` field
+  instead of a static `race` (which is why `AhuntAttackEffect.race` is
+  optional whenever this flag is set), and threads that resolved race into
+  the same `resolveAttackProwess`/`resolveAttackStrikes`/
+  `resolveAttackerChoosesDefenders` calls every other ahunt-attack uses, so
+  race-conditioned stat modifiers apply correctly regardless of which
+  faction was targeted.
+- `detainmentMatchesAttachedFactionAlignment` — short-circuits
+  `isDetainmentAttack` the same way `detainmentAgainstMinion` does: detainment
+  is `true` exactly when the moving (defending) player's alignment side
+  (`isMinionOrBalrog`) equals the attached faction's own alignment side
+  (`isMinionFactionAlignment`, `mh-steps.ts` — Ringwraith/Balrog factions vs.
+  Wizard-aligned hero factions), still deferring to
+  `playerConvertsDetainmentToNormal` (Alatar wh-1).
 
 ### 25a. `faction-influence-restriction`
 

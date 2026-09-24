@@ -6501,24 +6501,55 @@ export function countFactionAttachedCopies(
 }
 
 /**
- * The site card instances in `player`'s location deck that a `faction-siege`
- * event may besiege for the given target faction: sites of the effect's
- * printed `siteType` whose region is the region of some site where the faction
- * is playable, or a region adjacent thereto ("The Border-hold must be in the
- * same region or adjacent thereto as a site where the target faction is
- * playable", Long Grievous Siege ba-40). Faction playability is evaluated with
- * {@link isCardPlayableAtSiteDef} against every site definition in the pool,
- * so named-site, site-type, and region `playableAt` entries all contribute.
- * CRF: "There must be an eligible borderhold for this card to be played" — an
- * empty result makes the play illegal.
+ * The faction card definition an in-play card `sourceInstanceId` is bound to
+ * via `CardInPlay.attachedTo` (the generic faction play-target binding also
+ * used by `attached-faction-mp-bonus` and `faction-siege`). Searches *both*
+ * players' `cardsInPlay` for both the source and its target, since a hazard
+ * permanent-event's faction target belongs to its controller's opponent, not
+ * itself (Trouble on All Borders as-40 — CoE 2.IV.vii.3: hazard events target
+ * the opponent's entities), unlike the resource-event cards above which only
+ * ever bind to the controller's own faction. Returns `undefined` when the
+ * source card is not attached, its target has since left play, or the target
+ * is not actually a faction card.
  */
-export function factionSiegeEligibleSites(
+export function attachedFactionDef(
   state: GameState,
-  player: PlayerState,
+  sourceInstanceId: CardInstanceId,
+): CardDefinition | undefined {
+  let attachedTo: CardInstanceId | undefined;
+  for (const p of state.players) {
+    const card = p.cardsInPlay.find(c => c.instanceId === sourceInstanceId);
+    if (card) {
+      attachedTo = card.attachedTo;
+      break;
+    }
+  }
+  if (attachedTo === undefined) return undefined;
+  for (const p of state.players) {
+    const factionCard = p.cardsInPlay.find(c => c.instanceId === attachedTo);
+    if (!factionCard) continue;
+    const def = defById(state, factionCard.definitionId);
+    return def && isFactionCard(def) ? def : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Regions containing a site where `factionDef` is playable, plus every region
+ * adjacent to one of them ("the region containing a site where the faction is
+ * playable, or any region adjacent to this one" — the shared "besiege region"
+ * primitive behind {@link factionSiegeEligibleSites} (Long Grievous Siege
+ * ba-40, further filtered by site type) and the `ahunt-attack`
+ * `regionsFromAttachedFaction` field (Trouble on All Borders as-40, matched
+ * directly against a moving company's site path). Faction playability is
+ * evaluated with {@link isCardPlayableAtSiteDef} against every site
+ * definition in the pool, so named-site, site-type, and region `playableAt`
+ * entries all contribute.
+ */
+export function factionPlayableRegionsAndAdjacent(
+  state: GameState,
   factionDef: CardDefinition,
-  siege: FactionSiegeEffect,
-): CardInstance[] {
-  // Regions containing a site where the target faction is playable.
+): Set<string> {
   const regionSet = new Set<string>();
   for (const def of Object.values(state.cardPool)) {
     if (!isSiteCard(def) || !def.region) continue;
@@ -6532,6 +6563,26 @@ export function factionSiegeEligibleSites(
     for (const adj of rc.adjacentRegions ?? []) adjacent.add(adj);
   }
   for (const r of adjacent) regionSet.add(r);
+  return regionSet;
+}
+
+/**
+ * The site card instances in `player`'s location deck that a `faction-siege`
+ * event may besiege for the given target faction: sites of the effect's
+ * printed `siteType` whose region is the region of some site where the faction
+ * is playable, or a region adjacent thereto ("The Border-hold must be in the
+ * same region or adjacent thereto as a site where the target faction is
+ * playable", Long Grievous Siege ba-40). CRF: "There must be an eligible
+ * borderhold for this card to be played" — an empty result makes the play
+ * illegal.
+ */
+export function factionSiegeEligibleSites(
+  state: GameState,
+  player: PlayerState,
+  factionDef: CardDefinition,
+  siege: FactionSiegeEffect,
+): CardInstance[] {
+  const regionSet = factionPlayableRegionsAndAdjacent(state, factionDef);
 
   return player.siteDeck.filter(inst => {
     const def = defById(state, inst.definitionId);
