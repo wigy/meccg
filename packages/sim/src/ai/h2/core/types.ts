@@ -22,6 +22,7 @@ import type { MpDelta, MpSource } from './tsd.js';
 import type { WinProbModel } from './winprob.js';
 import type { Tunables } from './tunables.js';
 import type { Commitment, Plan, PlanStep } from './plan.js';
+import type { OwnDeckList } from '../../../types.js';
 
 /** Unit of a {@link Rationale} value, so renderers can format it correctly. */
 export type RationaleUnit =
@@ -179,6 +180,13 @@ export interface ModuleContext {
    * walk leaves no trace here.
    */
   readonly visited?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * The acting player's own deck list, when the seat knows it — see
+   * `AgentContext.ownDeck`. What is left of it to draw is public to its owner,
+   * and `services/deck-reach` turns it into where the deck can still score.
+   * Absent in corpus replay and scenarios; readers degrade to the hand alone.
+   */
+  readonly ownDeck?: OwnDeckList;
   /**
    * The committed portfolio, when the agent has one.
    *

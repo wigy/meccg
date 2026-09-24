@@ -254,6 +254,7 @@ export function createHeuristic2Agent(options: Heuristic2Options = {}): Agent {
         tunables,
         standing: computeStanding(context.view, model, tunables, options.riskOverride),
         visited: Object.fromEntries(visited),
+        ownDeck: context.ownDeck,
       };
       // Commit once per turn, then price every candidate against what is
       // committed. Re-selecting per decision would let the portfolio churn

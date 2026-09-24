@@ -30,7 +30,7 @@ import type { WeightedAction } from '@meccg/sim';
 import { loadCardPool, describeAction, buildInstanceLookup, buildCompanyNames, stripCardMarkers, setEngineConsoleLog } from '@meccg/shared';
 import { createAgentFromWeights, resolveAgent, makeActionDescriber, renderCandidateRanking } from '@meccg/sim';
 import type { Agent } from '@meccg/sim';
-import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage, buildAgentDecisionInput, safeChooseAction } from './client-common.js';
+import { parseSpawnedClientArgs, spawnedJoinPayload, logCommonServerMessage, installReconnect, parseServerMessage, buildAgentDecisionInput, safeChooseAction, spawnedOwnDeck } from './client-common.js';
 
 const clientArgs = parseSpawnedClientArgs('ai-client');
 
@@ -69,6 +69,9 @@ if (clientArgs.agentSpec) {
 
 /** Static card pool — loaded once and reused for every decision. */
 const cardPool = loadCardPool();
+
+/** This seat's own deck list, so the agent knows what is left to draw. */
+const ownDeck = spawnedOwnDeck(clientArgs);
 
 /** Random integer in [min, max] inclusive. */
 function randInt(min: number, max: number): number {
@@ -147,6 +150,7 @@ function pickAction(view: PlayerView, actions: readonly GameAction[]): GameActio
     legalActions: actions,
     evaluated: view.legalActions,
     random: Math.random,
+    ownDeck,
   });
   const header = decision.note
     ? `${decision.note} — of ${actions.length} actions:`
