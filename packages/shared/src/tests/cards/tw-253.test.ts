@@ -32,21 +32,24 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, Phase,
+  buildTestState, resetMint, Phase, reduce, makeMHState,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH,
+  ARAGORN, LEGOLAS, BILBO, FRODO, HALFLING_STRENGTH, GLAMDRING,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   CardStatus,
   handCardId, charIdAt, dispatch, resolveChain,
   expectCharStatus, expectInDiscardPile, RESOURCE_PLAYER,
 } from '../test-helpers.js';
 import type {
+  CardDefinitionId,
   CardInstanceId,
   PlayShortEventAction,
   FreeCouncilPhaseState,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
 import { addConstraint, enqueueResolution } from '../../engine/pending.js';
+
+const DRAGON_SICKNESS = 'td-18' as CardDefinitionId;
 
 describe('Halfling Strength (tw-253)', () => {
   beforeEach(() => resetMint());
@@ -477,6 +480,62 @@ describe('Halfling Strength (tw-253)', () => {
 
     const state = dispatch(stateWithCheat, checkActions[0].action);
     expect(state.activeConstraints.filter(c => c.kind.type === 'check-modifier')).toHaveLength(0);
+  });
+
+  test('corruption-check-boost is offered while a hazard forcing the check still sits unresolved on the chain (CoE 9.3.2 / CRF22 Annotation 1-2)', () => {
+    // Regression: Dragon-sickness (td-18) declares "Character makes a
+    // corruption check modified by -1" as its play-target `cost` — the check
+    // is only converted into an actual pending-resolution once the hazard's
+    // chain entry resolves (chain-reducer.ts resolveEntry). But CoE 9.3.2
+    // and CRF22 Annotation 1-2 say a dice-rolling action may be targeted by
+    // other actions declared in the SAME chain of effects that declared it,
+    // before it resolves. A player holding Halfling Strength must therefore
+    // be offered its `corruption-check-boost` option for the hobbit targeted
+    // by Dragon-sickness while that hazard is still undeclared-but-unresolved
+    // on the chain, not only after it resolves into a real pending check.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [{ defId: BILBO, items: [GLAMDRING] }] }],
+          hand: [HALFLING_STRENGTH],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [DRAGON_SICKNESS],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mhGameState = { ...base, phaseState: makeMHState() };
+    const bilboId = charIdAt(mhGameState, RESOURCE_PLAYER);
+    const hsInstance = handCardId(mhGameState, RESOURCE_PLAYER);
+    const dsCard = mhGameState.players[1].hand[0];
+
+    const viablePlays = computeLegalActions(mhGameState, PLAYER_2)
+      .filter(ea => ea.viable && ea.action.type === 'play-hazard'
+        && ea.action.cardInstanceId === dsCard.instanceId);
+    expect(viablePlays.length).toBe(1);
+
+    const playResult = reduce(mhGameState, viablePlays[0].action);
+    expect(playResult.error).toBeUndefined();
+
+    // The chain entry for Dragon-sickness has not resolved yet — there is
+    // no `corruption-check` pending resolution in state.pendingResolutions.
+    expect(playResult.state.chain).not.toBeNull();
+    expect(playResult.state.pendingResolutions.filter(r => r.kind.type === 'corruption-check')).toHaveLength(0);
+
+    const boostActions = computeLegalActions(playResult.state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction)
+      .filter(a => a.cardInstanceId === hsInstance && a.optionId === 'corruption-check-boost');
+
+    expect(boostActions).toHaveLength(1);
+    expect(boostActions[0].targetCharacterId).toBe(bilboId);
   });
 
   test('Free Council: corruption-check-boost is offered during the phase\'s own pending check window (CoE 10.3.i)', () => {
