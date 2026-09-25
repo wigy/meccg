@@ -2795,6 +2795,23 @@ h2 {
   filter: none;
 }
 
+/* Rename/export icons in deck rows stay plain, like the deck editor title's. */
+.lobby-deck-item button.deck-editor-title-edit-btn {
+  padding: 0 0.15rem;
+  background: none;
+  border: none;
+  box-shadow: none;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.lobby-deck-item button.deck-editor-title-edit-btn:hover {
+  filter: none;
+  opacity: 1;
+}
+
 .lobby-delete-btn {
   background: #c0392b !important;
 }

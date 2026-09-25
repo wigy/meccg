@@ -64,12 +64,18 @@ describe('deck list Export button', () => {
     const item = renderMyDeckItem(DECK, false) as unknown as StubEl;
     const buttons = item.all().filter(el => el.tagName === 'button');
     // The leading button is the rename pencil added by the rename-on-copy feature.
-    expect(buttons.map(b => b.textContent)).toEqual(['\u{270F}\u{FE0F}', 'Select', 'Export', 'Delete']);
+    expect(buttons.map(b => b.textContent)).toEqual(['\u{270F}\u{FE0F}', 'Select', '\u{2B07}\u{FE0F}', 'Delete']);
+  });
+
+  test('rename and export render as plain icons like the deck editor title, not text buttons', () => {
+    const item = renderMyDeckItem(DECK, false) as unknown as StubEl;
+    const icons = item.all().filter(el => el.tagName === 'button' && el.className === 'deck-editor-title-edit-btn');
+    expect(icons.map(b => b.title)).toEqual(['Rename this deck', 'Download this deck as a .meccg-json file']);
   });
 
   test('clicking Export downloads the exact FullDeck object shown in the row', () => {
     const item = renderMyDeckItem(DECK, true) as unknown as StubEl;
-    const exportBtn = item.all().find(el => el.textContent === 'Export')!;
+    const exportBtn = item.all().find(el => el.title === 'Download this deck as a .meccg-json file')!;
 
     exportBtn.dispatch('click');
 
