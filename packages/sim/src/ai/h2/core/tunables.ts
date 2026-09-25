@@ -58,6 +58,14 @@ export interface Tunables {
    * Cost in TSD of wounding a healthy character, beyond any MP it carries: it
    * is out of action until healed, fights at −2 meanwhile, and usually costs
    * the company a trip to a haven.
+   *
+   * Set by gate. The 1.5 it shipped with was the same underpricing as the old
+   * elimination cost: a wounded character is half of a dead one — it cannot
+   * play the resources the company went for, and one more strike can finish
+   * it. Paired Elo vs heuristic (with elimination at 30): 200-game screens
+   * a/b 0.5 +125, 1.5 +151, 3 +153, 6 +141, 10 +191, 15 +149, 20 +179; c/d
+   * 0.5 +149, 1.5 +121, 3 +193, 6 +193, 10 +191, 15 +166, 20 +139. Over 800
+   * games 1.5 → 10: a/b +158 → +196, c/d +153 → +176.
    */
   readonly woundTempoCost: number;
   /**
@@ -570,7 +578,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   riskCurvatureScale: 1,
   meanVarianceWinProbSlope: 0.02,
   tapTempoCost: 0.3,
-  woundTempoCost: 1.5,
+  woundTempoCost: 10,
   eliminationTempoCost: 30,
   provisionalCardPrice: 1,
   hazardCardPrice: -0.5,
