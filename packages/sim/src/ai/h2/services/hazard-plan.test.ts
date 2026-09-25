@@ -84,14 +84,19 @@ describe('what each hazard is for', () => {
   });
 });
 
+// Mechanism tests written when a hazard cost a full card to play. The rotation
+// credit that replaced it (`hazardCardPrice` < 0) makes marginal attacks worth
+// playing, which is not what these check.
+const FULL_CARD_PRICE = { ...DEFAULT_TUNABLES, hazardCardPrice: 1 };
+
 describe('the order the attacks are played in', () => {
   /** The plan for the hazard player at a captured position. */
   function planAt(id: string) {
     const scenario = loadScenario(id);
     const view = scenarioView(scenario, 'p1' as never);
     const cardPool = loadCardPool();
-    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
-    const plan = computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES);
+    const standing = computeStanding(view, testWinProbModel(), FULL_CARD_PRICE);
+    const plan = computeHazardPlan(view, cardPool, standing, FULL_CARD_PRICE);
     const orderOf = (name: string) => plan.assignments.find(a => a.name === name);
     return { plan, orderOf };
   }
@@ -175,7 +180,7 @@ describe('a support event in hand', () => {
     return {
       support: slot as unknown as { instanceId: string },
       definitionOf,
-      plan: computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES),
+      plan: computeHazardPlan(view, cardPool, standing, FULL_CARD_PRICE),
     };
   }
 
@@ -229,7 +234,7 @@ describe('a support event in hand', () => {
     const inflated = boosted.plan.marginalFor(orc);
     const honest = bare.plan.marginalFor(orc);
     expect(honest).toBeGreaterThan(0);
-    expect(inflated).toBeLessThanOrEqual(honest + DEFAULT_TUNABLES.hazardCardPrice / 2);
+    expect(inflated).toBeLessThanOrEqual(honest + FULL_CARD_PRICE.hazardCardPrice / 2);
   });
 });
 

@@ -475,10 +475,11 @@ describe('hazard events', () => {
     expect(JSON.stringify(evaluation!.rationale)).toContain('out of play');
   });
 
-  test('an event whose family it cannot read is declined, not charged', () => {
+  test('an event whose family it cannot read is scored at the rotation, never below it', () => {
     // The property that keeps H2 able to play events at all. An effect this
-    // module cannot price leaves the decision uncovered rather than scored at
-    // "costs a card, achieves nothing".
+    // module cannot price is scored at what playing any hazard is worth — the
+    // card traded for the next one off the deck — never at "costs a card,
+    // achieves nothing". Strong players' rule: if in doubt, play it.
     const { view, cardPool, standing } = position();
     const event = view.self.hand.find(c =>
       (cardPool[c.definitionId] as unknown as { cardType?: string })?.cardType === 'hazard-event');
@@ -577,13 +578,13 @@ describe('a support event that boosts every attack', () => {
   });
 
   test('is worth nothing with no attack in hand for it to improve', () => {
-    // The answer that keeps it out of an empty plan: with no creature candidate
-    // the two arms of the counterfactual are the same, so the play is worth
-    // exactly minus the card it spends.
+    // With no creature candidate the two arms of the counterfactual are the
+    // same, so the play is worth exactly what playing any card is worth: the
+    // rotation (`hazardCardPrice`), nothing for the boost.
     const { play, context } = boostPosition();
     const alone = { ...context, legalActions: [play] };
     const evaluation = hazardsModule.evaluate(play, alone)!;
-    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(evaluation.expectedTsd).toBeCloseTo(-DEFAULT_TUNABLES.hazardCardPrice, 5);
     expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
   });
 
@@ -745,7 +746,7 @@ describe('a support event whose modifier names several races', () => {
 
     const evaluation = hazardsModule.evaluate(cramped.boost, cramped.context)!;
 
-    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(evaluation.expectedTsd).toBeCloseTo(-DEFAULT_TUNABLES.hazardCardPrice, 5);
     expect(JSON.stringify(evaluation.rationale)).toContain('no attack left it would improve');
   });
 
@@ -790,10 +791,10 @@ describe('an event that enables another card rather than acting itself', () => {
     expect(JSON.stringify(evaluation.rationale)).toContain('+2 prowess');
   });
 
-  test('and declines when nothing on the board names it', () => {
+  test('and is worth only the card rotation when nothing on the board names it', () => {
     // No Minions Stir out, so nothing changes about any attack — and its own
-    // effects declare no modifier. Declining leaves the decision honestly
-    // uncovered rather than scoring it at an invented number.
+    // effects declare no modifier. What is left is the play itself: a card
+    // traded for the next one off the deck (`hazardCardPrice`).
     const scenario = loadScenario('movement/support-event-boost');
     const view = scenarioView(scenario);
     const cardPool = loadCardPool();
@@ -803,12 +804,14 @@ describe('an event that enables another card rather than acting itself', () => {
       definitionOf('Doors of Night');
     const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
     const context = { view, cardPool, legalActions: viableActions(scenario), tunables: DEFAULT_TUNABLES, standing };
-    expect(hazardsModule.evaluate({
+    const evaluation = hazardsModule.evaluate({
       type: 'play-hazard',
       player: view.self.id,
       cardInstanceId: view.self.hand[0].instanceId,
       targetCompanyId: view.opponent.companies[0].id,
-    } as unknown as GameAction, context)).toBeNull();
+    } as unknown as GameAction, context)!;
+    expect(evaluation.expectedTsd).toBeCloseTo(-DEFAULT_TUNABLES.hazardCardPrice, 5);
+    expect(JSON.stringify(evaluation.rationale)).toContain('card rotation');
   });
 });
 
@@ -939,9 +942,10 @@ describe('a boost played ahead of its creatures', () => {
   };
 
   test('is worth nothing without a deck list', () => {
+    // Nothing for the boost; only the rotation every played card earns.
     const { froth, context } = setup(undefined);
     const evaluation = hazardsModule.evaluate(froth, context)!;
-    expect(evaluation.expectedTsd).toBeLessThanOrEqual(0);
+    expect(evaluation.expectedTsd).toBeLessThanOrEqual(-DEFAULT_TUNABLES.hazardCardPrice + 1e-9);
   });
 
   test('is worth playing when the deck still holds the creatures it boosts', () => {

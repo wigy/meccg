@@ -883,9 +883,10 @@ function evaluateHazardEvent(
       node('the event', gain.tsd, [
         leaf('event', name),
         leaf('what it achieves', gain.tsd, { unit: 'tsd', note: gain.reason }),
-        leaf('the card it spends', tunables.hazardCardPrice, {
+        leaf('the card traded at the hand reset', tunables.hazardCardPrice, {
           unit: 'tsd',
           tunable: 'hazardCardPrice',
+          note: 'drawn back before our turn — negative is the rotation it buys',
         }),
       ], { unit: 'tsd' }),
     ],
