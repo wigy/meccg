@@ -3265,6 +3265,24 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'extra-mh-phase', ...(required ? { requiresDestinationSiteType: required } : {}) };
           break;
         }
+        case 'site-path-reduction': {
+          // Hey! come merry dol! (td-124): "Each Wilderness [{w}] symbol in the
+          // company's site path counts as half a Wilderness [{w}] … round down
+          // the final result." Company-targeted counterpart of the
+          // player-scoped branch above; read when the company's path resolves.
+          const halvings = onEvent.apply.regionHalvings ?? [];
+          const reductions = onEvent.apply.regionReductions ?? {};
+          if (halvings.length === 0 && Object.keys(reductions).length === 0) {
+            logDetail(`add-constraint(site-path-reduction): missing regionReductions/regionHalvings — fizzle`);
+            continue;
+          }
+          kind = {
+            type: 'site-path-reduction',
+            reductions: reductions as Partial<Record<import('../types/common.js').RegionType, number>>,
+            ...(halvings.length > 0 ? { halve: halvings as import('../types/common.js').RegionType[] } : {}),
+          };
+          break;
+        }
         case 'no-creatures-keyed-to-site': {
           const unless = onEvent.apply.unlessSiteRegionType as import('../types/common.js').RegionType | undefined;
           kind = { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };

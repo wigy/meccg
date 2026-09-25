@@ -2373,6 +2373,12 @@ export interface ActiveConstraint {
         readonly type: 'site-path-reduction';
         /** Region type → number of tokens to remove from each company's site path. */
         readonly reductions: Partial<Record<import('./common.js').RegionType, number>>;
+        /**
+         * Hey! come merry dol! (td-124): region types whose tokens each count as
+         * half a token, rounded down over the whole path (company-targeted).
+         * Applied before {@link reductions}.
+         */
+        readonly halve?: readonly import('./common.js').RegionType[];
       }
     | {
         /**
