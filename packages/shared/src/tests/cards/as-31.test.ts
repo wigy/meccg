@@ -118,14 +118,10 @@ describe('Near to Hear a Whisper (as-31)', () => {
 
       const afterPass = dispatch(state, { type: 'pass', player: PLAYER_1 });
       const afterWindowPass = dispatch(afterPass, { type: 'pass', player: PLAYER_2 });
-      const afterDecline = dispatch(afterWindowPass, { type: 'pass', player: PLAYER_2 });
+      const afterResolve = dispatch(afterWindowPass, { type: 'pass', player: PLAYER_2 });
 
-      const declinedPhase = afterDecline.phaseState as SitePhaseState;
-      expect(declinedPhase.step).toBe('resolve-attacks');
-      expect(declinedPhase.siteEntered).toBe(false);
-
-      const afterResolve = dispatch(afterDecline, { type: 'pass', player: PLAYER_1 });
-      // Only one company existed, so the site phase ends outright — it never
+      // Declining leaves no attacks to resolve, so the empty resolve-attacks
+      // step is skipped. Only one company existed, so the site phase ends outright — it never
       // opens play-resources for a company that skipped its site.
       expect(afterResolve.phaseState.phase).toBe(Phase.EndOfTurn);
     });

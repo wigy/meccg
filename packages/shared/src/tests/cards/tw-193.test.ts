@@ -142,12 +142,12 @@ describe('Army of the Dead (tw-193)', () => {
     expect(movedCompany.specialMovement).toBe('paths-of-the-dead');
 
     // Drive the company all the way to the play-resources step, exactly as
-    // the reported game did: select it, enter the site, and pass through the
-    // (empty) automatic-attack window.
+    // the reported game did: select it, enter the site, and let the hazard
+    // player decline an agent attack (the empty resolve-attacks step is
+    // skipped).
     const afterSelect = dispatch(inSitePhase, { type: 'select-company', player: PLAYER_1, companyId: movedCompany.id });
     const afterEnter = dispatch(afterSelect, { type: 'enter-site', player: PLAYER_1, companyId: movedCompany.id });
-    const afterAgentPass = dispatch(afterEnter, { type: 'pass', player: PLAYER_2 });
-    const atPlayResources = dispatch(afterAgentPass, { type: 'pass', player: PLAYER_1 });
+    const atPlayResources = dispatch(afterEnter, { type: 'pass', player: PLAYER_2 });
     expect((atPlayResources.phaseState as SitePhaseState).step).toBe('play-resources');
 
     const cardInstance = findHandCardId(atPlayResources, RESOURCE_PLAYER, ARMY_OF_THE_DEAD);

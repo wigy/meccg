@@ -145,11 +145,12 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
   });
 
   describe('declare-agent-attack → resolve-attacks flow', () => {
-    test('pass during declare-agent-attack advances to resolve-attacks', () => {
+    test('pass during declare-agent-attack with no pending attacks skips straight to play-resources', () => {
       const state = buildAgentSiteState({ agentRevealed: true });
       const passes = viableActions(state, PLAYER_2, 'pass');
       const after = dispatch(state, passes[0].action);
-      expect((after.phaseState as { step: string }).step).toBe('resolve-attacks');
+      expect((after.phaseState as { step: string }).step).toBe('play-resources');
+      expect(after.combat).toBeNull();
     });
 
     test('declaring attack: combat is immediately set and step advances to resolve-attacks', () => {
@@ -239,13 +240,10 @@ describe('Rule 2.V.iii — Agent Hazard Attack at Site', () => {
       expect(after.players[HAZARD_PLAYER].agents[0].revealed).toBe(true);
     });
 
-    test('pass in resolve-attacks (no agent attack) → advances to play-resources', () => {
-      // Hazard player passes declare step → no combat
+    test('pass in resolve-attacks (no pending attacks) → advances to play-resources', () => {
       const base = buildAgentSiteState({ agentRevealed: true });
-      const withPass = dispatch(base, viableActions(base, PLAYER_2, 'pass')[0].action);
-      expect((withPass.phaseState as { step: string }).step).toBe('resolve-attacks');
-      expect(withPass.combat).toBeNull();
-      const after = dispatch(withPass, viableActions(withPass, PLAYER_1, 'pass')[0].action);
+      const atResolve = { ...base, phaseState: { ...base.phaseState, step: 'resolve-attacks' as const, siteEntered: true } };
+      const after = dispatch(atResolve, viableActions(atResolve, PLAYER_1, 'pass')[0].action);
       expect((after.phaseState as { step: string }).step).toBe('play-resources');
     });
   });

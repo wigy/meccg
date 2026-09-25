@@ -2069,17 +2069,24 @@ function handleDeclareAgentAttack(
 
   if (action.type === 'pass') {
     logDetail(`Site: declare-agent-attack → no agent attack declared (pass)`);
-    return {
-      state: {
-        ...state,
-        // Near to Hear a Whisper (as-31): a company going through the
-        // skip-site sequence never actually entered the site, even when it
-        // faces this agent attack — `siteEntered` stays false so the
-        // resolve-attacks step returns to the next company instead of
-        // opening play-resources.
-        phaseState: { ...siteState, step: 'resolve-attacks' as const, siteEntered: !siteState.skippedSiteEntry },
-      },
-    };
+    // Near to Hear a Whisper (as-31): a company going through the
+    // skip-site sequence never actually entered the site, even when it
+    // faces this agent attack — `siteEntered` stays false so the
+    // resolve-attacks step returns to the next company instead of
+    // opening play-resources.
+    const resolveState: SitePhaseState = { ...siteState, step: 'resolve-attacks' as const, siteEntered: !siteState.skippedSiteEntry };
+    // Step 4 (2.V.iv) only has work to do "if the hazard player previously
+    // declared any on-guard creature or agent hazard attacks". With none
+    // pending, resolve the empty step immediately so the resource player
+    // lands straight in play-resources instead of an extra pass-only window.
+    const activeCompany = state.players[getPlayerIndex(state, state.activePlayer!)].companies[siteState.activeCompanyIndex];
+    const hasDeclaredOnGuardAttack = activeCompany?.onGuardCards.some(og =>
+      og.revealed && defById(state, og.definitionId)?.cardType === 'hazard-creature',
+    ) ?? false;
+    if (!hasDeclaredOnGuardAttack) {
+      return handleSiteResolveAttacks(state, action, resolveState);
+    }
+    return { state: { ...state, phaseState: resolveState } };
   }
 
   if (action.type !== 'declare-agent-attack') {

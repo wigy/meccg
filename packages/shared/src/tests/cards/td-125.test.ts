@@ -30,16 +30,16 @@
 
 import { describe, test, beforeEach, expect } from 'vitest';
 import {
-  buildSitePhaseState, buildTestState, resetMint,
+  buildSitePhaseState, buildTestState, resetMint, dispatch,
   playPermanentEventAndResolve, handCardId, findCharInstanceId,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import {
   computeLegalActions, reduce, Phase, CardStatus, SiteType,
-  ELROND, LEGOLAS, EDORAS, MORIA, LORIEN, RIVENDELL,
+  ELROND, LEGOLAS, EDORAS, MORIA, LORIEN, RIVENDELL, BAG_END,
 } from '../../index.js';
 import type {
-  CardDefinitionId, GameState, PlayPermanentEventAction,
+  CardDefinitionId, GameState, PlayPermanentEventAction, SitePhaseState,
 } from '../../index.js';
 import { getEffectiveSiteType } from '../../engine/effective.js';
 import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
@@ -61,6 +61,28 @@ describe('td-125 Houses of Healing', () => {
     expect(playActions).toHaveLength(1);
     const action = playActions[0].action as PlayPermanentEventAction;
     expect(action.targetSiteDefinitionId).toBe(EDORAS);
+  });
+
+  test('playable at Bag End as soon as the hazard player declines an agent attack', () => {
+    // Regression (game muhitj63-yvcsmg): entering Bag End (no automatic-attacks)
+    // and declining an agent attack left the company in an empty
+    // resolve-attacks step that offered only a pass, hiding the play.
+    const base = buildSitePhaseState({
+      site: BAG_END,
+      characters: [ELROND],
+      hand: [HOUSES_OF_HEALING],
+    });
+    const state: GameState = {
+      ...base,
+      phaseState: { ...base.phaseState, step: 'declare-agent-attack' },
+    };
+
+    const after = dispatch(state, { type: 'pass', player: PLAYER_2 });
+    expect((after.phaseState as SitePhaseState).step).toBe('play-resources');
+    const playActions = computeLegalActions(after, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-permanent-event');
+    expect(playActions).toHaveLength(1);
+    expect((playActions[0].action as PlayPermanentEventAction).targetSiteDefinitionId).toBe(BAG_END);
   });
 
   test('not playable at a non-Free-hold site', () => {
