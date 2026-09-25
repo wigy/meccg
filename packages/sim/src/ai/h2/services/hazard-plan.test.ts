@@ -12,6 +12,7 @@ import { loadCardPool } from '@meccg/shared';
 import { DEFAULT_TUNABLES } from '../core/tunables.js';
 import { computeStanding } from './standing.js';
 import { computeHazardPlan } from './hazard-plan.js';
+import { computeExposure } from './exposure.js';
 import { loadScenario, scenarioView } from '../scenario-store.js';
 import { testWinProbModel } from '../test-support.js';
 
@@ -88,14 +89,19 @@ describe('what each hazard is for', () => {
 // before it rose to 30; what is under test is the mechanism, not that number.
 const TUNABLES_AT_THREE = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3 };
 
+// Mechanism tests written when a hazard cost a full card to play. The rotation
+// credit that replaced it (`hazardCardPrice` < 0) makes marginal attacks worth
+// playing, which is not what these check.
+const FULL_CARD_PRICE = { ...TUNABLES_AT_THREE, hazardCardPrice: 1 };
+
 describe('the order the attacks are played in', () => {
   /** The plan for the hazard player at a captured position. */
   function planAt(id: string) {
     const scenario = loadScenario(id);
     const view = scenarioView(scenario, 'p1' as never);
     const cardPool = loadCardPool();
-    const standing = computeStanding(view, testWinProbModel(), TUNABLES_AT_THREE);
-    const plan = computeHazardPlan(view, cardPool, standing, TUNABLES_AT_THREE);
+    const standing = computeStanding(view, testWinProbModel(), FULL_CARD_PRICE);
+    const plan = computeHazardPlan(view, cardPool, standing, FULL_CARD_PRICE);
     const orderOf = (name: string) => plan.assignments.find(a => a.name === name);
     return { plan, orderOf };
   }
@@ -179,7 +185,7 @@ describe('a support event in hand', () => {
     return {
       support: slot as unknown as { instanceId: string },
       definitionOf,
-      plan: computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES),
+      plan: computeHazardPlan(view, cardPool, standing, FULL_CARD_PRICE),
     };
   }
 
@@ -216,7 +222,7 @@ describe('a support event in hand', () => {
     // card per support played there — from an attacks-only candidate arm.
     // Mixed like that, the difference credited every candidate with the
     // supports' card prices: with one support adopted, each quote from that
-    // company came out a full provisionalCardPrice too high, skewing the
+    // company came out a full hazardCardPrice too high, skewing the
     // exchange/fetch/draft comparisons `card-price` feeds (routinely decided
     // by sub-price differences). An Orc pins it cleanly: the Spider/Animal
     // boost never touches an Orc attack, and appending it behind *boosted*
@@ -233,7 +239,7 @@ describe('a support event in hand', () => {
     const inflated = boosted.plan.marginalFor(orc);
     const honest = bare.plan.marginalFor(orc);
     expect(honest).toBeGreaterThan(0);
-    expect(inflated).toBeLessThanOrEqual(honest + DEFAULT_TUNABLES.provisionalCardPrice / 2);
+    expect(inflated).toBeLessThanOrEqual(honest + FULL_CARD_PRICE.hazardCardPrice / 2);
   });
 });
 
@@ -252,9 +258,18 @@ describe('what the hazard limit itself is worth', () => {
     // drop a card it wanted to play. A hand with fewer creatures than slots
     // correctly pays nothing, which is why the assertion is conditional on the
     // plan being slot-bound rather than unconditional.
-    const { plan } = position();
-    const assigned = plan.assignments.filter(a => a.targetCompanyId !== null);
-    if (assigned.length < 2) return;
+    // Slot-bound means some company was given more cards than its halved limit
+    // leaves room for; two cards against a company whose limit halves to two
+    // lose nothing. The limit is read the way the plan reads it.
+    const { view, cardPool, plan } = position();
+    const exposure = computeExposure(view, cardPool);
+    const slotBound = view.opponent.companies.some(company => {
+      const published = exposure.hazardLimit(company.id) ?? 0;
+      const limit = published > 0 ? published : Math.max(company.characters.length, 2);
+      const played = plan.assignments.filter(a => a.targetCompanyId === company.id).length;
+      return played > Math.ceil(limit / 2);
+    });
+    if (!slotBound) return;
     expect(plan.harmIfLimitsHalved()).toBeLessThan(plan.totalHarm);
   });
 

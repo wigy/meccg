@@ -864,10 +864,13 @@ function evaluateHazardEvent(
     ?? siteDenialGain(cardPool[card.definitionId], record.targetSiteDefinitionId, company, context)
     ?? callOfHomeGain(cardPool[card.definitionId], record.targetCharacterId as never, context)
     ?? influencePenaltyGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
-    ?? recoveryGain(def?.effects ?? [], tunables);
-  if (!gain) return null;
+    ?? recoveryGain(def?.effects ?? [], tunables)
+    // No family prices it. What is left is the play itself — a card traded for
+    // the next one off the deck at the hand reset — so it is scored at that,
+    // not declined: "if in doubt, play it" (see `hazardCardPrice`).
+    ?? { tsd: 0, reason: 'no effect this module prices — played for the card rotation' };
 
-  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.provisionalCardPrice }, tunables);
+  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.hazardCardPrice }, tunables);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
 
   return scoredEvaluation({
@@ -880,9 +883,10 @@ function evaluateHazardEvent(
       node('the event', gain.tsd, [
         leaf('event', name),
         leaf('what it achieves', gain.tsd, { unit: 'tsd', note: gain.reason }),
-        leaf('the card it spends', tunables.provisionalCardPrice, {
+        leaf('the card traded at the hand reset', tunables.hazardCardPrice, {
           unit: 'tsd',
-          tunable: 'provisionalCardPrice',
+          tunable: 'hazardCardPrice',
+          note: 'drawn back before our turn — negative is the rotation it buys',
         }),
       ], { unit: 'tsd' }),
     ],
@@ -929,7 +933,7 @@ function duplicatedAutoAttacks(
   })));
   const bundle = bestBundleStartingWith(plan.search, ids[0]);
   if (!bundle) return null;
-  const refund = context.tunables.provisionalCardPrice * (bundle.cards.length - 1);
+  const refund = context.tunables.hazardCardPrice * (bundle.cards.length - 1);
   return evaluateBundle(action, plan, bundle, context, 1, `duplicate the site's automatic-attacks`, -refund);
 }
 
@@ -1019,7 +1023,7 @@ function evaluateOnGuard(action: GameAction, context: ModuleContext): Evaluation
     // Worth the attack it would make, with no card price: the card is only
     // spent if it is revealed and used.
     const plan = buildPlan(context.view, context, company);
-    const free = { ...tunables, provisionalCardPrice: 0 };
+    const free = { ...tunables, hazardCardPrice: 0 };
     const single = placeOnly({ ...context, tunables: free }, plan, place.cardInstanceId);
     if (!single) return null;
     // An option is never exercised at a loss. A creature whose reveal would

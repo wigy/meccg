@@ -88,6 +88,28 @@ export interface Tunables {
    */
   readonly provisionalCardPrice: number;
   /**
+   * What playing a hazard costs the hazard seat, in TSD, before what the play
+   * achieves.
+   *
+   * Not `provisionalCardPrice`. Both players reset their hands at the end of
+   * every turn (CoE 2.VI.ii), so a hazard played into the opponent's movement
+   * is drawn back before the hazard seat's own turn: the play spends a card
+   * only in the sense of trading it for the next one off the deck. That trade
+   * is card rotation — the deck cycles faster and the resources in it arrive
+   * sooner — which strong players count in its favour: "if in doubt, play it".
+   * Charging the full price of a card in hand had the AI pass whenever a
+   * hazard's own effect was not clearly worth a card, 28% of the playable
+   * windows against strong players' 16%, and never play An Unexpected Outpost.
+   *
+   * Negative, so a play is a small gain before its effect. Gated against
+   * heuristic, paired Elo (200 games): c/d at 1 → 0 → −0.5 went −46 → −11 →
+   * +37, a/b +16 → +23 → +33, and −1 fell back to −9 on a/b. With
+   * `eliminationTempoCost` at 30, over 800 games: c/d +126 → +155, a/b +167 →
+   * +158. On the strong-player hazard windows the pass rate went 30% → 3%
+   * (humans 15%), so it now plays slightly more than they do.
+   */
+  readonly hazardCardPrice: number;
+  /**
    * What it is worth, in TSD, to draft a character the deck's author marked as
    * a favourite — one the deck wants in its starting company.
    *
@@ -551,6 +573,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   woundTempoCost: 1.5,
   eliminationTempoCost: 30,
   provisionalCardPrice: 1,
+  hazardCardPrice: -0.5,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,
   attackStateCap: 192,
