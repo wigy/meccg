@@ -49,4 +49,13 @@ describe('pseudo-AI panel excludes the always-present concede action from auto-p
 
     expect(getPseudoAiAutoPick(actions)).toBeNull();
   });
+
+  test('does not auto-fire an early Free Council handshake action', () => {
+    const actions: DescribedAction[] = [
+      { text: 'Accept', action: { type: 'accept-early-council', player: PLAYER }, viable: true },
+      { text: 'Concede', action: { type: 'concede', player: PLAYER }, viable: true },
+    ];
+
+    expect(getPseudoAiAutoPick(actions)).toBeNull();
+  });
 });

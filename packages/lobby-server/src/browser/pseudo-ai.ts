@@ -8,7 +8,7 @@
  */
 
 import type { ClientMessage, GameAction, JoinMessage, ServerMessage } from '@meccg/shared';
-import { Alignment, buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
+import { Alignment, buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction, isMetaAction } from '@meccg/shared';
 import { appState, cardPool, buildJoinFromDeck, type FullDeck } from './app-state.js';
 import { addJsonToggle } from './render-utils.js';
 
@@ -55,10 +55,11 @@ const PASS_ACTION_TYPES = new Set(['pass', 'draft-stop']);
  * lone viable action. Without this exclusion the panel silently sent
  * `concede` on the human's behalf — mirrors `getAutoPassAction` in
  * `game-connection.ts`, which excludes it from the human panel's auto-pass
- * tally for the identical reason.
+ * tally for the identical reason. The early Free Council handshake actions
+ * are excluded for the same reason (see `isMetaAction`).
  */
 export function getPseudoAiAutoPick(actions: readonly DescribedAction[]): GameAction | null {
-  const autoPickable = actions.filter(a => a.viable && a.action.type !== 'concede');
+  const autoPickable = actions.filter(a => a.viable && !isMetaAction(a.action.type));
   return autoPickable.length === 1 ? autoPickable[0].action : null;
 }
 

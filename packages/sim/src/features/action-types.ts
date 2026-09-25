@@ -245,6 +245,10 @@ export const ACTION_TYPES: readonly string[] = [
   'select-return-to-hand-character',
   // Added by certifying dm-89 (Shadow out of the Dark).
   'agent-tap-grant-creature-keying',
+  // Agreed early Free Council handshake (human-only meta-actions).
+  'propose-early-council',
+  'accept-early-council',
+  'decline-early-council',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

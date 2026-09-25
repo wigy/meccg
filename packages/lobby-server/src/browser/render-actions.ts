@@ -5,11 +5,13 @@
  * Viable actions appear as clickable buttons; non-viable actions are
  * shown disabled with their rejection reason. The always-present `concede`
  * meta-action (see `withConcedeAction`) is tagged `.action-concede` so
- * keyboard-shortcuts.ts can exclude it from its auto-fire button set.
+ * keyboard-shortcuts.ts can exclude it from its auto-fire button set; every
+ * human-only meta-action (concede and the early Free Council handshake, see
+ * `isMetaAction`) is additionally tagged `.action-meta` for the same reason.
  */
 
 import type { EvaluatedAction, CardDefinition, CardDefinitionId, CardInstanceId, GameAction } from '@meccg/shared';
-import { describeAction } from '@meccg/shared';
+import { describeAction, isMetaAction } from '@meccg/shared';
 import { $, addJsonToggle } from './render-utils.js';
 import { textToHtml, tagCardImages } from './render-text-format.js';
 
@@ -37,6 +39,7 @@ export function renderActions(
     const isRegress = 'regress' in ea.action && ea.action.regress;
     if (isRegress) btn.classList.add('action-regress');
     if (ea.action.type === 'concede') btn.classList.add('action-concede');
+    if (isMetaAction(ea.action.type)) btn.classList.add('action-meta');
     btn.innerHTML = textToHtml(describeAction(ea.action, cardPool, instanceLookup, companyNames, playerNames));
     tagCardImages(btn, cardPool);
     addJsonToggle(btn, ea.action);

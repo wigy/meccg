@@ -286,6 +286,20 @@ describe('buildAgentDecisionInput', () => {
     expect(result?.view.legalActions.map(e => e.action.type)).toEqual(['pass']);
   });
 
+  it('excludes the early Free Council handshake meta-actions too', () => {
+    const view = viewWithActions([
+      { type: 'pass', viable: true },
+      { type: 'propose-early-council', viable: true },
+      { type: 'accept-early-council', viable: true },
+      { type: 'decline-early-council', viable: true },
+    ]);
+
+    const result = buildAgentDecisionInput(view);
+
+    expect(result?.actions.map(a => a.type)).toEqual(['pass']);
+    expect(result?.view.legalActions.map(e => e.action.type)).toEqual(['pass']);
+  });
+
   it('returns null when concede is the only viable action', () => {
     const view = viewWithActions([{ type: 'concede', viable: true }]);
 

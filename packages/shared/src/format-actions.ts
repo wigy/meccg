@@ -426,6 +426,12 @@ export function describeAction(
       return 'Pass (end your actions this phase)';
     case 'concede':
       return `${playerName(action.player)} concedes the game`;
+    case 'propose-early-council':
+      return `${playerName(action.player)} proposes ending the game with an early Free Council`;
+    case 'accept-early-council':
+      return `${playerName(action.player)} accepts the early Free Council — the Council will be called`;
+    case 'decline-early-council':
+      return `${playerName(action.player)} declines the early Free Council`;
     case 'call-free-council':
       return 'Call the Free Council (trigger endgame)';
     case 'reshuffle-card-from-hand':

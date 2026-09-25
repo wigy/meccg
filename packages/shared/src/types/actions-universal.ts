@@ -341,6 +341,46 @@ export interface ConcedeAction {
   readonly player: PlayerId;
 }
 
+/**
+ * Propose ending the game early with a Free Council by mutual agreement —
+ * a house-rule option for two humans playing to a fixed time limit.
+ *
+ * Like {@link ConcedeAction} this is a player-facing meta-action offered
+ * only to human seats (never part of `computeLegalActions`), in any phase
+ * or sub-state once the first turn has started, while no Council has been
+ * called and no other proposal is pending. It only records the proposal in
+ * `GameState.earlyCouncilProposal`; nothing changes until the opponent
+ * answers with {@link AcceptEarlyCouncilAction} or
+ * {@link DeclineEarlyCouncilAction}.
+ */
+export interface ProposeEarlyCouncilAction {
+  readonly type: 'propose-early-council';
+  /** The player proposing the early Council. */
+  readonly player: PlayerId;
+}
+
+/**
+ * Accept the opponent's pending early-Council proposal. Flags a Council call
+ * exactly like a resource-side Sudden Call made by the active player: the
+ * current turn plays out normally, the other player then gets one last turn,
+ * and the game proceeds to the Free Council for final scoring.
+ */
+export interface AcceptEarlyCouncilAction {
+  readonly type: 'accept-early-council';
+  /** The player accepting (must not be the proposer). */
+  readonly player: PlayerId;
+}
+
+/**
+ * Decline the opponent's pending early-Council proposal, or — when sent by
+ * the proposer — withdraw it. Clears `GameState.earlyCouncilProposal`.
+ */
+export interface DeclineEarlyCouncilAction {
+  readonly type: 'decline-early-council';
+  /** The player declining (or the proposer withdrawing). */
+  readonly player: PlayerId;
+}
+
 // ---- Chain of Effects actions ----
 
 /**

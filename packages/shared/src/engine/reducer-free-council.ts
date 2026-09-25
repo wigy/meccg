@@ -664,6 +664,7 @@ export function endGame(
     combat: null,
     pendingEffects: [],
     pendingResolutions: [],
+    earlyCouncilProposal: null,
     phaseState: {
       phase: Phase.GameOver,
       winner,

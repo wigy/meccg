@@ -10,7 +10,7 @@
 
 import type { WebSocket } from 'ws';
 import type { CardDefinition, CardDefinitionId, CardInstanceId, ClientMessage, DeckList, GameAction, JoinMessage, PlayerView, ServerMessage } from '@meccg/shared';
-import { Alignment, buildInstanceLookup, formatCardList } from '@meccg/shared';
+import { Alignment, buildInstanceLookup, formatCardList, isMetaAction } from '@meccg/shared';
 import { loadDeck, loadDeckFromFile, listDecks } from '@meccg/sim';
 import type { Agent, AgentContext, AgentDecision, LoadedDeck, OwnDeckList } from '@meccg/sim';
 
@@ -314,7 +314,8 @@ export function installReconnect(
 // ---- Headless AI decision input ----
 
 /**
- * Strips `concede` — a human-only meta-action the server offers every seat —
+ * Strips `concede` and the early Free Council handshake — human-only
+ * meta-actions (see `isMetaAction`) the server offers every seat —
  * from the view handed to an autonomous agent, not just from a derived
  * plain-action list. An agent that scores `EvaluatedAction` candidates
  * directly (e.g. the trained bc policy reads `context.view.legalActions` to
@@ -328,10 +329,10 @@ export function buildAgentDecisionInput(
 ): { view: PlayerView; actions: GameAction[] } | null {
   const evaluated = view.legalActions;
   if (!evaluated || evaluated.length === 0) return null;
-  const nonConcede = evaluated.filter(e => e.action.type !== 'concede');
-  const actions = nonConcede.filter(e => e.viable).map(e => e.action);
+  const nonMeta = evaluated.filter(e => !isMetaAction(e.action.type));
+  const actions = nonMeta.filter(e => e.viable).map(e => e.action);
   if (actions.length === 0) return null;
-  return { view: { ...view, legalActions: nonConcede }, actions };
+  return { view: { ...view, legalActions: nonMeta }, actions };
 }
 
 /**

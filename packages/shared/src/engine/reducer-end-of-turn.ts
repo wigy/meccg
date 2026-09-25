@@ -8,7 +8,7 @@
 
 import type { GameState, EndOfTurnPhaseState, PlayerId, GameAction, CardInstance, CardInstanceId, SiteInPlay } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
-import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
+import { getPlayerIndex, requirePhaseState, canNegotiateEarlyCouncil } from '../state-utils.js';
 import { GAME_LENGTH_RULES } from '../constants.js';
 import { isSiteCard } from '../types/cards.js';
 import { CardStatus, Alignment } from '../types/common.js';
@@ -691,6 +691,7 @@ export function triggerCouncilCall(
     activePlayer: nextActive,
     turnNumber: swept.turnNumber + 1,
     lastTurnFor,
+    earlyCouncilProposal: null,
   });
 }
 
@@ -725,7 +726,54 @@ export function flagCouncilCall(
   return {
     ...updatePlayer(state, callerIndex, p => ({ ...p, freeCouncilCalled: true })),
     lastTurnFor,
+    earlyCouncilProposal: null,
   };
+}
+
+/**
+ * Handles the agreed-early-Free-Council handshake (a house-rule option for
+ * two humans playing to a fixed time limit):
+ *
+ * - `propose-early-council` records the proposer in
+ *   `earlyCouncilProposal`;
+ * - `decline-early-council` clears it (opponent declining or proposer
+ *   withdrawing);
+ * - `accept-early-council` clears it and flags a Council call on behalf of
+ *   the active player via {@link flagCouncilCall} — exactly the resource-side
+ *   Sudden Call path: the current turn plays out normally, the other player
+ *   then takes one last turn, and the game proceeds to the Free Council.
+ *
+ * Valid in any phase or sub-state while {@link canNegotiateEarlyCouncil}
+ * holds; neither chain, combat nor pending state is touched.
+ */
+export function handleEarlyCouncilAction(state: GameState, action: GameAction): ReducerResult {
+  if (action.type !== 'propose-early-council' && action.type !== 'accept-early-council' && action.type !== 'decline-early-council') {
+    return { state, error: `Unexpected action '${action.type}' in early-council handler` };
+  }
+  if (!canNegotiateEarlyCouncil(state)) {
+    return { state, error: 'An early Free Council cannot be negotiated now' };
+  }
+  const proposer = state.earlyCouncilProposal ?? null;
+
+  if (action.type === 'propose-early-council') {
+    if (proposer !== null) return { state, error: 'An early Free Council proposal is already pending' };
+    logDetail(`${action.player as string} proposes ending the game with an early Free Council`);
+    return { state: { ...state, earlyCouncilProposal: action.player } };
+  }
+
+  if (proposer === null) return { state, error: 'No early Free Council proposal is pending' };
+
+  if (action.type === 'decline-early-council') {
+    logDetail(proposer === action.player
+      ? `${action.player as string} withdraws their early Free Council proposal`
+      : `${action.player as string} declines the early Free Council proposal`);
+    return { state: { ...state, earlyCouncilProposal: null } };
+  }
+
+  if (proposer === action.player) return { state, error: 'Cannot accept your own early Free Council proposal' };
+  if (state.activePlayer === null) return { state, error: 'Cannot call an early Free Council: no active player' };
+  logHeading(`${action.player as string} accepts the early Free Council — the current turn finishes, then the other player takes one last turn`);
+  return { state: flagCouncilCall(state, state.activePlayer, 'opponent') };
 }
 
 /**

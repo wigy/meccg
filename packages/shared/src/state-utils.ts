@@ -277,6 +277,20 @@ export function canCallEndgameNow(player: PlayerState, gameLength: GameLength = 
 }
 
 /**
+ * Whether an agreed early Free Council may currently be negotiated: the
+ * first turn has started (not during setup or the character draft), the
+ * game has not reached the Free Council or ended, and no Council has been
+ * called by any other means (`lastTurnFor` unset, no `freeCouncilCalled`).
+ */
+export function canNegotiateEarlyCouncil(state: GameState): boolean {
+  const phase = state.phaseState.phase;
+  if (phase === Phase.Setup || phase === Phase.FreeCouncil || phase === Phase.GameOver) return false;
+  if (state.turnNumber < 1) return false;
+  if (state.lastTurnFor !== null) return false;
+  return !state.players.some(p => p.freeCouncilCalled);
+}
+
+/**
  * Sum of the six marshalling-point categories in a {@link MarshallingPointTotals}.
  * Shared by {@link callableMarshallingTotal} and by display code that only has
  * a raw totals object on hand (e.g. a `PlayerView`), not a full `PlayerState`.
