@@ -191,6 +191,23 @@ export interface GameState {
    * Absent on states built before the field existed; treat as empty.
    */
   readonly dragonAtHomeVictorySiteIds?: readonly CardDefinitionId[];
+  /**
+   * Definition ids of the cards played this turn, stamped with the turn they
+   * belong to. Recorded centrally by `reduce` (`reducer.ts`) for every
+   * card-play action (short/long/permanent events, hazards, faction influence
+   * attempts); a record whose `turnNumber` differs from the current
+   * {@link GameState.turnNumber} is stale and counts as empty.
+   *
+   * Read by the per-turn `prohibit-card-play` variant (`maxPerTurn`) — used by
+   * Leucaruth at Home (td-44): "only one unique Dragon manifestation may be
+   * played per turn."
+   *
+   * Absent on states built before the field existed; treat as empty.
+   */
+  readonly cardsPlayedThisTurn?: {
+    readonly turnNumber: number;
+    readonly definitionIds: readonly CardDefinitionId[];
+  };
   /** Deterministic RNG state for reproducible dice rolls and shuffles. */
   readonly rng: RngState;
   /** Monotonically increasing sequence number for state changes, used for log replay. */

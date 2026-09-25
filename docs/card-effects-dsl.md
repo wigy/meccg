@@ -15509,6 +15509,7 @@ in-play card's *constraints* while leaving it in play and re-playable).
 |-------|----------|-------------|
 | `cardNames` | no | Names of the cards discarded on entry and barred from play. |
 | `filter` | no | Condition matched against card **definitions**, for class-wide locks. Forward-looking only — nothing already in play is touched. |
+| `maxPerTurn` | no | Turns the `filter` lock into a per-turn quota: matching cards stay playable until this many of them (by either player) have been played this turn. |
 
 At least one of the two must be present; they may be combined.
 
@@ -15544,6 +15545,24 @@ Used by:
 - Balance Between Powers (dm-118): "No environment cards can be played."
   (`filter` on the `environment` keyword — both players, both alignments of
   environment, and the environments already on the table stay put)
+- Leucaruth at Home (td-44): "only one unique Dragon manifestation may be played
+  per turn." (`filter` on unique Dragon manifestations, `maxPerTurn: 1`)
+
+Behaviour, `maxPerTurn`: every card play is recorded centrally by `reduce`
+(`reducer.ts` → `recordCardPlayed`) in `GameState.cardsPlayedThisTurn`, stamped
+with the turn number so a record from an earlier turn counts as empty. A
+matching card is barred once the recorded plays matching the same `filter`
+reach `maxPerTurn`. The card carrying the lock counts if it was itself played
+this turn. Declaring a faction `influence-attempt` counts as playing the
+faction, and the quota also locks those attempts, since a Dragon's Roused
+faction is one of the manifestations.
+
+```json
+{ "type": "prohibit-card-play",
+  "filter": { "$or": [{ "race": "dragon", "unique": true },
+                      { "keywords": { "$includes": "dragon-manifestation" } }] },
+  "maxPerTurn": 1 }
+```
 
 ### 52b. `extra-under-deeps-mh-phase`
 

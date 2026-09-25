@@ -11101,7 +11101,9 @@ export interface UnderDeepsRollModifierEffect extends EffectBase {
  * (`legal-actions/index.ts`), which turns every `play-short-event` /
  * `play-long-event` / `play-permanent-event` / `play-hazard` action for a
  * locked card into a `not-playable` entry, in every phase and in the chain and
- * combat windows alike.
+ * combat windows alike. With `maxPerTurn` the lock also covers faction
+ * `influence-attempt`s, since a Dragon's "Roused" faction is itself one of the
+ * manifestations the quota counts.
  */
 export interface ProhibitCardPlayEffect extends EffectBase {
   readonly type: 'prohibit-card-play';
@@ -11112,6 +11114,14 @@ export interface ProhibitCardPlayEffect extends EffectBase {
    * from play while this card is in play; nothing already in play is touched.
    */
   readonly filter?: Condition;
+  /**
+   * Turns the `filter` lock into a per-turn quota: matching cards may be
+   * played until `maxPerTurn` of them (by either player) have been played this
+   * turn ({@link GameState.cardsPlayedThisTurn}), after which the rest are
+   * barred until the next turn. Leucaruth at Home (td-44): "only one unique
+   * Dragon manifestation may be played per turn."
+   */
+  readonly maxPerTurn?: number;
 }
 
 /**

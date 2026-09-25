@@ -13,6 +13,11 @@
  * - *Balance Between Powers* (dm-118) — "No environment cards can be played", a
  *   class-wide `filter` lock that leaves environments already on the table
  *   alone.
+ * - *Leucaruth at Home* (td-44) — "only one unique Dragon manifestation may be
+ *   played per turn", a `filter` lock with `maxPerTurn: 1` that only bites once
+ *   a matching card has been played this turn (`GameState.cardsPlayedThisTurn`,
+ *   recorded by {@link recordCardPlayed}). This variant also covers faction
+ *   influence attempts, a Dragon's Roused faction being a manifestation too.
  *
  * Enforcement is central rather than per-phase: `computeLegalActions` runs
  * every candidate action through {@link applyCardPlayProhibitions}, so the lock
@@ -21,7 +26,7 @@
  * the places a short, long, permanent or hazard event can be played from hand.
  */
 
-import type { CardDefinition, CardInstanceId, EvaluatedAction, GameState, PlayerId } from '../index.js';
+import type { CardDefinition, CardDefinitionId, CardInstanceId, EvaluatedAction, GameState, PlayerId } from '../index.js';
 import type { ProhibitCardPlayEffect } from '../types/effects.js';
 import { resolveInstanceId } from '../types/state.js';
 import { defById, getCardEffects, matchesDefinition } from './reducer-utils.js';
@@ -56,10 +61,58 @@ function activeProhibitions(state: GameState): readonly ProhibitCardPlayEffect[]
  */
 export function isCardPlayProhibited(state: GameState, def: CardDefinition | undefined | null): boolean {
   if (!def) return false;
-  return activeProhibitions(state).some(
-    eff => (eff.cardNames?.includes(def.name) ?? false)
-      || (eff.filter !== undefined && matchesDefinition(def, eff.filter)),
-  );
+  return activeProhibitions(state).some(eff => prohibits(state, eff, def));
+}
+
+/** True when `eff` bars `def` from being played right now. */
+function prohibits(state: GameState, eff: ProhibitCardPlayEffect, def: CardDefinition): boolean {
+  if (eff.cardNames?.includes(def.name)) return true;
+  if (eff.filter === undefined || !matchesDefinition(def, eff.filter)) return false;
+  if (eff.maxPerTurn === undefined) return true;
+  const filter = eff.filter;
+  const played = playedThisTurn(state).filter(id => {
+    const playedDef = defById(state, id);
+    return playedDef !== undefined && matchesDefinition(playedDef, filter);
+  }).length;
+  return played >= eff.maxPerTurn;
+}
+
+/** Definition ids of the cards played during the current turn. */
+function playedThisTurn(state: GameState): readonly CardDefinitionId[] {
+  const record = state.cardsPlayedThisTurn;
+  return record && record.turnNumber === state.turnNumber ? record.definitionIds : [];
+}
+
+/**
+ * The card a card-play action puts into play, or `undefined` for any other
+ * action. Faction influence attempts count as playing the faction.
+ */
+export function playedCardInstanceId(action: { readonly type: string }): CardInstanceId | undefined {
+  const a = action as unknown as Record<string, unknown>;
+  const instId = PLAY_FROM_HAND_ACTIONS.has(action.type)
+    ? a['cardInstanceId']
+    : action.type === 'influence-attempt' ? a['factionInstanceId'] : undefined;
+  return typeof instId === 'string' ? instId as CardInstanceId : undefined;
+}
+
+/**
+ * Append the card a successful card-play action played to
+ * {@link GameState.cardsPlayedThisTurn}, starting a fresh record when the turn
+ * has changed. `before` is the state the action was applied to — the played
+ * card is resolved there, while it is still in hand.
+ */
+export function recordCardPlayed(before: GameState, after: GameState, action: { readonly type: string }): GameState {
+  const instId = playedCardInstanceId(action);
+  if (instId === undefined) return after;
+  const defId = resolveInstanceId(before, instId);
+  if (defId === undefined) return after;
+  return {
+    ...after,
+    cardsPlayedThisTurn: {
+      turnNumber: after.turnNumber,
+      definitionIds: [...playedThisTurn(after), defId],
+    },
+  };
 }
 
 /**
@@ -86,18 +139,12 @@ export function applyCardPlayProhibitions(
   const explained = new Set<string>();
   const result: EvaluatedAction[] = [];
   for (const ea of evaluated) {
-    const a = ea.action as unknown as Record<string, unknown>;
-    const type = a['type'];
-    if (!ea.viable || typeof type !== 'string' || !PLAY_FROM_HAND_ACTIONS.has(type)) {
+    const instId = ea.viable ? playedCardInstanceId(ea.action) : undefined;
+    if (instId === undefined) {
       result.push(ea);
       continue;
     }
-    const instId = a['cardInstanceId'];
-    if (typeof instId !== 'string') {
-      result.push(ea);
-      continue;
-    }
-    const defId = resolveInstanceId(state, instId as CardInstanceId);
+    const defId = resolveInstanceId(state, instId);
     const def = defId ? defById(state, defId) : undefined;
     if (!isCardPlayProhibited(state, def)) {
       result.push(ea);
@@ -107,7 +154,7 @@ export function applyCardPlayProhibitions(
     explained.add(instId);
     const name = def?.name ?? (defId as string);
     logDetail(`prohibit-card-play: ${name} may not be played while a card prohibiting it is in play`);
-    result.push(notPlayable(playerId, instId as CardInstanceId, `${name}: cannot be played while it is prohibited by a card in play`));
+    result.push(notPlayable(playerId, instId, `${name}: cannot be played while it is prohibited by a card in play`));
   }
   return result;
 }

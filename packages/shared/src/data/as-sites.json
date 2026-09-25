@@ -214,6 +214,7 @@
     "resourceDraws": 2,
     "hazardDraws": 2,
     "text": "Nearest Darkhaven: Dol Guldur Playable: Items (minor, major, greater, gold ring) Automatic-attacks: Dragon — 1 strike with 14 prowess",
+    "lairOf": "tw-48",
     "keywords": [
       "hoard"
     ],
