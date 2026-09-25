@@ -65,6 +65,16 @@ export interface Tunables {
    * leave with it — the influence it supplied, the items it can no longer
    * carry, and the tempo of replacing it. The MP loss itself is computed from
    * card data, so this covers only what MP cannot express.
+   *
+   * Set by gate, not by argument. At the 3 it shipped with, a character's death
+   * was worth three spent cards, and the defence behaved like it: with deck C
+   * the modular AI lost 77 characters in 16 games to the Heuristics-1 agent's
+   * 52, holding a Risky Blow at need 8 to fight a wounded character's strike
+   * at need 11. Against heuristic (100 side-swapped pairs each), paired Elo
+   * rose from +17 to +177 on decks a/b and from −49 to +86 on c/d at 30, and
+   * held there at 50. Most of it is the defence: raising only the cost of our
+   * own losses gave +108 and +85, raising only the hazard side's kill value
+   * +17 and −3.
    */
   readonly eliminationTempoCost: number;
   /**
@@ -539,7 +549,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   meanVarianceWinProbSlope: 0.02,
   tapTempoCost: 0.3,
   woundTempoCost: 1.5,
-  eliminationTempoCost: 3,
+  eliminationTempoCost: 30,
   provisionalCardPrice: 1,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,

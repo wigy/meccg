@@ -220,6 +220,10 @@ describe('bundles', () => {
   });
 });
 
+// The scenario was built around the flat elimination cost of 3 that shipped
+// before it rose to 30; what is under test is the mechanism, not that number.
+const TUNABLES_AT_THREE = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3 };
+
 describe('detainment attacks (CoE §3.II)', () => {
   /** The scenario roster, denial pricer and a free-card tunable set. */
   function bench() {
@@ -231,13 +235,13 @@ describe('detainment attacks (CoE §3.II)', () => {
     const view = { ...remembered, opponent: { ...remembered.opponent, revealedCards: undefined } };
     const company = view.opponent.companies[0];
     const beliefs = computeBeliefs(view, cardPool);
-    const context = denialContext(view, company, beliefs, standing, DEFAULT_TUNABLES);
+    const context = denialContext(view, company, beliefs, standing, TUNABLES_AT_THREE);
     return {
       cardPool,
       standing,
-      price: denialPricer(cardPool, standing, DEFAULT_TUNABLES, context),
+      price: denialPricer(cardPool, standing, TUNABLES_AT_THREE, context),
       roster: targetRoster(view),
-      tunables: { ...DEFAULT_TUNABLES, provisionalCardPrice: 0, hazardMaxBundle: 2 },
+      tunables: { ...TUNABLES_AT_THREE, provisionalCardPrice: 0, hazardMaxBundle: 2 },
     };
   }
 
