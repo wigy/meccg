@@ -103,6 +103,18 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
     return handleGrantActionApply(state, action);
   }
 
+  // Character-recruitment events (A Chance Meeting tw-188): offered at the
+  // select-company and enter-or-skip steps as well as play-resources, because
+  // a company is "at" its site for the whole site phase (rule 2.IV.5, CRF 22).
+  // Routed here once for the same reason as the granted actions above — the
+  // select-company and enter-or-skip handlers rejected it, which ended 60 of
+  // 200 m/p bench games in an engine error. The shared play-character reducer
+  // discards the enabling event and skips the one-character-per-turn
+  // bookkeeping, and leaves the site step where it was.
+  if (action.type === 'play-character' && action.viaEventInstanceId) {
+    return handlePlayCharacter(state, action);
+  }
+
   const handler = SITE_STEP_HANDLERS[siteState.step];
   if (handler) {
     const result = handler(state, action, siteState);
@@ -2709,14 +2721,6 @@ function handleSitePlayResources(
   if (!company && action.type === 'pass') {
     logDetail('Site play-resources: active company dissolved — finishing its site-phase slot');
     return finishDissolvedCompanySlot(state, siteState);
-  }
-
-  // Character-recruitment event (A Chance Meeting tw-188): bring a character
-  // into play during the site phase. Routed to the shared play-character
-  // reducer, which discards the enabling event and skips the
-  // one-character-per-turn bookkeeping.
-  if (action.type === 'play-character' && action.viaEventInstanceId) {
-    return handlePlayCharacter(state, action);
   }
 
   // Manifestation swap (Strider ba-1 → Aragorn II): a resource-style play,
