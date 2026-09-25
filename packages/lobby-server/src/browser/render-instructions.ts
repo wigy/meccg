@@ -14,6 +14,26 @@ import { passButtonLabel } from './pass-button-label.js';
 import { classifyActionKind } from './button-classification.js';
 import { showTooltipMenu } from './tooltip-menu.js';
 import { buildGrantedActionMenuItems } from './company-modals.js';
+import { showConfirm } from './dialog.js';
+
+/**
+ * True when `passAction` is `draft-stop` and this player has drafted zero
+ * characters so far. CoE 1.9's third stopping criterion ("no longer wishes
+ * to reveal characters") makes stopping at zero legal, but the bottom-bar
+ * pass button is otherwise a single, unconfirmed click that fires from round
+ * 1 onward — indistinguishable from every other "Continue"/"Done" press
+ * elsewhere in the game. Unlike those, this one forfeits the entire starting
+ * company for the rest of the game. Bug report 0b915a2afa9ff659 (game
+ * mugai8un-ar1rpa, seq 2): the player's very first action was `draft-stop`
+ * with nothing drafted, six seconds into the game — far too fast to be a
+ * deliberate "I want zero characters" choice, and with no way to undo it
+ * once the round resolved.
+ */
+function isEmptyCharacterDraftStop(passAction: GameAction, view: PlayerView): boolean {
+  if (passAction.type !== 'draft-stop') return false;
+  if (view.phaseState.phase !== 'setup' || view.phaseState.setupStep.step !== 'character-draft') return false;
+  return view.phaseState.setupStep.draftState[view.selfIndex].drafted.length === 0;
+}
 
 /**
  * Remove every child of the tier container `id` (a no-op if the container is
@@ -329,7 +349,16 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
 
   btn.textContent = label;
   btn.classList.remove('hidden');
-  btn.onclick = () => onAction(passAction);
+  if (isEmptyCharacterDraftStop(passAction, view)) {
+    btn.onclick = () => {
+      void showConfirm(
+        'Stop drafting with no characters? You will start the game with an empty company.',
+        { okLabel: 'Stop Drafting', cancelLabel: 'Keep Drafting', destructive: true },
+      ).then(ok => { if (ok) onAction(passAction); });
+    };
+  } else {
+    btn.onclick = () => onAction(passAction);
+  }
 
   // Mirror of Galadriel (tw-282): after looking at the opponent's hand, the
   // card-player may choose to look at the top of their own or the opponent's
