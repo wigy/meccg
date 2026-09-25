@@ -15,7 +15,7 @@
  */
 
 import { expect } from 'vitest';
-import { computeLegalActions } from '../index.js';
+import { computeLegalActions, computePlayerFacingActions } from '../index.js';
 import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, CharacterCard, ActivateGrantedAction, ActiveConstraint, CompanyId, OnGuardCard } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import { pool } from './test-helpers-constants.js';
@@ -425,4 +425,16 @@ export function collectCreatureTypesFromCardData(): RaceDataValue[] {
   };
   for (const card of Object.values(pool)) visit(card, card.id as string, null);
   return found;
+}
+
+/**
+ * Viable agreed-early-Free-Council meta-action types (`*-early-council`)
+ * offered to a human seat — i.e. from {@link computePlayerFacingActions},
+ * not the engine's own legal-action set — sorted for stable comparison.
+ */
+export function viableEarlyCouncilActionTypes(state: GameState, playerId: PlayerId): string[] {
+  return computePlayerFacingActions(state, playerId)
+    .filter(a => a.viable && a.action.type.endsWith('-early-council'))
+    .map(a => a.action.type)
+    .sort();
 }

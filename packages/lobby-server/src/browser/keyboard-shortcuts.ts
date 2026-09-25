@@ -96,11 +96,13 @@ function getBoardTargets(): HTMLElement[] {
  * making it the accidental target of the Enter/Backspace/Delete auto-fire
  * shortcuts below, which fire whenever this list has exactly one/two/three
  * buttons. Bug report 162fe192d90019b8: players hitting Enter out of habit
- * while waiting on their opponent were silently conceding mid-game.
+ * while waiting on their opponent were silently conceding mid-game. The
+ * early Free Council handshake buttons (`.action-meta`) are excluded for the
+ * same reason.
  */
 function getActionButtons(): HTMLButtonElement[] {
   return Array.from(document.querySelectorAll<HTMLButtonElement>(
-    '#actions button:not([disabled]):not(.action-concede)',
+    '#actions button:not([disabled]):not(.action-concede):not(.action-meta)',
   ));
 }
 

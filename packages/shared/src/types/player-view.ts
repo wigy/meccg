@@ -279,6 +279,12 @@ export interface PlayerView {
   /** Current turn number (1-based). */
   readonly turnNumber: number;
   /**
+   * The player whose agreed-early-Free-Council proposal is pending (public
+   * information, so both seats can show the proposal banner), or null when
+   * none is pending.
+   */
+  readonly earlyCouncilProposal?: PlayerId | null;
+  /**
    * The self player's index in the original `state.players` array (0 or 1).
    * Phase-state arrays (draft state, site selection, etc.) are indexed by
    * this player order — use this to look up the correct entry for self.

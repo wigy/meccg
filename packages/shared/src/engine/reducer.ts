@@ -131,7 +131,7 @@ import { handleLongEvent } from './reducer-events.js';
 import { handleMovementHazard, autoAdvanceMHOrderEffects } from './reducer-movement-hazard.js';
 import { triggerAhuntOnLongEventPlay } from './mh-steps.js';
 import { handleSite } from './reducer-site.js';
-import { handleEndOfTurn, reshuffleCardFromHand } from './reducer-end-of-turn.js';
+import { handleEndOfTurn, reshuffleCardFromHand, handleEarlyCouncilAction } from './reducer-end-of-turn.js';
 import { applyBannedVsBalrogSwap } from './balrog-banned-swap.js';
 import { handleFreeCouncil, endGame } from './reducer-free-council.js';
 import { handleCombatAction, COMBAT_ACTION_TYPES } from './reducer-combat.js';
@@ -172,6 +172,16 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
     if (!opponent) return { state, error: 'Cannot concede: no opponent found' };
     const finalState = endGame(state, { kind: 'concession', concededBy: action.player }, opponent.id);
     const recomputed = postReduce(finalState, state);
+    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+  }
+
+  // Agreed early Free Council handshake — like concede, a human-only
+  // meta-action handled ahead of chain/combat/pending dispatch so the
+  // opponent can answer a proposal from any sub-state without disturbing it.
+  if (action.type === 'propose-early-council' || action.type === 'accept-early-council' || action.type === 'decline-early-council') {
+    const result = handleEarlyCouncilAction(state, action);
+    if (result.error) return result;
+    const recomputed = postReduce(result.state, state);
     return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
   }
 

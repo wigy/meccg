@@ -54,4 +54,14 @@ describe('auto-pass excludes the always-present concede action', () => {
 
     expect(getAutoPassAction(legalActions)).toBeNull();
   });
+
+  test('does not fire an early Free Council handshake action on the human\'s behalf', () => {
+    for (const type of ['propose-early-council', 'accept-early-council', 'decline-early-council'] as const) {
+      const legalActions: EvaluatedAction[] = [
+        { action: { type, player: PLAYER }, viable: true },
+        { action: { type: 'concede', player: PLAYER }, viable: true },
+      ];
+      expect(getAutoPassAction(legalActions)).toBeNull();
+    }
+  });
 });

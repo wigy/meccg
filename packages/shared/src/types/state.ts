@@ -209,6 +209,13 @@ export interface GameState {
    */
   readonly lastTurnFor: PlayerId | null;
   /**
+   * The player whose agreed-early-Free-Council proposal is awaiting the
+   * opponent's answer (see `ProposeEarlyCouncilAction`), or null/absent when
+   * no proposal is pending. Optional so games saved before this field
+   * existed load as "no proposal".
+   */
+  readonly earlyCouncilProposal?: PlayerId | null;
+  /**
    * Dev-only: when set, the next dice roll will produce this total (2-12)
    * instead of using the RNG. The individual dice are randomly split to
    * sum to the target. Consumed (reset to null) after one roll.

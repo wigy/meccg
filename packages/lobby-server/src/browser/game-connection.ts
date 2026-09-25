@@ -8,7 +8,7 @@
  */
 
 import type { CardDefinitionId, CardInstanceId, ClientMessage, EvaluatedAction, GameAction, ServerMessage, StateMessage } from '@meccg/shared';
-import { buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction } from '@meccg/shared';
+import { buildCompanyNames, buildInstanceLookup, canonicalActionKey, describeAction, isMetaAction } from '@meccg/shared';
 import {
   appState, cardPool, LOBBY_MODE, buildJoinFromDeck,
   MAX_RECONNECT_ATTEMPTS, AUTO_PASS_KEY, type ScreenId,
@@ -18,6 +18,7 @@ import { connectPseudoAi } from './pseudo-ai.js';
 import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, prepareChooseRevealedCard, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { clearTutorialPanel, renderTutorialPanel, setExitTutorial } from './tutorial-panel.js';
+import { renderEarlyCouncil } from './early-council.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
@@ -406,10 +407,12 @@ function isRollAction(t: string): boolean {
  * viable-looking entry. Counting it as "the one thing to auto-fire" silently
  * conceded the game out from under waiting players; it must be excluded from
  * the "nothing else to do" tally the same way `keyboard-shortcuts.ts` already
- * excludes it from its own auto-fire button list.
+ * excludes it from its own auto-fire button list. The same applies to the
+ * other human-only meta-actions (the early Free Council handshake, see
+ * `isMetaAction`) — auto-pass must never propose, accept or decline one.
  */
 export function getAutoPassAction(legalActions: readonly EvaluatedAction[]): GameAction | null {
-  const viable = legalActions.filter(a => a.viable && a.action.type !== 'concede');
+  const viable = legalActions.filter(a => a.viable && !isMetaAction(a.action.type));
   if (viable.length === 1 && !isRollAction(viable[0].action.type)) return viable[0].action;
   return null;
 }
@@ -530,6 +533,7 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   renderSiteInfo(msg.view, cardPool, appState.lastCompanyNames);
   renderFreeCouncilInfo(msg.view, cardPool);
   renderActions(msg.view.legalActions, cardPool, sendAction, appState.lastInstanceLookup, appState.lastCompanyNames, appState.lastPlayerNames);
+  renderEarlyCouncil(msg.view, sendAction);
   renderHand(msg.view, cardPool, sendAction);
   renderOpponentHand(msg.view, cardPool);
   renderPlayerNames(msg.view, cardPool);

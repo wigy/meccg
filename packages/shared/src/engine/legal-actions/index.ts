@@ -19,7 +19,7 @@ import { matchesContext } from '../../effects/condition-matcher.js';
 import { matchesDefinitionAcrossFallenWizardAlignment, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
-import { getPlayerIndex } from '../../state-utils.js';
+import { getPlayerIndex, canNegotiateEarlyCouncil } from '../../state-utils.js';
 import { setupActions } from './setup.js';
 import { untapActions } from './untap.js';
 import { organizationActions } from './organization.js';
@@ -365,7 +365,55 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
  * should see a game-ending option that only a human should ever choose.
  */
 export function computePlayerFacingActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  return withConcedeAction(state, playerId, computeLegalActions(state, playerId));
+  return withMetaActions(state, playerId, computeLegalActions(state, playerId));
+}
+
+/**
+ * Action types that are player-facing meta-actions: `concede` and the
+ * agreed-early-Free-Council handshake. They are layered onto a human seat's
+ * action set by {@link withMetaActions} and are never part of
+ * {@link computeLegalActions}. Autonomous agents, auto-pass and pseudo-AI
+ * auto-pick must drop them (see {@link isMetaAction}) — none of them may end
+ * or negotiate the end of a game on a human's behalf.
+ */
+export const META_ACTION_TYPES: ReadonlySet<string> = new Set([
+  'concede',
+  'propose-early-council',
+  'accept-early-council',
+  'decline-early-council',
+]);
+
+/** True if `type` is a human-only meta-action (see {@link META_ACTION_TYPES}). */
+export function isMetaAction(type: string): boolean {
+  return META_ACTION_TYPES.has(type);
+}
+
+/**
+ * Appends every player-facing meta-action to an already-computed legal-action
+ * set: `concede` (see {@link withConcedeAction}) plus the agreed early Free
+ * Council handshake while {@link canNegotiateEarlyCouncil} holds —
+ *
+ * - no proposal pending: `propose-early-council` for either seat;
+ * - proposal pending: `accept-early-council` and `decline-early-council`
+ *   for the opponent, `decline-early-council` (withdraw) for the proposer.
+ *
+ * Like concede these are offered in every sub-state (chain, combat, pending)
+ * so the opponent can answer without waiting for priority. The game server
+ * applies this per human connection only.
+ */
+export function withMetaActions(state: GameState, playerId: PlayerId, evaluated: readonly EvaluatedAction[]): EvaluatedAction[] {
+  const result = withConcedeAction(state, playerId, evaluated);
+  if (!canNegotiateEarlyCouncil(state)) return result;
+  const proposer = state.earlyCouncilProposal ?? null;
+  if (proposer === null) {
+    result.push({ action: { type: 'propose-early-council', player: playerId }, viable: true });
+  } else if (proposer === playerId) {
+    result.push({ action: { type: 'decline-early-council', player: playerId }, viable: true });
+  } else {
+    result.push({ action: { type: 'accept-early-council', player: playerId }, viable: true });
+    result.push({ action: { type: 'decline-early-council', player: playerId }, viable: true });
+  }
+  return result;
 }
 
 /**
