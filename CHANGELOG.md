@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.174.0 — 2026-09-25
+
+Players Can Agree to an Early Free Council
+
+### Game Engine
+
+- Two players can end a game early by mutual agreement: one proposes an early Free Council, the opponent accepts or declines (the proposer can withdraw); on acceptance the current turn finishes, the other player takes one last turn, and the Free Council scores the game (#3202)
+- Leucaruth at Home (td-44) certified: only one unique Dragon manifestation may be played per turn, enforced as a per-turn quota on card-play prohibitions that also covers faction influence attempts (#3200)
+- Hey! come merry dol! (td-124) certified: halves the Wilderness count of a moving company's site path, affecting creature keying and other site-path consumers (#3204)
+
+### Web Client
+
+- New "Propose Council" toolbar button and proposal banner with Accept/Decline or Withdraw (#3202)
+- Deck list rename and export controls are plain icons again, matching the deck editor (#3201)
+
+### AI
+
+- The modular AI (h2) prices a wound at 10 tsd instead of 1.5; with elimination at 30 it beats heuristic by +196 (a/b) and +176 (c/d) Elo (#3203)
+
 ## 0.173.0 — 2026-09-25
 
 Modular AI Plays Hazards Freely and Guards Its Characters

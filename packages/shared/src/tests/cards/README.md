@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1359 | 1359 | 0 | 100.0% |
+| 1361 | 1361 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 101 | 101 | 100.0% |
 | DM | 149 | 149 | 100.0% |
 | LE | 325 | 325 | 100.0% |
-| TD | 137 | 137 | 100.0% |
+| TD | 139 | 139 | 100.0% |
 | TW | 425 | 425 | 100.0% |
 | WH | 98 | 98 | 100.0% |
 
@@ -749,6 +749,7 @@
 | td-38 | Itangast at Home | — | 8 | ☑ |
 | td-41 | Left Behind | — | 10 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
+| td-44 | Leucaruth at Home | — | 14 | ☑ |
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-49 | Morgul-rats | — | 8 | ☑ |
@@ -808,6 +809,7 @@
 | td-118 | Gift of Comprehension | — | 6 | ☑ |
 | td-119 | Gold Belt of Lórien  | — | 5 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
+| td-124 | Hey! come merry dol! | — | 10 | ☑ |
 | td-125 | Houses of Healing | — | 8 | ☑ |
 | td-126 | King under the Mountain | — | 13 | ☑ |
 | td-128 | Look More Closely Later | — | 18 | ☑ |
