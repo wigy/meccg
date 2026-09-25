@@ -269,7 +269,7 @@ function harmOf(
   const expected = result.outcomes.reduce((sum, o) => sum + o.p * o.dtsd, 0);
   // Each hazard costs a card out of hand whatever it achieves, exactly as the
   // bundle planner charges.
-  return expected - tunables.provisionalCardPrice * sequence.length;
+  return expected - tunables.hazardCardPrice * sequence.length;
 }
 
 /**
@@ -425,7 +425,7 @@ function buildHazardPlan(
      * marginals summing to {@link HazardPlan.totalHarm}.
      */
     const contribution = (target: Target): number =>
-      attackHarm(target, boost) - tunables.provisionalCardPrice * target.supports.length;
+      attackHarm(target, boost) - tunables.hazardCardPrice * target.supports.length;
 
     /** A support changes every attack, so every company is re-priced. */
     const reprice = (): void => {
@@ -456,7 +456,7 @@ function buildHazardPlan(
         for (const support of supports) {
           if (!unplayed.has(support.instanceId as string)) continue;
           const marginal = attacksHarm(mergeBoosts(boost, support.boost))
-            - attacksNow - tunables.provisionalCardPrice;
+            - attacksNow - tunables.hazardCardPrice;
           if (!best || marginal > best.marginal) best = { kind: 'support', support, target, marginal };
         }
       }
@@ -551,7 +551,7 @@ function buildHazardPlan(
             name: support.name,
             targetCompanyId: target.companyId,
             targetLabel: target.label,
-            marginal: after - before - tunables.provisionalCardPrice,
+            marginal: after - before - tunables.hazardCardPrice,
             // First, always: a modifier reaches the table before the attacks it
             // improves, or it improves nothing.
             order: index + 1,
@@ -624,11 +624,11 @@ function buildHazardPlan(
         // card for each support played there — while the candidate arm below
         // is attacks-only. Subtracting the net figure from the gross one
         // credited the candidate with the supports' card prices (one full
-        // provisionalCardPrice per support), inflating every quote taken
+        // hazardCardPrice per support), inflating every quote taken
         // from a company the allocation gave a support to. Add those prices
         // back so both arms are attacks-only.
         const attacksOnly = target.harm
-          + tunables.provisionalCardPrice * target.supports.length;
+          + tunables.hazardCardPrice * target.supports.length;
         const marginal = harmOf(
           target, cardPool, [...target.assigned, candidate], tunables, plannedBoost, attackerChoice,
         ) - attacksOnly;

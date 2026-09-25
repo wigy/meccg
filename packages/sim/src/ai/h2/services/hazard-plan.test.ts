@@ -212,7 +212,7 @@ describe('a support event in hand', () => {
     // card per support played there — from an attacks-only candidate arm.
     // Mixed like that, the difference credited every candidate with the
     // supports' card prices: with one support adopted, each quote from that
-    // company came out a full provisionalCardPrice too high, skewing the
+    // company came out a full hazardCardPrice too high, skewing the
     // exchange/fetch/draft comparisons `card-price` feeds (routinely decided
     // by sub-price differences). An Orc pins it cleanly: the Spider/Animal
     // boost never touches an Orc attack, and appending it behind *boosted*
@@ -229,7 +229,7 @@ describe('a support event in hand', () => {
     const inflated = boosted.plan.marginalFor(orc);
     const honest = bare.plan.marginalFor(orc);
     expect(honest).toBeGreaterThan(0);
-    expect(inflated).toBeLessThanOrEqual(honest + DEFAULT_TUNABLES.provisionalCardPrice / 2);
+    expect(inflated).toBeLessThanOrEqual(honest + DEFAULT_TUNABLES.hazardCardPrice / 2);
   });
 });
 

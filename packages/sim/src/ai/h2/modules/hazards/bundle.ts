@@ -137,7 +137,7 @@ function scoreBundle(
     { maxStates: tunables.attackStateCap, attackerChoice: attackerChoiceAt(standing.risk, tunables) },
   );
   // Every hazard costs a card out of hand, whatever it achieves.
-  const cardPrice = tunables.provisionalCardPrice * cards.length;
+  const cardPrice = tunables.hazardCardPrice * cards.length;
   const outcomes: Outcome[] = result.outcomes.map(o => ({ ...o, dtsd: o.dtsd - cardPrice }));
   const scored = standing.score(outcomes);
   return {

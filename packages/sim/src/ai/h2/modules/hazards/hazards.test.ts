@@ -135,7 +135,7 @@ describe('bundles', () => {
     const price = denialPricer(cardPool, standing, DEFAULT_TUNABLES, context);
     const roster = targetRoster(view);
 
-    const tunables = { ...DEFAULT_TUNABLES, provisionalCardPrice: 0, hazardMaxBundle: 2 };
+    const tunables = { ...DEFAULT_TUNABLES, hazardCardPrice: 0, hazardMaxBundle: 2 };
     const search = planBundles(
       [twin('a', 0), twin('b', 0)], roster, cardPool, price, standing, tunables, 2,
     );
@@ -174,7 +174,7 @@ describe('bundles', () => {
     const context = denialContext(view, company, beliefs, standing, DEFAULT_TUNABLES);
     const price = denialPricer(cardPool, standing, DEFAULT_TUNABLES, context);
     const roster = targetRoster(view);
-    const tunables = { ...DEFAULT_TUNABLES, provisionalCardPrice: 0, hazardMaxBundle: 2 };
+    const tunables = { ...DEFAULT_TUNABLES, hazardCardPrice: 0, hazardMaxBundle: 2 };
 
     const definitionOf = (name: string) => Object.keys(cardPool).find(id =>
       (cardPool[id] as unknown as { name?: string }).name === name)!;
@@ -237,7 +237,7 @@ describe('detainment attacks (CoE §3.II)', () => {
       standing,
       price: denialPricer(cardPool, standing, DEFAULT_TUNABLES, context),
       roster: targetRoster(view),
-      tunables: { ...DEFAULT_TUNABLES, provisionalCardPrice: 0, hazardMaxBundle: 2 },
+      tunables: { ...DEFAULT_TUNABLES, hazardCardPrice: 0, hazardMaxBundle: 2 },
     };
   }
 
@@ -418,7 +418,7 @@ describe('placing a card on guard', () => {
       const text = JSON.stringify(placement.rationale);
       // Never the card price — that is the half of the rules correction that
       // still holds.
-      expect(text).not.toContain('provisionalCardPrice');
+      expect(text).not.toContain('hazardCardPrice');
       // A cost, where there is one, is named as the alternative it forecloses.
       if (placement.expectedTsd < 0) expect(text).toContain('the hazard it is not');
     }
@@ -613,8 +613,8 @@ describe('a support event that boosts every attack', () => {
     expect(after).toBeGreaterThan(before);
     // The event is worth the boosted plan minus its own card — never the
     // sliver `after − before`, which is what always lost to the creature.
-    expect(eventEvaluation.expectedTsd).toBeCloseTo(after - DEFAULT_TUNABLES.provisionalCardPrice, 1);
-    expect(eventEvaluation.expectedTsd).toBeGreaterThan(after - before - DEFAULT_TUNABLES.provisionalCardPrice);
+    expect(eventEvaluation.expectedTsd).toBeCloseTo(after - DEFAULT_TUNABLES.hazardCardPrice, 1);
+    expect(eventEvaluation.expectedTsd).toBeGreaterThan(after - before - DEFAULT_TUNABLES.hazardCardPrice);
     // Whether that beats the creature is then a question of how much the
     // boost adds: +1 prowess on five strikes against four weak characters is
     // worth more than the card, so the event leads.
