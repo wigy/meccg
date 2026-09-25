@@ -89,13 +89,15 @@ function buildDeckInfo(deck: FullDeck, metaText: string): HTMLDivElement {
 }
 
 /**
- * Build an Export button that downloads `deck` as a `.meccg-json` file via
- * the same helper the deck editor's title bar uses, so a copy can be saved
- * straight from the deck list without opening the editor first.
+ * Build an Export icon button that downloads `deck` as a `.meccg-json` file
+ * via the same helper the deck editor's title bar uses, so a copy can be
+ * saved straight from the deck list without opening the editor first. It
+ * reuses the editor title's plain download icon rather than a text button.
  */
 function makeExportButton(deck: FullDeck): HTMLButtonElement {
   const exportBtn = document.createElement('button');
-  exportBtn.textContent = 'Export';
+  exportBtn.className = 'deck-editor-title-edit-btn';
+  exportBtn.textContent = '\u{2B07}\u{FE0F}';
   exportBtn.title = 'Download this deck as a .meccg-json file';
   exportBtn.addEventListener('click', () => downloadDeck(deck));
   return exportBtn;
