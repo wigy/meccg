@@ -46,6 +46,7 @@ import { Phase, RegionType, SiteType } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const THIEF = 'tw-102' as CardDefinitionId;
+const HERB_LORE = 'dm-136' as CardDefinitionId;
 
 const BORDER_HOLD_KEYING = { method: 'site-type' as const, value: 'border-hold' };
 const BORDER_KEYING = { method: 'region-type' as const, value: 'border' };
@@ -218,6 +219,44 @@ describe('Thief (tw-102)', () => {
 
     const afterDiscard = dispatch(s, discardActions[0].action);
     expect(afterDiscard.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === GLAMDRING)).toBe(true);
+  });
+
+  test('a non-item permanent event on the struck character (e.g. Herb-lore) is not offered as a discard-item choice', () => {
+    // Bug report: Herb-lore (dm-136), a permanent hero-resource-event played
+    // on a character, is stored in `character.items` alongside real items
+    // (see attachItemToChar / reducer-move.ts categorizing resource-events
+    // into 'items'). Thief's discard-item strike effect must only offer
+    // actual item cards — Herb-lore is not an item and cannot legally be
+    // discarded to satisfy it. With no real item in the company, the effect
+    // has nothing to offer and combat finalizes without a wound.
+    const base = setupThiefCombat([ARAGORN]);
+    const afterChain = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, HERB_LORE);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+
+    let s = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2); // 2+6=8 < 15 → discard-item strike effect
+
+    expect(s.combat).toBeNull();
+    expect(viableActions(s, PLAYER_1, 'discard-item-from-company')).toHaveLength(0);
+    expectCharItemCount(s, RESOURCE_PLAYER, ARAGORN, 1);
+    expect(s.players[RESOURCE_PLAYER].characters[aragornId].status).not.toBe(CardStatus.Inverted);
+  });
+
+  test('when a real item and a non-item permanent event are both present, only the real item is offered', () => {
+    const base = setupThiefCombat([ARAGORN]);
+    let afterChain = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, HERB_LORE);
+    afterChain = attachItemToChar(afterChain, RESOURCE_PLAYER, ARAGORN, DAGGER_OF_WESTERNESSE);
+    const aragornId = findCharInstanceId(afterChain, RESOURCE_PLAYER, ARAGORN);
+
+    let s = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: aragornId });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2);
+
+    const discardActions = viableActions(s, PLAYER_1, 'discard-item-from-company');
+    expect(discardActions).toHaveLength(1);
+
+    const afterDiscard = dispatch(s, discardActions[0].action);
+    expect(afterDiscard.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === DAGGER_OF_WESTERNESSE)).toBe(true);
+    expectCharItemCount(afterDiscard, RESOURCE_PLAYER, ARAGORN, 1); // Herb-lore remains attached
   });
 
   test('when the company has no items, the discard phase is skipped and combat finalizes without a wound', () => {
