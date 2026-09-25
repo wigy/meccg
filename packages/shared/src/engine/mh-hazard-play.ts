@@ -1135,7 +1135,14 @@ export function handlePlayHazardCard(
     return { state, error: `Unsupported hazard card type during play-hazards` };
   }
 
-  logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${mhState.hazardsPlayedThisCompany + 1}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → enters chain`);
+  // Pale Dream-maker (dm-78) and kin carry `no-hazard-limit`: "does not count
+  // against the hazard limit." Without this gate, `hazardsPlayedThisCompany`
+  // would be incremented anyway, and `countsAgainstHazardLimit: true` below
+  // would let the card fizzle at resolution (CoE 2.IV.iii.1) whenever the
+  // count it wasn't supposed to affect happens to exceed the limit.
+  const bypassesLimit = hasPlayFlag(def as { effects?: readonly CardEffect[] }, 'no-hazard-limit');
+  const newHazardCount = bypassesLimit ? mhState.hazardsPlayedThisCompany : mhState.hazardsPlayedThisCompany + 1;
+  logDetail(`Play-hazards: hazard player plays ${def.eventType}-event "${def.name}" (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)})${bypassesLimit ? ' [no-hazard-limit]' : ''} → enters chain`);
 
   // Remove card from hand — it now resides on the chain
   const newHand = removeById(hazardPlayer.hand, handCard.instanceId);
@@ -1181,7 +1188,9 @@ export function handlePlayHazardCard(
     })),
     phaseState: {
       ...mhState,
-      hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+      hazardsPlayedThisCompany: bypassesLimit
+        ? mhState.hazardsPlayedThisCompany
+        : mhState.hazardsPlayedThisCompany + 1,
       // Reset resource player's pass — they may respond
       resourcePlayerPassed: false,
       corruptionCardsPlayedPerChar: updatedCorruptionPerChar,
@@ -1222,7 +1231,7 @@ export function handlePlayHazardCard(
         targetFactionInstanceId: action.type === 'play-hazard' ? action.targetFactionInstanceId : undefined,
       }
     : { type: 'long-event' };
-  newState = initiateOrPushChain(newState, action.player, handCard, payload, true);
+  newState = initiateOrPushChain(newState, action.player, handCard, payload, !bypassesLimit);
 
   return { state: newState };
 }
