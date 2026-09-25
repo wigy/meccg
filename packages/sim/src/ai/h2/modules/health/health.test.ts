@@ -144,9 +144,10 @@ describe('what it declines', () => {
   });
 });
 
-// The scenario was built around the flat elimination cost of 3 that shipped
-// before it rose to 30; what is under test is the mechanism, not that number.
-const TUNABLES_AT_THREE = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3 };
+// The scenario was built around the flat loss prices that shipped before they
+// were raised by gate (elimination 3 → 30, wound 1.5 → 10); what is under test
+// is the mechanism, not those numbers.
+const SCENARIO_TUNABLES = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3, woundTempoCost: 1.5 };
 
 describe('salvaging the items of a character just eliminated', () => {
   // Passing discards every item not salvaged, so salvaging keeps the item. It
@@ -159,8 +160,8 @@ describe('salvaging the items of a character just eliminated', () => {
       view,
       cardPool: loadCardPool(),
       legalActions: view.legalActions.filter(e => e.viable).map(e => e.action),
-      tunables: TUNABLES_AT_THREE,
-      standing: computeStanding(view, testWinProbModel(), TUNABLES_AT_THREE),
+      tunables: SCENARIO_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), SCENARIO_TUNABLES),
     };
     const salvages = context.legalActions.filter(a => a.type === 'salvage-item');
     expect(salvages.length).toBeGreaterThan(0);

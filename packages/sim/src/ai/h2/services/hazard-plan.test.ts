@@ -85,14 +85,15 @@ describe('what each hazard is for', () => {
   });
 });
 
-// The scenario was built around the flat elimination cost of 3 that shipped
-// before it rose to 30; what is under test is the mechanism, not that number.
-const TUNABLES_AT_THREE = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3 };
+// The scenario was built around the flat loss prices that shipped before they
+// were raised by gate (elimination 3 → 30, wound 1.5 → 10); what is under test
+// is the mechanism, not those numbers.
+const SCENARIO_TUNABLES = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3, woundTempoCost: 1.5 };
 
 // Mechanism tests written when a hazard cost a full card to play. The rotation
 // credit that replaced it (`hazardCardPrice` < 0) makes marginal attacks worth
 // playing, which is not what these check.
-const FULL_CARD_PRICE = { ...TUNABLES_AT_THREE, hazardCardPrice: 1 };
+const FULL_CARD_PRICE = { ...SCENARIO_TUNABLES, hazardCardPrice: 1 };
 
 describe('the order the attacks are played in', () => {
   /** The plan for the hazard player at a captured position. */

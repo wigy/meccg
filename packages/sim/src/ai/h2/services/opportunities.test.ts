@@ -32,10 +32,10 @@ const GOLDEN = JSON.parse(fs.readFileSync(
   path.join(__dirname, 'opportunities.golden.json'), 'utf-8',
 )) as Record<string, unknown[]>;
 
-// The golden was generated with the flat elimination cost of 3 that shipped at
-// the time; plan payoffs are priced net of the risk to the characters, so the
-// refactor contract is held at that number.
-const TUNABLES_AT_THREE = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3 };
+// The golden was generated with the flat loss prices that shipped at the time
+// (elimination 3, wound 1.5); plan payoffs are priced net of the risk to the
+// characters, so the refactor contract is held at those numbers.
+const SCENARIO_TUNABLES = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3, woundTempoCost: 1.5 };
 
 describe('proposal identity across the refactor', () => {
   const cardPool = loadCardPool();
@@ -48,8 +48,8 @@ describe('proposal identity across the refactor', () => {
     const scenario = loadScenario(id);
     const view = scenarioView(scenario);
     const legalActions = view.legalActions.filter(e => e.viable).map(e => e.action);
-    const standing = computeStanding(view, model, TUNABLES_AT_THREE);
-    const context: ModuleContext = { view, cardPool, legalActions, tunables: TUNABLES_AT_THREE, standing };
+    const standing = computeStanding(view, model, SCENARIO_TUNABLES);
+    const context: ModuleContext = { view, cardPool, legalActions, tunables: SCENARIO_TUNABLES, standing };
     const plans = proposePlans(ALL_MODULES, context);
     expect(JSON.parse(JSON.stringify(plans))).toEqual(GOLDEN[id]);
   });
