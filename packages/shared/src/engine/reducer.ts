@@ -113,6 +113,7 @@ export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, discardOrphanedFactionAttachedEvents, discardOrphanedStoredAttachedEvents, sweepProhibitedCompanyEvents, sweepTapAtSiteItems } from './reducer-utils.js';
 import { applyTapDiscardInPlay } from './short-event-discard.js';
+import { recordCardPlayed } from './card-play-prohibition.js';
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
@@ -150,6 +151,13 @@ import { handleCombatAction, COMBAT_ACTION_TYPES } from './reducer-combat.js';
  * @returns A {@link ReducerResult} with the new state or an error.
  */
 export function reduce(state: GameState, action: GameAction): ReducerResult {
+  const result = reduceAction(state, action);
+  if (result.error) return result;
+  return { ...result, state: recordCardPlayed(state, result.state, action) };
+}
+
+/** Dispatches `action` to the handler for the current sub-state or phase. */
+function reduceAction(state: GameState, action: GameAction): ReducerResult {
   logHeading(`Reducer: action '${action.type}' from player ${action.player as string} in phase '${state.phaseState.phase}'`);
 
   // Capture any public-pile identities present in the input state before

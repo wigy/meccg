@@ -673,10 +673,21 @@
           "prowess": 17,
           "body": 8
         }
+      },
+      {
+        "type": "prohibit-card-play",
+        "filter": {
+          "$or": [
+            { "race": "dragon", "unique": true },
+            { "keywords": { "$includes": "dragon-manifestation" } }
+          ]
+        },
+        "maxPerTurn": 1
       }
     ],
     "text": "Unique. Unless Leucaruth Ahunt is in play, Irerock has an additional automatic-attack: Dragon — 2 strikes at 17/8. In addition, only one unique Dragon manifestation may be played per turn.",
-    "manifestId": "tw-48"
+    "manifestId": "tw-48",
+    "certified": "2026-09-25"
   },
   {
     "cardType": "hazard-event",
