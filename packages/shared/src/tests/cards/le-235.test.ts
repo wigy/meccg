@@ -411,4 +411,45 @@ describe('Sudden Call (le-235)', () => {
     expect(next.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === cardId)).toBe(false);
     expect(next.players[RESOURCE_PLAYER].playDeck.some(c => c.instanceId === cardId)).toBe(true);
   });
+  test('reshuffle-card-from-hand is not offered while the play deck must be exhausted', () => {
+    // Rule 2.4: an empty play deck with a discard pile is exhausted before
+    // anything else. The hazard player has just drawn the last card in the M/H
+    // draw-cards step, whose advance to play-hazards waits on that exhaust.
+    // Putting Sudden Call into the empty deck first skipped the exhaust and
+    // left the step with nothing to offer either player — a deadlock.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [LAGDUF] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }],
+          hand: [SUDDEN_CALL],
+          siteDeck: [DOL_GULDUR],
+          playDeck: [],
+          discardPile: [LAGDUF, OSTISEN],
+        },
+      ],
+    });
+    const state = {
+      ...base,
+      phaseState: makeMHState({
+        step: 'draw-cards',
+        resourceDrawMax: 2, resourceDrawCount: 2,
+        hazardDrawMax: 2, hazardDrawCount: 2,
+      }),
+    };
+
+    const offered = computeLegalActions(state, PLAYER_2).filter(ea => ea.viable).map(ea => ea.action.type);
+    expect(offered).toContain('deck-exhaust');
+    expect(offered).not.toContain('reshuffle-card-from-hand');
+  });
 });
