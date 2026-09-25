@@ -502,7 +502,14 @@ function computePhaseLegalActions(state: GameState, playerId: PlayerId): Evaluat
   // resolution windows where the only "action" is a system-driven
   // resolve.
   const hasOtherViable = evaluated.some(e => e.viable);
-  if (hasOtherViable) {
+  // Rule 2.4: an empty play deck with a discard pile must be exhausted before
+  // anything else. Putting a hand card into that empty deck first (Sudden
+  // Call) skipped the exhaust, and in the M/H draw-cards step — whose advance
+  // to play-hazards waits on it once the last draw emptied the deck — left
+  // both players with nothing to do: a deadlock in 23 of 400 m/p bench games.
+  const exhausting = playerById(state, playerId)?.deckExhaustPending === true
+    || evaluated.some(e => e.viable && e.action.type === 'deck-exhaust');
+  if (hasOtherViable && !exhausting) {
     evaluated = [...evaluated, ...reshuffleFromHandActions(state, playerId)];
     evaluated = [...evaluated, ...bannedVsBalrogSwapActions(state, playerId)];
   }
