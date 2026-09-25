@@ -810,9 +810,13 @@ export function resolveStrikeCore(
       const companyCharIds = combat.strikeEffect === 'discard-item-character'
         ? [strike.characterId]
         : company?.characters ?? [];
+      // `ch.items` also holds non-item permanent events attached to the
+      // character (e.g. Herb-lore dm-136, stored alongside items for its
+      // bearer) — filter to actual item cards so the defender can't be
+      // offered a permanent event as a "discard-item" choice.
       const allItems: ItemInPlay[] = companyCharIds.flatMap(charId => {
         const ch = newPlayers[defPlayerIndex].characters[charId];
-        return ch ? [...ch.items] : [];
+        return ch ? ch.items.filter(item => isItemCard(defById(state, item.definitionId))) : [];
       });
       if (allItems.length > 0) {
         logDetail(`Entering discard-item-from-company phase: ${allItems.length} item(s) available`);
