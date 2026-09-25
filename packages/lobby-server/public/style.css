@@ -543,6 +543,22 @@ h2 {
   font-family: 'Segoe UI', sans-serif;
 }
 
+/* Unread admin announcement ("Send Mail to All") — pulse the Mail count. */
+.lobby-nav-badge--pulse {
+  display: inline-block;
+  font-weight: bold;
+  animation: mail-badge-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mail-badge-pulse {
+  0%, 100% { transform: scale(1);    opacity: 1;    text-shadow: none; }
+  50%      { transform: scale(1.25); opacity: 0.75; text-shadow: 0 0 8px rgba(255,107,107,0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-nav-badge--pulse { animation: none; }
+}
+
 .lobby-nav-spacer {
   flex: 1;
 }
@@ -1639,6 +1655,22 @@ h2 {
 .inbox-item--unread {
   border-left: 2px solid #c4a35a;
   background: linear-gradient(180deg, rgba(196,163,90,0.08) 0%, rgba(11,13,18,0.5) 100%);
+}
+
+/* Admin "Send Mail to All" announcement — sorted to the top of the inbox. */
+.inbox-item--announcement {
+  border: 1px solid rgba(255,107,107,0.45);
+  border-left: 3px solid #ff6b6b;
+  background: linear-gradient(180deg, rgba(255,107,107,0.14) 0%, rgba(11,13,18,0.5) 100%);
+}
+
+.inbox-item--announcement:hover {
+  border-color: rgba(255,107,107,0.75);
+  border-left-color: #ff6b6b;
+}
+
+.inbox-item--announcement .inbox-item-subject {
+  color: #ffd0c8;
 }
 
 .inbox-item-info {

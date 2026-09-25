@@ -273,6 +273,8 @@ export interface MailNotificationMessage {
   readonly type: 'mail-notification';
   /** Number of unread messages in the player's inbox. */
   readonly unreadCount: number;
+  /** Number of unread admin announcements ("Send Mail to All") — the badge pulses while non-zero. */
+  readonly unreadAnnouncements: number;
 }
 
 /** Pseudo-AI legal actions forwarded to the human player for decision. */
