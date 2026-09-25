@@ -3221,10 +3221,14 @@ function statusToken(status: CardStatus): 'tapped' | 'untapped' | 'inverted' {
  *    non-Under-deeps site".
  *  - `pending.corruptionCheckTargetsMe` — `true` iff a pending
  *    corruption-check resolution exists whose `characterId` matches
- *    the candidate. Enables reactive plays like Halfling Strength's
- *    `+4 corruption check boost` option to declare
- *    `when: { "pending.corruptionCheckTargetsMe": true }` and thereby
- *    satisfy the CoE "cannot play cards without effect" rule.
+ *    the candidate, or an unresolved chain entry declares a hazard whose
+ *    `play-target` cost will roll a corruption check for the candidate once
+ *    it resolves (CoE 9.3.2 / CRF22 Annotation 1-2: a dice-rolling action
+ *    may be targeted in the same chain of effects that declared it).
+ *    Enables reactive plays like Halfling Strength's `+4 corruption check
+ *    boost` option to declare `when: { "pending.corruptionCheckTargetsMe":
+ *    true }` and thereby satisfy the CoE "cannot play cards without effect"
+ *    rule.
  *
  * Exported so legal-action computers in other windows (e.g. the
  * corruption-check pending-resolution window) can build the same
@@ -3257,6 +3261,26 @@ export function buildPlayOptionContext(
     // the end-of-game corruption checks, not just mid-game ones.
     state.phaseState.phase === Phase.FreeCouncil
     && state.phaseState.pendingCheck?.characterId === char.instanceId
+  ) || (
+    // CoE 9.3.2 / CRF22 Annotation 1-2: a dice-rolling action (a corruption
+    // check) may be targeted by other actions declared in the SAME chain of
+    // effects that declared it, before it has resolved — unlike ordinary
+    // card elements, which can't be targeted until their chain entry
+    // resolves. A hazard event whose `play-target` carries `cost: { check:
+    // "corruption" }` (Dragon-sickness td-18) guarantees its target will
+    // face a corruption check once the chain unwinds, so a reactive boost
+    // like Halfling Strength must be offered for that target while the
+    // hazard still sits undeclared-but-unresolved on the chain, not only
+    // after `resolveEntry` (chain-reducer.ts) converts the cost into an
+    // actual `corruption-check` PendingResolution.
+    (state.chain?.entries ?? []).some(entry => {
+      if (entry.resolved || entry.negated || !entry.card) return false;
+      if (entry.payload.type !== 'short-event' || entry.payload.targetCharacterId !== char.instanceId) return false;
+      const entryDef = defById(state, entry.card.definitionId);
+      return getCardEffects(entryDef).some(
+        (e): e is PlayTargetEffect => e.type === 'play-target' && e.cost?.check === 'corruption',
+      );
+    })
   );
   let inAvatarCompany = false;
   let isRevealedAvatar = false;
