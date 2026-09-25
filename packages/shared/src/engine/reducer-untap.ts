@@ -21,6 +21,7 @@ import { defById, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHav
 import { enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
+import { handlePlayCharacter } from './reducer-organization.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import { countExtraAgentActions } from './mh-agents.js';
 import type { OnEventEffect, CardEffect, UntapMindRollEffect, TakePrisonerEffect } from '../types/effects.js';
@@ -77,6 +78,16 @@ export function handleUntap(state: GameState, action: GameAction): ReducerResult
   // player can never resolve the check.
   if (action.type === 'play-short-event') {
     return handlePlayResourceShortEvent(state, action);
+  }
+
+  // CRF 22 (A Chance Meeting tw-188): "May be played on your turn during any
+  // phase the company is at a site" — this includes the untap phase (see
+  // `legal-actions/untap.ts`'s `recruitViaEventActions` call). Shared with
+  // the organization/M-H/site/end-of-turn phases; `handlePlayCharacter`
+  // guards the one-character-per-turn bookkeeping on actually being the
+  // organization phase, so it is safe to route here unchanged.
+  if (action.type === 'play-character') {
+    return handlePlayCharacter(state, action);
   }
 
   // Everything below treats the action as the hazard player's pass; any

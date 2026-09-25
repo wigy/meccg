@@ -13,11 +13,12 @@
  * Modelled with a single `recruit-character` effect (controlledBy
  * "direct-influence", siteTypes Free-hold/Border-hold/Ruins & Lairs, filter
  * excluding Wizards, bypassOneCharacterLimit). The legal-action helper
- * `recruitViaEventActions` is wired into the organization, movement/hazard,
- * site, and end-of-turn phase aggregators and emits a `play-character`
- * carrying `viaEventInstanceId` for each eligible (recruit, qualifying site,
- * DI controller) combination. `handlePlayCharacter` discards the event card
- * and skips the one-character-per-turn bookkeeping for such plays.
+ * `recruitViaEventActions` is wired into the untap, organization,
+ * movement/hazard, site, and end-of-turn phase aggregators and emits a
+ * `play-character` carrying `viaEventInstanceId` for each eligible (recruit,
+ * qualifying site, DI controller) combination. `handlePlayCharacter` discards
+ * the event card and skips the one-character-per-turn bookkeeping for such
+ * plays.
  *
  * | # | Rule                                                          | Status |
  * |---|---------------------------------------------------------------|--------|
@@ -253,6 +254,42 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventId)).toBe(true);
     // M/H phase state is preserved (no organization bookkeeping leaked in).
     expect(after.phaseState.phase).toBe(Phase.MovementHazard);
+  });
+
+  // Regression: reported as never offered during the untap phase even with
+  // the event and a valid non-Wizard recruit (Bilbo) in hand and the company
+  // sitting at a qualifying Ruins & Lairs site with no pending
+  // `destinationSite` — the untap phase handler unconditionally marked every
+  // hand card not-playable, with no wiring to `recruitViaEventActions` at
+  // all. CRF 22: "May be played on your turn during any phase the company is
+  // at a site" includes the untap phase, since per rule 2.IV.5 a company
+  // remains "at" its site for the whole of the untap phase (well before any
+  // new destination is revealed during this turn's own movement/hazard
+  // phase).
+  test('the recruit action is offered during the untap phase', () => {
+    const state = buildTestState({
+      phase: Phase.Untap,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BANDIT_LAIR, characters: [GANDALF] }], hand: [A_CHANCE_MEETING, BILBO], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FILLER] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+    const bilboId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === BILBO)!.instanceId;
+
+    const recruit = viableActions(state, PLAYER_1, 'play-character')
+      .find(a => {
+        const act = a.action as { characterInstanceId: CardInstanceId; viaEventInstanceId?: CardInstanceId };
+        return act.viaEventInstanceId === eventId && act.characterInstanceId === bilboId;
+      });
+    expect(recruit).toBeDefined();
+
+    const after = dispatch(state, recruit!.action);
+    expect(getCharacter(after, RESOURCE_PLAYER, BILBO)).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventId)).toBe(true);
+    expect(after.phaseState.phase).toBe(Phase.Untap);
   });
 
   // Regression: rule 2.IV.5 — a company is not considered "at" its site card
