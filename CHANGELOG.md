@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.173.0 — 2026-09-25
+
+Modular AI Plays Hazards Freely and Guards Its Characters
+
+### Game Engine
+
+- Fixed Pale Dream-maker (dm-78) and other permanent/long-event hazards that do not count against the hazard limit being discarded at resolution instead of attaching when the limit was already reached (#3190)
+- Halfling Strength's +4 corruption-check boost is now offered while the hazard that forces the check (such as Dragon-sickness) is still unresolved on the chain (#3195)
+- Fixed Thief (tw-102) offering non-item permanent events such as Herb-lore as "discard item" choices (#3196)
+- A Chance Meeting (tw-188) recruits are accepted at the site phase's early steps and can also be played during the untap phase, while the company is still at its site (#3189, #3197)
+- Support for a corruption check is accepted for any check in a selectable-order batch, not only checks queued by the same card (#3191)
+- Sudden Call's reshuffle is no longer offered while an empty play deck must be exhausted, which could deadlock the draw step (#3192)
+- Lucky Search (tw-269) is no longer offered with a scout ally as the tapping scout (#3188)
+
+### Web Client
+
+- The character draft asks for confirmation before stopping with zero characters drafted (#3194)
+- Admin announcement mail is highlighted and sorted to the top of the inbox, and the Mail badge pulses while an announcement is unread (#3199)
+
+### AI
+
+- The modular AI (h2) prices a lost character at 30 tsd instead of 3, so it spends cancels and boosts to keep characters alive; it now beats heuristic by +167 and +126 Elo on the a/b and c/d matchups (#3193)
+- The modular AI prices a played hazard as card rotation (new `hazardCardPrice` tunable, −0.5) rather than a spent card, and scores hazard events no pricing family reads instead of declining them; its hazard pass rate drops from 30% to 3%, gaining about 30 Elo on c/d (#3198)
+
 ## 0.172.0 — 2026-09-24
 
 Modular AI Remembers What It Has Seen, Plays Hazards Like the Pros

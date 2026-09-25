@@ -318,7 +318,7 @@
 | dm-75 | No Way Forward | — | 8 | ☑ |
 | dm-76 | Nobody’s Friend | — | 14 | ☑ |
 | dm-77 | Out of the Black Sky | — | 9 | ☑ |
-| dm-78 | Pale Dream-maker | — | 15 | ☑ |
+| dm-78 | Pale Dream-maker | — | 16 | ☑ |
 | dm-79 | Pierced by Many Wounds | — | 11 | ☑ |
 | dm-80 | Rank upon Rank | — | 11 | ☑ |
 | dm-81 | Reaching Shadow | — | 9 | ☑ |
@@ -578,7 +578,7 @@
 | le-230 | Smoke on the Wind | — | 11 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
-| le-235 | Sudden Call | — | 10 | ☑ |
+| le-235 | Sudden Call | — | 11 | ☑ |
 | le-237 | Swarm of Bats | — | 14 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 13 | ☑ |
@@ -961,7 +961,7 @@
 | tw-99 | The Ring’s Betrayal | — | 6 | ☑ |
 | tw-100 | The Will of Sauron | — | 14 | ☑ |
 | tw-101 | The Will of the Ring | — | 6 | ☑ |
-| tw-102 | Thief | — | 12 | ☑ |
+| tw-102 | Thief | — | 14 | ☑ |
 | tw-103 | “Tom” (Tûma) | — | 7 | ☑ |
 | tw-104 | Tookish Blood | — | 6 | ☑ |
 | tw-105 | Traitor | — | 11 | ☑ |
@@ -1046,7 +1046,7 @@
 | tw-185 | Vôteli | — | 9 | ☑ |
 | tw-186 | Vygavril | — | 9 | ☑ |
 | tw-187 | Wacho | — | 4 | ☑ |
-| tw-188 | A Chance Meeting | — | 16 | ☑ |
+| tw-188 | A Chance Meeting | — | 17 | ☑ |
 | tw-189 | A Friend or Three | — | 13 | ☑ |
 | tw-190 | Align Palantír | — | 12 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |
@@ -1103,7 +1103,7 @@
 | tw-250 | Great-shield of Rohan | — | 13 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-252 | Halfling Stealth | — | 4 | ☑ |
-| tw-253 | Halfling Strength | — | 14 | ☑ |
+| tw-253 | Halfling Strength | — | 15 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
 | tw-255 | Healing Herbs | — | 13 | ☑ |
 | tw-256 | Hiding | — | 9 | ☑ |
@@ -1118,7 +1118,7 @@
 | tw-266 | Lesser Ring | — | 4 | ☑ |
 | tw-267-lordly-presence | Lordly Presence | — | 6 | ☑ |
 | tw-268 | Lossoth | — | 2 | ☑ |
-| tw-269 | Lucky Search | — | 13 | ☑ |
+| tw-269 | Lucky Search | — | 14 | ☑ |
 | tw-270 | Lucky Strike | — | 9 | ☑ |
 | tw-271 | Magic Ring of Courage | — | 8 | ☑ |
 | tw-272 | Magic Ring of Lore | — | 14 | ☑ |
