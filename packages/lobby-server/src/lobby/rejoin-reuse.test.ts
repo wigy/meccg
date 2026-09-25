@@ -41,7 +41,10 @@ vi.mock('../games/launcher.js', () => ({
 vi.mock('../games/models.js', () => ({ resolveModelFile: () => undefined }));
 vi.mock('../auth/jwt.js', () => ({ signGameToken: () => 'signed-token' }));
 vi.mock('../players/store.js', () => ({ getDisplayName: (n: string) => n, getCredits: () => 0 }));
-vi.mock('../mail/store.js', () => ({ countUnread: () => 0 }));
+vi.mock('../mail/store.js', () => ({
+  countUnread: () => 0,
+  mailNotification: () => ({ type: 'mail-notification', unreadCount: 0, unreadAnnouncements: 0 }),
+}));
 vi.mock('../lobby-log.js', () => ({ lobbyLog: { log: () => {}, close: () => {} } }));
 
 import { playerConnected } from './lobby.js';

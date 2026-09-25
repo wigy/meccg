@@ -47,6 +47,7 @@ vi.mock('../players/store.js', () => ({
 }));
 vi.mock('../mail/store.js', () => ({
   countUnread: () => 0,
+  mailNotification: () => ({ type: 'mail-notification', unreadCount: 0, unreadAnnouncements: 0 }),
 }));
 
 let playerConnected: typeof import('./lobby.js')['playerConnected'];
