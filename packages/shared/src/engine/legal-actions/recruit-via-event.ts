@@ -5,12 +5,12 @@
  * We Have Come to Kill le-252). These events bring one character from hand into
  * play under relaxed recruitment rules — see {@link RecruitCharacterEffect}:
  *
- * - playable in the organization, movement/hazard, site, and end-of-turn phases
- *   (any phase a company is at a site), so this helper is invoked from each of
- *   those phase aggregators and self-gates on a company being present at a
- *   qualifying site — a company with a pending `destinationSite` doesn't
- *   qualify, since rule 2.IV.5 holds it is not "at" any site card while
- *   mid-movement in its own movement/hazard phase;
+ * - playable in the untap, organization, movement/hazard, site, and
+ *   end-of-turn phases (any phase a company is at a site), so this helper is
+ *   invoked from each of those phase aggregators and self-gates on a company
+ *   being present at a qualifying site — a company with a pending
+ *   `destinationSite` doesn't qualify, since rule 2.IV.5 holds it is not "at"
+ *   any site card while mid-movement in its own movement/hazard phase;
  * - the recruit enters an existing company whose current site type is one of the
  *   effect's `siteTypes`, paid for by the influence the effect permits
  *   (`controlledBy`): a character in that company with enough unused direct

@@ -13,11 +13,12 @@
  * Modelled with a single `recruit-character` effect (controlledBy
  * "direct-influence", siteTypes Free-hold/Border-hold/Ruins & Lairs, filter
  * excluding Wizards, bypassOneCharacterLimit). The legal-action helper
- * `recruitViaEventActions` is wired into the organization, movement/hazard,
- * site, and end-of-turn phase aggregators and emits a `play-character`
- * carrying `viaEventInstanceId` for each eligible (recruit, qualifying site,
- * DI controller) combination. `handlePlayCharacter` discards the event card
- * and skips the one-character-per-turn bookkeeping for such plays.
+ * `recruitViaEventActions` is wired into the untap, organization,
+ * movement/hazard, site, and end-of-turn phase aggregators and emits a
+ * `play-character` carrying `viaEventInstanceId` for each eligible (recruit,
+ * qualifying site, DI controller) combination. `handlePlayCharacter` discards
+ * the event card and skips the one-character-per-turn bookkeeping for such
+ * plays.
  *
  * | # | Rule                                                          | Status |
  * |---|---------------------------------------------------------------|--------|
@@ -255,6 +256,42 @@ describe('A Chance Meeting (tw-188)', () => {
     expect(after.phaseState.phase).toBe(Phase.MovementHazard);
   });
 
+  // Regression: reported as never offered during the untap phase even with
+  // the event and a valid non-Wizard recruit (Bilbo) in hand and the company
+  // sitting at a qualifying Ruins & Lairs site with no pending
+  // `destinationSite` — the untap phase handler unconditionally marked every
+  // hand card not-playable, with no wiring to `recruitViaEventActions` at
+  // all. CRF 22: "May be played on your turn during any phase the company is
+  // at a site" includes the untap phase, since per rule 2.IV.5 a company
+  // remains "at" its site for the whole of the untap phase (well before any
+  // new destination is revealed during this turn's own movement/hazard
+  // phase).
+  test('the recruit action is offered during the untap phase', () => {
+    const state = buildTestState({
+      phase: Phase.Untap,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BANDIT_LAIR, characters: [GANDALF] }], hand: [A_CHANCE_MEETING, BILBO], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FILLER] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const eventId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+    const bilboId = state.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === BILBO)!.instanceId;
+
+    const recruit = viableActions(state, PLAYER_1, 'play-character')
+      .find(a => {
+        const act = a.action as { characterInstanceId: CardInstanceId; viaEventInstanceId?: CardInstanceId };
+        return act.viaEventInstanceId === eventId && act.characterInstanceId === bilboId;
+      });
+    expect(recruit).toBeDefined();
+
+    const after = dispatch(state, recruit!.action);
+    expect(getCharacter(after, RESOURCE_PLAYER, BILBO)).toBeDefined();
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventId)).toBe(true);
+    expect(after.phaseState.phase).toBe(Phase.Untap);
+  });
+
   // Regression: rule 2.IV.5 — a company is not considered "at" its site card
   // from the moment its new site is revealed until immediately prior to its
   // site phase. A company with a pending `destinationSite` (mid-movement in
@@ -316,6 +353,33 @@ describe('A Chance Meeting (tw-188)', () => {
       .find(a => (a.action as { viaEventInstanceId?: CardInstanceId }).viaEventInstanceId === eventId);
     expect(recruit).toBeDefined();
   });
+
+  // Regression: offering the recruit at the earlier steps is only half of it —
+  // the select-company and enter-or-skip reducers rejected the play they had
+  // just advertised ("Expected 'select-company' during select-company step,
+  // got 'play-character'"), which ended 60 of 200 m/p bench games.
+  test.each(['select-company', 'enter-or-skip'] as const)(
+    'the recruit offered at the %s step is accepted and leaves the step unchanged',
+    step => {
+      const state = buildSitePhaseState({ characters: [ELROND], site: BAG_END, hand: [A_CHANCE_MEETING, EOWYN] });
+      const early: GameState = {
+        ...state,
+        phaseState: { ...state.phaseState, step, siteEntered: false },
+      };
+      const eventId = early.players[RESOURCE_PLAYER].hand.find(c => c.definitionId === A_CHANCE_MEETING)!.instanceId;
+
+      const recruit = computeLegalActions(early, PLAYER_1)
+        .filter(a => a.viable && a.action.type === 'play-character')
+        .find(a => (a.action as { viaEventInstanceId?: CardInstanceId }).viaEventInstanceId === eventId);
+      expect(recruit).toBeDefined();
+
+      const after = dispatch(early, recruit!.action);
+      expect(getCharacter(after, RESOURCE_PLAYER, EOWYN)).toBeDefined();
+      expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === eventId)).toBe(true);
+      expect(after.phaseState.phase).toBe(Phase.Site);
+      expect((after.phaseState as { step?: string }).step).toBe(step);
+    },
+  );
 
   // Regression: at a qualifying site with a viable recruit available, the
   // event card itself must not also show up as a spurious not-playable

@@ -9,9 +9,14 @@
  * flow: declare intent (to deck or to discard), then select cards.
  * Accessing the sideboard halves the hazard limit for the upcoming
  * movement/hazard phase.
+ *
+ * Ordinary hand cards cannot be played during the untap phase, but a
+ * card whose own text grants "any phase the company is at a site" timing
+ * (A Chance Meeting tw-188, We Have Come to Kill le-252) is an exception —
+ * see {@link recruitViaEventActions}.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState, CardDefinition } from '../../index.js';
+import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState, CardDefinition, CardInstanceId } from '../../index.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
@@ -19,6 +24,7 @@ import { notPlayable } from './action-builders.js';
 import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
 import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
 import { grantedActionActivations } from './organization.js';
+import { recruitViaEventActions } from './recruit-via-event.js';
 
 /** Maximum hazard cards that can be fetched to discard per untap. */
 const MAX_HAZARD_SIDEBOARD_TO_DISCARD = 5;
@@ -122,10 +128,26 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
   // phase of their own turn, including the untap phase.
   actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
 
+  // CRF 22 (A Chance Meeting tw-188): "May be played on your turn during any
+  // phase the company is at a site" — this includes the untap phase, since a
+  // company remains "at" its site (rule 2.IV.5) from the end of last turn's
+  // movement/hazard phase through the whole of this turn's untap phase, well
+  // before any new destination is revealed. Character-recruitment events are
+  // therefore also offered here via {@link recruitViaEventActions}.
+  const recruitViaEventEvaluated = recruitViaEventActions(state, playerId);
+  actions.push(...recruitViaEventEvaluated);
+  const recruitViaEventInstances = new Set<string>();
+  for (const ea of recruitViaEventEvaluated) {
+    const a = ea.action as { characterInstanceId?: CardInstanceId; viaEventInstanceId?: CardInstanceId };
+    if (a.characterInstanceId) recruitViaEventInstances.add(a.characterInstanceId as string);
+    if (a.viaEventInstanceId) recruitViaEventInstances.add(a.viaEventInstanceId as string);
+  }
+
   for (const handCard of player.hand) {
+    if (recruitViaEventInstances.has(handCard.instanceId as string)) continue;
     actions.push(notPlayable(playerId, handCard.instanceId, 'Cards cannot be played during the untap phase'));
   }
-  logDetail(`Untap phase: ${player.hand.length} hand card(s) marked not playable`);
+  logDetail(`Untap phase: ${player.hand.length - recruitViaEventInstances.size} hand card(s) marked not playable`);
 
   return actions;
 }

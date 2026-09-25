@@ -39,9 +39,9 @@ import {
   runCardTriggeredAttackCombat,
   makeSitePhase,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, reduce } from '../../index.js';
+import { CardStatus, computeLegalActions, Phase, reduce } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
-import { DAGGER_OF_WESTERNESSE, GLAMDRING, SUN } from '../../card-ids.js';
+import { DAGGER_OF_WESTERNESSE, GLAMDRING, GOLLUM, SUN } from '../../card-ids.js';
 
 const LUCKY_SEARCH = 'tw-269' as CardDefinitionId;
 
@@ -103,6 +103,41 @@ describe('Lucky Search (tw-269)', () => {
     );
 
     expect(shortEvents).toHaveLength(2);
+  });
+
+  test('not offered to a scout ally: the scout must be a character who can take the item', () => {
+    // Gollum (tw-246) is a scout ally. Allies count as characters for
+    // skill-only cards, but Lucky Search's scout takes control of an item and
+    // is looked up among his company's characters — an ally can do neither.
+    // It used to be offered (at the start of the site phase, before a company
+    // is selected) and then rejected by the reducer, ending the game.
+    const base = buildSitePhaseState({
+      characters: [LEGOLAS],
+      site: MORIA,
+      hand: [LUCKY_SEARCH],
+    });
+    const legolasId = base.players[0].companies[0].characters[0];
+    const legolas = base.players[0].characters[legolasId];
+    const state = {
+      ...base,
+      phaseState: { ...base.phaseState, step: 'select-company' },
+      players: [{
+        ...base.players[0],
+        characters: {
+          ...base.players[0].characters,
+          [legolasId]: {
+            ...legolas,
+            allies: [{ instanceId: 'p1-99' as never, definitionId: GOLLUM, status: CardStatus.Untapped }],
+          },
+        },
+      }, base.players[1]],
+    } as typeof base;
+
+    const luckySearchId = handCardId(state, RESOURCE_PLAYER);
+    const offered = computeLegalActions(state, PLAYER_1).filter(
+      a => a.viable && a.action.type === 'play-short-event' && a.action.cardInstanceId === luckySearchId,
+    );
+    expect(offered).toHaveLength(0);
   });
 
   // ── Play-window: site phase only ──────────────────────────────────────────

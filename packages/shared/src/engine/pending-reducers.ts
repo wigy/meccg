@@ -374,13 +374,19 @@ export function applyCorruptionCheckResolution(
     const topKind = top.kind;
     const topId = top.id;
     const topActor = top.actor;
-    const topSource = top.source;
+    const topScope = top.scope;
     const supportTargetId = action.targetCharacterId ?? topKind.characterId;
+    // A sibling in a selectable-order batch is matched by actor + scope, not
+    // by source card — the same filter `corruptionCheckActions` offers the
+    // supports from and the roll below resolves by. Matching by source
+    // rejected the support for a check queued by a different card in the
+    // same batch, an action the engine had just advertised as legal.
     const supportEntry = state.pendingResolutions.find(r =>
       r.actor === topActor
       && r.kind.type === 'corruption-check'
       && r.kind.characterId === supportTargetId
-      && (r.id === topId || (topKind.selectableOrder && r.source === topSource && r.kind.selectableOrder)));
+      && (r.id === topId
+        || (topKind.selectableOrder && r.kind.selectableOrder && scopesMatch(r.scope, topScope))));
     if (!supportEntry || supportEntry.kind.type !== 'corruption-check') {
       return { state, error: 'support-corruption-check: no matching pending corruption check' };
     }

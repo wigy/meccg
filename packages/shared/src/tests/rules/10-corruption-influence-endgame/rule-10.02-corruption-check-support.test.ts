@@ -21,8 +21,10 @@ import {
   RIVENDELL, LORIEN, MINAS_TIRITH,
   CardStatus,
 } from '../../test-helpers.js';
-import type { FreeCouncilPhaseState } from '../../../index.js';
+import type { CardInstanceId, FreeCouncilPhaseState, GameState } from '../../../index.js';
 import type { SupportCorruptionCheckAction } from '../../../types/actions-universal.js';
+import { enqueueCorruptionCheck } from '../../../engine/pending.js';
+import { dispatch } from '../../test-helpers.js';
 
 describe('Rule 10.02 — Corruption Check Support', () => {
   beforeEach(() => resetMint());
@@ -89,5 +91,35 @@ describe('Rule 10.02 — Corruption Check Support', () => {
     const tappedSupports = viableFor(tappedAragorn, PLAYER_1)
       .filter(a => a.action.type === 'support-corruption-check');
     expect(tappedSupports).toHaveLength(0);
+  });
+  test('support for any check in a selectable-order batch is accepted, whichever card queued it', () => {
+    // Two checks queued in the same scope by different cards, the player free
+    // to take them in either order (CoE 7.1.1) and allowed to tap in support.
+    // Supports are offered for both, and the reducer must accept both — it
+    // matched siblings by source card while the offer matched them by scope,
+    // so the support for the second check was rejected (m/p bench games).
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [BILBO, ARAGORN, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const [bilbo, aragorn, legolas] = base.players[RESOURCE_PLAYER].companies[0].characters;
+    const queue = (state: GameState, characterId: CardInstanceId, source: CardInstanceId) => enqueueCorruptionCheck(state, {
+      source, actor: PLAYER_1, scope: { kind: 'phase', phase: Phase.Organization },
+      characterId, reason: 'test', selectableOrder: true, allowSupport: true,
+    });
+    const state = queue(queue(base, bilbo, 'source-a' as CardInstanceId), aragorn, 'source-b' as CardInstanceId);
+
+    const supports = viableFor(state, PLAYER_1)
+      .filter(a => a.action.type === 'support-corruption-check')
+      .map(a => a.action as SupportCorruptionCheckAction);
+    const forSecond = supports.find(a => a.targetCharacterId === aragorn && a.supportingCharacterId === legolas);
+    expect(forSecond).toBeDefined();
+
+    const after = dispatch(state, forSecond!);
+    expect(after.players[RESOURCE_PLAYER].characters[legolas].status).toBe(CardStatus.Tapped);
   });
 });
