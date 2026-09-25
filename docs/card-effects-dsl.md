@@ -1015,6 +1015,21 @@ per type); a type never drops below zero tokens. Used by Roam the Waste (ba-73):
              "regionReductions": { "wilderness": 1, "shadow": 1 } } }
 ```
 
+**Company-targeted halving.** With the on-event `target: "target-company"` (an
+end-of-org `play-target: company` short event) the constraint applies only to
+that company, and `regionHalvings` (a list of region types) makes each such token
+count as half, rounding the final count down — N tokens become floor(N / 2).
+Halving is applied before any `regionReductions` and several halving constraints
+do not compound. Used by Hey! come merry dol! (td-124): "Each Wilderness [{w}]
+symbol in the company's site path counts as half a Wilderness [{w}] … round down
+the final result."
+
+```json
+{ "type": "on-event", "event": "self-enters-play", "target": "target-company",
+  "apply": { "type": "add-constraint", "constraint": "site-path-reduction",
+             "scope": "turn", "regionHalvings": ["wilderness"] } }
+```
+
 ### 2a. `body-check-modifier`
 
 Modifies the 2d6 **body-check** roll made against the bearer during combat

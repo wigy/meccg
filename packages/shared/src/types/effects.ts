@@ -2995,6 +2995,12 @@ export interface AddConstraintAction extends TriggeredActionBase {
    */
   readonly regionReductions?: Record<string, number>;
   /**
+   * For a company-targeted `site-path-reduction` constraint (Hey! come merry
+   * dol! td-124): region types whose tokens each count as half a token in the
+   * company's site path, rounding the final count down (e.g. `["wilderness"]`).
+   */
+  readonly regionHalvings?: readonly string[];
+  /**
    * For a `character-stat-modifier` constraint that is only active *while* a
    * named card remains in play (Heart of Dark Fire ba-63: "The Balrog receives
    * +5 direct influence this turn **while Strangling Coils is in play**"). The

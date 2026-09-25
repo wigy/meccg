@@ -918,7 +918,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "site-path-reduction",
+          "scope": "turn",
+          "regionHalvings": [
+            "wilderness"
+          ]
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-09-25",
     "text": "Playable at the end of the organization phase on a moving company. Each Wilderness [{w}] symbol in the company’s site path counts as half a Wilderness [{w}]. When calculating the number of Wildernesses [{w}] in such a site path, round down the final result."
   },
   {

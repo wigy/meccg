@@ -546,7 +546,7 @@ export function handleRevealNewSite(
   // fewer Wilderness / Shadow-land in its site path". Applied here, after the
   // path is resolved, so the reduced path flows to every downstream consumer
   // (creature keying, ahunt matching, force-return-to-origin, corruption counts).
-  const reduced = applySitePathReduction(state, player.id, resolvedSitePath, resolvedSitePathNames);
+  const reduced = applySitePathReduction(state, player.id, resolvedSitePath, resolvedSitePathNames, company.id);
 
   const nextMhState: MovementHazardPhaseState = {
     ...mhState,
@@ -696,26 +696,51 @@ function checkRegionShortcutUsage(
  * entry is removed too so the arrays stay parallel; for starter movement (types
  * from the site's sitePath, names just origin/destination) only the type array
  * is reduced. A region type never drops below zero tokens.
+ *
+ * Company-targeted constraints (Hey! come merry dol! td-124) apply only to the
+ * company `companyId`. Their `halve` region types are applied first: each token
+ * counts as half, so a path with N such tokens keeps floor(N / 2) of them.
+ * Halving is a property of the path, so several halving constraints do not
+ * compound. Halving before the flat reductions keeps the "round down the final
+ * result" semantics (floor(N/2 - r) === floor(N/2) - r for whole r).
  */
 export function applySitePathReduction(
   state: GameState,
   playerId: import('../types/common.js').PlayerId,
   path: readonly RegionType[],
   names: readonly string[],
+  companyId?: import('../types/common.js').CompanyId,
 ): { path: RegionType[]; names: string[] } {
   const merged = new Map<RegionType, number>();
+  const halved = new Set<RegionType>();
   for (const constraint of state.activeConstraints) {
     if (constraint.kind.type !== 'site-path-reduction') continue;
-    if (constraint.target.kind !== 'player' || constraint.target.playerId !== playerId) continue;
+    const applies = constraint.target.kind === 'player'
+      ? constraint.target.playerId === playerId
+      : constraint.target.kind === 'company' && companyId !== undefined && constraint.target.companyId === companyId;
+    if (!applies) continue;
     for (const [rt, count] of Object.entries(constraint.kind.reductions)) {
       merged.set(rt as RegionType, (merged.get(rt as RegionType) ?? 0) + (count ?? 0));
     }
+    for (const rt of constraint.kind.halve ?? []) halved.add(rt);
   }
-  if (merged.size === 0) return { path: [...path], names: [...names] };
+  if (merged.size === 0 && halved.size === 0) return { path: [...path], names: [...names] };
 
   const parallel = path.length === names.length;
   const newPath = [...path];
   const newNames = [...names];
+  for (const rt of halved) {
+    const total = newPath.filter(t => t === rt).length;
+    let toRemove = total - Math.floor(total / 2);
+    for (let i = newPath.length - 1; i >= 0 && toRemove > 0; i--) {
+      if (newPath[i] === rt) {
+        newPath.splice(i, 1);
+        if (parallel) newNames.splice(i, 1);
+        toRemove--;
+      }
+    }
+    logDetail(`site-path-reduction: "${rt}" tokens count as half — ${total} → ${Math.floor(total / 2)} in company ${(companyId ?? '?') as string}'s site path`);
+  }
   for (const [rt, count] of merged) {
     let toRemove = count;
     for (let i = newPath.length - 1; i >= 0 && toRemove > 0; i--) {
