@@ -84,14 +84,18 @@ describe('what each hazard is for', () => {
   });
 });
 
+// The scenario was built around the flat elimination cost of 3 that shipped
+// before it rose to 30; what is under test is the mechanism, not that number.
+const TUNABLES_AT_THREE = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3 };
+
 describe('the order the attacks are played in', () => {
   /** The plan for the hazard player at a captured position. */
   function planAt(id: string) {
     const scenario = loadScenario(id);
     const view = scenarioView(scenario, 'p1' as never);
     const cardPool = loadCardPool();
-    const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
-    const plan = computeHazardPlan(view, cardPool, standing, DEFAULT_TUNABLES);
+    const standing = computeStanding(view, testWinProbModel(), TUNABLES_AT_THREE);
+    const plan = computeHazardPlan(view, cardPool, standing, TUNABLES_AT_THREE);
     const orderOf = (name: string) => plan.assignments.find(a => a.name === name);
     return { plan, orderOf };
   }

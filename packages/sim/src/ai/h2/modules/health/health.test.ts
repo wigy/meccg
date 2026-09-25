@@ -144,6 +144,10 @@ describe('what it declines', () => {
   });
 });
 
+// The scenario was built around the flat elimination cost of 3 that shipped
+// before it rose to 30; what is under test is the mechanism, not that number.
+const TUNABLES_AT_THREE = { ...DEFAULT_TUNABLES, eliminationTempoCost: 3 };
+
 describe('salvaging the items of a character just eliminated', () => {
   // Passing discards every item not salvaged, so salvaging keeps the item. It
   // had no owner, and the AI threw away what the fallen carried — where the
@@ -155,8 +159,8 @@ describe('salvaging the items of a character just eliminated', () => {
       view,
       cardPool: loadCardPool(),
       legalActions: view.legalActions.filter(e => e.viable).map(e => e.action),
-      tunables: DEFAULT_TUNABLES,
-      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+      tunables: TUNABLES_AT_THREE,
+      standing: computeStanding(view, testWinProbModel(), TUNABLES_AT_THREE),
     };
     const salvages = context.legalActions.filter(a => a.type === 'salvage-item');
     expect(salvages.length).toBeGreaterThan(0);
