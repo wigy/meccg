@@ -423,8 +423,7 @@ export function connectLobbyWs(): void {
         break;
       }
       case 'mail-notification': {
-        const unread = msg.unreadCount as number;
-        updateMailBadge(unread);
+        updateMailBadge(msg.unreadCount as number, (msg.unreadAnnouncements as number | undefined) ?? 0);
         break;
       }
       case 'system-notification': {

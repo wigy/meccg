@@ -114,8 +114,7 @@ export function sendMail(recipients: readonly string[], options: SendMailOptions
     const dir = inboxDir(recipient);
     writeJson(path.join(dir, `${id}.json`), message);
 
-    const unread = countUnread(recipient);
-    notifyPlayer(recipient, { type: 'mail-notification', unreadCount: unread });
+    notifyPlayer(recipient, mailNotification(recipient));
   }
 
   if (options.sentBy) {
@@ -209,6 +208,7 @@ export function readMessage(playerName: string, msgId: string): MailMessage | nu
       const updated: MailMessage = { ...message, status: 'read', updatedAt };
       writeJson(filePath, updated);
       updateSentCopies(msgId, 'read', updatedAt);
+      notifyPlayer(playerName, mailNotification(playerName));
       return updated;
     }
     return message;
@@ -246,7 +246,7 @@ export function updateMessageStatus(
     };
     writeJson(filePath, updated);
     updateSentCopies(msgId, status, updatedAt, success, keywordsPatch);
-    notifyPlayer(playerName, { type: 'mail-notification', unreadCount: countUnread(playerName) });
+    notifyPlayer(playerName, mailNotification(playerName));
     return updated;
   } catch {
     return null;
@@ -428,6 +428,38 @@ export function annotateOpenRequests(
 export function listOpenRequests(playerName: string): OpenRequestInfo[] {
   const mineIds = new Set(listSent(playerName).map(m => m.id));
   return annotateOpenRequests(listUnhandledRequests(['ai', 'admin']), mineIds);
+}
+
+/**
+ * Count unread admin announcements ("Send Mail to All") in a player's inbox.
+ * The lobby pulses the Mail badge while any remain unread.
+ */
+export function countUnreadAnnouncements(playerName: string): number {
+  const dir = inboxDir(playerName);
+  try {
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+    let count = 0;
+    for (const f of files) {
+      try {
+        const msg = loadMail(path.join(dir, f));
+        if (msg.topic === 'announcement' && msg.status === 'new') count++;
+      } catch {
+        // Skip malformed files
+      }
+    }
+    return count;
+  } catch {
+    return 0;
+  }
+}
+
+/** The `mail-notification` a player's client needs to refresh its Mail badge. */
+export function mailNotification(playerName: string): { type: 'mail-notification'; unreadCount: number; unreadAnnouncements: number } {
+  return {
+    type: 'mail-notification',
+    unreadCount: countUnread(playerName),
+    unreadAnnouncements: countUnreadAnnouncements(playerName),
+  };
 }
 
 /**

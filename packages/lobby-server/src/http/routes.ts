@@ -66,7 +66,7 @@ import { listModels } from '../games/models.js';
 import { loadScoreboard, loadPlayerGames } from '../games/scoreboard.js';
 import { listMySavedGames } from '../games/my-games.js';
 import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js';
-import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, peekMessage, readMessage, reviewFinalizeDisposition, deleteMessage, updateMessageStatus, countUnread, listUnhandledRequests } from '../mail/store.js';
+import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, peekMessage, readMessage, reviewFinalizeDisposition, deleteMessage, updateMessageStatus, countUnread, countUnreadAnnouncements, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
 import { findPlayer, findPlayerByEmail, createPlayer, isValidPlayerName, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
@@ -851,7 +851,7 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
   if (urlPath === '/api/mail/inbox' && method === 'GET') {
     await authedRoute(req, res, 'mail-inbox', 'Failed to load inbox', (playerName) => {
       touchLastMailView(playerName);
-      sendJson(res, 200, { messages: listInbox(playerName), unreadCount: countUnread(playerName) });
+      sendJson(res, 200, { messages: listInbox(playerName), unreadCount: countUnread(playerName), unreadAnnouncements: countUnreadAnnouncements(playerName) });
     });
     return;
   }

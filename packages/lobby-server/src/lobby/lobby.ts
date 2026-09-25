@@ -19,7 +19,7 @@ import { resolveModelFile } from '../games/models.js';
 import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
 import { getDisplayName, getCredits, findOwnDeckById, findDeckById, listCatalogDecks } from '../players/store.js';
-import { countUnread } from '../mail/store.js';
+import { mailNotification } from '../mail/store.js';
 
 /**
  * Sim agent spec for the "Play vs MC-AI" button.
@@ -414,7 +414,7 @@ export function playerConnected(name: string, ws: WebSocket): void {
 
   // Mail that arrived while the player was offline produced no live
   // mail-notification, so seed the client's unread badge on connect.
-  send(ws, { type: 'mail-notification', unreadCount: countUnread(name) });
+  send(ws, mailNotification(name));
 
   ws.on('message', (raw: Buffer) => {
     try {

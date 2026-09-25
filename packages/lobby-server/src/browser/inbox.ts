@@ -21,6 +21,9 @@ export function setInboxCallbacks(
   showScreenFn = showScreen;
 }
 
+/** Topic of admin "Send Mail to All" messages — highlighted and pinned to the top of the inbox. */
+const ANNOUNCEMENT_TOPIC = 'announcement';
+
 /** Shape of a mail message from the API. */
 export interface InboxMessage {
   readonly id: string;
@@ -370,7 +373,8 @@ function renderMailList(
     const row = document.createElement('div');
     row.className = 'inbox-item'
       + (msg.status === 'new' ? ' inbox-item--unread' : '')
-      + (msg.status === 'waiting' ? ' inbox-item--waiting' : '');
+      + (msg.status === 'waiting' ? ' inbox-item--waiting' : '')
+      + (msg.topic === ANNOUNCEMENT_TOPIC ? ' inbox-item--announcement' : '');
     row.dataset.msgId = msg.id;
 
     const info = document.createElement('div');
@@ -421,10 +425,16 @@ function renderMailList(
   refreshDeleteReadState();
 }
 
-/** Update the mail unread badge in the nav bar. */
-export function updateMailBadge(count: number): void {
+/**
+ * Update the mail unread badge in the nav bar. The badge pulses while any
+ * admin announcement ("Send Mail to All") is still unread.
+ */
+export function updateMailBadge(count: number, unreadAnnouncements = 0): void {
   const badge = document.getElementById('nav-mail-badge');
-  if (badge) badge.textContent = count > 0 ? `(${count})` : '';
+  if (!badge) return;
+  badge.textContent = count > 0 ? `(${count})` : '';
+  if (count > 0 && unreadAnnouncements > 0) badge.classList.add('lobby-nav-badge--pulse');
+  else badge.classList.remove('lobby-nav-badge--pulse');
 }
 
 /** Click the inbox row matching the given message ID to restore selection after reload. */
@@ -447,15 +457,20 @@ export async function openInbox(): Promise<void> {
   listEl.innerHTML = '<p class="lobby-empty">Loading...</p>';
   messageEl.innerHTML = '<p class="lobby-empty">Select a message to read</p>';
 
-  const r = await apiGet<{ messages: InboxMessage[]; unreadCount: number }>('/api/mail/inbox');
+  const r = await apiGet<{ messages: InboxMessage[]; unreadCount: number; unreadAnnouncements: number }>('/api/mail/inbox');
   if (!r.ok) {
     listEl.innerHTML = `<p class="lobby-empty">${r.error ?? 'Failed to load inbox'}</p>`;
     return;
   }
 
-  updateMailBadge(r.data.unreadCount);
+  updateMailBadge(r.data.unreadCount, r.data.unreadAnnouncements);
 
-  renderMailList(listEl, messageEl, r.data.messages, {
+  // Admin announcements ("Send Mail to All") sort to the top; the stable
+  // sort keeps each group in the server's newest-first order.
+  const messages = [...r.data.messages].sort((a, b) =>
+    Number(b.topic === ANNOUNCEMENT_TOPIC) - Number(a.topic === ANNOUNCEMENT_TOPIC));
+
+  renderMailList(listEl, messageEl, messages, {
     fetchOnClick: '/api/mail/inbox',
   });
 }
