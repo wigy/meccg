@@ -364,6 +364,16 @@ export function siteDangerFor(site: AnySiteCard, alignment: Alignment | `${Align
 }
 
 /**
+ * A site definition as a condition context. Filters written against the site
+ * the company stands at name its *effective* type (`effectiveSiteType`), which
+ * an active override can change; the printed type is the best a plan made
+ * before arriving can use.
+ */
+function siteRecord(site: AnySiteCard): Record<string, unknown> {
+  return { ...(site as unknown as Record<string, unknown>), effectiveSiteType: site.siteType };
+}
+
+/**
  * Whether a hand resource card can be played at the given site.
  *
  * `playerAlignment` enables the MEWH §10 cross-alignment site-tap gate
@@ -453,20 +463,38 @@ export function resourcePlayableAt(
   ) {
     const sitePath = site.sitePath ?? [];
     const regionType = sitePath.length > 0 ? sitePath[sitePath.length - 1] : undefined;
-    return def.playableAt.some(entry => siteMatchesEntry(site, entry, site.siteType, regionType));
-  }
-  // Resource events with play-target: site — card must be played at the company's current site,
-  // so movement to a matching site unlocks the card.
-  if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
-    const siteTarget = (def.effects ?? []).find(
-      (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
-    );
-    if (siteTarget?.filter) {
-      return matchesCondition(
-        siteTarget.filter,
-        site as unknown as Record<string, unknown>,
+    if (def.playableAt.some(entry => siteMatchesEntry(site, entry, site.siteType, regionType))) return true;
+    // An ally with no printed `playableAt` names its site through a
+    // `play-target: site` filter instead (Noble Hound at a Border-hold,
+    // Great Bats at a Shadow-hold).
+    if (def.playableAt.length === 0) {
+      const siteTarget = (def.effects ?? []).find(
+        (e): e is PlayTargetEffect => e.type === 'play-target' && e.target === 'site',
       );
+      if (siteTarget?.filter) return matchesCondition(siteTarget.filter, siteRecord(site));
     }
+    return false;
+  }
+  // Resource events tied to a site — card must be played at the company's
+  // current site, so movement to a matching site (and entering it) unlocks it.
+  if (def.cardType === 'hero-resource-event' || def.cardType === 'minion-resource-event') {
+    const effects = (def.effects ?? []) as readonly {
+      type: string; target?: string; filter?: Condition;
+      requires?: string; siteTypes?: readonly string[]; condition?: Condition;
+    }[];
+    // A play target on the site (Hall of Fire at a Haven, No Strangers at this
+    // Time at a Free- or Border-hold).
+    const siteTarget = effects.find(e => e.type === 'play-target' && e.target === 'site');
+    if (siteTarget?.filter) return matchesCondition(siteTarget.filter, siteRecord(site));
+    // A play condition on the site: its type (Barrow-blade at a Ruins &
+    // Lairs) or, through the active company, its name (Delver's Harvest at the
+    // Deep Mines). Other conditions are about the company or the board, not
+    // the site, so they do not make the card site-bound.
+    const siteType = effects.find(e => e.type === 'play-condition' && e.requires === 'site-type');
+    if (siteType?.siteTypes) return siteType.siteTypes.includes(site.siteType);
+    const named = effects.find(e => e.type === 'play-condition' && e.requires === 'active-company'
+      && e.condition !== undefined && Object.keys(e.condition).some(k => k.startsWith('site.')));
+    if (named?.condition) return matchesCondition(named.condition, { site: siteRecord(site) });
   }
   // Other events / characters: not site-specific in this scoring pass.
   return false;
