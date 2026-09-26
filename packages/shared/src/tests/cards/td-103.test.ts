@@ -226,15 +226,12 @@ describe('Burglary (td-103)', () => {
     expect(phaseStateAs<SitePhaseState>(afterRoll).burglaryItemUnlock).toBe(aragornId);
 
     // No combat is ever faced — passing through automatic-attacks / declare-agent-attack
-    // / resolve-attacks lands straight at play-resources.
+    // lands straight at play-resources (the empty resolve-attacks step is skipped).
     const afterAutoAttacks = dispatch(afterRoll, { type: 'pass', player: PLAYER_1 });
     expect(afterAutoAttacks.combat).toBeNull();
     expect(phaseStateAs<SitePhaseState>(afterAutoAttacks).step).toBe('declare-agent-attack');
 
-    const afterAgentAttack = dispatch(afterAutoAttacks, { type: 'pass', player: PLAYER_1 });
-    expect(phaseStateAs<SitePhaseState>(afterAgentAttack).step).toBe('resolve-attacks');
-
-    const afterResolveAttacks = dispatch(afterAgentAttack, { type: 'pass', player: PLAYER_1 });
+    const afterResolveAttacks = dispatch(afterAutoAttacks, { type: 'pass', player: PLAYER_1 });
     expect(phaseStateAs<SitePhaseState>(afterResolveAttacks).step).toBe('play-resources');
 
     // Aragorn is tapped (from the burglary attempt) yet still eligible to receive
@@ -272,8 +269,7 @@ describe('Burglary (td-103)', () => {
 
     const afterRoll = dispatch({ ...after, cheatRollTotal: 9 }, rollAction.action);
     const afterAutoAttacks = dispatch(afterRoll, { type: 'pass', player: PLAYER_1 });
-    const afterAgentAttack = dispatch(afterAutoAttacks, { type: 'pass', player: PLAYER_1 });
-    const afterResolveAttacks = dispatch(afterAgentAttack, { type: 'pass', player: PLAYER_1 });
+    const afterResolveAttacks = dispatch(afterAutoAttacks, { type: 'pass', player: PLAYER_1 });
     expect(phaseStateAs<SitePhaseState>(afterResolveAttacks).step).toBe('play-resources');
 
     const scroll = findHandCardId(afterResolveAttacks, 0, SCROLL_OF_ISILDUR);
