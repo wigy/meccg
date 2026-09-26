@@ -15,7 +15,9 @@
  *   (`overrideType: "haven"`, `purpose: "healing"`, `scope: "until-cleared"`).
  *
  * Rules exercised:
- *   1. Playable during the site phase on a Free-hold (Edoras).
+ *   1. Playable during the site phase on a Free-hold (Edoras), and — as its
+ *      text declares no site-phase timing (rule 2.1.1) — during the
+ *      organization phase too.
  *   2. NOT playable at a non-Free-hold site (Moria, a Shadow-hold).
  *   3. Playing it binds the card to the site (`attachedToSite`) and adds a
  *      **healing-only** `site.type` override constraint (Edoras → haven).
@@ -61,6 +63,26 @@ describe('td-125 Houses of Healing', () => {
     expect(playActions).toHaveLength(1);
     const action = playActions[0].action as PlayPermanentEventAction;
     expect(action.targetSiteDefinitionId).toBe(EDORAS);
+  });
+
+  // Regression (game muhitj63-yvcsmg, seq 756): the card text declares no
+  // site-phase timing, so under rule 2.1.1 it is playable during any phase
+  // of its player's turn — the engine wrongly restricted it to the site
+  // phase's play-resources step.
+  test('playable during the organization phase by a company already at a Free-hold', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: EDORAS, characters: [ELROND] }], hand: [HOUSES_OF_HEALING], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-permanent-event');
+    expect(playActions).toHaveLength(1);
+    expect((playActions[0].action as PlayPermanentEventAction).targetSiteDefinitionId).toBe(EDORAS);
   });
 
   test('not playable at a non-Free-hold site', () => {
