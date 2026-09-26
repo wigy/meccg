@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.175.0 — 2026-09-26
+
+Houses of Healing Open in Any Phase
+
+### Game Engine
+
+- The site phase no longer stops in an empty resolve-attacks step when the hazard player declines an agent attack and no on-guard attacks are pending; it goes straight to playing resources, so cards such as Houses of Healing no longer looked unplayable (#3205)
+- Houses of Healing (td-125) can be played in any phase of its player's turn, like Hidden Haven and Hall of Fire, instead of only during the site phase (#3206)
+
+### Tutorial
+
+- The tutorial script drops its passes through the now-skipped resolve-attacks step, so each scripted beat again plays its resource as narrated (#3205, #3206)
+
 ## 0.174.0 — 2026-09-25
 
 Players Can Agree to an Early Free Council

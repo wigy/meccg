@@ -810,7 +810,7 @@
 | td-119 | Gold Belt of Lórien  | — | 5 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-124 | Hey! come merry dol! | — | 10 | ☑ |
-| td-125 | Houses of Healing | — | 8 | ☑ |
+| td-125 | Houses of Healing | — | 10 | ☑ |
 | td-126 | King under the Mountain | — | 13 | ☑ |
 | td-128 | Look More Closely Later | — | 18 | ☑ |
 | td-129 | Lore of the Ages | — | 11 | ☑ |
