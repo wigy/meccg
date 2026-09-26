@@ -333,9 +333,12 @@ export const TUTORIAL_BEATS: readonly TutorialBeat[] = [
   // must be read at the player's own pace before the roll lands.
   b('site-bodycheck', 'mentor', { type: 'body-check-roll' }, 5, true),
   b('site-wounded', 'human', { type: 'corruption-check', cardDef: ELROHIR }, 7),
+  // Two passes close out the automatic-attack: the resource player leaves the
+  // resolved attack, then the hazard player declines an agent attack. With no
+  // on-guard attacks pending, the engine skips the empty resolve-attacks step
+  // and opens play-resources straight away (2.V.iv).
   b('site-aftermath', 'human', { type: 'pass' }),
   b('site-aftermath', 'mentor', { type: 'pass' }),
-  b('site-aftermath', 'human', { type: 'pass' }),
   b('site-sword', 'human', { type: 'play-hero-resource', cardDef: SWORD_OF_GONDOLIN, alsoRefs: [GLORFINDEL_II] }),
   b('site-sword', 'human', { type: 'pass' }),
   b('eot-1', 'human', { type: 'discard-card', cardDef: SWORD_OF_GONDOLIN }),
@@ -385,7 +388,6 @@ export const LATER_CHAPTER_BEATS: readonly TutorialBeat[] = [
   b('mentor-site-1', 'mentor', { type: 'resolve-strike' }, 12),
   b('mentor-site-1', 'mentor', { type: 'pass' }),
   b('mentor-site-1', 'human', { type: 'pass' }),
-  b('mentor-site-1', 'mentor', { type: 'pass' }),
   b('mentor-site-1', 'mentor', { type: 'play-hero-resource', cardDef: GLAMDRING, alsoRefs: [THORIN_II] }),
   b('mentor-site-1', 'mentor', { type: 'pass' }),
   b('mentor-eot-1', 'human', { type: 'pass' }),
@@ -423,7 +425,6 @@ export const LATER_CHAPTER_BEATS: readonly TutorialBeat[] = [
   b('site-goldberry', 'human', { type: 'select-company', fields: { companyId: 'company-p1-0' } }),
   b('site-goldberry', 'human', { type: 'enter-site' }),
   b('site-goldberry', 'mentor', { type: 'pass' }),
-  b('site-goldberry', 'human', { type: 'pass' }),
   b('site-goldberry', 'human', { type: 'play-hero-resource', cardDef: GOLDBERRY }),
   b('site-minor-item-bonus', 'human', { type: 'play-hero-resource', cardDef: DAGGER_OF_WESTERNESSE, alsoRefs: [ARWEN] }),
   b('site-minor-item-bonus', 'human', { type: 'pass' }),
@@ -482,7 +483,6 @@ export const LATER_CHAPTER_BEATS: readonly TutorialBeat[] = [
   b('site-faction', 'human', { type: 'select-company', fields: { companyId: 'company-p1-0' } }),
   b('site-faction', 'human', { type: 'enter-site' }),
   b('site-faction', 'mentor', { type: 'pass' }),
-  b('site-faction', 'human', { type: 'pass' }),
   b('site-faction', 'human', { type: 'influence-attempt', cardDef: RIDERS_OF_ROHAN, alsoRefs: [GLORFINDEL_II] }),
   b('site-faction', 'mentor', { type: 'reveal-on-guard', cardDef: FOOLISH_WORDS }),
   b('site-faction', 'human', { type: 'faction-influence-roll', cardDef: RIDERS_OF_ROHAN }, 12),
