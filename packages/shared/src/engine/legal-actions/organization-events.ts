@@ -698,7 +698,21 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         e => e.type === 'on-event' && e.event === 'self-enters-play'
           && e.apply.type === 'add-constraint' && e.apply.constraint === 'wizardhaven-conversion',
       );
-      if (!orgPhaseSiteTiming && (havenRestoreTrigger || wizardhavenConversionTrigger)) {
+      // Houses of Healing (td-125): "Playable on a Free-hold [{F}]. Site
+      // becomes a Haven [{H}] for the purposes of healing." adds a
+      // purpose-scoped `site-type-override` (`purpose: "healing"`). Like
+      // Hidden Haven, its text declares no site-phase timing, so under rule
+      // 2.1.1 it is playable during any phase (game muhitj63-yvcsmg, seq
+      // 756: the engine wrongly restricted it to the site phase). The
+      // general-purpose overrides (Rebuild the Town dm-155, Hold Rebuilt and
+      // Repaired as-88) print "Playable during the site phase" and carry no
+      // `purpose`, so they stay deferred to the site phase.
+      const purposeSiteOverrideTrigger = def.effects?.some(
+        e => e.type === 'on-event' && e.event === 'self-enters-play'
+          && e.apply.type === 'add-constraint' && e.apply.constraint === 'site-type-override'
+          && e.apply.purpose !== undefined,
+      );
+      if (!orgPhaseSiteTiming && (havenRestoreTrigger || wizardhavenConversionTrigger || purposeSiteOverrideTrigger)) {
         let anyPlayable = false;
         for (const { siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
           anyPlayable = true;
