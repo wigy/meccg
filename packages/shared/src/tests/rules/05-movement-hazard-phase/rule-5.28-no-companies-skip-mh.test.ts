@@ -179,4 +179,71 @@ describe('Rule 5.28 — No Companies Skip M/H Phase', () => {
       a.action.type === 'select-company' && a.action.companyId === company2Id,
     )).toBe(true);
   });
+
+  test('A handled company that dissolves later does not end the M/H phase before the last company moves', () => {
+    // Regression from random self-play (sim seed 95000, decks m vs p): the
+    // first company finished its M/H phase and was recorded in
+    // handledCompanyIds, then dissolved (all characters eliminated). Its
+    // stale id kept `companies.length - handledCompanyIds.length` one too
+    // low, so the phase ended after the second-to-last company — the last
+    // company never moved, was auto-merged into a company at its origin,
+    // and its drawn destination site vanished from the game.
+    const base = buildTestState({
+      phase: Phase.MovementHazard,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: RIVENDELL, characters: [LEGOLAS] },
+            { site: MORIA, characters: [ARAGORN] },
+            { site: MINAS_TIRITH, characters: [GIMLI] },
+          ],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [FARAMIR] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const company0Id = companyIdAt(base, RESOURCE_PLAYER, 0);
+    const company1Id = companyIdAt(base, RESOURCE_PLAYER, 1);
+    const company2Id = companyIdAt(base, RESOURCE_PLAYER, 2);
+    const legolasId = findCharInstanceId(base, RESOURCE_PLAYER, LEGOLAS);
+
+    // Company 0 was handled, then dissolved: it is gone from the companies
+    // array but its id is still in handledCompanyIds. Company 1 (Aragorn,
+    // now at index 0) is mid-way through its own M/H phase.
+    const p1 = base.players[RESOURCE_PLAYER];
+    const remainingCharacters = { ...p1.characters };
+    delete remainingCharacters[legolasId];
+    const dissolved = {
+      ...base,
+      players: [
+        { ...p1, companies: p1.companies.slice(1), characters: remainingCharacters },
+        base.players[1],
+      ] as const,
+      phaseState: {
+        ...makeShadowMHState(),
+        step: 'play-hazards' as const,
+        activeCompanyIndex: 0,
+        handledCompanyIds: [company0Id],
+      },
+    };
+
+    const afterPass1 = dispatch(dissolved, { type: 'pass', player: PLAYER_1 });
+    const afterPass2 = dispatch(afterPass1, { type: 'pass', player: PLAYER_2 });
+
+    // Gimli's company is still unhandled: back to select-company, not Site.
+    expect(afterPass2.phaseState.phase).toBe(Phase.MovementHazard);
+    if (afterPass2.phaseState.phase === Phase.MovementHazard) {
+      expect(afterPass2.phaseState.step).toBe('select-company');
+      expect(afterPass2.phaseState.handledCompanyIds).toEqual([company0Id, company1Id]);
+    }
+    const legalActions = computeLegalActions(afterPass2, PLAYER_1);
+    expect(legalActions.some(a =>
+      a.action.type === 'select-company' && a.action.companyId === company2Id,
+    )).toBe(true);
+  });
 });
