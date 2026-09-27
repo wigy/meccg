@@ -26,7 +26,7 @@ import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
+import { agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -2153,7 +2153,11 @@ function handleDeclareAgentAttack(
   if (attackModifier) {
     logDetail(`Site: declare-agent-attack — "${agentDef.name}" has agent-attack-modifier (attackerAssigns: ${String(attackModifier.attackerAssigns ?? false)}, strikeEffect: ${attackModifier.strikeEffect ?? 'none'})`);
   }
-  const attackerAssigns = (isFaceDown && isAtHome) || attackModifier?.attackerAssigns === true;
+  // Sudden Fury (dm-91): a turn-scoped `agent-attack-boost` bound to this
+  // site adds strikes and makes the attacker choose the defending characters.
+  const siteBoost = agentAttackSiteBoost(state, agentDef, company?.currentSite?.definitionId);
+  const attackerAssigns = (isFaceDown && isAtHome) || attackModifier?.attackerAssigns === true
+    || siteBoost.attackerChoosesDefenders;
 
   // "Agent only: may tap for an extra strike" (Elerína dm-7): the declare
   // action may carry tapForExtraStrike — the agent taps as part of the
@@ -2186,11 +2190,12 @@ function handleDeclareAgentAttack(
   const modifiedBody = resolveAttackBody(
     state, body, agentInPlayNames, agentDef.race, agentBoostCtx, true,
   );
+  const baseStrikes = (tapForExtraStrike ? 2 : 1) + siteBoost.strikesBonus;
   const strikesTotal = resolveAttackStrikes(
-    state, tapForExtraStrike ? 2 : 1, agentInPlayNames, agentDef.race, false, agentBoostCtx, undefined, true,
+    state, baseStrikes, agentInPlayNames, agentDef.race, false, agentBoostCtx, undefined, true,
   );
-  if (modifiedProwess !== prowess || strikesTotal !== (tapForExtraStrike ? 2 : 1) || modifiedBody !== body) {
-    logDetail(`Site: declare-agent-attack — "${agentDef.name}" (${agentDef.race}) modified by attacks-in-play: prowess ${prowess} → ${modifiedProwess}, strikes ${tapForExtraStrike ? 2 : 1} → ${strikesTotal}, body ${body} → ${String(modifiedBody)}`);
+  if (modifiedProwess !== prowess || strikesTotal !== baseStrikes || modifiedBody !== body) {
+    logDetail(`Site: declare-agent-attack — "${agentDef.name}" (${agentDef.race}) modified by attacks-in-play: prowess ${prowess} → ${modifiedProwess}, strikes ${baseStrikes} → ${strikesTotal}, body ${body} → ${String(modifiedBody)}`);
   }
   prowess = modifiedProwess;
   body = modifiedBody ?? body;

@@ -2527,6 +2527,26 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Sudden Fury (dm-91): while this turn-scoped constraint is bound to
+         * the site, any attack by an agent matching `agentFilter` at the site
+         * gets `strikesBonus` extra strikes and, when
+         * `attackerChoosesDefenders` is set, the attacker assigns the strikes.
+         * Installed by the short-event on resolution and read by
+         * `agentAttackSiteBoost` (`reducer-utils.ts`) in every agent-attack
+         * builder. Matched by site name, so all versions of the site count.
+         */
+        readonly type: 'agent-attack-boost';
+        /** The definition ID of the bound site. */
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+        /** Agents whose `target.*` context matches are boosted; absent = all. */
+        readonly agentFilter?: import('./effects.js').Condition;
+        /** Additional strikes for a matching agent attack. */
+        readonly strikesBonus: number;
+        /** The attacker chooses the defending characters. */
+        readonly attackerChoosesDefenders: boolean;
+      }
+    | {
+        /**
          * King under the Mountain (td-126): "Only Dwarves may play items at
          * this site." Bound (scope `'until-cleared'`) to the site definition
          * id where the target Dwarf's company defeated an at-home Dragon

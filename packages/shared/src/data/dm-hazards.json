@@ -1666,8 +1666,24 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/SuddenFury.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a site. Until the end of the turn, any attack by a scout agent at this site has its number of strikes increased by one and attacker chooses defending characters."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site"
+      },
+      {
+        "type": "agent-attack-boost",
+        "agentFilter": {
+          "target.skills": {
+            "$includes": "scout"
+          }
+        },
+        "strikesBonus": 1,
+        "attackerChoosesDefenders": true
+      }
+    ],
+    "text": "Playable on a site. Until the end of the turn, any attack by a scout agent at this site has its number of strikes increased by one and attacker chooses defending characters.",
+    "certified": "2026-09-27"
   },
   {
     "cardType": "hazard-event",

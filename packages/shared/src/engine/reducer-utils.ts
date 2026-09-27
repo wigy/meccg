@@ -4506,6 +4506,35 @@ export function agentMatchesFilter(agentDef: CardDefinition, filter?: Condition)
 }
 
 /**
+ * Sum the turn-scoped `agent-attack-boost` constraints (Sudden Fury dm-91)
+ * that apply to an attack by `agentDef` at the site named by
+ * `siteDefinitionId` — "any attack by a scout agent at this site has its
+ * number of strikes increased by one and attacker chooses defending
+ * characters". Sites are compared by name so every version of the bound site
+ * counts. Consulted by every agent-attack builder (site-phase
+ * `declare-agent-attack`, M/H `agent-tap-attack` and `tap-agent-at-site`).
+ */
+export function agentAttackSiteBoost(
+  state: GameState,
+  agentDef: CardDefinition,
+  siteDefinitionId: CardDefinitionId | undefined,
+): { strikesBonus: number; attackerChoosesDefenders: boolean } {
+  const boost = { strikesBonus: 0, attackerChoosesDefenders: false };
+  if (!siteDefinitionId) return boost;
+  const siteName = defById(state, siteDefinitionId)?.name;
+  if (siteName === undefined) return boost;
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'agent-attack-boost') continue;
+    if (defById(state, c.kind.siteDefinitionId)?.name !== siteName) continue;
+    if (!agentMatchesFilter(agentDef, c.kind.agentFilter)) continue;
+    boost.strikesBonus += c.kind.strikesBonus;
+    if (c.kind.attackerChoosesDefenders) boost.attackerChoosesDefenders = true;
+    logDetail(`Agent attack by "${agentDef.name}" at ${siteName}: agent-attack-boost from ${c.sourceDefinitionId as string} (+${c.kind.strikesBonus} strikes, attacker chooses: ${String(c.kind.attackerChoosesDefenders)})`);
+  }
+  return boost;
+}
+
+/**
  * Resolves a character definition's *printed* home site(s) to the matching
  * {@link SiteCard}s in the card pool.
  *
