@@ -1487,7 +1487,11 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     const { scoutInstanceId, foundItemInstanceId, revealedCardInstanceIds } = combat.attackSource;
     const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
 
-    const scoutWounded = combat.strikeAssignments.some(
+    // A scout eliminated by the strike's body check was wounded first, and
+    // is no longer in play to take control of the item — attaching it to the
+    // missing character would delete the card from the game.
+    const scoutEliminated = !stateAfterCombat.players[defIdx].characters[scoutInstanceId];
+    const scoutWounded = scoutEliminated || combat.strikeAssignments.some(
       a => a.characterId === scoutInstanceId && a.result === 'wounded',
     );
 
