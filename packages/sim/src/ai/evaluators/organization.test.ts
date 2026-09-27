@@ -560,7 +560,7 @@ describe('organizationEvaluator split-company leader shedding', () => {
     expect(organizationEvaluator.score(action, context)).toBe(0);
   });
 
-  test('does not force a split at a haven, where two leaders are legal', () => {
+  test('still splits at a haven, since two leaders block movement from there too', () => {
     const view = leaderStuckView();
     (view.self.companies[0] as { currentSite: unknown }).currentSite = {
       instanceId: 'haven', definitionId: 'le-haven', status: 'untapped',
@@ -568,6 +568,96 @@ describe('organizationEvaluator split-company leader shedding', () => {
     const pool = { ...LEADER_POOL, 'le-haven': LORIEN };
     const action = splitCompany('trollChief');
     const context: AiContext = { view, cardPool: pool, legalActions: [action, PASS] };
+    expect(organizationEvaluator.score(action, context)!).toBeGreaterThan(organizationEvaluator.score(PASS, context)!);
+  });
+});
+
+// Indûr the Ringwraith (le-54), The Mouth (le-24) and Hador (le-16) — the
+// stranded company of game mug20f0y-eqi6j0.
+const INDUR: CardDefinition = {
+  cardType: 'minion-character',
+  race: 'ringwraith',
+  keywords: [],
+} as unknown as CardDefinition;
+
+const THE_MOUTH: CardDefinition = {
+  cardType: 'minion-character',
+  race: 'man',
+  keywords: [],
+} as unknown as CardDefinition;
+
+const HADOR: CardDefinition = {
+  cardType: 'minion-character',
+  race: 'dunadan',
+  keywords: [],
+} as unknown as CardDefinition;
+
+const MINAS_MORGUL: CardDefinition = {
+  cardType: 'minion-site',
+  name: 'Minas Morgul',
+  siteType: 'haven',
+  playableResources: [],
+  sitePath: [],
+} as unknown as CardDefinition;
+
+const RINGWRAITH_POOL: Record<string, CardDefinition> = {
+  'le-54': INDUR,
+  'le-24': THE_MOUTH,
+  'le-16': HADOR,
+  'le-390': MINAS_MORGUL,
+};
+
+function ringwraithMixedView() {
+  return {
+    self: {
+      hand: [],
+      siteDeck: [],
+      characters: {
+        indur: { instanceId: 'indur', definitionId: 'le-54', status: 'untapped', items: [], followers: [] },
+        mouth: { instanceId: 'mouth', definitionId: 'le-24', status: 'untapped', items: [], followers: [] },
+        hador: { instanceId: 'hador', definitionId: 'le-16', status: 'untapped', items: [], followers: [] },
+      },
+      companies: [
+        {
+          id: 'company-p2-1',
+          characters: ['mouth', 'hador', 'indur'],
+          currentSite: { instanceId: 'mm', definitionId: 'le-390', status: 'untapped' },
+        },
+      ],
+    },
+  } as unknown as PlayerView;
+}
+
+describe('organizationEvaluator Ringwraith company composition', () => {
+  // Regression: game mug20f0y-eqi6j0, stateSeq 1224 — the AI merged Indûr the
+  // Ringwraith with The Mouth and Hador at Minas Morgul. Rule 3.07 lets such a
+  // mixed company exist only at a Darkhaven, so the engine offers it no
+  // plan-movement at all; the AI never split it and the company sat at Minas
+  // Morgul for the rest of the game.
+  test('scores splitting the Ringwraith off a mixed company above pass', () => {
+    const view = ringwraithMixedView();
+    const action = splitCompany('indur');
+    const context: AiContext = { view, cardPool: RINGWRAITH_POOL, legalActions: [action, PASS] };
+    expect(organizationEvaluator.score(action, context)!).toBeGreaterThan(organizationEvaluator.score(PASS, context)!);
+  });
+
+  test('does not favour a split that leaves the Ringwraith still mixed', () => {
+    const view = ringwraithMixedView();
+    const action = splitCompany('hador');
+    const context: AiContext = { view, cardPool: RINGWRAITH_POOL, legalActions: [action, PASS] };
+    expect(organizationEvaluator.score(action, context)).toBe(0);
+  });
+
+  test('never merges a Ringwraith company into a non-Ringwraith one', () => {
+    const view = ringwraithMixedView();
+    (view.self as { companies: unknown }).companies = [
+      { id: 'company-p2-1', characters: ['indur'], currentSite: { instanceId: 'mm', definitionId: 'le-390', status: 'untapped' } },
+      { id: 'company-p2-2', characters: ['mouth', 'hador'], currentSite: { instanceId: 'mm', definitionId: 'le-390', status: 'untapped' } },
+    ];
+    const action = {
+      type: 'merge-companies', player: 'p2', sourceCompanyId: 'company-p2-1', targetCompanyId: 'company-p2-2',
+    } as unknown as GameAction;
+    const context: AiContext = { view, cardPool: RINGWRAITH_POOL, legalActions: [action, PASS] };
     expect(organizationEvaluator.score(action, context)).toBe(0);
   });
 });

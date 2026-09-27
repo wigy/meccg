@@ -6,13 +6,14 @@
  *
  * Strategy: prefer playing characters with high MP / prowess / DI; only plan
  * movement when there are hand cards playable at the destination; merge tiny
- * companies; split only to shed a wound or an excess leader that would
+ * companies (never into a roster that could no longer move); split only to
+ * shed a wound, or an excess leader / a Ringwraith-mixed roster that would
  * otherwise block all movement — otherwise never split (the AI lacks
  * planning depth to justify it).
  */
 
-import type { GameAction } from '@meccg/shared';
-import { RegionType } from '@meccg/shared';
+import type { CardInstanceId, GameAction } from '@meccg/shared';
+import { Race, RegionType } from '@meccg/shared';
 import type { ActionEvaluator } from './types.js';
 import type { AiContext } from '../strategy.js';
 import {
@@ -50,6 +51,44 @@ const REBUILD_BONUS = 100;
  */
 function hasNoCharactersInPlay(view: AiContext['view']): boolean {
   return Object.keys(view.self.characters ?? {}).length === 0;
+}
+
+/** Leader and Ringwraith/non-Ringwraith counts of a prospective company roster. */
+interface RosterMakeup {
+  readonly leaders: number;
+  readonly ringwraiths: number;
+  readonly others: number;
+}
+
+/** Tally the {@link RosterMakeup} of the given characters. */
+function rosterMakeup(
+  view: AiContext['view'],
+  pool: AiContext['cardPool'],
+  charIds: readonly CardInstanceId[],
+): RosterMakeup {
+  let leaders = 0;
+  let ringwraiths = 0;
+  let others = 0;
+  for (const id of charIds) {
+    const ch = view.self.characters[id];
+    const def = ch ? lookupDef(pool, ch.definitionId) : undefined;
+    if (!isCharacter(def)) continue;
+    if (def.keywords?.includes('leader')) leaders++;
+    if (def.race === Race.Ringwraith) ringwraiths++;
+    else others++;
+  }
+  return { leaders, ringwraiths, others };
+}
+
+/**
+ * True when a company with this roster may never declare movement: it holds
+ * more than one leader (rule 3.26 — blocked even from a haven, see
+ * `wouldViolateLeaderRestriction` in organization-companies.ts) or mixes a
+ * Ringwraith with non-Ringwraith characters (rule 3.07 / 2.II.2.1.R3 — legal
+ * only while sitting at a Darkhaven, so it can never leave one).
+ */
+function rosterCannotMove(makeup: RosterMakeup): boolean {
+  return makeup.leaders > 1 || (makeup.ringwraiths > 0 && makeup.others > 0);
 }
 
 export const organizationEvaluator: ActionEvaluator = {
@@ -165,6 +204,12 @@ export const organizationEvaluator: ActionEvaluator = {
         const source = view.self.companies.find(c => c.id === action.sourceCompanyId);
         const target = view.self.companies.find(c => c.id === action.targetCompanyId);
         if (!source || !target) return 2;
+        // Never build a company that can no longer move (two leaders, or a
+        // Ringwraith mixed with other characters) — nothing here ever splits
+        // it back apart unprompted (bug report: Ringwraith merged into a
+        // company at Minas Morgul and never left it for 48 turns).
+        const merged = rosterMakeup(view, pool, [...source.characters, ...target.characters]);
+        if (rosterCannotMove(merged)) return 0;
         // Merging two singletons is good. Merging into a giant is bad (hazard limit).
         if (source.characters.length === 1 && target.characters.length <= 2) return 8;
         return 2;
@@ -183,28 +228,38 @@ export const organizationEvaluator: ActionEvaluator = {
         if (!source) return 0;
 
         // Exception 2: a company holding more than one leader-keyword
-        // character outside a haven violates rule 3.26 ("a company can only
-        // contain one leader unless at a haven") and the legal-action
-        // generator refuses to offer ANY plan-movement for it at all
-        // (organization-companies.ts wouldViolateLeaderRestriction /
-        // "has more than one leader — cannot declare movement at all"). With
+        // character violates rule 3.26 ("a company can only contain one
+        // leader unless at a haven") the moment it moves, so the legal-action
+        // generator refuses to offer ANY plan-movement for it at all — even
+        // from a haven (organization-companies.ts wouldViolateLeaderRestriction
+        // / "has more than one leader — cannot declare movement at all"). With
         // the default score-0 above, such a company can never move again on
         // its own — the AI has no way to discover that shedding one leader
         // via split-company is the only way out. Score highly splitting off
         // one of the excess leaders so the resulting companies each hold at
         // most one (bug report: minion company stuck at Dol Guldur for 15
         // turns with both a Troll-chief and an Orc Captain, both `leader`).
-        const currentSiteDef = source.currentSite
-          ? findSiteDef(view, pool, source.currentSite.instanceId)
-          : undefined;
-        const atHaven = currentSiteDef?.siteType === 'haven';
-        if (!atHaven) {
-          const leaders = source.characters.filter(id => {
-            const ch = view.self.characters[id];
-            const def = ch ? lookupDef(pool, ch.definitionId) : undefined;
-            return isCharacter(def) && (def.keywords?.includes('leader') ?? false);
-          });
-          if (leaders.length > 1 && leaders.includes(action.characterId)) return 25;
+        const makeup = rosterMakeup(view, pool, source.characters);
+        if (makeup.leaders > 1) {
+          const moverDef = lookupDef(pool, view.self.characters[action.characterId]?.definitionId ?? '');
+          if (isCharacter(moverDef) && (moverDef.keywords?.includes('leader') ?? false)) return 25;
+        }
+
+        // Exception 3: rule 3.07 (2.II.2.1.R3) — "Characters in a
+        // Ringwraith's company can only be other Ringwraiths, unless at a
+        // Darkhaven." A company mixing a Ringwraith with other characters is
+        // offered no plan-movement at all, so it is stranded at its Darkhaven
+        // until the two groups are separated. Score highly any split that
+        // leaves both resulting companies pure (bug report: game
+        // mug20f0y-eqi6j0 — Indûr the Ringwraith, The Mouth and Hador sat at
+        // Minas Morgul from turn 5 to the end of the game).
+        if (makeup.ringwraiths > 0 && makeup.others > 0) {
+          const mover = view.self.characters[action.characterId];
+          const moving = new Set<CardInstanceId>([action.characterId, ...(mover?.followers ?? [])]);
+          const moved = rosterMakeup(view, pool, [...moving]);
+          const staying = rosterMakeup(view, pool, source.characters.filter(id => !moving.has(id)));
+          const pure = (m: RosterMakeup) => m.ringwraiths === 0 || m.others === 0;
+          if (pure(moved) && pure(staying)) return 25;
         }
 
         const wounded = woundedCharactersInCompany(view, source);
