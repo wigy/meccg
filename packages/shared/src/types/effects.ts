@@ -2344,6 +2344,7 @@ export type TriggeredActionType =
   | 'eliminate-character'
   | 'eliminate-captured-character'
   | 'enqueue-opponent-elimination-roll'
+  | 'enqueue-discard-company-character'
   | 'discard-target-character'
   | 'force-discard-one-company-item'
   | 'random-discard-hand'
@@ -3224,6 +3225,22 @@ export interface EnqueueOpponentEliminationRollAction extends TriggeredActionBas
   readonly modifier: number;
 }
 
+/**
+ * `enqueue-discard-company-character` — an `organization-phase-start` on-event
+ * apply (carried by a hazard attached to a character) that enqueues a
+ * `discard-company-character` resolution: the bearer's player must choose one
+ * character in the bearer's company **other than the bearer** and discard it,
+ * along with all non-follower cards played with it (followers fall to general
+ * influence, per the ordinary character-discard path). Nothing is enqueued
+ * when the bearer is alone in the company. Used by The Ring Will Have But One
+ * Master (le-133): "During each of his organization phases, one character
+ * (other than the bearer) in bearer's company is discarded (of bearer's
+ * player's choice) along with all non-follower cards played with him."
+ */
+export interface EnqueueDiscardCompanyCharacterAction extends TriggeredActionBase {
+  readonly type: 'enqueue-discard-company-character';
+}
+
 /** `discard-target-character` — discard the grant-action's target character (type-only marker). */
 export interface DiscardTargetCharacterAction extends TriggeredActionBase {
   readonly type: 'discard-target-character';
@@ -4095,6 +4112,7 @@ export type TriggeredAction =
   | EliminateCapturedCharacterAction
   | WoundOrEliminateAction
   | EnqueueOpponentEliminationRollAction
+  | EnqueueDiscardCompanyCharacterAction
   | DiscardTargetCharacterAction
   | ForceDiscardOneCompanyItemAction
   | RandomDiscardHandAction
