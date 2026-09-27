@@ -590,7 +590,13 @@ export const charactersModule: H2Module = {
     // price in full without the sideboard's contents or a roster plan, so a
     // flat number stands in rather than pretending they are worth nothing.
     const avatarBonus = character.avatar ? tunables.avatarInPlayTsd : 0;
-    const dtsd = netTsdDelta({ realized: gain + avatarBonus }, tunables);
+    // Every marshalling point is brought in by characters: one more in play is
+    // one more tap to play a resource with, carry an item, face a strike or
+    // make an influence attempt. That capability is worth something whatever
+    // the character's own points; the free general influence it must fit is
+    // what limits how many, and the engine only offers plays that fit.
+    const presence = character.avatar ? 0 : tunables.characterInPlayTsd;
+    const dtsd = netTsdDelta({ realized: gain + avatarBonus, potential: presence }, tunables);
     const outcomes: Outcome[] = [{
       p: 1,
       label: `play ${character.name} — ${character.marshallingPoints} ${character.source} MP, mind ${character.mind}`
@@ -614,6 +620,11 @@ export const charactersModule: H2Module = {
       leaf('mind', character.mind, {
         note: `${budget.freeGeneralInfluence} of ${budget.generalInfluence} general influence free — `
           + 'the cost is reported, not priced',
+      }),
+      leaf('one more character in play', presence, {
+        unit: 'tsd',
+        tunable: 'characterInPlayTsd',
+        note: 'taps, carrying and strikes it adds to a company — discounted as potential',
       }),
       leaf('avatar floor', avatarBonus, {
         unit: 'tsd',

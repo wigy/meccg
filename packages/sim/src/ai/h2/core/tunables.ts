@@ -549,6 +549,14 @@ export interface Tunables {
    */
   readonly avatarInPlayTsd: number;
   /**
+   * What one more non-avatar character in play is worth, in TSD, beyond its
+   * own marshalling points: a tap to play a resource with, a bearer, another
+   * body against strikes, an influence attempt. Counted as potential, since
+   * it pays only when used. Free general influence limits how many can be
+   * played; this does not.
+   */
+  readonly characterInPlayTsd: number;
+  /**
    * What one Fallen-wizard stage point is worth, in TSD, beyond the
    * marshalling points the stage card happens to carry.
    *
@@ -613,6 +621,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   heldCardFloor: 1,
   organizationGoalCap: 4,
   avatarInPlayTsd: 6,
+  characterInPlayTsd: 0,
   stagePointTsd: 0.5,
 };
 
