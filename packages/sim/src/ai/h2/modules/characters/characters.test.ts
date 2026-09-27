@@ -118,10 +118,15 @@ describe('playing a character', () => {
     expect(evaluation.expectedTsd).toBeGreaterThan(0);
   });
 
-  test('is worth nothing when the character source is capped', () => {
+  test('is worth only its points as potential when the character source is capped', () => {
+    // The cap reads the score as it stands; it lifts once another source
+    // scores, so the points count at face value, discounted as potential.
     const capped = contextWith({ character: 8, item: 2, faction: 2, ally: 2 }, BALANCED);
     expect(capped.standing.marginal.character).toBe(0);
-    expect(charactersModule.evaluate(play(SCORER), capped)!.expectedTsd).toBe(0);
+    const evaluation = charactersModule.evaluate(play(SCORER), capped)!;
+    const points = (POOL[SCORER] as unknown as { marshallingPoints: number }).marshallingPoints;
+    expect(evaluation.expectedTsd).toBeCloseTo(DEFAULT_TUNABLES.potentialDiscount * points, 5);
+    expect(JSON.stringify(evaluation.rationale)).toContain('counted as potential instead');
   });
 
   test('a character with no points is neutral, not negative', () => {

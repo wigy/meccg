@@ -568,10 +568,19 @@ export const charactersModule: H2Module = {
       };
     }
 
-    // Playing a character: its points are worth what that source is worth.
-    const gain = character.marshallingPoints > 0
+    // Playing a character: its points are worth what that source is worth —
+    // but not less than their face value as potential. The half-total cap
+    // (CoE 10.3) reads the score as it stands, and early on it stands on
+    // characters alone: on turn 1 every character point is capped to zero, so
+    // a 2-MP Glóin fitting the free influence scored exactly what passing did
+    // and was never played, where strong players put their characters out
+    // first. The cap lifts as soon as another source scores, so the points
+    // are not lost, only not yet counted — which is what potential means.
+    const now = character.marshallingPoints > 0
       ? standing.tsdAfter({ [character.source]: character.marshallingPoints }) - standing.tsd
       : 0;
+    const later = tunables.potentialDiscount * Math.max(0, character.marshallingPoints);
+    const gain = Math.max(now, later);
     // An avatar's own marshalling points are frequently zero — its value is
     // never in its MP — so without a floor here it reads as worth exactly what
     // a zero-point non-avatar is worth, and `characterPlayedThisTurn` (CoE
@@ -597,6 +606,11 @@ export const charactersModule: H2Module = {
           ? 'zero — that source is already at the half-total cap (CoE 10.3)'
           : 'CoE 10.3, after doubling and the diversity cap',
       }),
+      ...(later > now ? [leaf('counted as potential instead', later, {
+        unit: 'tsd',
+        tunable: 'potentialDiscount',
+        note: 'the cap lifts once another source scores; face value, discounted',
+      })] : []),
       leaf('mind', character.mind, {
         note: `${budget.freeGeneralInfluence} of ${budget.generalInfluence} general influence free — `
           + 'the cost is reported, not priced',
