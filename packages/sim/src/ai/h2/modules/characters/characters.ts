@@ -596,7 +596,23 @@ export const charactersModule: H2Module = {
     // the character's own points; the free general influence it must fit is
     // what limits how many, and the engine only offers plays that fit.
     const presence = character.avatar ? 0 : tunables.characterInPlayTsd;
-    const dtsd = netTsdDelta({ realized: gain + avatarBonus, potential: presence }, tunables);
+    // Strong players' rule: always play a character, except when it takes the
+    // free general influence below a reserve — the room the next character, a
+    // better one or a follower moved off a leader, will need. A character taken
+    // under another's direct influence spends none of it.
+    const controlledBy = (action as unknown as { controlledBy?: 'general' | CardInstanceId }).controlledBy;
+    const usesGeneral = controlledBy === undefined || controlledBy === 'general';
+    const freeAfter = budget.freeGeneralInfluence - (usesGeneral ? character.mind ?? 0 : 0);
+    // The reserve follows the risk the position needs. 9 free is safe against
+    // the hazards that roll against unused general influence (Muster
+    // Disperses, Call of Home); a losing position (λ > 0) can accept less.
+    const lambda = Math.min(1, Math.max(0, standing.risk.lambda));
+    const reserve = tunables.generalInfluenceReserveSafe
+      - (tunables.generalInfluenceReserveSafe - tunables.generalInfluenceReserveRisky) * lambda;
+    const breaksReserve = !character.avatar && usesGeneral && freeAfter < reserve;
+    const dtsd = breaksReserve
+      ? netTsdDelta({ realized: 0, potential: -presence }, tunables)
+      : netTsdDelta({ realized: gain + avatarBonus, potential: presence }, tunables);
     const outcomes: Outcome[] = [{
       p: 1,
       label: `play ${character.name} — ${character.marshallingPoints} ${character.source} MP, mind ${character.mind}`
@@ -621,6 +637,10 @@ export const charactersModule: H2Module = {
         note: `${budget.freeGeneralInfluence} of ${budget.generalInfluence} general influence free — `
           + 'the cost is reported, not priced',
       }),
+      ...(breaksReserve ? [leaf('general influence left after', freeAfter, {
+        tunable: 'generalInfluenceReserveSafe',
+        note: `below the ${reserve.toFixed(1)} kept free at this risk posture — not played`,
+      })] : []),
       leaf('one more character in play', presence, {
         unit: 'tsd',
         tunable: 'characterInPlayTsd',

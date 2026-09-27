@@ -557,6 +557,21 @@ export interface Tunables {
    */
   readonly characterInPlayTsd: number;
   /**
+   * General influence kept free when playing a character, in an even or
+   * winning position: a play that would leave less is not made, whatever the
+   * character's points. Strong players' rule — always play a character, except
+   * when it takes free general influence below the reserve; 9 is safe against
+   * the hazards that roll against unused general influence (Muster Disperses,
+   * Call of Home). 0 turns the rule off.
+   */
+  readonly generalInfluenceReserveSafe: number;
+  /**
+   * The reserve a desperate position accepts (risk posture λ = 1). Between
+   * the two it slides linearly with λ, so the further behind, the more
+   * influence risk a character play may take.
+   */
+  readonly generalInfluenceReserveRisky: number;
+  /**
    * What one Fallen-wizard stage point is worth, in TSD, beyond the
    * marshalling points the stage card happens to carry.
    *
@@ -622,6 +637,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   organizationGoalCap: 4,
   avatarInPlayTsd: 6,
   characterInPlayTsd: 0,
+  generalInfluenceReserveSafe: 0,
+  generalInfluenceReserveRisky: 0,
   stagePointTsd: 0.5,
 };
 
