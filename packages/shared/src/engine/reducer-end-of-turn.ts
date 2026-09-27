@@ -490,18 +490,29 @@ function handleHavenReturn(state: GameState, action: GameAction): ReducerResult 
 
   const company = player.companies[companyIdx];
   const currentSite = company.currentSite;
+  if (currentSite?.instanceId === originHavenInstanceId) {
+    return { state, error: `haven-return: company ${action.companyId as string} is already at its origin site` };
+  }
 
   // Check whether another of this player's companies is already at the origin haven.
   const havenAlreadyInPlay = player.companies.some(
     (c, i) => i !== companyIdx && c.currentSite?.instanceId === originHavenInstanceId,
   );
+  // A sibling company still at the departure site keeps that site card in
+  // play (CoE 2.07). Returning it would leave the same instance both in the
+  // location deck and under the sibling; hand ownership to the sibling.
+  const departureHeirIdx = currentSite
+    ? player.companies.findIndex((c, i) => i !== companyIdx && c.currentSite?.instanceId === currentSite.instanceId)
+    : -1;
 
   const updatedState = updatePlayer(state, playerIndex, p => {
     let siteDeck = p.siteDeck;
     let siteDiscardPile = p.siteDiscardPile;
 
     // Step 1: handle departure from the current site (CoE 2.IV.viii).
-    if (currentSite && company.siteCardOwned) {
+    if (currentSite && company.siteCardOwned && departureHeirIdx >= 0) {
+      logDetail(`haven-return: departure site ${currentSite.definitionId as string} still occupied by ${p.companies[departureHeirIdx].id as string} — it keeps the site card`);
+    } else if (currentSite && company.siteCardOwned) {
       const departureDef = defById(state, currentSite.definitionId);
       const departureIsHaven = departureDef && isSiteCard(departureDef) && departureDef.siteType === 'haven';
       const departureEntry = toCardInstance(currentSite);
@@ -527,11 +538,11 @@ function handleHavenReturn(state: GameState, action: GameAction): ReducerResult 
       ...p,
       siteDeck,
       siteDiscardPile,
-      companies: p.companies.map((c, i) =>
-        i === companyIdx
-          ? { ...c, currentSite: originHaven, siteCardOwned: !havenAlreadyInPlay }
-          : c,
-      ),
+      companies: p.companies.map((c, i) => {
+        if (i === companyIdx) return { ...c, currentSite: originHaven, siteCardOwned: !havenAlreadyInPlay };
+        if (i === departureHeirIdx && company.siteCardOwned) return { ...c, siteCardOwned: true };
+        return c;
+      }),
     };
   });
 

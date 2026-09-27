@@ -305,6 +305,12 @@ function havenReturnActions(state: GameState, playerId: PlayerId): GameAction[] 
     const { companyId } = c.target;
     const company = player.companies.find(co => co.id === companyId);
     if (!company) continue;
+    // A company that never left its origin site (e.g. Great-road played at a
+    // haven and the company stayed put) has nowhere to return to.
+    if (company.currentSite?.instanceId === c.kind.originHavenInstanceId) {
+      logDetail(`End-of-Turn: haven-return for company ${companyId as string} withheld — already at origin site`);
+      continue;
+    }
     if (c.kind.requiresMovedToKeyword) {
       const currentSiteDef = company.currentSite
         ? defById(state, company.currentSite.definitionId) as { keywords?: readonly string[] } | undefined
