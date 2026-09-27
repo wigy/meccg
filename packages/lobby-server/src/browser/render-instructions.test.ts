@@ -938,6 +938,69 @@ describe('renderPassButton — use-discard-substitute (Leaf Brooch)', () => {
 });
 
 /**
+ * Regression test for bug report bf250acbd51fa8f7 (game mufxzu1t-nx4qkl, seq
+ * 479): "elf song froze up. cant select or do any action, Despair of the
+ * Heart should go away, but nothing happening." Elf-song (tw-223) coming into
+ * play enqueues a `remove-corruption-offer` resolution for each character at
+ * a Haven bearing a corruption card — one "remove this card" action per
+ * corruption card plus a decline. That action type had no branch in
+ * {@link renderPassButton}, so (like `transfer-returned-item` above) the
+ * button hid and the "Waiting…" indicator was suppressed too, leaving no
+ * visible control. It now renders one "Remove <card>" button per corruption
+ * card plus a "Keep Corruption" button.
+ */
+const removeCorruptionOffer = (corruptionInstanceId?: string): EvaluatedAction => ({
+  action: {
+    type: 'remove-corruption-offer',
+    player: 'p1',
+    corruptionInstanceId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — remove-corruption-offer (Elf-song)', () => {
+  test('renders a Keep Corruption button plus a Remove button per corruption card', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p2-100': 'le-109' });
+
+    renderPassButton(
+      viewWith([removeCorruptionOffer(), removeCorruptionOffer('p2-100')]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual([
+      'Keep Corruption',
+      'Remove Despair of the Heart',
+    ]);
+  });
+
+  test('clicking Remove sends the action naming the corruption card', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p2-100': 'le-109' });
+    const remove = removeCorruptionOffer('p2-100');
+
+    renderPassButton(viewWith([removeCorruptionOffer(), remove]), action => { sent = action; });
+
+    tierInPhasePass.children[1].onclick?.();
+
+    expect(sent).toEqual(remove.action);
+  });
+
+  test('clicking Keep Corruption sends the decline action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p2-100': 'le-109' });
+    const decline = removeCorruptionOffer();
+
+    renderPassButton(viewWith([decline, removeCorruptionOffer('p2-100')]), action => { sent = action; });
+
+    tierInPhasePass.children[0].onclick?.();
+
+    expect(sent).toEqual(decline.action);
+  });
+});
+
+/**
  * Regression tests for the three-tier action-button layout (feature request
  * "changing tight buttons"): buttons that end the phase, resolve an in-phase
  * decision, or activate a card-granted ability now render into three

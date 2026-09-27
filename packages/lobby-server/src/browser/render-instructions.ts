@@ -315,6 +315,39 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Elf-song (tw-223): when it comes into play, each character at a Haven
+    // may immediately remove one corruption card (`remove-corruption-offer`).
+    // Like the offers above, declining is not a privileged default — the
+    // player must actively pick which corruption card (if any) to remove —
+    // so it is deliberately absent from the pass-like whitelist. Render one
+    // "Remove" button per corruption card plus a "Keep Corruption" button
+    // rather than falling through to the "no pass action" branch below,
+    // which would hide the panel entirely while these actions are viable.
+    // Bug report bf250acbd51fa8f7 (game mufxzu1t-nx4qkl, seq 479): "elf song
+    // froze up. cant select or do any action, Despair of the Heart should go
+    // away, but nothing happening."
+    const removeCorruptionEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'remove-corruption-offer');
+    if (removeCorruptionEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of removeCorruptionEvals) {
+        const offerAction = ea.action;
+        if (offerAction.type !== 'remove-corruption-offer') continue;
+        const offerBtn = document.createElement('button');
+        offerBtn.className = 'enter-site-btn remove-corruption-offer-btn';
+        if (offerAction.corruptionInstanceId) {
+          const corruptionDefId = appState.lastInstanceLookup(offerAction.corruptionInstanceId);
+          const corruptionName = corruptionDefId ? cardPool[corruptionDefId as string]?.name : undefined;
+          offerBtn.textContent = `Remove ${corruptionName ?? offerAction.corruptionInstanceId as string}`;
+        } else {
+          offerBtn.textContent = 'Keep Corruption';
+        }
+        offerBtn.onclick = () => onAction(offerAction);
+        inPhaseTier?.appendChild(offerBtn);
+      }
+      return;
+    }
+
     // Tutorial enter-or-skip: the script demands entering the site, so the
     // gate demoted the normal Skip (pass) to non-viable — which would hide
     // the whole button pair. Show the familiar Enter/Skip controls anyway:
