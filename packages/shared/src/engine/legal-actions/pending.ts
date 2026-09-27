@@ -968,12 +968,19 @@ export function burglaryAttemptRollActions(
   const charName = isCharacterCard(charDef) ? charDef.name : '?';
   const isScout = isCharacterCard(charDef) && charDef.skills.includes(Skill.Scout);
   const isHobbit = isCharacterCard(charDef) && charDef.race === Race.Hobbit;
-  const bonus = (isScout ? scoutBonus : 0) + (isHobbit ? hobbitBonus : 0);
+  const checkModifierBonus = burglaryCheckModifierBonus(state, characterInstanceId);
+  const bonus = (isScout ? scoutBonus : 0) + (isHobbit ? hobbitBonus : 0) + checkModifierBonus;
 
   // Success requires: roll + bonus > threshold, i.e. roll > threshold - bonus
   const need = threshold - bonus + 1;
 
-  logDetail(`Pending burglary-attempt by ${charName}: threshold ${threshold}${isScout ? `, +${scoutBonus} scout` : ''}${isHobbit ? `, +${hobbitBonus} hobbit` : ''} → need roll >= ${need}`);
+  logDetail(`Pending burglary-attempt by ${charName}: threshold ${threshold}${isScout ? `, +${scoutBonus} scout` : ''}${isHobbit ? `, +${hobbitBonus} hobbit` : ''}, check-modifier ${checkModifierBonus} → need roll >= ${need}`);
+
+  // Reactive short-event plays (Fast Asleep td-115: "+3 to one burglary
+  // attempt") are legal while this roll is awaiting resolution, gated by
+  // each card's own `when` (`pending.burglaryAttemptTargetsMe`) — the same
+  // window Wit uses for riddling rolls.
+  const reactivePlays = reactiveCorruptionCheckPlays(state, playerId, charInPlay);
 
   return [{
     action: {
@@ -984,7 +991,26 @@ export function burglaryAttemptRollActions(
       explanation: `${charName} burglary: threshold ${threshold}, bonus +${bonus} → need roll >= ${need}`,
     },
     viable: true,
-  }];
+  }, ...reactivePlays];
+}
+
+/**
+ * Sum the one-shot `check-modifier` constraints keyed to `burglary` and
+ * targeting the given character (Fast Asleep td-115: "+3 to one burglary
+ * attempt"). Shared by the roll emitter and
+ * `applyBurglaryAttemptResolution`, which consumes them.
+ */
+export function burglaryCheckModifierBonus(state: GameState, characterInstanceId: CardInstanceId): number {
+  let total = 0;
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'burglary'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      total += constraint.kind.value;
+    }
+  }
+  return total;
 }
 
 /**

@@ -771,7 +771,36 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character"
+      },
+      {
+        "type": "play-option",
+        "id": "burglary-boost",
+        "when": {
+          "pending.burglaryAttemptTargetsMe": true
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "check": "burglary",
+          "value": 3,
+          "scope": "until-cleared"
+        }
+      },
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "prowessModifier": -2,
+        "when": {
+          "attack.automatic": true
+        }
+      }
+    ],
+    "certified": "2026-09-27",
     "text": "+3 to one burglary attempt.Alternatively, -2 to the prowess of one automatic-attack."
   },
   {

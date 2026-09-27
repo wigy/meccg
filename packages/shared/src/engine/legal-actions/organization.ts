@@ -3252,6 +3252,11 @@ export function buildPlayOptionContext(
   const riddlingAttemptTargetsMe = state.pendingResolutions.some(
     r => r.kind.type === 'riddling-attempt' && r.kind.characterInstanceId === char.instanceId,
   );
+  // Same gate for the burglary-attempt window (Fast Asleep td-115: "+3 to
+  // one burglary attempt").
+  const burglaryAttemptTargetsMe = state.pendingResolutions.some(
+    r => r.kind.type === 'burglary-attempt' && r.kind.characterInstanceId === char.instanceId,
+  );
   const corruptionCheckTargetsMe = state.pendingResolutions.some(
     r => r.kind.type === 'corruption-check' && r.kind.characterId === char.instanceId,
   ) || (
@@ -3441,6 +3446,7 @@ export function buildPlayOptionContext(
     pending: {
       corruptionCheckTargetsMe,
       riddlingAttemptTargetsMe,
+      burglaryAttemptTargetsMe,
     },
     player: {
       hasFactionInHand,
