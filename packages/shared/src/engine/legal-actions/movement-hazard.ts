@@ -2461,15 +2461,19 @@ function playHazardsActions(
   const actions: EvaluatedAction[] = [];
   const activeIdx = getPlayerIndex(state, state.activePlayer!);
   const targetCompanyRef = state.players[activeIdx].companies[mhState.activeCompanyIndex];
-  if (!targetCompanyRef) {
+  if (!targetCompanyRef || targetCompanyRef.characters.length === 0) {
     // The active company dissolved mid-phase (all characters eliminated) —
     // both players can only pass, which finalizes the company's M/H slot.
+    // During its own M/H phase an emptied company is kept in place (rule
+    // 2.3 holds its site until the end of all M/H phases — see
+    // `completeCombat`), but with no characters left there is nothing to
+    // play hazards on, so it is treated exactly like a missing company.
     const alreadyPassed = isResourcePlayer ? mhState.resourcePlayerPassed : mhState.hazardPlayerPassed;
     if (alreadyPassed) {
-      logDetail('Play-hazards: active company no longer exists and player already passed — waiting');
+      logDetail('Play-hazards: active company no longer has characters and player already passed — waiting');
       return actions;
     }
-    logDetail('Play-hazards: active company no longer exists — only pass is available');
+    logDetail('Play-hazards: active company no longer has characters — only pass is available');
     return [{ action: { type: 'pass', player: playerId }, viable: true }];
   }
   const targetCompanyId = targetCompanyRef.id;
