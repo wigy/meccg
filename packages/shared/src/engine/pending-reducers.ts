@@ -152,16 +152,6 @@ function removeFailedCorruptionCharacter(
 ): void {
   delete newCharacters[characterId as string];
 
-  // A removed follower must also leave its controller's `followers` list,
-  // or the controller keeps a dangling id (and directInfluenceLedger keeps
-  // charging its mind against the controller's direct influence).
-  if (char.controlledBy !== 'general') {
-    const leader = newCharacters[char.controlledBy as string];
-    if (leader) {
-      newCharacters[char.controlledBy as string] = { ...leader, followers: leader.followers.filter(f => f !== characterId) };
-    }
-  }
-
   const newCompanies = playersAfterRoll[playerIndex].companies.map(c => ({
     ...c,
     characters: c.characters.filter(id => id !== characterId),
@@ -2655,14 +2645,6 @@ function discardCharacter(
     .map(c => c.id);
 
   delete newCharacters[characterId];
-  // A removed follower leaves its controller's `followers` list too (see
-  // removeFailedCorruptionCharacter).
-  if (charInPlay.controlledBy !== 'general') {
-    const leader = newCharacters[charInPlay.controlledBy];
-    if (leader) {
-      newCharacters[charInPlay.controlledBy] = { ...leader, followers: leader.followers.filter(f => f !== characterId) };
-    }
-  }
   const newCompanies = player.companies.map(company => {
     if (!company.characters.includes(characterId)) return company;
     return { ...company, characters: company.characters.filter(id => id !== characterId) };

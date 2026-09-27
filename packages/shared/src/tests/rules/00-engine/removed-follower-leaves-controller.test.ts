@@ -1,10 +1,10 @@
 /**
  * @module removed-follower-leaves-controller.test
  *
- * Regression from random self-play (sim seeds 100011 q vs r and 100001 m vs
- * p): a follower removed from play — by a failed corruption check, or
- * eliminated by A Malady Without Healing's body check — stayed listed in its
- * controller's `followers`. The dangling id kept charging the follower's mind
+ * Regression from random self-play (sim seeds 100011 q vs r, 100001 m vs p,
+ * 101008 r vs t): a follower removed from play — by a failed corruption
+ * check, eliminated by A Malady Without Healing's body check, or returned to
+ * hand by Call of Home — stayed listed in its controller's `followers`. The dangling id kept charging the follower's mind
  * against the controller's direct influence. Every removal path must prune
  * the controller's list, as combat elimination (`pruneLeaderFollowers`) and
  * prisoner-taking already do.
@@ -18,7 +18,7 @@ import {
   RIVENDELL, LORIEN,
   findCharInstanceId, enqueueCorruptionCheck,
 } from '../../test-helpers.js';
-import { eliminateCharacter } from '../../../engine/pending-reducers.js';
+import { eliminateCharacter, returnCharacterToHand } from '../../../engine/pending-reducers.js';
 import type { GameState } from '../../../index.js';
 
 /** Aragorn and Bilbo in one company, Bilbo under Aragorn's direct influence. */
@@ -85,6 +85,19 @@ describe('a follower removed from play leaves its controller\'s followers list',
 
     const p1 = after.players[RESOURCE_PLAYER];
     expect(p1.characters[bilboId]).toBeUndefined();
+    expect(p1.characters[aragornId].followers).toEqual([]);
+  });
+
+  test('returned to hand (Call of Home)', () => {
+    const state = stateWithFollower();
+    const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
+    const bilboId = findCharInstanceId(state, RESOURCE_PLAYER, BILBO);
+
+    const after = returnCharacterToHand(state, RESOURCE_PLAYER, bilboId, state.players[RESOURCE_PLAYER].characters[bilboId]);
+
+    const p1 = after.players[RESOURCE_PLAYER];
+    expect(p1.characters[bilboId]).toBeUndefined();
+    expect(p1.hand.some(c => c.instanceId === bilboId)).toBe(true);
     expect(p1.characters[aragornId].followers).toEqual([]);
   });
 });

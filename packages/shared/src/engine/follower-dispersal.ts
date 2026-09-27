@@ -32,7 +32,11 @@ import { logDetail } from './legal-actions/log.js';
  *
  * `characters` is the caller's *working copy* of the player's character map
  * (still containing `removedCharacter`) and is mutated in place: each
- * follower is re-tagged `controlledBy: 'general'`.
+ * follower is re-tagged `controlledBy: 'general'`, and if the removed
+ * character was itself a follower it is dropped from its controller's
+ * `followers` list — otherwise the controller keeps a dangling id and
+ * directInfluenceLedger keeps charging its mind against the controller's
+ * direct influence.
  */
 export function freeOrDiscardFollowers(
   state: GameState,
@@ -40,6 +44,16 @@ export function freeOrDiscardFollowers(
   removedCharacter: CharacterInPlay,
   logPrefix: string,
 ): void {
+  if (removedCharacter.controlledBy !== 'general') {
+    const leader = characters[removedCharacter.controlledBy];
+    if (leader) {
+      characters[removedCharacter.controlledBy] = {
+        ...leader,
+        followers: leader.followers.filter(id => id !== removedCharacter.instanceId),
+      };
+      logDetail(`${logPrefix}: ${removedCharacter.instanceId as string} leaves its controller ${removedCharacter.controlledBy as string}'s followers`);
+    }
+  }
   for (const followerId of removedCharacter.followers) {
     const follower = characters[followerId];
     if (!follower) continue;
