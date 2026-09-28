@@ -351,7 +351,7 @@ describe('Shifter of Hues (wh-115)', () => {
     expect(shifterGrants(withShifter(base)).length).toBe(0);
   });
 
-  test('activating taps Radagast and adds a lasting +2 company corruption modifier', () => {
+  test('activating taps Radagast and adds a lasting +2 corruption modifier to each character in the company', () => {
     const base = fwOrgState({
       companies: [
         { site: ISENGARD_FW, characters: [RADAGAST] },
@@ -359,7 +359,7 @@ describe('Shifter of Hues (wh-115)', () => {
       ],
     });
     const state = withShifter(base);
-    const movingCompany = companyIdAt(state, RESOURCE_PLAYER, 1);
+    const boromirId = findCharInstanceId(state, RESOURCE_PLAYER, BOROMIR);
 
     const after = dispatch(state, shifterGrants(state)[0]);
 
@@ -369,8 +369,41 @@ describe('Shifter of Hues (wh-115)', () => {
       && c.kind.check === 'corruption'
       && c.kind.value === 2
       && c.kind.lasting === true
-      && c.target.kind === 'company'
-      && c.target.companyId === movingCompany)).toBe(true);
+      && c.target.kind === 'character'
+      && c.target.characterId === boromirId)).toBe(true);
+  });
+
+  // Regression (sim seed 102002, decks r vs s): the +2 was a company-targeted
+  // constraint, so when the aided company merged into another the characters
+  // lost the bonus and the constraint was stranded on the vanished company id.
+  // "the characters in one company" — the bonus follows the characters.
+  test('the +2 stays with the aided characters after their company merges away', () => {
+    const base = fwOrgState({
+      companies: [
+        { site: ISENGARD_FW, characters: [RADAGAST] },
+        { site: ISENGARD_FW, characters: [BOROMIR], destinationSite: MORIA },
+      ],
+    });
+    let state = withShifter(base);
+    const boromirId = findCharInstanceId(state, RESOURCE_PLAYER, BOROMIR);
+    const boromirBase = corruptionModifierFor(state, boromirId);
+    state = dispatch(state, shifterGrants(state)[0]);
+
+    // Boromir's company folds into Radagast's.
+    const [radagastCo, aidedCo] = state.players[RESOURCE_PLAYER].companies;
+    const merged: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[RESOURCE_PLAYER],
+          companies: [{ ...radagastCo, characters: [...radagastCo.characters, ...aidedCo.characters] }],
+        },
+        state.players[1],
+      ],
+    };
+
+    expect(corruptionModifierFor(merged, boromirId)).toBe(boromirBase + 2);
+    expect(merged.activeConstraints.some(c => c.target.kind === 'company' && c.target.companyId === aidedCo.id)).toBe(false);
   });
 
   test('the +2 applies to every character in the targeted company and not to another company', () => {

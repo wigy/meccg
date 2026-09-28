@@ -378,9 +378,26 @@ function runGrantApply(
     if (!scope) {
       return { error: `add-constraint: unknown or unresolved scope "${apply.scope ?? ''}" on ${ctx.sourceName}` };
     }
-    const target = resolveConstraintTarget(apply.target, newPlayers[ctx.playerIndex], ctx.action.characterId, ctx.action.player, ctx.action);
-    if (!target) {
-      return { error: `add-constraint: cannot resolve target "${apply.target ?? ''}" on ${ctx.sourceName}` };
+    // `action-target-company-characters` (Shifter of Hues wh-115: "+2 to the
+    // corruption checks of the characters in one company"): one constraint per
+    // character in the chosen company at activation. The bonus belongs to
+    // those characters, so it must follow them when their company later
+    // merges or splits — a company-targeted constraint would be stranded on
+    // the vanished company id (and could re-attach to a company that later
+    // reuses the id).
+    let targets: import('../types/pending.js').ActiveConstraint['target'][];
+    if (apply.target === 'action-target-company-characters') {
+      const targetCompany = newPlayers[ctx.playerIndex].companies.find(c => c.id === ctx.action.targetCompanyId);
+      if (!targetCompany) {
+        return { error: `add-constraint: target company ${ctx.action.targetCompanyId as string ?? '(none)'} not found on ${ctx.sourceName}` };
+      }
+      targets = targetCompany.characters.map(characterId => ({ kind: 'character' as const, characterId }));
+    } else {
+      const target = resolveConstraintTarget(apply.target, newPlayers[ctx.playerIndex], ctx.action.characterId, ctx.action.player, ctx.action);
+      if (!target) {
+        return { error: `add-constraint: cannot resolve target "${apply.target ?? ''}" on ${ctx.sourceName}` };
+      }
+      targets = [target];
     }
     // `sourceFrom: 'action-target'` (Magic Ring of Lore tw-272): the
     // constraint is sourced from the activation's chosen `targetCardId` (a
@@ -411,9 +428,8 @@ function runGrantApply(
     return {
       updatedChar: char,
       effects: [],
-      stateOps: [
-        s => addConstraint(s, { source: sourceId, sourceDefinitionId: sourceDefId, scope, target, kind }),
-      ],
+      stateOps: targets.map(target =>
+        (s: GameState) => addConstraint(s, { source: sourceId, sourceDefinitionId: sourceDefId, scope, target, kind })),
     };
   }
 

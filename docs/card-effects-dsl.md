@@ -3222,6 +3222,16 @@ Actions:
       "target": "action-target-company" } }
   ```
 
+  `target: "action-target-company-characters"` is the per-character variant:
+  instead of one company-targeted constraint it adds **one constraint per
+  character** in the chosen company at activation time. Use it when the card
+  grants the effect to *the characters* of a company rather than to the company
+  itself, so the effect follows them when their company later merges or splits
+  (a company-targeted constraint would be stranded on the vanished company id).
+  Used by *Shifter of Hues* (wh-115): "Radagast can tap give +2 to the corruption
+  checks of the characters in one company through your next organization phase"
+  (`lasting: true`, `scope: "next-organization-phase"`).
+
   The grant-action context field `bearer.atDarkhaven` is `true` only when the
   bearer's company is at a **minion-aligned Haven** — a `haven` site whose
   `alignment` is `ringwraith` or `balrog` (Minas Morgul / Dol Guldur / Carn Dûm

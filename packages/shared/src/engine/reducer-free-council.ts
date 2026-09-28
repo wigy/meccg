@@ -293,6 +293,12 @@ function resolveCorruptionCheck(
         && constraint.target.characterId === pending.characterId) {
       effectModifier += constraint.kind.value;
       if (constraint.kind.autoPass) autoPass = true;
+      // A `lasting` modifier (Shifter of Hues wh-115) applies to every check
+      // in its scope and is never consumed.
+      if (constraint.kind.lasting) {
+        logDetail(`Free Council: lasting check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string} applied, not consumed`);
+        continue;
+      }
       logDetail(`Free Council: consuming one-shot check-modifier ${formatSignedNumber(constraint.kind.value)} from constraint ${constraint.id as string}${constraint.kind.autoPass ? ' (auto-pass)' : ''}`);
       state = removeConstraint(state, constraint.id);
     }
