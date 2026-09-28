@@ -261,7 +261,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
   return {
     ...commonViewFields(state, player),
     hand: revealedCardPile(player.hand, state.handRevealedInstances),
-    playDeck: revealedCardPile(player.playDeck, state.handRevealedInstances),
+    playDeck: maskOpponentDeckIds(revealedCardPile(player.playDeck, state.handRevealedInstances), player.id),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
     discardPile: revealedCardPile(player.discardPile, state.handRevealedInstances),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
@@ -272,6 +272,26 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     agents,
     revealedCards: opponentRevealedCards(state, player),
   };
+}
+
+/**
+ * Masked opponent play-deck cards get positional stand-in ids instead of
+ * their real instance ids. A real id can be joined with the same id
+ * appearing publicly elsewhere in the view — e.g. a magic card Akhôrahil
+ * (le-51) shuffles back into the deck the moment it is declared is also a
+ * public chain entry — revealing where that card now sits in the shuffled
+ * deck. Masking only the publicly-known cards would not help (the odd
+ * stand-in itself would mark the position), so every masked card gets one.
+ * Cards an effect explicitly revealed in the deck keep their real id (they
+ * are already unmasked by {@link revealedCardPile}), so actions targeting
+ * them still resolve.
+ */
+function maskOpponentDeckIds(deck: readonly ViewCard[], owner: PlayerId): ViewCard[] {
+  return deck.map((c, i) =>
+    c.definitionId === UNKNOWN_CARD
+      ? { instanceId: `${owner as string}-deck-${i}` as CardInstanceId, definitionId: UNKNOWN_CARD }
+      : c,
+  );
 }
 
 /**
