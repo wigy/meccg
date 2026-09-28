@@ -21,6 +21,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { computeLegalActions, Phase, RegionType, SiteType, Alignment } from '../../index.js';
+import { revealInstances } from '../../engine/visibility.js';
 import type { FetchFromPileAction, CardDefinitionId } from '../../index.js';
 
 // Cave Worm (le-65): a region-keyed creature hazard used to open combat as the
@@ -226,6 +227,37 @@ describe('Smoke Rings (dm-159)', () => {
 
     // Fetch sub-flow is cleared
     expect(afterFetch.pendingEffects).toHaveLength(0);
+  });
+
+  // Regression (game mujoz3g6-6kpu10, seq 798, bug-report c24bd155564ab399):
+  // a card whose identity was recorded in handRevealedInstances stayed
+  // unmasked after Smoke Rings shuffled it back into the play deck, so once
+  // redrawn it showed face-up in its owner's hand to the opponent.
+  test('fetching a previously-revealed card into the deck forgets its reveal', () => {
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SMOKE_RINGS], siteDeck: [MORIA], discardPile: [GLAMDRING] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
+    const glamdring = state.players[0].discardPile[0];
+    const revealed = revealInstances(state, [glamdring]);
+    expect(revealed.handRevealedInstances[glamdring.instanceId]).toBe(GLAMDRING);
+
+    const afterPlay = resolveChain(dispatch(revealed, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
+    const afterFetch = dispatch(afterPlay, {
+      type: 'fetch-from-pile',
+      player: PLAYER_1,
+      cardInstanceId: glamdring.instanceId,
+      source: 'discard-pile',
+    });
+
+    expect(afterFetch.players[0].playDeck.map(c => c.instanceId)).toContain(glamdring.instanceId);
+    expect(afterFetch.handRevealedInstances[glamdring.instanceId]).toBeUndefined();
   });
 
   test('pass during fetch sub-flow skips the fetch', () => {

@@ -5161,6 +5161,14 @@ site step so a future on-guard interaction (Half an Eye Open, td-29: "may be
 revealed as an on-guard card when a burglary attempt is announced" to modify
 the roll by -5) can hook the same window later.
 
+**Roll modifiers** (Fast Asleep, td-115: "+3 to one burglary attempt"):
+while the roll is queued, the burglar's player may make reactive
+`play-short-event` plays — the same window Wit (td-168) uses for riddling
+rolls. A card gates on `pending.burglaryAttemptTargetsMe` and applies a
+one-shot `add-constraint` `check-modifier` with `check: "burglary"` on the
+character; the roll emitter adds it to the shown bonus and the resolution
+sums then consumes it.
+
 **The roll** (`legal-actions/pending.ts` `burglaryAttemptRollActions`,
 `pending-reducers.ts` `applyBurglaryAttemptResolution`): 2d6 + `scoutBonus`
 if the character has the Scout skill + `hobbitBonus` if he is a Hobbit,
@@ -20128,3 +20136,34 @@ an explicit exception to that skip.
   `undefined` everywhere a fresh per-company `SitePhaseState` is built.
 
 Used by *Near to Hear a Whisper* (as-31).
+
+### 88. `agent-attack-boost` (Sudden Fury)
+
+A hazard **short-event** played on a site (`play-target: site`) that, until the
+end of the turn, strengthens any attack by a matching agent at that site. On
+resolution the short-event installs a turn-scoped `agent-attack-boost`
+{@link ActiveConstraint} bound to the target site (threaded via the chain
+payload's `targetSiteDefinitionId`); the card goes to discard as a normal short
+event.
+
+Every agent-attack builder — the site-phase `declare-agent-attack`, and the M/H
+`agent-tap-attack` / `tap-agent-at-site` paths — consults the constraint through
+`agentAttackSiteBoost` (`reducer-utils.ts`). The attacked company's site is
+matched by name, so every version of the bound site counts.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `agentFilter` | no | DSL condition on the agent's `target.*` context (name/race/skills/keywords). Absent ⇒ every agent. |
+| `strikesBonus` | no | Extra strikes for the agent attack (default 0). |
+| `attackerChoosesDefenders` | no | When true, the attacker assigns the strikes. The 1-strike single-target lock is dropped once the attack has more than one strike. |
+
+```json
+{ "type": "agent-attack-boost",
+  "agentFilter": { "target.skills": { "$includes": "scout" } },
+  "strikesBonus": 1,
+  "attackerChoosesDefenders": true }
+```
+
+Used by *Sudden Fury* (dm-91) — "any attack by a scout agent at this site has
+its number of strikes increased by one and attacker chooses defending
+characters."

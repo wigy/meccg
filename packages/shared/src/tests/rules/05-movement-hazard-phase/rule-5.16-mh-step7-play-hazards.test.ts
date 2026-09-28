@@ -15,7 +15,7 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, PLAYER_2,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS, GLAMDRING, ORC_PATROL,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
   buildTestState, resetMint, makeShadowMHState, viableActions,
@@ -110,5 +110,36 @@ describe('Rule 5.16 — Step 7: Play Hazards', () => {
     expect(notPlayable).toBeDefined();
     expect(notPlayable!.reason).toBeDefined();
     expect(notPlayable!.reason!.length).toBeGreaterThan(0);
+  });
+
+  test('No hazards can be played once every character in the active company is eliminated', () => {
+    // Bug report (game mujoz3g6-6kpu10): Óin moved alone to Moria and was
+    // killed by a Cave-worm; the hazard player was still offered hazards
+    // against the now-empty company. During its own M/H phase an emptied
+    // company is kept in place (rule 2.3 holds its site), but with no
+    // characters left there is nothing to play hazards on — both players
+    // may only pass to end the company's movement/hazard phase.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const emptied: GameState = {
+      ...base,
+      phaseState: makeShadowMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 1 }),
+      players: [
+        { ...base.players[RESOURCE_PLAYER], companies: [{ ...base.players[RESOURCE_PLAYER].companies[0], characters: [] }] },
+        base.players[HAZARD_PLAYER],
+      ] as typeof base.players,
+    };
+
+    expect(viableActions(emptied, PLAYER_2, 'play-hazard')).toHaveLength(0);
+    const hazardActions = computeLegalActions(emptied, PLAYER_2).filter(a => a.viable).map(a => a.action.type);
+    expect(hazardActions).toEqual(['pass']);
+    const resourceActions = computeLegalActions(emptied, PLAYER_1).filter(a => a.viable).map(a => a.action.type);
+    expect(resourceActions).toEqual(['pass']);
   });
 });

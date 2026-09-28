@@ -315,6 +315,47 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
+    // Elf-song (tw-223) remove-corruption-offer: when Elf-song enters play,
+    // each character at a Haven "may" remove one corruption card. Like
+    // use-discard-substitute above, declining is not a privileged default, so
+    // it is deliberately absent from the pass-like whitelist. Render one
+    // "Remove <card>" button per corruption card plus a "Keep Corruption"
+    // decline button rather than falling through to the "no pass action"
+    // branch below, which would hide the panel entirely while these actions
+    // are viable. Bug report 31c41fd957ebe4c4 (game mufvkgk8-f5s9w4, seq 538):
+    // "played [Elf-song] during long event, and now there is no other
+    // possible action to do. game seems 'stuck'".
+    const corruptionOfferEvals = view.legalActions.filter(ea => ea.viable && ea.action.type === 'remove-corruption-offer');
+    if (corruptionOfferEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      let declineAction: GameAction | undefined;
+      for (const ea of corruptionOfferEvals) {
+        const offerAction = ea.action;
+        if (offerAction.type !== 'remove-corruption-offer') continue;
+        if (!offerAction.corruptionInstanceId) {
+          declineAction = offerAction;
+          continue;
+        }
+        const corruptionDefId = appState.lastInstanceLookup(offerAction.corruptionInstanceId);
+        const corruptionName = corruptionDefId ? cardPool[corruptionDefId as string]?.name : undefined;
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'enter-site-btn corruption-offer-choice-btn';
+        removeBtn.textContent = `Remove ${corruptionName ?? offerAction.corruptionInstanceId as string}`;
+        removeBtn.onclick = () => onAction(offerAction);
+        inPhaseTier?.appendChild(removeBtn);
+      }
+      if (declineAction) {
+        const decline = declineAction;
+        const declineBtn = document.createElement('button');
+        declineBtn.className = 'enter-site-btn corruption-offer-choice-btn';
+        declineBtn.textContent = 'Keep Corruption';
+        declineBtn.onclick = () => onAction(decline);
+        inPhaseTier?.appendChild(declineBtn);
+      }
+      return;
+    }
+
     // Tutorial enter-or-skip: the script demands entering the site, so the
     // gate demoted the normal Skip (pass) to non-viable — which would hide
     // the whole button pair. Show the familiar Enter/Skip controls anyway:

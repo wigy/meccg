@@ -193,6 +193,8 @@ export const CAVE_DRAKE = did('tw-020');
 export const ORC_GUARD = did('tw-072');
 /** Orc-warband — orc hazard, five strikes, prowess 4 (+3 after prior orc attack), keyed to wilderness/shadow/dark. */
 export const ORC_WARBAND = did('tw-076');
+/** Orc-warband (Lidless Eye) — orc hazard, five strikes, prowess 4 (+3 after prior orc attack), keyed to wilderness/shadow/dark. */
+export const ORC_WARBAND_LE = did('le-86');
 /** Orc-lieutenant — orc hazard, one strike, prowess 7 (+4 after prior orc attack, +3 more after Uruk-lieutenant). */
 export const ORC_LIEUTENANT = did('tw-073');
 /** Uruk-lieutenant — orc hazard, one strike, prowess 9 (+3 after prior orc attack). */

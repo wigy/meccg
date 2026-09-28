@@ -64,7 +64,7 @@ import {
 import { autoResolve, initiateChain } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
-import { eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems, itemOrWoundChoiceActions, discardCompanyCharacterCandidates } from './legal-actions/pending.js';
+import { burglaryCheckModifierBonus, eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems, itemOrWoundChoiceActions, discardCompanyCharacterCandidates } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -2104,6 +2104,11 @@ export function applyBurglaryAttemptResolution(
   action: GameAction,
   top: PendingResolution,
 ): ReducerResult | null {
+  // Reactive short-event plays (Fast Asleep td-115: "+3 to one burglary
+  // attempt") are legal while this roll awaits resolution — fall through to
+  // the per-phase `play-short-event` handler, leaving the roll queued (the
+  // riddling-attempt carve-out, verbatim).
+  if (action.type === 'play-short-event') return null;
   const g = guardResolution(state, action, top, 'burglary-attempt', 'burglary-attempt');
   if (!g.ok) return g.result;
   const { actorIndex, player, kind } = g;
@@ -2121,15 +2126,27 @@ export function applyBurglaryAttemptResolution(
   const charName = isCharacterCard(charDef) ? charDef.name : String(characterInstanceId);
   const isScout = isCharacterCard(charDef) && charDef.skills.includes(Skill.Scout);
   const isHobbit = isCharacterCard(charDef) && charDef.race === Race.Hobbit;
-  const bonus = (isScout ? scoutBonus : 0) + (isHobbit ? hobbitBonus : 0);
+  const checkModifierBonus = burglaryCheckModifierBonus(state, characterInstanceId);
+  const bonus = (isScout ? scoutBonus : 0) + (isHobbit ? hobbitBonus : 0) + checkModifierBonus;
 
   const { roll, rollEffect, state: rolledState } = rollDiceForPlayer(state, actorIndex, `Burglary attempt: ${charName}`);
   const total = roll.die1 + roll.die2 + bonus;
   const success = total > threshold;
 
-  logDetail(`Burglary attempt by ${charName}: rolled ${roll.die1}+${roll.die2}${isScout ? ` +${scoutBonus} scout` : ''}${isHobbit ? ` +${hobbitBonus} hobbit` : ''} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
+  logDetail(`Burglary attempt by ${charName}: rolled ${roll.die1}+${roll.die2}${isScout ? ` +${scoutBonus} scout` : ''}${isHobbit ? ` +${hobbitBonus} hobbit` : ''} + check-modifier ${checkModifierBonus} = ${total} vs threshold ${threshold} → ${success ? 'SUCCESS' : 'FAILURE'}`);
 
-  const postRoll = dequeueResolution(rolledState, top.id);
+  let postRoll = dequeueResolution(rolledState, top.id);
+
+  // Consume the one-shot burglary check-modifier constraints summed above.
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type === 'check-modifier'
+        && constraint.kind.check === 'burglary'
+        && constraint.target.kind === 'character'
+        && constraint.target.characterId === characterInstanceId) {
+      logDetail(`Consuming one-shot check-modifier constraint ${constraint.id} (burglary ${formatSignedNumber(constraint.kind.value)})`);
+      postRoll = removeConstraint(postRoll, constraint.id);
+    }
+  }
 
   if (postRoll.phaseState.phase !== Phase.Site) {
     logDetail('Burglary attempt resolved outside the site phase — no-op beyond the roll');
