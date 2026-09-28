@@ -915,6 +915,26 @@ export interface PendingResolution {
       }
     | {
         /**
+         * The Ring Will Have But One Master (le-133): at the start of the
+         * bearer's player's organization phase, one character (other than the
+         * bearer) in the bearer's company must be discarded, of the bearer's
+         * player's choice, along with all non-follower cards played with him.
+         *
+         * Candidates are computed from live state (every character sharing the
+         * bearer's company except the bearer), so the choice follows any
+         * membership change. The discard is mandatory: `pass` is offered only
+         * when no candidate remains (or the bearer has left play).
+         *
+         * Resolved by a `discard-character` action naming the chosen character.
+         */
+        readonly type: 'discard-company-character';
+        /** The character bearing the source hazard (never a candidate). */
+        readonly bearerInstanceId: CardInstanceId;
+        /** Definition ID of the source hazard (for logging). */
+        readonly sourceDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Hall of Fire (dm-134): immediately after a company finishes its
          * movement/hazard phase at a Haven where a Hall of Fire is in play,
          * the controlling player may choose one of that company's characters

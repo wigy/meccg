@@ -64,7 +64,7 @@ import {
 import { autoResolve, initiateChain } from './chain-reducer.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { availableDI } from './legal-actions/organization.js';
-import { burglaryCheckModifierBonus, eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems, itemOrWoundChoiceActions } from './legal-actions/pending.js';
+import { burglaryCheckModifierBonus, eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems, itemOrWoundChoiceActions, discardCompanyCharacterCandidates } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -4780,6 +4780,37 @@ export function applyTapOneCharacterResolution(
   }));
 
   return { state: dequeueResolution(newState, top.id) };
+}
+
+/**
+ * Resolve a `discard-company-character` pending resolution (The Ring Will
+ * Have But One Master, le-133). The bearer's player names one character in
+ * the bearer's company other than the bearer via `discard-character`; it is
+ * discarded along with all non-follower cards played with it (followers fall
+ * to general influence). A `pass` is accepted only when no candidate remains.
+ */
+export function applyDiscardCompanyCharacterResolution(
+  state: GameState,
+  rawAction: GameAction,
+  top: PendingResolution,
+): ReducerResult | null {
+  if (top.kind.type !== 'discard-company-character') return null;
+  const { bearerInstanceId } = top.kind;
+  const candidates = discardCompanyCharacterCandidates(state, top.actor, bearerInstanceId);
+  if (rawAction.type === 'pass' && rawAction.player === top.actor && candidates.length === 0) {
+    logDetail(`discard-company-character: pass (no other character in the bearer's company)`);
+    return { state: dequeueResolution(state, top.id) };
+  }
+  const g = guardResolution(state, rawAction, top, 'discard-character', 'discard-company-character');
+  if (!g.ok) return g.result;
+  const { action, actorIndex, player, kind } = g;
+  if (!candidates.includes(action.characterInstanceId)) {
+    return { state, error: `Character ${action.characterInstanceId as string} is not another member of the bearer's company` };
+  }
+  const charInPlay = player.characters[action.characterInstanceId];
+  logDetail(`${cardName(state, kind.sourceDefinitionId)}: ${player.name} discards "${cardName(state, charInPlay.definitionId)}" from the bearer's company`);
+  const discarded = discardCharacterToDiscardPile(state, actorIndex, action.characterInstanceId, charInPlay);
+  return { state: dequeueResolution(recomputeDerived(discarded), top.id) };
 }
 
 /**

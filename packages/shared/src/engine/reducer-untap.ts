@@ -846,6 +846,26 @@ function advanceToOrganization(state: GameState): ReducerResult {
             });
             continue;
           }
+          if (oe.apply.type === 'enqueue-discard-company-character') {
+            // The bearer's player must discard one other character in the
+            // bearer's company (le-133). Nothing to discard when alone.
+            if (companyCharCount < 2) {
+              logDetail(`organization-phase-start: ${def?.name ?? '?'} on ${charId} — bearer alone in company, no character to discard`);
+              continue;
+            }
+            logDetail(`organization-phase-start: enqueuing discard-company-character for ${def?.name ?? '?'} on ${charId} (${companyCharCount - 1} candidate(s))`);
+            advanced = enqueueResolution(advanced, {
+              source: card.instanceId,
+              actor: player.id,
+              scope: { kind: 'phase', phase: Phase.Organization },
+              kind: {
+                type: 'discard-company-character',
+                bearerInstanceId: char.instanceId,
+                sourceDefinitionId: card.definitionId,
+              },
+            });
+            continue;
+          }
           continue;
         }
         if (oe.event !== 'untap-phase-end') continue;

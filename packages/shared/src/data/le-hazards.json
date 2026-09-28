@@ -1816,8 +1816,48 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/TheRingWillHaveButOneMaster.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Playable on the bearer of The One Ring. During each of his organization phases, one character (other than the bearer) in bearer’s company is discarded (of bearer’s player’s choice) along with all non-follower cards played with him. During his organization phase, the target character may tap to attempt to remove this card. Make a roll—if the result is greater than 8, discard this card. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.possessions": {
+            "$includes": "The One Ring"
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "on-event",
+        "event": "organization-phase-start",
+        "apply": {
+          "type": "enqueue-discard-company-character"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": {
+          "tap": "bearer"
+        },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 9,
+          "onSuccess": {
+            "type": "move",
+            "select": "self",
+            "from": "self-location",
+            "to": "discard"
+          }
+        }
+      }
+    ],
+    "text": "Playable on the bearer of The One Ring. During each of his organization phases, one character (other than the bearer) in bearer’s company is discarded (of bearer’s player’s choice) along with all non-follower cards played with him. During his organization phase, the target character may tap to attempt to remove this card. Make a roll—if the result is greater than 8, discard this card. Cannot be duplicated on a given character.",
+    "certified": "2026-09-27"
   },
   {
     "cardType": "hazard-event",

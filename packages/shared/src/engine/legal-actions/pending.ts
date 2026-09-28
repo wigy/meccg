@@ -3701,6 +3701,48 @@ export function eligibleRingCategories(table: RingTestTableEffect['table'], roll
 }
 
 /**
+ * Candidates for a `discard-company-character` resolution (The Ring Will Have
+ * But One Master, le-133): every character in the bearer's current company
+ * other than the bearer, read from live state. Empty when the bearer has left
+ * play or is alone.
+ */
+export function discardCompanyCharacterCandidates(
+  state: GameState,
+  actor: PlayerId,
+  bearerInstanceId: CardInstanceId,
+): CardInstanceId[] {
+  const player = playerById(state, actor);
+  if (!player || !player.characters[bearerInstanceId]) return [];
+  const company = findCharacterCompany(player.companies, bearerInstanceId);
+  if (!company) return [];
+  return company.characters.filter(id => id !== bearerInstanceId && !!player.characters[id]);
+}
+
+/**
+ * Legal actions while a `discard-company-character` resolution is pending
+ * (le-133). The bearer's player must discard one other character in the
+ * bearer's company — one `discard-character` action per candidate. The discard
+ * is mandatory, so `pass` is only offered when no candidate remains.
+ */
+export function discardCompanyCharacterActions(
+  state: GameState,
+  actor: PlayerId,
+  top: PendingResolution,
+): EvaluatedAction[] {
+  if (top.kind.type !== 'discard-company-character') return [];
+  const candidates = discardCompanyCharacterCandidates(state, actor, top.kind.bearerInstanceId);
+  if (candidates.length === 0) {
+    logDetail(`discard-company-character: no candidate left — pass only`);
+    return viable([{ type: 'pass' as const, player: actor }]);
+  }
+  return viable(candidates.map(instanceId => {
+    const defId = resolveInstanceId(state, instanceId);
+    logDetail(`discard-company-character: offering "${defId ? cardName(state, defId) : (instanceId as string)}"`);
+    return { type: 'discard-character' as const, player: actor, characterInstanceId: instanceId };
+  }));
+}
+
+/**
  * Legal actions while a `tap-one-character` resolution is pending.
  *
  * The resource player must tap one untapped character in the company.
