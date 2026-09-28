@@ -351,7 +351,7 @@ function buildComputeCardPrices(
       return {
         instanceId,
         name: def.name,
-        tsd: raw * tunables.potentialDiscount,
+        tsd: raw * tunables.heldHazardShare,
         reason: assignment && assignment.targetCompanyId !== null
           ? `adds ${raw.toFixed(1)} to the plan against their ${assignment.targetLabel}`
             + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
@@ -381,7 +381,7 @@ function buildComputeCardPrices(
         return {
           instanceId: offered,
           name: def.name,
-          tsd: raw * tunables.potentialDiscount,
+          tsd: raw * tunables.heldHazardShare,
           reason: raw > 0
             ? `would add ${raw.toFixed(1)} to the hazard plan`
             : 'the plan has no company left it would improve',

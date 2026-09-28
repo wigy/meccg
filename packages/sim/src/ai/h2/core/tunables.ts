@@ -118,6 +118,21 @@ export interface Tunables {
    */
   readonly hazardCardPrice: number;
   /**
+   * The share of a creature's plan contribution a *held* hazard is worth —
+   * what `card-price` quotes for keeping it in hand, discarding it, or fetching
+   * it from the sideboard.
+   *
+   * The contribution is what the creature would deny if played now against
+   * their largest company, inside the hazard limit and keyed to its route —
+   * all of which must still happen, and the hand refills every turn so a
+   * hazard is seldom scarce. Since the loss prices were raised it comes to
+   * tens of TSD per creature against 1–4 for a resource, and the AI kept
+   * hazards over resources: in 280 end-of-turn discards the winning human
+   * threw a hazard where the AI would throw a resource, against 37 the other
+   * way.
+   */
+  readonly heldHazardShare: number;
+  /**
    * What it is worth, in TSD, to draft a character the deck's author marked as
    * a favourite — one the deck wants in its starting company.
    *
@@ -616,6 +631,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   eliminationTempoCost: 30,
   provisionalCardPrice: 1,
   hazardCardPrice: -0.5,
+  heldHazardShare: 0.5,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,
   attackStateCap: 192,
