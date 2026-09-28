@@ -278,11 +278,13 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
  * The opponent's public record (`revealedCards`): every card of theirs whose
  * identity has been public at some point this game. A remembered card may
  * since have gone back into a private zone — shuffled into the play deck by
- * deck exhaustion, or returned to hand. Its identity stays in the record (the
+ * deck exhaustion, returned to hand, moved to the sideboard, placed face down
+ * on-guard, or played as a face-down agent. Its identity stays in the record (the
  * table saw it), but its real instance id must not: the opponent's hand and
- * play deck are sent as instance ids with the identity masked, so pairing a
- * record entry with one of those ids would reveal the card in hand, or where
- * it now sits in a shuffled deck. Such entries get an opaque stand-in id
+ * play deck (and those other zones) are sent as instance ids with the
+ * identity masked, so pairing a record entry with one of those ids would
+ * reveal the card in hand, where it now sits in a shuffled deck, or what a
+ * face-down card is. Such entries get an opaque stand-in id
  * instead, unless an explicit effect revealed the card in that zone
  * ({@link GameState.handRevealedInstances}).
  */
@@ -292,6 +294,17 @@ function opponentRevealedCards(state: GameState, player: PlayerState): ViewCard[
       .filter(c => state.handRevealedInstances?.[c.instanceId] === undefined)
       .map(c => c.instanceId as string),
   );
+  // The other face-down zones: the sideboard, on-guard cards not yet revealed
+  // (placed on the *viewer's* companies), and face-down agents.
+  for (const c of player.sideboard) hiddenIds.add(c.instanceId as string);
+  for (const p of state.players) {
+    for (const co of p.companies) {
+      for (const og of co.onGuardCards) {
+        if (!og.revealed && ownerOf(og.instanceId) === player.id) hiddenIds.add(og.instanceId as string);
+      }
+    }
+  }
+  for (const a of player.agents) if (!a.revealed) hiddenIds.add(a.character.instanceId as string);
   let masked = 0;
   return Object.entries(state.revealedInstances)
     .filter(([instanceId]) => ownerOf(instanceId as CardInstanceId) === player.id)

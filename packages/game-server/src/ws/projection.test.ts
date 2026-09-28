@@ -1003,4 +1003,31 @@ describe("The opponent's revealed cards are remembered (revealedInstances)", () 
     // A card an effect explicitly revealed in hand stays linked.
     expect(revealed).toContainEqual({ instanceId: shownInHand, definitionId: ARAGORN });
   });
+
+  test('a remembered card now in the opponent\'s sideboard or face down on-guard is not linked by instance id', () => {
+    const { state } = gameWithBobDiscardPile(false);
+    const inSideboard = 'p2-921' as CardInstanceId;
+    const onGuard = 'p2-922' as CardInstanceId;
+    const aliceCompany = state.players[0].companies[0];
+    const remembered: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          companies: [
+            { ...aliceCompany, onGuardCards: [{ instanceId: onGuard, definitionId: BALIN, revealed: false }] },
+            ...state.players[0].companies.slice(1),
+          ],
+        },
+        { ...state.players[1], sideboard: [{ instanceId: inSideboard, definitionId: ARAGORN }] },
+      ],
+      revealedInstances: { ...state.revealedInstances, [inSideboard]: ARAGORN, [onGuard]: BALIN },
+    };
+    const revealed = projectPlayerView(remembered, ALICE).opponent.revealedCards ?? [];
+
+    expect(revealed.some(c => c.definitionId === ARAGORN)).toBe(true);
+    expect(revealed.some(c => c.definitionId === BALIN)).toBe(true);
+    expect(revealed.some(c => c.instanceId === inSideboard)).toBe(false);
+    expect(revealed.some(c => c.instanceId === onGuard)).toBe(false);
+  });
 });
