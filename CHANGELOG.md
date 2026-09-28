@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.176.0 — 2026-09-28
+
+Hidden Cards Stay Hidden
+
+### Game Engine
+
+- The player view no longer leaks the opponent's hand or play-deck order through revealed-card tracking; sideboard, face-down on-guard and agent cards are masked too, the opponent's play-deck instance ids are masked, and once-public cards in your own play deck are not unmasked again after a reshuffle (#3232, #3233)
+- Hand-reveal knowledge is forgotten when a fetch shuffles the play deck (#3214)
+- Short-event influence bonuses now last for a single influence attempt instead of the rest of the turn (#3235)
+- Company constraints follow their company into a merge (#3234)
+- Movement/hazard-phase options are no longer offered for a company whose M/H phase is over, and remaining companies are counted by membership rather than by the handled-list length (#3231, #3220)
+- Hazards are no longer offered against a company whose characters were all eliminated (#3215)
+- Company-bound pending resolutions offer a pass after their company dissolves, fixing a deadlock (#3221)
+- A site shared by two empty companies is returned only once, and haven returns never duplicate a shared or unvacated site card (#3222, #3224)
+- Followers are pruned from their controller's list when they leave play or are discarded via corruption removal (#3225)
+- A creature converted into an ally leaves play to its owner's discard pile (Ready to His Will, Memories of Old Torture) (#3230)
+- "Bearer cannot untap" effects bind only while the source card is still borne (#3228)
+- Deeper Shadow is playable only during the movement/hazard phase (#3229)
+- Shifter of Hues attaches its +2 to the company's characters so the bonus survives a merge (#3227)
+- Vile Fumes keeps its site transformation after its company dissolves (#3226)
+- Lucky Search discards the found item if the scout is eliminated (#3223)
+- Winged Fire-drake keying fixed to {w}{w}{w} or {s}{s} (#3211)
+- Certified: The Ring Will Have But One Master (le-133), Orc-warband (le-86), Orc-watch (le-87), Fast Asleep (td-115), Sudden Fury (dm-91) (#3219, #3218, #3217, #3216, #3212)
+
+### Web Client
+
+- Elf-song's corruption-removal choice is rendered as buttons in the browser UI (#3208)
+- Short events that also cancel attacks offer cancel-attack in the hand menu (#3207)
+
+### AI
+
+- The heuristic AI splits companies stranded by Ringwraith/leader composition (#3210)
+- Site-bound resource events and allies are considered when choosing where to move (#3213)
+
+### Documentation
+
+- README project status and rule/card test progress refreshed
+
 ## 0.175.0 — 2026-09-26
 
 Houses of Healing Open in Any Phase

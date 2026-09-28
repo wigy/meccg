@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1361 | 1361 | 0 | 100.0% |
+| 1366 | 1366 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,9 +14,9 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 124 | 124 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 149 | 149 | 100.0% |
-| LE | 325 | 325 | 100.0% |
-| TD | 139 | 139 | 100.0% |
+| DM | 150 | 150 | 100.0% |
+| LE | 328 | 328 | 100.0% |
+| TD | 140 | 140 | 100.0% |
 | TW | 425 | 425 | 100.0% |
 | WH | 98 | 98 | 100.0% |
 
@@ -329,6 +329,7 @@
 | dm-88 | Seized by Terror | — | 11 | ☑ |
 | dm-89 | Shadow out of the Dark | — | 14 | ☑ |
 | dm-90 | Spells of the Barrow-wights | — | 7 | ☑ |
+| dm-91 | Sudden Fury | — | 8 | ☑ |
 | dm-92 | To Get You Away | — | 9 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
 | dm-96 | Twisted Tales | — | 15 | ☑ |
@@ -362,7 +363,7 @@
 | dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
 | dm-130 | Fireworks | — | 20 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 15 | ☑ |
-| dm-134 | Hall of Fire | — | 14 | ☑ |
+| dm-134 | Hall of Fire | — | 15 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-139 | Hobbit-lore | — | 13 | ☑ |
@@ -379,7 +380,7 @@
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
 | dm-157 | Secret Ways | — | 7 | ☑ |
-| dm-159 | Smoke Rings | — | 13 | ☑ |
+| dm-159 | Smoke Rings | — | 14 | ☑ |
 | dm-160 | Token of Goodwill | — | 13 | ☑ |
 | dm-162 | Vein of Arda | — | 15 | ☑ |
 | dm-163 | When You Know More | — | 10 | ☑ |
@@ -476,6 +477,8 @@
 | le-82 | Lawless Men | — | 6 | ☑ |
 | le-83 | Lesser Spiders | — | 9 | ☑ |
 | le-84 | Marsh-drake | — | 8 | ☑ |
+| le-86 | Orc-warband | — | 3 | ☑ |
+| le-87 | Orc-watch | — | 10 | ☑ |
 | le-88 | Pirates | — | 7 | ☑ |
 | le-89 | Sellswords Between Charters | — | 4 | ☑ |
 | le-90 | Slayer | — | 10 | ☑ |
@@ -513,13 +516,14 @@
 | le-130 | Plague of Wights | — | 6 | ☑ |
 | le-131 | Rats! | — | 15 | ☑ |
 | le-132 | Rebel-talk | — | 12 | ☑ |
+| le-133 | The Ring Will Have But One Master | — | 9 | ☑ |
 | le-134 | River | — | 2 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
 | le-137 | Shut Yer Mouth | — | 11 | ☑ |
 | le-138 | So You’ve Come Back  | — | 9 | ☑ |
 | le-140 | Stay Her Appetite | — | 5 | ☑ |
-| le-141 | Stench of Mordor | — | 10 | ☑ |
+| le-141 | Stench of Mordor | — | 11 | ☑ |
 | le-142 | Thrice Outnumbered | — | 11 | ☑ |
 | le-143 | Tidings of Bold Spies | — | 7 | ☑ |
 | le-146 | Veils Flung Away | — | 15 | ☑ |
@@ -548,13 +552,13 @@
 | le-176 | Come By Night Upon Them | — | 10 | ☑ |
 | le-177 | Crack in the Wall | — | 7 | ☑ |
 | le-178 | Crooked Promptings | — | 9 | ☑ |
-| le-179 | Deeper Shadow | — | 14 | ☑ |
+| le-179 | Deeper Shadow | — | 15 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 18 | ☑ |
 | le-184 | Focus Palantír | — | 10 | ☑ |
 | le-185 | Forced March | — | 10 | ☑ |
-| le-188 | Gifts as Given of Old | — | 8 | ☑ |
+| le-188 | Gifts as Given of Old | — | 9 | ☑ |
 | le-190 | Heralded Lord | — | 10 | ☑ |
 | le-192 | Hide in Dark Places | — | 8 | ☑ |
 | le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
@@ -569,7 +573,7 @@
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-217 | Orc Stealth | — | 5 | ☑ |
 | le-219 | Poisonous Despair | — | 9 | ☑ |
-| le-220 | Ready to His Will | — | 10 | ☑ |
+| le-220 | Ready to His Will | — | 11 | ☑ |
 | le-223 | The Ring Leaves Its Mark | — | 13 | ☑ |
 | le-224 | Rumor of the One | — | 8 | ☑ |
 | le-225 | Ruse | — | 10 | ☑ |
@@ -776,7 +780,7 @@
 | td-80 | Were-worm | — | 7 | ☑ |
 | td-81 | Wild Fell Beast | — | 8 | ☑ |
 | td-82 | Winds of Wrath | — | 9 | ☑ |
-| td-84 | Winged Fire-drake | — | 2 | ☑ |
+| td-84 | Winged Fire-drake | — | 6 | ☑ |
 | td-85 | Withered Lands | — | 9 | ☑ |
 | td-86 | Wolf-riders | — | 7 | ☑ |
 | td-87 | Wolf-riders | — | 4 | ☑ |
@@ -804,6 +808,7 @@
 | td-112 | Emerald of Doriath | — | 9 | ☑ |
 | td-113 | Emerald of the Mariner | — | 7 | ☑ |
 | td-114 | Enruned Shield | — | 11 | ☑ |
+| td-115 | Fast Asleep | — | 7 | ☑ |
 | td-116 | Flatter a Foe | — | 23 | ☑ |
 | td-117 | Forod | — | 7 | ☑ |
 | td-118 | Gift of Comprehension | — | 6 | ☑ |
@@ -816,7 +821,7 @@
 | td-129 | Lore of the Ages | — | 11 | ☑ |
 | td-130 | Magical Harp | — | 14 | ☑ |
 | td-131 | Many Foes He Fought | — | 9 | ☑ |
-| td-132 | Many Turns and Doublings | — | 12 | ☑ |
+| td-132 | Many Turns and Doublings | — | 13 | ☑ |
 | td-133 | Map to Mithril | — | 14 | ☑ |
 | td-134 | Marvels Told | — | 29 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
@@ -1101,7 +1106,7 @@
 | tw-246 | Gollum | — | 17 | ☑ |
 | tw-247 | Gollum’s Fate | — | 4 | ☑ |
 | tw-248 | Great Ship | — | 12 | ☑ |
-| tw-249 | Great-road | — | 8 | ☑ |
+| tw-249 | Great-road | — | 10 | ☑ |
 | tw-250 | Great-shield of Rohan | — | 13 | ☑ |
 | tw-251 | Gwaihir | — | 8 | ☑ |
 | tw-252 | Halfling Stealth | — | 4 | ☑ |
@@ -1120,7 +1125,7 @@
 | tw-266 | Lesser Ring | — | 4 | ☑ |
 | tw-267-lordly-presence | Lordly Presence | — | 6 | ☑ |
 | tw-268 | Lossoth | — | 2 | ☑ |
-| tw-269 | Lucky Search | — | 14 | ☑ |
+| tw-269 | Lucky Search | — | 15 | ☑ |
 | tw-270 | Lucky Strike | — | 9 | ☑ |
 | tw-271 | Magic Ring of Courage | — | 8 | ☑ |
 | tw-272 | Magic Ring of Lore | — | 14 | ☑ |
@@ -1328,7 +1333,7 @@
 | wh-51 | Blasting Fire | — | 10 | ☑ |
 | wh-52 | Liquid Fire | — | 10 | ☑ |
 | wh-53 | Mechanical Bow | — | 8 | ☑ |
-| wh-54 | Vile Fumes | — | 12 | ☑ |
+| wh-54 | Vile Fumes | — | 13 | ☑ |
 | wh-55 | Deep Mines | — | 15 | ☑ |
 | wh-56 | Isengard | — | 3 | ☑ |
 | wh-57 | Rhosgobel | — | 10 | ☑ |
@@ -1380,7 +1385,7 @@
 | wh-112 | Master of Shapes | — | 14 | ☑ |
 | wh-113 | Pocketed Robes | — | 14 | ☑ |
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
-| wh-115 | Shifter of Hues | — | 23 | ☑ |
+| wh-115 | Shifter of Hues | — | 24 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
 | wh-119 | Man of Skill | — | 9 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 24 | ☑ |
