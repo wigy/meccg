@@ -585,7 +585,10 @@ describe('Revealed play-deck-top cards (dm-85 Revealed to all Watchers)', () => 
     const deckById = (id: CardInstanceId): ViewCard | undefined =>
       bobView.opponent.playDeck.find(c => c.instanceId === id);
     expect(deckById(known)?.definitionId).toBe(ARAGORN);
-    expect(deckById(secret)?.definitionId).toBe(UNKNOWN_CARD);
+    // The still-secret card is masked, and its real instance id is not sent
+    // (masked opponent deck cards carry positional stand-in ids).
+    expect(deckById(secret)).toBeUndefined();
+    expect(bobView.opponent.playDeck.some(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
   });
 });
 
@@ -967,5 +970,88 @@ describe("The opponent's revealed cards are remembered (revealedInstances)", () 
     expect(revealed).toContainEqual({ instanceId: played, definitionId: ARAGORN });
     expect(revealed.some(c => c.instanceId === neverShown)).toBe(false);
     expect(revealed.some(c => c.instanceId === mine)).toBe(false);
+  });
+
+  // Regression (sim leak check): once a remembered card went back into a
+  // private zone — shuffled into the play deck by deck exhaustion, or returned
+  // to hand — its real instance id in the record could be paired with the
+  // masked hand/deck entries (which keep their instance ids), revealing the
+  // card in hand and its position in a shuffled deck.
+  test('a remembered card now in the opponent\'s hand or play deck keeps its identity but not its instance id', () => {
+    const { state } = gameWithBobDiscardPile(false);
+    const inDeck = 'p2-911' as CardInstanceId;
+    const inHand = 'p2-912' as CardInstanceId;
+    const shownInHand = 'p2-913' as CardInstanceId;
+    const remembered: GameState = {
+      ...state,
+      players: [state.players[0], {
+        ...state.players[1],
+        playDeck: [{ instanceId: inDeck, definitionId: ARAGORN }, ...state.players[1].playDeck],
+        hand: [{ instanceId: inHand, definitionId: BALIN }, { instanceId: shownInHand, definitionId: ARAGORN }],
+      }],
+      revealedInstances: { ...state.revealedInstances, [inDeck]: ARAGORN, [inHand]: BALIN, [shownInHand]: ARAGORN },
+      // An explicit reveal of that hand card (e.g. Rolled down to the Sea).
+      handRevealedInstances: { ...state.handRevealedInstances, [shownInHand]: ARAGORN },
+    };
+    const aliceView = projectPlayerView(remembered, ALICE);
+    const revealed = aliceView.opponent.revealedCards ?? [];
+
+    // The identities are still remembered…
+    expect(revealed.filter(c => c.definitionId === ARAGORN)).toHaveLength(2);
+    expect(revealed.some(c => c.definitionId === BALIN)).toBe(true);
+    // …but no entry can be matched to the masked deck / hand card.
+    expect(revealed.some(c => c.instanceId === inDeck)).toBe(false);
+    expect(revealed.some(c => c.instanceId === inHand)).toBe(false);
+    expect(aliceView.opponent.playDeck.some(c => c.instanceId === inDeck)).toBe(false);
+    // A card an effect explicitly revealed in hand stays linked.
+    expect(revealed).toContainEqual({ instanceId: shownInHand, definitionId: ARAGORN });
+  });
+
+  // Regression (sim leak check, seed 109102): a magic card Akhôrahil (le-51)
+  // shuffles back into the deck at declaration is also a public chain entry;
+  // its real id in the masked deck revealed where it now sits.
+  test('masked opponent play-deck cards carry positional stand-in ids, not their real instance ids', () => {
+    const { state } = gameWithBobDiscardPile(false);
+    const onChainAndInDeck = 'p2-931' as CardInstanceId;
+    const other = 'p2-932' as CardInstanceId;
+    const withDeck: GameState = {
+      ...state,
+      players: [state.players[0], {
+        ...state.players[1],
+        playDeck: [{ instanceId: other, definitionId: BALIN }, { instanceId: onChainAndInDeck, definitionId: ARAGORN }],
+      }],
+      revealedInstances: { ...state.revealedInstances, [onChainAndInDeck]: ARAGORN },
+    };
+    const deck = projectPlayerView(withDeck, ALICE).opponent.playDeck;
+    expect(deck).toHaveLength(2);
+    expect(deck.every(c => c.definitionId === UNKNOWN_CARD)).toBe(true);
+    expect(deck.some(c => c.instanceId === onChainAndInDeck || c.instanceId === other)).toBe(false);
+  });
+
+  test('a remembered card now in the opponent\'s sideboard or face down on-guard is not linked by instance id', () => {
+    const { state } = gameWithBobDiscardPile(false);
+    const inSideboard = 'p2-921' as CardInstanceId;
+    const onGuard = 'p2-922' as CardInstanceId;
+    const aliceCompany = state.players[0].companies[0];
+    const remembered: GameState = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          companies: [
+            { ...aliceCompany, onGuardCards: [{ instanceId: onGuard, definitionId: BALIN, revealed: false }] },
+            ...state.players[0].companies.slice(1),
+          ],
+        },
+        { ...state.players[1], sideboard: [{ instanceId: inSideboard, definitionId: ARAGORN }] },
+      ],
+      revealedInstances: { ...state.revealedInstances, [inSideboard]: ARAGORN, [onGuard]: BALIN },
+    };
+    const revealed = projectPlayerView(remembered, ALICE).opponent.revealedCards ?? [];
+
+    expect(revealed.some(c => c.definitionId === ARAGORN)).toBe(true);
+    expect(revealed.some(c => c.definitionId === BALIN)).toBe(true);
+    expect(revealed.some(c => c.instanceId === inSideboard)).toBe(false);
+    expect(revealed.some(c => c.instanceId === onGuard)).toBe(false);
   });
 });

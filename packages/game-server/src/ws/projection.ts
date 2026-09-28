@@ -261,7 +261,7 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
   return {
     ...commonViewFields(state, player),
     hand: revealedCardPile(player.hand, state.handRevealedInstances),
-    playDeck: revealedCardPile(player.playDeck, state.handRevealedInstances),
+    playDeck: maskOpponentDeckIds(revealedCardPile(player.playDeck, state.handRevealedInstances), player.id),
     siteDeck: redactSitePile(player.siteDeck, publicSiteInstanceIds(state, getPlayerIndex(state, player.id))),
     discardPile: revealedCardPile(player.discardPile, state.handRevealedInstances),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
@@ -270,12 +270,68 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     sideboard: hiddenCardPile(player.sideboard),
     companies,
     agents,
-    revealedCards: Object.entries(state.revealedInstances)
-      .filter(([instanceId]) => ownerOf(instanceId as CardInstanceId) === player.id)
-      .map(([instanceId, definitionId]) => ({
-        instanceId: instanceId as CardInstanceId, definitionId,
-      })),
+    revealedCards: opponentRevealedCards(state, player),
   };
+}
+
+/**
+ * Masked opponent play-deck cards get positional stand-in ids instead of
+ * their real instance ids. A real id can be joined with the same id
+ * appearing publicly elsewhere in the view — e.g. a magic card Akhôrahil
+ * (le-51) shuffles back into the deck the moment it is declared is also a
+ * public chain entry — revealing where that card now sits in the shuffled
+ * deck. Masking only the publicly-known cards would not help (the odd
+ * stand-in itself would mark the position), so every masked card gets one.
+ * Cards an effect explicitly revealed in the deck keep their real id (they
+ * are already unmasked by {@link revealedCardPile}), so actions targeting
+ * them still resolve.
+ */
+function maskOpponentDeckIds(deck: readonly ViewCard[], owner: PlayerId): ViewCard[] {
+  return deck.map((c, i) =>
+    c.definitionId === UNKNOWN_CARD
+      ? { instanceId: `${owner as string}-deck-${i}` as CardInstanceId, definitionId: UNKNOWN_CARD }
+      : c,
+  );
+}
+
+/**
+ * The opponent's public record (`revealedCards`): every card of theirs whose
+ * identity has been public at some point this game. A remembered card may
+ * since have gone back into a private zone — shuffled into the play deck by
+ * deck exhaustion, returned to hand, moved to the sideboard, placed face down
+ * on-guard, or played as a face-down agent. Its identity stays in the record (the
+ * table saw it), but its real instance id must not: the opponent's hand and
+ * play deck (and those other zones) are sent as instance ids with the
+ * identity masked, so pairing a record entry with one of those ids would
+ * reveal the card in hand, where it now sits in a shuffled deck, or what a
+ * face-down card is. Such entries get an opaque stand-in id
+ * instead, unless an explicit effect revealed the card in that zone
+ * ({@link GameState.handRevealedInstances}).
+ */
+function opponentRevealedCards(state: GameState, player: PlayerState): ViewCard[] {
+  const hiddenIds = new Set<string>(
+    [...player.hand, ...player.playDeck]
+      .filter(c => state.handRevealedInstances?.[c.instanceId] === undefined)
+      .map(c => c.instanceId as string),
+  );
+  // The other face-down zones: the sideboard, on-guard cards not yet revealed
+  // (placed on the *viewer's* companies), and face-down agents.
+  for (const c of player.sideboard) hiddenIds.add(c.instanceId as string);
+  for (const p of state.players) {
+    for (const co of p.companies) {
+      for (const og of co.onGuardCards) {
+        if (!og.revealed && ownerOf(og.instanceId) === player.id) hiddenIds.add(og.instanceId as string);
+      }
+    }
+  }
+  for (const a of player.agents) if (!a.revealed) hiddenIds.add(a.character.instanceId as string);
+  let masked = 0;
+  return Object.entries(state.revealedInstances)
+    .filter(([instanceId]) => ownerOf(instanceId as CardInstanceId) === player.id)
+    .map(([instanceId, definitionId]) => ({
+      instanceId: (hiddenIds.has(instanceId) ? `${player.id as string}-remembered-${masked++}` : instanceId) as CardInstanceId,
+      definitionId,
+    }));
 }
 
 /**
