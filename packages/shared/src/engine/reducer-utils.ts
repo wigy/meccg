@@ -6746,7 +6746,8 @@ export function discardOrphanedConvertedAllyEvents(state: GameState): GameState 
     }
   }
 
-  return discardCardsInPlayWhere(
+  const leftAllies: { creatureId: CardInstanceId; holderId: PlayerId }[] = [];
+  const swept = discardCardsInPlayWhere(
     state,
     card => {
       if (card.attachedTo === undefined || allyIds.has(card.attachedTo as string)) return false;
@@ -6754,11 +6755,46 @@ export function discardOrphanedConvertedAllyEvents(state: GameState): GameState 
       const effects = def ? getCardEffects(def) : [];
       return effects.some(e => e.type === 'convert-creature-to-ally');
     },
-    card => {
+    (card, player) => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`converted-ally event: discarding "${def?.name ?? card.definitionId}" — its converted-creature ally left play`);
+      leftAllies.push({ creatureId: card.attachedTo as CardInstanceId, holderId: player.id });
     },
   ).state;
+  return returnConvertedCreaturesToOwner(swept, leftAllies);
+}
+
+/**
+ * A converted-creature ally is the *hazard player's* creature card serving
+ * the other player's character. The generic ally-dispersal paths (bearer
+ * eliminated, discarded, returned to hand, …) drop a leaving ally into the
+ * bearer's own discard pile; for a converted creature that is the wrong
+ * pile — a card always goes to its owner's piles. Move each such creature
+ * from a non-owner's discard pile (or hand) to its owner's discard pile.
+ */
+function returnConvertedCreaturesToOwner(
+  state: GameState,
+  leftAllies: readonly { creatureId: CardInstanceId; holderId: PlayerId }[],
+): GameState {
+  let result = state;
+  for (const { creatureId, holderId } of leftAllies) {
+    // The event (and so the ally) belongs to the converting player; the
+    // creature card is the opponent's — the hazard player who played it.
+    const holderIdx = result.players.findIndex(p => p.id === holderId);
+    if (holderIdx < 0) continue;
+    const ownerIdx = 1 - holderIdx;
+    const holder = result.players[holderIdx];
+    const card = findById(holder.discardPile, creatureId) ?? findById(holder.hand, creatureId);
+    if (!card) continue;
+    logDetail(`converted-ally event: returning converted creature ${creatureId as string} to its owner's discard pile`);
+    result = updatePlayer(result, holderIdx, p => ({
+      ...p,
+      discardPile: removeById(p.discardPile, creatureId),
+      hand: removeById(p.hand, creatureId),
+    }));
+    result = updatePlayer(result, ownerIdx, p => ({ ...p, discardPile: [...p.discardPile, toCardInstance(card)] }));
+  }
+  return result;
 }
 
 /**

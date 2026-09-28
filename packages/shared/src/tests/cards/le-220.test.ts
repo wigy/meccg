@@ -39,6 +39,8 @@ import {
 } from '../test-helpers.js';
 import { CardStatus, computeLegalActions, Phase, Race } from '../../index.js';
 import type { CardDefinitionId, CardInstanceId, CombatState, ConvertCreatureToAllyAction } from '../../index.js';
+import { eliminateCharacter } from '../../engine/pending-reducers.js';
+import { discardOrphanedConvertedAllyEvents } from '../../engine/reducer-utils.js';
 
 const READY_TO_HIS_WILL = 'le-220' as CardDefinitionId;
 const GIANT = 'tw-39' as CardDefinitionId;          // giant, 1 strike, printed prowess 13
@@ -187,6 +189,32 @@ describe('Ready to His Will (le-220)', () => {
 
     // Scores its 1 ally marshalling point.
     expect(def.marshallingPoints.ally).toBe(1);
+  });
+
+  // Regression (sim seeds 105001/105010, decks b vs j): the controlling
+  // character was eliminated and the converted creature — the hazard
+  // player's card — was dropped into the *controller's* discard pile with
+  // his other allies. A card always goes to its owner's pile.
+  test('when the controller leaves play, the converted creature goes to its owner\'s discard pile', () => {
+    const { state, creatureInstanceId } = buildRingwraithCreatureCombat({
+      creatureDefId: GIANT, creatureRace: Race.Giant, characters: [ORC_BRAWLER, MUZGASH], hand: [READY_TO_HIS_WILL],
+    });
+    const controllerId = charIdAt(state, RESOURCE_PLAYER);
+    const action = findAction<ConvertCreatureToAllyAction>(
+      state, PLAYER_1, 'convert-creature-to-ally',
+      a => a.controllingCharacterId === controllerId,
+    );
+    const converted = dispatch(state, action!);
+
+    const eliminated = eliminateCharacter(
+      converted, RESOURCE_PLAYER, controllerId, converted.players[RESOURCE_PLAYER].characters[controllerId],
+    );
+    const after = discardOrphanedConvertedAllyEvents(eliminated);
+
+    expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    expect(after.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+    // The event card itself is the resource player's and goes to his own pile.
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.definitionId === READY_TO_HIS_WILL)).toBe(false);
   });
 
   // ── The converted ally uses its overridden stats in combat ──────────
