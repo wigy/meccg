@@ -292,10 +292,13 @@ describe('Akhôrahil (tw-4)', () => {
     expect(forged.state.players[HAZARD_PLAYER].cardsInPlay.some(c => c.instanceId === akhorahilId)).toBe(true);
   });
 
-  test('with no opposing character in play the tap is surfaced as not viable', () => {
+  test('emptying the named company closes the tap window (only pass remains)', () => {
     // The resource player's only company holds a single character, who is
-    // eliminated before the tap window: nothing is left to modify.
-    const { afterPlay, akhorahilId } = playAsPermanentEvent(buildTestState({
+    // eliminated before the tap window: nothing is left to modify. An emptied
+    // company ends its own movement/hazard phase — rule 2.3 keeps its site
+    // until the end of all M/H phases, but no hazard (the Akhôrahil tap
+    // included) may be played on it — so both players may only pass.
+    const { afterPlay } = playAsPermanentEvent(buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       recompute: true,
@@ -313,12 +316,9 @@ describe('Akhôrahil (tw-4)', () => {
     };
 
     expect(viableActions(stripped, PLAYER_2, 'tap-alt-permanent-event')).toHaveLength(0);
-    const blocked = computeLegalActions(stripped, PLAYER_2)
-      .find(a => a.action.type === 'tap-alt-permanent-event'
-        && (a.action as { cardInstanceId?: string }).cardInstanceId === (akhorahilId as unknown as string));
-    expect(blocked).toBeDefined();
-    expect(blocked!.viable).toBe(false);
-    expect(blocked!.reason).toContain('No eligible character');
+    // Not even surfaced as a non-viable option: the step offers nothing but pass.
+    expect(computeLegalActions(stripped, PLAYER_2).map(a => a.action.type)).toEqual(['pass']);
+    expect(computeLegalActions(stripped, PLAYER_1).filter(a => a.viable).map(a => a.action.type)).toEqual(['pass']);
   });
 
   // ─── On tap: the body modification ──────────────────────────────────────────
