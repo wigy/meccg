@@ -22,7 +22,9 @@
  *    the event card (not on the converted creature's own hazard definition),
  *    the movement-discard sweep (mh-hazard-play.ts step 8a-2) scans each moving
  *    ally for an attached convert-creature-to-ally event whose discard fires;
- *    the orphaned event then follows via discardOrphanedConvertedAllyEvents.
+ *    the orphaned event then follows via discardOrphanedConvertedAllyEvents,
+ *    which also hands the converted creature back to its owner (the hazard
+ *    player who played it) rather than leaving it in the controller's pile.
  *
  * This differs from Ready to His Will (le-220) in two ways exercised below:
  *  1. controllerTaps false — a tapped character may take control, and the
@@ -219,16 +221,22 @@ describe('Memories of Old Torture (ba-67)', () => {
 
     const allies = getCharacter(swept, RESOURCE_PLAYER, ORC_BRAWLER).allies;
     const discardPile = swept.players[RESOURCE_PLAYER].discardPile;
+    const ownerDiscardPile = swept.players[HAZARD_PLAYER].discardPile;
     const eventStillInPlay = swept.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === eventInst);
 
     if (discarded) {
       expect(allies.some(a => a.instanceId === allyInst)).toBe(false);
-      expect(discardPile.some(c => c.instanceId === allyInst)).toBe(true);
+      // The converted creature is the hazard player's card, so it leaves play
+      // to *its owner's* discard pile — not the Balrog controller's.
+      expect(ownerDiscardPile.some(c => c.instanceId === allyInst)).toBe(true);
+      expect(discardPile.some(c => c.instanceId === allyInst)).toBe(false);
+      // The event card itself is the Balrog player's and goes to his own pile.
       expect(discardPile.some(c => c.instanceId === eventInst)).toBe(true);
       expect(eventStillInPlay).toBe(false);
     } else {
       expect(allies.some(a => a.instanceId === allyInst)).toBe(true);
       expect(discardPile.some(c => c.instanceId === allyInst)).toBe(false);
+      expect(ownerDiscardPile.some(c => c.instanceId === allyInst)).toBe(false);
       expect(eventStillInPlay).toBe(true);
     }
   });
