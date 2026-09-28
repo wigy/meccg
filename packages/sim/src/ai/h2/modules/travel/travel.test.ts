@@ -393,3 +393,27 @@ describe('route danger from the creatures the opponent has shown', () => {
     expect(JSON.stringify(wild.rationale)).toContain('creature(s) they have shown');
   });
 });
+
+describe('a haven-to-haven move', () => {
+  // A haven prints no site path of its own; the route between two havens is
+  // the origin's `havenPaths` entry. Read off the destination alone, every
+  // such trip was "0 regions, already here" and charged no crossing — a free
+  // move worth the destination's card draws, so the AI shuffled companies
+  // between havens that strong players left where they stood.
+  test('crosses the regions the origin lists for it', () => {
+    const { context } = position();
+    const company = context.view.self.companies[0];
+    (company as unknown as { currentSite: { definitionId: string } }).currentSite = {
+      ...company.currentSite!, definitionId: 'tw-421', // Rivendell
+    };
+    const move = {
+      type: 'plan-movement', player: context.view.self.id, companyId: company.id, destinationSite: 'grey-havens',
+    } as unknown as GameAction;
+    const siteDeck = context.view.self.siteDeck as unknown as { instanceId: string; definitionId: string }[];
+    siteDeck.push({ instanceId: 'grey-havens', definitionId: 'tw-399' });
+    const evaluation = travelModule.evaluate(move, context)!;
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('free → wilderness → wilderness');
+    expect(text).not.toContain('already here');
+  });
+});

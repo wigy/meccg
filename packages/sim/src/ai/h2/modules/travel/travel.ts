@@ -44,7 +44,7 @@
  */
 
 import { BASE_MAX_REGION_DISTANCE, CardStatus, isSiteCard, matchesCondition } from '@meccg/shared';
-import type { CardDefinition, CardInstanceId, CompanyId, GameAction, PlayerView } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CompanyId, GameAction, PlayerView, RegionType } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { ROUTE_STEP, reachProbability } from '../../core/plan.js';
@@ -351,6 +351,45 @@ interface DestinationValue {
   readonly detail: readonly Rationale[];
   readonly playableNow: readonly PlayableCard[];
   readonly playableCount: number;
+}
+
+/**
+ * The site path a company actually crosses to reach a destination, by the
+ * engine's starter-movement rule (`mh-steps`): haven to haven follows the
+ * origin's `havenPaths`, haven to site the destination's own `sitePath`, and
+ * site to haven the *origin's* `sitePath`.
+ *
+ * A destination's `sitePath` alone is right only for the middle case. A haven
+ * prints none, so every haven-to-haven trip — Dol Guldur to Carn Dûm across
+ * four regions — read as "0 regions, already here" and was charged no
+ * crossing at all: a free move worth the destination's card draws, which is
+ * why the AI shuffled companies between havens that strong players left
+ * where they stood. Anything else (region movement between two non-havens)
+ * keeps the destination's path as the estimate it always was.
+ */
+function routed(
+  context: ModuleContext,
+  site: SiteExposure,
+  companyId: string | undefined,
+  destinationDefinitionId: string,
+): SiteExposure {
+  const company = companyId
+    ? context.view.self.companies.find(c => (c.id as string) === companyId)
+    : undefined;
+  const originId = company?.currentSite?.definitionId;
+  if (!originId) return site;
+  type SiteShape = { siteType?: string; name?: string; sitePath?: readonly RegionType[];
+    havenPaths?: Readonly<Record<string, readonly RegionType[]>> };
+  const origin = context.cardPool[originId] as unknown as SiteShape | undefined;
+  const destination = context.cardPool[destinationDefinitionId] as unknown as SiteShape | undefined;
+  if (!origin || !destination) return site;
+  const originHaven = origin.siteType === 'haven';
+  const destinationHaven = destination.siteType === 'haven';
+  let path: readonly RegionType[] | undefined;
+  if (originHaven && destinationHaven) path = origin.havenPaths?.[destination.name ?? ''];
+  else if (!originHaven && destinationHaven) path = origin.sitePath;
+  if (!path) return site;
+  return { ...site, sitePath: path, pathLength: path.length };
 }
 
 /**
@@ -755,7 +794,7 @@ function evaluateCancelMovement(context: ModuleContext, action: GameAction): Eva
 
   const value = destinationValue(context, {
     action,
-    site,
+    site: routed(context, site, companyId, planned.definitionId as string),
     arrivingDefinitionId: planned.definitionId,
     playable: playableAt(context, planned.definitionId, company.id),
     tapsAvailable: budget.untappedIn(company.id).length,
@@ -980,7 +1019,7 @@ export const travelModule: H2Module = {
 
     return evaluateDestination(context, {
       action,
-      site,
+      site: routed(context, site, companyId, destination.definitionId),
       arrivingDefinitionId: destination.definitionId,
       playable: playableAt(context, destination.definitionId, companyId),
       tapsAvailable: taps,
