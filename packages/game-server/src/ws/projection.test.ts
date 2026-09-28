@@ -570,6 +570,20 @@ function gameWithPartlyRevealedAliceDeckTop(): {
 }
 
 describe('Revealed play-deck-top cards (dm-85 Revealed to all Watchers)', () => {
+  // A card that was public earlier (played, then discarded) and has since been
+  // shuffled back into the play deck by deck exhaustion stays in the monotonic
+  // public record (revealedInstances), but the reshuffle cleared its deck
+  // reveal. The owner must not see where it now sits in their deck.
+  test('a once-public card shuffled back into the owner\'s deck is masked in their own view', () => {
+    const { state, secret } = gameWithPartlyRevealedAliceDeckTop();
+    const reshuffled: GameState = {
+      ...state,
+      revealedInstances: { ...state.revealedInstances, [secret]: BALIN },
+    };
+    const aliceView = projectPlayerView(reshuffled, ALICE);
+    expect(aliceView.self.playDeck.find(c => c.instanceId === secret)?.definitionId).toBe(UNKNOWN_CARD);
+  });
+
   test('the deck owner sees the revealed top card so they can choose its order; the rest stay hidden', () => {
     const { state, known, secret } = gameWithPartlyRevealedAliceDeckTop();
     const aliceView = projectPlayerView(state, ALICE);
