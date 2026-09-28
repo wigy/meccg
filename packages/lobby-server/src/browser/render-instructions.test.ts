@@ -938,6 +938,66 @@ describe('renderPassButton — use-discard-substitute (Leaf Brooch)', () => {
 });
 
 /**
+ * Regression test for bug report 31c41fd957ebe4c4 (game mufvkgk8-f5s9w4, seq
+ * 538): "played [Elf-song] during long event, and now there is no other
+ * possible action to do. game seems 'stuck'". Elf-song (tw-223) entering play
+ * queued a `remove-corruption-offer` for Pallando at Rivendell (bearing Lure
+ * of the Senses), but that action type had no branch in
+ * {@link renderPassButton}, so the panel hid entirely. It now renders a
+ * "Remove <card>" button per corruption card plus a "Keep Corruption" button.
+ */
+const removeCorruptionOffer = (corruptionInstanceId?: string): EvaluatedAction => ({
+  action: {
+    type: 'remove-corruption-offer',
+    player: 'p1',
+    corruptionInstanceId,
+  },
+  viable: true,
+} as EvaluatedAction);
+
+describe('renderPassButton — remove-corruption-offer (Elf-song)', () => {
+  test('renders a Remove button plus a Keep Corruption button instead of hiding the panel', () => {
+    appState.lastInstanceLookup = lookupOf({ 'p2-79': 'le-124' });
+
+    renderPassButton(
+      viewWith([removeCorruptionOffer(), removeCorruptionOffer('p2-79')]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual([
+      'Remove Lure of the Senses',
+      'Keep Corruption',
+    ]);
+  });
+
+  test('clicking Remove sends the action naming the corruption card', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p2-79': 'le-124' });
+    const remove = removeCorruptionOffer('p2-79');
+
+    renderPassButton(viewWith([removeCorruptionOffer(), remove]), action => { sent = action; });
+
+    tierInPhasePass.children[0].onclick?.();
+
+    expect(sent).toEqual(remove.action);
+  });
+
+  test('clicking Keep Corruption sends the decline action', () => {
+    let sent: unknown = null;
+    appState.lastInstanceLookup = lookupOf({ 'p2-79': 'le-124' });
+    const decline = removeCorruptionOffer();
+
+    renderPassButton(viewWith([decline, removeCorruptionOffer('p2-79')]), action => { sent = action; });
+
+    tierInPhasePass.children[1].onclick?.();
+
+    expect(sent).toEqual(decline.action);
+  });
+});
+
+/**
  * Regression tests for the three-tier action-button layout (feature request
  * "changing tight buttons"): buttons that end the phase, resolve an in-phase
  * decision, or activate a card-granted ability now render into three
