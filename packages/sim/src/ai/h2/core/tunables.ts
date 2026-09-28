@@ -554,6 +554,12 @@ export interface Tunables {
    * body against strikes, an influence attempt. Counted as potential, since
    * it pays only when used. Free general influence limits how many can be
    * played; this does not.
+   *
+   * Strong players' rule: every marshalling point is brought in by
+   * characters, so play them. Gated against heuristic (800 games, together
+   * with counting a capped character's points as potential): a/b +183 →
+   * +216, c/d +171 → +178, m/p +74 → +107, b/p +89 → +148. 2 and 4 screened
+   * no better at 200 games.
    */
   readonly characterInPlayTsd: number;
   /**
@@ -563,6 +569,11 @@ export interface Tunables {
    * when it takes free general influence below the reserve; 9 is safe against
    * the hazards that roll against unused general influence (Muster Disperses,
    * Call of Home). 0 turns the rule off.
+   *
+   * Ships off. Against heuristic, whose test decks seldom carry those
+   * hazards, a reserve of 5 cost 2–31 Elo per deck pair at 800 games and 7 or
+   * 9 cost more; the reserve buys protection only against an opponent who
+   * holds them, which is where to take it up again.
    */
   readonly generalInfluenceReserveSafe: number;
   /**
@@ -636,7 +647,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   heldCardFloor: 1,
   organizationGoalCap: 4,
   avatarInPlayTsd: 6,
-  characterInPlayTsd: 0,
+  characterInPlayTsd: 1,
   generalInfluenceReserveSafe: 0,
   generalInfluenceReserveRisky: 0,
   stagePointTsd: 0.5,
