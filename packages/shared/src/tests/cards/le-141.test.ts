@@ -435,6 +435,57 @@ describe('Stench of Mordor (le-141)', () => {
     expect((afterPass.phaseState as SitePhaseState).step).toBe('enter-or-skip');
   });
 
+  test('if the company dissolves while the tap is pending, pass is still offered (no deadlock)', () => {
+    const stenchInPlay: CardInPlay = {
+      instanceId: 'stench-1' as CardInstanceId,
+      definitionId: STENCH_OF_MORDOR,
+      status: CardStatus.Untapped,
+    };
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: BARAD_DUR, characters: [GORBAG] }],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+          cardsInPlay: [stenchInPlay],
+        },
+      ],
+    });
+
+    const withSelectCompany = { ...state, phaseState: makeSelectCompanyPhase() };
+    const companyId = withSelectCompany.players[RESOURCE_PLAYER].companies[0].id;
+    const afterSelect = dispatch(withSelectCompany, {
+      type: 'select-company',
+      player: PLAYER_1,
+      companyId,
+    });
+    expect(afterSelect.pendingResolutions.some(r => r.kind.type === 'tap-one-character')).toBe(true);
+
+    const dissolved = {
+      ...afterSelect,
+      players: [
+        { ...afterSelect.players[RESOURCE_PLAYER], companies: [], characters: {} },
+        afterSelect.players[HAZARD_PLAYER],
+      ] as const,
+    };
+    const viable = computeLegalActions(dissolved, PLAYER_1).filter(a => a.viable);
+    expect(viable.map(a => a.action.type)).toEqual(['pass']);
+
+    const afterPass = dispatch(dissolved, viable[0].action);
+    expect(afterPass.pendingResolutions.some(r => r.kind.type === 'tap-one-character')).toBe(false);
+  });
+
   // ── Effect 2: discard when any play deck is exhausted ────────────────────────
 
   test('discards when the resource player completes deck exhaustion', () => {

@@ -3718,14 +3718,17 @@ export function tapOneCharacterActions(
   if (top.kind.type !== 'tap-one-character') return [];
   const { companyId } = top.kind;
 
+  // The company can dissolve after the resolution is enqueued (e.g. a failed
+  // Alone and Unadvised corruption check at the end of the same M/H phase
+  // eliminates its lone character). It then has no characters to offer, and
+  // the `pass` below remains the exit — returning no actions at all left
+  // neither player with a legal action and deadlocked the game.
   const ownerPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
-  if (!ownerPlayer) return [];
-  const company = companyById(ownerPlayer.companies, companyId);
-  if (!company) return [];
+  const company = ownerPlayer ? companyById(ownerPlayer.companies, companyId) : undefined;
 
   const actions: EvaluatedAction[] = [];
-  for (const charId of company.characters) {
-    const ch = ownerPlayer.characters[charId];
+  for (const charId of company?.characters ?? []) {
+    const ch = ownerPlayer?.characters[charId];
     if (!ch || ch.status !== CardStatus.Untapped) continue;
     const charDef = defById(state, ch.definitionId);
     const charName = (charDef as { name?: string })?.name ?? (charId as string);
@@ -3766,14 +3769,17 @@ export function havenRestoreCharacterActions(
   if (top.kind.type !== 'haven-restore-character') return [];
   const { companyId } = top.kind;
 
+  // The company can dissolve after the resolution is enqueued (e.g. a failed
+  // Alone and Unadvised corruption check at the end of the same M/H phase
+  // eliminates its lone character). It then has no characters to offer, and
+  // the `pass` below remains the exit — returning no actions at all left
+  // neither player with a legal action and deadlocked the game.
   const ownerPlayer = state.players.find(p => p.companies.some(co => co.id === companyId));
-  if (!ownerPlayer) return [];
-  const company = companyById(ownerPlayer.companies, companyId);
-  if (!company) return [];
+  const company = ownerPlayer ? companyById(ownerPlayer.companies, companyId) : undefined;
 
   const actions: EvaluatedAction[] = [];
-  for (const charId of company.characters) {
-    const ch = ownerPlayer.characters[charId];
+  for (const charId of company?.characters ?? []) {
+    const ch = ownerPlayer?.characters[charId];
     if (!ch) continue;
     if (ch.status !== CardStatus.Tapped && ch.status !== CardStatus.Inverted) continue;
     const charName = (defById(state, ch.definitionId) as { name?: string })?.name ?? (charId as string);

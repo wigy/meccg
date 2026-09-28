@@ -275,6 +275,30 @@ describe('Hall of Fire (dm-134)', () => {
     expect(result.state.players[RESOURCE_PLAYER].characters[legolasId].status).toBe(CardStatus.Tapped);
   });
 
+  // ── Regression (sim seeds 96002/96005, decks r vs s): company dissolved ─────
+  // The offer is enqueued when the company's M/H phase ends, but a failed
+  // Alone and Unadvised corruption check resolved in the same window can
+  // eliminate the company's last character. The dissolved company's pending
+  // offer used to yield no legal action for either player — a deadlock.
+  test('the offer stays passable after its company dissolves', () => {
+    const state = buildMHEndAtHaven({ legolas: CardStatus.Tapped, gimli: CardStatus.Untapped });
+    const after = endCompanyMH(state);
+    expect(after.pendingResolutions.some(r => r.kind.type === 'haven-restore-character')).toBe(true);
+
+    const dissolved: GameState = {
+      ...after,
+      players: [
+        { ...after.players[RESOURCE_PLAYER], companies: [], characters: {} },
+        after.players[1],
+      ],
+    };
+    const viable = computeLegalActions(dissolved, PLAYER_1).filter(a => a.viable);
+    expect(viable.map(a => a.action.type)).toEqual(['pass']);
+
+    const resolved = dispatch(dissolved, viable[0].action);
+    expect(resolved.pendingResolutions.some(r => r.kind.type === 'haven-restore-character')).toBe(false);
+  });
+
   // ── Rule 3: heal a wounded character (wounded → tapped) ──────────────────────
 
   test('the heal option moves a wounded character from wounded to tapped (not to untapped)', () => {
