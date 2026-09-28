@@ -27,7 +27,7 @@ import { ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR, GANDALF, GLAMDRING, STI
 import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test-helpers-constants.js';
 import { companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 import { getCharacter } from './test-helpers-assertions.js';
-import { dispatch, executeAction, resolveChain, runActions } from './test-helpers-dispatch.js';
+import { dispatch, executeAction, resolveChain, runActions, setupAutoAttackStep } from './test-helpers-dispatch.js';
 import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, setAllyStatus, setCharStatus } from './test-helpers-core.js';
 import type { CharacterEntry } from './test-helpers-core.js';
 
@@ -3333,4 +3333,47 @@ export function makeMidStrikeHazardPlayState(opts: {
       hazardsPlayedThisCompany: opts.hazardsAlreadyPlayed,
     }),
   };
+}
+
+/**
+ * Build a single-company site phase at `site` with `character` (plus `hand`,
+ * which must include Burglary td-103) at the automatic-attacks step, then
+ * declare a burglary attempt with that character. Returns the state with the
+ * `burglary-attempt` roll queued, for tests of cards that modify the roll
+ * (Fast Asleep td-115).
+ */
+export function declareBurglaryAttempt(opts: {
+  site: CardDefinitionId;
+  character: CardDefinitionId;
+  hand: CardDefinitionId[];
+}): { state: GameState; characterId: CardInstanceId } {
+  const base = buildSitePhaseTwoPlayer({ site: opts.site, heroChars: [opts.character], heroHand: opts.hand });
+  const stepped = setupAutoAttackStep({ ...base, phaseState: makeSitePhase() });
+  const characterId = findCharInstanceId(stepped, RESOURCE_PLAYER, opts.character);
+  const burglary = findHandCardId(stepped, RESOURCE_PLAYER, 'td-103' as CardDefinitionId);
+  const state = dispatch(stepped, {
+    type: 'declare-burglary', player: PLAYER_1, cardInstanceId: burglary, characterInstanceId: characterId,
+  });
+  return { state, characterId };
+}
+
+/**
+ * The viable `burglary-attempt` roll action currently offered to `playerId`
+ * (throws if none), for reading its `need` or dispatching it.
+ */
+export function burglaryRollAction(state: GameState, playerId: PlayerId): GameAction & { need: number } {
+  const roll = computeLegalActions(state, playerId).find(ea => ea.viable && ea.action.type === 'burglary-attempt');
+  if (!roll) throw new Error('no burglary-attempt roll action offered');
+  return roll.action as GameAction & { need: number };
+}
+
+/**
+ * Viable `play-short-event` actions for any hand copy of `defId` held by
+ * `playerIdx` (empty when no copy is in hand).
+ */
+export function shortEventPlaysOf(state: GameState, playerIdx: number, defId: CardDefinitionId) {
+  const cardIds = new Set(state.players[playerIdx].hand.filter(c => c.definitionId === defId).map(c => c.instanceId));
+  return viableActions(state, state.players[playerIdx].id, 'play-short-event').filter(
+    ea => cardIds.has((ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId),
+  );
 }

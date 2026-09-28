@@ -5161,6 +5161,14 @@ site step so a future on-guard interaction (Half an Eye Open, td-29: "may be
 revealed as an on-guard card when a burglary attempt is announced" to modify
 the roll by -5) can hook the same window later.
 
+**Roll modifiers** (Fast Asleep, td-115: "+3 to one burglary attempt"):
+while the roll is queued, the burglar's player may make reactive
+`play-short-event` plays — the same window Wit (td-168) uses for riddling
+rolls. A card gates on `pending.burglaryAttemptTargetsMe` and applies a
+one-shot `add-constraint` `check-modifier` with `check: "burglary"` on the
+character; the roll emitter adds it to the shown bonus and the resolution
+sums then consumes it.
+
 **The roll** (`legal-actions/pending.ts` `burglaryAttemptRollActions`,
 `pending-reducers.ts` `applyBurglaryAttemptResolution`): 2d6 + `scoutBonus`
 if the character has the Scout skill + `hobbitBonus` if he is a Hobbit,

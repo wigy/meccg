@@ -297,6 +297,7 @@ export function cardStatusToName(status: CardStatus): CardStatusName {
  * - `flattery` — METD flattery attempts.
  * - `corruption` — corruption-removal rolls.
  * - `gold-ring-test` — gold-ring item test rolls.
+ * - `burglary` — METD burglary attempts (Burglary td-103).
  */
 export type CheckKind =
   | 'influence'
@@ -304,7 +305,8 @@ export type CheckKind =
   | 'offering'
   | 'flattery'
   | 'corruption'
-  | 'gold-ring-test';
+  | 'gold-ring-test'
+  | 'burglary';
 
 /**
  * Recognized card-data keywords. Each entry is a tag used by card text and
