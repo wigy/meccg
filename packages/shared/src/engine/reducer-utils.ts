@@ -7652,6 +7652,14 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
     logDetail(`Fetch: revealing ${def?.name ?? '?'} (${fetchedCard.instanceId as string}) to opponent`);
     newState = revealInstances(newState, [fetchedCard]);
   }
+  // Any shuffle of the play deck destroys the opponent's knowledge of where a
+  // previously-revealed card sits. Without this, a once-played card (e.g. a
+  // short event recorded in handRevealedInstances) fetched back into the deck
+  // stays unmasked and is shown face-up in its owner's hand once redrawn.
+  const deckShuffled = (fetchTo !== 'hand' && fetchTo !== 'set-aside') || action.source === 'deck';
+  if (deckShuffled) {
+    newState = forgetDeckReveals(newState, playerIndex);
+  }
   // unlockTappedSitePlay (Dragon-lore td-108): the fetched item may be played
   // immediately despite its target site already being tapped.
   if (fetchTo === 'hand' && current.effect.type === 'fetch-to-deck' && current.effect.unlockTappedSitePlay
