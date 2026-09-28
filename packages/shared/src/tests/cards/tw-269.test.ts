@@ -425,6 +425,45 @@ describe('Lucky Search (tw-269)', () => {
     expect(daggerInDiscard).toBe(true);
   });
 
+  // Regression (sim seed 98011, decks c vs i): the scout failed the strike
+  // and then its body check. The item was "attached" to the eliminated
+  // scout — a character no longer in play — and vanished from the game.
+  test('item is discarded, not lost, if the scout is eliminated by the Lucky Search attack', () => {
+    const state = {
+      ...buildTestState({
+        phase: Phase.Site,
+        activePlayer: PLAYER_1,
+        players: [
+          {
+            id: PLAYER_1,
+            companies: [{ site: MORIA, characters: [FRODO, ARAGORN] }],
+            hand: [LUCKY_SEARCH],
+            siteDeck: [MINAS_TIRITH],
+            playDeck: [DAGGER_OF_WESTERNESSE],
+          },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+        ],
+      }),
+      phaseState: makeSitePhase(),
+    };
+
+    const frodoId = findCharInstanceId(state, RESOURCE_PLAYER, FRODO);
+    const playAction = viableActions(state, PLAYER_1, 'play-short-event').find(
+      ea => (ea.action as { targetScoutInstanceId?: unknown }).targetScoutInstanceId === frodoId,
+    )!;
+    let s = reduce(state, playAction.action).state;
+    expect(s.combat).not.toBeNull();
+    // Frodo total = 2 + 1 = 3 < 4 → wounded; body roll 12 > 9 → eliminated
+    s = runCardTriggeredAttackCombat(s, [{ characterDefId: FRODO, roll: 2, bodyRoll: 12 }]);
+    expect(s.combat).toBeNull();
+    expect(s.players[RESOURCE_PLAYER].characters[frodoId]).toBeUndefined();
+
+    const daggerInDiscard = s.players[RESOURCE_PLAYER].discardPile.some(
+      c => c.definitionId === DAGGER_OF_WESTERNESSE,
+    );
+    expect(daggerInDiscard).toBe(true);
+  });
+
   test('all revealed non-item cards are reshuffled into the play deck', () => {
     // Deck: [SUN, SUN, DAGGER_OF_WESTERNESSE].
     // SUN (long-event, not an item) × 2 are revealed before the Dagger.
