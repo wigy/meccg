@@ -183,11 +183,11 @@ function commonViewFields(state: GameState, player: PlayerState) {
  * Builds the "self" portion of a player's view. The player can see their
  * own hand contents (resolved to definition IDs), discard pile, site deck,
  * sideboard, companies, and characters — but only the *size* of their play
- * deck (not its order), except for any instance already made public per
- * {@link GameState.revealedInstances} (e.g. a card a reveal effect placed
- * back on top of the deck, such as Revealed to all Watchers, dm-85's
- * set-aside cards — the player must still be able to tell those apart to
- * choose their order).
+ * deck (not its order), except for any instance a reveal effect has shown
+ * in the deck per {@link GameState.handRevealedInstances} (e.g. Revealed to
+ * all Watchers, dm-85's set-aside cards — the player must still be able to
+ * tell those apart to choose their order). Every reshuffle clears those
+ * entries, so once-public cards shuffled back in stay masked.
  */
 function buildSelfView(state: GameState, player: PlayerState): SelfView {
   // Redact on-guard card identities — the resource player must not see
@@ -201,7 +201,11 @@ function buildSelfView(state: GameState, player: PlayerState): SelfView {
   return {
     ...commonViewFields(state, player),
     hand: toViewCards(player.hand),
-    playDeck: revealedCardPile(player.playDeck, state.revealedInstances),
+    // Unmask only cards an effect revealed *in the deck* (handRevealedInstances,
+    // which every reshuffle clears via forgetDeckReveals) — not the monotonic
+    // public record (revealedInstances): after a deck-exhaustion reshuffle the
+    // player must not see where their once-public cards now sit.
+    playDeck: revealedCardPile(player.playDeck, state.handRevealedInstances),
     discardPile: toViewCards(player.discardPile),
     siteDeck: toViewCards(player.siteDeck),
     siteDiscardPile: toViewCards(player.siteDiscardPile),
