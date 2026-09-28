@@ -5265,10 +5265,51 @@ export function autoMergeNonHavenCompanies(state: GameState, playerIndex: number
 
   const newPlayers: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
   newPlayers[playerIndex] = { ...player, companies };
+  let merged: GameState = { ...state, players: newPlayers };
+  for (const [targetIdx, sources] of mergeMap) {
+    merged = retargetMergedCompanyConstraints(
+      merged, sources.map(i => player.companies[i].id), player.companies[targetIdx].id,
+    );
+  }
   return sweepCompanyMembershipChangedEvents(
-    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({ ...state, players: newPlayers })),
+    sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards(merged)),
     affectedCompanyIds,
   );
+}
+
+/**
+ * Company-targeted active constraints follow their company into a merge: when
+ * `fromCompanyIds` fold into `toCompanyId` (explicit merge-companies, the
+ * rule 2.IV.6 auto-merge, Left Behind td-41's rejoin), every constraint that
+ * targets a folded company — or whose company-bound scope (`company-mh-phase`,
+ * `company-site-phase`) names one — is retargeted to the surviving company.
+ * Without this the constraint was stranded on the vanished company id: its
+ * effect silently lapsed for the merged characters, and it could re-attach to
+ * whatever company later reused the id.
+ */
+export function retargetMergedCompanyConstraints(
+  state: GameState,
+  fromCompanyIds: readonly CompanyId[],
+  toCompanyId: CompanyId,
+): GameState {
+  const from = new Set<string>(fromCompanyIds.filter(id => id !== toCompanyId) as string[]);
+  if (from.size === 0) return state;
+  let changed = false;
+  const activeConstraints = state.activeConstraints.map(c => {
+    let next = c;
+    if (c.target.kind === 'company' && from.has(c.target.companyId as string)) {
+      next = { ...next, target: { kind: 'company', companyId: toCompanyId } };
+    }
+    if ((c.scope.kind === 'company-mh-phase' || c.scope.kind === 'company-site-phase') && from.has(c.scope.companyId as string)) {
+      next = { ...next, scope: { ...c.scope, companyId: toCompanyId } };
+    }
+    if (next !== c) {
+      changed = true;
+      logDetail(`merge: constraint ${c.id as string} (${c.kind.type}) follows its company into ${toCompanyId as string}`);
+    }
+    return next;
+  });
+  return changed ? { ...state, activeConstraints } : state;
 }
 
 /**

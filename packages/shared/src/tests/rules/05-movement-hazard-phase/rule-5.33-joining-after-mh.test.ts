@@ -155,4 +155,56 @@ describe('Rule 5.33 — Joining Companies After M/H Phases', () => {
     const lorienCompany = merged.players[0].companies.find(c => c.currentSite?.instanceId !== sharedMoria.instanceId)!;
     expect(lorienCompany.characters).toHaveLength(1);
   });
+
+  // Ruling: effects on a joining company follow it into the merged company.
+  // A company-targeted constraint on the folded company used to be stranded
+  // on its vanished id (sim seed 104011: a hazard-limit-modifier).
+  test('constraints on the folded company follow it into the surviving company', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: MORIA, characters: [LEGOLAS] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const sharedMoria = built.players[0].companies[0].currentSite!;
+    const [survivorCo, foldedCo] = built.players[0].companies;
+    const state: GameState = {
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          companies: [survivorCo, { ...foldedCo, currentSite: sharedMoria, siteCardOwned: false }],
+        },
+        built.players[1],
+      ],
+      activeConstraints: [
+        ...built.activeConstraints,
+        {
+          id: 'c-folded' as unknown as GameState['activeConstraints'][number]['id'],
+          source: 'src-1' as never,
+          sourceDefinitionId: 'td-132' as never,
+          scope: { kind: 'company-mh-phase', companyId: foldedCo.id },
+          target: { kind: 'company', companyId: foldedCo.id },
+          kind: { type: 'hazard-limit-modifier', value: -1 },
+        } as GameState['activeConstraints'][number],
+      ],
+    };
+
+    const merged = autoMergeNonHavenCompanies(state, 0);
+
+    expect(merged.players[0].companies.map(c => c.id)).toEqual([survivorCo.id]);
+    const moved = merged.activeConstraints.find(c => (c.id as unknown as string) === 'c-folded')!;
+    expect(moved.target).toEqual({ kind: 'company', companyId: survivorCo.id });
+    expect(moved.scope).toEqual({ kind: 'company-mh-phase', companyId: survivorCo.id });
+  });
 });
