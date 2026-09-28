@@ -95,12 +95,21 @@ function buildDeckInfo(deck: FullDeck, metaText: string): HTMLDivElement {
  * reuses the editor title's plain download icon rather than a text button.
  */
 function makeExportButton(deck: FullDeck): HTMLButtonElement {
-  const exportBtn = document.createElement('button');
-  exportBtn.className = 'deck-editor-title-edit-btn';
-  exportBtn.textContent = '\u{2B07}\u{FE0F}';
-  exportBtn.title = 'Download this deck as a .meccg-json file';
-  exportBtn.addEventListener('click', () => downloadDeck(deck));
-  return exportBtn;
+  return makeIconButton('\u{2B07}\u{FE0F}', 'Download this deck as a .meccg-json file', () => downloadDeck(deck));
+}
+
+/**
+ * Build a plain icon button for a deck row, styled like the deck editor
+ * title's icons. The button shows only the `icon` glyph, so `title` is the
+ * tooltip naming its action.
+ */
+function makeIconButton(icon: string, title: string, onClick?: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.className = 'deck-editor-title-edit-btn';
+  btn.textContent = icon;
+  btn.title = title;
+  if (onClick) btn.addEventListener('click', onClick);
+  return btn;
 }
 
 /**
@@ -178,11 +187,7 @@ export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElemen
   btns.style.flexWrap = 'wrap';
   btns.style.gap = '0.4rem';
 
-  const renameBtn = document.createElement('button');
-  renameBtn.className = 'deck-editor-title-edit-btn';
-  renameBtn.textContent = '\u{270F}\u{FE0F}';
-  renameBtn.title = 'Rename this deck';
-  renameBtn.addEventListener('click', () => {
+  btns.appendChild(makeIconButton('\u{270F}\u{FE0F}', 'Rename this deck', () => {
     renderInlineRename(infoSlot, deck.name, 'Save', (name) => {
       if (name === deck.name) {
         showInfo();
@@ -190,34 +195,23 @@ export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElemen
       }
       void renameDeck(deck, name);
     }, showInfo);
-  });
-  btns.appendChild(renameBtn);
+  }));
 
   if (isCurrent) {
-    const editBtn = document.createElement('button');
-    editBtn.textContent = 'Edit';
-    editBtn.addEventListener('click', () => {
+    btns.appendChild(makeIconButton('\u{1F6E0}\u{FE0F}', 'Edit this deck', () => {
       void openDeckEditorFn?.(deck.id);
-    });
-    btns.appendChild(editBtn);
+    }));
   } else {
-    const selectBtn = document.createElement('button');
-    selectBtn.textContent = 'Select';
-    selectBtn.addEventListener('click', () => {
+    btns.appendChild(makeIconButton('\u{1F4CC}', 'Select this deck for play', () => {
       void selectDeck(deck.id);
-    });
-    btns.appendChild(selectBtn);
+    }));
   }
   btns.appendChild(makeExportButton(deck));
-  const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'Delete';
-  deleteBtn.className = 'lobby-delete-btn';
-  deleteBtn.addEventListener('click', () => {
+  btns.appendChild(makeIconButton('\u{1F5D1}\u{FE0F}', 'Delete this deck', () => {
     void showConfirm(`Delete deck "${deck.name}"?`).then((ok) => {
       if (ok) void deleteDeck(deck.id);
     });
-  });
-  btns.appendChild(deleteBtn);
+  }));
   item.appendChild(btns);
   return item;
 }
@@ -233,14 +227,11 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: (name: str
   btns.style.gap = '0.4rem';
   const btnSlot = document.createElement('div');
   if (owned) {
-    const btn = document.createElement('button');
-    btn.textContent = 'Owned';
+    const btn = makeIconButton('\u{2714}\u{FE0F}', 'You already own this deck');
     btn.disabled = true;
     btnSlot.appendChild(btn);
   } else {
-    const btn = document.createElement('button');
-    btn.textContent = 'Copy';
-    btn.title = 'Make a copy for yourself to edit';
+    const btn = makeIconButton('\u{1F4CB}', 'Make a copy for yourself to edit');
     const showCopyBtn = (): void => {
       btnSlot.innerHTML = '';
       btnSlot.appendChild(btn);
