@@ -6,7 +6,7 @@
  * Effects:
  *   - play-target: character, filter warrior
  *   - play-option "influence-boost": add-constraint check-modifier influence,
- *     value = min(warrior.baseProwess, 5), scope until-cleared
+ *     value = min(warrior.baseProwess, 5), scope turn
  *
  * "Warrior only. An influence check against a faction by a warrior is modified
  *  by adding the warrior's prowess to a maximum modifier of +5."

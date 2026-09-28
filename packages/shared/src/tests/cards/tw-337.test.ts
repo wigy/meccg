@@ -6,7 +6,7 @@
  * Effects:
  *   - play-target: character (any)
  *   - play-option "influence-boost": when player.hasFactionInHand,
- *     add-constraint check-modifier influence, fixed value +4, scope until-cleared
+ *     add-constraint check-modifier influence, fixed value +4, scope turn (one attempt, expires at end of turn if unused)
  *
  * "+4 to an influence attempt against a faction."
  *
