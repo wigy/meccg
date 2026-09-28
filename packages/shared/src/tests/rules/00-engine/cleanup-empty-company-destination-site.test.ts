@@ -61,4 +61,49 @@ describe('cleanupEmptyCompanies conserves a dissolved company\'s planned destina
     expect(deckIds).toContain(destInstId);
     expect(deckIds).toContain(currentInstId);
   });
+
+  // Regression (sim seed 97001, decks b vs f): two companies moved to the same
+  // site, so they shared one site instance, and both were wiped out in
+  // combat. The current-site loop returned that one card once per empty
+  // company, leaving two copies of the same instance in the location deck.
+  test('returns a site shared by two empty companies only once', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1, alignment: Alignment.Wizard,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: RIVENDELL, characters: [LEGOLAS] },
+          ],
+          hand: [], siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    });
+
+    const [first, second] = state.players[RESOURCE_PLAYER].companies;
+    const sharedSite = first.currentSite!;
+    // Both companies now stand at the same site instance with no characters.
+    const emptied = {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          companies: [
+            { ...first, characters: [] },
+            { ...second, characters: [], currentSite: sharedSite },
+          ],
+        },
+        state.players[1],
+      ],
+    } as typeof state;
+
+    const result = cleanupEmptyCompanies(emptied);
+
+    expect(result.players[RESOURCE_PLAYER].companies).toHaveLength(0);
+    const copies = result.players[RESOURCE_PLAYER].siteDeck.filter(c => c.instanceId === sharedSite.instanceId);
+    expect(copies).toHaveLength(1);
+  });
 });

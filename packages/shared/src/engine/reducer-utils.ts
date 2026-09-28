@@ -5356,14 +5356,19 @@ export function cleanupEmptyCompanies(state: GameState): GameState {
 
     // Return sites from empty companies: tapped sites go to discard, untapped to site deck.
     // Skip if another company from the same player is still at that site.
+    // Two empty companies can share one site instance (both moved to the same
+    // site and were wiped out) — return it once, not once per company.
     const untappedSites: CardInstance[] = [];
     const tappedSites: CardInstance[] = [];
+    const queuedCurrentSiteIds = new Set<string>();
     for (const c of emptyCompanies) {
       if (c.currentSite) {
         if (occupiedSiteIds.has(c.currentSite.instanceId as string)) {
           logDetail(`cleanupEmptyCompanies: site ${c.currentSite.instanceId as string} still occupied by another company — leaving in play`);
           continue;
         }
+        if (queuedCurrentSiteIds.has(c.currentSite.instanceId as string)) continue;
+        queuedCurrentSiteIds.add(c.currentSite.instanceId as string);
         const siteCardInst = toCardInstance(c.currentSite);
         if (c.currentSite.status === CardStatus.Tapped) {
           tappedSites.push(siteCardInst);
