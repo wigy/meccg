@@ -13,7 +13,7 @@
  * King (Aragorn was in the other company) and for The White Tree ("Sage only",
  * and only by discarding a Sapling of the White Tree nobody held).
  *
- * Two requirements are read, both the engine's own:
+ * Three requirements are read, all the engine's own:
  *
  * - a `play-target: character` filter, matched with the engine's
  *   `matchesCondition` against the character fields a view can supply —
@@ -21,6 +21,9 @@
  *   engine builds its context from the game state and adds company facts,
  *   status and more; a filter that reads any of those is not decidable here
  *   and restricts nothing, exactly as before.
+ * - a `play-target: item` filter (Barrow-blade upgrades a Dagger of
+ *   Westernesse), matched against the printed name of each item the company
+ *   carries;
  * - a `discard-named-card` play-condition: the named card must be among the
  *   company's items, its cards in play, or the marshalling-point pile, per the
  *   condition's `sources` (mirrors `collectDiscardCandidates`).
@@ -116,6 +119,18 @@ export function companyMayPlay(
         });
       });
       if (!anyone) return false;
+    }
+    // An item target (Barrow-blade upgrades a Dagger of Westernesse): some
+    // item carried in the company must match, read by its printed name.
+    if (effect.type === 'play-target' && effect.target === 'item'
+      && effect.filter !== undefined && decidable(effect.filter)) {
+      const anything = characterIds.some(id => (view.self.characters[id]?.items ?? []).some(item => {
+        const printed = cardPool[item.definitionId] as unknown as { name?: string; keywords?: readonly string[] } | undefined;
+        return printed !== undefined && matchesCondition(effect.filter as never, {
+          target: { name: printed.name, keywords: printed.keywords ?? [] },
+        });
+      }));
+      if (!anything) return false;
     }
     if (effect.type === 'play-condition' && effect.requires === 'discard-named-card'
       && !namedCardAvailable(effect, characterIds, companyId, view, cardPool)) {
