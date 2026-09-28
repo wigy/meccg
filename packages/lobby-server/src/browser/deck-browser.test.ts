@@ -107,7 +107,7 @@ const renameBtnOf = (): StubEl | undefined =>
   myContainer.all().find(el => el.className === 'deck-editor-title-edit-btn');
 
 const copyBtnOf = (): StubEl | undefined =>
-  catContainer.all().find(el => el.tagName === 'button' && el.textContent === 'Copy');
+  catContainer.all().find(el => el.tagName === 'button' && el.title === 'Make a copy for yourself to edit');
 
 const inputOf = (container: StubEl): StubEl | undefined =>
   container.all().find(el => el.className === 'deck-editor-title-input');

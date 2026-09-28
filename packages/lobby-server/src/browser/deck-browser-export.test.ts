@@ -64,13 +64,25 @@ describe('deck list Export button', () => {
     const item = renderMyDeckItem(DECK, false) as unknown as StubEl;
     const buttons = item.all().filter(el => el.tagName === 'button');
     // The leading button is the rename pencil added by the rename-on-copy feature.
-    expect(buttons.map(b => b.textContent)).toEqual(['\u{270F}\u{FE0F}', 'Select', '\u{2B07}\u{FE0F}', 'Delete']);
+    expect(buttons.map(b => b.textContent)).toEqual(['\u{270F}\u{FE0F}', '\u{1F4CC}', '\u{2B07}\u{FE0F}', '\u{1F5D1}\u{FE0F}']);
   });
 
-  test('rename and export render as plain icons like the deck editor title, not text buttons', () => {
+  test('every row action renders as a plain icon like the deck editor title, not a text button', () => {
     const item = renderMyDeckItem(DECK, false) as unknown as StubEl;
-    const icons = item.all().filter(el => el.tagName === 'button' && el.className === 'deck-editor-title-edit-btn');
-    expect(icons.map(b => b.title)).toEqual(['Rename this deck', 'Download this deck as a .meccg-json file']);
+    const buttons = item.all().filter(el => el.tagName === 'button');
+    expect(buttons.every(b => b.className === 'deck-editor-title-edit-btn')).toBe(true);
+    expect(buttons.map(b => b.title)).toEqual([
+      'Rename this deck', 'Select this deck for play',
+      'Download this deck as a .meccg-json file', 'Delete this deck',
+    ]);
+  });
+
+  test('the selected deck offers an Edit icon instead of Select', () => {
+    const item = renderMyDeckItem(DECK, true) as unknown as StubEl;
+    const buttons = item.all().filter(el => el.tagName === 'button');
+    expect(buttons.every(b => b.className === 'deck-editor-title-edit-btn')).toBe(true);
+    expect(buttons.map(b => b.title)).toContain('Edit this deck');
+    expect(buttons.map(b => b.textContent)).toContain('\u{1F6E0}\u{FE0F}');
   });
 
   test('clicking Export downloads the exact FullDeck object shown in the row', () => {

@@ -2795,7 +2795,7 @@ h2 {
   filter: none;
 }
 
-/* Rename/export icons in deck rows stay plain, like the deck editor title's. */
+/* Deck row actions are plain icons, like the deck editor title's. */
 .lobby-deck-item button.deck-editor-title-edit-btn {
   padding: 0 0.15rem;
   background: none;
@@ -2812,11 +2812,11 @@ h2 {
   opacity: 1;
 }
 
-.lobby-delete-btn {
-  background: #c0392b !important;
-}
-.lobby-delete-btn:hover {
-  background: #e74c3c !important;
+/* The catalog's "already owned" check mark is informational, not clickable. */
+.lobby-deck-item button.deck-editor-title-edit-btn:disabled {
+  background: none;
+  cursor: default;
+  opacity: 1;
 }
 
 /* ---- Compact deck preview ---- */
