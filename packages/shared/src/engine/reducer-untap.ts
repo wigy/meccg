@@ -17,7 +17,7 @@ import { ownerOf } from '../types/state.js';
 import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { defById, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, isBearerCannotUntapLive, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
@@ -318,7 +318,7 @@ function performUntap(state: GameState): GameState {
     // card for) a skip-next-untap constraint that was never actually honoured,
     // since the sweep below only ever walks `player.characters`.
     if (!(c.target.characterId in player.characters)) continue;
-    if (c.kind.type === 'bearer-cannot-untap') {
+    if (c.kind.type === 'bearer-cannot-untap' && isBearerCannotUntapLive(state, c)) {
       cannotUntapIds.add(c.target.characterId as string);
     }
     if (c.kind.type === 'character-is-prisoner' || c.kind.type === 'character-pressed' || c.kind.type === 'character-captured-by-bearer') {

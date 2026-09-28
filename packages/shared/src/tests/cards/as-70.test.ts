@@ -232,8 +232,25 @@ describe('Jewel of Beleriand (as-70)', () => {
     const gandalfId = findCharInstanceId(state, RESOURCE_PLAYER, GANDALF);
     const jewelInstId = state.players[RESOURCE_PLAYER].characters[gandalfId].items[0].instanceId;
 
+    // The lock binds only while its source card is borne by the character
+    // (a card-less lock is a stale leftover), so Gandalf carries the Reforging.
+    const p1 = state.players[RESOURCE_PLAYER];
+    const gandalf = p1.characters[gandalfId];
     const locked = {
       ...state,
+      players: [
+        {
+          ...p1,
+          characters: {
+            ...p1.characters,
+            [gandalfId]: {
+              ...gandalf,
+              items: [...gandalf.items, { instanceId: 'reforging-1' as CardInstanceId, definitionId: 'tw-314' as CardDefinitionId, status: CardStatus.Untapped }],
+            },
+          },
+        },
+        state.players[1],
+      ] as typeof state.players,
       activeConstraints: [
         ...state.activeConstraints,
         {
