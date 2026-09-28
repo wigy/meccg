@@ -309,4 +309,55 @@ describe('Rule 3.30 — Join Companies', () => {
     expect(newIntoOld).toBeUndefined();
     expect(oldIntoNew).toBeUndefined();
   });
+
+  test('effects on the source company follow it into the joined company', () => {
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MORIA, characters: [ARAGORN] },
+            { site: MORIA, characters: [LEGOLAS, FRODO] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [GIMLI] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const sharedMoria = built.players[0].companies[0].currentSite!;
+    const [source, target] = built.players[0].companies;
+    const state: GameState = {
+      ...built,
+      players: [
+        {
+          ...built.players[0],
+          companies: [source, { ...target, currentSite: sharedMoria, siteCardOwned: false }],
+        },
+        built.players[1],
+      ],
+      activeConstraints: [
+        ...built.activeConstraints,
+        {
+          id: 'c-source' as unknown as GameState['activeConstraints'][number]['id'],
+          source: 'src-1' as never,
+          sourceDefinitionId: 'le-179' as never,
+          scope: { kind: 'company-mh-phase', companyId: source.id },
+          target: { kind: 'company', companyId: source.id },
+          kind: { type: 'hazard-limit-modifier', value: -1 },
+        } as GameState['activeConstraints'][number],
+      ],
+    };
+
+    const merge = viableActions(state, PLAYER_1, 'merge-companies')
+      .map(ea => ea.action as MergeCompaniesAction)
+      .find(a => a.sourceCompanyId === source.id && a.targetCompanyId === target.id)!;
+    const after = dispatch(state, merge);
+
+    const moved = after.activeConstraints.find(c => (c.id as unknown as string) === 'c-source')!;
+    expect(moved.target).toEqual({ kind: 'company', companyId: target.id });
+    expect(moved.scope).toEqual({ kind: 'company-mh-phase', companyId: target.id });
+  });
 });

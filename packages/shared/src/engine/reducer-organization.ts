@@ -22,7 +22,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCharacterSplitsOffCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies } from './reducer-utils.js';
+import { clearPlannedMovement, retargetMergedCompanyConstraints, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCharacterSplitsOffCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies } from './reducer-utils.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -2609,10 +2609,12 @@ function handleMergeCompanies(state: GameState, action: GameAction): ReducerResu
     return c && isLeaderCharacter(defById(state, c.definitionId));
   });
 
-  let mergeResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards({
-    ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck, cardsInPlay })),
-    reverseActions: [...state.reverseActions, ...reverses],
-  })), [action.sourceCompanyId, action.targetCompanyId]);
+  let mergeResult = sweepCompanyMembershipChangedEvents(sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards(
+    retargetMergedCompanyConstraints({
+      ...updatePlayer(state, playerIndex, p => ({ ...p, companies, siteDeck, cardsInPlay })),
+      reverseActions: [...state.reverseActions, ...reverses],
+    }, [action.sourceCompanyId], action.targetCompanyId),
+  )), [action.sourceCompanyId, action.targetCompanyId]);
 
   if (sourceHasLeader) {
     logDetail(`Merge companies: source company had a Leader — sweeping leader-leaves-company events on ${action.sourceCompanyId as string}`);
