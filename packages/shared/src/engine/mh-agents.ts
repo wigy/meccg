@@ -26,7 +26,7 @@ import { logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { makeCombatState, characterEntries, defById, findById, findCharacterCompany, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames, influenceModificationsNullified, agentCurrentSiteName, agentMatchesFilter } from './reducer-utils.js';
+import { agentAttackSiteBoost, makeCombatState, characterEntries, defById, findById, findCharacterCompany, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames, influenceModificationsNullified, agentCurrentSiteName, agentMatchesFilter } from './reducer-utils.js';
 import { enqueueResolution, addConstraint } from './pending.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
@@ -774,18 +774,25 @@ export function handleAgentTapAttack(
   const defendingAlignment = state.players[getPlayerIndex(state, state.activePlayer!)].alignment;
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
 
+  // Sudden Fury (dm-91): a turn-scoped `agent-attack-boost` bound to the
+  // company's site adds strikes and makes the attacker choose defenders. The
+  // single-target lock only applies to a 1-strike attack.
+  const siteBoost = agentAttackSiteBoost(state, agentDef, destSiteInst?.definitionId);
+  const strikesTotal = 1 + siteBoost.strikesBonus;
+  const attackerAssigns = tapAttackEff.attackerAssigns === true || siteBoost.attackerChoosesDefenders;
+
   // Build CombatState
   const combat: CombatState = makeCombatState(newState, {
     attackSource: { type: 'agent', instanceId: agent.character.instanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayer.id,
-    strikesTotal: 1,
+    strikesTotal,
     strikeProwess: prowess,
     creatureBody: body,
-    assignmentPhase: tapAttackEff.attackerAssigns ? 'attacker' : 'defender',
+    assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
     detainment,
-    ...(tapAttackEff.attackerAssigns ? { forceSingleTarget: true } : {}),
+    ...(attackerAssigns && strikesTotal === 1 ? { forceSingleTarget: true } : {}),
   });
 
   return {
@@ -1663,18 +1670,25 @@ export function handleTapAgentAtSite(
   const defendingAlignment = state.players[getPlayerIndex(state, state.activePlayer!)].alignment;
   const detainment = defendingAlignment === Alignment.Ringwraith || defendingAlignment === Alignment.Balrog;
 
+  // Sudden Fury (dm-91): a turn-scoped `agent-attack-boost` bound to the
+  // company's new site adds strikes and makes the attacker choose defenders.
+  // The single-target lock only applies to a 1-strike attack.
+  const siteBoost = agentAttackSiteBoost(state, agentDef, destSiteInst?.definitionId);
+  const strikesTotal = 1 + siteBoost.strikesBonus;
+  const attackerAssigns = tapAgentEff.attackerAssigns === true || siteBoost.attackerChoosesDefenders;
+
   // --- Build CombatState ---
   const combat: CombatState = makeCombatState(stateAfterReveal, {
     attackSource: { type: 'agent', instanceId: agentInstanceId },
     companyId: company.id,
     defendingPlayerId: state.activePlayer!,
     attackingPlayerId: hazardPlayer.id,
-    strikesTotal: 1,
+    strikesTotal,
     strikeProwess: prowess,
     creatureBody: body,
-    assignmentPhase: tapAgentEff.attackerAssigns ? 'attacker' : 'defender',
+    assignmentPhase: attackerAssigns ? 'attacker' : 'defender',
     detainment,
-    ...(tapAgentEff.attackerAssigns ? { forceSingleTarget: true } : {}),
+    ...(attackerAssigns && strikesTotal === 1 ? { forceSingleTarget: true } : {}),
     ...(tapAgentEff.strikeEffect === 'discard-item' ? { strikeEffect: tapAgentEff.strikeEffect } : {}),
     ...(agentPrisoner ? { agentPrisoner } : {}),
   });

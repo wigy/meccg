@@ -2221,6 +2221,11 @@ function applyOneConstraint(
       // enqueues the corruption checks when an item is played at the bound
       // site — no broad legal-action filtering needed here.
       return base;
+    case 'agent-attack-boost':
+      // Sudden Fury (dm-91): consumed by the agent-attack builders through
+      // `agentAttackSiteBoost` when an agent attacks at the bound site — no
+      // broad legal-action filtering needed here.
+      return base;
     case 'item-play-race-restriction':
       // King under the Mountain (td-126): consumed directly by the item-play
       // candidate-character filter in `legal-actions/site.ts` — no broad
