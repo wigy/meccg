@@ -18,7 +18,7 @@
  * Effects:
  *   1. play-target: character, filter $and [warrior skill, target.isInfluencing]
  *   2. play-option "influence-boost": when player.hasFactionInHand,
- *      add-constraint check-modifier influence until-cleared,
+ *      add-constraint check-modifier influence (scope turn),
  *      prowessSubstitution { max: 6 }
  *
  * Engine support table:

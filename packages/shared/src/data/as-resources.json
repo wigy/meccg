@@ -84,7 +84,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "valueExpr": "company.characterCount - 1"
         }
       },
@@ -1598,7 +1598,7 @@
           "constraint": "check-modifier",
           "check": "influence",
           "value": 3,
-          "scope": "until-cleared",
+          "scope": "turn",
           "onFailure": "shuffle-faction-into-deck"
         }
       }

@@ -14,7 +14,7 @@
  * Effects:
  *   1. play-target: character, filter: company.containsDiplomat
  *   2. play-option "influence-check-boost": when player.hasFactionInHand,
- *      add-constraint check-modifier influence until-cleared,
+ *      add-constraint check-modifier influence (scope turn),
  *      valueExpr: company.characterCount - 1
  *   3. play-option "corruption-check-boost": when pending.corruptionCheckTargetsMe,
  *      add-constraint check-modifier corruption until-cleared,
