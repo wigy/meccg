@@ -7147,8 +7147,23 @@ export function characterHasCannotUntapConstraint(
   characterInstanceId: CardInstanceId,
 ): boolean {
   return state.activeConstraints.some(
-    c => c.target.kind === 'character' && c.target.characterId === characterInstanceId && c.kind.type === 'bearer-cannot-untap',
+    c => c.target.kind === 'character' && c.target.characterId === characterInstanceId && isBearerCannotUntapLive(state, c),
   );
+}
+
+/**
+ * True when `c` is a `bearer-cannot-untap` lock that still binds: its source
+ * card is still borne by the targeted character. The lock lasts "until this
+ * card is stored" — once the card has left the character by any other route
+ * (discarded with its eliminated bearer, dropped when the bearer returned to
+ * hand, …) nothing will ever store it, and a character that later re-enters
+ * play under the same instance id must not stay tapped forever.
+ */
+export function isBearerCannotUntapLive(state: GameState, c: ActiveConstraint): boolean {
+  if (c.kind.type !== 'bearer-cannot-untap' || c.target.kind !== 'character') return false;
+  const characterId = c.target.characterId;
+  const sourceId = c.kind.cardInstanceId;
+  return state.players.some(p => p.characters[characterId]?.items.some(i => i.instanceId === sourceId) ?? false);
 }
 
 /**

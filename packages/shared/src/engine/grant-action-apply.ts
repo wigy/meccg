@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
+import { gateDeckSearchFetch, isBearerCannotUntapLive, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -187,7 +187,7 @@ function runGrantApply(
     // must respect the same lock the organization-phase untap sweep honours —
     // it cannot bypass it just because the untap comes from a different source.
     if (statusEnum === CardStatus.Untapped && state.activeConstraints.some(
-      c => c.kind.type === 'bearer-cannot-untap' && c.target.kind === 'character' && c.target.characterId === char.instanceId,
+      c => c.target.kind === 'character' && c.target.characterId === char.instanceId && isBearerCannotUntapLive(state, c),
     )) {
       logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} is locked by bearer-cannot-untap — untap has no effect`);
       return { updatedChar: char, effects: [], stateOps: [] };
