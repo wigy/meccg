@@ -1379,6 +1379,44 @@ function applyItemPlayCorruptionCheckConstraint(
 }
 
 /**
+ * Sudden Fury (dm-91): install the turn-scoped `agent-attack-boost` constraint
+ * bound to the target site. Every agent-attack builder reads it through
+ * `agentAttackSiteBoost`, so any matching agent attack at the site for the rest
+ * of the turn gains the extra strikes and attacker-chosen defenders. Swept at
+ * turn-end via its `turn` scope.
+ */
+function applyAgentAttackBoostConstraint(
+  state: GameState,
+  entry: ChainEntry,
+  siteDefinitionId: CardDefinitionId,
+): GameState {
+  const card = entry.card;
+  if (!card) return state;
+  const def = defById(state, card.definitionId);
+  if (!def) return state;
+  const effect = getCardEffects(def).find(
+    (e): e is import('../types/effects.js').AgentAttackBoostEffect => e.type === 'agent-attack-boost',
+  );
+  if (!effect) return state;
+  const targetPlayerId = state.activePlayer ?? entry.declaredBy;
+  const siteName = (defById(state, siteDefinitionId) as { name?: string } | undefined)?.name ?? (siteDefinitionId as string);
+  logDetail(`${def.name}: installing agent-attack-boost at ${siteName} (until end of turn): +${effect.strikesBonus ?? 0} strikes, attacker chooses defenders: ${String(effect.attackerChoosesDefenders === true)}`);
+  return addConstraint(state, {
+    source: card.instanceId,
+    sourceDefinitionId: card.definitionId,
+    scope: { kind: 'turn' },
+    target: { kind: 'player', playerId: targetPlayerId },
+    kind: {
+      type: 'agent-attack-boost',
+      siteDefinitionId,
+      ...(effect.agentFilter ? { agentFilter: effect.agentFilter } : {}),
+      strikesBonus: effect.strikesBonus ?? 0,
+      attackerChoosesDefenders: effect.attackerChoosesDefenders === true,
+    },
+  });
+}
+
+/**
  * Build the evaluation context for a `company-arrives-at-site` `when`
  * clause. Exposes the active company's destination site type, destination
  * region type, and whether Doors of Night is in play — enough for a
@@ -4782,6 +4820,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.payload.targetSiteDefinitionId
   ) {
     current = applyItemPlayCorruptionCheckConstraint(current, entry, entry.payload.targetSiteDefinitionId);
+    current = applyAgentAttackBoostConstraint(current, entry, entry.payload.targetSiteDefinitionId);
   }
 
   // Short events with fetch-to-deck effects (e.g. An Unexpected Outpost):

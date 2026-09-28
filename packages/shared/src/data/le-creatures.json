@@ -1361,8 +1361,20 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 3,
+        "when": {
+          "company.facedRaces": {
+            "$includes": "orc"
+          }
+        }
+      }
+    ],
+    "text": "Orcs. Five strikes. If played on a company that has already faced an Orc attack this turn, Orc-warband receives +3 prowess.",
+    "certified": "2026-09-27"
   },
   {
     "cardType": "hazard-creature",
@@ -1388,7 +1400,8 @@
       }
     ],
     "effects": [],
-    "text": "Orcs. Three strikes."
+    "text": "Orcs. Three strikes.",
+    "certified": "2026-09-27"
   },
   {
     "cardType": "hazard-creature",

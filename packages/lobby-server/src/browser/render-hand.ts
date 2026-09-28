@@ -548,6 +548,21 @@ export function buildShortEventTargetChoices(
 ): readonly ShortEventPlayChoice[] {
   const playChoices: ShortEventPlayChoice[] = [];
 
+  // Cancel-attack plays of the same card (Many Turns and Doublings td-132:
+  // cancel a Wolves/Spiders/Animals/Undead attack, or alternatively decrease
+  // the hazard limit) come first, so the menu offers both modes instead of
+  // hiding the cancel behind the short-event targets (msg bb8b600f9815b9bc).
+  for (const action of actions) {
+    if (action.type !== 'cancel-attack') continue;
+    const namedId = action.scoutInstanceId ?? action.targetCharacterId;
+    const namedDefId = namedId ? lookup(namedId) : undefined;
+    const namedDef = namedDefId ? cardPool[namedDefId as string] : undefined;
+    const label = namedId
+      ? `Cancel attack (${action.scoutInstanceId ? 'tap ' : ''}${namedDef ? namedDef.name : '?'})`
+      : 'Cancel attack';
+    playChoices.push({ label, action });
+  }
+
   for (const action of actions) {
     if (action.type !== 'play-short-event') continue;
 
@@ -1368,12 +1383,16 @@ export function renderHand(
       // player can choose instead of silently dispatching just the
       // short-event play (the same defect class previously fixed for agent
       // and hazard cards).
-      if (discardAction || onGuardAction || reshuffleAction) {
+      // Likewise when the same card can also cancel the live attack (Many
+      // Turns and Doublings td-132), list the cancel alongside the
+      // short-event targets rather than shadowing it.
+      if (discardAction || onGuardAction || reshuffleAction || isCancelAttack) {
         img.className = 'hand-card hand-card-playable';
         if (onAction) {
           img.addEventListener('click', (e) => {
             showShortEventTargetMenu(
-              e, shortEventActions, view, cardPool, onAction, discardAction, onGuardAction, reshuffleAction,
+              e, [...cancelAttackActions, ...shortEventActions], view, cardPool, onAction,
+              discardAction, onGuardAction, reshuffleAction,
             );
           });
         }

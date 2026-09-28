@@ -5938,6 +5938,34 @@ export interface ItemPlayCorruptionCheckEffect extends EffectBase {
 }
 
 /**
+ * Sudden Fury (dm-91): a hazard short-event played on a site. Until the end of
+ * the turn, any attack by an agent matching {@link agentFilter} (a *scout*
+ * agent for Sudden Fury) at the bound site has its number of strikes increased
+ * by {@link strikesBonus} and, when {@link attackerChoosesDefenders} is set,
+ * the attacker chooses the defending characters.
+ *
+ * On resolution the short-event installs a turn-scoped `agent-attack-boost`
+ * {@link import('./pending.js').ActiveConstraint} bound to the target site (via
+ * the chain payload's `targetSiteDefinitionId`). Every agent-attack builder —
+ * the site-phase `declare-agent-attack` and the M/H `agent-tap-attack` /
+ * `tap-agent-at-site` paths — consults it through `agentAttackSiteBoost`
+ * (`reducer-utils.ts`), matching the attacked company's site by name so every
+ * version of the site counts.
+ */
+export interface AgentAttackBoostEffect extends EffectBase {
+  readonly type: 'agent-attack-boost';
+  /**
+   * DSL condition on the agent's `target.*` context (name/race/skills/
+   * keywords). Absent = every agent's attack is boosted.
+   */
+  readonly agentFilter?: Condition;
+  /** Additional strikes for a matching agent attack at the site. Default 0. */
+  readonly strikesBonus?: number;
+  /** When true, the attacker chooses the defending characters. */
+  readonly attackerChoosesDefenders?: boolean;
+}
+
+/**
  * While this card is in play, each agent owned by the hazard player may take
  * this many additional agent actions each time it normally takes an agent action.
  * The extra action(s) do not trigger further extras (only a "normal" first
@@ -10326,6 +10354,7 @@ export type CardEffect =
   | SiteUntapEffect
   | ItemUntapEffect
   | ItemPlayCorruptionCheckEffect
+  | AgentAttackBoostEffect
   | TapAtSiteEffect
   | PlayTargetEffect
   | PlayOptionEffect

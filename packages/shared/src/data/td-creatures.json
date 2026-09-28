@@ -804,6 +804,9 @@
       {
         "regionTypes": [
           "wilderness",
+          "wilderness",
+          "wilderness",
+          "shadow",
           "shadow"
         ]
       }

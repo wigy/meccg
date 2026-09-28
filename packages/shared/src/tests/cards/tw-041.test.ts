@@ -142,8 +142,7 @@ describe('Gloom (tw-41)', () => {
       phase: Phase.Organization,
       activePlayer: PLAYER_1,
       players: [
-        // Empty company — isolates Mode B (no Mode A candidates to target).
-        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [], destinationSite: MINAS_TIRITH }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MINAS_TIRITH }], hand: [], siteDeck: [MORIA] },
         { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [] }], hand: [GLOOM], siteDeck: [MORIA], cardsInPlay: [donInPlay] },
       ],
     });
@@ -157,10 +156,13 @@ describe('Gloom (tw-41)', () => {
       }),
     };
 
+    // Exactly one untargeted action is Mode B; the targeted ones are Mode A.
+    const aragornId = findCharInstanceId(mhGameState, RESOURCE_PLAYER, ARAGORN);
     const actions = viableActions(mhGameState, PLAYER_2, 'play-hazard');
-    expect(actions).toHaveLength(1);
-    expect(targetOf(actions[0])).toBeUndefined();
+    expect(actions.filter(a => targetOf(a) === undefined)).toHaveLength(1);
+    expect(actions.filter(a => targetOf(a) !== undefined).map(targetOf)).toEqual([aragornId]);
 
+    // Playing it untargeted picks Mode B.
     const gloomId = handCardId(mhGameState, HAZARD_PLAYER);
     const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, gloomId, P1_COMPANY);
 

@@ -72,6 +72,33 @@ describe('resourcePlayableAt', () => {
   // and the AI must not price a card at a site the engine will refuse
   // (game msygr2v0-z5h2i8: the travel module sent a company to Zarak Dûm for
   // plays that did not exist there).
+  describe('site-bound resources declared by other effects', () => {
+    // Recorded strong players entered sites for these and the AI, seeing
+    // nothing playable there, skipped the site instead.
+    const pool = loadCardPool();
+    const byName = (name: string) => Object.values(pool).find(c => (c as { name?: string }).name === name)!;
+
+    test('a site target filtered on the effective site type (Hall of Fire at a Haven)', () => {
+      expect(resourcePlayableAt(byName('Hall of Fire'), mockSite('haven'))).toBe(true);
+      expect(resourcePlayableAt(byName('Hall of Fire'), mockSite('border-hold'))).toBe(false);
+    });
+
+    test('a site-type play condition (Barrow-blade at a Ruins & Lairs)', () => {
+      expect(resourcePlayableAt(byName('Barrow-blade'), mockSite('ruins-and-lairs'))).toBe(true);
+      expect(resourcePlayableAt(byName('Barrow-blade'), mockSite('haven'))).toBe(false);
+    });
+
+    test('a site named through the active company (Delver’s Harvest at the Deep Mines)', () => {
+      expect(resourcePlayableAt(byName('Delver’s Harvest'), mockSite('ruins-and-lairs', 'Deep Mines'))).toBe(true);
+      expect(resourcePlayableAt(byName('Delver’s Harvest'), mockSite('ruins-and-lairs', 'Moria'))).toBe(false);
+    });
+
+    test('an ally whose site is a play target, not a printed line (Noble Hound at a Border-hold)', () => {
+      expect(resourcePlayableAt(byName('Noble Hound'), mockSite('border-hold'))).toBe(true);
+      expect(resourcePlayableAt(byName('Noble Hound'), mockSite('free-hold'))).toBe(false);
+    });
+  });
+
   describe('playableAt `when` gates (allies)', () => {
     const pool = loadCardPool();
     const warWolf = pool['le-157']; // Ruins & Lairs with a Wolf attack, or Shadow-hold with an Orc attack
