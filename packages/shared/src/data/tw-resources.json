@@ -1075,7 +1075,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "valueExpr": "company.characterCount"
         }
       },
@@ -1550,7 +1550,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "valueExpr": "min(target.baseProwess, 5)"
         }
       }
@@ -1595,7 +1595,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "value": 3
         }
       },
@@ -3335,7 +3335,7 @@
           "constraint": "check-modifier",
           "check": "influence",
           "value": 5,
-          "scope": "until-cleared",
+          "scope": "turn",
           "onSuccess": "draw-card"
         }
       }
@@ -3739,7 +3739,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "value": 5,
           "constraintWhen": {
             "reason": "opponent-influence-check",
@@ -4346,7 +4346,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "value": 4
         }
       }

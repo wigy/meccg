@@ -1505,7 +1505,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "value": 3
         }
       },
@@ -1721,7 +1721,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "value": 3
         }
       }
@@ -4666,7 +4666,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "prowessSubstitution": {
             "max": 6
           }

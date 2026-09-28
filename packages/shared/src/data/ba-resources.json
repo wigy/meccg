@@ -1233,7 +1233,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "value": 3
         }
       }
@@ -1643,7 +1643,7 @@
           "type": "add-constraint",
           "constraint": "check-modifier",
           "check": "influence",
-          "scope": "until-cleared",
+          "scope": "turn",
           "value": 10,
           "constraintWhen": {
             "reason": "opponent-influence-check",

@@ -6,7 +6,7 @@
  * Effects:
  *   - play-target: character (any)
  *   - play-option "influence-boost": when player.hasFactionInHand,
- *     add-constraint check-modifier influence, fixed value +3, scope until-cleared
+ *     add-constraint check-modifier influence, fixed value +3, scope turn (one attempt, expires at end of turn if unused)
  *
  * "Provides +3 to an influence attempt against a faction."
  *
@@ -50,7 +50,7 @@ import type {
   PlayShortEventAction, InfluenceAttemptAction, FactionInfluenceRollAction,
 } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
-import { addConstraint } from '../../engine/pending.js';
+import { addConstraint, sweepExpired } from '../../engine/pending.js';
 
 const GIFTS_AS_GIVEN_OF_OLD = 'le-188' as CardDefinitionId;
 const ASTERNAK = 'le-1' as CardDefinitionId;
@@ -152,6 +152,31 @@ describe('Gifts as Given of Old (le-188)', () => {
     // Card consumed from hand into the discard pile; faction is in the chain.
     expect(after.players[RESOURCE_PLAYER].hand.some(c => c.instanceId === cardInstance)).toBe(false);
     expectInDiscardPile(after, RESOURCE_PLAYER, cardInstance);
+  });
+
+  // Ruling: a short event's influence bonus is for one influence attempt only.
+  // It is consumed by the attempt; if it goes unused it must not bank into a
+  // later turn (it used to be `until-cleared` and persisted indefinitely).
+  test('an unused +3 bonus expires at the end of the turn', () => {
+    const state = buildInfluenceAttemptChainState({
+      characters: [ASTERNAK],
+      site: VARIAG_CAMP,
+      hand: [GIFTS_AS_GIVEN_OF_OLD, VARIAGS],
+      factionDefId: VARIAGS,
+    });
+    const asternak = findCharInstanceId(state, RESOURCE_PLAYER, ASTERNAK);
+    const after = resolveChain(dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: findHandCardId(state, RESOURCE_PLAYER, GIFTS_AS_GIVEN_OF_OLD),
+      targetCharacterId: asternak,
+      optionId: 'influence-boost',
+    }));
+    const boost = after.activeConstraints.find(c => c.kind.type === 'check-modifier' && c.kind.check === 'influence');
+    expect(boost?.scope.kind).toBe('turn');
+
+    const nextTurn = sweepExpired(after, { kind: 'turn-end' });
+    expect(nextTurn.activeConstraints.some(c => c.kind.type === 'check-modifier' && c.kind.check === 'influence')).toBe(false);
   });
 
   test('the active +3 constraint lowers the influence-attempt need by exactly 3', () => {

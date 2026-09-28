@@ -719,7 +719,7 @@ enforces the last sentence.)
 ```json
 { "type": "play-option", "id": "influence-boost",
   "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
-             "scope": "until-cleared", "value": 10,
+             "scope": "turn", "value": 10,
              "constraintWhen": { "reason": "opponent-influence-check",
                "$or": [ { "target.kind": "item" }, { "target.kind": "ally" },
                         { "$and": [ { "target.kind": "faction" },
@@ -751,7 +751,7 @@ play deck."
 { "type": "play-option", "id": "dark-power-boost",
   "when": { "player.hasFactionInHand": true },
   "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
-             "value": 3, "scope": "until-cleared", "onFailure": "shuffle-faction-into-deck" } }
+             "value": 3, "scope": "turn", "onFailure": "shuffle-faction-into-deck" } }
 ```
 
 Symmetrically, a one-shot faction-influence booster may change the **fate of
@@ -771,7 +771,7 @@ influence check is successful, draw a card."
 { "type": "play-option", "id": "lordly-presence-boost",
   "when": { "player.hasFactionInHand": true },
   "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
-             "value": 5, "scope": "until-cleared", "onSuccess": "draw-card" } }
+             "value": 5, "scope": "turn", "onSuccess": "draw-card" } }
 ```
 
 A one-shot faction-influence constraint may instead carry a
@@ -801,7 +801,7 @@ filter:
 { "type": "play-option", "id": "influence-boost",
   "when": { "player.hasFactionInHand": true },
   "apply": { "type": "add-constraint", "constraint": "check-modifier", "check": "influence",
-             "scope": "until-cleared", "prowessSubstitution": { "max": 6 } } }
+             "scope": "turn", "prowessSubstitution": { "max": 6 } } }
 ```
 
 Beyond one-shot constraints, a **persistent** `stat-modifier direct-influence`
