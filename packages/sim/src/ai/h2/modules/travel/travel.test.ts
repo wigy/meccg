@@ -415,5 +415,9 @@ describe('a haven-to-haven move', () => {
     const text = JSON.stringify(evaluation.rationale);
     expect(text).toContain('free → wilderness → wilderness');
     expect(text).not.toContain('already here');
+    // And it is pointless: with nothing Grey Havens unlocks that Rivendell
+    // does not, no draws, healing or reach are credited, so staying wins.
+    expect(text).toContain('pointless');
+    expect(evaluation.expectedTsd).toBeLessThan(0);
   });
 });

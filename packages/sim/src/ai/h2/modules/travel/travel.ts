@@ -561,10 +561,28 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const reachShift = coverageHere === null ? 0 : coverageThere - coverageHere;
   const deckReachGain = reachShift * tunables.deckReachValue;
 
+  // A haven-to-haven move is pointless (strong players' rule): the company
+  // already heals where it stands, it is no nearer anything a haven's starter
+  // movement does not already reach, and the destination's card draws do not
+  // pay for a turn spent crossing regions. Unless the destination haven
+  // unlocks a card the origin does not, it is credited with none of those —
+  // only its crossing is left, so staying wins. Over 103 winners-only
+  // organization decisions the AI moved a company the human left in place,
+  // mostly between havens.
+  const originDef = standingOn === undefined ? undefined
+    : context.cardPool[standingOn] as unknown as { siteType?: string } | undefined;
+  const unlockedHere = new Set(standingOn === undefined ? []
+    : playableAt(context, standingOn, companyId as string | undefined).map(c => c.name));
+  const havenToHaven = originDef?.siteType === 'haven' && site.siteType === 'haven'
+    && playable.every(c => unlockedHere.has(c.name));
+  const credited = havenToHaven
+    ? { healing: 0, draws: 0, deckReachGain: 0 }
+    : { healing, draws, deckReachGain };
+
   const dtsd = netTsdDelta(
     {
-      realized: realized + healing,
-      potential: potential + draws + deckReachGain,
+      realized: realized + credited.healing,
+      potential: potential + credited.draws + credited.deckReachGain,
       tempo: tempo + revisit + attackHarm + allyLossHarm,
     },
     tunables,
@@ -586,7 +604,12 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         + `${beliefs.observed} cards seen)`,
     }),
     leaf('taps available', destination.tapsAvailable),
-    ...(healing > 0
+    ...(havenToHaven
+      ? [leaf('haven to haven', 0, {
+        note: 'pointless: no draws, healing or reach credited — nothing here the origin does not already offer',
+      })]
+      : []),
+    ...(healing > 0 && !havenToHaven
       ? [leaf('wounded characters this haven heals', healing, {
         unit: 'tsd',
         tunable: 'woundTempoCost',
@@ -615,14 +638,14 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
           + `would be discarded — ${arrivingRegion ?? '?'} is outside the region(s) they may travel to`,
       })]
       : []),
-    leaf('resource draws', draws, {
+    ...(havenToHaven ? [] : [leaf('resource draws', draws, {
       unit: 'tsd',
       tunable: 'resourceDrawValue',
       note: drawCount === site.resourceDraws
         ? `${drawCount} card(s) printed on the site, discounted as potential`
         : `${drawCount} card(s) drawn — ${site.resourceDraws} printed, adjusted by the `
           + 'draw-modifiers in play; discounted as potential',
-    }),
+    })]),
   ];
   for (const card of playableNow) {
     detail.push(leaf(card.name, card.tsd, {
