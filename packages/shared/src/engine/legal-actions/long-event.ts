@@ -29,7 +29,7 @@ import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, play
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
-import { characterEntries, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter, findCharacterCompany } from '../reducer-utils.js';
+import { characterEntries, companyMHPhaseOptionSpent, playerById, defById, getCardEffects, countCopiesInPlay, countCopiesDeclaredInChain, altShortEventReshuffleEffect, playerHasReshuffleMatch, findPlayConditionEffect, isCardNameInPlayForPlayer, collectTapDiscardInPlayTargets, itemsMatchingFilter, findCharacterCompany } from '../reducer-utils.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 
 /**
@@ -800,6 +800,10 @@ function playOptionActionsForShortEvent(
     } else {
       for (const opt of options) {
         if (opt.when && !matchesCondition(opt.when, ctx)) continue;
+        if (companyMHPhaseOptionSpent(state, player, targetId, opt)) {
+          logDetail(`${def.name} on ${targetId as string}: option "${opt.id}" skipped — the company's movement/hazard phase is already over`);
+          continue;
+        }
         logDetail(`${def.name} playable on ${targetId as string}: option "${opt.id}"`);
         actions.push({
           action: {

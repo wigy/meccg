@@ -7207,6 +7207,27 @@ export function companyHasImmobileCharacter(
 }
 
 /**
+ * True when a play-option would add a constraint scoped to the target
+ * character's company's own movement/hazard phase (`scope: "company-mh-phase"`,
+ * e.g. the hazard-limit decrease of Many Turns and Doublings td-132 / Deeper
+ * Shadow le-179) although that company has already finished its M/H phase
+ * this turn. Its end-of-phase sweep has already run, so the constraint would
+ * affect nothing and be stranded on the company id (re-attaching to whatever
+ * company later reuses it). Such an option is not offered.
+ */
+export function companyMHPhaseOptionSpent(
+  state: GameState,
+  player: PlayerState,
+  targetCharacterId: CardInstanceId,
+  opt: import('../types/effects.js').PlayOptionEffect,
+): boolean {
+  if (opt.apply.type !== 'add-constraint' || opt.apply.scope !== 'company-mh-phase') return false;
+  if (state.phaseState.phase !== Phase.MovementHazard) return false;
+  const companyId = findCharacterCompany(player.companies, targetCharacterId)?.id;
+  return companyId !== undefined && state.phaseState.handledCompanyIds.includes(companyId);
+}
+
+/**
  * True when the character has an active `bearer-cannot-untap` constraint
  * (Reforging tw-314, Rescue Prisoners tw-315, etc.) — the bearer stays tapped
  * until the source card is stored/discarded, overriding effects that would
