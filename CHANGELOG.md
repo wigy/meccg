@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.177.0 — 2026-09-28
+
+Modular AI Values Its Characters
+
+### AI
+
+- The modular AI counts a character's marshalling points at face value as potential even when the character source is capped, and values each additional character in play, so it no longer skips character plays on turn 1 (#3237)
+- A risk-dependent general influence reserve for character plays is implemented but ships disabled (#3237)
+
+### Web Client
+
+- Deck list row actions (Edit, Select, Delete, Copy, Owned) are rendered as icon buttons with tooltips (#3236)
+
 ## 0.176.0 — 2026-09-28
 
 Hidden Cards Stay Hidden
