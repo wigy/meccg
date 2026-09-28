@@ -1028,6 +1028,10 @@ function runGrantApply(
     //   1. attribute-modifier on `site.type` → Ruins & Lairs.
     //   2. replace-automatic-attacks → the bespoke Gas attack.
     // The item itself has already been discarded by the `cost.discard` step.
+    // The transformation is permanent and belongs to the site, not to the
+    // activating company: target the player, because company-targeted
+    // constraints are dropped when their company dissolves
+    // (cleanupEmptyCompanies) — the site would silently revert.
     const bearerPlayer = newPlayers[ctx.playerIndex];
     const company = findCharacterCompany(bearerPlayer.companies, ctx.action.characterId);
     if (!company) {
@@ -1043,7 +1047,6 @@ function runGrantApply(
       return { error: `transform-site requires 'overrideType' and 'attack' on ${ctx.sourceName}` };
     }
     const siteDefId = siteInstance.definitionId;
-    const companyId = company.id;
     const sourceId = ctx.action.sourceCardId;
     const sourceDefId = ctx.sourceCardDefinitionId;
     const siteName = defById(state, siteDefId)?.name ?? '?';
@@ -1056,7 +1059,7 @@ function runGrantApply(
           source: sourceId,
           sourceDefinitionId: sourceDefId,
           scope: { kind: 'until-cleared' },
-          target: { kind: 'company', companyId },
+          target: { kind: 'player', playerId: bearerPlayer.id },
           kind: {
             type: 'attribute-modifier',
             attribute: 'site.type',
@@ -1069,7 +1072,7 @@ function runGrantApply(
           source: sourceId,
           sourceDefinitionId: sourceDefId,
           scope: { kind: 'until-cleared' },
-          target: { kind: 'company', companyId },
+          target: { kind: 'player', playerId: bearerPlayer.id },
           kind: {
             type: 'replace-automatic-attacks',
             siteDefinitionId: siteDefId,

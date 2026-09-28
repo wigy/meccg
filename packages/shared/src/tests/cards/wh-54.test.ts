@@ -48,8 +48,9 @@ import {
   resetMint, buildMinionSitePhaseState, setupAutoAttackStep,
   CardStatus, dispatch, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions } from '../../index.js';
-import { resolveEffective } from '../../engine/effective.js';
+import { computeLegalActions, SiteType } from '../../index.js';
+import { getEffectiveSiteType } from '../../engine/effective.js';
+import { cleanupEmptyCompanies } from '../../engine/reducer-utils.js';
 import type { CardDefinitionId, CardInstanceId, GameState, ActiveConstraint } from '../../index.js';
 
 const VILE_FUMES = 'wh-54' as CardDefinitionId;
@@ -196,7 +197,6 @@ describe('Vile Fumes (wh-54)', () => {
     expect(after.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === VILE_FUMES)).toBe(true);
 
     // Two until-cleared constraints were added.
-    const companyId = after.players[RESOURCE_PLAYER].companies[0].id;
     const typeOverride = after.activeConstraints.find(
       c => c.kind.type === 'attribute-modifier' && c.kind.attribute === 'site.type',
     );
@@ -206,18 +206,42 @@ describe('Vile Fumes (wh-54)', () => {
     expect(typeOverride!.scope.kind).toBe('until-cleared');
     expect(replace!.scope.kind).toBe('until-cleared');
 
-    // The company now reads Moria's effective type as ruins-and-lairs.
-    const { value } = resolveEffective(
-      after,
-      { kind: 'company', companyId },
-      'site.type',
-      'shadow-hold',
-      { site: { definitionId: MORIA } },
-    );
-    expect(value).toBe('ruins-and-lairs');
+    // Moria's effective type (all versions) now reads as ruins-and-lairs.
+    expect(getEffectiveSiteType(after, MORIA, SiteType.ShadowHold)).toBe(SiteType.RuinsAndLairs);
   });
 
   // ── Rule 3: the replacement Gas automatic-attack ────────────────────────────
+
+  // Regression (sim seed 101010, decks h vs j): the transformation was stored
+  // as constraints targeting the activating company, and company-targeted
+  // constraints are dropped when that company dissolves — so the "permanent"
+  // transformation silently reverted once the company was wiped out.
+  test('the transformation outlives the company that activated it', () => {
+    const state = buildMinionSitePhaseState({ site: MORIA, characters: [{ defId: GORBAG, items: [VILE_FUMES] }] });
+    const action = computeLegalActions(state, PLAYER_1).find(
+      a => a.viable && a.action.type === 'activate-granted-action'
+        && (a.action as { actionId?: string }).actionId === 'transform-site',
+    )!.action;
+    const after = dispatch(state, action);
+
+    // The activating company is wiped out and cleaned up.
+    const p1 = after.players[RESOURCE_PLAYER];
+    const emptied: GameState = {
+      ...after,
+      players: [
+        { ...p1, companies: p1.companies.map(c => ({ ...c, characters: [] })), characters: {} },
+        after.players[1],
+      ],
+    };
+    const cleaned = cleanupEmptyCompanies(emptied);
+    expect(cleaned.players[RESOURCE_PLAYER].companies).toHaveLength(0);
+
+    expect(cleaned.activeConstraints.some(
+      c => c.kind.type === 'attribute-modifier' && c.kind.attribute === 'site.type',
+    )).toBe(true);
+    expect(cleaned.activeConstraints.some(c => c.kind.type === 'replace-automatic-attacks')).toBe(true);
+    expect(getEffectiveSiteType(cleaned, MORIA, SiteType.ShadowHold)).toBe(SiteType.RuinsAndLairs);
+  });
 
   test('a transformed site replaces its automatic-attacks with an uncancelable Gas attack', () => {
     // Stand up a company at Moria with the transformation already in effect
