@@ -568,10 +568,19 @@ export const charactersModule: H2Module = {
       };
     }
 
-    // Playing a character: its points are worth what that source is worth.
-    const gain = character.marshallingPoints > 0
+    // Playing a character: its points are worth what that source is worth —
+    // but not less than their face value as potential. The half-total cap
+    // (CoE 10.3) reads the score as it stands, and early on it stands on
+    // characters alone: on turn 1 every character point is capped to zero, so
+    // a 2-MP Glóin fitting the free influence scored exactly what passing did
+    // and was never played, where strong players put their characters out
+    // first. The cap lifts as soon as another source scores, so the points
+    // are not lost, only not yet counted — which is what potential means.
+    const now = character.marshallingPoints > 0
       ? standing.tsdAfter({ [character.source]: character.marshallingPoints }) - standing.tsd
       : 0;
+    const later = tunables.potentialDiscount * Math.max(0, character.marshallingPoints);
+    const gain = Math.max(now, later);
     // An avatar's own marshalling points are frequently zero — its value is
     // never in its MP — so without a floor here it reads as worth exactly what
     // a zero-point non-avatar is worth, and `characterPlayedThisTurn` (CoE
@@ -581,7 +590,29 @@ export const charactersModule: H2Module = {
     // price in full without the sideboard's contents or a roster plan, so a
     // flat number stands in rather than pretending they are worth nothing.
     const avatarBonus = character.avatar ? tunables.avatarInPlayTsd : 0;
-    const dtsd = netTsdDelta({ realized: gain + avatarBonus }, tunables);
+    // Every marshalling point is brought in by characters: one more in play is
+    // one more tap to play a resource with, carry an item, face a strike or
+    // make an influence attempt. That capability is worth something whatever
+    // the character's own points; the free general influence it must fit is
+    // what limits how many, and the engine only offers plays that fit.
+    const presence = character.avatar ? 0 : tunables.characterInPlayTsd;
+    // Strong players' rule: always play a character, except when it takes the
+    // free general influence below a reserve — the room the next character, a
+    // better one or a follower moved off a leader, will need. A character taken
+    // under another's direct influence spends none of it.
+    const controlledBy = (action as unknown as { controlledBy?: 'general' | CardInstanceId }).controlledBy;
+    const usesGeneral = controlledBy === undefined || controlledBy === 'general';
+    const freeAfter = budget.freeGeneralInfluence - (usesGeneral ? character.mind ?? 0 : 0);
+    // The reserve follows the risk the position needs. 9 free is safe against
+    // the hazards that roll against unused general influence (Muster
+    // Disperses, Call of Home); a losing position (λ > 0) can accept less.
+    const lambda = Math.min(1, Math.max(0, standing.risk.lambda));
+    const reserve = tunables.generalInfluenceReserveSafe
+      - (tunables.generalInfluenceReserveSafe - tunables.generalInfluenceReserveRisky) * lambda;
+    const breaksReserve = !character.avatar && usesGeneral && freeAfter < reserve;
+    const dtsd = breaksReserve
+      ? netTsdDelta({ realized: 0, potential: -presence }, tunables)
+      : netTsdDelta({ realized: gain + avatarBonus, potential: presence }, tunables);
     const outcomes: Outcome[] = [{
       p: 1,
       label: `play ${character.name} — ${character.marshallingPoints} ${character.source} MP, mind ${character.mind}`
@@ -597,9 +628,23 @@ export const charactersModule: H2Module = {
           ? 'zero — that source is already at the half-total cap (CoE 10.3)'
           : 'CoE 10.3, after doubling and the diversity cap',
       }),
+      ...(later > now ? [leaf('counted as potential instead', later, {
+        unit: 'tsd',
+        tunable: 'potentialDiscount',
+        note: 'the cap lifts once another source scores; face value, discounted',
+      })] : []),
       leaf('mind', character.mind, {
         note: `${budget.freeGeneralInfluence} of ${budget.generalInfluence} general influence free — `
           + 'the cost is reported, not priced',
+      }),
+      ...(breaksReserve ? [leaf('general influence left after', freeAfter, {
+        tunable: 'generalInfluenceReserveSafe',
+        note: `below the ${reserve.toFixed(1)} kept free at this risk posture — not played`,
+      })] : []),
+      leaf('one more character in play', presence, {
+        unit: 'tsd',
+        tunable: 'characterInPlayTsd',
+        note: 'taps, carrying and strikes it adds to a company — discounted as potential',
       }),
       leaf('avatar floor', avatarBonus, {
         unit: 'tsd',

@@ -118,17 +118,25 @@ describe('playing a character', () => {
     expect(evaluation.expectedTsd).toBeGreaterThan(0);
   });
 
-  test('is worth nothing when the character source is capped', () => {
+  test('is worth only its points as potential when the character source is capped', () => {
+    // The cap reads the score as it stands; it lifts once another source
+    // scores, so the points count at face value, discounted as potential.
     const capped = contextWith({ character: 8, item: 2, faction: 2, ally: 2 }, BALANCED);
     expect(capped.standing.marginal.character).toBe(0);
-    expect(charactersModule.evaluate(play(SCORER), capped)!.expectedTsd).toBe(0);
+    const evaluation = charactersModule.evaluate(play(SCORER), capped)!;
+    const points = (POOL[SCORER] as unknown as { marshallingPoints: number }).marshallingPoints;
+    expect(evaluation.expectedTsd).toBeCloseTo(
+      DEFAULT_TUNABLES.potentialDiscount * points + DEFAULT_TUNABLES.potentialDiscount * DEFAULT_TUNABLES.characterInPlayTsd, 5);
+    expect(JSON.stringify(evaluation.rationale)).toContain('counted as potential instead');
   });
 
-  test('a character with no points is neutral, not negative', () => {
+  test('a character with no points is worth its presence, not negative', () => {
     // Playing it costs mind, but mind is reported rather than priced — so the
-    // module must not quietly charge for it.
+    // module must not quietly charge for it. What it is worth is one more
+    // character in play (`characterInPlayTsd`), discounted as potential.
     const evaluation = charactersModule.evaluate(play(CHEAP), contextWith(BALANCED, BALANCED))!;
-    expect(evaluation.expectedTsd).toBe(0);
+    expect(evaluation.expectedTsd).toBeCloseTo(DEFAULT_TUNABLES.potentialDiscount * DEFAULT_TUNABLES.characterInPlayTsd, 5);
+    expect(JSON.stringify(evaluation.rationale)).toContain('one more character in play');
   });
 
   test('reports the mind against what the pool has left, without pricing it', () => {
@@ -161,8 +169,22 @@ describe('playing a character', () => {
     expect(text).toContain('avatar floor');
     expect(text).toContain('sideboard access');
 
+    // A non-avatar gets no floor — only the presence every character has.
     const cheapEval = charactersModule.evaluate(play(CHEAP), contextWith(BALANCED, BALANCED))!;
-    expect(cheapEval.expectedTsd).toBe(0);
+    expect(cheapEval.expectedTsd).toBeCloseTo(DEFAULT_TUNABLES.potentialDiscount * DEFAULT_TUNABLES.characterInPlayTsd, 5);
+  });
+});
+
+describe('the general influence reserve (off by default)', () => {
+  // Strong players keep free general influence against Muster Disperses and
+  // Call of Home. Gated against the Heuristics-1 agent, a reserve of 5 cost
+  // 2–31 Elo per deck pair and 9 more, so it ships off; the mechanism stays.
+  test('a play that would leave less than the reserve is not made', () => {
+    const tunables = { ...DEFAULT_TUNABLES, generalInfluenceReserveSafe: 15, generalInfluenceReserveRisky: 15 };
+    const context = { ...contextWith(BALANCED, BALANCED), tunables };
+    const evaluation = charactersModule.evaluate(play(SCORER), context)!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(evaluation.rationale)).toContain('not played');
   });
 });
 
