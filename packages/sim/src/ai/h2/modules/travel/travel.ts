@@ -561,12 +561,14 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const reachShift = coverageHere === null ? 0 : coverageThere - coverageHere;
   const deckReachGain = reachShift * tunables.deckReachValue;
 
-  // A haven-to-haven move is pointless (strong players' rule): the company
-  // already heals where it stands, it is no nearer anything a haven's starter
-  // movement does not already reach, and the destination's card draws do not
-  // pay for a turn spent crossing regions. Unless the destination haven
-  // unlocks a card the origin does not, it is credited with none of those —
-  // only its crossing is left, so staying wins. Over 103 winners-only
+  // A haven-to-haven move is pointless for its own sake (strong players'
+  // rule): the company already heals where it stands, and the destination's
+  // card draws do not pay for a turn spent crossing regions. What can justify
+  // it is getting nearer the sites the deck still scores at — which
+  // `deckReachGain` already measures as a *change* in one-move reach, so it is
+  // zero when the origin is near enough already — or a card the destination
+  // haven unlocks and the origin does not. So the draws and the healing are
+  // not credited; the reach and the plays are. Over 103 winners-only
   // organization decisions the AI moved a company the human left in place,
   // mostly between havens.
   const originDef = standingOn === undefined ? undefined
@@ -576,7 +578,7 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const havenToHaven = originDef?.siteType === 'haven' && site.siteType === 'haven'
     && playable.every(c => unlockedHere.has(c.name));
   const credited = havenToHaven
-    ? { healing: 0, draws: 0, deckReachGain: 0 }
+    ? { healing: 0, draws: 0, deckReachGain }
     : { healing, draws, deckReachGain };
 
   const dtsd = netTsdDelta(
@@ -606,7 +608,7 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
     leaf('taps available', destination.tapsAvailable),
     ...(havenToHaven
       ? [leaf('haven to haven', 0, {
-        note: 'pointless: no draws, healing or reach credited — nothing here the origin does not already offer',
+        note: 'pointless for its own sake: no draws or healing credited — only reach toward scoring sites and new plays',
       })]
       : []),
     ...(healing > 0 && !havenToHaven
