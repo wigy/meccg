@@ -295,6 +295,36 @@ describe('Many Turns and Doublings (td-132)', () => {
 
   // ── Hazard limit enforcement ────────────────────────────────────────
 
+  // Regression (sim seed 106007, decks t vs b): at the M/H select-company step
+  // the option was offered on a ranger whose company had already finished its
+  // movement/hazard phase. The company-mh-phase constraint then had nothing to
+  // affect and was stranded when the company merged into another.
+  test('decrease-hazard-limit NOT offered once the ranger\'s company has finished its movement/hazard phase', () => {
+    const gomInPlay: CardInPlay = { instanceId: 'gom-1' as CardInstanceId, definitionId: GATES_OF_MORNING, status: CardStatus.Untapped };
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }, { site: RIVENDELL, characters: [ELROND] }],
+          hand: [MANY_TURNS_AND_DOUBLINGS], siteDeck: [MORIA], cardsInPlay: [gomInPlay],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornCompany = companyIdAt(base, RESOURCE_PLAYER, 0);
+    const decreaseOptions = (handled: readonly string[]) => viableActions(
+      { ...base, phaseState: makeMHState({ step: 'select-company', handledCompanyIds: handled as never }) },
+      PLAYER_1, 'play-short-event',
+    ).filter(ea => (ea.action as PlayShortEventAction).optionId === 'decrease-hazard-limit');
+
+    // Control: before Aragorn's company has moved, the option is offered.
+    expect(decreaseOptions([])).toHaveLength(1);
+    // After its M/H phase is over, it is not.
+    expect(decreaseOptions([aragornCompany])).toHaveLength(0);
+  });
+
   test('reduced hazard limit blocks hazard beyond the new limit', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
