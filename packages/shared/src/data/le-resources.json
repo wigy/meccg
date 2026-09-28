@@ -796,6 +796,10 @@
     "marshallingCategory": "misc",
     "effects": [
       {
+        "type": "play-window",
+        "phase": "movement-hazard"
+      },
+      {
         "type": "play-target",
         "target": "character",
         "filter": {

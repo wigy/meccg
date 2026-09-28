@@ -397,6 +397,35 @@ describe('Deeper Shadow (le-179)', () => {
     expect(options).toContain('decrease-hazard-limit');
   });
 
+  // Regression (sim seed 104011, decks m vs i): "Playable during the
+  // movement/hazard phase" — the card carried no play-window, so a company
+  // with planned movement ("moving") let it be played in the organization
+  // phase, decreasing the hazard limit of a company that could then merge
+  // away before its M/H phase.
+  test('not playable during the organization phase, even for a company with planned movement', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, destinationSite: MORIA_MINION, characters: [ADUNAPHEL] }],
+          hand: [DEEPER_SHADOW],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+
+    expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(0);
+  });
+
   // ── Effect: change-site-type adds site-type-override constraint ───────────
 
   test('playing change-site-type adds attribute-modifier overriding site type to shadow-hold', () => {
