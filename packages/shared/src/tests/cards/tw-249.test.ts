@@ -27,7 +27,7 @@ import { describe, test, expect, beforeEach } from 'vitest';
 import {
   buildTestState, resetMint, Phase,
   PLAYER_1, PLAYER_2,
-  ARAGORN, LEGOLAS,
+  ARAGORN, LEGOLAS, GIMLI,
   RIVENDELL, LORIEN, MORIA,
   handCardId, charIdAt,
   RESOURCE_PLAYER,
@@ -335,5 +335,114 @@ describe('Great-road (tw-249)', () => {
     expect(afterReturn.players[0].siteDeck.some(c => c.instanceId === originHavenInstId)).toBe(false);
     // Company is at Rivendell
     expect(afterReturn.players[0].companies[0].currentSite?.definitionId).toBe(RIVENDELL);
+  });
+
+  // Regression (sim seed 98006, decks c vs i): the company never left the
+  // haven Great-road was played at, so the "return" pointed at the site it
+  // already stood on. The departure step returned that site card to the
+  // location deck while the company (and a sibling) still held it.
+  test('haven-return is not offered (and is rejected) when the company is still at its origin haven', () => {
+    const org = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const { state: afterPlay } = reduce(org, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(org, RESOURCE_PLAYER),
+      targetCompanyId: org.players[0].companies[0].id,
+    } as PlayShortEventAction);
+
+    const eotPhase = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    }).phaseState;
+    // Same state the company played Great-road from: still at the same Rivendell instance.
+    const eot = { ...afterPlay, phaseState: eotPhase };
+
+    const offered = computeLegalActions(eot, PLAYER_1).filter(ea => ea.action.type === 'haven-return');
+    expect(offered).toHaveLength(0);
+
+    const companyId = eot.players[0].companies[0].id;
+    const result = reduce(eot, { type: 'haven-return', player: PLAYER_1, companyId } as HavenReturnAction);
+    expect(result.error).toBeDefined();
+  });
+
+  test('haven-return leaves a departure site shared with a sibling company in play', () => {
+    const org = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [GREAT_ROAD], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+    const { state: afterPlay } = reduce(org, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: handCardId(org, RESOURCE_PLAYER),
+      targetCompanyId: org.players[0].companies[0].id,
+    } as PlayShortEventAction);
+    const originHavenInstId = (afterPlay.activeConstraints.find(
+      c => c.kind.type === 'haven-return-option',
+    )!.kind as { originHavenInstanceId: CardInstanceId }).originHavenInstanceId;
+
+    // Both companies ended the turn at the same Moria instance; the
+    // Great-road company owns the card, the sibling shares it.
+    const eot = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MORIA, characters: [ARAGORN] }, { site: RIVENDELL, characters: [GIMLI] }],
+          hand: [], siteDeck: [RIVENDELL],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const [greatRoadCompany, sibling] = eot.players[0].companies;
+    const moria = greatRoadCompany.currentSite!;
+    const state = {
+      ...eot,
+      activeConstraints: afterPlay.activeConstraints.map(c =>
+        c.target.kind === 'company' ? { ...c, target: { ...c.target, companyId: greatRoadCompany.id } } : c),
+      players: [
+        {
+          ...eot.players[0],
+          siteDeck: eot.players[0].siteDeck.map(c =>
+            c.definitionId === RIVENDELL ? { ...c, instanceId: originHavenInstId } : c),
+          companies: [
+            { ...greatRoadCompany, siteCardOwned: true },
+            { ...sibling, currentSite: moria, siteCardOwned: false },
+          ],
+        },
+        eot.players[1],
+      ] as unknown as typeof eot.players,
+    };
+
+    const { state: afterReturn } = reduce(state, {
+      type: 'haven-return',
+      player: PLAYER_1,
+      companyId: greatRoadCompany.id,
+    } as HavenReturnAction);
+
+    // Moria stays in play under the sibling, which now owns it.
+    expect(afterReturn.players[0].siteDeck.some(c => c.instanceId === moria.instanceId)).toBe(false);
+    expect(afterReturn.players[0].siteDiscardPile.some(c => c.instanceId === moria.instanceId)).toBe(false);
+    const siblingAfter = afterReturn.players[0].companies.find(c => c.id === sibling.id)!;
+    expect(siblingAfter.currentSite?.instanceId).toBe(moria.instanceId);
+    expect(siblingAfter.siteCardOwned).toBe(true);
+    // The Great-road company is back at its origin haven.
+    const returned = afterReturn.players[0].companies.find(c => c.id === greatRoadCompany.id)!;
+    expect(returned.currentSite?.instanceId).toBe(originHavenInstId);
   });
 });
