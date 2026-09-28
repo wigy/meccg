@@ -5835,7 +5835,10 @@ function advanceSiteToNextCompany(
   const sweptState = sweepExpired(state, { kind: 'company-site-end', companyId: handledCompanyId });
 
   const playerIndex = getPlayerIndex(sweptState, sweptState.activePlayer!);
-  const remainingCount = sweptState.players[playerIndex].companies.length - updatedHandled.length;
+  // Count by membership: a handled company that later dissolved leaves a
+  // stale id in the handled list (see finalizeCompanyMH).
+  const handledSet = new Set(updatedHandled);
+  const remainingCount = sweptState.players[playerIndex].companies.filter(c => !handledSet.has(c.id)).length;
 
   if (remainingCount <= 0) {
     logDetail(`Site: all companies handled → advancing to End-of-Turn phase`);

@@ -2989,7 +2989,13 @@ export function finalizeCompanyMH(state: GameState, mhState: MovementHazardPhase
     state = sweepExpired(state, { kind: 'company-mh-end', companyId: currentCompany.id });
   }
 
-  const remainingCount = state.players[activeIndex].companies.length - updatedHandled.length;
+  // Count by membership, not `companies.length - handled.length`: a company
+  // handled earlier this phase can dissolve afterwards (all characters
+  // eliminated), leaving a stale id in the handled list that would end the
+  // phase one company early — the unmoved company was then auto-merged and
+  // its drawn destination site destroyed.
+  const handledSet = new Set(updatedHandled);
+  const remainingCount = state.players[activeIndex].companies.filter(c => !handledSet.has(c.id)).length;
 
   if (remainingCount <= 0) {
     // Urlurtsu Nurn (le-409): a reanimated company "must move to a different
