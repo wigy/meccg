@@ -270,12 +270,35 @@ function buildOpponentView(state: GameState, player: PlayerState): OpponentView 
     sideboard: hiddenCardPile(player.sideboard),
     companies,
     agents,
-    revealedCards: Object.entries(state.revealedInstances)
-      .filter(([instanceId]) => ownerOf(instanceId as CardInstanceId) === player.id)
-      .map(([instanceId, definitionId]) => ({
-        instanceId: instanceId as CardInstanceId, definitionId,
-      })),
+    revealedCards: opponentRevealedCards(state, player),
   };
+}
+
+/**
+ * The opponent's public record (`revealedCards`): every card of theirs whose
+ * identity has been public at some point this game. A remembered card may
+ * since have gone back into a private zone — shuffled into the play deck by
+ * deck exhaustion, or returned to hand. Its identity stays in the record (the
+ * table saw it), but its real instance id must not: the opponent's hand and
+ * play deck are sent as instance ids with the identity masked, so pairing a
+ * record entry with one of those ids would reveal the card in hand, or where
+ * it now sits in a shuffled deck. Such entries get an opaque stand-in id
+ * instead, unless an explicit effect revealed the card in that zone
+ * ({@link GameState.handRevealedInstances}).
+ */
+function opponentRevealedCards(state: GameState, player: PlayerState): ViewCard[] {
+  const hiddenIds = new Set<string>(
+    [...player.hand, ...player.playDeck]
+      .filter(c => state.handRevealedInstances?.[c.instanceId] === undefined)
+      .map(c => c.instanceId as string),
+  );
+  let masked = 0;
+  return Object.entries(state.revealedInstances)
+    .filter(([instanceId]) => ownerOf(instanceId as CardInstanceId) === player.id)
+    .map(([instanceId, definitionId]) => ({
+      instanceId: (hiddenIds.has(instanceId) ? `${player.id as string}-remembered-${masked++}` : instanceId) as CardInstanceId,
+      definitionId,
+    }));
 }
 
 /**

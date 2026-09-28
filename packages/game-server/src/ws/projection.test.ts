@@ -968,4 +968,39 @@ describe("The opponent's revealed cards are remembered (revealedInstances)", () 
     expect(revealed.some(c => c.instanceId === neverShown)).toBe(false);
     expect(revealed.some(c => c.instanceId === mine)).toBe(false);
   });
+
+  // Regression (sim leak check): once a remembered card went back into a
+  // private zone — shuffled into the play deck by deck exhaustion, or returned
+  // to hand — its real instance id in the record could be paired with the
+  // masked hand/deck entries (which keep their instance ids), revealing the
+  // card in hand and its position in a shuffled deck.
+  test('a remembered card now in the opponent\'s hand or play deck keeps its identity but not its instance id', () => {
+    const { state } = gameWithBobDiscardPile(false);
+    const inDeck = 'p2-911' as CardInstanceId;
+    const inHand = 'p2-912' as CardInstanceId;
+    const shownInHand = 'p2-913' as CardInstanceId;
+    const remembered: GameState = {
+      ...state,
+      players: [state.players[0], {
+        ...state.players[1],
+        playDeck: [{ instanceId: inDeck, definitionId: ARAGORN }, ...state.players[1].playDeck],
+        hand: [{ instanceId: inHand, definitionId: BALIN }, { instanceId: shownInHand, definitionId: ARAGORN }],
+      }],
+      revealedInstances: { ...state.revealedInstances, [inDeck]: ARAGORN, [inHand]: BALIN, [shownInHand]: ARAGORN },
+      // An explicit reveal of that hand card (e.g. Rolled down to the Sea).
+      handRevealedInstances: { ...state.handRevealedInstances, [shownInHand]: ARAGORN },
+    };
+    const aliceView = projectPlayerView(remembered, ALICE);
+    const revealed = aliceView.opponent.revealedCards ?? [];
+
+    // The identities are still remembered…
+    expect(revealed.filter(c => c.definitionId === ARAGORN)).toHaveLength(2);
+    expect(revealed.some(c => c.definitionId === BALIN)).toBe(true);
+    // …but no entry can be matched to the masked deck / hand card.
+    expect(revealed.some(c => c.instanceId === inDeck)).toBe(false);
+    expect(revealed.some(c => c.instanceId === inHand)).toBe(false);
+    expect(aliceView.opponent.playDeck.find(c => c.instanceId === inDeck)?.definitionId).toBe(UNKNOWN_CARD);
+    // A card an effect explicitly revealed in hand stays linked.
+    expect(revealed).toContainEqual({ instanceId: shownInHand, definitionId: ARAGORN });
+  });
 });
