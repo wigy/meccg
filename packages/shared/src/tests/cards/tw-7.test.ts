@@ -12,7 +12,8 @@
  * Effects (data):
  *   - auto-attack-boost (siteTypes shadow-hold/dark-hold, prowessBonus 3,
  *       uncancelable false): a hazard short-event played in M/H on a company
- *       moving to a Shadow-hold/Dark-hold. On resolution it installs a
+ *       whose new site (or current site, if not moving) is a Shadow-hold or a
+ *       Dark-hold. On resolution it installs a
  *       single-use `auto-attack-boost` constraint against the moving company
  *       (scope company-site-phase, keyed to the destination site). The first
  *       automatic-attack the company faces at the site gets +3 prowess — the
@@ -26,12 +27,13 @@
  * | 1 | Playable on a company moving to a Shadow-hold                  | OK     |
  * | 2 | Playable on a company moving to a Dark-hold                    | OK     |
  * | 3 | NOT playable moving to another site type (free-hold)           | OK     |
- * | 4 | NOT playable on a stationary company                           | OK     |
+ * | 4 | Playable on a stationary company at a matching site (2.IV.vii.3)| OK     |
  * | 5 | Resolution installs the auto-attack-boost constraint           | OK     |
  * | 6 | One automatic-attack at the site gains +3 prowess              | OK     |
  * | 7 | Only ONE attack is boosted (constraint consumed once)          | OK     |
  * | 8 | Cannot be duplicated at a given site                           | OK     |
  * | 9 | A copy IS still playable against a different site              | OK     |
+ * | 10| NOT playable on a stationary company at another site type      | OK     |
  *
  * Player-index convention: the moving (resource) company is P1 / RESOURCE_PLAYER;
  * the Neutral hazard short-event sits in the hazard player's (P2 / HAZARD_PLAYER)
@@ -96,7 +98,7 @@ describe('Arouse Minions (tw-7)', () => {
     expect(arouseActions(state)).toHaveLength(0);
   });
 
-  test('NOT offered against a stationary company at a Shadow-hold', () => {
+  test('offered against a stationary company at a Shadow-hold (target = current site, CoE 2.IV.vii.3)', () => {
     const state = {
       ...buildTestState({
         activePlayer: PLAYER_1,
@@ -108,6 +110,21 @@ describe('Arouse Minions (tw-7)', () => {
         ],
       }),
       phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName: 'Moria' }),
+    };
+    expect(arouseActions(state)).toHaveLength(1);
+  });
+
+  test('NOT offered against a stationary company at a Free-hold (Minas Tirith)', () => {
+    const state = {
+      ...buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          { id: PLAYER_1, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [], siteDeck: [CARN_DUM] },
+          { id: PLAYER_2, companies: [{ site: CARN_DUM, characters: [LEGOLAS] }], hand: [AROUSE_MINIONS], siteDeck: [MORIA] },
+        ],
+      }),
+      phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName: 'Minas Tirith' }),
     };
     expect(arouseActions(state)).toHaveLength(0);
   });
