@@ -56,6 +56,7 @@ import { leaf, node } from '../../core/rationale.js';
 import { scoredEvaluation } from '../../core/evaluation.js';
 import { namedCharacter } from '../../core/action-fields.js';
 import { computeCardPrices } from '../../services/card-price.js';
+import { cyclingKeeps } from '../../services/cycling.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { computeHazardPlan } from '../../services/hazard-plan.js';
 import { computeDrawValue } from '../../services/draw-value.js';
@@ -208,10 +209,16 @@ export const handModule: H2Module = {
       const discarding = action.type === 'discard-card';
       // Priced only when discarding: a draw has nothing in particular to
       // value, and the creature valuation resolves whole attacks.
-      const discarded = discarding
-        ? computeCardPrices(view, context.cardPool, standing, tunables)
-          .worth((action as unknown as { cardInstanceId: CardInstanceId }).cardInstanceId)
-        : null;
+      const prices = discarding ? computeCardPrices(view, context.cardPool, standing, tunables) : null;
+      const discardedId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+      const discarded = prices && discardedId ? prices.worth(discardedId) : null;
+      // The strong players' keep rules (`services/cycling`): a card they would
+      // never throw at this cycle — next turn's points, a combat card, the one
+      // Marvels Told or Twilight — costs its worth plus `cyclingKeepBonus`, so
+      // it is thrown only when every card left is one of them.
+      const kept = prices && discardedId !== undefined
+        && cyclingKeeps(view, context.cardPool, prices, tunables).has(discardedId);
+      const keepBonus = kept ? tunables.cyclingKeepBonus : 0;
       // What a discard costs is what *that card* was worth, not what a card is
       // worth on average. This is the whole point of the shadow price: the
       // module can now prefer throwing the faction it can never score over the
@@ -222,14 +229,22 @@ export const handModule: H2Module = {
       // cycle their worst card nearly every turn — in the recorded games several
       // did so in 60–92% of these windows. Priced as a bare loss, no discard
       // could ever beat `pass`, and the modular AI never cycled at all.
-      const drawnBack = discarding && refillsAfterDiscard(context) ? expectedDrawWorth(context) : 0;
+      const cycling = discarding && refillsAfterDiscard(context);
+      // Deck pace: strong players cycle nearly every turn, to run their deck
+      // faster than the opponent's and so control when the game ends while
+      // leading. Once the keep rules protect the floor-priced cards, what is
+      // left to throw is often priced above a fresh draw (a creature the plan
+      // likes, a point character), and without this the AI stopped cycling in
+      // a fifth of its turns — which cost about 100 Elo against heuristic.
+      const drawnBack = cycling ? expectedDrawWorth(context) + tunables.cyclingPaceTsd : 0;
       const dtsd = discarding
-        ? -(discarded?.tsd ?? tunables.provisionalCardPrice) + drawnBack
+        ? -(discarded?.tsd ?? tunables.provisionalCardPrice) - keepBonus + drawnBack
         : tunables.resourceDrawValue;
       const outcomes: Outcome[] = [{
         p: 1,
         label: discarding
           ? `discard ${discarded?.name ?? 'a card'} — ${discarded?.reason ?? 'the flat price'}`
+            + (kept ? '; a card the cycle keeps' : '')
             + (drawnBack > 0 ? '; the end-of-turn reset draws a card back in its place' : '')
           : 'draw to refill the hand',
         dtsd,
