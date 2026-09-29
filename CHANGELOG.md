@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.178.0 — 2026-09-29
+
+Modular AI Cycles Like Strong Players
+
+### Game Engine
+
+- Followers are paid from matching restricted direct influence (e.g. Aiglos's +3 against Elves) before unrestricted direct influence, and faction and opponent influence checks no longer count allotments already spent on followers (#3244)
+- Choking Shadows' Doors of Night mode accepts any Wilderness in the site path and converts it by printed region type, fixing refusals under starter movement (#3239)
+
+### Web Client
+
+- The hazard player can click a creature to play a site's dynamic automatic-attack (e.g. The Gem-deeps, Framsburg) (#3243)
+- Goblin-faces' look-and-rearrange of the defender's play deck has a browser UI: the opponent's deck is highlighted, its browser shows only the looked-at cards, and each card offers a top/bottom choice (#3240)
+
+### AI
+
+- The modular AI keeps what strong players keep at the end-of-turn cycle (next turn's marshalling points) and values cycling for deck pace, so it cycles every turn; combat-card and Marvels Told / Twilight keep rules are available as switches but ship off (#3242)
+- Among cards of equal worth, the modular AI discards hazards first; a sideboard fetch is priced by its draw chance (#3241)
+- The modular AI charges a haven-to-haven move for the regions it crosses and credits it with no draws or healing unless the destination haven unlocks a play, keeping only the reach credit (#3238)
+
 ## 0.177.0 — 2026-09-28
 
 Modular AI Values Its Characters

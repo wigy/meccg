@@ -887,7 +887,7 @@
 | tw-18 | Call of Home | — | 9 | ☑ |
 | tw-19 | Call of the Sea | — | 6 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
-| tw-021 | — | — | 15 | ☑ |
+| tw-021 | — | — | 17 | ☑ |
 | tw-22 | Clouds | — | 7 | ☑ |
 | tw-23 | Corpse-candle | — | 13 | ☑ |
 | tw-024 | — | — | 4 | ☑ |
