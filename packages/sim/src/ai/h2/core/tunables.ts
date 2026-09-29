@@ -127,6 +127,12 @@ export interface Tunables {
   /** How many combat cards the cycle keeps; beyond that they are "overwhelmingly many". */
   readonly cyclingCombatCap: number;
   /**
+   * What cycling a card at the end of turn is worth beyond the fresh draw, in
+   * TSD: the deck runs faster than the opponent's, which is how the leader
+   * controls when the game ends. Strong players cycle nearly every turn.
+   */
+  readonly cyclingPaceTsd: number;
+  /**
    * What it is worth, in TSD, to draft a character the deck's author marked as
    * a favourite — one the deck wants in its starting company.
    *
@@ -627,6 +633,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   hazardCardPrice: -0.5,
   cyclingKeepBonus: 5,
   cyclingCombatCap: 3,
+  cyclingPaceTsd: 0,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,
   attackStateCap: 192,
