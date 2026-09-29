@@ -209,7 +209,9 @@
                       "destinationSiteType": "ruins-and-lairs"
                     },
                     {
-                      "destinationRegionType": "wilderness"
+                      "sitePath.wildernessCount": {
+                        "$gt": 0
+                      }
                     }
                   ]
                 }
@@ -247,7 +249,9 @@
               "environment.doorsOfNightInPlay": true
             },
             {
-              "company.destinationRegionType": "wilderness"
+              "company.pathRegionTypes": {
+                "$includes": "wilderness"
+              }
             }
           ]
         },
@@ -255,7 +259,7 @@
           "type": "add-constraint",
           "constraint": "region-type-override",
           "overrideType": "shadow",
-          "regionName": "destination",
+          "regionName": "path-wilderness",
           "scope": "turn"
         }
       },

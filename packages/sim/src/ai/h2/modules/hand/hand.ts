@@ -96,9 +96,9 @@ const SIDEBOARD_ASSUMPTIONS: readonly string[] = [
   + 'engine\'s own filter on what this variant may fetch is approximated by card type alone',
   'only the *best* card is priced even where five may be taken, because a second card\'s worth '
   + 'depends on the plan the first one changes; the five-card variant is understated, not guessed',
-  'a card landing in the play deck or the discard is discounted for the distance with '
-  + '`potentialDiscount`, once and twice — a stand-in for the chance of ever drawing it, not a '
-  + 'model of the deck',
+  'a card landing in the play deck is priced by the chance of drawing it within the plan '
+  + 'horizon (two draws a turn), one landing in the discard only by the draws left after the deck '
+  + 'runs out — the deck is shuffled, so no position within it is modelled',
   'the halved hazard limit is priced against the hazards *now in hand*: the plan cannot know what '
   + 'the coming turn will draw, so a hand with nothing to spend prices the loss at nothing',
 ];
@@ -304,9 +304,20 @@ export const handModule: H2Module = {
     // *understated* rather than guessed at, and the assumption says so.
     const best = reachable[0];
     // A card that lands in the deck must still be drawn; one that lands in the
-    // discard waits for the deck to run out first. The same discount an unplayed
-    // card already carries, applied once per step of that distance.
-    const reach = tunables.potentialDiscount ** access.steps;
+    // discard waits for the deck to run out first. Priced by the chance of
+    // drawing it within the plan horizon (two draws a turn, as the hazard
+    // planner counts them): one card shuffled into a 59-card deck is drawn in
+    // the next dozen draws about one time in five. A flat `potentialDiscount`
+    // per step called that one in two whatever the deck size, which made a
+    // hazard fetch worth +9 tsd at every untap — taken where strong players,
+    // who pay for it with a halved hazard limit, almost always pass (54
+    // winners-only untap decisions).
+    const draws = 2 * tunables.planHorizonTurns;
+    const deckSize = view.self.playDeck.length;
+    const discardSize = view.self.discardPile.length;
+    const reach = access.where === 'play deck'
+      ? Math.min(1, draws / Math.max(1, deckSize + 1))
+      : Math.min(1, Math.max(0, draws - deckSize) / Math.max(1, discardSize + 1));
     const gain = (best?.tsd ?? 0) * reach;
 
     const cost = access.seat === 'hazard'
@@ -338,10 +349,10 @@ export const handModule: H2Module = {
     const detail: Rationale[] = [
       leaf('what it fetches', gain, {
         unit: 'tsd',
-        tunable: 'potentialDiscount',
+        tunable: 'planHorizonTurns',
         note: best
-          ? `${best.name} — ${best.reason}, discounted ${access.steps}× for landing in `
-            + `the ${access.where}`
+          ? `${best.name} — ${best.reason}, × ${(reach * 100).toFixed(0)}% chance of drawing it `
+            + `from the ${access.where} within ${draws} draws`
           : 'the sideboard holds nothing this variant may take',
       }),
       leaf('what it costs', cost.tsd, { unit: 'tsd', note: cost.reason }),

@@ -2956,7 +2956,11 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * {@link import('../engine/effective.js').siteConstraintFilterMatches}).
    */
   readonly allVersions?: boolean;
-  /** Region name for region-type-override (token `"destination"` = active company's destination region). */
+  /**
+   * Region name for region-type-override (token `"destination"` = active
+   * company's destination region; `"path-wilderness"` = a printed Wilderness
+   * on the active company's site path, nearest the destination first).
+   */
   readonly regionName?: string;
   /**
    * For a `no-creatures-keyed-to-site` constraint: region type that exempts

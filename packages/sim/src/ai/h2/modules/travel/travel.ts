@@ -44,7 +44,7 @@
  */
 
 import { BASE_MAX_REGION_DISTANCE, CardStatus, isSiteCard, matchesCondition } from '@meccg/shared';
-import type { CardDefinition, CardInstanceId, CompanyId, GameAction, PlayerView } from '@meccg/shared';
+import type { CardDefinition, CardInstanceId, CompanyId, GameAction, PlayerView, RegionType } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext, Outcome, Rationale } from '../../core/types.js';
 import type { Plan, PlanStep } from '../../core/plan.js';
 import { ROUTE_STEP, reachProbability } from '../../core/plan.js';
@@ -354,6 +354,45 @@ interface DestinationValue {
 }
 
 /**
+ * The site path a company actually crosses to reach a destination, by the
+ * engine's starter-movement rule (`mh-steps`): haven to haven follows the
+ * origin's `havenPaths`, haven to site the destination's own `sitePath`, and
+ * site to haven the *origin's* `sitePath`.
+ *
+ * A destination's `sitePath` alone is right only for the middle case. A haven
+ * prints none, so every haven-to-haven trip — Dol Guldur to Carn Dûm across
+ * four regions — read as "0 regions, already here" and was charged no
+ * crossing at all: a free move worth the destination's card draws, which is
+ * why the AI shuffled companies between havens that strong players left
+ * where they stood. Anything else (region movement between two non-havens)
+ * keeps the destination's path as the estimate it always was.
+ */
+function routed(
+  context: ModuleContext,
+  site: SiteExposure,
+  companyId: string | undefined,
+  destinationDefinitionId: string,
+): SiteExposure {
+  const company = companyId
+    ? context.view.self.companies.find(c => (c.id as string) === companyId)
+    : undefined;
+  const originId = company?.currentSite?.definitionId;
+  if (!originId) return site;
+  type SiteShape = { siteType?: string; name?: string; sitePath?: readonly RegionType[];
+    havenPaths?: Readonly<Record<string, readonly RegionType[]>> };
+  const origin = context.cardPool[originId] as unknown as SiteShape | undefined;
+  const destination = context.cardPool[destinationDefinitionId] as unknown as SiteShape | undefined;
+  if (!origin || !destination) return site;
+  const originHaven = origin.siteType === 'haven';
+  const destinationHaven = destination.siteType === 'haven';
+  let path: readonly RegionType[] | undefined;
+  if (originHaven && destinationHaven) path = origin.havenPaths?.[destination.name ?? ''];
+  else if (!originHaven && destinationHaven) path = origin.sitePath;
+  if (!path) return site;
+  return { ...site, sitePath: path, pathLength: path.length };
+}
+
+/**
  * The arithmetic of one destination, separated from the evaluation of it.
  *
  * `cancel-movement` needs exactly this number with the sign flipped —
@@ -522,10 +561,30 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   const reachShift = coverageHere === null ? 0 : coverageThere - coverageHere;
   const deckReachGain = reachShift * tunables.deckReachValue;
 
+  // A haven-to-haven move is pointless for its own sake (strong players'
+  // rule): the company already heals where it stands, and the destination's
+  // card draws do not pay for a turn spent crossing regions. What can justify
+  // it is getting nearer the sites the deck still scores at — which
+  // `deckReachGain` already measures as a *change* in one-move reach, so it is
+  // zero when the origin is near enough already — or a card the destination
+  // haven unlocks and the origin does not. So the draws and the healing are
+  // not credited; the reach and the plays are. Over 103 winners-only
+  // organization decisions the AI moved a company the human left in place,
+  // mostly between havens.
+  const originDef = standingOn === undefined ? undefined
+    : context.cardPool[standingOn] as unknown as { siteType?: string } | undefined;
+  const unlockedHere = new Set(standingOn === undefined ? []
+    : playableAt(context, standingOn, companyId as string | undefined).map(c => c.name));
+  const havenToHaven = originDef?.siteType === 'haven' && site.siteType === 'haven'
+    && playable.every(c => unlockedHere.has(c.name));
+  const credited = havenToHaven
+    ? { healing: 0, draws: 0, deckReachGain }
+    : { healing, draws, deckReachGain };
+
   const dtsd = netTsdDelta(
     {
-      realized: realized + healing,
-      potential: potential + draws + deckReachGain,
+      realized: realized + credited.healing,
+      potential: potential + credited.draws + credited.deckReachGain,
       tempo: tempo + revisit + attackHarm + allyLossHarm,
     },
     tunables,
@@ -547,7 +606,12 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         + `${beliefs.observed} cards seen)`,
     }),
     leaf('taps available', destination.tapsAvailable),
-    ...(healing > 0
+    ...(havenToHaven
+      ? [leaf('haven to haven', 0, {
+        note: 'pointless for its own sake: no draws or healing credited — only reach toward scoring sites and new plays',
+      })]
+      : []),
+    ...(healing > 0 && !havenToHaven
       ? [leaf('wounded characters this haven heals', healing, {
         unit: 'tsd',
         tunable: 'woundTempoCost',
@@ -576,14 +640,14 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
           + `would be discarded — ${arrivingRegion ?? '?'} is outside the region(s) they may travel to`,
       })]
       : []),
-    leaf('resource draws', draws, {
+    ...(havenToHaven ? [] : [leaf('resource draws', draws, {
       unit: 'tsd',
       tunable: 'resourceDrawValue',
       note: drawCount === site.resourceDraws
         ? `${drawCount} card(s) printed on the site, discounted as potential`
         : `${drawCount} card(s) drawn — ${site.resourceDraws} printed, adjusted by the `
           + 'draw-modifiers in play; discounted as potential',
-    }),
+    })]),
   ];
   for (const card of playableNow) {
     detail.push(leaf(card.name, card.tsd, {
@@ -755,7 +819,7 @@ function evaluateCancelMovement(context: ModuleContext, action: GameAction): Eva
 
   const value = destinationValue(context, {
     action,
-    site,
+    site: routed(context, site, companyId, planned.definitionId as string),
     arrivingDefinitionId: planned.definitionId,
     playable: playableAt(context, planned.definitionId, company.id),
     tapsAvailable: budget.untappedIn(company.id).length,
@@ -980,7 +1044,7 @@ export const travelModule: H2Module = {
 
     return evaluateDestination(context, {
       action,
-      site,
+      site: routed(context, site, companyId, destination.definitionId),
       arrivingDefinitionId: destination.definitionId,
       playable: playableAt(context, destination.definitionId, companyId),
       tapsAvailable: taps,

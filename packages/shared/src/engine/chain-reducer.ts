@@ -1419,7 +1419,7 @@ function applyAgentAttackBoostConstraint(
 /**
  * Build the evaluation context for a `company-arrives-at-site` `when`
  * clause. Exposes the active company's destination site type, destination
- * region type, and whether Doors of Night is in play — enough for a
+ * region type, site-path region types, and whether Doors of Night is in play — enough for a
  * card like Choking Shadows to pick between its modes.
  */
 function buildArrivalContext(state: GameState): Record<string, unknown> {
@@ -1434,6 +1434,10 @@ function buildArrivalContext(state: GameState): Record<string, unknown> {
   if (mh.resolvedSitePath.length > 0) {
     company.destinationRegionType = mh.resolvedSitePath[mh.resolvedSitePath.length - 1];
   }
+  // Every region type in the company's site path, so a card that converts
+  // "one Wilderness" (Choking Shadows) can apply to any Wilderness on the
+  // path — not only the destination region.
+  company.pathRegionTypes = [...mh.resolvedSitePath];
   ctx.company = company;
   const inPlayNames = buildInPlayNames(state);
   ctx.inPlay = inPlayNames;
