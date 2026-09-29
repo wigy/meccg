@@ -4057,26 +4057,23 @@ function playHazardsActions(
           continue;
         }
 
-        // auto-attack-boost (Arouse Defenders le-101): "Playable on a Free-hold
-        // [{F}] or Border-hold [{B}]." Same gate as create-site-auto-attack —
-        // the company must be moving to a site whose type is one of the effect's
+        // auto-attack-boost (Arouse Defenders le-101, Arouse Denizens tw-6):
+        // "Playable on a Free-hold [{F}] or Border-hold [{B}]." The target site
+        // is the company's new site if it is moving, or its current site if it
+        // is not (CoE 2.IV.vii.3), and its type must be one of the effect's
         // siteTypes. On resolution it installs the single-use auto-attack boost.
         const autoAttackBoostEffect = getCardEffects(def).find(
           (e): e is import('../../index.js').AutoAttackBoostEffect => e.type === 'auto-attack-boost',
         );
         if (autoAttackBoostEffect) {
-          if (!targetCompany.destinationSite) {
-            logDetail(`Hazard short-event "${def.name}" requires a moving company`);
-            actions.push({ action, viable: false, reason: `${def.name} can only be played on a moving company` });
+          const targetSite = targetCompany.destinationSite ?? targetCompany.currentSite;
+          const targetSiteDef = targetSite ? resolveDef(state, targetSite.instanceId) : undefined;
+          if (!targetSiteDef || !isSiteCard(targetSiteDef) || !autoAttackBoostEffect.siteTypes.includes(targetSiteDef.siteType)) {
+            logDetail(`Hazard short-event "${def.name}" requires the company's site to be a ${autoAttackBoostEffect.siteTypes.join(' or ')}`);
+            actions.push({ action, viable: false, reason: `${def.name}: target site is not a ${autoAttackBoostEffect.siteTypes.join(' or ')}` });
             continue;
           }
-          const destSiteDef = resolveDef(state, targetCompany.destinationSite.instanceId);
-          if (!destSiteDef || !isSiteCard(destSiteDef) || !autoAttackBoostEffect.siteTypes.includes(destSiteDef.siteType)) {
-            logDetail(`Hazard short-event "${def.name}" requires the company to be moving to a ${autoAttackBoostEffect.siteTypes.join(' or ')}`);
-            actions.push({ action, viable: false, reason: `${def.name}: destination is not a ${autoAttackBoostEffect.siteTypes.join(' or ')}` });
-            continue;
-          }
-          logDetail(`Hazard short-event "${def.name}" is playable (moving to ${destSiteDef.name}, a ${destSiteDef.siteType})`);
+          logDetail(`Hazard short-event "${def.name}" is playable (target site ${targetSiteDef.name}, a ${targetSiteDef.siteType})`);
           actions.push({ action, viable: true });
           continue;
         }
