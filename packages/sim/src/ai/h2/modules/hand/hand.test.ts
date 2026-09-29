@@ -77,6 +77,7 @@ function contextWith(deck: number, sideboard: number, sideboardOf = 'faction'): 
       characters: { avatar: AVATAR },
       companies: [{ id: 'company-p1-0', characters: ['avatar'] }],
       cardsInPlay: [],
+      discardPile: [],
       generalInfluence: 20,
       generalInfluenceUsed: 0,
     },
@@ -148,9 +149,18 @@ describe('reaching into the sideboard', () => {
     expect(text).not.toContain('taps the avatar');
   });
 
-  test('names the discount that priced the distance', () => {
+  test('prices the distance by the chance of drawing the card, and names the horizon', () => {
+    // One card shuffled into a 40-card deck is drawn within the horizon's
+    // twelve draws about 29% of the time, not the flat half it used to be.
     const evaluation = handModule.evaluate(TO_DECK, contextWith(40, 12))!;
-    expect(collectTunables(evaluation.rationale).has('potentialDiscount')).toBe(true);
+    expect(collectTunables(evaluation.rationale).has('planHorizonTurns')).toBe(true);
+    expect(JSON.stringify(evaluation.rationale)).toContain('29% chance of drawing it');
+  });
+
+  test('a smaller deck makes a fetched card likelier to be drawn', () => {
+    const big = handModule.evaluate(TO_DECK, contextWith(60, 12))!;
+    const small = handModule.evaluate(TO_DECK, contextWith(10, 12))!;
+    expect(small.expectedTsd).toBeGreaterThan(big.expectedTsd);
   });
 
   test('declines an action that is not its own', () => {

@@ -338,11 +338,28 @@ function buildComputeCardPrices(
   const atLeastFloor = (worth: CardWorth): CardWorth =>
     (worth.tsd >= floor ? worth : { ...worth, tsd: floor, reason: `${worth.reason}; held at the floor` });
 
+  /**
+   * Among cards that sit at the floor — the ones nothing here could value —
+   * a hazard goes before a resource. Strong players throw the hazard: a
+   * resource is what scores, and a hazard comes back through the rotation of
+   * playing them (`hazardCardPrice`). The ties were broken at random, and in
+   * 611 winners-only end-of-turn discards the AI threw a resource where the
+   * human threw a hazard 280 times, against 37 the other way. Raising the
+   * price of the resources instead (protection cards) cost Elo, because it
+   * lifted them over the point cards; this only orders the tie.
+   */
+  const hazardsFirst = (worth: CardWorth, definitionId: string): CardWorth => {
+    const cardType = (cardPool[definitionId] as unknown as { cardType?: string } | undefined)?.cardType ?? '';
+    return cardType.startsWith('hazard') && worth.tsd <= floor
+      ? { ...worth, tsd: floor - tunables.hazardTieBreak, reason: `${worth.reason}; a hazard, so thrown before a resource` }
+      : worth;
+  };
+
   const worthOf = (instanceId: CardInstanceId): CardWorth | null => {
     const card = view.self.hand.find(c => c.instanceId === instanceId);
     if (!card) return null;
     const definitionId = card.definitionId as string;
-    return atLeastFloor(priceDefinition(instanceId, definitionId, true, () => {
+    return hazardsFirst(atLeastFloor(priceDefinition(instanceId, definitionId, true, () => {
       const def = printed(cardPool[definitionId], definitionId)!;
       const assignment = plan.worth(instanceId);
       // A card is never worth *less* than nothing to hold: the choice not to
@@ -351,13 +368,13 @@ function buildComputeCardPrices(
       return {
         instanceId,
         name: def.name,
-        tsd: raw * tunables.potentialDiscount,
+        tsd: raw * tunables.heldHazardShare,
         reason: assignment && assignment.targetCompanyId !== null
           ? `adds ${raw.toFixed(1)} to the plan against their ${assignment.targetLabel}`
             + (assignment.order > 1 ? `, played ${assignment.order}${ordinal(assignment.order)}` : '')
           : `${assignment?.targetLabel ?? 'no company to aim it at'} — worth nothing as an attack`,
       };
-    }));
+    })), definitionId);
   };
 
   return {
@@ -381,7 +398,7 @@ function buildComputeCardPrices(
         return {
           instanceId: offered,
           name: def.name,
-          tsd: raw * tunables.potentialDiscount,
+          tsd: raw * tunables.heldHazardShare,
           reason: raw > 0
             ? `would add ${raw.toFixed(1)} to the hazard plan`
             : 'the plan has no company left it would improve',
