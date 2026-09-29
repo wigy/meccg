@@ -420,6 +420,24 @@ export function findDragonAmbushOfferAction(
 }
 
 /**
+ * Find the play-site-auto-attack action for a given hazard-creature card
+ * instance in hand. At a site with a `dynamic-auto-attack` rule (e.g. The
+ * Gem-deeps dm-30, Framsburg td-175) the hazard player may play one eligible
+ * creature as the site's automatic-attack: at most one action exists per hand
+ * instance and the company is fixed by the site phase, so clicking the card
+ * plays it directly. Without this finder the eligible creature had no click
+ * handler and rendered as unplayable, leaving only Pass (bug report
+ * 3072916b6caed150: Uruk-lieutenant could not be played at The Gem-deeps).
+ */
+export function findSiteAutoAttackAction(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction | null {
+  if (!instanceId) return null;
+  return actionsOfTypeFor(legalActions, 'play-site-auto-attack', instanceId)[0] ?? null;
+}
+
+/**
  * Find the play-revealed-card actions for a given hand card instance (CoE
  * rule 10.13: an identical card revealed during a successful opponent-
  * influence attempt may immediately be played with the influencing
@@ -1271,6 +1289,8 @@ export function renderHand(
     const isRingAfterTest = ringAfterTestAction !== null;
     const dragonAmbushOfferAction = findDragonAmbushOfferAction(cardInstanceId, viable);
     const isDragonAmbushOffer = dragonAmbushOfferAction !== null;
+    const siteAutoAttackAction = findSiteAutoAttackAction(cardInstanceId, viable);
+    const isSiteAutoAttack = siteAutoAttackAction !== null;
     const sacrificeOfFormAction = findSacrificeOfFormAction(cardInstanceId, viable);
     const isSacrificeOfForm = sacrificeOfFormAction !== null;
     const revealedCardPlayActions = findRevealedCardPlayActions(cardInstanceId, viable);
@@ -1286,7 +1306,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isSiteAutoAttack && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1576,6 +1596,15 @@ export function renderHand(
       if (onAction) {
         const dragonAction = dragonAmbushOfferAction;
         img.addEventListener('click', () => onAction(dragonAction));
+      }
+    } else if (isSiteAutoAttack) {
+      // Dynamic site automatic-attack (The Gem-deeps dm-30, Framsburg
+      // td-175): the attacked company is fixed by the site phase, so
+      // clicking the card plays it directly — no target step.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        const autoAttackAction = siteAutoAttackAction;
+        img.addEventListener('click', () => onAction(autoAttackAction));
       }
     } else if (isSacrificeOfForm) {
       // Sacrifice of Form (tw-321): the Wizard being sacrificed is fixed by
