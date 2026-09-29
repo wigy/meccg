@@ -16,7 +16,7 @@
 import type { GameState } from '../index.js';
 import type { SiteFlag } from '../types/pending.js';
 import type { Race } from '../types/common.js';
-import { Alignment } from '../types/common.js';
+import { Alignment, RegionType } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { activePlayerState } from './reducer-utils.js';
 import { resolveInstanceId } from '../types/state.js';
@@ -207,6 +207,15 @@ export function buildConstraintKind(
         const mh = state.phaseState;
         if (mh.resolvedSitePathNames.length === 0) return null;
         regionName = mh.resolvedSitePathNames[mh.resolvedSitePathNames.length - 1];
+      }
+      // Special token: "treat one Wilderness as ..." (Choking Shadows) —
+      // pick a region of the active company's site path whose printed type is
+      // Wilderness, preferring the one nearest the destination.
+      if (regionName === 'path-wilderness') {
+        if (state.phaseState.phase !== Phase.MovementHazard) return null;
+        const found = findPathRegionNameOfType(state, state.phaseState.resolvedSitePathNames, RegionType.Wilderness);
+        if (!found) return null;
+        regionName = found;
       }
       return {
         type: 'attribute-modifier',
@@ -399,4 +408,25 @@ function activeCompanySiteDefId(
   const activePlayer = activePlayerState(state);
   const company = activePlayer?.companies[ps.activeCompanyIndex];
   return company?.currentSite?.definitionId ?? null;
+}
+
+/**
+ * Find the name of a region on a company's site path whose printed type is
+ * `regionType`, searching from the destination region backwards. Region
+ * types are read from the region cards because under starter movement the
+ * type path (from site cards) is not index-parallel with the region names.
+ * Returns `undefined` when no named region on the path has that type.
+ */
+function findPathRegionNameOfType(
+  state: GameState,
+  pathNames: readonly string[],
+  regionType: RegionType,
+): string | undefined {
+  for (let i = pathNames.length - 1; i >= 0; i--) {
+    const def = Object.values(state.cardPool).find(
+      d => (d as { cardType?: string }).cardType === 'region' && (d as { name?: string }).name === pathNames[i],
+    ) as { regionType?: RegionType } | undefined;
+    if (def?.regionType === regionType) return pathNames[i];
+  }
+  return undefined;
 }
