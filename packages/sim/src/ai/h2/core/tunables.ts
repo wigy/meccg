@@ -118,6 +118,33 @@ export interface Tunables {
    */
   readonly hazardCardPrice: number;
   /**
+   * The share of a creature's plan contribution a *held* hazard is worth —
+   * what `card-price` quotes for keeping it in hand, discarding it, or fetching
+   * it from the sideboard.
+   *
+   * The contribution is what the creature would deny if played now against
+   * their largest company, inside the hazard limit and keyed to its route —
+   * all of which must still happen, and the hand refills every turn so a
+   * hazard is seldom scarce. Since the loss prices were raised it comes to
+   * tens of TSD per creature against 1–4 for a resource, and the AI kept
+   * hazards over resources: in 280 end-of-turn discards the winning human
+   * threw a hazard where the AI would throw a resource, against 37 the other
+   * way.
+   */
+  readonly heldHazardShare: number;
+  /**
+   * How far below the held-card floor a held hazard at the floor is priced,
+   * so that among cards nothing could value a hazard is discarded before a
+   * resource — the strong players' habit. Orders ties only; 0 is off.
+   *
+   * Against the Heuristics-1 agent (800 games) it measured a/b +200 → +204,
+   * c/d +173 → +191, m/p +153 → +108, b/p +175 → +121. Shipped anyway, on the
+   * owner's call: that agent is a weak player to calibrate a discard against,
+   * the rule matches what winning humans throw, and the verdict is to come
+   * from games against real people.
+   */
+  readonly hazardTieBreak: number;
+  /**
    * What it is worth, in TSD, to draft a character the deck's author marked as
    * a favourite — one the deck wants in its starting company.
    *
@@ -616,6 +643,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   eliminationTempoCost: 30,
   provisionalCardPrice: 1,
   hazardCardPrice: -0.5,
+  heldHazardShare: 0.5,
+  hazardTieBreak: 0.1,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,
   attackStateCap: 192,
