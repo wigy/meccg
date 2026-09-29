@@ -87,7 +87,7 @@ afterEach(() => {
 
 const SELF_ID = 'p1' as PlayerId;
 
-// As in the reported game: the looked-at card (p2-85, The Mithril-coat tw-348)
+// As in the reported game: the looked-at card (p2-85, The White Tree tw-348)
 // is unmasked, the rest of the defender's deck stays face down.
 const oppPlayDeck = [
   { instanceId: 'p2-85', definitionId: 'tw-348' },
