@@ -118,6 +118,15 @@ export interface Tunables {
    */
   readonly hazardCardPrice: number;
   /**
+   * What throwing a card the end-of-turn cycle keeps costs beyond its worth,
+   * in TSD (`services/cycling` — next turn's points, combat cards, one Marvels
+   * Told, one Twilight). Large enough that a kept card goes only when every
+   * card left is kept.
+   */
+  readonly cyclingKeepBonus: number;
+  /** How many combat cards the cycle keeps; beyond that they are "overwhelmingly many". */
+  readonly cyclingCombatCap: number;
+  /**
    * What it is worth, in TSD, to draft a character the deck's author marked as
    * a favourite — one the deck wants in its starting company.
    *
@@ -616,6 +625,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   eliminationTempoCost: 30,
   provisionalCardPrice: 1,
   hazardCardPrice: -0.5,
+  cyclingKeepBonus: 5,
+  cyclingCombatCap: 3,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,
   attackStateCap: 192,
