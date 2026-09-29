@@ -33,7 +33,9 @@ function position(hand: readonly string[], revealed: readonly string[] = [], com
       return { instanceId: id, name: '', tsd: points > 0 ? 1 + points : 1, reason: '' };
     },
   } as unknown as CardPrices;
-  const kept = cyclingKeeps(view, pool, prices, DEFAULT_TUNABLES);
+  // Every rule on, whatever ships as the default.
+  const rules = { ...DEFAULT_TUNABLES, cyclingKeepAnswers: 1, cyclingKeepPoints: 1, cyclingCombatCap: 3 };
+  const kept = cyclingKeeps(view, pool, prices, rules);
   const keptNames = cards.filter(c => kept.has(c.instanceId as CardInstanceId)).map(c => c.instanceId.split('-').slice(1).join('-'));
   return keptNames;
 }
@@ -58,6 +60,6 @@ describe('the end-of-turn keep rules', () => {
 
   test('every combat card, up to the cap', () => {
     const kept = position(['Risky Blow', 'Concealment', 'Dodge', 'Vanishment', 'Escape']);
-    expect(kept).toHaveLength(DEFAULT_TUNABLES.cyclingCombatCap);
+    expect(kept).toHaveLength(3);
   });
 });

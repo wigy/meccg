@@ -124,17 +124,36 @@ export interface Tunables {
    * card left is kept.
    */
   readonly cyclingKeepBonus: number;
-  /** How many combat cards the cycle keeps; beyond that they are "overwhelmingly many". */
+  /**
+   * How many combat cards the cycle keeps; beyond that they are
+   * "overwhelmingly many". The owner's rule is to keep them all; against the
+   * Heuristics-1 agent any kept combat card cost Elo (b/p +175 → +127 with one,
+   * +24 with three), so it ships at 0, to be tried against real players.
+   */
   readonly cyclingCombatCap: number;
   /**
    * What cycling a card at the end of turn is worth beyond the fresh draw, in
    * TSD: the deck runs faster than the opponent's, which is how the leader
    * controls when the game ends. Strong players cycle nearly every turn.
+   *
+   * Needed once the keep rules protect the floor-priced cards: without it the
+   * AI passed at the end-of-turn discard 37 times in six games against 7 on
+   * master, and lost about 100 Elo. At 5, with the points rule, 800 games
+   * against heuristic: a/b +203, c/d +171, m/p +165, b/p +169 (master +200,
+   * +173, +153, +175).
    */
   readonly cyclingPaceTsd: number;
-  /** 1 applies the cycle's Marvels Told / Twilight keep rule, 0 turns it off. */
+  /**
+   * 1 applies the cycle's Marvels Told / Twilight keep rule, 0 turns it off.
+   * Off by default: against the Heuristics-1 agent, which seldom plays
+   * corruption or environments, it cost Elo (b/p −90, m/p −40 at 200 games).
+   */
   readonly cyclingKeepAnswers: number;
-  /** 1 applies the cycle's next-turn points keep rule, 0 turns it off. */
+  /**
+   * 1 applies the cycle's next-turn points keep rule, 0 turns it off. On: with
+   * the other rules on, turning it off dropped b/p from +24 to −7; with pace 5
+   * alone it measured level with master over 800 games.
+   */
   readonly cyclingKeepPoints: number;
   /**
    * What it is worth, in TSD, to draft a character the deck's author marked as
@@ -636,9 +655,9 @@ export const DEFAULT_TUNABLES: Tunables = {
   provisionalCardPrice: 1,
   hazardCardPrice: -0.5,
   cyclingKeepBonus: 5,
-  cyclingCombatCap: 3,
-  cyclingPaceTsd: 0,
-  cyclingKeepAnswers: 1,
+  cyclingCombatCap: 0,
+  cyclingPaceTsd: 5,
+  cyclingKeepAnswers: 0,
   cyclingKeepPoints: 1,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,

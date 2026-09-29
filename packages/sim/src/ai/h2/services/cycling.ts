@@ -24,6 +24,11 @@
  *    unless there are overwhelmingly many (`cyclingCombatCap`).
  * 5. A creature and its boost are held at most a turn — left to the hazard
  *    pricing, which already drops a creature the plan cannot use.
+ *
+ * Rule 3 ships on. Rules 1, 2 and 4 ship off (`cyclingKeepAnswers`,
+ * `cyclingCombatCap`): against the Heuristics-1 agent they cost Elo — it seldom
+ * plays corruption or environments and is a weak attacker — and are kept as
+ * switches to try against real players.
  */
 
 import type { CardDefinition, CardInstanceId, PlayerView } from '@meccg/shared';
