@@ -132,6 +132,10 @@ export interface Tunables {
    * controls when the game ends. Strong players cycle nearly every turn.
    */
   readonly cyclingPaceTsd: number;
+  /** 1 applies the cycle's Marvels Told / Twilight keep rule, 0 turns it off. */
+  readonly cyclingKeepAnswers: number;
+  /** 1 applies the cycle's next-turn points keep rule, 0 turns it off. */
+  readonly cyclingKeepPoints: number;
   /**
    * What it is worth, in TSD, to draft a character the deck's author marked as
    * a favourite — one the deck wants in its starting company.
@@ -634,6 +638,8 @@ export const DEFAULT_TUNABLES: Tunables = {
   cyclingKeepBonus: 5,
   cyclingCombatCap: 3,
   cyclingPaceTsd: 0,
+  cyclingKeepAnswers: 1,
+  cyclingKeepPoints: 1,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,
   attackStateCap: 192,

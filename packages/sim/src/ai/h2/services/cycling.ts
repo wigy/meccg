@@ -83,7 +83,8 @@ export function cyclingKeeps(
 
   // 1–2. One Marvels Told and one Twilight; every copy once the threat they
   // answer has been shown.
-  for (const [name, keyword] of [['Marvels Told', 'corruption'], ['Twilight', 'environment']] as const) {
+  for (const [name, keyword] of (tunables.cyclingKeepAnswers > 0
+    ? [['Marvels Told', 'corruption'], ['Twilight', 'environment']] as const : [])) {
     const copies = hand.filter(c => c.fields.name === name);
     const all = copies.length > 1 && opponentShowed(view, cardPool, keyword);
     copies.slice(0, all ? copies.length : 1).forEach(c => kept.add(c.id));
@@ -94,10 +95,12 @@ export function cyclingKeeps(
   // capped, so it is priced at the floor — is not next turn's points.
   const scoring = byWorth(hand.filter(c => /resource/.test(c.fields.cardType ?? '')
     && (c.fields.marshallingPoints ?? 0) > 0 && c.worth > prices.floor));
-  const need = Math.max(1, view.self.companies.length);
-  scoring.slice(0, need).forEach(c => kept.add(c.id));
-  const extra = scoring[need];
-  if (extra && (extra.fields.marshallingPoints ?? 0) >= BIG_MP) kept.add(extra.id);
+  if (tunables.cyclingKeepPoints > 0) {
+    const need = Math.max(1, view.self.companies.length);
+    scoring.slice(0, need).forEach(c => kept.add(c.id));
+    const extra = scoring[need];
+    if (extra && (extra.fields.marshallingPoints ?? 0) >= BIG_MP) kept.add(extra.id);
+  }
 
   // 4. Every combat card, unless there are overwhelmingly many.
   const combat = byWorth(hand.filter(c => /resource-event$/.test(c.fields.cardType ?? '')
