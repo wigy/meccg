@@ -16,8 +16,9 @@
  *   consumed by the next automatic-attack at a R&L site
  * - Mode B1 (Doors of Night + R&L destination): site-type-override to
  *   shadow-hold for the turn
- * - Mode B2 (Doors of Night + Wilderness destination region):
- *   region-type-override to shadow for the turn
+ * - Mode B2 (Doors of Night + a Wilderness anywhere in the site path):
+ *   region-type-override to shadow for the turn on that Wilderness
+ *   (nearest the destination first)
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -471,6 +472,73 @@ describe('Choking Shadows (tw-21)', () => {
       expect(regionOverride!.kind.value).toBe(RegionType.Shadow);
       expect(regionOverride!.kind.filter).toEqual({ 'region.name': 'Western Mirkwood' });
     }
+  });
+
+  test('bug regression: DoN in play + Wilderness in a starter-movement site path is playable and converts that Wilderness', () => {
+    // Bug report (game mum9fb5u-stfcyn): a company moving by starter movement
+    // to Edhellond (Haven in Anfalas, a Wilderness) with Doors of Night in
+    // play — Choking Shadows was not offered. Mode B2 read the "destination
+    // region type" from the last entry of the site-card type path
+    // ([w, f, c] → Coastal), which under starter movement is not
+    // index-parallel with the region names. The card reads "treat one
+    // Wilderness as a Shadow-land": any Wilderness in the site path
+    // qualifies, and the converted region is resolved by its printed type.
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+      ],
+    });
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.Haven,
+      destinationSiteName: 'Edhellond',
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Free, RegionType.Coastal],
+      resolvedSitePathNames: ['Mouths of the Anduin', 'Anfalas'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+
+    expect(viableActions(mhGameState, PLAYER_2, 'play-hazard')).toHaveLength(1);
+
+    const csId = handCardId(mhGameState, HAZARD_PLAYER);
+    const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+    const regionOverride = afterPlay.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'region.type',
+    );
+    expect(regionOverride).toBeDefined();
+    if (regionOverride!.kind.type === 'attribute-modifier') {
+      expect(regionOverride!.kind.value).toBe(RegionType.Shadow);
+      expect(regionOverride!.kind.filter).toEqual({ 'region.name': 'Anfalas' });
+    }
+  });
+
+  test('DoN in play but no Wilderness in the site path and non-R&L destination: not playable', () => {
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MINAS_TIRITH }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+      ],
+    });
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.BorderHold,
+      destinationSiteName: 'Bree',
+      resolvedSitePath: [RegionType.Free],
+      resolvedSitePathNames: ['Arthedain'],
+    });
+    expect(viableActions({ ...state, phaseState: mh }, PLAYER_2, 'play-hazard')).toHaveLength(0);
   });
 
   // ─── On-guard reveal (rule 2.V.i) ────────────────────────────────────────
