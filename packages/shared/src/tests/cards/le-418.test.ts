@@ -350,8 +350,9 @@ describe('The Arkenstone (le-418)', () => {
   test('+1 mind on follower Kíli is reflected in DI cost accounting', () => {
     // Directly constructs a state with Kíli as follower to verify that
     // effectiveStats.mind (raised from 3 to 4 by Arkenstone) is used in DI cost
-    // accounting. The Mouth (DI 4) with Kíli (effective mind 4) as follower
-    // has 0 remaining DI.
+    // accounting. The Mouth (DI 4) with Kíli (effective mind 4) as follower:
+    // the Dwarf-restricted +5 pays for Kíli first, so all 4 unrestricted DI
+    // remain and only 1 of the +5 is left against another Dwarf.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -378,8 +379,10 @@ describe('The Arkenstone (le-418)', () => {
     const state = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, THE_MOUTH, THE_ARKENSTONE));
     const mouthId = findCharInstanceId(state, RESOURCE_PLAYER, THE_MOUTH);
 
-    // Kíli effective mind = 4 (base 3 + 1 from Arkenstone) consumes all 4 DI.
-    expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER])).toBe(0);
+    // Kíli effective mind = 4 (base 3 + 1 from Arkenstone) consumes 4 of the +5.
+    expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER])).toBe(4);
+    const gimliDef = pool[GIMLI as string] as CharacterCard;
+    expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER], gimliDef)).toBe(5);
   });
 
   // ── Effect 4: force-discard-dwarf-at-site ────────────────────────────────

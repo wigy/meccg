@@ -242,11 +242,33 @@ function targetConditionalDIPools(
   for (const effect of collected) {
     bySource.set(effect.sourceInstance, [...(bySource.get(effect.sourceInstance) ?? []), effect]);
   }
-  for (const [sourceInstance, effects] of bySource) {
+  // Allotments that can never help a faction check are listed first, so a
+  // follower is paid for out of them before one that could (Whip le-348's
+  // character-only +2 ahead of Orc Captain le-31's +3 against Orcs *and* Orc
+  // factions) — the player's best choice among restricted pools.
+  const ordered = [...bySource].sort(([, a], [, b]) =>
+    Number(grantsFactionDI(a[0].sourceDef)) - Number(grantsFactionDI(b[0].sourceDef)));
+  for (const [sourceInstance, effects] of ordered) {
     const value = resolveStatModifiers(effects, 'direct-influence', 0, resolverCtx);
     if (value !== 0) pools.set(sourceInstance, value);
   }
   return pools;
+}
+
+/**
+ * Whether any of a card's `direct-influence` modifiers can apply to a faction
+ * influence check (gated on `reason: "faction-influence-check"` or on a
+ * `faction.*` field).
+ */
+function grantsFactionDI(def: CardDefinition | undefined): boolean {
+  const mentionsFaction = (cond: unknown): boolean => {
+    if (Array.isArray(cond)) return cond.some(mentionsFaction);
+    if (!cond || typeof cond !== 'object') return false;
+    return Object.entries(cond).some(([key, value]) =>
+      key.startsWith('faction.') || value === 'faction-influence-check' || mentionsFaction(value));
+  };
+  return getCardEffects(def).some(e =>
+    e.type === 'stat-modifier' && e.stat === 'direct-influence' && mentionsFaction(e.when));
 }
 
 /**
@@ -257,9 +279,15 @@ function targetConditionalDIPools(
  * *restricted* allotments gated on the target — Elf-stone tw-224's "+2 against
  * Elves", Whip le-348's "+2 against one character with a mind and prowess less
  * than the bearer's", Bolg ba-4's Orc bonuses. Each follower is paid for out
- * of unrestricted influence first (CoE 3.14 spends unrestricted influence
- * ahead of restricted influence), and only what is left over draws on the
- * restricted allotments that match *that* follower.
+ * of the restricted allotments that match *that* follower first, and only
+ * what they do not cover is drawn from unrestricted influence. Controlling a
+ * follower is a *use* of influence, not a minus to it: the "unrestricted
+ * first" order of CoE 3.14 / CRF 22 (Influence) governs reductions such as
+ * Shut Yer Mouth le-137, which are already inside `effectiveStats`. Spending
+ * the matching restriction first leaves the most unrestricted influence for
+ * everything else — Radagast bearing Aiglos dm-166 ("+3 direct influence
+ * against Elves") controls Glorfindel II (mind 8) for 5 of his 10
+ * unrestricted points, keeping 5 for a Southrons influence check.
  *
  * Two consequences matter to callers:
  *
@@ -290,26 +318,21 @@ function directInfluenceLedger(
     if (!isCharacterCard(followerDef) || followerDef.mind === null) continue;
 
     let owed = followerControlCost(state, followerChar, followerDef);
-    const fromUnrestricted = Math.min(Math.max(0, unrestricted), owed);
-    unrestricted -= fromUnrestricted;
-    owed -= fromUnrestricted;
-
-    if (owed > 0) {
-      for (const [key, amount] of targetConditionalDIPools(state, controller, followerDef)) {
-        const free = amount - (poolsUsed.get(key) ?? 0);
-        if (free <= 0) continue;
-        const taken = Math.min(free, owed);
-        poolsUsed.set(key, (poolsUsed.get(key) ?? 0) + taken);
-        owed -= taken;
-        if (owed === 0) break;
-      }
+    for (const [key, amount] of targetConditionalDIPools(state, controller, followerDef)) {
+      if (owed <= 0) break;
+      const free = amount - (poolsUsed.get(key) ?? 0);
+      if (free <= 0) continue;
+      const taken = Math.min(free, owed);
+      poolsUsed.set(key, (poolsUsed.get(key) ?? 0) + taken);
+      owed -= taken;
     }
 
-    // Whatever no allotment covers over-extends the controller: it drives his
-    // unrestricted influence negative, which is what the over-extension checks
+    // The rest comes out of unrestricted influence; whatever it cannot cover
+    // over-extends the controller, driving his unrestricted influence
+    // negative, which is what the over-extension checks
     // (`revertOverextendedDirectInfluenceFollowers`) look for.
     unrestricted -= owed;
-    charges.push({ followerId, charge: fromUnrestricted + owed });
+    charges.push({ followerId, charge: owed });
   }
 
   charges.sort((a, b) => b.charge - a.charge);
@@ -415,6 +438,43 @@ export function availableDI(
   }
 
   return baseDI;
+}
+
+/**
+ * How much of the target-conditional `direct-influence` modifiers in `effects`
+ * the controller's followers have already spent (see
+ * {@link DirectInfluenceLedger}). Faction and opponent influence checks add
+ * those modifiers on top of {@link availableDI}; subtracting this keeps an
+ * allotment that is paying for a follower from counting a second time (CoE
+ * 3.14 — restricted direct influence is applied once). Aiglos dm-166's "+3
+ * against Elves and Elf factions" already controlling Glorfindel II adds
+ * nothing more to an Elf-faction check.
+ *
+ * @param effects - the conditional modifiers the caller is about to resolve.
+ * @param context - the resolver context those modifiers were filtered against.
+ */
+export function conditionalDISpentOnFollowers(
+  state: GameState,
+  controllerInstanceId: CardInstanceId,
+  player: { readonly characters: Readonly<Record<string, import('../../index.js').CharacterInPlay>> },
+  effects: readonly import('../effects/resolver.js').CollectedEffect[],
+  context: ResolverContext,
+): number {
+  const controller = player.characters[controllerInstanceId as string];
+  if (!controller || controller.followers.length === 0) return 0;
+  const { poolsUsed } = directInfluenceLedgerFor(state, controller, player);
+  if (poolsUsed.size === 0) return 0;
+  let spent = 0;
+  for (const [sourceInstance, used] of poolsUsed) {
+    const fromSource = effects.filter(e => e.sourceInstance === sourceInstance);
+    if (fromSource.length === 0) continue;
+    const value = resolveStatModifiers(fromSource, 'direct-influence', 0, context);
+    if (value > 0) spent += Math.min(value, used);
+  }
+  if (spent > 0) {
+    logDetail(`  Restricted DI already spent on followers: -${spent}`);
+  }
+  return spent;
 }
 
 /**

@@ -22,7 +22,7 @@ import { allyEffectiveMind } from './ally-stats.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { matchesContext } from '../effects/index.js';
 import { initiateChain } from './chain-reducer.js';
-import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
+import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI } from './legal-actions/organization.js';
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
@@ -4071,7 +4071,10 @@ export function resolveInfluenceAttemptRoll(
       ...checkConditionalEffects(ownEffects),
       ...charEffects.slice(ownEffects.length),
     ];
-    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
+    const dslDI = nullifyMods
+      ? 0
+      : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx)
+        - conditionalDISpentOnFollowers(state, charId, player, diEffects, resolverCtx);
     if (dslDI !== 0) {
       logDetail(`DSL direct-influence modifiers: ${formatSignedNumber(dslDI)}`);
     }
@@ -4724,7 +4727,8 @@ function handleOpponentInfluenceAttempt(
   const conditionalInfluencerEffects = nullifyMods
     ? []
     : checkConditionalEffects(collectCharacterEffects(state, charInPlay, oppInfluenceCtx));
-  const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx);
+  const conditionalInfluencerDI = resolveStatModifiers(conditionalInfluencerEffects, 'direct-influence', 0, oppInfluenceCtx)
+    - conditionalDISpentOnFollowers(state, charId, player, conditionalInfluencerEffects, oppInfluenceCtx);
   if (conditionalInfluencerDI !== 0) {
     influencerContribution += conditionalInfluencerDI;
     logDetail(`Opponent influence: conditional influencer DI ${formatSignedNumber(conditionalInfluencerDI)} (target ${action.targetKind}) → contribution ${influencerContribution}`);
