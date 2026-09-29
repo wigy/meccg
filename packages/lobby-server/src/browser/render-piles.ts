@@ -4,7 +4,8 @@
  * Renders deck piles (play deck, site deck, sideboard, discard, victory display)
  * for both players, and provides the pile browser modal for browsing card lists.
  * Also handles the interactive site selection, fetch-from-pile,
- * reveal-remove-from-discard, and arrange-deck-top sub-flows.
+ * reveal-remove-from-discard, arrange-deck-top, and rearrange-defender-deck
+ * sub-flows.
  */
 
 import type { PlayerView, CardDefinition, CardInstanceId, GameAction, EvaluatedAction, ViewCard, PlayHeroResourceAction, ActivateGrantedAction } from '@meccg/shared';
@@ -14,6 +15,7 @@ import { setSelectedAllyForPlay, setTargetingInstruction, getTargetingInstructio
 import { reRenderAllyPlaySelection } from './render-hand.js';
 import { getGrantedActions } from './company-actions.js';
 import { showInPlayGrantedActionMenu } from './company-modals.js';
+import { showTooltipMenu } from './tooltip-menu.js';
 
 // ---- Deck pile rendering ----
 
@@ -235,6 +237,28 @@ let siteSelectionInPlayInstanceIds: ReadonlySet<string> = new Set();
 let arrangeDeckTopBrowserOpened = false;
 
 /**
+ * Same as {@link arrangeDeckTopBrowserOpened}, for the rearrange-defender-deck
+ * sub-flow (Goblin-faces, wh-13): once the attacker has placed a card, the
+ * browser is re-populated with the remaining looked-at cards on every state
+ * update instead of closing after each placement.
+ */
+let rearrangeDefenderDeckBrowserOpened = false;
+
+/**
+ * Instance ids of the defender's looked-at play-deck cards while the
+ * rearrange-defender-deck sub-flow is active, or `null` otherwise. While set,
+ * the `opponent-deck-pile` click handler shows only these cards instead of the
+ * whole (otherwise face-down) opponent play deck.
+ */
+let rearrangeDefenderDeckIds: ReadonlySet<string> | null = null;
+
+/** The opponent play-deck cards the rearrange-defender-deck sub-flow still has to place. */
+function rearrangeDefenderDeckCards(): readonly ViewCard[] {
+  const ids = rearrangeDefenderDeckIds;
+  return ids ? cachedOppPlayDeck.filter(c => ids.has(c.instanceId as string)) : cachedOppPlayDeck;
+}
+
+/**
  * Open the pile browser modal showing a list of cards (known or unknown).
  * Used by site deck, sideboard, and victory display piles.
  */
@@ -342,6 +366,30 @@ function populateBrowserGrid(): void {
         if (siteSelectionCallback) {
           const action = ea.action;
           img.addEventListener('click', () => {
+            if (action.type === 'rearrange-defender-deck-card') {
+              // Goblin-faces (wh-13): each looked-at card goes to either the
+              // top or the bottom of the defender's deck — ask which. Like
+              // arrange-deck-top this is a mandatory multi-step flow, so the
+              // browser stays open and is refreshed by
+              // prepareRearrangeDefenderDeck() after every placement.
+              const choices = siteSelectionActions.filter(
+                other => other.viable && other.action.type === 'rearrange-defender-deck-card'
+                  && other.action.cardInstanceId === card.instanceId,
+              );
+              const callback = siteSelectionCallback!;
+              showTooltipMenu(img, choices.map(choice => ({
+                label: (choice.action as { destination: string }).destination === 'bottom'
+                  ? 'Place on the bottom of the deck'
+                  : 'Place on top of the deck',
+                onClick: () => {
+                  callback(choice.action);
+                  rearrangeDefenderDeckBrowserOpened = true;
+                  img.classList.remove('site-selectable');
+                  img.classList.add('site-dimmed');
+                },
+              })));
+              return;
+            }
             siteSelectionCallback!(action);
             if (action.type === 'arrange-deck-top-card') {
               // Mandatory multi-step ordering, no pass path -- leave the
@@ -587,7 +635,7 @@ function installPileBrowserClickHandlers(): void {
   wirePile('opponent-sideboard-pile', 'Sideboard', () => cachedOppSideboard);
   wirePile('opponent-discard-pile', 'Discard Pile', () =>
     revealRemoveDiscardFilterActive ? cachedOppDiscard.filter(c => !isCardHidden(c.definitionId)) : cachedOppDiscard);
-  wirePile('opponent-deck-pile', 'Play Deck', () => cachedOppPlayDeck);
+  wirePile('opponent-deck-pile', 'Play Deck', rearrangeDefenderDeckCards);
   wirePile('opponent-site-pile', 'Site Deck', () => cachedOppSiteDeck, '/images/site-back.jpg');
 }
 
@@ -891,7 +939,46 @@ export function prepareChooseRevealedCard(
   siteSelectionCallback = onAction;
 }
 
-/** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard, arrange-deck-top, reveal-choose-to-hand) is active (pile highlights should persist). */
+/**
+ * Prepare the rearrange-defender-deck sub-flow UI (Goblin-faces, wh-13):
+ * after the attack the attacker looks at the top cards of the defender's play
+ * deck and places each on its top or bottom. Highlights the opponent's play
+ * deck pile and wires up the pile browser so it shows just the looked-at
+ * cards face up; clicking one offers the top/bottom choice, which sends the
+ * corresponding `rearrange-defender-deck-card` action. Mandatory, no pass.
+ */
+export function prepareRearrangeDefenderDeck(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): void {
+  const rearrangeActions = view.legalActions.filter(ea => ea.viable && ea.action.type === 'rearrange-defender-deck-card');
+  if (rearrangeActions.length === 0) return;
+
+  cachedCardPool = cardPool;
+  cachedOppPlayDeck = view.opponent.playDeck;
+
+  document.getElementById('opponent-deck-box')?.classList.remove('deck-box--compact');
+  document.getElementById('opponent-deck-pile')?.classList.add('pile--fetch-active');
+
+  pileSubFlowActive = true;
+  rearrangeDefenderDeckIds = new Set(rearrangeActions.map(ea => (ea.action as { cardInstanceId: string }).cardInstanceId));
+  siteSelectionActions = rearrangeActions;
+  siteSelectionMatcher = (card) => rearrangeActions.find(
+    ea => ea.action.type === 'rearrange-defender-deck-card'
+      && ea.action.cardInstanceId === card.instanceId,
+  );
+  siteSelectionCallback = onAction;
+
+  if (rearrangeDefenderDeckBrowserOpened) {
+    cachedBrowserCards = rearrangeDefenderDeckCards();
+    cachedBrowserTitle = 'Play Deck';
+    cachedBrowserBackImage = '/images/card-back.jpg';
+    populateBrowserGrid();
+  }
+}
+
+/** Whether a pile sub-flow (fetch-from-pile, reveal-remove-from-discard, arrange-deck-top, rearrange-defender-deck, reveal-choose-to-hand) is active (pile highlights should persist). */
 let pileSubFlowActive = false;
 
 /** Close the pile browser and clear selection state. */
@@ -918,6 +1005,8 @@ export function clearSelectionState(): void {
   pileSubFlowActive = false;
   revealRemoveDiscardFilterActive = false;
   arrangeDeckTopBrowserOpened = false;
+  rearrangeDefenderDeckBrowserOpened = false;
+  rearrangeDefenderDeckIds = null;
   // Only clear the fetch-from-pile hint, never some other flow's hint that
   // may have been set since (e.g. the Hidden Haven / arrange-deck-top hints
   // manage their own lifecycle in game-connection.ts).
@@ -929,6 +1018,7 @@ export function clearSelectionState(): void {
   document.getElementById('self-sideboard-pile')?.classList.remove('pile--fetch-active');
   document.getElementById('self-discard-pile')?.classList.remove('pile--fetch-active');
   document.getElementById('opponent-discard-pile')?.classList.remove('pile--fetch-active');
+  document.getElementById('opponent-deck-pile')?.classList.remove('pile--fetch-active');
   document.getElementById('self-deck-pile')?.classList.remove('pile--fetch-active');
 }
 
