@@ -42,7 +42,7 @@ import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { characterPossessions, constraintFromCard, scopesMatch } from '../pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, resolveAutoInfluenceFaction, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
-import { buildPlayOptionContext, availableDI, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
+import { buildPlayOptionContext, availableDI, conditionalDISpentOnFollowers, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -616,7 +616,10 @@ export function computeFactionInfluenceRollAction(
       ...checkConditionalEffects(ownEffects),
       ...charEffects.slice(ownEffects.length),
     ];
-    const dslDI = nullifyMods ? 0 : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
+    const dslDI = nullifyMods
+      ? 0
+      : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx)
+        - conditionalDISpentOnFollowers(state, influencingCharacterId, player, diEffects, resolverCtx);
     if (dslDI !== 0) {
       modifier += dslDI;
       parts.push(`DI mod ${formatSignedNumber(dslDI)}`);

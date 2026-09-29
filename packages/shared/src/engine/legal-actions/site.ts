@@ -26,7 +26,7 @@ import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEff
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
-import { availableDI, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
+import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
@@ -2858,7 +2858,8 @@ export function playResourcesActions(
           ];
           const dslDI = nullifyMods
             ? 0
-            : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx);
+            : resolveStatModifiers(diEffects, 'direct-influence', 0, resolverCtx)
+              - conditionalDISpentOnFollowers(state, ch.instanceId, player, diEffects, resolverCtx);
           if (dslDI !== 0) {
             infModifier += dslDI;
             infParts.push(`DI bonus ${formatSignedNumber(dslDI)}`);
@@ -3546,7 +3547,8 @@ function opponentInfluenceActions(
     if (!target || !fullChar) return base;
     const ctx: ResolverContext = { reason: 'opponent-influence-check', target };
     const conditional = checkConditionalEffects(collectCharacterEffects(state, fullChar, ctx));
-    return base + resolveStatModifiers(conditional, 'direct-influence', 0, ctx);
+    return base + resolveStatModifiers(conditional, 'direct-influence', 0, ctx)
+      - conditionalDISpentOnFollowers(state, charInstanceId, ownerPlayer, conditional, ctx);
   };
   const nullifySuffix = nullifyMods ? ', all other modifications nullified' : '';
 

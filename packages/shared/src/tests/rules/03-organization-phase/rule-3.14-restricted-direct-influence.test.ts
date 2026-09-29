@@ -15,12 +15,12 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase } from '../../../index.js';
-import type { CardDefinitionId, CardInstanceId } from '../../../index.js';
+import type { CardDefinitionId, CardInstanceId, CharacterCard } from '../../../index.js';
 import {
   buildTestState, resetMint, viableActions, findCharInstanceId,
   attachHazardToChar, recomputeDerived, getCharacter,
-  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
-  FARAMIR, BEREGOND, LEGOLAS,
+  pool, PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  FARAMIR, BEREGOND, LEGOLAS, GLORFINDEL_II,
   RIVENDELL, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import { availableDI } from '../../../engine/legal-actions/organization.js';
@@ -38,6 +38,8 @@ const ELF_STONE = 'tw-224' as CardDefinitionId;
 const SHUT_YER_MOUTH = 'le-137' as CardDefinitionId;
 const HALDIR = 'tw-164' as CardDefinitionId;
 const OROPHIN = 'tw-174' as CardDefinitionId;
+const RADAGAST = 'tw-178' as CardDefinitionId;
+const AIGLOS = 'dm-166' as CardDefinitionId;
 
 describe('Rule 3.14 — Restricted Direct Influence', () => {
   beforeEach(() => resetMint());
@@ -195,6 +197,40 @@ describe('Rule 3.14 — Restricted Direct Influence', () => {
       .map(a => a.characterInstanceId);
     expect(underFaramir).toContain(orophinId);      // 0 unrestricted + 2 restricted ≥ mind 2
     expect(underFaramir).not.toContain(beregondId); // non-elf: 0 < mind 2
+  });
+
+  test('a follower is paid for out of matching restricted DI before unrestricted DI', () => {
+    // Bug report (game mumk2rk9-dssz3p): Radagast (warrior, DI 10) bears
+    // Aiglos ("+3 direct influence against Elves and Elf factions") and
+    // controls Glorfindel II (Elf, mind 8). The Elf-restricted +3 pays for
+    // part of Glorfindel II, so Radagast keeps 10 − (8 − 3) = 5 unrestricted
+    // DI for a Southrons (Men) influence check — not 10 − 8 = 2, which
+    // strands the +3 where no Man faction can ever use it.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: RIVENDELL,
+            characters: [
+              { defId: RADAGAST, items: [AIGLOS] },
+              { defId: GLORFINDEL_II, followerOf: 0 },
+            ],
+          }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const radagastId = findCharInstanceId(state, RESOURCE_PLAYER, RADAGAST);
+    expect(availableDI(state, radagastId, state.players[RESOURCE_PLAYER])).toBe(5);
+    // The +3 is spent on Glorfindel II, so another Elf sees no extra: 5, not 8.
+    const orophinDef = pool[OROPHIN as string] as CharacterCard;
+    expect(availableDI(state, radagastId, state.players[RESOURCE_PLAYER], orophinDef)).toBe(5);
   });
 
   // "If there are multiple instances of restricted direct influence in
