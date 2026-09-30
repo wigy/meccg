@@ -12,7 +12,8 @@
  * Effects (data):
  *   - auto-attack-boost (siteTypes ruins-and-lairs, prowessBonus 3,
  *       uncancelable false): a hazard short-event played in M/H on a company
- *       moving to a Ruins & Lairs. On resolution it installs a single-use
+ *       whose new site (or current site, if not moving) is a Ruins & Lairs.
+ *       On resolution it installs a single-use
  *       `auto-attack-boost` constraint against the moving company (scope
  *       company-site-phase, keyed to the destination site). The first
  *       automatic-attack the company faces at the site gets +3 prowess —
@@ -28,13 +29,14 @@
  * |---|----------------------------------------------------------------|--------|
  * | 1 | Playable on a company moving to a Ruins & Lairs                | OK     |
  * | 2 | NOT playable moving to another site type (shadow-hold)         | OK     |
- * | 3 | NOT playable on a stationary company                           | OK     |
+ * | 3 | Playable on a stationary company at a matching site (2.IV.vii.3)| OK     |
  * | 4 | Resolution installs the auto-attack-boost constraint           | OK     |
  * | 5 | One automatic-attack at the site gains +3 prowess              | OK     |
  * | 6 | That automatic-attack remains cancelable (no uncancelable)     | OK     |
  * | 7 | Only ONE attack is boosted (constraint consumed once)          | OK     |
  * | 8 | Cannot be duplicated on a given site                           | OK     |
  * | 9 | A copy IS still playable against a different site              | OK     |
+ * | 10| NOT playable on a stationary company at another site type      | OK     |
  *
  * Player-index convention: the moving (resource) hero company is P1 /
  * RESOURCE_PLAYER; the Neutral hazard short-event sits in the hazard player's
@@ -93,7 +95,7 @@ describe('Arouse Denizens (le-102)', () => {
     expect(arouseActions(state)).toHaveLength(0);
   });
 
-  test('NOT offered against a stationary company at a Ruins & Lairs', () => {
+  test('offered against a stationary company at a Ruins & Lairs (target = current site, CoE 2.IV.vii.3)', () => {
     const state = {
       ...buildTestState({
         activePlayer: PLAYER_1,
@@ -105,6 +107,21 @@ describe('Arouse Denizens (le-102)', () => {
         ],
       }),
       phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName: 'Bandit Lair' }),
+    };
+    expect(arouseActions(state)).toHaveLength(1);
+  });
+
+  test('NOT offered against a stationary company at a Shadow-hold (Moria)', () => {
+    const state = {
+      ...buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [BANDIT_LAIR] },
+          { id: PLAYER_2, companies: [{ site: BANDIT_LAIR, characters: [LEGOLAS] }], hand: [AROUSE_DENIZENS], siteDeck: [MORIA] },
+        ],
+      }),
+      phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName: 'Moria' }),
     };
     expect(arouseActions(state)).toHaveLength(0);
   });

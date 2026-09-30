@@ -26,7 +26,7 @@
  * | 1 | Playable on a company moving to a Free-hold                     | OK     |
  * | 2 | Playable on a company moving to a Border-hold                   | OK     |
  * | 3 | NOT playable moving to another site type (shadow-hold)         | OK     |
- * | 4 | NOT playable on a stationary company                           | OK     |
+ * | 4 | Playable on a stationary company at a matching site (2.IV.vii.3)| OK     |
  * | 5 | Resolution installs the auto-attack-boost constraint           | OK     |
  * | 6 | One automatic-attack at the site gains +2 prowess              | OK     |
  * | 7 | That automatic-attack cannot be canceled                       | OK     |
@@ -97,7 +97,7 @@ describe('Arouse Defenders (le-101)', () => {
     expect(arouseActions(state)).toHaveLength(0);
   });
 
-  test('NOT offered against a stationary company at a Free-hold', () => {
+  test('offered against a stationary company at a Free-hold (target = current site, CoE 2.IV.vii.3)', () => {
     const state = {
       ...buildTestState({
         activePlayer: PLAYER_1,
@@ -110,7 +110,7 @@ describe('Arouse Defenders (le-101)', () => {
       }),
       phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4, destinationSiteName: 'Minas Tirith' }),
     };
-    expect(arouseActions(state)).toHaveLength(0);
+    expect(arouseActions(state)).toHaveLength(1);
   });
 
   // ─── Resolution installs the boost constraint ──────────────────────────────
