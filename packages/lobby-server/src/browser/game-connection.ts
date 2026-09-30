@@ -15,7 +15,7 @@ import {
 } from './app-state.js';
 import { clearGameSession, clearPlayerName, saveGameSession } from './session.js';
 import { connectPseudoAi } from './pseudo-ai.js';
-import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, prepareChooseRevealedCard, prepareRearrangeDefenderDeck, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
+import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCouncilInfo, renderGameOverView, renderActions, renderLog, renderHand, renderOpponentHand, renderPlayerNames, renderPhaseMeter, renderDrafted, renderPassButton, renderDeckPiles, resetDeckPiles, showNotification, prepareSiteSelection, prepareFetchFromPile, prepareEmptyFetchNotice, prepareRevealRemoveFromDiscard, prepareArrangeDeckTop, prepareChooseRevealedCard, prepareRearrangeDefenderDeck, clearSelectionState, setTargetingInstruction, getTargetingInstruction, renderChainPanel, clearGameMessageLog } from './render.js';
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { clearTutorialPanel, renderTutorialPanel, setExitTutorial } from './tutorial-panel.js';
 import { renderEarlyCouncil } from './early-council.js';
@@ -596,6 +596,8 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
     setTargetingInstruction(HIDDEN_HAVEN_PAIR_HINT);
   } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) {
     prepareFetchFromPile(msg.view, cardPool, sendAction);
+  } else if (prepareEmptyFetchNotice(msg.view)) {
+    // Fetch effect with nothing eligible — only the notice, no pile sub-flow.
   } else if (msg.view.legalActions.some(ea => ea.viable && ea.action.type === 'remove-revealed-card')) {
     prepareRevealRemoveFromDiscard(msg.view, cardPool, sendAction);
   } else if (arrangingDeckTop) {

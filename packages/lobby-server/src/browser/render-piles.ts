@@ -762,6 +762,37 @@ export function openMovementViewer(
 export const FETCH_FROM_PILE_HINT = 'Click a highlighted pile to take a card, or Pass to decline';
 
 /**
+ * Targeting instruction shown when a fetch-to-deck pending effect is waiting
+ * on this player but no card in the searched piles qualifies (see
+ * {@link prepareEmptyFetchNotice}). Cleared by {@link clearSelectionState}
+ * under the same lifecycle as {@link FETCH_FROM_PILE_HINT}.
+ */
+export const FETCH_FROM_PILE_EMPTY_HINT = 'Search found no eligible card — Pass to continue';
+
+/**
+ * Explain a fruitless search. When the top pending effect is a fetch-to-deck
+ * (Mistress Lobelia dm-178, Strider, Smoke Rings, …) and this player may only
+ * pass because nothing in the searched piles matches, the engine offers a
+ * lone Pass with no fetch-from-pile actions, so {@link prepareFetchFromPile}
+ * does nothing and the ability looks like it silently failed to resolve.
+ * Reported: "In the event that a card search type ability like Mistress
+ * Lobelia fails because there is no eligible card to be found, there should
+ * be a message indicating this result to the player."
+ *
+ * @returns Whether the empty-search notice was shown.
+ */
+export function prepareEmptyFetchNotice(view: PlayerView): boolean {
+  const top = view.pendingEffects?.[0];
+  if (top?.type !== 'card-effect' || top.effect.type !== 'fetch-to-deck') return false;
+  if ((top.actor ?? view.activePlayer) !== view.self.id) return false;
+  if (view.legalActions.some(ea => ea.viable && ea.action.type === 'fetch-from-pile')) return false;
+  if (!view.legalActions.some(ea => ea.viable && ea.action.type === 'pass')) return false;
+  clearSelectionState();
+  setTargetingInstruction(FETCH_FROM_PILE_EMPTY_HINT);
+  return true;
+}
+
+/**
  * Prepare the fetch-from-pile sub-flow UI.
  *
  * Opens the deck box, highlights the sideboard, discard, and play deck pile
@@ -1010,7 +1041,8 @@ export function clearSelectionState(): void {
   // Only clear the fetch-from-pile hint, never some other flow's hint that
   // may have been set since (e.g. the Hidden Haven / arrange-deck-top hints
   // manage their own lifecycle in game-connection.ts).
-  if (getTargetingInstruction() === FETCH_FROM_PILE_HINT) {
+  const hint = getTargetingInstruction();
+  if (hint === FETCH_FROM_PILE_HINT || hint === FETCH_FROM_PILE_EMPTY_HINT) {
     setTargetingInstruction(null);
   }
   const pile = document.getElementById('self-site-pile');
