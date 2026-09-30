@@ -875,24 +875,32 @@ export function matchesDefinition(def: CardDefinition, condition: Condition): bo
 }
 
 /**
- * Like {@link matchesDefinition}, but for Fallen-wizard players also matches
- * a definition whose `cardType` carries the *opposite* alignment prefix
- * (`hero-` ↔ `minion-`). CoE 1.3.F1/F4 let a Fallen-wizard's deck (and thus
- * their own sideboard/discard pile) legitimately hold both hero-typed and
- * minion-typed resource/character cards, but per-card "retrieve a resource
- * or character from your sideboard or discard pile" filters (Smoke Rings
- * dm-159, Weigh All Things to a Nicety le-253, …) are written with a single
- * alignment's `cardType` list because a Wizard's or Ringwraith's own piles
- * never hold the other side's cards. Without this, those filters wrongly
- * decline half of a Fallen-wizard's own retrievable pool.
+ * Like {@link matchesDefinition}, but also matches a definition whose
+ * `cardType` carries the *opposite* alignment prefix (`hero-` ↔ `minion-`)
+ * in two cases:
+ *
+ * - **Fallen-wizard players.** CoE 1.3.F1/F4 let a Fallen-wizard's deck (and
+ *   thus their own sideboard/discard pile) legitimately hold both hero-typed
+ *   and minion-typed resource/character cards, but per-card "retrieve a
+ *   resource or character from your sideboard or discard pile" filters
+ *   (Smoke Rings dm-159, Weigh All Things to a Nicety le-253, …) are written
+ *   with a single alignment's `cardType` list because a Wizard's or
+ *   Ringwraith's own piles never hold the other side's cards. Without this,
+ *   those filters wrongly decline half of a Fallen-wizard's own retrievable pool.
+ * - **Dual-alignment cards** (`alignment: "dual"` — Beasts of the Wood wh-38,
+ *   Wild Hounds wh-40, Tidings of Death le-245, Deadly Dart le-419). These are
+ *   usable by either side, so a hero fetch filter (Smoke Rings, Longbottom
+ *   Leaf ba-30) must accept a dual `minion-resource-faction` as if it were
+ *   the matching `hero-resource-faction`, for any player alignment.
  */
-export function matchesDefinitionAcrossFallenWizardAlignment(
+export function matchesDefinitionAcrossAlignment(
   def: CardDefinition,
   condition: Condition,
   playerAlignment: Alignment,
 ): boolean {
   if (matchesDefinition(def, condition)) return true;
-  if (playerAlignment !== Alignment.FallenWizard) return false;
+  const isDual = (def as { alignment?: string }).alignment === 'dual';
+  if (playerAlignment !== Alignment.FallenWizard && !isDual) return false;
   const cardType = (def as { cardType?: string }).cardType;
   const flippedCardType = cardType?.startsWith('hero-') ? cardType.replace('hero-', 'minion-')
     : cardType?.startsWith('minion-') ? cardType.replace('minion-', 'hero-')
@@ -7683,7 +7691,7 @@ export function handleFetchFromPile(state: GameState, action: GameAction): Reduc
   const def = state.cardPool[fetchedCard.definitionId];
 
   // Validate card matches filter condition
-  if (!def || !matchesDefinitionAcrossFallenWizardAlignment(def, current.effect.filter, player.alignment)) {
+  if (!def || !matchesDefinitionAcrossAlignment(def, current.effect.filter, player.alignment)) {
     return { state, error: 'Card does not match fetch filter' };
   }
 

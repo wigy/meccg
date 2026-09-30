@@ -30,6 +30,12 @@ import type { CardDefinitionId, FetchFromPileAction } from '../../index.js';
 
 const LONGBOTTOM_LEAF = 'ba-30' as CardDefinitionId;
 
+// Dual-alignment factions (`cardType: "minion-resource-faction"`,
+// `alignment: "dual"`) — usable by either side, so a hero fetch filter must
+// accept them.
+const BEASTS_OF_THE_WOOD = 'wh-38' as CardDefinitionId;
+const WILD_HOUNDS = 'wh-40' as CardDefinitionId;
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Longbottom Leaf (ba-30)', () => {
@@ -264,5 +270,38 @@ describe('Longbottom Leaf (ba-30)', () => {
     expect(viableActions(afterSubflowPass, PLAYER_1, 'pass')).toHaveLength(1);
     const afterPhasePass = dispatch(afterSubflowPass, { type: 'pass', player: PLAYER_1 });
     expect(afterPhasePass.phaseState.phase).toBe(Phase.MovementHazard);
+  });
+  // Feature request 743ac198cb83f81e: a hero player could not fetch Wild
+  // Hounds from their sideboard with Longbottom Leaf because the filter only
+  // lists hero-* cardTypes and Wild Hounds is typed minion-resource-faction.
+  // Being dual-alignment, it is a legal resource for a hero player.
+  test('a Wizard can fetch dual-alignment factions (Wild Hounds, Beasts of the Wood) alongside a hero resource', () => {
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [LONGBOTTOM_LEAF], siteDeck: [MORIA], sideboard: [WILD_HOUNDS, GLAMDRING, BEASTS_OF_THE_WOOD] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const leafId = handCardId(state, RESOURCE_PLAYER);
+    const [houndsId, glamdringId, beastsId] = state.players[0].sideboard.map(c => c.instanceId);
+
+    const afterPlay = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: leafId }));
+
+    // All three sideboard cards — both dual factions and the hero item — are offered.
+    const offered = viableActions(afterPlay, PLAYER_1, 'fetch-from-pile')
+      .map(ea => actionAs<FetchFromPileAction>(ea.action).cardInstanceId);
+    expect(offered).toEqual(expect.arrayContaining([houndsId, glamdringId, beastsId]));
+    expect(offered).toHaveLength(3);
+
+    const afterFirst = dispatch(afterPlay, { type: 'fetch-from-pile', player: PLAYER_1, cardInstanceId: houndsId, source: 'sideboard' });
+    const afterSecond = dispatch(afterFirst, { type: 'fetch-from-pile', player: PLAYER_1, cardInstanceId: glamdringId, source: 'sideboard' });
+
+    expect(afterSecond.players[0].playDeck.map(c => c.instanceId)).toEqual(expect.arrayContaining([houndsId, glamdringId]));
+    expect(afterSecond.players[0].sideboard.map(c => c.instanceId)).toEqual([beastsId]);
+    expect(afterSecond.pendingEffects).toHaveLength(0);
+    expect(afterSecond.players[0].outOfPlayPile.map(c => c.instanceId)).toContain(leafId);
   });
 });
