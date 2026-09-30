@@ -1953,9 +1953,31 @@ export function companySkipsSiteOnGuardCards(state: GameState, company: Company)
     const hasTrigger = getCardEffects(def).some(
       e => e.type === 'on-guard-reveal' && e.trigger === 'company-skips-site',
     );
-    if (hasTrigger) eligible.push(ogCard);
+    if (hasTrigger && !onGuardEventDuplicationBlocked(state, def)) eligible.push(ogCard);
   }
   return eligible;
+}
+
+/**
+ * True when revealing an on-guard hazard event would put a copy into play
+ * that its own copy restrictions forbid. Revealing is playing the card
+ * (CoE 2.V.i "reveal and play", 2.V.6), so a unique event already in play,
+ * or a game-scoped `duplication-limit` ("Cannot be duplicated", e.g. Rank
+ * upon Rank dm-80) already met by copies in play or declared on the chain,
+ * makes the on-guard copy unrevealable.
+ */
+export function onGuardEventDuplicationBlocked(state: GameState, def: CardDefinition): boolean {
+  const copies = countCopiesInPlay(state, def.name) + countCopiesDeclaredInChain(state, def.name);
+  if ((def as { unique?: boolean }).unique && copies > 0) {
+    logDetail(`On-guard event "${def.name}" is unique and already in play — not revealable`);
+    return true;
+  }
+  const gameLimit = findDuplicationLimitEffect(def, 'game');
+  if (gameLimit && copies >= gameLimit.max) {
+    logDetail(`On-guard event "${def.name}" cannot be duplicated (${copies}/${gameLimit.max} in play) — not revealable`);
+    return true;
+  }
+  return false;
 }
 
 export function unrevealedOnGuardDiscarded(state: GameState): boolean {

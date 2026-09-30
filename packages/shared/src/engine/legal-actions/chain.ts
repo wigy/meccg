@@ -23,7 +23,7 @@ import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { cardStatusToName } from '../../types/common.js';
 import { logDetail } from './log.js';
-import { playerById, getCardEffects, defById, companyById, pendingChainCards, countUnresolvedChainHazards, mostRecentUnresolvedHazardTargetsCompany } from '../reducer-utils.js';
+import { playerById, getCardEffects, defById, companyById, pendingChainCards, countUnresolvedChainHazards, mostRecentUnresolvedHazardTargetsCompany , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
 import { companyContainsBalrogAvatar } from '../../state-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
@@ -806,6 +806,7 @@ function onGuardRevealChainActions(state: GameState, playerId: PlayerId): Evalua
       logDetail(`Chain on-guard reveal: "${def.name}" skipped — no influence-attempt trigger`);
       continue;
     }
+    if (onGuardEventDuplicationBlocked(state, def)) continue;
 
     // Character-targeting events get one action per character
     const isCharTargeting = getCardEffects(def).some(

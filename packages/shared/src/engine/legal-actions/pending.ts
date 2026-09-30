@@ -46,7 +46,7 @@ import { buildPlayOptionContext, availableDI, conditionalDISpentOnFollowers, nor
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint } from '../reducer-utils.js';
+import { cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -311,6 +311,7 @@ export function onGuardWindowActions(
         return false;
       });
       if (!matchesDeferred) continue;
+      if (onGuardEventDuplicationBlocked(state, def)) continue;
 
       // play-target DSL: character-targeting events get one action per character
       const playTarget = ogEffects.find((e): e is PlayTargetEffect => e.type === 'play-target');
