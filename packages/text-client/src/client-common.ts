@@ -148,7 +148,9 @@ export function spawnedJoinPayload(clientArgs: SpawnedClientArgs, logPrefix: str
   }
   // Both spawned clients (headless AI, pseudo-AI relay) are AI-controlled
   // seats; the interactive console client builds its join elsewhere.
-  const msg: ClientMessage = { ...joinMsg, ai: true, token: clientArgs.token } as ClientMessage;
+  const msg: ClientMessage = {
+    ...joinMsg, ai: true, ...(clientArgs.agentSpec ? { agent: clientArgs.agentSpec } : {}), token: clientArgs.token,
+  } as ClientMessage;
   return JSON.stringify(msg);
 }
 

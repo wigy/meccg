@@ -38,6 +38,11 @@ export interface CompletedGamePlayer {
   readonly name: string;
   /** False when the seat was played by an AI client. */
   readonly human: boolean;
+  /**
+   * The sim agent spec an AI seat played (e.g. `h2:all/cyclingCombatCap=3`),
+   * null for a human or an AI that did not report one.
+   */
+  readonly agent: string | null;
   readonly alignment: Alignment;
   /**
    * The player's avatar by name — a Wizard, a Ringwraith, a fallen Istar, or
@@ -118,6 +123,7 @@ export function buildCompletedGameRecord(
   deckInfo: Readonly<Record<string, PlayerDeckInfo>>,
   aiPlayers: ReadonlySet<string>,
   endedAt: Date,
+  aiAgents: Readonly<Record<string, string>> = {},
 ): CompletedGameRecord {
   const phaseState = state.phaseState;
   if (phaseState.phase !== Phase.GameOver) {
@@ -134,6 +140,7 @@ export function buildCompletedGameRecord(
       playerId: player.id,
       name: player.name,
       human: !aiPlayers.has(player.name.toLowerCase()),
+      agent: aiAgents[player.name.toLowerCase()] ?? null,
       alignment: player.alignment,
       avatar: avatarName(state, player),
       deck: deckInfo[player.name.toLowerCase()] ?? NO_DECK,
