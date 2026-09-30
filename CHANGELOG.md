@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.179.0 — 2026-09-30
+
+Arouse Hazards Reach Resting Companies
+
+### Game Engine
+
+- Arouse Denizens and Arouse Defenders can be played on a non-moving company's current site when it is of the required type (CoE 2.IV.vii.3), e.g. a company staying at The Pûkel-deeps (#3246)
+
+### Web Client
+
+- A card search (e.g. Mistress Lobelia) that finds no eligible card shows a "Search found no eligible card — Pass to continue" notice instead of silently offering only Pass (#3245)
+
+### Documentation
+
+- Rules test README lists the new engine tests (bearer-cannot-untap source gone, removed follower leaves controller, early council by agreement)
+
 ## 0.178.0 — 2026-09-29
 
 Modular AI Cycles Like Strong Players

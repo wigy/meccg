@@ -12,7 +12,7 @@
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 00 | [Engine](00-engine/) | 14 | 14 | 100.0% |
+| 00 | [Engine](00-engine/) | 17 | 17 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 62 | 61 | 98.4% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
@@ -33,6 +33,7 @@
 |:-----|:--------|:-----|:------:|
 | — | Engine | [Action Description No Codes](00-engine/action-description-no-codes.test.ts) | ☑ |
 | — | Engine | [Active Constraints](00-engine/active-constraints.test.ts) | ☑ |
+| — | Engine | [Bearer Cannot Untap Source Gone](00-engine/bearer-cannot-untap-source-gone.test.ts) | ☑ |
 | — | Engine | [Card Image Urls](00-engine/card-image-urls.test.ts) | ☑ |
 | — | Engine | [Cleanup Empty Company Destination Site](00-engine/cleanup-empty-company-destination-site.test.ts) | ☑ |
 | — | Engine | [Cleanup Empty Company Stale Constraints](00-engine/cleanup-empty-company-stale-constraints.test.ts) | ☑ |
@@ -42,8 +43,10 @@
 | — | Engine | [Ordered Decks](00-engine/ordered-decks.test.ts) | ☑ |
 | — | Engine | [Pending Resolutions](00-engine/pending-resolutions.test.ts) | ☑ |
 | — | Engine | [Race Vocabulary](00-engine/race-vocabulary.test.ts) | ☑ |
+| — | Engine | [Removed Follower Leaves Controller](00-engine/removed-follower-leaves-controller.test.ts) | ☑ |
 | — | Engine | [Site Dissolved Company Exit](00-engine/site-dissolved-company-exit.test.ts) | ☑ |
 | — | Engine | [Concede](concede.test.ts) | ☑ |
+| — | Engine | [Early Council By Agreement](early-council-by-agreement.test.ts) | ☑ |
 | — | Engine | [Move Primitive](move-primitive.test.ts) | ☑ |
 | — | Deck Construction & Setup | [Challenge Deck S Beornings](01-deck-construction/challenge-deck-s-beornings.test.ts) | ☑ |
 | — | Deck Construction & Setup | [Challenge Decks Valid](01-deck-construction/challenge-decks-valid.test.ts) | ☑ |
