@@ -20,9 +20,11 @@ import type {
   GameAction,
   CardDefinition,
   CompanyId,
+  CorruptionCheckAction,
 } from '@meccg/shared';
 import { Phase, viableActions, buildInstanceLookup, isCharacterCard } from '@meccg/shared';
 import { $ } from './render-utils.js';
+import { corruptionCheckBannerText } from './corruption-check-banner.js';
 import { setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
 import {
@@ -84,32 +86,35 @@ function getCompaniesWithPendingCorruptionChecks(view: PlayerView): CompanyId[] 
 /**
  * Render a situation banner when a pending corruption check is active
  * (e.g. after transferring an item during Organization). Shows the
- * character name, check details, and the explanation breakdown.
+ * character name, check details, and the explanation breakdown — or, when
+ * several checks are offered in a player-chosen order, a prompt to click a
+ * character (see {@link corruptionCheckBannerText}).
  */
 function renderCorruptionCheckBanner(
   board: HTMLElement,
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
 ): void {
-  const ccEval = view.legalActions.find(ea => ea.viable && ea.action.type === 'corruption-check');
-  if (!ccEval || ccEval.action.type !== 'corruption-check') return;
-
-  const action = ccEval.action;
+  const ccActions = viableActions(view.legalActions)
+    .filter((a): a is CorruptionCheckAction => a.type === 'corruption-check');
   const cachedInstanceLookup = getCachedInstanceLookup();
-  const defId = cachedInstanceLookup(action.characterId);
-  const def = defId ? cardPool[defId as string] : undefined;
-  const charName = def && isCharacterCard(def) ? def.name : '?';
+  const text = corruptionCheckBannerText(ccActions, action => {
+    const defId = cachedInstanceLookup(action.characterId);
+    const def = defId ? cardPool[defId as string] : undefined;
+    return def && isCharacterCard(def) ? def.name : '?';
+  });
+  if (!text) return;
 
   const row = document.createElement('div');
   row.className = 'situation-banner-row';
 
   const banner = document.createElement('div');
   banner.className = 'situation-banner';
-  banner.textContent = `Corruption Check \u2014 ${charName}`;
+  banner.textContent = text.title;
 
   const detail = document.createElement('div');
   detail.className = 'situation-banner-detail';
-  detail.textContent = action.explanation;
+  detail.textContent = text.detail;
   banner.appendChild(detail);
 
   row.appendChild(banner);
