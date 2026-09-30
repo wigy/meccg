@@ -81,6 +81,12 @@ export interface JoinMessage {
    * clients that predate the field.
    */
   readonly ai?: boolean;
+  /**
+   * For an AI seat played by a sim agent, the agent spec it plays (e.g.
+   * `h2:all/cyclingCombatCap=3`). Recorded per player in the completed-game
+   * statistics, so games can be compared by the settings the AI ran with.
+   */
+  readonly agent?: string;
   /** Optional JWT token for authenticated game server connections (lobby mode). */
   readonly token?: string;
   /**

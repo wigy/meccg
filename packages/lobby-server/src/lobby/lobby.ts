@@ -20,6 +20,7 @@ import { signGameToken } from '../auth/jwt.js';
 import { lobbyLog } from '../lobby-log.js';
 import { getDisplayName, getCredits, findOwnDeckById, findDeckById, listCatalogDecks } from '../players/store.js';
 import { mailNotification } from '../mail/store.js';
+import { isModularAgentSpec, modularAgentSpec } from '../runtime-config.js';
 
 /**
  * Sim agent spec for the "Play vs MC-AI" button.
@@ -62,26 +63,14 @@ import { mailNotification } from '../mail/store.js';
  */
 const MC_AGENT_SPEC = `mc:jobs=${Math.max(1, os.cpus().length - 2)}/ms=2000/turns=3/candidates=4`;
 
-/**
- * Sim agent spec for the "Play vs Modular AI" button — Heuristics 2
- * (`specs/2026-07-27-heuristics-2-ai.md`).
- *
- * A server-side constant for the same reason as {@link MC_AGENT_SPEC}: the spec
- * becomes argv, and `h2:<modules>` would let a client select an arbitrary
- * module subset — which is a debugging seam, not something a lobby should
- * expose. The bare `h2` is every shipped module.
- *
- * Unlike the Monte-Carlo agent this one does not search, so it answers in
- * milliseconds rather than seconds. What it does instead is explain itself:
- * every decision it makes is reproducible through `npm run explain -w
- * @meccg/sim`, which no other opponent here can offer.
- *
- * Its strength is unproven. It decides about half of all contested decisions
- * and hands the rest to the heuristic, and a seven-game head-to-head put it
- * ahead 5-2 — a sample that separates nothing. Offered as an opponent worth
- * playing and reporting on, not as the strongest one available.
+/*
+ * The "Play vs Modular AI" button plays Heuristics 2
+ * (`specs/2026-07-27-heuristics-2-ai.md`) with the spec `modularAgentSpec()`
+ * returns: `h2` unless the operator's `~/.meccg/config.json` names an `h2:`
+ * spec with tunable overrides. Like {@link MC_AGENT_SPEC} it is never chosen
+ * by a client — the spec becomes argv. It explains itself: every decision is
+ * reproducible through `npm run explain -w @meccg/sim`.
  */
-const MODULAR_AGENT_SPEC = 'h2';
 
 /**
  * `deckId` sentinel meaning "pick an approved catalog deck at random,
@@ -518,7 +507,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
         send(from.ws, { type: 'error', message: 'You are already in a game' });
         return;
       }
-      void startAiGame(from, msg.deckId, undefined, MODULAR_AGENT_SPEC);
+      void startAiGame(from, msg.deckId, undefined, modularAgentSpec());
       break;
     }
 
@@ -691,7 +680,7 @@ function handleMessage(fromName: string, msg: LobbyClientMessage): void {
           // would silently seat the heuristic instead, so a reconnect would
           // change opponents mid-match.
           const rejoinSpec = opponentName === 'AI-MC' ? MC_AGENT_SPEC
-            : opponentName === 'AI-Modular' ? MODULAR_AGENT_SPEC
+            : opponentName === 'AI-Modular' ? modularAgentSpec()
               : undefined;
           await startAiGame(from, storedAiDeckId, storedAiModelFile, rejoinSpec);
         } else {
@@ -927,7 +916,7 @@ async function startAiGame(
   // own. Deriving it from "an agent spec was supplied" was fine while there was
   // one such agent; a second would have made both share MC's saves.
   const aiName = agentSpec === MC_AGENT_SPEC ? 'AI-MC'
-    : agentSpec === MODULAR_AGENT_SPEC ? 'AI-Modular'
+    : isModularAgentSpec(agentSpec) ? 'AI-Modular'
       : modelFile !== undefined ? 'AI-Real'
         : 'AI-Heuristic';
 

@@ -114,6 +114,22 @@ describe('buildCompletedGameRecord', () => {
     expect(bob.tournamentMp.faction).toBe(0);
   });
 
+  test('records the agent spec an AI seat reported, and none for a human', () => {
+    const state = gameOverState({
+      winner: ALICE,
+      finalScores: { [ALICE]: 13, [BOB]: 4 },
+      finishedPlayers: [],
+      winReason: { kind: 'marshalling-points' },
+      uniqueCardReveals: [],
+    });
+    const record = buildCompletedGameRecord(
+      state, DECKS, new Set(['bob']), new Date(START_MS + 1000), { bob: 'h2:all/cyclingCombatCap=3' },
+    );
+    const [alice, bob] = record.players;
+    expect(alice.agent).toBeNull();
+    expect(bob.agent).toBe('h2:all/cyclingCombatCap=3');
+  });
+
   test('one-ring win denormalizes the ring card and alignment', () => {
     const state = gameOverState({
       winner: BOB,

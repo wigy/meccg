@@ -114,6 +114,8 @@ interface GameSave {
   deckInfo?: Record<string, PlayerDeckInfo>;
   /** Lowercase names of AI-controlled seats; absent in saves from old code. */
   aiPlayers?: string[];
+  /** Sim agent spec per lowercase AI seat name; absent in saves from old code. */
+  aiAgents?: Record<string, string>;
   /**
    * Tutorial script cursor (index of the next beat); present only in saves
    * of tutorial games. Its presence marks the save as a tutorial save.
@@ -227,6 +229,8 @@ export class GameSession {
   private deckInfo: Record<string, PlayerDeckInfo> = {};
   /** Lowercase names of AI-controlled seats, captured from join messages. */
   private aiPlayers: Set<string> = new Set();
+  /** Sim agent spec each AI seat reported on join, by lowercase name. */
+  private aiAgents: Record<string, string> = {};
   private playerCounter = 0;
   /** When false, dev-only operations (undo, save, load, reseed, reset) are refused. */
   private dev: boolean;
@@ -1004,6 +1008,7 @@ export class GameSession {
   private captureAiFlag(p: PendingPlayer, name: string): void {
     if (p.join.ai ?? /^ai-/i.test(name)) {
       this.aiPlayers.add(name.toLowerCase());
+      if (p.join.agent) this.aiAgents[name.toLowerCase()] = p.join.agent;
     }
   }
 
@@ -1047,6 +1052,7 @@ export class GameSession {
     this.nameToPlayerId = normalizedMap;
     this.deckInfo = { ...(save.deckInfo ?? {}) };
     this.aiPlayers = new Set(save.aiPlayers ?? []);
+    this.aiAgents = { ...(save.aiAgents ?? {}) };
     // Saves from before deckInfo existed have no deck identity; a reconnect
     // join that still carries the structured deck list can fill the gap.
     // The AI flag rides every join (even minimal rejoins), so recapture it.
@@ -1601,7 +1607,9 @@ export class GameSession {
       return;
     }
     try {
-      const record = buildCompletedGameRecord(this.state, this.deckInfo, this.aiPlayers, new Date());
+      const record = buildCompletedGameRecord(
+        this.state, this.deckInfo, this.aiPlayers, new Date(), this.aiAgents,
+      );
       const filePath = writeCompletedGameRecord(record);
       this.serverLog.log('game-completed', { gameId: record.gameId, path: filePath, winner: record.winner });
       this.recordRatings(record);
@@ -1753,6 +1761,7 @@ export class GameSession {
       nameToPlayerId: this.nameToPlayerId,
       deckInfo: this.deckInfo,
       aiPlayers: [...this.aiPlayers],
+      aiAgents: this.aiAgents,
       ...(this.tutorial ? { tutorialCursor: this.tutorial.cursorIndex } : {}),
     };
 
