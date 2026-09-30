@@ -4262,8 +4262,9 @@ export function handlePlayReservedCreature(
  * carrying a `play-creature-from-discard` effect (Exhalation of Decay dm-55;
  * In Great Wrath dm-66 adds a body modifier alongside the prowess one).
  *
- * Does NOT count against the hazard limit. The driving short-event card is
- * discarded on play. The creature enters the chain with the effect's prowess
+ * The creature's attack does not count against the hazard limit, but the
+ * driving short-event is a hazard played from hand and counts as one (CoE
+ * 2.IV.vii.3). The driving short-event card is discarded on play. The creature enters the chain with the effect's prowess
  * (and, if present, body) modifier applied and, after combat, is disposed by
  * the normal combat-finalization rules (defender's kill pile if defeated,
  * otherwise back to the discard pile).
@@ -4310,12 +4311,19 @@ export function handlePlayCreatureFromDiscard(
     return { state, error: `play-creature-from-discard: creatures must initiate a new chain` };
   }
 
+  // The short-event itself counts against the hazard limit (CoE 2.IV.vii.3).
+  const hazardLimit = currentHazardLimit(state, mhState, action.targetCompanyId);
+  if (mhState.hazardsPlayedThisCompany >= hazardLimit) {
+    return { state, error: `play-creature-from-discard: hazard limit reached (${mhState.hazardsPlayedThisCompany}/${hazardLimit})` };
+  }
+
   const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
   const eventName = (eventDef as { name?: string } | undefined)?.name ?? (eventCard.definitionId as string);
   const bodyModifier = effect.bodyModifier ?? 0;
   logDetail(
     `${eventName}: playing "${creatureName}" from discard pile (prowess ${effect.prowessModifier >= 0 ? '+' : ''}${effect.prowessModifier}`
-    + `${bodyModifier !== 0 ? `, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier}` : ''}) against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
+    + `${bodyModifier !== 0 ? `, body ${bodyModifier >= 0 ? '+' : ''}${bodyModifier}` : ''}) against company ${action.targetCompanyId as string}`
+    + ` — event counts against hazard limit (${mhState.hazardsPlayedThisCompany + 1}/${hazardLimit}), attack does not`,
   );
 
   // Remove the event card from hand → discard, and the creature from discard.
@@ -4331,7 +4339,11 @@ export function handlePlayCreatureFromDiscard(
   // Resume the resource player's window after this hazard play (rule 5.27).
   newState = {
     ...newState,
-    phaseState: { ...mhState, resourcePlayerPassed: false },
+    phaseState: {
+      ...mhState,
+      hazardsPlayedThisCompany: mhState.hazardsPlayedThisCompany + 1,
+      resourcePlayerPassed: false,
+    },
   };
 
   // Initiate the creature combat with the effect's prowess modifier. No

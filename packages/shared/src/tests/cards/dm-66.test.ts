@@ -14,10 +14,11 @@
  *   The hazard player plays this short event from hand to bring a Nazgûl
  *   hazard-creature out of their own discard pile as an immediate attack
  *   against the active company. The creature must satisfy normal creature
- *   keying ("that could immediately attack"). The play does NOT count against
- *   the hazard limit. The attack's prowess is modified by +2 and its body by
- *   -1. The event card is discarded on play; the spawned creature is disposed
- *   by the normal combat-finalization rules afterward.
+ *   keying ("that could immediately attack"). The attack does NOT count against
+ *   the hazard limit, but the event itself does (CoE 2.IV.vii.3). The
+ *   attack's prowess is modified by +2 and its body by -1. The event card is
+ *   discarded on play; the spawned creature is disposed by the normal
+ *   combat-finalization rules afterward.
  *
  * Engine Support:
  * | # | Rule                                              | Status |
@@ -26,7 +27,7 @@
  * | 2 | Only Ringwraith-race creatures eligible (filter)    | IMPL   |
  * | 3 | Only when target Nazgûl can attack (keying)         | IMPL   |
  * | 4 | Brings creature into play as an immediate attack    | IMPL   |
- * | 5 | Does not count against the hazard limit             | IMPL   |
+ * | 5 | Event counts against hazard limit, attack not       | IMPL   |
  * | 6 | Attack's prowess modified by +2                     | IMPL   |
  * | 7 | Attack's body modified by -1                        | IMPL   |
  * | 8 | Event card discarded, creature leaves discard       | IMPL   |
@@ -140,17 +141,22 @@ describe('In Great Wrath (dm-66)', () => {
     expect(afterChain.combat!.creatureBody).toBe(11);
   });
 
-  test('does not count against the hazard limit (offered when limit reached; counter unchanged)', () => {
-    const mh = makeDarkMHState({ hazardsPlayedThisCompany: 4, hazardLimitAtReveal: 4 });
+  test('the event counts against the hazard limit, the attack does not', () => {
+    const mh = makeDarkMHState({ hazardsPlayedThisCompany: 1, hazardLimitAtReveal: 2 });
     const state = setup({ hazardDiscard: [WITCH_KING], mh });
 
-    // Even at the hazard limit, the play is still offered.
     const actions = viableActions(state, PLAYER_2, 'play-creature-from-discard');
     expect(actions.length).toBeGreaterThan(0);
 
+    // Only the short-event itself is counted (CoE 2.IV.vii.3): +1, not +2.
     const afterPlay = dispatch(state, actions[0].action);
-    // The hazard-played counter is NOT incremented.
-    expect((afterPlay.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(4);
+    expect((afterPlay.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(2);
+  });
+
+  test('not offered once the hazard limit is reached', () => {
+    const mh = makeDarkMHState({ hazardsPlayedThisCompany: 2, hazardLimitAtReveal: 2 });
+    const state = setup({ hazardDiscard: [WITCH_KING], mh });
+    expect(viableActions(state, PLAYER_2, 'play-creature-from-discard')).toHaveLength(0);
   });
 
   test('event card is discarded and the creature leaves the discard pile on play', () => {
