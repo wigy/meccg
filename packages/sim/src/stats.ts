@@ -86,8 +86,12 @@ export class StatsCollector {
     for (const effect of record.effects ?? []) {
       this.effectCounts[effect.effect] = (this.effectCounts[effect.effect] ?? 0) + 1;
       if (effect.effect === 'dice-roll') {
-        const total = effect.die1 + effect.die2;
-        this.diceTotals[String(total)] = (this.diceTotals[String(total)] ?? 0) + 1;
+        // A two-roll strike carries its discarded roll in `alternateRoll`;
+        // count it too so the histogram stays an unbiased 2d6 distribution.
+        for (const roll of effect.alternateRoll ? [effect, effect.alternateRoll] : [effect]) {
+          const total = roll.die1 + roll.die2;
+          this.diceTotals[String(total)] = (this.diceTotals[String(total)] ?? 0) + 1;
+        }
       }
     }
   }

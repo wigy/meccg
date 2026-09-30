@@ -89,7 +89,10 @@ export function renderDecision(record: DecisionRecord, options: TranscriptOption
   for (const effect of record.effects ?? []) {
     if (effect.effect === 'dice-roll') {
       const total = effect.total !== undefined ? ` → total ${effect.total}` : '';
-      lines.push(`   🎲 ${effect.playerName} rolls ${effect.die1}+${effect.die2} = ${effect.die1 + effect.die2} (${effect.label})${total}`);
+      const alt = effect.alternateRoll
+        ? ` [other roll ${effect.alternateRoll.die1}+${effect.alternateRoll.die2} = ${effect.alternateRoll.die1 + effect.alternateRoll.die2}, discarded]`
+        : '';
+      lines.push(`   🎲 ${effect.playerName} rolls ${effect.die1}+${effect.die2} = ${effect.die1 + effect.die2} (${effect.label})${total}${alt}`);
     } else if (effect.effect === 'text-notification') {
       lines.push(`   ✦ ${effect.message}`);
     }

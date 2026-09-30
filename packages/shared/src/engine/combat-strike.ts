@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction, GameEffect, CardInstanceId, CardDefinition } from '../index.js';
+import type { GameState, CombatState, GameAction, GameEffect, CardInstanceId, CardDefinition, TwoDiceSix } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -296,6 +296,10 @@ export function findCancelPrisonerTakingAlly(
  * doesn't say anything about tapping, so the defender still gets to apply
  * the usual -3 stay-untapped penalty instead of tapping. Ignored outside
  * `mode === 'reroll'`.
+ *
+ * `rerollSourceName` names the card that granted the two rolls (e.g. "Lucky
+ * Strike") so the roll label and the outcome notification can quote it.
+ * Ignored outside `mode === 'reroll'`.
  */
 export function resolveStrikeCore(
   state: GameState,
@@ -304,6 +308,7 @@ export function resolveStrikeCore(
   dodgeBodyPenalty: number,
   preAppliedDefender: PlayerState | null,
   rerollStayUntapped = false,
+  rerollSourceName?: string,
 ): ReducerResult {
   const strike = combat.strikeAssignments[combat.currentStrikeIndex];
   if (!strike || strike.resolved) return { state, error: 'Current strike already resolved' };
@@ -373,13 +378,15 @@ export function resolveStrikeCore(
   const willTapOnRoll = tapOnNonWounded && targetStatus === CardStatus.Untapped;
   const tappedCharacterId = willTapOnRoll ? strike.characterId : undefined;
 
-  // Roll dice. Reroll mode makes two rolls and keeps the better total; the
-  // discarded roll is logged and emitted as an effect so both rolls appear
-  // in history.
+  // Roll dice. Reroll mode makes two rolls and keeps the better total (a
+  // higher total is never a worse strike outcome). Both rolls travel in a
+  // single dice-roll effect — the kept pair plus `alternateRoll` — so clients
+  // can show the two pairs together and mark which one was used.
   let roll;
   let rng;
   let cheatRollTotal;
-  const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : mode === 'reroll' ? 'Strike (reroll)' : 'Strike';
+  let rerollPair: { readonly first: TwoDiceSix; readonly second: TwoDiceSix } | undefined;
+  const rollLabel = mode === 'dodge' ? 'Strike (dodge)' : mode === 'reroll' ? (rerollSourceName ?? 'Strike (reroll)') : 'Strike';
   const charLabel = charDef?.name ?? (targetDefId as string);
   const effects: GameEffect[] = [];
 
@@ -395,8 +402,8 @@ export function resolveStrikeCore(
     rng = r2.rng;
     cheatRollTotal = r2.cheatRollTotal;
     logDetail(`${rollLabel}: rolled ${r1.roll.die1}+${r1.roll.die2}=${t1} and ${r2.roll.die1}+${r2.roll.die2}=${t2} → keeping ${kept.roll.die1}+${kept.roll.die2}=${kept.roll.die1 + kept.roll.die2}`);
-    effects.push(diceRollEffect(defPlayer.name, discarded.roll, `${rollLabel} (discarded): ${charLabel}`));
-    effects.push(diceRollEffect(defPlayer.name, kept.roll, `${rollLabel}: ${charLabel}`, undefined, tappedCharacterId));
+    rerollPair = { first: r1.roll, second: r2.roll };
+    effects.push(diceRollEffect(defPlayer.name, kept.roll, `${rollLabel}: ${charLabel}`, undefined, tappedCharacterId, discarded.roll));
   } else {
     const single = roll2d6(state);
     roll = single.roll;
@@ -450,6 +457,20 @@ export function resolveStrikeCore(
     result = 'success';
     bodyCheckTarget = combat.creatureBody !== null ? 'creature' : null;
     logDetail(`Forced strike defeat (Liquid Fire) — strike automatically fails${bodyCheckTarget ? ', creature body check pending' : ''}`);
+  }
+
+  // Make both rolls of a reroll card and the choice between them explicit in
+  // both players' message panels — otherwise only the kept pair is visible.
+  if (rerollPair) {
+    const fmt = (r: TwoDiceSix): string => `${r.die1}+${r.die2}=${r.die1 + r.die2}`;
+    const need = effectiveProwess - prowess + 1;
+    const outcome = combat.forcedStrikeDefeat || characterTotal > effectiveProwess
+      ? 'strike defeated'
+      : characterTotal < effectiveProwess ? 'strike succeeds' : 'tie, strike ineffectual';
+    effects.push({
+      effect: 'text-notification',
+      message: `${rollLabel}: ${charLabel} rolled ${fmt(rerollPair.first)} and ${fmt(rerollPair.second)} — keeping ${rollTotal} (needs ${need}+): ${outcome}`,
+    });
   }
 
   // Captured before the discard-item/absorb-wound/take-prisoner overrides

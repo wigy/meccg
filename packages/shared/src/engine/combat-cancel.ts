@@ -894,8 +894,10 @@ export function triggerBellsRingingReface(
  * @param tapToFight - Reroll mode only (CoE 3.iv.3): `true` (default) taps
  *   the character to fight at full prowess; `false` keeps it untapped with
  *   the usual -3 penalty. Ignored by every other mode.
+ * @param sourceName - Reroll mode only: name of the card granting the two
+ *   rolls, used to label the roll and its outcome notification.
  */
-export function resolveChainStrikeModifier(state: GameState, effect: StrikeModifierEffect, tapToFight = true): ReducerResult {
+export function resolveChainStrikeModifier(state: GameState, effect: StrikeModifierEffect, tapToFight = true, sourceName?: string): ReducerResult {
   const combat = state.combat;
   if (!combat) return { state, error: 'No active combat' };
 
@@ -924,7 +926,7 @@ export function resolveChainStrikeModifier(state: GameState, effect: StrikeModif
       );
       preState = { ...state, combat: { ...combat, strikeAssignments: newAssignments } };
     }
-    return resolveStrikeCore(preState, preState.combat!, 'reroll', 0, null, !tapToFight);
+    return resolveStrikeCore(preState, preState.combat!, 'reroll', 0, null, !tapToFight, sourceName);
   }
 
   // Default: accumulate prowess/body bonuses on the current strike assignment.
