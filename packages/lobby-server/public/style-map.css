@@ -440,3 +440,300 @@
   from { opacity: 0.85; transform: translate(-50%, -50%) scale(0.92); }
   to   { opacity: 1;    transform: translate(-50%, -50%) scale(1.12); }
 }
+
+/* --------------------------------------------------------------------------
+   Movement destination picker (map-site-picker.ts)
+   Reachable sites are clickable markers; markers keep a fixed pixel size at
+   every map scale so they stay easy to hit.
+   -------------------------------------------------------------------------- */
+
+/* "Plan movement" button on the company overview map */
+.map-plan-movement-btn,
+.map-picker-cards-btn,
+.pile-browser-map-btn {
+  padding: 4px 12px;
+  background: rgba(40, 32, 18, 0.9);
+  color: #e8d9b0;
+  border: 1px solid rgba(196, 163, 90, 0.6);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.map-plan-movement-btn:hover,
+.map-picker-cards-btn:hover,
+.pile-browser-map-btn:hover {
+  background: rgba(90, 70, 30, 0.95);
+}
+
+.map-plan-movement-btn {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.pile-browser-map-btn {
+  position: absolute;
+  top: 1.2rem;
+  right: 1.5rem;
+}
+
+/* Header: company, hint, and the switch to the card grid */
+.map-picker-header {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #e0d8c8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.map-picker-title {
+  font-weight: bold;
+  color: #f0c040;
+}
+
+.map-picker-hint {
+  opacity: 0.8;
+}
+
+/* Site markers */
+.map-site-marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.8);
+  background: #d8c070;
+  z-index: 2;
+}
+
+.map-site-marker--selectable {
+  cursor: pointer;
+  animation: map-pulse-gold 1.8s ease-in-out infinite;
+}
+
+.map-site-marker--selectable:hover,
+.map-site-marker--selectable:focus-visible {
+  width: 20px;
+  height: 20px;
+  z-index: 4;
+  outline: none;
+  box-shadow: 0 0 0 2px #f0c040, 0 0 10px 3px rgba(240, 192, 64, 0.8);
+}
+
+.map-site-marker--selectable:hover .map-dot-tooltip,
+.map-site-marker--selectable:focus-visible .map-dot-tooltip {
+  display: block;
+}
+
+/* Site-type colours */
+.map-site-marker--haven { background: #4a90d9; border-radius: 3px; }
+.map-site-marker--free-hold { background: #5fb85f; }
+.map-site-marker--border-hold { background: #c9b458; }
+.map-site-marker--ruins-and-lairs { background: #b07a3a; }
+.map-site-marker--shadow-hold { background: #8a4fb0; }
+.map-site-marker--dark-hold { background: #b03a3a; }
+
+/* Sibling company's in-play site */
+.map-site-marker--in-play {
+  border-style: dashed;
+}
+
+/* Placed at the region centroid because the site has no coordinates */
+.map-site-marker--approximate {
+  border-color: #f0c040;
+}
+
+/* Destination on the other map level: dimmed but still clickable */
+.map-site-marker--other-level {
+  opacity: 0.45;
+}
+
+.map-site-marker--other-level:hover {
+  opacity: 1;
+}
+
+/* Site-deck site that cannot be reached this turn */
+.map-site-marker--unreachable {
+  width: 8px;
+  height: 8px;
+  border-width: 1px;
+  opacity: 0.35;
+  cursor: default;
+  animation: none;
+  z-index: 1;
+}
+
+/* The company's current site */
+.map-site-marker--origin {
+  width: 16px;
+  height: 16px;
+  background: #3a9c3a;
+  border-color: #f0c040;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Copies of the site in the deck */
+.map-site-marker-count {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  border-radius: 6px;
+  background: #000;
+  color: #fff;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+}
+
+/* Route preview polyline */
+.map-picker-route {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.map-picker-route-line {
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+
+.map-picker-route-line--region {
+  stroke: #f0c040;
+  stroke-width: 3px;
+}
+
+.map-picker-route-line--starter {
+  stroke: #ffffff;
+  stroke-width: 2px;
+  stroke-dasharray: 6 4;
+}
+
+/* Hovered-destination preview panel */
+.map-picker-preview {
+  position: absolute;
+  top: 48px;
+  right: 8px;
+  z-index: 10;
+  width: 220px;
+  max-height: calc(100% - 60px);
+  overflow-y: auto;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #e0d8c8;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.map-picker-preview img {
+  max-width: 100%;
+}
+
+.map-picker-route-summary {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.map-picker-route-heading {
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+
+.map-picker-route-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 3px;
+}
+
+.map-picker-route-detail {
+  width: 100%;
+  opacity: 0.75;
+}
+
+/* Legend (bottom-left) */
+.map-picker-legend {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 10;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 6px;
+  color: #e0d8c8;
+  font-size: 11px;
+}
+
+.map-picker-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.map-site-marker--legend {
+  position: relative;
+  transform: none;
+  animation: none;
+  flex-shrink: 0;
+}
+
+.map-picker-legend-route {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  background: #f0c040;
+}
+
+/* Destinations with no map position */
+.map-picker-fallback {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 6px;
+  color: #e0d8c8;
+  font-size: 12px;
+}
+
+.map-picker-fallback-btn {
+  padding: 2px 8px;
+  background: rgba(40, 32, 18, 0.9);
+  color: #e8d9b0;
+  border: 1px solid rgba(196, 163, 90, 0.6);
+  border-radius: 4px;
+  cursor: pointer;
+}

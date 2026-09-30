@@ -27,10 +27,11 @@ import type {
 import { cardImageProxyPath, cardsAttachedToSite, isSiteCard, Phase, CardStatus, viableActions, describeAction } from '@meccg/shared';
 import { createCardImage, createCardImageOrBack, createRegionTypeIcon } from './render-utils.js';
 import { renderInPlayCardImage } from './company-block.js';
-import { openMovementViewer, getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection, getSelectedShortEvent, clearShortEventSelection } from './render.js';
+import { getSelectedHazardForPlay, getSelectedHazardOnGuardAction, clearHazardPlaySelection, getSelectedShortEvent, clearShortEventSelection } from './render.js';
 import { getCachedInstanceLookup } from './company-view-state.js';
 import { showGrantedActionTooltip } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
+import { openMovementPicker } from './map-site-picker.js';
 
 /**
  * Compute the DOM `data-instance-id` for a company's site card element.
@@ -273,7 +274,7 @@ export function renderSiteArea(
             const onAction = options.onAction;
             img.addEventListener('click', (e) => {
               e.stopPropagation();
-              openMovementViewer(view, cardPool, companyId, onAction);
+              openMovementPicker(view, cardPool, companyId, onAction);
             });
           } else if (havenReturnAction && options?.onAction) {
             const onAction = options.onAction;

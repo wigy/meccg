@@ -30,7 +30,8 @@
 
 import { pageHistoryUp, pageHistoryDown, scrollHistory } from './render.js';
 import { openFullMap } from './map-fullscreen.js';
-import { getLastView, getLastCardPool, getFocusedCompanyId, setFocusedCompanyId, setSavedFocusedCompanyId, rerender } from './company-view-state.js';
+import { openMovementMap } from './map-site-picker.js';
+import { getLastView, getLastCardPool, getLastOnAction, getFocusedCompanyId, setFocusedCompanyId, setSavedFocusedCompanyId, rerender } from './company-view-state.js';
 import { areCoordinatesLoaded } from './map-coordinates.js';
 import { askAi } from './ask-ai.js';
 
@@ -790,6 +791,7 @@ export function installKeyboardShortcuts(): void {
       }
       const view = getLastView();
       const pool = getLastCardPool();
+      const onAction = getLastOnAction();
       if (view && pool && areCoordinatesLoaded()) {
         const focusedId = getFocusedCompanyId();
         const selfIdx = focusedId
@@ -799,7 +801,7 @@ export function installKeyboardShortcuts(): void {
           setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
           setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
           rerender();
-        });
+        }, onAction ? (companyId) => openMovementMap(view, pool, companyId, onAction) : undefined);
       }
       return;
     }
