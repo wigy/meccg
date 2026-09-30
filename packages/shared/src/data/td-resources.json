@@ -573,7 +573,34 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "discard-to-cancel-attack",
+          "scope": "turn",
+          "target": "player",
+          "constraintWhen": {
+            "enemy.race": {
+              "$in": ["dragon", "drake"]
+            }
+          },
+          "discardFilter": {
+            "$and": [
+              { "cardType": "hazard-creature" },
+              { "race": { "$in": ["dragon", "drake"] } }
+            ]
+          }
+        }
+      }
+    ],
+    "certified": "2026-10-01",
     "text": "Playable during the organization phase. For the rest of the turn, you may discard a Dragon or Drake hazard creature from your hand to cancel a Dragon or Drake attack against any of your companies."
   },
   {

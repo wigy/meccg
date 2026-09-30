@@ -3042,6 +3042,13 @@ export interface AddConstraintAction extends TriggeredActionBase {
    */
   readonly constraintWhen?: Condition;
   /**
+   * For a `discard-to-cancel-attack` constraint (Dragon-feuds td-107): the
+   * condition a hand card's definition must match to be discarded as the
+   * cancellation cost (e.g. a Dragon or Drake hazard creature). The attack
+   * filter is carried by {@link constraintWhen}.
+   */
+  readonly discardFilter?: Condition;
+  /**
    * For a `hazard-limit-region-count` constraint (Fair Sailing tw-232): the
    * region type counted in the target company's resolved site path.
    */

@@ -3197,6 +3197,35 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
+      // Player-scoped discard-to-cancel-attack (Dragon-feuds td-107: "For the
+      // rest of the turn, you may discard a Dragon or Drake hazard creature
+      // from your hand to cancel a Dragon or Drake attack against any of your
+      // companies"). `constraintWhen` filters the attack, `discardFilter` the
+      // hand card paid; offered by `cancelAttackActions` (combat.ts).
+      if (constraintKind === 'discard-to-cancel-attack' && onEvent.apply.target === 'player') {
+        const attackWhen = onEvent.apply.constraintWhen;
+        const discardFilter = onEvent.apply.discardFilter;
+        if (!attackWhen || !discardFilter) {
+          logDetail(`add-constraint(discard-to-cancel-attack): missing constraintWhen/discardFilter — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, null);
+        if (!scope) {
+          logDetail(`add-constraint(discard-to-cancel-attack): unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const playerId = state.players[playerIndex].id;
+        logDetail(`"${def.name}" played — ${playerId as string} may discard a qualifying hand card to cancel a matching attack (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'player', playerId },
+          kind: { type: 'discard-to-cancel-attack', attackWhen, discardFilter },
+        });
+        continue;
+      }
+
       // Company-targeting constraints: resolve the target company from targetCompanyId
       // (company-targeted events, e.g. Great-road) or from the scout/character instance
       // (tap-cost events, e.g. Stealth, or filter-character events, e.g. Hundreds of Butterflies).

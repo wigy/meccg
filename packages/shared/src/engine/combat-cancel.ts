@@ -27,6 +27,7 @@ import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
 import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySiteDef, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase, advanceStrikeOrFinalize } from './combat-strike.js';
@@ -539,6 +540,27 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
   const defPlayer = state.players[defPlayerIndex];
 
   const handCard = findById(defPlayer.hand, action.cardInstanceId);
+
+  // Discard-to-cancel grant (Dragon-feuds td-107): the hand card is the cost,
+  // not a played event. Discard it and cancel the attack immediately (no
+  // chain entry); the grant stays for the rest of the turn.
+  if (action.mode === 'discard-from-hand') {
+    const handDef = handCard ? defById(state, handCard.definitionId) : undefined;
+    if (!handCard || !handDef) return { state, error: 'Discard-to-cancel card not in hand' };
+    const grant = state.activeConstraints.find(
+      c => c.kind.type === 'discard-to-cancel-attack'
+        && c.target.kind === 'player' && c.target.playerId === action.player
+        && matchesCondition(c.kind.discardFilter, handDef as unknown as Record<string, unknown>),
+    );
+    if (!grant) return { state, error: 'No discard-to-cancel-attack grant covers this card' };
+    logDetail(`Discard-to-cancel: discarding ${handDef.name} (${grant.sourceDefinitionId as string} grant) to cancel this attack`);
+    const discarded = updatePlayer(state, defPlayerIndex, p => ({
+      ...p,
+      hand: removeById(p.hand, handCard.instanceId),
+      discardPile: [...p.discardPile, handCard],
+    }));
+    return { state: resolveCancelAttackEntry(discarded) };
+  }
   if (!handCard) {
     // Source may be an in-play character tapping to cancel (e.g. Adûnaphel
     // the Ringwraith's Darkhaven tap), an in-play ally (e.g. The Warg-king),
