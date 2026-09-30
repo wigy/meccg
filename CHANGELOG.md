@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.180.0 — 2026-09-30
+
+Modular AI Settings Go Live
+
+### Web Client
+
+- When several corruption checks can be resolved in a player-chosen order (CoE 7.1.1, e.g. Ren the Unclean), the banner asks the player to click a highlighted character and names the shared reason, instead of naming the first character as if it were being checked (#3248)
+
+### Lobby Server
+
+- The AI-Modular opponent's agent spec is read from the operator-editable `~/.meccg/config.json` (`modularAgentSpec`, path overridable with `MECCG_CONFIG`) each time an AI-Modular game starts or rejoins, so tunables can be tried in production without a release or restart (#3247)
+
+### Game Server
+
+- The AI client sends its `--agent` spec when joining, and the completed-game record stores it per player as `agent` (null for humans), so games can be told apart by the AI settings used (#3247)
+
 ## 0.179.0 — 2026-09-30
 
 Arouse Hazards Reach Resting Companies
