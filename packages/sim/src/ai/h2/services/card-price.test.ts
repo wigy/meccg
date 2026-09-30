@@ -77,11 +77,9 @@ describe('the card price', () => {
     );
     expect(event).toBeDefined();
     const worth = priced.worth(event!.instanceId)!;
-    // A hazard at the floor sits just below it, so it is thrown before a
-    // floor-priced resource (`hazardTieBreak`).
+    // A hazard at the floor sits `hazardTieBreak` below it (off by default).
     expect(worth.tsd).toBeCloseTo(priced.floor - DEFAULT_TUNABLES.hazardTieBreak, 9);
     expect(worth.reason).toContain('flat price');
-    expect(worth.reason).toContain('thrown before a resource');
   });
 
   test('the ranking is by worth, descending', () => {

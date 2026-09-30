@@ -180,6 +180,13 @@ export interface Tunables {
    * owner's call: that agent is a weak player to calibrate a discard against,
    * the rule matches what winning humans throw, and the verdict is to come
    * from games against real people.
+   *
+   * Turned back off once the cycling pace (#3242) made the AI cycle every
+   * turn: then the card cycled was a hazard every time and the hand bled
+   * hazards. On v0.180.0 against heuristic (200 games) turning it off moved
+   * a/b +164 → +189, c/d +141 → +129, m/p +78 → +162, b/p +69 → +135. It is
+   * not one of the owner's cycling rules, which say to play hazards when in
+   * doubt rather than to throw them first.
    */
   readonly hazardTieBreak: number;
   /**
@@ -687,7 +694,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   cyclingKeepAnswers: 0,
   cyclingKeepPoints: 1,
   heldHazardShare: 0.5,
-  hazardTieBreak: 0.1,
+  hazardTieBreak: 0,
   favouriteCharacterTsd: 2,
   draftMindPriorityTsd: 1,
   attackStateCap: 192,
