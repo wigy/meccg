@@ -3619,6 +3619,13 @@ export interface EnqueuePendingFetchAction extends TriggeredActionBase {
    * of Bávor's Tribe (tw-214): "Play this item immediately or discard."
    */
   readonly mustPlayOrDiscard?: boolean;
+  /**
+   * When true, the fetched card's identity is revealed to the opponent as it
+   * is taken (forwarded to the pending fetch's `revealToOpponent`). Used by
+   * Cup of Farewell (dm-122): "take a minor item from your sideboard into
+   * your hand (show opponent)".
+   */
+  readonly revealToOpponent?: boolean;
 }
 
 /** `enqueue-ring-play-offer` — bypass the gold-ring roll and offer ring categories from the test table. */

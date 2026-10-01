@@ -2023,6 +2023,85 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
   // organization's own default (unfiltered) scan — surfaces them too.
   actions.push(...storedCombineGrantActions(state, playerId, phaseFilter));
 
+  // Company-bound resource permanent events whose ability is paid by tapping
+  // any character in the bound company (Cup of Farewell dm-122).
+  actions.push(...companyBoundCharacterTapGrantActions(state, playerId, phaseFilter));
+
+  return actions;
+}
+
+/**
+ * Grant-actions on the player's own company-bound resource permanent events
+ * (`CardInPlay.companyId`, from a `play-target: "company"` play) whose cost is
+ * `tap: "character"` — any untapped character in the bound company pays the
+ * tap, one activation per eligible character (carried as `characterId`, so the
+ * reducer's standard bearer path taps that character and runs the `apply`).
+ *
+ * Offered only on the controller's own turn ("once during each of your
+ * turns"); `oncePerTurn` is honoured via the source card's
+ * `granted-action-used` lock. The effect's `when` clause is evaluated against
+ * {@link buildGrantActionContext} for the tapping character, so `site.type`
+ * reflects the bound company's current site. During the movement/hazard phase
+ * a company that is moving is no longer *at* its site of origin, so such a
+ * company is skipped there.
+ *
+ * Phase filtering mirrors the attached-card scans: the organization phase's
+ * unfiltered scan always sees it; every other phase requires `anyPhase`.
+ *
+ * Used by Cup of Farewell (dm-122): "Once during each of your turns, you can
+ * tap a character in this company, if the company is at a Haven [{H}], to
+ * take a minor item from your sideboard into your hand (show opponent)."
+ */
+function companyBoundCharacterTapGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  phaseFilter?: GrantActionPhaseFilter,
+): EvaluatedAction[] {
+  if (state.activePlayer !== playerId) return [];
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: EvaluatedAction[] = [];
+  for (const cip of player.cardsInPlay) {
+    if (cip.companyId === undefined) continue;
+    const def = defById(state, cip.definitionId);
+    if (!def || !isResourceEventCard(def)) continue;
+    const company = player.companies.find(c => c.id === cip.companyId);
+    if (!company) continue;
+    for (const effect of getCardEffects(def)) {
+      if (effect.type !== 'grant-action' || effect.cost.tap !== 'character') continue;
+      if (phaseFilter && !matchesPhaseFilter(effect, phaseFilter)) continue;
+      if (effect.oncePerTurn && grantActionUsedThisTurn(state, cip.instanceId, effect.action)) {
+        logDetail(`Company-bound grant-action ${effect.action} on ${def.name}: already used this turn`);
+        continue;
+      }
+      if (state.phaseState.phase === Phase.MovementHazard && company.destinationSite) {
+        logDetail(`Company-bound grant-action ${effect.action} on ${def.name}: company is moving — not at its site`);
+        continue;
+      }
+      if (effect.apply?.type === 'enqueue-pending-fetch') {
+        const zones = effect.apply.fetchFrom ?? ['discard-pile'];
+        if (fetchZoneItemInstanceIds(state, player, zones, effect.apply.filter).length === 0) {
+          logDetail(`Company-bound grant-action ${effect.action} on ${def.name}: no qualifying card to fetch`);
+          continue;
+        }
+      }
+      for (const charId of company.characters) {
+        const char = player.characters[charId];
+        if (!char || char.status !== CardStatus.Untapped) continue;
+        const charDef = defById(state, char.definitionId);
+        const charDefCard = charDef && isCharacterCard(charDef) ? charDef : undefined;
+        if (effect.when) {
+          const ctx = buildGrantActionContext(state, char, charDefCard, company, player, cip.instanceId);
+          if (!matchesCondition(effect.when, ctx)) {
+            logDetail(`Company-bound grant-action ${effect.action} on ${def.name}: when condition failed for ${charDefCard?.name ?? '?'}`);
+            continue;
+          }
+        }
+        logDetail(`Company-bound grant-action ${effect.action} available: ${charDefCard?.name ?? '?'} can tap (source: ${def.name})`);
+        actions.push(grantedActionFor(playerId, charId, cip, effect));
+      }
+    }
+  }
   return actions;
 }
 
