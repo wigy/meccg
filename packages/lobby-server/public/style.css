@@ -2739,10 +2739,31 @@ h2 {
   box-shadow: 0 0 12px rgba(196,163,90,0.15);
 }
 
+.lobby-deck-info-slot {
+  flex: 1;
+  min-width: 0;
+}
+
 .lobby-deck-info {
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
   gap: 0.2rem;
+}
+
+/* Second line of a deck row: meta text on the left, action icons on the right. */
+.lobby-deck-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.lobby-deck-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .lobby-deck-name {
