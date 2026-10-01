@@ -7600,6 +7600,11 @@ Optional fields:
 - `maxCompanySize` — maximum effective company size for eligibility
   (hobbits count as half). Used alongside the filter to enforce size
   limits (e.g. Stealth).
+- `playedAtSite` — with `target: "site"`, marks a card played *at* the site
+  rather than *on* the site card (CoE rule 5.3.1). Its `attachedToSite`
+  records only where it was played, so it is exempt from the orphaned
+  site-attachment sweep and stays in play when the company leaves and the
+  site card is discarded or returned. Used by The White Tree (tw-348).
 - `cost` — cost paid when the card resolves. Evaluated by `cost-evaluator.ts`
   via `applyCost`; the same cost shapes are available on every effect type:
   - `{ "tap": "character" }` — taps the targeted character (e.g. Stealth taps
