@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -3560,10 +3560,13 @@ export function applyRingPlayOfferResolution(
     items: [...char.items, newItem],
   };
 
-  const stateAfterPlay = updatePlayer(stateAfterRemove, playerIndex, p => ({
+  const stateAfterAttach = updatePlayer(stateAfterRemove, playerIndex, p => ({
     ...p,
     characters: { ...p.characters, [characterInstanceId as string]: updatedChar },
   }));
+  // Into the Smoking Cone (dm-146): "Tap this card if the company plays a
+  // ring special item" — replacing a tested gold ring is playing one.
+  const stateAfterPlay = tapCompanyCardsOnItemPlay(stateAfterAttach, playerIndex, characterInstanceId, ringDef);
 
   return { state: dequeueResolution(stateAfterPlay, top.id) };
 }
@@ -3612,10 +3615,13 @@ export function applyNamedCardPlayOfferResolution(
   };
   const updatedChar: CharacterInPlay = { ...char, items: [...char.items, newItem] };
 
-  const stateAfterPlay = updatePlayer(stateAfterRemove, playerIndex, p => ({
+  const stateAfterAttach = updatePlayer(stateAfterRemove, playerIndex, p => ({
     ...p,
     characters: { ...p.characters, [targetCharacterId as string]: updatedChar },
   }));
+  // Into the Smoking Cone (dm-146): "Tap this card if the company plays a
+  // ring special item".
+  const stateAfterPlay = tapCompanyCardsOnItemPlay(stateAfterAttach, playerIndex, targetCharacterId, def);
 
   return { state: dequeueResolution(stateAfterPlay, top.id) };
 }
@@ -3682,10 +3688,13 @@ export function applyItemPlacementOfferResolution(
   };
   const updatedChar: CharacterInPlay = { ...char, items: [...char.items, newItem] };
 
-  const stateAfterPlay = updatePlayer(stateAfterRemove, playerIndex, p => ({
+  const stateAfterAttach = updatePlayer(stateAfterRemove, playerIndex, p => ({
     ...p,
     characters: { ...p.characters, [characterInstanceId as string]: updatedChar },
   }));
+  // Into the Smoking Cone (dm-146): "Tap this card if the company plays a
+  // ring special item".
+  const stateAfterPlay = tapCompanyCardsOnItemPlay(stateAfterAttach, playerIndex, characterInstanceId, def);
 
   return { state: dequeueResolution(stateAfterPlay, top.id) };
 }

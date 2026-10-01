@@ -1062,6 +1062,15 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
 
     // play-target DSL: company-targeting permanent events get one action per qualifying company
     if (playTarget?.target === 'company') {
+      // A company-bound event with a site-phase `play-window` ("Playable on a
+      // company … during the site phase" — Into the Smoking Cone dm-146) is
+      // playable only on the company taking its site phase, at its
+      // play-resources step; `playResourcesActions` (legal-actions/site.ts)
+      // offers it there.
+      if (playWindow?.phase === Phase.Site) {
+        logDetail(`Permanent event ${def.name}: site-phase company event — offered by the play-resources step, not here`);
+        continue;
+      }
       const companyDupLimit = findDuplicationLimitEffect(def, 'company');
       // MEWH §9: a Fallen-wizard may not play a hero resource permanent-event on
       // a company containing an Orc or Troll.

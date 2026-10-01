@@ -412,6 +412,14 @@ export interface InPlayItemModifierEffect extends EffectBase {
    * and Balrog alignments). Absent → every player's items are affected.
    */
   readonly bearerFilter?: Condition;
+  /**
+   * When true the modifier applies **only while its card is stored** in a
+   * marshalling-point pile (a `killPile` entry carrying `storedAtSite`), never
+   * while it merely sits in play. Into the Smoking Cone (dm-146): "If stored,
+   * all ring items give one less corruption point." A negative delta never
+   * takes an item below 0 corruption points.
+   */
+  readonly activeWhileStored?: boolean;
 }
 
 /**
@@ -2273,6 +2281,25 @@ export interface ActionCost {
    * possessions (`pending-reducers.ts`).
    */
   readonly alsoDiscardItemName?: string;
+  /**
+   * `"self"` inverts the source card in place ({@link CardStatus.Inverted},
+   * "rotate it 180°"). Only meaningful on a bearer-less company-bound
+   * permanent event in `cardsInPlay`, and only payable while the source is
+   * currently **tapped** — "If this card is tapped, … invert this card" (Into
+   * the Smoking Cone dm-146). Offered during the bound company's site phase by
+   * `inPlayCompanyTapGrantActions` (`legal-actions/site.ts`), resolved by
+   * `handleInPlayCardGrantAction` (`grant-action-apply.ts`).
+   */
+  readonly invert?: 'self';
+  /**
+   * An additional cost: discard (for no effect) one card **the bound company
+   * controls** carrying this keyword — an item borne by one of its characters
+   * or another permanent event bound to it. The player picks which; the
+   * chosen instance rides the activation's `targetCardId`. Into the Smoking
+   * Cone (dm-146): "the company can discard (for no effect) a Lost Knowledge
+   * card it controls".
+   */
+  readonly discardCompanyKeywordCard?: Keyword;
 }
 
 /**
@@ -7708,6 +7735,31 @@ export interface StorableAtEffect extends EffectBase {
    * has no bearer); character-borne items ignore it.
    */
   readonly requiresTapped?: boolean;
+  /**
+   * When true the card may only be stored once it is itself **inverted**
+   * ({@link CardStatus.Inverted}). Into the Smoking Cone (dm-146): "If
+   * inverted, you can store this card at a Haven [{H}]". Same company-bound
+   * storage path as {@link requiresTapped}.
+   */
+  readonly requiresInverted?: boolean;
+}
+
+/**
+ * Taps the carrying company-bound permanent event (`play-target: "company"`)
+ * the moment its company **plays** an item matching {@link itemFilter} — "Tap
+ * this card if the company plays a ring special item" (Into the Smoking Cone
+ * dm-146). Only an `Untapped` card is affected. `itemFilter` is matched
+ * against `{ item: { keywords, name, subtype, cardType } }`.
+ *
+ * Fired for site-phase item plays (`reducer-site.ts`) and for a special ring
+ * played onto a character after a gold-ring test (`ring-play-offer`,
+ * `pending-reducers.ts`) — see `tapCompanyCardsOnItemPlay` in
+ * `reducer-utils.ts`.
+ */
+export interface TapOnCompanyItemPlayEffect extends EffectBase {
+  readonly type: 'tap-on-company-item-play';
+  /** Condition on the played item (`item.*` context). */
+  readonly itemFilter: Condition;
 }
 
 /**
@@ -10274,6 +10326,7 @@ export interface TapDiscardInPlayEffect extends EffectBase {
  * The `type` field serves as the discriminant for type narrowing.
  */
 export type CardEffect =
+  | TapOnCompanyItemPlayEffect
   | EvilHourTapTriggerEffect
   | EvilHourGrantMovementEffect
   | AllyMovementRestrictionExemptionEffect

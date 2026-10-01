@@ -59,14 +59,25 @@ function effectsOf(def: CardDefinition | null | undefined): readonly CardEffect[
  * card definitions (both players' `cardsInPlay` — these effects reach "all"
  * items, not only their controller's). Returns an empty array when none is in
  * play, so the per-item scan short-circuits.
+ *
+ * A modifier flagged `activeWhileStored` ("If stored, all ring items give one
+ * less corruption point" — Into the Smoking Cone dm-146) is dormant while its
+ * card sits in play and is collected only from `storedDefs`, the definitions
+ * of cards stored in either player's marshalling-point pile.
  */
 export function collectItemModifiersFromDefs(
   defs: readonly (CardDefinition | null | undefined)[],
+  storedDefs: readonly (CardDefinition | null | undefined)[] = [],
 ): InPlayItemModifier[] {
   const out: InPlayItemModifier[] = [];
-  for (const def of defs) {
+  const sources = [
+    ...defs.map(def => ({ def, stored: false })),
+    ...storedDefs.map(def => ({ def, stored: true })),
+  ];
+  for (const { def, stored } of sources) {
     for (const effect of effectsOf(def)) {
       if (effect.type !== 'in-play-item-modifier') continue;
+      if (!!effect.activeWhileStored !== stored) continue;
       out.push({
         itemFilter: effect.itemFilter,
         bearerFilter: effect.bearerFilter,
@@ -180,15 +191,20 @@ function bearerConditionalItemCorruptionPoints(
  * wherever it is known so that bearer-conditional corruption bonuses declared
  * on the item itself (Durin's Axe et al.) are honoured. Omitting it skips
  * every such bonus.
+ *
+ * `storedDefs` are the definitions of cards in either player's
+ * marshalling-point pile, whose `activeWhileStored` modifiers apply (Into the
+ * Smoking Cone dm-146). A negative modifier never takes an item below 0.
  */
 export function effectiveItemCorruptionPoints(
   itemDef: CardDefinition,
   inPlayDefs: readonly (CardDefinition | null | undefined)[],
   bearerAlignment?: Alignment,
   bearerRace?: Race,
+  storedDefs: readonly (CardDefinition | null | undefined)[] = [],
 ): number {
   const printed = (itemDef as { corruptionPoints?: number }).corruptionPoints ?? 0;
-  const deltas = itemModifierDeltas(itemDef, collectItemModifiersFromDefs(inPlayDefs), bearerAlignment);
+  const deltas = itemModifierDeltas(itemDef, collectItemModifiersFromDefs(inPlayDefs, storedDefs), bearerAlignment);
   const conditional = bearerConditionalItemCorruptionPoints(itemDef, bearerRace);
-  return (printed + deltas.cp) * deltas.cpMultiplier + conditional;
+  return Math.max(0, (printed + deltas.cp) * deltas.cpMultiplier) + conditional;
 }

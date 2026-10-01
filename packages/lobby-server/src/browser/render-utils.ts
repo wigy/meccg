@@ -6,7 +6,7 @@
  * duplication of card image creation and common DOM utilities.
  */
 
-import type { CardDefinition, CardEffect, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, Alignment } from '@meccg/shared';
+import type { CardDefinition, CardEffect, CardInstanceId, CardDefinitionId, CharacterInPlay, GameAction, RegionType, PlayerView, ViewCard, Alignment } from '@meccg/shared';
 import { cardImageProxyPath, effectiveItemCorruptionPoints, isItemCard, isCharacterCard, hasPlayFlag } from '@meccg/shared';
 
 /**
@@ -172,6 +172,24 @@ export function inPlayCardDefs(
 }
 
 /**
+ * Definitions of every card in either player's marshalling-point pile. Fed to
+ * {@link effectiveItemCorruptionPoints} so "if stored" item modifiers (Into
+ * the Smoking Cone dm-146: "If stored, all ring items give one less corruption
+ * point") reach the CP badges; defeated creatures in the same pile carry no
+ * such modifier and are ignored.
+ */
+export function storedCardDefs(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): CardDefinition[] {
+  // Tolerate a view without piles (partial board views built for rendering).
+  const piles: (readonly ViewCard[] | undefined)[] = [view.self.killPile, view.opponent.killPile];
+  return piles.flatMap(pile => pile ?? [])
+    .map(c => cardPool[c.definitionId as string])
+    .filter((d): d is CardDefinition => d != null);
+}
+
+/**
  * Find the display name of the in-play permanent event carrying the
  * `reduce-attacks-to-one` play-flag (*Forewarned Is Forearmed*), or
  * `undefined` if it is not in play or its definition is redacted from this
@@ -203,13 +221,14 @@ export function appendItemCards(
   bearerAlignment?: Alignment,
 ): void {
   const inPlayDefs = inPlayCardDefs(view, cardPool);
+  const storedDefs = storedCardDefs(view, cardPool);
   const charDef = cardPool[char.definitionId as string];
   const bearerRace = isCharacterCard(charDef) ? charDef.race : undefined;
   for (const item of char.items) {
     const itemDef = cardPool[item.definitionId as string];
     const itemEl = createCardImageFromDefId(item.definitionId, cardPool, 'drafted-card drafted-item', item.instanceId as string);
     if (!itemEl) continue;
-    const itemCp = itemDef && isItemCard(itemDef) ? effectiveItemCorruptionPoints(itemDef, inPlayDefs, bearerAlignment, bearerRace) : 0;
+    const itemCp = itemDef && isItemCard(itemDef) ? effectiveItemCorruptionPoints(itemDef, inPlayDefs, bearerAlignment, bearerRace, storedDefs) : 0;
     if (itemCp > 0) {
       const itemWrap = document.createElement('div');
       itemWrap.className = 'item-card-wrap';
