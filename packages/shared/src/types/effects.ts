@@ -6179,6 +6179,17 @@ export interface PlayTargetEffect extends EffectBase {
    */
   readonly requireTapped?: boolean;
   /**
+   * When `target` is `"site"` and this is `true`, the card is played *at*
+   * the site rather than *on* the site card (CoE rule 5.3.1: a
+   * permanent-event not played "on" a card affects all versions of its
+   * affected cards). `CardInPlay.attachedToSite` then records only where it
+   * was played: the card stays in play when its company leaves and the site
+   * card is discarded or returned to the location deck, instead of being
+   * swept as an orphaned site attachment. Used by The White Tree (tw-348):
+   * "Sage only at Minas Tirith. … Minas Tirith becomes a Haven".
+   */
+  readonly playedAtSite?: boolean;
+  /**
    * Maximum company size for the target's company (e.g. Stealth,
    * Sneakin': "company size less than three"). When set, the card is only
    * playable if the candidate's company's effective size — per the CoE

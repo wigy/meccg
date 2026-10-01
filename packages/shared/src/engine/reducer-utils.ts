@@ -6420,6 +6420,17 @@ function cardHasOwnLeavesPlayDiscardCondition(def: CardDefinition | null | undef
   return getCardEffects(def).some(e => e.type === 'discard-on-card-leaves-play');
 }
 
+/**
+ * Whether `def` is played *at* its site rather than *on* the site card
+ * (`play-target: "site"` with `playedAtSite: true`). Per CoE rule 5.3.1 such
+ * a permanent-event affects all versions of the site, so it must survive the
+ * site card leaving play (bug report: game mumfbhhk-01p0g8, seq 1130 — The
+ * White Tree tw-348 was wrongly discarded when the company left Minas Tirith).
+ */
+function cardPlayedAtSite(def: CardDefinition | null | undefined): boolean {
+  return getCardEffects(def).some(e => e.type === 'play-target' && e.target === 'site' && e.playedAtSite === true);
+}
+
 export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
   const occupied = new Set<string>();
   for (const p of state.players) {
@@ -6480,7 +6491,10 @@ export function discardOrphanedSiteAttachedEvents(state: GameState): GameState {
       // of Erech tw-334) fully specify when they leave play; `attachedToSite`
       // only recorded their play location, not an ongoing site binding —
       // exempt them from the default "site left play" discard trigger.
-      && !cardHasOwnLeavesPlayDiscardCondition(defById(state, card.definitionId)),
+      && !cardHasOwnLeavesPlayDiscardCondition(defById(state, card.definitionId))
+      // Cards played *at* a site rather than on its card (The White Tree
+      // tw-348) have no ongoing tie to the site card's presence.
+      && !cardPlayedAtSite(defById(state, card.definitionId)),
     card => {
       const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
       logDetail(`site-attached event: discarding "${def?.name ?? card.definitionId}" — bound site ${card.attachedToSite as string} left play`);

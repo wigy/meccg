@@ -864,6 +864,7 @@
       {
         "type": "play-target",
         "target": "site",
+        "playedAtSite": true,
         "filter": {
           "name": "Minas Tirith"
         }

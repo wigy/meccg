@@ -23,6 +23,9 @@
  *   Minas Tirith a haven for healing
  * - Wounded characters at Minas Tirith heal during untap when White
  *   Tree is in play
+ * - Stays in play (with its haven override) when the company leaves
+ *   Minas Tirith — it is played *at* the site, not on the site card
+ *   (CoE rule 5.3.1)
  */
 
 import { describe, test, beforeEach, expect } from 'vitest';
@@ -41,6 +44,7 @@ import type {
   CardDefinitionId, GameState, CardInstance, PlayPermanentEventAction, ConstraintId, SitePhaseState,
 } from '../../index.js';
 import { buildTestState, mint } from '../test-helpers.js';
+import { discardOrphanedSiteAttachedEvents } from '../../engine/reducer-utils.js';
 
 const THE_WHITE_TREE = 'tw-348' as CardDefinitionId;
 
@@ -477,6 +481,43 @@ describe('tw-348 The White Tree', () => {
     expect(override).toBeDefined();
     expect((override!.kind as { filter?: { 'site.definitionId'?: string } }).filter?.['site.definitionId'])
       .toBe(MINAS_TIRITH as unknown as string);
+  });
+
+  test('stays in play when the company leaves Minas Tirith', () => {
+    // Regression for the Dain bug report (game mumfbhhk-01p0g8, seq 1130):
+    // The White Tree was bound to Minas Tirith via `attachedToSite`, so the
+    // orphaned-site-attachment sweep discarded it the moment its company
+    // moved away. It is played *at* Minas Tirith, not on the site card, and
+    // affects all versions of the site (CoE rule 5.3.1).
+    let state: GameState = buildSitePhaseState({
+      site: MINAS_TIRITH,
+      characters: [ELROND],
+      hand: [THE_WHITE_TREE],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, ELROND, SAPLING_OF_THE_WHITE_TREE);
+    const elrondId = findCharInstanceId(state, RESOURCE_PLAYER, ELROND);
+    const saplingId = state.players[0].characters[elrondId].items[0].instanceId;
+    const whiteTreeId = handCardId(state, RESOURCE_PLAYER);
+    state = playPermanentEventAndResolve(state, PLAYER_1, whiteTreeId, undefined, {
+      targetSiteDefinitionId: MINAS_TIRITH,
+      discardCardInstanceId: saplingId,
+    });
+    expect(state.players[0].cardsInPlay.some(c => c.instanceId === whiteTreeId)).toBe(true);
+
+    // The company moves on to Moria — no company occupies Minas Tirith.
+    const company = state.players[0].companies[0];
+    const moved: GameState = {
+      ...state,
+      players: [
+        { ...state.players[0], companies: [{ ...company, currentSite: { ...company.currentSite!, definitionId: MORIA } }] },
+        state.players[1],
+      ] as GameState['players'],
+    };
+
+    const swept = discardOrphanedSiteAttachedEvents(moved);
+    expect(swept.players[0].cardsInPlay.some(c => c.instanceId === whiteTreeId)).toBe(true);
+    expect(swept.players[0].discardPile.some(c => c.instanceId === whiteTreeId)).toBe(false);
+    expect(swept.activeConstraints.some(c => c.source === whiteTreeId)).toBe(true);
   });
 
   test('unique — not playable if already in play', () => {
