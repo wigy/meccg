@@ -417,6 +417,13 @@ export interface DiceRollEffect {
    * `state` message to finish.
    */
   readonly tappedCharacterId?: CardInstanceId;
+  /**
+   * The other roll of a "make two rolls and choose one" effect (Lucky Strike
+   * tw-270, Swift Strokes le-238). When present, this effect's `die1`/`die2`
+   * is the roll that was kept and `alternateRoll` is the one discarded, so
+   * clients can show both pairs and make clear which one was used.
+   */
+  readonly alternateRoll?: { readonly die1: DieRoll; readonly die2: DieRoll };
 }
 
 /**

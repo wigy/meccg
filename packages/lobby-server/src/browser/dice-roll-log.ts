@@ -22,9 +22,23 @@ export interface RollNotification {
 
 /** One-line summary of a roll for the verbose debug log. */
 export function diceRollLogLine(effect: DiceRollEffect): string {
-  const { playerName, die1, die2, label, total } = effect;
+  const { playerName, die1, die2, label, total, alternateRoll } = effect;
   const totalStr = total !== undefined ? ` (total ${total})` : '';
-  return `${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${totalStr}`;
+  const altStr = alternateRoll
+    ? ` (other roll ${alternateRoll.die1} + ${alternateRoll.die2} = ${alternateRoll.die1 + alternateRoll.die2}, discarded)`
+    : '';
+  return `${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${totalStr}${altStr}`;
+}
+
+/**
+ * Whether a `dice-roll` effect is the discarded half of a two-roll strike
+ * recorded by older servers, which emitted it as its own effect labelled
+ * `"… (discarded): <character>"` right before the kept roll. Such a roll
+ * belongs in the logs but must not animate — the kept roll's animation
+ * would immediately replace it.
+ */
+export function isLegacyDiscardedRoll(effect: DiceRollEffect): boolean {
+  return /\(discarded\):/.test(effect.label);
 }
 
 /**
@@ -50,7 +64,9 @@ function truncateName(name: string): string {
  * A CvCC strike carries a prowess total, so it is formatted as
  * `prowess+d1+d2=total` for both players — the matching result line arrives
  * later with the state. A plain 2d6 roll is only logged for the opponent: the
- * player who rolled watched their own dice animate.
+ * player who rolled watched their own dice animate. A two-roll strike (one
+ * carrying `alternateRoll`) gets no line here: the engine sends both players a
+ * text notification quoting both rolls and the outcome.
  *
  * @param selfName - Name of the player using this client.
  * @param opponentName - Display name for the opponent, when known.
@@ -61,6 +77,7 @@ export function diceRollNotification(
   opponentName: string | null,
 ): RollNotification | null {
   const { playerName, die1, die2, label, total } = effect;
+  if (effect.alternateRoll) return null;
   if (total !== undefined) {
     const prowess = total - die1 - die2;
     const charName = truncateName(label.startsWith('CvCC Strike: ') ? label.slice('CvCC Strike: '.length) : label);

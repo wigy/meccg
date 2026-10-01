@@ -535,7 +535,7 @@ export function handlePlayStrikeEvent(state: GameState, action: GameAction, comb
     // defender's independent tap/stay-untapped choice (CoE 3.iv.3) survives
     // as action.tapToFight — a reroll card's text says nothing about tapping,
     // so it must not force one outcome over the other.
-    return resolveChainStrikeModifier(resultState, strikeEffect, action.tapToFight);
+    return resolveChainStrikeModifier(resultState, strikeEffect, action.tapToFight, cardLabel);
   }
 
   // Default mode: accumulate prowess/body bonuses on the current strike.

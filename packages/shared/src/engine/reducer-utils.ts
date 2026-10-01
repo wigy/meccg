@@ -346,6 +346,7 @@ export function diceRollEffect(
   label: string,
   total?: number,
   tappedCharacterId?: CardInstanceId,
+  alternateRoll?: TwoDiceSix,
 ): DiceRollEffect {
   return {
     effect: 'dice-roll',
@@ -355,6 +356,7 @@ export function diceRollEffect(
     label,
     ...(total !== undefined ? { total } : {}),
     ...(tappedCharacterId !== undefined ? { tappedCharacterId } : {}),
+    ...(alternateRoll !== undefined ? { alternateRoll: { die1: alternateRoll.die1, die2: alternateRoll.die2 } } : {}),
   };
 }
 

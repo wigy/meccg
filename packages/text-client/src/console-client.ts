@@ -236,8 +236,11 @@ function connect(): void {
 
       case 'effect':
         if (msg.effect.effect === 'dice-roll') {
-          const { playerName, die1, die2, label } = msg.effect;
-          console.log(`  ${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}`);
+          const { playerName, die1, die2, label, alternateRoll } = msg.effect;
+          const alt = alternateRoll
+            ? ` (other roll ${alternateRoll.die1} + ${alternateRoll.die2} = ${alternateRoll.die1 + alternateRoll.die2}, discarded)`
+            : '';
+          console.log(`  ${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${alt}`);
         } else if (msg.effect.effect === 'text-notification') {
           // Game events with no interactive action (e.g. body-check outcomes).
           console.log(`  ${msg.effect.message}`);

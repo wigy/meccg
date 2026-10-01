@@ -5789,6 +5789,56 @@ body.all-companies-mode:has(#debug-view.hidden) {
   gap: 3rem;
 }
 
+/* Two-roll strikes (Lucky Strike, Swift Strokes): both pairs side by side,
+   captioned once they land, with the discarded pair dimmed. */
+.dice-pair {
+  display: flex;
+  gap: 5rem;
+}
+
+.dice-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  transition: opacity 0.4s ease-out, filter 0.4s ease-out;
+}
+
+.dice-caption {
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.7rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #f0e6c8;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.dice-resolved .dice-caption {
+  opacity: 1;
+}
+
+.dice-resolved .dice-group-discarded {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+}
+
+.dice-resolved .dice-group-discarded .dice-caption {
+  text-decoration: line-through;
+}
+
+.dice-resolved .dice-group-kept .dice-caption {
+  color: #ffd76a;
+  box-shadow: 0 0 8px rgba(255, 215, 106, 0.6);
+}
+
+.dice-group.dice-sliding .dice-caption {
+  display: none;
+}
+
 .dice-scene {
   width: 90px;
   height: 90px;

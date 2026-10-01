@@ -13,7 +13,8 @@
  * 1. play-strike-event appears during resolve-strike when the target is a warrior.
  * 2. Warrior-only filter blocks the action when the target is not a warrior.
  * 3. The need is 1 less than tap-to-fight need (reflecting the +1 prowess bonus).
- * 4. Two dice rolls are emitted (kept + discarded) and the better total is used.
+ * 4. Both rolls are emitted in one dice-roll effect (kept + alternateRoll),
+ *    with a text notification quoting both, and the better total is used.
  * 5. The +1 prowess bonus is applied before rolling — character effectively fights
  *    at prowess+1 with reroll.
  * 6. Character taps on success (like normal tap-to-fight).
@@ -44,6 +45,8 @@ import {
 import { computeLegalActions, Phase, CardStatus, RegionType, SiteType } from '../../index.js';
 import type {
   GameState,
+  DiceRollEffect,
+  TextNotificationEffect,
   CardDefinitionId,
   PlayStrikeEventAction,
   PlayShortEventAction,
@@ -212,18 +215,25 @@ describe('Swift Strokes (le-238)', () => {
     expect(s2.players[0].hand.length).toBe(0);
     expectInDiscardPile(s2, RESOURCE_PLAYER, SWIFT_STROKES);
 
-    // Two dice-roll effects emitted (kept + discarded).
-    const diceEffects = result.effects!.filter(e => e.effect === 'dice-roll');
-    expect(diceEffects.length).toBe(2);
-    const totals = diceEffects.map(e => {
-      const d = e as { die1: number; die2: number };
-      return d.die1 + d.die2;
-    });
-    const keptEffect = diceEffects.find(e => !(e as { label: string }).label.includes('discarded'))!;
-    const keptTotal = (keptEffect as { die1: number; die2: number }).die1
-      + (keptEffect as { die1: number; die2: number }).die2;
+    // One dice-roll effect carries both rolls (kept + alternateRoll).
+    const diceEffects = result.effects!.filter((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    expect(diceEffects.length).toBe(1);
+    const [keptEffect] = diceEffects;
+    expect(keptEffect.alternateRoll).toBeDefined();
+    const keptTotal = keptEffect.die1 + keptEffect.die2;
+    const totals = [keptTotal, keptEffect.alternateRoll!.die1 + keptEffect.alternateRoll!.die2];
     expect(keptTotal).toBe(Math.max(...totals));
     expect(keptTotal).toBe(12);
+
+    // Both players get a message-panel line quoting both rolls and the outcome.
+    const notes = result.effects!.filter((e): e is TextNotificationEffect => e.effect === 'text-notification');
+    const alt = keptEffect.alternateRoll!;
+    const note = notes.find(n => n.message.startsWith('Swift Strokes:'));
+    expect(note).toBeDefined();
+    expect(note!.message).toContain(`6+6=12`);
+    expect(note!.message).toContain(`${alt.die1}+${alt.die2}=${alt.die1 + alt.die2}`);
+    expect(note!.message).toContain('keeping 12');
+    expect(note!.message).toMatch(/strike defeated$/);
   });
 
   test('poor first roll is overridden when second roll is better', () => {
@@ -236,16 +246,14 @@ describe('Swift Strokes (le-238)', () => {
 
     const result = dispatchResult({ ...s1, cheatRollTotal: 2 }, swiftAction.action);
 
-    const diceEffects = result.effects!.filter(e => e.effect === 'dice-roll');
-    expect(diceEffects.length).toBe(2);
-    const totals = diceEffects.map(e => {
-      const d = e as { die1: number; die2: number };
-      return d.die1 + d.die2;
-    });
+    const diceEffects = result.effects!.filter((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    expect(diceEffects.length).toBe(1);
+    const [keptEffect] = diceEffects;
+    expect(keptEffect.alternateRoll).toBeDefined();
+    const keptTotal = keptEffect.die1 + keptEffect.die2;
+    const totals = [keptTotal, keptEffect.alternateRoll!.die1 + keptEffect.alternateRoll!.die2];
+    // The first roll was cheated to 2; the other came from the RNG.
     expect(totals).toContain(2);
-    const keptEffect = diceEffects.find(e => !(e as { label: string }).label.includes('discarded'))!;
-    const keptTotal = (keptEffect as { die1: number; die2: number }).die1
-      + (keptEffect as { die1: number; die2: number }).die2;
     expect(keptTotal).toBe(Math.max(...totals));
   });
 

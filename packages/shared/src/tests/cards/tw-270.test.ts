@@ -13,7 +13,8 @@
  *    resolve-strike when the target character is a warrior
  * 2. Warrior-only filter blocks the action when the target character is
  *    not a warrior
- * 3. Two dice rolls are emitted (kept + discarded) and the better total
+ * 3. Both rolls are emitted in one dice-roll effect (kept + alternateRoll),
+ *    with a text notification quoting both, and the better total
  *    is used
  * 4. Character taps on success (like normal tap-to-fight)
  * 5. Lucky Strike card is discarded from hand after use
@@ -35,6 +36,8 @@ import {
 import { computeLegalActions, Phase, CardStatus } from '../../index.js';
 import type {
   CardDefinitionId,
+  DiceRollEffect,
+  TextNotificationEffect,
   PlayStrikeEventAction,
   PlayShortEventAction,
   NotPlayableAction,
@@ -122,19 +125,26 @@ describe('Lucky Strike (tw-270)', () => {
     expect(s2.players[0].hand.length).toBe(0);
     expectInDiscardPile(s2, RESOURCE_PLAYER, LUCKY_STRIKE);
 
-    // Two dice-roll effects are emitted — the discarded roll and the kept
-    // roll. The kept roll's total is the max of the two totals.
-    const diceEffects = result.effects!.filter(e => e.effect === 'dice-roll');
-    expect(diceEffects.length).toBe(2);
-    const totals = diceEffects.map(e => {
-      const d = e as { die1: number; die2: number };
-      return d.die1 + d.die2;
-    });
-    const keptEffect = diceEffects.find(e => !(e as { label: string }).label.includes('discarded'))!;
-    const keptTotal = (keptEffect as { die1: number; die2: number }).die1
-      + (keptEffect as { die1: number; die2: number }).die2;
+    // One dice-roll effect carries both rolls: the kept roll in die1/die2
+    // and the discarded one in alternateRoll. The kept total is the max.
+    const diceEffects = result.effects!.filter((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    expect(diceEffects.length).toBe(1);
+    const [keptEffect] = diceEffects;
+    expect(keptEffect.alternateRoll).toBeDefined();
+    const keptTotal = keptEffect.die1 + keptEffect.die2;
+    const totals = [keptTotal, keptEffect.alternateRoll!.die1 + keptEffect.alternateRoll!.die2];
     expect(keptTotal).toBe(Math.max(...totals));
     expect(keptTotal).toBe(12);
+
+    // Both players get a message-panel line quoting both rolls and the outcome.
+    const notes = result.effects!.filter((e): e is TextNotificationEffect => e.effect === 'text-notification');
+    const alt = keptEffect.alternateRoll!;
+    const note = notes.find(n => n.message.startsWith('Lucky Strike:'));
+    expect(note).toBeDefined();
+    expect(note!.message).toContain(`6+6=12`);
+    expect(note!.message).toContain(`${alt.die1}+${alt.die2}=${alt.die1 + alt.die2}`);
+    expect(note!.message).toContain('keeping 12');
+    expect(note!.message).toMatch(/strike defeated$/);
 
     // Cave-drake has no body and both strikes resolved against Aragorn
     // (one normal + one excess) defeat the creature on success, so combat
@@ -163,19 +173,14 @@ describe('Lucky Strike (tw-270)', () => {
 
     const result = dispatchResult({ ...s1, cheatRollTotal: 2 }, rerollAction.action);
 
-    const diceEffects = result.effects!.filter(e => e.effect === 'dice-roll');
-    expect(diceEffects.length).toBe(2);
-    const totals = diceEffects.map(e => {
-      const d = e as { die1: number; die2: number };
-      return d.die1 + d.die2;
-    });
-
-    // First roll was cheated to 2; the other roll was from RNG.
+    const diceEffects = result.effects!.filter((e): e is DiceRollEffect => e.effect === 'dice-roll');
+    expect(diceEffects.length).toBe(1);
+    const [keptEffect] = diceEffects;
+    expect(keptEffect.alternateRoll).toBeDefined();
+    const keptTotal = keptEffect.die1 + keptEffect.die2;
+    const totals = [keptTotal, keptEffect.alternateRoll!.die1 + keptEffect.alternateRoll!.die2];
+    // The first roll was cheated to 2; the other came from the RNG.
     expect(totals).toContain(2);
-    const keptEffect = diceEffects.find(e => !(e as { label: string }).label.includes('discarded'))!;
-    const keptTotal = (keptEffect as { die1: number; die2: number }).die1
-      + (keptEffect as { die1: number; die2: number }).die2;
-    // The kept total is always the max of the two rolls.
     expect(keptTotal).toBe(Math.max(...totals));
     expect(keptTotal).toBeGreaterThanOrEqual(2);
   });

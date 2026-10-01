@@ -130,9 +130,16 @@ const lastRolls: Record<string, { die1: number; die2: number }> = {};
  */
 const inflightAnimations: Set<Promise<void>> = new Set();
 
-/** Variants whose dice are currently mid-animation; used to guard
- *  seedDiceFromState() from yanking overlays out during a roll. */
-const animatingVariants: Set<string> = new Set();
+/** Number of in-flight animations per variant; a variant with a non-zero
+ *  count is mid-roll. Used to guard seedDiceFromState() from yanking
+ *  overlays out during a roll. Counted (not a set) so a superseded roll
+ *  finishing late cannot clear the flag of the roll that replaced it. */
+const animatingVariants: Map<string, number> = new Map();
+
+/** Whether the dice of `variant` are currently mid-animation. */
+function isAnimating(variant: string): boolean {
+  return (animatingVariants.get(variant) ?? 0) > 0;
+}
 
 /**
  * Wait for any in-progress dice animations to finish before proceeding.
@@ -174,9 +181,12 @@ export function dismissDiceOverlays(): void {
   }
 }
 
-/** Remove a specific dice overlay by variant. */
-function dismiss(variant: string): void {
-  const ov = overlays[variant];
+/**
+ * Fade out and remove a dice overlay. Defaults to the current overlay of
+ * `variant`; pass `ov` to dismiss one specific overlay, so a timer left over
+ * from a superseded roll cannot fade out the overlay that replaced it.
+ */
+function dismiss(variant: string, ov: HTMLElement | undefined = overlays[variant]): void {
   if (!ov) return;
   ov.classList.add('dice-fade-out');
   setTimeout(() => {
@@ -185,15 +195,48 @@ function dismiss(variant: string): void {
   }, 300);
 }
 
+/** Extra time a two-roll result stays on screen so both pairs can be read. */
+const PAIR_EXTRA_HOLD_MS = 800;
+
+/** Time from the start of a roll until both dice have landed. */
+const LANDED_MS = 1600;
+
+/** Build a group of two dice with a caption underneath (used for two-roll strikes). */
+function createDiceGroup(dieA: HTMLElement, dieB: HTMLElement, kind: 'kept' | 'discarded'): HTMLElement {
+  const group = document.createElement('div');
+  group.className = `dice-group dice-group-${kind}`;
+  const row = document.createElement('div');
+  row.className = 'dice-row';
+  row.appendChild(dieA);
+  row.appendChild(dieB);
+  const caption = document.createElement('div');
+  caption.className = 'dice-caption';
+  caption.textContent = kind;
+  group.appendChild(row);
+  group.appendChild(caption);
+  return group;
+}
+
 /**
  * Show a dice roll animation overlay. Both dice use the same color
  * variant: black pair for self, red pair for opponent.
  *
- * @param die1 - Result for the first die (1–6).
- * @param die2 - Result for the second die (1–6).
+ * When `alternate` is given (a "make two rolls and choose one" strike such
+ * as Lucky Strike), both pairs tumble side by side; once they land the
+ * alternate pair is dimmed and captioned "discarded", the kept pair is
+ * captioned "kept", and only the kept pair slides into the tray.
+ *
+ * @param die1 - Result for the first die (1–6) of the (kept) roll.
+ * @param die2 - Result for the second die (1–6) of the (kept) roll.
  * @param variant - Color variant for both dice ('red' or 'black').
+ * @param alternate - The other, discarded roll of a two-roll strike.
  */
-export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 'red'): void {
+export function rollDice(
+  die1: number,
+  die2: number,
+  variant: 'red' | 'black' = 'red',
+  alternate?: { die1: number; die2: number },
+): void {
   lastRolls[variant] = { die1, die2 };
 
   // Register this roll as an in-flight animation. The promise resolves
@@ -205,10 +248,15 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
   let resolveAnimation!: () => void;
   const animationPromise = new Promise<void>(resolve => { resolveAnimation = resolve; });
   inflightAnimations.add(animationPromise);
-  animatingVariants.add(variant);
+  animatingVariants.set(variant, (animatingVariants.get(variant) ?? 0) + 1);
+  let finished = false;
   const finishAnimation = (): void => {
+    if (finished) return;
+    finished = true;
     inflightAnimations.delete(animationPromise);
-    animatingVariants.delete(variant);
+    const remaining = (animatingVariants.get(variant) ?? 1) - 1;
+    if (remaining > 0) animatingVariants.set(variant, remaining);
+    else animatingVariants.delete(variant);
     resolveAnimation();
   };
 
@@ -228,22 +276,45 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
   const overlay = document.createElement('div');
   overlay.className = 'dice-overlay';
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) dismiss(variant);
+    if (e.target === overlay) dismiss(variant, overlay);
   });
   overlays[variant] = overlay;
+  // A later roll of the same colour replaces this overlay mid-animation; the
+  // timers below then only settle this roll's promise and leave the newer
+  // overlay and the tray alone.
+  const superseded = (): boolean => overlays[variant] !== overlay;
 
   const container = document.createElement('div');
   container.className = `dice-container dice-position-${variant}`;
 
-  const diceRow = document.createElement('div');
-  diceRow.className = 'dice-row';
-
   const dieEl1 = createDie(variant);
   const dieEl2 = createDie(variant);
-  diceRow.appendChild(dieEl1);
-  diceRow.appendChild(dieEl2);
 
-  container.appendChild(diceRow);
+  // The element that slides into the tray: the whole container for a single
+  // roll, only the kept group for a two-roll strike.
+  let slider: HTMLElement = container;
+  let alternateGroup: HTMLElement | null = null;
+  if (alternate) {
+    const pair = document.createElement('div');
+    pair.className = 'dice-pair';
+    const altEl1 = createDie(variant);
+    const altEl2 = createDie(variant);
+    alternateGroup = createDiceGroup(altEl1, altEl2, 'discarded');
+    slider = createDiceGroup(dieEl1, dieEl2, 'kept');
+    pair.appendChild(alternateGroup);
+    pair.appendChild(slider);
+    container.appendChild(pair);
+    animateDie(altEl1, alternate.die1, 50);
+    animateDie(altEl2, alternate.die2, 150);
+    setTimeout(() => { if (!superseded()) container.classList.add('dice-resolved'); }, LANDED_MS);
+  } else {
+    const diceRow = document.createElement('div');
+    diceRow.className = 'dice-row';
+    diceRow.appendChild(dieEl1);
+    diceRow.appendChild(dieEl2);
+    container.appendChild(diceRow);
+  }
+
   overlay.appendChild(container);
   document.body.appendChild(overlay);
 
@@ -257,13 +328,14 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
   // hold — that's the exact moment the reporter wanted to savor rather than
   // have flash by.
   const isSnakeEyes = die1 === 1 && die2 === 1;
-  const resultHoldMs = isSnakeEyes ? 3800 : 2800;
+  const resultHoldMs = (isSnakeEyes ? 3800 : 2800) + (alternate ? PAIR_EXTRA_HOLD_MS : 0);
 
   // After roll animation, slide dice toward the tray, then settle into it
   setTimeout(() => {
+    if (superseded()) { finishAnimation(); return; }
     const trayId = variant === 'black' ? 'self-dice-tray' : 'opponent-dice-tray';
     const tray = document.getElementById(trayId);
-    if (tray && container) {
+    if (tray) {
       // The tray may be hidden via .dice-tray:empty { display: none } since
       // we cleared it at the start of the roll. Temporarily force it visible
       // so getBoundingClientRect() returns real coordinates instead of zeros
@@ -271,24 +343,37 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
       const trayWasEmpty = !tray.children.length;
       if (trayWasEmpty) tray.style.display = 'flex';
       const trayRect = tray.getBoundingClientRect();
-      const contRect = container.getBoundingClientRect();
+      const contRect = slider.getBoundingClientRect();
       const startX = contRect.left + contRect.width / 2;
       const startY = contRect.top + contRect.height / 2;
 
-      container.style.position = 'fixed';
-      container.style.left = `${startX}px`;
-      container.style.top = `${startY}px`;
-      container.style.transform = 'translate(-50%, -50%)';
+      if (alternateGroup) {
+        // Only the kept pair travels: lift it out of the (transformed)
+        // container so its fixed position is relative to the viewport, and
+        // drop the discarded pair.
+        slider.classList.add('dice-sliding');
+        overlay.appendChild(slider);
+        container.remove();
+      }
+      slider.style.position = 'fixed';
+      slider.style.left = `${startX}px`;
+      slider.style.top = `${startY}px`;
+      slider.style.transform = 'translate(-50%, -50%)';
 
-      void container.offsetWidth;
-      container.style.transition = 'left 0.6s ease-in-out, top 0.6s ease-in-out, transform 0.6s ease-in-out';
-      container.style.left = `${trayRect.left + trayRect.width / 2}px`;
-      container.style.top = `${trayRect.top + trayRect.height / 2}px`;
-      container.style.transform = 'translate(-50%, -50%) scale(0.35)';
+      void slider.offsetWidth;
+      slider.style.transition = 'left 0.6s ease-in-out, top 0.6s ease-in-out, transform 0.6s ease-in-out';
+      slider.style.left = `${trayRect.left + trayRect.width / 2}px`;
+      slider.style.top = `${trayRect.top + trayRect.height / 2}px`;
+      slider.style.transform = 'translate(-50%, -50%) scale(0.35)';
 
       // After slide completes, dismiss overlay and render in tray
       setTimeout(() => {
-        dismiss(variant);
+        if (superseded()) {
+          if (trayWasEmpty) tray.style.display = '';
+          finishAnimation();
+          return;
+        }
+        dismiss(variant, overlay);
         restoreDice();
         // Remove the temporary inline display override; restoreDice() has
         // populated the tray so :empty no longer applies.
@@ -296,7 +381,7 @@ export function rollDice(die1: number, die2: number, variant: 'red' | 'black' = 
         finishAnimation();
       }, 650);
     } else {
-      dismiss(variant);
+      dismiss(variant, overlay);
       restoreDice();
       finishAnimation();
     }
@@ -358,13 +443,13 @@ export function seedDiceFromState(view: { self: { lastDiceRoll: { die1: number; 
   // overlay out from under the animation.
   if (view.self.lastDiceRoll) {
     lastRolls['black'] = view.self.lastDiceRoll;
-  } else if (!animatingVariants.has('black')) {
+  } else if (!isAnimating('black')) {
     delete lastRolls['black'];
     if (overlays['black']) { overlays['black'].remove(); delete overlays['black']; }
   }
   if (view.opponent.lastDiceRoll) {
     lastRolls['red'] = view.opponent.lastDiceRoll;
-  } else if (!animatingVariants.has('red')) {
+  } else if (!isAnimating('red')) {
     delete lastRolls['red'];
     if (overlays['red']) { overlays['red'].remove(); delete overlays['red']; }
   }
