@@ -2021,6 +2021,11 @@ function applyOneConstraint(
       // `advanceAfterCompanyMH` (mh-hazard-play.ts) once the company's
       // movement/hazard phase ends — no broad legal-action filtering here.
       return base;
+    case 'end-of-mh-heal-and-untap':
+      // Healing of Nimrodel (dm-135): applied directly by
+      // `fireEndOfMHHealAndUntap` (mh-hazard-play.ts) when the company's
+      // movement/hazard phase ends — no legal-action filtering.
+      return base;
     case 'keyed-attacks-normal':
       // World Gnawed by the Nameless (as-110): consulted directly at
       // hazard-creature combat initiation (`companyKeyedAttacksNormalSiteTypes`

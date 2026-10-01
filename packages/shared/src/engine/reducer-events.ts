@@ -3294,6 +3294,15 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'extra-mh-phase', ...(required ? { requiresDestinationSiteType: required } : {}) };
           break;
         }
+        case 'end-of-mh-heal-and-untap': {
+          // Healing of Nimrodel (dm-135): "If the company moves to another
+          // Haven this turn, at the end of the movement/hazard phase …" —
+          // gate evaluated by `fireEndOfMHHealAndUntap` once the move resolves.
+          const required = onEvent.apply.requiresDestinationSiteType as
+            import('../types/common.js').SiteType | undefined;
+          kind = { type: 'end-of-mh-heal-and-untap', ...(required ? { requiresDestinationSiteType: required } : {}) };
+          break;
+        }
         case 'site-path-reduction': {
           // Hey! come merry dol! (td-124): "Each Wilderness [{w}] symbol in the
           // company's site path counts as half a Wilderness [{w}] … round down

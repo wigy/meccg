@@ -977,7 +977,33 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true,
+          "company.atHaven": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "end-of-mh-heal-and-untap",
+          "scope": "turn",
+          "requiresDestinationSiteType": "haven"
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-10-01",
     "text": "Playable during the organization phase on a moving company whose site of origin is a Haven [{H}]. If the company moves to another Haven [{H}] this turn, at the end of the movement/hazard phase all wounded characters in the company heal (from wounded to untapped) and all tapped characters untap."
   },
   {

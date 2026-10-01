@@ -1766,6 +1766,25 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Healing of Nimrodel (dm-135): "If the company moves to another
+         * Haven [{H}] this turn, at the end of the movement/hazard phase all
+         * wounded characters in the company heal (from wounded to untapped)
+         * and all tapped characters untap."
+         *
+         * Played at the end of the organization phase, before the move
+         * resolves, so the destination gate is evaluated when the company's
+         * movement/hazard phase ends (`fireEndOfMHHealAndUntap`): the company
+         * must actually have moved and its new site must match
+         * {@link requiresDestinationSiteType} (absent = any destination). On a
+         * match every tapped or wounded character in the company becomes
+         * untapped and the constraint is consumed.
+         */
+        readonly type: 'end-of-mh-heal-and-untap';
+        /** Site type the company must have moved to, or undefined for any. */
+        readonly requiresDestinationSiteType?: import('./common.js').SiteType;
+      }
+    | {
+        /**
          * World Gnawed by the Nameless (as-110): "All hazard creatures the
          * company faces this turn keyed to Shadow-holds [{S}] attack normally,
          * not as detainment." Turn-scoped, installed on the target company by
