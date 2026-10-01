@@ -56,11 +56,19 @@ export function resolveSiteInstanceTransform(
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       if (card.pendingTriggerAttack) continue;
-      if (card.attachedToSite !== siteDefinitionId) continue;
+      if (card.attachedToSite === undefined) continue;
       const effect = getCardEffects(defById(state, card.definitionId)).find(
         (e): e is SiteInstanceTransformEffect => e.type === 'site-instance-transform',
       );
       if (!effect) continue;
+      // `allVersions` (Tower Raided as-57): the transform reaches every
+      // printing of the bound location — hero, minion, Fallen-wizard and
+      // Balrog versions are distinct definitions sharing one name.
+      const boundHere = effect.allVersions
+        ? siteNameOf(state, card.attachedToSite) !== undefined
+          && siteNameOf(state, card.attachedToSite) === siteNameOf(state, siteDefinitionId)
+        : card.attachedToSite === siteDefinitionId;
+      if (!boundHere) continue;
       const isAssociated = player.companies.some(
         co => co.currentSite?.instanceId === siteInstanceId,
       );

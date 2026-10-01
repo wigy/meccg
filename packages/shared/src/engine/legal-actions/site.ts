@@ -21,7 +21,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, keywordDiscardCandidates, companyItemDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -1741,7 +1741,8 @@ export function playResourcesActions(
           (e) => e.type === 'trigger-attack-on-play',
         ) ?? false;
         const hasDiscardCondition = eventDef.effects?.some(
-          (e) => e.type === 'play-condition' && (e).requires === 'discard-named-card',
+          (e) => e.type === 'play-condition'
+            && ((e).requires === 'discard-named-card' || (e).requires === 'discard-keyword-card' || (e).requires === 'discard-company-item'),
         ) ?? false;
         if (charPlayTarget) {
           // play-condition: site-type — the company's current site must be one of
@@ -1883,29 +1884,55 @@ export function playResourcesActions(
           // Discard condition present: fall through to discard-named-card block below
         }
 
-        // Check play-condition: discard-named-card
+        // Check play-condition: discard-named-card / discard-keyword-card —
+        // a card the company controls is discarded (for no effect) as the play
+        // cost (The White Tree tw-348: a named Sapling; Tower Raided as-57: any
+        // Stolen Knowledge card).
         const discardCondition = findPlayConditionEffect(eventDef, 'discard-named-card');
-        const discardCandidates = discardCondition?.cardName
-          ? namedDiscardCandidates(state, player, company, discardCondition)
-          : [];
-        if (discardCondition?.cardName && discardCandidates.length === 0) {
-          logDetail(`Permanent event ${eventDef.name}: no ${discardCondition.cardName} available to discard`);
-          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no ${discardCondition.cardName} available to discard`));
+        const keywordDiscardCondition = findPlayConditionEffect(eventDef, 'discard-keyword-card');
+        const discardCandidates = [
+          ...(discardCondition?.cardName ? namedDiscardCandidates(state, player, company, discardCondition) : []),
+          ...(keywordDiscardCondition?.cardKeyword ? keywordDiscardCandidates(state, player, company, keywordDiscardCondition) : []),
+        ];
+        const discardRequired = !!discardCondition?.cardName || !!keywordDiscardCondition?.cardKeyword;
+        if (discardRequired && discardCandidates.length === 0) {
+          const wanted = discardCondition?.cardName ?? `${keywordDiscardCondition?.cardKeyword ?? '?'} card`;
+          logDetail(`Permanent event ${eventDef.name}: no ${wanted} available to discard`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: no ${wanted} available to discard`));
           continue;
         }
 
-        // Generate actions — cross-product of discard candidates (or single if none)
-        if (discardCandidates.length > 0) {
-          for (const dc of discardCandidates) {
-            logDetail(`Permanent event ${eventDef.name}: playable (discard ${dc.instanceId as string} from ${dc.source})`);
-            actions.push({
-              action: {
-                type: 'play-permanent-event', player: playerId, cardInstanceId,
-                ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
-                discardCardInstanceId: dc.instanceId,
-              },
-              viable: true,
-            });
+        // Check play-condition: discard-company-item — Tower Raided (as-57):
+        // "bears an item worth at least 2 marshalling points … discard the
+        // item". The item is chosen at play time alongside any card discard.
+        const itemDiscardCondition = findPlayConditionEffect(eventDef, 'discard-company-item');
+        const itemDiscardCandidates = itemDiscardCondition
+          ? companyItemDiscardCandidates(state, player, company, itemDiscardCondition)
+          : [];
+        if (itemDiscardCondition && itemDiscardCandidates.length === 0) {
+          logDetail(`Permanent event ${eventDef.name}: company bears no qualifying item to discard`);
+          actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: company bears no qualifying item`));
+          continue;
+        }
+
+        // Generate actions — cross-product of card-discard and item-discard
+        // candidates (or a single action if neither is required)
+        if (discardCandidates.length > 0 || itemDiscardCandidates.length > 0) {
+          const cardChoices = discardCandidates.length > 0 ? discardCandidates : [undefined];
+          const itemChoices = itemDiscardCandidates.length > 0 ? itemDiscardCandidates : [undefined];
+          for (const dc of cardChoices) {
+            for (const ic of itemChoices) {
+              logDetail(`Permanent event ${eventDef.name}: playable${dc ? ` (discard ${dc.name} ${dc.instanceId as string} from ${dc.source})` : ''}${ic ? ` (discard item ${ic.name} ${ic.instanceId as string})` : ''}`);
+              actions.push({
+                action: {
+                  type: 'play-permanent-event', player: playerId, cardInstanceId,
+                  ...(sitePlayTarget && siteDefId ? { targetSiteDefinitionId: siteDefId } : {}),
+                  ...(dc ? { discardCardInstanceId: dc.instanceId } : {}),
+                  ...(ic ? { discardItemInstanceId: ic.instanceId } : {}),
+                },
+                viable: true,
+              });
+            }
           }
         } else {
           logDetail(`Permanent event ${eventDef.name}: playable at ${siteName}`);

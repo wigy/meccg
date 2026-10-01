@@ -337,8 +337,11 @@ export function describeAction(
       return `Move ${compName(action.companyId)} to ${instName(action.destinationSite)}`;
     case 'cancel-movement':
       return `Cancel movement for ${compName(action.companyId)}`;
-    case 'play-permanent-event':
-      return `Play permanent event ${instName(action.cardInstanceId)}`;
+    case 'play-permanent-event': {
+      const discardTag = action.discardCardInstanceId ? `, discard ${instName(action.discardCardInstanceId)}` : '';
+      const itemTag = action.discardItemInstanceId ? `, discard item ${instName(action.discardItemInstanceId)}` : '';
+      return `Play permanent event ${instName(action.cardInstanceId)}${discardTag}${itemTag}`;
+    }
     case 'play-short-event': {
       if (action.targetInstanceId) {
         return `Play ${instName(action.cardInstanceId)} to cancel ${instName(action.targetInstanceId)}`;

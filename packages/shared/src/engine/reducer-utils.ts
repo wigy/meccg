@@ -3167,6 +3167,48 @@ export function namedDiscardCandidates(
 }
 
 /**
+ * Enumerates every item borne by a character of the given company that
+ * satisfies a `discard-company-item` play-condition's `itemFilter`, evaluated
+ * against the item's printed `{ item: { name, subtype, marshallingPoints,
+ * keywords } }`. Only real item cards count — resource events attached to a
+ * character (e.g. a Stolen Knowledge card) also live in `character.items` but
+ * are not items.
+ *
+ * Tower Raided (as-57): "if your company there: bears an item worth at least 2
+ * marshalling points … discard the item."
+ *
+ * Returns an empty list when no item qualifies, in which case the card is not
+ * playable.
+ */
+export function companyItemDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  condition: PlayConditionEffect,
+): DiscardCandidate[] {
+  const candidates: DiscardCandidate[] = [];
+  for (const charId of company.characters) {
+    const ch = player.characters[charId];
+    if (!ch) continue;
+    for (const item of ch.items) {
+      const def = defById(state, item.definitionId);
+      if (!def || !isItemCard(def)) continue;
+      const ctx = {
+        item: {
+          name: def.name,
+          subtype: def.subtype,
+          marshallingPoints: def.marshallingPoints,
+          keywords: (def as { keywords?: readonly string[] }).keywords ?? [],
+        },
+      };
+      if (condition.itemFilter && !matchesCondition(condition.itemFilter, ctx)) continue;
+      candidates.push({ instanceId: item.instanceId, source: 'character-items', name: def.name });
+    }
+  }
+  return candidates;
+}
+
+/**
  * Returns ALL of the card's `play-condition` effects for the given {@link
  * PlayConditionEffect.requires}. A card may carry the same prerequisite kind
  * more than once — Greater Half-orcs (wh-86) requires both "A Strident Spawn"
@@ -6094,7 +6136,7 @@ export function cardKeepsBoundSitePermanent(def: CardDefinition | null | undefin
   return getCardEffects(def).some(
     e => e.type === 'surface-region-adjacency'
       || e.type === 'surface-site-roll-zero'
-      || e.type === 'site-instance-transform'
+      || (e.type === 'site-instance-transform' && !e.discardWithSite)
       || e.type === 'eddy-lock'
       || e.type === 'site-lock'
       || e.type === 'region-type-conversion'
@@ -6396,7 +6438,11 @@ export function removePrisonerFromHost(state: GameState, characterId: CardInstan
  * this generic occupancy sweep.
  */
 function cardKeptInMarshallingPointPile(def: CardDefinition | null | undefined): boolean {
-  return getCardEffects(def).some(
+  const effects = getCardEffects(def);
+  // A site transform that is discarded with its site (Tower Raided as-57)
+  // stays bound to it: its transform reads `attachedToSite`.
+  if (effects.some(e => e.type === 'site-instance-transform' && e.discardWithSite)) return false;
+  return effects.some(
     e => e.type === 'trigger-attack-on-play' && e.afterAttack === 'move-to-mp-pile'
       && !e.discardUniqueFactionsAtSite,
   );
