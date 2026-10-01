@@ -5888,6 +5888,36 @@ export interface SiteUntapEffect extends EffectBase {
 }
 
 /**
+ * A resource short-event that taps a character during his company's site
+ * phase and rolls to bring an ally from hand into play under his control,
+ * waiving the ally's printed playability (Here, There, or Yonder, td-123):
+ * "Make a roll modified by +3 if character is a diplomat. An ally may be
+ * played and placed under the character's control if the result is greater
+ * than 6 plus the ally's mind stat and the ally is not restricted from moving
+ * in this site's region. If an ally is played, tap the site if it is not
+ * already tapped."
+ *
+ * Combined with a `play-target` tap-cost effect naming the character. The
+ * event rides the chain of effects (CoE 9.4/9.5, payload `rollPlayAlly`); on
+ * un-negated resolution `applyShortEventRollPlayAlly` (`roll-play-ally.ts`)
+ * rolls 2d6 (+{@link diplomatBonus} for a diplomat) and enqueues an
+ * `ally-placement-offer` pending resolution. A hand ally is offered when the
+ * total is greater than {@link threshold} + its mind and it is not
+ * movement-restricted at the site (its `bearer-company-moves` /
+ * `company-arrives-at-site` self-discard would not fire there, unless an
+ * `ally-movement-restriction-exemption` covers it). The player may decline.
+ */
+export interface RollPlayAllyEffect extends EffectBase {
+  readonly type: 'roll-play-ally';
+  /** Added to the roll when the tapped character is a diplomat. */
+  readonly diplomatBonus: number;
+  /** The roll must be greater than this value plus the ally's mind. */
+  readonly threshold: number;
+  /** When `true`, playing an ally taps the company's site. */
+  readonly tapSite?: boolean;
+}
+
+/**
  * A resource short-event that lets the player untap one currently-tapped
  * item borne by a character in the tapping sage's **own company**, chosen at
  * play time (Wielded Twice, td-167). The company-scoped sibling of
@@ -10363,6 +10393,7 @@ export type CardEffect =
   | RegionTypeConversionEffect
   | RegionTransformEffect
   | SiteUntapEffect
+  | RollPlayAllyEffect
   | ItemUntapEffect
   | ItemPlayCorruptionCheckEffect
   | AgentAttackBoostEffect

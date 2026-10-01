@@ -1305,6 +1305,12 @@ export type ChainEntryPayload =
        */
       readonly itemUntapInstanceId?: CardInstanceId;
       /**
+       * For a {@link RollPlayAllyEffect} card (Here, There, or Yonder,
+       * td-123): the roll and the follow-up ally-placement offer are made on
+       * resolution, by the character carried on `costTapCharacterId`.
+       */
+      readonly rollPlayAlly?: boolean;
+      /**
        * For a hazard short-event played on a stored resource permanent-event
        * (Which Might Be Lies dm-100), the stored permanent-event instance (in
        * the opponent's marshalling-point pile) being targeted. On resolution

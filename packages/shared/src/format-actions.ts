@@ -811,6 +811,8 @@ export function describeAction(
       return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} onto ${instName(action.targetCharacterId)}`;
     case 'play-item-placement-offer':
       return `${playerName(action.player)} plays ${instName(action.cardInstanceId)} (Necklace of Girion)`;
+    case 'play-ally-placement-offer':
+      return `${playerName(action.player)} plays ally ${instName(action.cardInstanceId)} (Here, There, or Yonder)`;
     default: {
       const _exhaustive: never = action;
       return `Unknown action`;

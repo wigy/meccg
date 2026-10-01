@@ -684,6 +684,25 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Ally-placement offer — enqueued when a `roll-play-ally` short event
+         * resolves (Here, There, or Yonder td-123). The actor may play one
+         * hand ally whose mind is below `rollTotal - threshold` and that is
+         * not movement-restricted at the character's site, placing it under
+         * `characterInstanceId` (`play-ally-placement-offer`), or decline
+         * (generic `pass`).
+         */
+        readonly type: 'ally-placement-offer';
+        /** Character who takes control of the played ally. */
+        readonly characterInstanceId: CardInstanceId;
+        /** The modified roll total. */
+        readonly rollTotal: number;
+        /** The roll must exceed this plus the ally's mind. */
+        readonly threshold: number;
+        /** Tap the character's site when an ally is played. */
+        readonly tapSite: boolean;
+      }
+    | {
+        /**
          * Rumor of Wealth (td-58): enqueued by `fireDragonAmbushWindow`
          * (`reducer-site.ts`) once a major/greater item is successfully
          * played at a site bound by a `dragon-ambush-window` constraint. The

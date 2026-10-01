@@ -3359,6 +3359,7 @@ export function buildPlayOptionContext(
   let containsDiplomat = false;
   let companyMoving = false;
   let companyDestinationSiteRegionType: string | null = null;
+  let companyEnteredSite = false;
   const companyAllyNames: string[] = [];
   if (player) {
     const avatar = findPlayerAvatar(state, player);
@@ -3436,6 +3437,15 @@ export function buildPlayOptionContext(
     // siteRevealed (true only for moving companies) rather than
     // destinationSiteName (which is set to the current site even for
     // stationary companies, making it non-null for both cases).
+    // A character's company has "entered its site" when it is the active
+    // company of the site phase and has reached the play-resources step —
+    // i.e. it is in "his site phase" and may play resources there. Gates
+    // site-phase character events like Here, There, or Yonder (td-123).
+    if (state.phaseState.phase === Phase.Site && charCompany
+      && state.phaseState.step === 'play-resources'
+      && player.companies[state.phaseState.activeCompanyIndex]?.id === charCompany.id) {
+      companyEnteredSite = true;
+    }
     const ps = state.phaseState as MovementHazardPhaseState;
     if (ps.phase === 'movement-hazard' && ps.siteRevealed && charCompany) {
       const activeCompany = player.companies[ps.activeCompanyIndex];
@@ -3499,6 +3509,7 @@ export function buildPlayOptionContext(
       containsDiplomat,
       allyNames: companyAllyNames,
       moving: companyMoving,
+      enteredSite: companyEnteredSite,
       destinationSiteType,
       destinationRegionTypes,
       destinationSiteRegionType: companyDestinationSiteRegionType,
