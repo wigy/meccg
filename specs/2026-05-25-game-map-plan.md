@@ -263,6 +263,36 @@ All new files are in the lobby-server browser package:
 - Draw approximate region-path polylines.
 - Optionally show agent movement trajectory (the face-down site stack as a dotted trail) when revealed.
 
+### Phase 7 — Destination picker on the map
+
+Implemented in `packages/lobby-server/src/browser/map-site-picker.ts`.
+
+- Clicking a movable company's site card opens a full-screen map (the same
+  overlay scaffolding as the full map, `createMapOverlay()` in
+  `map-fullscreen.ts`) instead of the site-deck card grid.
+- Every destination from the company's `plan-movement` legal actions
+  (`collectMovementDestinations()` in `render-piles.ts`, shared with the grid)
+  is a clickable marker coloured by site type, with a count badge for multiple
+  copies. Sibling companies' in-play sites (rule 2.II.7.2) are included.
+  Other site-deck sites are drawn dimmed and are not clickable.
+- Hovering or focusing a marker shows the site card in a side panel and draws
+  a *typical route* from the current site: the starter-movement line (dashed)
+  and the shortest region path as a polyline through region centroids. The
+  preview uses printed card data only; the engine still offers the real paths
+  when the path is declared.
+- Clicking a marker sends the exact `plan-movement` action and closes the map.
+- Sites without coordinates fall back to their region centroid; if that is
+  missing too, the site is listed in an "Other destinations" strip so every
+  legal destination stays selectable. Destinations on the other map level
+  (Under-deeps) are dimmed but remain clickable.
+- "Show as cards" switches to the grid, and the grid has "Show on map". The
+  last choice is remembered in `localStorage` (`meccg-movement-picker`);
+  narrow screens default to the grid, and the tutorial always uses the grid.
+- The full map offers a "Plan movement" button for the focused company when
+  it may declare movement.
+- Follow-ups: region filtering on click, previewing `declare-path` options on
+  the map, and real region polygons (needs licensed polygon data).
+
 ---
 
 ## Open questions

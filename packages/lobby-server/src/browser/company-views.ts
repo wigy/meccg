@@ -62,6 +62,7 @@ import { addOpponentInfluenceTargets } from './company-modals.js';
 import { setTargetingInstruction } from './render.js';
 import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
+import { openMovementMap } from './map-site-picker.js';
 import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
 import { onMapModeChange } from './map-mode.js';
 
@@ -200,7 +201,7 @@ export function renderSingleView(
           setFocusedCompanyId(view.self.companies[idx]?.id ?? null);
           setSavedFocusedCompanyId(view.self.companies[idx]?.id ?? null);
           rerender();
-        });
+        }, (companyId) => openMovementMap(view, cardPool, companyId, lastOnAction));
       });
     }
   };

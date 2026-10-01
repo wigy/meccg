@@ -281,6 +281,7 @@ function populateBrowserGrid(): void {
 
   grid.innerHTML = '';
   if (titleEl) titleEl.textContent = cachedBrowserTitle;
+  syncShowOnMapButton(titleEl);
 
   if (cachedBrowserCards.length === 0) {
     const empty = document.createElement('div');
@@ -682,14 +683,104 @@ export function prepareSiteSelection(
 }
 
 /**
+ * One site a company may declare movement to, as offered by the engine's
+ * `plan-movement` legal actions. Shared by the site-deck grid
+ * ({@link openMovementViewer}) and the map picker (`map-site-picker.ts`).
+ */
+export interface MovementDestination {
+  /** Card definition id of the destination site. */
+  readonly defId: string;
+  /** Instance id the action targets (a site-deck card or an in-play site). */
+  readonly instanceId: string;
+  /** The `plan-movement` action to send to move there. */
+  readonly action: EvaluatedAction;
+  /**
+   * True when the site is already in play at a sibling company (its current
+   * site or declared destination) rather than in the site deck — rule
+   * 2.II.7.2 lets a company move to a site another of its companies occupies.
+   */
+  readonly inPlay: boolean;
+  /** How many copies of this site the site deck holds (0 for in-play sites). */
+  readonly copies: number;
+}
+
+/**
+ * Map every site instance a company could target to its definition: the
+ * site-deck cards plus sibling companies' current and destination sites.
+ * Rule 2.II.7.2 allows a company to declare movement to a site another of
+ * its companies already occupies; such destinations are not in the site deck
+ * but the legal action refers to them by their in-play instance id. A
+ * sibling's destinationSite (already drawn from the deck) must also be
+ * included so a second company can target the same site.
+ */
+function buildSiteInstanceMap(
+  view: PlayerView,
+  companyId: string,
+): { siteInstToDef: Map<string, string>; inPlayInstanceIds: Set<string> } {
+  const siteInstToDef = new Map<string, string>();
+  for (const c of view.self.siteDeck) siteInstToDef.set(c.instanceId as string, c.definitionId as string);
+  const inPlayInstanceIds = new Set<string>();
+  for (const comp of view.self.companies) {
+    if (comp.id === companyId) continue;
+    for (const site of [comp.currentSite, comp.destinationSite]) {
+      if (!site) continue;
+      const instIdStr = site.instanceId as string;
+      if (siteInstToDef.has(instIdStr)) continue;
+      siteInstToDef.set(instIdStr, site.definitionId as string);
+      inPlayInstanceIds.add(instIdStr);
+    }
+  }
+  return { siteInstToDef, inPlayInstanceIds };
+}
+
+/**
+ * Turn a company's `plan-movement` legal actions into one entry per
+ * destination site definition. Several actions may target copies of the
+ * same site (or the same site by different routes); the first viable one is
+ * kept, falling back to the first non-viable one so the site can still be
+ * shown with its reason.
+ */
+export function collectMovementDestinations(view: PlayerView, companyId: string): MovementDestination[] {
+  const { siteInstToDef, inPlayInstanceIds } = buildSiteInstanceMap(view, companyId);
+  const copies = new Map<string, number>();
+  for (const c of view.self.siteDeck) {
+    const defId = c.definitionId as string;
+    copies.set(defId, (copies.get(defId) ?? 0) + 1);
+  }
+
+  const byDef = new Map<string, MovementDestination>();
+  for (const ea of view.legalActions) {
+    if (ea.action.type !== 'plan-movement' || (ea.action.companyId as string) !== companyId) continue;
+    const instanceId = ea.action.destinationSite as string;
+    const defId = siteInstToDef.get(instanceId);
+    if (!defId) continue;
+    const existing = byDef.get(defId);
+    if (existing && (existing.action.viable || !ea.viable)) continue;
+    const inPlay = inPlayInstanceIds.has(instanceId);
+    byDef.set(defId, { defId, instanceId, action: ea, inPlay, copies: inPlay ? 0 : copies.get(defId) ?? 0 });
+  }
+  return [...byDef.values()];
+}
+
+/**
+ * When set, the pile browser shows a "Show on map" button that calls it —
+ * active while the movement destination grid is open.
+ */
+let movementShowMapCallback: (() => void) | null = null;
+
+/**
  * Open the site deck viewer highlighting valid movement destinations for a company.
  * Called when the player clicks a highlighted (movable) site in the company view.
+ *
+ * @param onShowMap - When given, the viewer header shows a "Show on map"
+ * button that closes the grid and calls this (to open the map picker).
  */
 export function openMovementViewer(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
   companyId: string,
   onAction: (action: GameAction) => void,
+  onShowMap?: () => void,
 ): void {
   cachedSiteDeck = view.self.siteDeck;
   cachedCardPool = cardPool;
@@ -697,49 +788,21 @@ export function openMovementViewer(
     ea => ea.action.type === 'plan-movement' && (ea.action.companyId as string) === companyId,
   );
 
-  // Build instance -> definitionId map from the site deck and from any
-  // sibling companies' current sites or pending destination sites.
-  // Rule 2.II.7.2 allows a company to declare movement to a site another
-  // of its companies already occupies; such destinations are not in the
-  // site deck but the legal action refers to them by their in-play
-  // instance id. A sibling's destinationSite (already drawn from the deck)
-  // must also be included so a second company can target the same site.
-  const siteInstToDef = new Map<string, string>();
-  for (const c of view.self.siteDeck) siteInstToDef.set(c.instanceId as string, c.definitionId as string);
-  const inPlayDestInstanceIds = new Set<string>();
-  for (const comp of view.self.companies) {
-    if (comp.id === companyId) continue;
-    const sites = [comp.currentSite, comp.destinationSite];
-    for (const site of sites) {
-      if (!site) continue;
-      const instIdStr = site.instanceId as string;
-      if (siteInstToDef.has(instIdStr)) continue;
-      siteInstToDef.set(instIdStr, site.definitionId as string);
-      inPlayDestInstanceIds.add(instIdStr);
-    }
-  }
+  const { siteInstToDef, inPlayInstanceIds } = buildSiteInstanceMap(view, companyId);
 
   // Match by definition ID so all copies of the same site are highlighted.
-  // Multiple plan-movement actions may target the same site (different paths);
-  // pick the first viable one per destination definition.
   const destDefIds = new Map<string, EvaluatedAction>();
-  for (const ea of siteSelectionActions) {
-    if (ea.action.type !== 'plan-movement') continue;
-    const destInstId = (ea.action as { destinationSite: CardInstanceId }).destinationSite;
-    const destDefId = siteInstToDef.get(destInstId as string);
-    if (destDefId && !destDefIds.has(destDefId)) {
-      destDefIds.set(destDefId, ea);
-    }
-  }
+  for (const dest of collectMovementDestinations(view, companyId)) destDefIds.set(dest.defId, dest.action);
   siteSelectionMatcher = (card) => destDefIds.get(siteInstToDef.get(card.instanceId as string) ?? '');
-  siteSelectionInPlayInstanceIds = inPlayDestInstanceIds;
+  siteSelectionInPlayInstanceIds = inPlayInstanceIds;
   siteSelectionCallback = onAction;
+  movementShowMapCallback = onShowMap ?? null;
   installSiteDeckViewer();
 
   // Append virtual cards for in-play destinations so they render alongside
   // the actual site deck. Each carries the same shape the browser expects.
   const inPlayCards: ViewCard[] = [];
-  for (const instIdStr of inPlayDestInstanceIds) {
+  for (const instIdStr of inPlayInstanceIds) {
     const defId = siteInstToDef.get(instIdStr);
     if (!defId) continue;
     inPlayCards.push({
@@ -750,6 +813,33 @@ export function openMovementViewer(
   cachedBrowserCards = [...cachedSiteDeck, ...inPlayCards];
   cachedBrowserTitle = 'Site Deck';
   populateBrowserGrid();
+}
+
+/**
+ * Show or hide the pile browser's "Show on map" button (id
+ * `pile-browser-map-btn`, created on first use next to the title) depending
+ * on whether the movement destination grid is open with a map callback.
+ */
+function syncShowOnMapButton(titleEl: HTMLElement | null): void {
+  let btn = document.getElementById('pile-browser-map-btn');
+  if (!movementShowMapCallback) {
+    btn?.classList.add('hidden');
+    return;
+  }
+  if (!btn && titleEl) {
+    btn = document.createElement('button');
+    btn.id = 'pile-browser-map-btn';
+    btn.className = 'pile-browser-map-btn';
+    btn.textContent = 'Show on map';
+    btn.title = 'Pick the destination on the map of Middle-earth';
+    btn.addEventListener('click', () => {
+      const cb = movementShowMapCallback;
+      closeSelectionViewer();
+      cb?.();
+    });
+    titleEl.insertAdjacentElement('afterend', btn);
+  }
+  btn?.classList.remove('hidden');
 }
 
 /**
@@ -1033,6 +1123,7 @@ export function clearSelectionState(): void {
   siteSelectionCallback = null;
   siteSelectionMatcher = null;
   siteSelectionInPlayInstanceIds = new Set();
+  movementShowMapCallback = null;
   pileSubFlowActive = false;
   revealRemoveDiscardFilterActive = false;
   arrangeDeckTopBrowserOpened = false;

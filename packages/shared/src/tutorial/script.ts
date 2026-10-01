@@ -122,7 +122,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepInfo[] = [
     ],
     // The DI icon sits on the left edge of the card, below the mind head.
     card: { cardDefId: GLORFINDEL_II, highlight: { x: 0.14, y: 0.33, r: 0.09 } } },
-  { id: 'org-move', title: 'Declare movement', body: 'Companies declare movement in the organization phase. First click the company’s current site — Rivendell — then click the Barrow-downs to make it the destination: a two-region journey, Rhudaur then Cardolan.',
+  { id: 'org-move', title: 'Declare movement', body: 'Companies declare movement in the organization phase. First click the company’s current site — Rivendell — then click the Barrow-downs in your site deck to make it the destination: a two-region journey, Rhudaur then Cardolan. (Outside the tutorial, clicking the site opens a map of Middle-earth where you pick the destination directly; a Show as cards button switches to this card view.)',
     concepts: [
       { term: 'Company', explanation: 'A group of characters travelling together. Companies move, face hazards, and enter sites as one unit.' },
       { term: 'Region', explanation: 'Middle-earth is divided into named regions — the lands a journey crosses. A site path lists every region from the current site to the destination, at most four in one turn.' },

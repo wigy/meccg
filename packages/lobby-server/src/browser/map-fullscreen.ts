@@ -24,7 +24,7 @@ import type {
 } from '@meccg/shared';
 import { getTitleCharacter } from '@meccg/shared';
 import { getUnderDeepsCoordinates } from './map-under-deeps.js';
-import { getMapMode, setMapMode, isOnCurrentLevel } from './map-mode.js';
+import { getMapMode, setMapMode, isOnCurrentLevel, type MapMode } from './map-mode.js';
 import { createCombatMarker } from './map-radar.js';
 import {
   DIM_CLASS,
@@ -36,35 +36,58 @@ import {
 } from './map-markers.js';
 
 /**
- * Open the full-screen map overlay.
- *
- * @param view - The current player's view.
- * @param activeCompanyIndex - Index of the currently focused company.
- * @param cardPool - Card definition pool for site name lookups.
- * @param onSelectCompany - Callback with the company index when a dot is clicked.
+ * The scaffolding every full-screen map overlay shares — returned by
+ * {@link createMapOverlay} so each overlay only has to draw its own markers.
  */
-export function openFullMap(
-  view: PlayerView,
-  activeCompanyIndex: number,
-  cardPool: Readonly<Record<string, CardDefinition>>,
-  onSelectCompany: (idx: number) => void,
-): void {
+export interface MapOverlay {
+  /** The fixed backdrop element appended to `document.body`. */
+  readonly overlay: HTMLElement;
+  /** The inner panel holding the close button, layer bar and map. */
+  readonly inner: HTMLElement;
+  /** Close the overlay and detach its Escape key listener. */
+  readonly close: () => void;
+  /** Redraw the map for the current layer mode (e.g. after a hover change). */
+  readonly rerender: () => void;
+}
+
+/**
+ * Build the shared full-screen map overlay: backdrop (click outside closes),
+ * Escape to close, close button, Surface / Under-deeps layer toggle and the
+ * map image. `renderContent` is called with the map container — already
+ * holding the map image styled for the current mode — every time the map is
+ * (re)drawn, and adds the overlay-specific markers on top.
+ *
+ * Used by {@link openFullMap} (company overview) and by the movement
+ * destination picker (`map-site-picker.ts`).
+ *
+ * @param renderContent - Draws markers into the map container.
+ * @param extraClass - Optional extra class on the backdrop, for per-overlay styling.
+ * @param onClose - Called once when the overlay closes, however it was closed.
+ */
+export function createMapOverlay(
+  renderContent: (mapContainer: HTMLElement, mode: MapMode) => void,
+  extraClass?: string,
+  onClose?: () => void,
+): MapOverlay {
   // Backdrop
   const overlay = document.createElement('div');
-  overlay.className = 'map-fullscreen-overlay';
+  overlay.className = extraClass ? `map-fullscreen-overlay ${extraClass}` : 'map-fullscreen-overlay';
 
-  const close = () => overlay.remove();
+  let closed = false;
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') close();
+  };
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener('keydown', onKeyDown);
+    overlay.remove();
+    onClose?.();
+  };
 
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) close();
   });
-
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      close();
-      document.removeEventListener('keydown', onKeyDown);
-    }
-  };
   document.addEventListener('keydown', onKeyDown);
 
   // Inner container
@@ -77,10 +100,7 @@ export function openFullMap(
   closeBtn.className = 'map-fullscreen-close';
   closeBtn.textContent = '×';
   closeBtn.title = 'Close map';
-  closeBtn.addEventListener('click', () => {
-    close();
-    document.removeEventListener('keydown', onKeyDown);
-  });
+  closeBtn.addEventListener('click', () => close());
   inner.appendChild(closeBtn);
 
   // Mode buttons (top-left): Surface | Under-deeps
@@ -111,7 +131,7 @@ export function openFullMap(
     underDeepsBtn.classList.toggle('map-layer-btn--active', m === 'under-deeps');
   };
 
-  /** Render the map and all dots into mapContainer for the current mode. */
+  /** Render the map image and the overlay's markers for the current mode. */
   const renderMap = () => {
     mapContainer.innerHTML = '';
     const mode = getMapMode();
@@ -132,6 +152,50 @@ export function openFullMap(
       mapContainer.appendChild(colorOverlay);
     }
 
+    renderContent(mapContainer, mode);
+  };
+
+  // Initial render
+  syncButtons();
+  renderMap();
+
+  surfaceBtn.addEventListener('click', () => {
+    if (getMapMode() === 'surface') return;
+    setMapMode('surface');
+    syncButtons();
+    renderMap();
+  });
+
+  underDeepsBtn.addEventListener('click', () => {
+    if (getMapMode() === 'under-deeps') return;
+    setMapMode('under-deeps');
+    syncButtons();
+    renderMap();
+  });
+
+  document.body.appendChild(overlay);
+  return { overlay, inner, close, rerender: renderMap };
+}
+
+/**
+ * Open the full-screen map overlay.
+ *
+ * @param view - The current player's view.
+ * @param activeCompanyIndex - Index of the currently focused company.
+ * @param cardPool - Card definition pool for site name lookups.
+ * @param onSelectCompany - Callback with the company index when a dot is clicked.
+ * @param onPlanMovement - When given and the focused company may declare
+ * movement, a "Plan movement" button is shown that closes this overlay and
+ * calls back with the company id (the caller opens the destination picker).
+ */
+export function openFullMap(
+  view: PlayerView,
+  activeCompanyIndex: number,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onSelectCompany: (idx: number) => void,
+  onPlanMovement?: (companyId: string) => void,
+): void {
+  const { inner, close } = createMapOverlay((mapContainer) => {
     // Movement lines (always shown)
     const moveLines = buildMovementLinesLayer(view, cardPool, '0.4');
     if (moveLines) mapContainer.appendChild(moveLines);
@@ -151,7 +215,6 @@ export function openFullMap(
 
       result.dot.addEventListener('click', (e) => {
         e.stopPropagation();
-        document.removeEventListener('keydown', onKeyDown);
         close();
         onSelectCompany(idx);
       });
@@ -219,27 +282,29 @@ export function openFullMap(
       badge.textContent = `${hiddenAgentCount} hidden agent${hiddenAgentCount === 1 ? '' : 's'}`;
       mapContainer.appendChild(badge);
     }
-  };
-
-  // Initial render
-  syncButtons();
-  renderMap();
-
-  surfaceBtn.addEventListener('click', () => {
-    if (getMapMode() === 'surface') return;
-    setMapMode('surface');
-    syncButtons();
-    renderMap();
   });
 
-  underDeepsBtn.addEventListener('click', () => {
-    if (getMapMode() === 'under-deeps') return;
-    setMapMode('under-deeps');
-    syncButtons();
-    renderMap();
-  });
+  // "Plan movement" — switch this overlay into the destination picker for
+  // the focused company when it may declare movement right now.
+  const activeCompany = view.self.companies[activeCompanyIndex];
+  if (onPlanMovement && activeCompany && hasViableMovement(view, activeCompany.id as string)) {
+    const companyId = activeCompany.id as string;
+    const planBtn = document.createElement('button');
+    planBtn.className = 'map-plan-movement-btn';
+    planBtn.textContent = `Plan movement: ${companyLabel(activeCompany, view, cardPool)}`;
+    planBtn.addEventListener('click', () => {
+      close();
+      onPlanMovement(companyId);
+    });
+    inner.appendChild(planBtn);
+  }
+}
 
-  document.body.appendChild(overlay);
+/** Whether the player has a viable `plan-movement` action for the company. */
+export function hasViableMovement(view: PlayerView, companyId: string): boolean {
+  return view.legalActions.some(ea => ea.viable
+    && ea.action.type === 'plan-movement'
+    && (ea.action.companyId as string) === companyId);
 }
 
 /**
