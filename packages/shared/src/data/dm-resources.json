@@ -717,7 +717,29 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      { "type": "play-condition", "requires": "phase", "phases": ["organization"] },
+      { "type": "play-target", "target": "company", "filter": { "target.siteType": "haven" } },
+      { "type": "duplication-limit", "scope": "company", "max": 1 },
+      {
+        "type": "grant-action",
+        "action": "cup-of-farewell-fetch",
+        "cost": { "tap": "character" },
+        "anyPhase": true,
+        "oncePerTurn": true,
+        "when": { "site.type": "haven" },
+        "apply": {
+          "type": "enqueue-pending-fetch",
+          "fetchFrom": ["sideboard"],
+          "fetchCount": 1,
+          "fetchShuffle": false,
+          "fetchTo": "hand",
+          "revealToOpponent": true,
+          "filter": { "subtype": "minor" }
+        }
+      }
+    ],
+    "certified": "2026-10-01",
     "text": "Playable on a company at a Haven [{H}] during the organization phase. Once during each of your turns, you can tap a character in this company, if the company is at a Haven [{H}], to take a minor item from your sideboard into your hand (show opponent). Cannot be duplicated on a given company."
   },
   {

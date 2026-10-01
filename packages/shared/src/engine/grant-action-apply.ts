@@ -791,6 +791,7 @@ function runGrantApply(
       ...sitePart,
       ...(apply.unlockTappedSitePlay === true ? { unlockTappedSitePlay: true } : {}),
       ...(apply.mustPlayOrDiscard === true ? { mustPlayOrDiscard: true } : {}),
+      ...(apply.revealToOpponent === true ? { revealToOpponent: true } : {}),
     });
     if (!grantFetch) {
       return { error: 'This fetch is canceled while the play-deck/discard search cancel is in play' };
@@ -1795,6 +1796,7 @@ function handleInPlayCardGrantAction(
       count,
       shuffle,
       to: fetchTo,
+      ...(apply.revealToOpponent === true ? { revealToOpponent: true } : {}),
     });
     if (!grantFetch) {
       return { state, error: 'This fetch is canceled while the play-deck/discard search cancel is in play' };

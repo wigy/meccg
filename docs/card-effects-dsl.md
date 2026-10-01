@@ -3439,6 +3439,13 @@ your discard pile for any one item, ally, or faction playable at his current
 site. You may bring it to your hand. The site must be in Arthedain, Cardolan,
 Rhudaur, or The Shire."
 
+**`revealToOpponent: true`** — the fetched card's identity is shown to the
+opponent as it is taken (forwarded to the pending `fetch-to-deck` effect's
+`revealToOpponent`, recorded in `GameState.revealedInstances`). Supported on
+both the bearer and the bearer-less (`handleInPlayCardGrantAction`) paths.
+Used by Cup of Farewell (dm-122): "take a minor item from your sideboard into
+your hand (show opponent)".
+
 **`mustPlayOrDiscard: true`** (only meaningful with `fetchTo: "hand"`) — the
 fetched card cannot simply sit in hand: a `play-or-discard-fetched-item`
 pending resolution blocks *every other action* for the actor (Shape A — see
