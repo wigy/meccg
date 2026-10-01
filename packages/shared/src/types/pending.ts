@@ -3151,6 +3151,24 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Dragon-feuds (td-107): "For the rest of the turn, you may discard a
+         * Dragon or Drake hazard creature from your hand to cancel a Dragon or
+         * Drake attack against any of your companies." Turn-scoped, targeted at
+         * the player. While present, `cancelAttackActions` (combat.ts) offers a
+         * `cancel-attack` (`mode: "discard-from-hand"`) for every hand card
+         * matching {@link discardFilter} during any attack matching
+         * {@link attackWhen} against one of the player's companies. Not
+         * consumed — usable any number of times this turn, each use paying one
+         * hand card.
+         */
+        readonly type: 'discard-to-cancel-attack';
+        /** Condition over the cancel-attack `when` context (e.g. `enemy.race`). */
+        readonly attackWhen: Condition;
+        /** Condition over the hand card's definition (e.g. `cardType`, `race`). */
+        readonly discardFilter: Condition;
+      }
+    | {
+        /**
          * Here Is a Snake! (dm-137): once the hazard player finalizes their
          * `reveal-hazards-choice` resolution (by `pass`, with zero or more
          * cards revealed), the opponent may, "for the remainder of target

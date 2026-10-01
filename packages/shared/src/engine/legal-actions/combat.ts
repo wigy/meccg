@@ -3344,6 +3344,34 @@ function cancelAttackActions(
     });
   }
 
+  // Discard-to-cancel grant (Dragon-feuds td-107): for the rest of the turn the
+  // player may discard a qualifying hand card (a Dragon or Drake hazard
+  // creature) to cancel a matching attack against any of their companies. Not
+  // consumed — one action per qualifying hand card, per grant.
+  for (const constraint of state.activeConstraints) {
+    if (constraint.kind.type !== 'discard-to-cancel-attack') continue;
+    if (constraint.target.kind !== 'player' || constraint.target.playerId !== playerId) continue;
+    if (!matchesCondition(constraint.kind.attackWhen, whenContext())) {
+      logDetail(`Discard-to-cancel (${constraint.sourceDefinitionId as string}): attack does not qualify — not offered`);
+      continue;
+    }
+    for (const handCard of player.hand) {
+      const handDef = defById(state, handCard.definitionId);
+      if (!handDef || !matchesCondition(constraint.kind.discardFilter, handDef as unknown as Record<string, unknown>)) continue;
+      if (actions.some(a => a.action.type === 'cancel-attack' && a.action.mode === 'discard-from-hand' && a.action.cardInstanceId === handCard.instanceId)) continue;
+      logDetail(`Discard-to-cancel available: discard ${handDef.name} (${constraint.sourceDefinitionId as string} grant)`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          mode: 'discard-from-hand',
+        },
+        viable: true,
+      });
+    }
+  }
+
   // The Hunt (dm-143): "cannot use ... spells against the attack" drops every
   // cancel-attack option sourced from a `spell`-keyword card (Vanishment
   // tw-356, Wizard's River-horses tw-364), regardless of which loop above

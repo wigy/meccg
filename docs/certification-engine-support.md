@@ -1423,3 +1423,7 @@ Used by *Unhappy Blows* (as-42).
 ```
 
 Used by Trouble on All Borders (as-40).
+
+### `discard-to-cancel-attack` constraint + `cancel-attack` `mode: "discard-from-hand"` (Dragon-feuds td-107)
+
+An org-phase resource short-event whose `on-event: self-enters-play` → `add-constraint` (`constraint: "discard-to-cancel-attack"`, `target: "player"`, `scope: "turn"`) installs a player-targeted grant carrying `constraintWhen` (the attack filter, evaluated against the `cancelAttackActions` `when` context — `enemy.race`, `attack.source`, …) and `discardFilter` (evaluated against a hand card's definition — `cardType`, `race`, …). Installed by a new player-scoped branch in `reducer-events.ts`. While the grant lives, `cancelAttackActions` (`legal-actions/combat.ts`) offers one `cancel-attack` (`mode: "discard-from-hand"`, `cardInstanceId` = the qualifying hand card) per matching hand card against any matching attack on any of the player's companies (hazard creature or automatic-attack); `handleCancelAttack` (`combat-cancel.ts`) discards that card and cancels the attack immediately (no chain). The grant is **not consumed** — usable any number of times this turn, one hand card per use. Dragon-feuds: "For the rest of the turn, you may discard a Dragon or Drake hazard creature from your hand to cancel a Dragon or Drake attack against any of your companies." — `constraintWhen: { "enemy.race": { "$in": ["dragon", "drake"] } }`, `discardFilter: { "$and": [ { "cardType": "hazard-creature" }, { "race": { "$in": ["dragon", "drake"] } } ] }`.

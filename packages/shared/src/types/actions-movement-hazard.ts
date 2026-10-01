@@ -496,9 +496,12 @@ export interface CancelAttackAction {
    * a `free-attack-cancel` constraint (Darkness Wielded ba-55): no card is
    * played from hand — `cardInstanceId` names the granting card (now in discard)
    * only for logging; the constraint is consumed and the attack cancelled
-   * immediately.
+   * immediately. `"discard-from-hand"` is the cancellation granted by a
+   * `discard-to-cancel-attack` constraint (Dragon-feuds td-107):
+   * `cardInstanceId` is the qualifying hand card discarded as the cost, and
+   * the attack is cancelled immediately (no chain entry).
    */
-  readonly mode?: 'cancel' | 'reduce-prowess' | 'free-later-cancel';
+  readonly mode?: 'cancel' | 'reduce-prowess' | 'free-later-cancel' | 'discard-from-hand';
   /**
    * The replacement site chosen from the canceling player's location deck, set
    * only for a `cancel-attack` effect carrying a `siteSwap` payload (Farmer

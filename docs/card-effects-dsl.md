@@ -4565,6 +4565,26 @@ combat context that includes:
   cancels an attack against a company at / moving to-or-from an Under-deeps
   site.
 
+**Discard-from-hand cancel grant (`discard-to-cancel-attack`).** Not a
+`cancel-attack` effect on the card itself: an organization-phase short-event
+installs a turn-scoped, player-targeted `discard-to-cancel-attack` constraint
+via `on-event: self-enters-play` → `add-constraint` carrying `constraintWhen`
+(attack filter, same context as a `cancel-attack` `when`) and `discardFilter`
+(a condition over a hand card's definition). While it lives,
+`cancelAttackActions` offers a `cancel-attack` with `mode: "discard-from-hand"`
+for every qualifying hand card; dispatching it discards that card and cancels
+the attack immediately. The grant is not consumed. Used by *Dragon-feuds*
+(td-107):
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "discard-to-cancel-attack",
+    "scope": "turn", "target": "player",
+    "constraintWhen": { "enemy.race": { "$in": ["dragon", "drake"] } },
+    "discardFilter": { "$and": [ { "cardType": "hazard-creature" },
+      { "race": { "$in": ["dragon", "drake"] } } ] } } }
+```
+
 **Deferred free cancel (`alsoCancelLaterAttack`).** When a `cancel-attack`
 effect carries `"alsoCancelLaterAttack": true`, cancelling this attack also
 grants the defending player a **turn-scoped `free-attack-cancel` constraint**
