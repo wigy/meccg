@@ -3186,6 +3186,38 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
+      // Character-targeted check-modifier on the event's play-target character
+      // (First of the Order dm-131: "Saruman receives +2 to all corruption
+      // checks for the rest of the turn"). With `lasting: true` the modifier
+      // applies to every matching check by that character until its scope
+      // sweeps it; without it, the first matching check consumes it. Read by
+      // legal-actions/pending.ts + pending-reducers.ts (corruption) and
+      // reducer-free-council.ts.
+      if (constraintKind === 'check-modifier' && onEvent.apply.target === 'action-target-character') {
+        const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+        const check = onEvent.apply.check;
+        const value = onEvent.apply.value;
+        if (!characterId || !check || typeof value !== 'number') {
+          logDetail(`add-constraint(check-modifier, character): missing target character, check or value — fizzle`);
+          continue;
+        }
+        const scope = parseConstraintScope(scopeName, null);
+        if (!scope) {
+          logDetail(`add-constraint(check-modifier, character): unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        const lasting = onEvent.apply.lasting === true;
+        logDetail(`"${def.name}" played — adding ${lasting ? 'lasting ' : ''}check-modifier ${check} ${value > 0 ? '+' : ''}${value} on ${characterId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'character', characterId },
+          kind: { type: 'check-modifier', check, value, ...(lasting ? { lasting: true } : {}) },
+        });
+        continue;
+      }
+
       // Player-scoped site-path-reduction (Roam the Waste ba-73: "Each of your
       // companies this turn is considered to have one fewer Wilderness and one
       // fewer Shadow-land in its site path"). Turn-scoped, player-targeted; read
