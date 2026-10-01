@@ -329,6 +329,10 @@ export type CheckKind =
  * - `stolen-knowledge` — MEWH resource-event subgrouping (e.g. Dark Numbers
  *   dm-123); referenced by sibling cards' text ("discards a Stolen Knowledge
  *   card it controls").
+ * - `lost-knowledge` — DM "Lost Knowledge" item subgrouping (Forgotten
+ *   Scrolls dm-169, Lost Tome dm-172); referenced by sibling cards' text
+ *   ("discard a Lost Knowledge card it controls" — Into the Smoking Cone
+ *   dm-146, Fate of the Ithil-stone dm-128).
  * - `Leader`, `Uruk-hai`, `Olog-hai` — minion character subgroupings.
  * - `Half-orc` — race-keyword: the character counts as an Orc for all purposes
  *   *except* that it never makes its company overt and may not take trophies
@@ -364,6 +368,7 @@ export type Keyword =
   | 'light-enchantment'
   | 'dark-enchantment'
   | 'stolen-knowledge'
+  | 'lost-knowledge'
   | 'leader'
   | 'uruk-hai'
   | 'olog-hai'

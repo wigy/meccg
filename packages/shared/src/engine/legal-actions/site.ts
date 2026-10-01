@@ -21,7 +21,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
+import { hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, companyKeywordDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -999,6 +999,12 @@ function resolveAttacksActions(
  *  - a `singletonLock` effect must not already be claimed by another copy
  *    ("Once tapped, no other copy of this card can be tapped").
  *
+ * A `cost: { invert: "self" }` ability is offered the same way, except that the
+ * card must be `Tapped` rather than `Untapped` — Into the Smoking Cone (dm-146),
+ * whose `when` reads `site.name` ("at Mount Doom"). A cost that also declares
+ * `discardCompanyKeywordCard` is emitted once per qualifying card the company
+ * controls, carried as `targetCardId`.
+ *
  * This is the site-phase sibling of `bareCardGrantActions` (uncompany-bound
  * cards): both route to `handleInPlayCardGrantAction`, which
  * is why `characterId` self-references the source instance.
@@ -1013,12 +1019,15 @@ function inPlayCompanyTapGrantActions(
   const company = player.companies[siteState.activeCompanyIndex];
   if (!company) return [];
 
-  // The site-phase context a tap-self `when` clause is evaluated against.
+  // The site-phase context a tap-self / invert-self `when` clause is
+  // evaluated against.
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const context = {
     company: {
       prisonersRescuedAtDolGuldurThisSitePhase:
         siteState.prisonersRescuedAtDolGuldurThisSitePhase ?? false,
     },
+    site: { name: siteDef?.name },
   };
   const locks = state.singletonTapLocks ?? [];
 
@@ -1029,9 +1038,14 @@ function inPlayCompanyTapGrantActions(
     if (!def) continue;
     for (const effect of getCardEffects(def)) {
       if (effect.type !== 'grant-action') continue;
-      if (effect.cost.tap !== 'self') continue;
-      if (cip.status !== CardStatus.Untapped) {
-        logDetail(`Tap-self grant-action ${effect.action} on ${def.name}: card is ${cip.status} — not offered`);
+      const tapsSelf = effect.cost.tap === 'self';
+      const invertsSelf = effect.cost.invert === 'self';
+      if (!tapsSelf && !invertsSelf) continue;
+      // Tapping needs an untapped card; inverting ("If this card is tapped, …
+      // invert this card" — Into the Smoking Cone dm-146) needs a tapped one.
+      const requiredStatus = invertsSelf ? CardStatus.Tapped : CardStatus.Untapped;
+      if (cip.status !== requiredStatus) {
+        logDetail(`${invertsSelf ? 'Invert' : 'Tap'}-self grant-action ${effect.action} on ${def.name}: card is ${cip.status} — not offered`);
         continue;
       }
       if (effect.singletonLock && locks.includes(def.name)) {
@@ -1039,10 +1053,24 @@ function inPlayCompanyTapGrantActions(
         continue;
       }
       if (effect.when && !matchesCondition(effect.when, context)) {
-        logDetail(`Tap-self grant-action ${effect.action} on ${def.name}: timing condition not met (prisoners rescued at Dol Guldur this site phase: ${String(context.company.prisonersRescuedAtDolGuldurThisSitePhase)})`);
+        logDetail(`Grant-action ${effect.action} on ${def.name}: timing condition not met (site ${siteDef?.name ?? '?'}, prisoners rescued at Dol Guldur this site phase: ${String(context.company.prisonersRescuedAtDolGuldurThisSitePhase)})`);
         continue;
       }
-      logDetail(`Tap-self grant-action ${effect.action} available: tap ${def.name} bound to company ${company.id as string}`);
+      const discardKeyword = effect.cost.discardCompanyKeywordCard;
+      if (discardKeyword) {
+        // One action per card the company could discard for the cost.
+        const candidates = companyKeywordDiscardCandidates(state, player, company, discardKeyword);
+        if (candidates.length === 0) {
+          logDetail(`Grant-action ${effect.action} on ${def.name}: company controls no "${discardKeyword}" card to discard — not offered`);
+          continue;
+        }
+        for (const candidate of candidates) {
+          logDetail(`Grant-action ${effect.action} available: ${invertsSelf ? 'invert' : 'tap'} ${def.name}, discarding ${candidate.name}`);
+          actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0, { targetCardId: candidate.instanceId }));
+        }
+        continue;
+      }
+      logDetail(`Grant-action ${effect.action} available: ${invertsSelf ? 'invert' : 'tap'} ${def.name} bound to company ${company.id as string}`);
       actions.push(grantedAction(playerId, cip.instanceId, cip, effect.action, 0));
     }
   }
@@ -1419,7 +1447,51 @@ export function playResourcesActions(
           (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'company',
         );
         if (companyPlayTargetGate) {
-          logDetail(`Permanent event ${eventDef.name}: company-targeting resource — only playable during the organization phase`);
+          const sitePhaseWindow = getCardEffects(eventDef).some(e => e.type === 'play-window' && e.phase === Phase.Site);
+          if (!sitePhaseWindow) {
+            logDetail(`Permanent event ${eventDef.name}: company-targeting resource — only playable during the organization phase`);
+            continue;
+          }
+          evaluatedInstances.add(cardInstanceId as string);
+          // A company event that declares a site-phase `play-window` ("Playable
+          // on a company with a sage during the site phase at a site where gold
+          // ring items are playable" — Into the Smoking Cone dm-146) targets the
+          // company taking its site phase. Its filter sees the company's
+          // `hasSage` (effective skills, so an item-granted sage counts) and the
+          // site's `playableResources` as written (after Hidden Haven).
+          const companyDupLimit = findDuplicationLimitEffect(eventDef, 'company');
+          if (companyDupLimit) {
+            const existingCopies = countCompanyBoundCopies(state, eventDef.name, company.id)
+              + countCompanyBoundCopiesDeclaredInChain(state, eventDef.name, company.id);
+            if (existingCopies >= companyDupLimit.max) {
+              logDetail(`Permanent event ${eventDef.name}: company duplication limit reached (${existingCopies}/${companyDupLimit.max})`);
+              actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name} cannot be duplicated on this company`));
+              continue;
+            }
+          }
+          const hasSage = company.characters.some(cId => {
+            const ch = player.characters[cId];
+            const chDef = ch ? defById(state, ch.definitionId) : undefined;
+            return !!ch && !!chDef && isCharacterCard(chDef) && getEffectiveSkills(state, ch, chDef).includes('sage');
+          });
+          const ctx = {
+            target: {
+              siteType: siteDef && isSiteCard(siteDef) ? siteDef.siteType : undefined,
+              playableResources: [...playableTypes],
+              hasSage,
+              memberCount: company.characters.length,
+            },
+          };
+          if (companyPlayTargetGate.filter && !matchesCondition(companyPlayTargetGate.filter, ctx)) {
+            logDetail(`Permanent event ${eventDef.name}: company filter not met at ${siteName} (hasSage=${String(hasSage)}, playable=${[...playableTypes].join(', ') || 'none'})`);
+            actions.push(notPlayable(playerId, cardInstanceId, `${eventDef.name}: company or site does not qualify`));
+            continue;
+          }
+          logDetail(`Permanent event ${eventDef.name}: playable on company ${company.id as string} at ${siteName}`);
+          actions.push({
+            action: { type: 'play-permanent-event', player: playerId, cardInstanceId, targetCompanyId: company.id },
+            viable: true,
+          });
           continue;
         }
         evaluatedInstances.add(cardInstanceId as string);

@@ -786,12 +786,18 @@ function resolveCompanyRingwraithMode(
  */
 function collectInPlayItemModifiers(state: GameState): InPlayItemModifier[] {
   const defs: (CardDefinition | undefined)[] = [];
+  const storedDefs: (CardDefinition | undefined)[] = [];
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       defs.push(resolveDef(state, card.instanceId) ?? undefined);
     }
+    // "If stored, …" modifiers (Into the Smoking Cone dm-146) — `storedAtSite`
+    // separates a stored card from a defeated creature in the same pile.
+    for (const card of player.killPile) {
+      if (card.storedAtSite) storedDefs.push(resolveDef(state, card.instanceId) ?? undefined);
+    }
   }
-  return collectItemModifiersFromDefs(defs);
+  return collectItemModifiersFromDefs(defs, storedDefs);
 }
 
 /**
@@ -1060,7 +1066,7 @@ function computeEffectiveStats(
         // multiplier (Bane of the Ithil-stone: "Corruption points for Palantíri
         // are doubled").
         const deltas = itemModifierDeltas(itemDef, inPlayItemMods, bearerPlayerAlignment);
-        const itemCp = (printedCp + deltas.cp) * deltas.cpMultiplier;
+        const itemCp = Math.max(0, (printedCp + deltas.cp) * deltas.cpMultiplier);
         corruptionPoints += itemCp;
         if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }

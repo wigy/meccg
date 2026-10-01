@@ -1212,6 +1212,14 @@ Two optional fields refine the modifier:
   a player matching a player-context condition `{ bearer: { alignment, minion } }`
   (`minion` is true for the Ringwraith and Balrog alignments — MEBA: the Balrog
   player is a minion player). Absent → every player's items are affected.
+- **`activeWhileStored`** makes the modifier apply **only while its card is
+  stored** in a marshalling-point pile (a `killPile` entry carrying
+  `storedAtSite`); while the card merely sits in play it is dormant. A negative
+  delta never takes an item below 0 corruption points. Into the Smoking Cone
+  (dm-146): "If stored, all ring items give one less corruption point." —
+  `itemFilter` `{ "item.keywords": { "$includes": "ring" } }`,
+  `corruptionPoints: -1`, `activeWhileStored: true`. The browser CP badges pass
+  both players' marshalling-point piles as `storedDefs`.
 
 ```json
 { "type": "in-play-item-modifier",
@@ -8328,6 +8336,11 @@ whole company jointly controls has none.
 { "type": "storable-at", "siteTypes": ["haven"],
   "requiresTapped": true, "marshallingPoints": 4 }
 ```
+
+**`requiresInverted` — storable only once the card itself is inverted.** Into
+the Smoking Cone (dm-146): "If inverted, you can store this card at a Haven
+[{H}]". Same company-bound path as `requiresTapped`, gated on
+`CardStatus.Inverted` (set by a `grant-action` with `cost.invert: "self"`).
 
 ### 21z. Item-cache primitives (`item-cache-hand-store`, `item-cache-alt-storage`, `item-cache-play-source`, `item-cache-count-bonus`)
 
@@ -20286,3 +20299,49 @@ matched by name, so every version of the bound site counts.
 Used by *Sudden Fury* (dm-91) — "any attack by a scout agent at this site has
 its number of strikes increased by one and attacker chooses defending
 characters."
+
+### 89. `tap-on-company-item-play` + site-phase company events + `invert: "self"` / `discardCompanyKeywordCard` grant-action costs (Into the Smoking Cone)
+
+Into the Smoking Cone (dm-146): "Playable on a company with a sage during the
+site phase at a site where gold ring items are playable. Tap this card if the
+company plays a ring special item; this card never untaps. If this card is
+tapped, the company can discard (for no effect) a Lost Knowledge card it
+controls during its site phase at Mount Doom and invert this card … If
+inverted, you can store this card at a Haven … If stored, all ring items give
+one less corruption point. Once inverted, no other copy of this card can be
+inverted."
+
+- **Site-phase company events.** A `play-target: "company"` permanent event
+  that also declares `play-window` `phase: "site"` is offered at the
+  play-resources step (`playResourcesActions`, `legal-actions/site.ts`) on the
+  company taking its site phase, and nowhere else. Its `filter` sees
+  `target.hasSage` (effective skills — an item-granted sage counts),
+  `target.playableResources` (the site's printed list, empty under Hidden
+  Haven), `target.siteType` and `target.memberCount`.
+- **`tap-on-company-item-play`** `{ itemFilter }` — taps the untapped carrying
+  card the moment its company plays a matching item (`item.keywords`,
+  `item.name`, `item.subtype`, `item.cardType`). Fired by
+  `tapCompanyCardsOnItemPlay` (`reducer-utils.ts`) from the site-phase item
+  play and from the `ring-play-offer`, `named-card-play-offer` and
+  `item-placement-offer` resolutions.
+- **`cost.invert: "self"`** — a company-bound card's site-phase ability that
+  inverts the card in place; only offered/accepted while it is `Tapped`.
+  The `when` context now also carries `site.name`.
+- **`cost.discardCompanyKeywordCard`** — an extra cost: discard for no effect
+  one card with this keyword that the company controls (its characters' items
+  or permanent events bound to it). One action per candidate, carried as
+  `targetCardId`.
+
+```json
+{ "type": "play-target", "target": "company",
+  "filter": { "target.hasSage": true, "target.playableResources": { "$includes": "gold-ring" } } }
+{ "type": "play-window", "phase": "site" }
+{ "type": "tap-on-company-item-play",
+  "itemFilter": { "item.subtype": "special", "item.keywords": { "$includes": "ring" } } }
+{ "type": "grant-action", "action": "invert-into-the-smoking-cone",
+  "cost": { "invert": "self", "discardCompanyKeywordCard": "lost-knowledge" },
+  "singletonLock": true, "when": { "site.name": "Mount Doom" } }
+```
+
+The Lost Knowledge items (Forgotten Scrolls dm-169, Lost Tome dm-172) carry the
+new `lost-knowledge` keyword.

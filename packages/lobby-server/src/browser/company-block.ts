@@ -49,7 +49,7 @@ import type {
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, isAttachedToPresentCharacter, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId, inPlayCardDefs, actionsOfTypeFor } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs, storedCardDefs, actionsOfTypeFor } from './render-utils.js';
 import { getSelectedFactionForInfluence, clearFactionInfluenceSelection, getSelectedResourceForPlay, clearResourcePlaySelection, getSelectedAllyForPlay, clearAllyPlaySelection, getSelectedHazardForPlay, clearHazardPlaySelection, getSelectedInfluencerForOpponent, setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, getSelectedShortEvent, clearShortEventSelection, setTargetingInstruction, getSelectedPermanentEventForPlay, clearPermanentEventPlaySelection, getSelectedPermanentEventForLongEventTarget, clearPermanentEventLongEventTargetSelection, getSelectedTapAltPermanentEvent, setSelectedTapAltPermanentEvent, clearTapAltPermanentEventSelection } from './render.js';
 import {
   getCachedInstanceLookup,
@@ -1202,6 +1202,7 @@ export function renderCompanyBlock(
   // spare some players (Bane of the Ithil-stone tw-13 skips minion players), so
   // the badges also need the alignment of this company's controlling player.
   const inPlayDefs = inPlayCardDefs(view, cardPool);
+  const storedDefs = storedCardDefs(view, cardPool);
   const bearerAlignment = owner === 'self' ? view.self.alignment : view.opponent.alignment;
 
   // Character-attached permanent/short events (CardInPlay.attachedTo — e.g. a
@@ -1216,14 +1217,14 @@ export function renderCompanyBlock(
     renderInPlayCardImage(card, view, cardPool, options?.onAction);
 
   if (titleChar) {
-    row.appendChild(renderCharacterColumn(withPresentFollowers(titleChar), cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent));
+    row.appendChild(renderCharacterColumn(withPresentFollowers(titleChar), cardPool, true, charMap, buildCombinedClick(titleChar.instanceId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent, storedDefs));
   }
   for (const charInstId of company.characters) {
     if (followerIds.has(charInstId as string)) continue;
     const char = charMap[charInstId as string];
     if (!char) continue;
     if (titleChar && char.instanceId === titleChar.instanceId) continue;
-    row.appendChild(renderCharacterColumn(withPresentFollowers(char), cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent));
+    row.appendChild(renderCharacterColumn(withPresentFollowers(char), cardPool, false, charMap, buildCombinedClick(charInstId), buildCombinedClick, buildItemClick, buildHazardClick, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent, storedDefs));
   }
 
   // Company-targeting permanent events bound to this company (e.g. Fellowship,

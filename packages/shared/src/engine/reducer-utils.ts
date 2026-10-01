@@ -3141,6 +3141,24 @@ export function keywordDiscardCandidates(
 }
 
 /**
+ * Enumerates every card the given company controls (its characters' items and
+ * the permanent events bound to it) that carries `keyword` — the cost of a
+ * `grant-action` declaring `cost.discardCompanyKeywordCard` (Into the Smoking
+ * Cone dm-146: "discard (for no effect) a Lost Knowledge card it controls").
+ */
+export function companyKeywordDiscardCandidates(
+  state: GameState,
+  player: PlayerState,
+  company: Company,
+  keyword: string,
+): DiscardCandidate[] {
+  return collectDiscardCandidates(
+    state, player, company, ['character-items', 'cards-in-play'],
+    def => ((def as { keywords?: readonly string[] }).keywords ?? []).includes(keyword),
+  );
+}
+
+/**
  * Enumerates every card the given company controls with the exact name given
  * by a `discard-named-card` play-condition — the named sibling of
  * {@link keywordDiscardCandidates}.
@@ -8112,4 +8130,52 @@ export function matchesFollowsAttackKeyedTo(
     const siteMatch = restriction.siteTypes?.some(st => rec.siteTypes.includes(st)) ?? false;
     return regionMatch || siteMatch;
   });
+}
+
+/**
+ * Applies every `tap-on-company-item-play` effect for an item that was just
+ * **played** onto `characterId`: each untapped permanent event bound to that
+ * character's company (`CardInPlay.companyId`) whose effect's `itemFilter`
+ * matches the item is tapped in place.
+ *
+ * Into the Smoking Cone (dm-146): "Tap this card if the company plays a ring
+ * special item". Called from the site-phase item-play handler
+ * (`reducer-site.ts`) and from the post-gold-ring-test special-ring play
+ * (`applyRingPlayOfferResolution`, `pending-reducers.ts`) — the two ways a
+ * company plays an item.
+ */
+export function tapCompanyCardsOnItemPlay(
+  state: GameState,
+  playerIndex: number,
+  characterId: CardInstanceId,
+  itemDef: CardDefinition | undefined,
+): GameState {
+  if (!itemDef) return state;
+  const player = state.players[playerIndex];
+  const company = player.companies.find(c => c.characters.includes(characterId));
+  if (!company) return state;
+  const ctx = {
+    item: {
+      keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
+      name: itemDef.name,
+      subtype: (itemDef as { subtype?: string }).subtype,
+      cardType: itemDef.cardType,
+    },
+  };
+  const toTap = new Set<string>();
+  for (const card of player.cardsInPlay) {
+    if (card.companyId !== company.id || card.status !== CardStatus.Untapped) continue;
+    const def = defById(state, card.definitionId);
+    const trigger = getCardEffects(def).find(
+      e => e.type === 'tap-on-company-item-play' && matchesCondition(e.itemFilter, ctx),
+    );
+    if (!trigger) continue;
+    logDetail(`${def?.name ?? '?'}: company ${company.id as string} played ${itemDef.name} — tapping it`);
+    toTap.add(card.instanceId as string);
+  }
+  if (toTap.size === 0) return state;
+  return updatePlayer(state, playerIndex, p => ({
+    ...p,
+    cardsInPlay: p.cardsInPlay.map(c => (toTap.has(c.instanceId as string) ? { ...c, status: CardStatus.Tapped } : c)),
+  }));
 }
