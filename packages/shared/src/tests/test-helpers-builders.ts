@@ -1970,6 +1970,7 @@ export function playPermanentEventAndResolve(
   opts?: {
     targetSiteDefinitionId?: CardDefinitionId;
     discardCardInstanceId?: CardInstanceId;
+    discardItemInstanceId?: CardInstanceId;
     targetCompanyId?: CompanyId;
     targetItemInstanceId?: CardInstanceId;
     companionCardInstanceId?: CardInstanceId;

@@ -394,6 +394,13 @@ export interface PlayPermanentEventAction {
   /** Card instance to discard as a play cost (e.g. Sapling of the White Tree for The White Tree). */
   readonly discardCardInstanceId?: CardInstanceId;
   /**
+   * For a `discard-company-item` play-condition (Tower Raided as-57), the item
+   * borne by a character of the playing company that is discarded when the
+   * card is played. Independent of {@link discardCardInstanceId}, so a card can
+   * demand both a keyword-card discard and an item discard.
+   */
+  readonly discardItemInstanceId?: CardInstanceId;
+  /**
    * For a `play-with-stored-card` event (Wizard's Trove wh-85), the named
    * companion card in hand (e.g. The White Tree) that enters play together
    * with this card at `targetSiteDefinitionId`.

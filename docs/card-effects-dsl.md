@@ -8761,8 +8761,26 @@ execution).
 ```
 
 Implemented in `reducer-utils.ts` (`keywordDiscardCandidates`),
-`legal-actions/organization-events.ts` (company play-target emitter), and
-`reducer-events.ts` (discard execution).
+`legal-actions/organization-events.ts` (company play-target emitter),
+`legal-actions/site.ts` (site-phase permanent events — Tower Raided as-57),
+and `reducer-events.ts` (discard execution).
+
+- `discard-company-item` — the company must bear an item matching
+  `itemFilter` (evaluated against the item's printed `{ item: { name,
+  subtype, marshallingPoints, keywords } }`), which is discarded from its
+  bearer when the card is played. One legal action per matching item, each
+  carrying `discardItemInstanceId`; combined with a `discard-*-card`
+  condition the site-phase emitter offers the cross-product. Used by Tower
+  Raided (as-57): "bears an item worth at least 2 marshalling points … discard
+  the item."
+
+```json
+{ "type": "play-condition", "requires": "discard-company-item",
+  "itemFilter": { "item.marshallingPoints": { "$gte": 2 } } }
+```
+
+Implemented in `reducer-utils.ts` (`companyItemDiscardCandidates`),
+`legal-actions/site.ts`, and `reducer-events.ts`.
 
 - `site-type` — restricts the card to companies whose current site type
   is in the `siteTypes` array. For character-targeting permanent events
@@ -12030,6 +12048,8 @@ always returned to the owner's location deck rather than discarded (shared with
 | `others.addAutoAttack` | no | `{ creatureType, strikes, prowess }` added to every other version. |
 | `others.removeAutoAttacksByRace` | no | When set, every other version loses every automatic-attack of this creature race *before* `addAutoAttack` is applied. |
 | `noFactions` | no | When `true`, no faction may be played at any version of the transformed site (checked in the `legal-actions/site.ts` faction branch). |
+| `allVersions` | no | When `true`, the transform reaches every site definition sharing the bound site's printed name (hero, minion, Fallen-wizard and Balrog printings), not just the bound definition (Tower Raided as-57). |
+| `discardWithSite` | no | When `true`, the card is discarded with its bound site by the site-attached orphan sweep. By default a transforming card is permanent and keeps its site in play (ba-74). |
 
 Used by *Roots of the Earth* (ba-74): the associated Under-deeps Ruins & Lairs
 becomes a Darkhaven [{H}] that loses all automatic-attacks, while every other

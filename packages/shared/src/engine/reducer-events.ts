@@ -131,6 +131,19 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
     }
   }
 
+  // `discard-company-item` play-condition (Tower Raided as-57): "bears an item
+  // worth at least 2 marshalling points … discard the item." The chosen item
+  // leaves its bearer for its owner's discard pile.
+  if (action.discardItemInstanceId) {
+    const removed = removeAttachment(newState.players[playerIndex], 'items', action.discardItemInstanceId);
+    if (!removed) return { state, error: `${def.name}: item to discard not found in play` };
+    newState = updatePlayer(newState, playerIndex, () => ({
+      ...removed.player,
+      discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
+    }));
+    logDetail(`Discarded item ${defById(newState, removed.attachment.definitionId)?.name ?? (removed.attachment.definitionId as string)} from character ${removed.charId as string} for ${def.name}`);
+  }
+
   // Initiate or push onto chain — card enters play upon resolution.
   // Forward targetCharacterId / targetSiteDefinitionId / targetCompanyId (if any)
   // through the payload so that the chain resolver can set the correct binding

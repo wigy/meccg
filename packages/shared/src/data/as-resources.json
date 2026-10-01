@@ -1239,8 +1239,51 @@
     "eventType": "permanent",
     "marshallingPoints": 6,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase on an untapped Shadow-hold [{S}] if your company there: bears an item worth at least 2 marshalling points, contains an untapped scout, and discards for no effect a Stolen Knowledge card it controls. Tap the site and discard the item. Company faces an attack: Orcs — 4 strikes with 8 prowess. By the end of the site phase, tap a scout in the company or discard this card. If this card is not discarded, all versions of this site are now Ruins & Lairs [{R}], and no factions are playable there. Discard this card when the site is discarded or returned to your location deck."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "site",
+        "filter": { "effectiveSiteType": "shadow-hold" }
+      },
+      { "type": "play-flag", "flag": "untapped-site-required" },
+      { "type": "play-flag", "flag": "tap-site-on-play" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "scout" } },
+            { "target.status": "untapped" }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "discard-company-item",
+        "itemFilter": { "item.marshallingPoints": { "$gte": 2 } }
+      },
+      {
+        "type": "play-condition",
+        "requires": "discard-keyword-card",
+        "cardKeyword": "stolen-knowledge",
+        "sources": ["character-items", "cards-in-play"]
+      },
+      {
+        "type": "trigger-attack-on-play",
+        "attacks": [{ "creatureType": "Orcs", "strikes": 4, "prowess": 8 }],
+        "afterAttack": "move-to-mp-pile"
+      },
+      {
+        "type": "site-instance-transform",
+        "associated": { "siteType": "ruins-and-lairs" },
+        "others": { "siteType": "ruins-and-lairs" },
+        "noFactions": true,
+        "allVersions": true,
+        "discardWithSite": true
+      }
+    ],
+    "text": "Playable during the site phase on an untapped Shadow-hold [{S}] if your company there: bears an item worth at least 2 marshalling points, contains an untapped scout, and discards for no effect a Stolen Knowledge card it controls. Tap the site and discard the item. Company faces an attack: Orcs — 4 strikes with 8 prowess. By the end of the site phase, tap a scout in the company or discard this card. If this card is not discarded, all versions of this site are now Ruins & Lairs [{R}], and no factions are playable there. Discard this card when the site is discarded or returned to your location deck.",
+    "certified": "2026-10-01"
   },
   {
     "cardType": "hero-resource-faction",

@@ -8045,7 +8045,7 @@ export interface DeckRestrictionEffect extends EffectBase {
  */
 export interface PlayConditionEffect extends EffectBase {
   readonly type: 'play-condition';
-  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'region-movement' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'card-stored-at-site' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
+  readonly requires: 'site-path' | 'discard-named-card' | 'discard-keyword-card' | 'discard-company-item' | 'combat-creature-race' | 'target-company' | 'site-type' | 'card-not-in-play' | 'card-in-play' | 'site-has-resource' | 'company-has-item' | 'same-site-has-character-race' | 'active-company' | 'company-context' | 'player-state' | 'phase' | 'region-through-or-leave' | 'region-movement' | 'site-protected' | 'company-site' | 'card-attached-to-site' | 'card-on-adjacent-under-deeps' | 'card-stored-at-site' | 'supporters-in-region' | 'active-player-deck-size' | 'card-player-deck-size' | 'card-count-exceeds';
   /**
    * For `requires: 'phase'`: the phases during which the card may be played.
    * A permanent resource-event is otherwise offered in **both** the
@@ -8211,6 +8211,18 @@ export interface PlayConditionEffect extends EffectBase {
    * discard-triggered abilities firing.
    */
   readonly cardKeyword?: string;
+  /**
+   * For `requires: 'discard-company-item'`: a DSL condition every candidate
+   * item must satisfy, evaluated against `{ item: { name, subtype,
+   * marshallingPoints, keywords } }` (printed values). The card is playable
+   * only if a character of the playing company bears a matching item; one
+   * legal action is emitted per matching item, which rides the play action's
+   * `discardItemInstanceId` and is discarded from its bearer when the card is
+   * played. Used by Tower Raided (as-57): "if your company there: bears an
+   * item worth at least 2 marshalling points … discard the item" —
+   * `{ "item.marshallingPoints": { "$gte": 2 } }`.
+   */
+  readonly itemFilter?: Condition;
   /**
    * Where to look for the named (or keyword-matched) card.
    * - `character-items` — items on characters at the current site. For the
@@ -9545,6 +9557,23 @@ export interface SiteInstanceTransformEffect extends EffectBase {
    * played there".
    */
   readonly noFactions?: boolean;
+  /**
+   * When true, the transform applies to **all versions** of the bound site —
+   * every site definition sharing its printed name (the hero, minion,
+   * Fallen-wizard and Balrog printings) — instead of only the bound
+   * definition. Tower Raided (as-57): "all versions of this site are now Ruins
+   * & Lairs [{R}], and no factions are playable there."
+   */
+  readonly allVersions?: boolean;
+  /**
+   * When true, the carrying card is discarded when its bound site is
+   * discarded or returned to the location deck (the ordinary site-attached
+   * orphan sweep). By default a transforming card is permanent and keeps its
+   * site in play (Roots of the Earth ba-74: "This site is never discarded or
+   * returned to its location deck"). Tower Raided (as-57): "Discard this card
+   * when the site is discarded or returned to your location deck."
+   */
+  readonly discardWithSite?: boolean;
 }
 
 /**
