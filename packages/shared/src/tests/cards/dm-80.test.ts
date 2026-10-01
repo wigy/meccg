@@ -56,7 +56,7 @@ import {
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type {
-  CardInPlay, CardInstanceId, CardDefinitionId, DeclareAgentAttackAction,
+  CardInPlay, CardInstanceId, CardDefinitionId, DeclareAgentAttackAction, GameState, SitePhaseState,
 } from '../../index.js';
 
 const RANK_UPON_RANK = 'dm-80' as CardDefinitionId;
@@ -356,5 +356,36 @@ describe('Rank upon Rank (dm-80)', () => {
 
     const actions = viableActions(readyState, PLAYER_2, 'play-hazard');
     expect(actions).toHaveLength(0);
+  });
+
+  // ── Cannot be duplicated: on-guard reveal ──────────────────────────────────
+
+  /**
+   * Bandit Lair site phase at the reveal-on-guard-attacks step with a Rank
+   * upon Rank placed on-guard, optionally with another copy already in play.
+   */
+  const onGuardRankAtBanditLair = (withCopyInPlay: boolean): GameState => {
+    const base = buildSitePhaseState({ site: BANDIT_LAIR });
+    const withCopy = withCopyInPlay ? addP2CardsInPlay(base, [rankInPlay]) : base;
+    const onGuard = { instanceId: 'rank-og' as CardInstanceId, definitionId: RANK_UPON_RANK, revealed: false };
+    return {
+      ...withCopy,
+      players: withCopy.players.map((p, i) => i === RESOURCE_PLAYER
+        ? { ...p, companies: [{ ...p.companies[0], onGuardCards: [onGuard] }] }
+        : p) as unknown as GameState['players'],
+      phaseState: { ...withCopy.phaseState, step: 'reveal-on-guard-attacks', siteEntered: false } as SitePhaseState,
+    };
+  };
+
+  test('on-guard copy may be revealed at a Man auto-attack site when none is in play', () => {
+    const reveals = viableActions(onGuardRankAtBanditLair(false), PLAYER_2, 'reveal-on-guard');
+    expect(reveals).toHaveLength(1);
+  });
+
+  test('on-guard copy cannot be revealed while another Rank upon Rank is in play', () => {
+    // Bug report (game muoirce5-juporn): a second copy was revealed on-guard
+    // at site entry, leaving two Rank upon Rank in play.
+    const reveals = viableActions(onGuardRankAtBanditLair(true), PLAYER_2, 'reveal-on-guard');
+    expect(reveals).toHaveLength(0);
   });
 });
