@@ -32,6 +32,9 @@ const CAVE_WORM = 'le-65' as CardDefinitionId;
 // in a Fallen-wizard's deck alongside hero resources (CoE 1.3.F1/F4).
 const WILD_HOUNDS = 'wh-40' as CardDefinitionId;
 
+// A Few Recruits (ba-80): a plain (non-dual) Ringwraith minion-resource-faction.
+const A_FEW_RECRUITS = 'ba-80' as CardDefinitionId;
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Smoke Rings (dm-159)', () => {
@@ -358,6 +361,64 @@ describe('Smoke Rings (dm-159)', () => {
     });
     expect(afterFetch.players[0].playDeck.map(c => c.instanceId)).toContain(wildHoundsId);
     expect(afterFetch.players[0].discardPile.map(c => c.instanceId)).not.toContain(wildHoundsId);
+  });
+
+  // Feature request 743ac198cb83f81e: a hero (Wizard) player could not fetch
+  // Wild Hounds with Smoke Rings. Wild Hounds is typed minion-resource-faction
+  // but is dual-alignment, so it is a legal resource for either side and the
+  // hero-* fetch filter must accept it.
+  for (const source of ['discard-pile', 'sideboard'] as const) {
+    test(`a Wizard can fetch dual-alignment Wild Hounds from the ${source}`, () => {
+      const state = buildTestState({
+        phase: Phase.LongEvent,
+        activePlayer: PLAYER_1,
+        players: [
+          {
+            id: PLAYER_1,
+            companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+            hand: [SMOKE_RINGS],
+            siteDeck: [MORIA],
+            ...(source === 'sideboard' ? { sideboard: [WILD_HOUNDS] } : { discardPile: [WILD_HOUNDS] }),
+          },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        ],
+      });
+      expect(state.players[0].alignment).toBe(Alignment.Wizard);
+
+      const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
+      const pile = source === 'sideboard' ? state.players[0].sideboard : state.players[0].discardPile;
+      const wildHoundsId = pile[0].instanceId;
+
+      const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
+
+      const fetchActions = viableActions(next, PLAYER_1, 'fetch-from-pile');
+      expect(fetchActions.some(ea => {
+        const a = actionAs<FetchFromPileAction>(ea.action);
+        return a.cardInstanceId === wildHoundsId && a.source === source;
+      })).toBe(true);
+
+      // The reducer accepts it (no "Card does not match fetch filter").
+      const afterFetch = dispatch(next, { type: 'fetch-from-pile', player: PLAYER_1, cardInstanceId: wildHoundsId, source });
+      expect(afterFetch.players[0].playDeck.map(c => c.instanceId)).toContain(wildHoundsId);
+      const afterPile = source === 'sideboard' ? afterFetch.players[0].sideboard : afterFetch.players[0].discardPile;
+      expect(afterPile.map(c => c.instanceId)).not.toContain(wildHoundsId);
+    });
+  }
+
+  test('a Wizard is not offered a non-dual minion resource from the discard pile', () => {
+    const state = buildTestState({
+      phase: Phase.LongEvent,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [SMOKE_RINGS], siteDeck: [MORIA], discardPile: [A_FEW_RECRUITS] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const smokeRingsId = handCardId(state, RESOURCE_PLAYER);
+    const next = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: smokeRingsId }));
+
+    expect(viableActions(next, PLAYER_1, 'fetch-from-pile')).toHaveLength(0);
   });
 
   test('opponent has no actions during fetch sub-flow', () => {

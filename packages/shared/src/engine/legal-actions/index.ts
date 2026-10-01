@@ -16,7 +16,7 @@ import type { PlayRestrictionEffect, TapDiscardInPlayEffect } from '../../types/
 import { Alignment, CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { matchesContext } from '../../effects/condition-matcher.js';
-import { matchesDefinitionAcrossFallenWizardAlignment, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
+import { matchesDefinitionAcrossAlignment, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex, canNegotiateEarlyCouncil } from '../../state-utils.js';
@@ -118,7 +118,7 @@ function fetchFromPileLegalActions(state: GameState, playerId: PlayerId, effect:
     for (const card of pile) {
       if (card.instanceId === sourceCardId) continue;
       const def = defById(state, card.definitionId);
-      if (!def || !matchesDefinitionAcrossFallenWizardAlignment(def, effect.filter, player.alignment)) continue;
+      if (!def || !matchesDefinitionAcrossAlignment(def, effect.filter, player.alignment)) continue;
       // Home-site-type restriction (Inner Cunning dm-68 mode 2).
       if (effect.homeSiteTypes && effect.homeSiteTypes.length > 0
         && !agentHomeSiteMatchesTypes(state, def as { homesite?: string }, effect.homeSiteTypes)) {
