@@ -6,17 +6,17 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1367 | 1367 | 0 | 100.0% |
+| 1374 | 1374 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 124 | 124 | 100.0% |
+| AS | 125 | 125 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 150 | 150 | 100.0% |
+| DM | 154 | 154 | 100.0% |
 | LE | 328 | 328 | 100.0% |
-| TD | 141 | 141 | 100.0% |
+| TD | 143 | 143 | 100.0% |
 | TW | 425 | 425 | 100.0% |
 | WH | 98 | 98 | 100.0% |
 
@@ -66,6 +66,7 @@
 | as-51 | No Strangers at this Time | — | 17 | ☑ |
 | as-54 | Safe from the Shadow | — | 13 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
+| as-57 | Tower Raided | — | 15 | ☑ |
 | as-58 | Angmarim | — | 5 | ☑ |
 | as-59 | Haradrim | — | 6 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
@@ -356,14 +357,17 @@
 | dm-119 | Barrow-blade | — | 12 | ☑ |
 | dm-120 | Choice of Lúthien | — | 14 | ☑ |
 | dm-121 | Crown of Flowers | — | 9 | ☑ |
+| dm-122 | Cup of Farewell | — | 12 | ☑ |
 | dm-123 | Dark Numbers | — | 16 | ☑ |
 | dm-124 | The Dwarves Are upon You! | — | 8 | ☑ |
 | dm-125 | Enduring Tales | — | 6 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
 | dm-130 | Fireworks | — | 20 | ☑ |
+| dm-131 | First of the Order | — | 5 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 15 | ☑ |
 | dm-134 | Hall of Fire | — | 15 | ☑ |
+| dm-135 | Healing of Nimrodel | — | 9 | ☑ |
 | dm-136 | Herb-lore | — | 15 | ☑ |
 | dm-137 | Here Is a Snake! | — | 15 | ☑ |
 | dm-139 | Hobbit-lore | — | 13 | ☑ |
@@ -372,6 +376,7 @@
 | dm-142 | Hundreds of Butterflies | — | 13 | ☑ |
 | dm-143 | The Hunt | — | 19 | ☑ |
 | dm-145 | Into Dark Tunnels | — | 9 | ☑ |
+| dm-146 | Into the Smoking Cone | — | 16 | ☑ |
 | dm-148 | Mallorn | — | 18 | ☑ |
 | dm-150 | More Alert than Most | — | 8 | ☑ |
 | dm-152 | Ordered to Kill | — | 8 | ☑ |
@@ -801,7 +806,7 @@
 | td-103 | Burglary  | — | 17 | ☑ |
 | td-104 | Cloudless Day | — | 9 | ☑ |
 | td-105 | Cram | — | 17 | ☑ |
-| td-106 | Dragon’s Hunger | — | 7 | ☑ |
+| td-106 | Dragon’s Hunger | — | 8 | ☑ |
 | td-107 | Dragon-feuds | — | 10 | ☑ |
 | td-108 | Dragon-lore | — | 15 | ☑ |
 | td-109 | Dwarven Hoard | — | 11 | ☑ |
@@ -815,6 +820,8 @@
 | td-118 | Gift of Comprehension | — | 6 | ☑ |
 | td-119 | Gold Belt of Lórien  | — | 5 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
+| td-121 | Harad | — | 8 | ☑ |
+| td-123 | Here, There, or Yonder | — | 11 | ☑ |
 | td-124 | Hey! come merry dol! | — | 10 | ☑ |
 | td-125 | Houses of Healing | — | 10 | ☑ |
 | td-126 | King under the Mountain | — | 13 | ☑ |
@@ -871,7 +878,7 @@
 | tw-1 | Abductor | — | 8 | ☑ |
 | tw-2 | Adûnaphel | — | 11 | ☑ |
 | tw-3 | Agburanar | — | 6 | ☑ |
-| tw-4 | Akhôrahil | — | 18 | ☑ |
+| tw-4 | Akhôrahil | — | 19 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
 | tw-6 | Arouse Denizens | — | 11 | ☑ |
 | tw-7 | Arouse Minions | — | 11 | ☑ |
@@ -1196,7 +1203,7 @@
 | tw-345 | The Mithril-coat | — | 5 | ☑ |
 | tw-346 | The Old Thrush | — | 8 | ☑ |
 | tw-347 | The One Ring | — | 15 | ☑ |
-| tw-348 | The White Tree | — | 14 | ☑ |
+| tw-348 | The White Tree | — | 15 | ☑ |
 | tw-349 | Thorough Search | — | 16 | ☑ |
 | tw-350 | Tom Bombadil | — | 9 | ☑ |
 | tw-351 | Torque of Hues | — | 10 | ☑ |

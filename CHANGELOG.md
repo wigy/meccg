@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.182.0 — 2026-10-01
+
+Seven Cards Certified, White Tree Stands
+
+### Game Engine
+
+- The White Tree stays in play when its company leaves Minas Tirith: cards played *at* a site (rather than on the site card) are now exempt from the orphaned-site-attachment sweep (#3265)
+- Akhôrahil can be tapped during a pending body check to give the wounded character -1 body (CoE 3.I.1) (#3259)
+- Dragon's Hunger and Vanguard of Might are no longer offered as playable outside combat in the organization and site phases (#3258)
+- New reusable primitives: company-bound tap grant-actions, site-phase company permanent events, `discard-company-item` play condition, all-versions site transforms, `roll-play-ally` ally placement, character-targeted check modifiers, and the `end-of-mh-heal-and-untap` constraint
+
+### Cards
+
+- Cup of Farewell (dm-122) certified (#3264)
+- Tower Raided (as-57) certified (#3263)
+- Into the Smoking Cone (dm-146) certified, with stored ring-item CP reduction mirrored in the browser CP badges (#3262)
+- Harad (td-121) certified as a named-region-crossing special movement (#3261)
+- First of the Order (dm-131) certified (#3260)
+- Here, There, or Yonder (td-123) certified (#3257)
+- Healing of Nimrodel (dm-135) certified (#3256)
+
+### AI
+
+- `play-ally-placement-offer` appended to the sim action-type vocabulary (#3257)
+
+### Documentation
+
+- DSL reference describes the `end-of-mh-heal-and-untap` constraint (#3256)
+- README project status and card test README refreshed
+
 ## 0.181.0 — 2026-10-01
 
 Destinations Picked on the Map
