@@ -41,6 +41,7 @@
  * |   | is modified by -1 for the rest of the turn      |             | character-stat-modifier constraint               |
  * | 7 | The reduced body is what a body check uses      | IMPLEMENTED | body check reads `effectiveStats.body`           |
  * | 8 | dm-36 "any Nazgûl permanent-event" auto-attack | IMPLEMENTED | permanent-event-auto-attack (tw-46/tw-31 prec.)  |
+ * | 9 | Tap during a pending body check (CoE 3.I.1)   | IMPLEMENTED | combat tap-alt-permanent-event → checked char     |
  *
  * Cross-card interaction (from the site side): The Under-courts (dm-36) reads
  * "If any Nazgûl permanent-event is in play, one must be used as an additional
@@ -393,6 +394,33 @@ describe('Akhôrahil (tw-4)', () => {
     const aragornId = findCharInstanceId(state, RESOURCE_PLAYER, ARAGORN);
     const { afterTap } = playAndTap(state, aragornId);
     expect(bodyCheckEliminates(afterTap, aragornId, 8)).toBe(false);
+  });
+
+  test('may be tapped during a pending body check to lower that character\'s body before the roll (CoE 3.I.1)', () => {
+    // Regression (game mup0kyie-7p29o8 seq 451): with Akhôrahil in play and a
+    // body check pending against a wounded character, the hazard player was
+    // only offered the roll — the tap was never available inside combat.
+    const { afterPlay, akhorahilId } = playAsPermanentEvent(setup());
+    const aragornId = findCharInstanceId(afterPlay, RESOURCE_PLAYER, ARAGORN);
+    const playedCount = (afterPlay.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany;
+    const inCheck = {
+      ...afterPlay,
+      combat: makeBodyCheckCombat({ companyId: companyIdAt(afterPlay, RESOURCE_PLAYER), characterId: aragornId }),
+      cheatRollTotal: 9,
+    };
+
+    const taps = viableActions(inCheck, PLAYER_2, 'tap-alt-permanent-event');
+    expect(taps.map(a => (a.action as { targetCharacterId?: string }).targetCharacterId)).toEqual([aragornId]);
+
+    const afterTap = dispatch(inCheck, taps[0].action);
+    expect(afterTap.combat?.phase).toBe('body-check');
+    expect(afterTap.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === akhorahilId)).toBe(true);
+    expect((afterTap.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(playedCount + 1);
+    expect(afterTap.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.body).toBe(8);
+
+    const [roll] = viableActions(afterTap, PLAYER_2, 'body-check-roll');
+    const afterRoll = dispatch(afterTap, roll.action);
+    expect(afterRoll.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === aragornId)).toBe(true);
   });
 
   test('the -1 does not reach an unnamed company-mate: Legolas survives a roll of 8', () => {
