@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1366 | 1366 | 0 | 100.0% |
+| 1367 | 1367 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 101 | 101 | 100.0% |
 | DM | 150 | 150 | 100.0% |
 | LE | 328 | 328 | 100.0% |
-| TD | 140 | 140 | 100.0% |
+| TD | 141 | 141 | 100.0% |
 | TW | 425 | 425 | 100.0% |
 | WH | 98 | 98 | 100.0% |
 
@@ -176,7 +176,7 @@
 | ba-27 | Ungoliant's Progeny | — | 11 | ☑ |
 | ba-28 | Ungoliant's Foul Issue | — | 9 | ☑ |
 | ba-29 | Crept Along Carefully | — | 18 | ☑ |
-| ba-30 | Longbottom Leaf | — | 8 | ☑ |
+| ba-30 | Longbottom Leaf | — | 9 | ☑ |
 | ba-31 | Rumours of Rings | — | 8 | ☑ |
 | ba-32 | Show Things Unbidden | — | 7 | ☑ |
 | ba-33 | To Fealty Sworn | — | 11 | ☑ |
@@ -297,7 +297,7 @@
 | dm-50 | Cunning Foes | — | 8 | ☑ |
 | dm-51 | Doubled Vigilance | — | 18 | ☑ |
 | dm-53 | Earth-tremors | — | 10 | ☑ |
-| dm-55 | Exhalation of Decay | — | 7 | ☑ |
+| dm-55 | Exhalation of Decay | — | 8 | ☑ |
 | dm-56 | Eyes of the Shadow | — | 10 | ☑ |
 | dm-57 | Faces of the Dead | — | 8 | ☑ |
 | dm-58 | Flies and Spiders | — | 7 | ☑ |
@@ -307,7 +307,7 @@
 | dm-63 | Great Secrets Buried There | — | 10 | ☑ |
 | dm-64 | Helms of Iron | — | 16 | ☑ |
 | dm-65 | In Darkness Bind Them | — | 8 | ☑ |
-| dm-66 | In Great Wrath | — | 7 | ☑ |
+| dm-66 | In Great Wrath | — | 8 | ☑ |
 | dm-67 | In the Heart of his Realm | — | 15 | ☑ |
 | dm-68 | Inner Cunning | — | 14 | ☑ |
 | dm-70 | Long Dark Reach | — | 13 | ☑ |
@@ -320,7 +320,7 @@
 | dm-77 | Out of the Black Sky | — | 9 | ☑ |
 | dm-78 | Pale Dream-maker | — | 16 | ☑ |
 | dm-79 | Pierced by Many Wounds | — | 11 | ☑ |
-| dm-80 | Rank upon Rank | — | 11 | ☑ |
+| dm-80 | Rank upon Rank | — | 13 | ☑ |
 | dm-81 | Reaching Shadow | — | 9 | ☑ |
 | dm-83 | Redoubled Force | — | 9 | ☑ |
 | dm-85 | Revealed to all Watchers | — | 5 | ☑ |
@@ -380,7 +380,7 @@
 | dm-155 | Rebuild the Town | — | 6 | ☑ |
 | dm-156 | Saw Further and Deeper | — | 8 | ☑ |
 | dm-157 | Secret Ways | — | 7 | ☑ |
-| dm-159 | Smoke Rings | — | 14 | ☑ |
+| dm-159 | Smoke Rings | — | 16 | ☑ |
 | dm-160 | Token of Goodwill | — | 13 | ☑ |
 | dm-162 | Vein of Arda | — | 15 | ☑ |
 | dm-163 | When You Know More | — | 10 | ☑ |
@@ -491,7 +491,7 @@
 | le-99 | Watcher in the Water | — | 9 | ☑ |
 | le-100 | Wild Trolls | — | 5 | ☑ |
 | le-101 | Arouse Defenders | — | 10 | ☑ |
-| le-102 | Arouse Denizens | — | 9 | ☑ |
+| le-102 | Arouse Denizens | — | 10 | ☑ |
 | le-103 | Awaken Defenders | — | 7 | ☑ |
 | le-104 | Awaken Denizens | — | 5 | ☑ |
 | le-105 | Call of Home | — | 9 | ☑ |
@@ -802,6 +802,7 @@
 | td-104 | Cloudless Day | — | 9 | ☑ |
 | td-105 | Cram | — | 17 | ☑ |
 | td-106 | Dragon’s Hunger | — | 7 | ☑ |
+| td-107 | Dragon-feuds | — | 10 | ☑ |
 | td-108 | Dragon-lore | — | 15 | ☑ |
 | td-109 | Dwarven Hoard | — | 11 | ☑ |
 | td-111 | Elf-path | — | 8 | ☑ |
@@ -872,8 +873,8 @@
 | tw-3 | Agburanar | — | 6 | ☑ |
 | tw-4 | Akhôrahil | — | 18 | ☑ |
 | tw-5 | Ambusher | — | 3 | ☑ |
-| tw-6 | Arouse Denizens | — | 9 | ☑ |
-| tw-7 | Arouse Minions | — | 10 | ☑ |
+| tw-6 | Arouse Denizens | — | 11 | ☑ |
+| tw-7 | Arouse Minions | — | 11 | ☑ |
 | tw-008 | — | — | 14 | ☑ |
 | tw-9 | Awaken Denizens | — | 5 | ☑ |
 | tw-10 | Awaken Minions | — | 6 | ☑ |

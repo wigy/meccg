@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.181.0 — 2026-10-01
+
+Destinations Picked on the Map
+
+### Game Engine
+
+- Revealing an on-guard hazard event now respects its uniqueness and duplication limit, so a second Rank upon Rank can no longer be revealed while one is already in play (#3254)
+- Exhalation of Decay and In Great Wrath count against the hazard limit (CoE 2.IV.vii.3) and are no longer offered once the limit is reached; only the resulting attack is exempt (#3252)
+- Hero fetch effects (Smoke Rings, Longbottom Leaf) can retrieve dual-alignment resources such as Wild Hounds and Beasts of the Wood (#3251)
+- Lucky Strike and Swift Strokes report both rolls, the kept total and the outcome instead of only the kept roll (#3250)
+
+### Cards
+
+- Dragon-feuds (td-107) certified, via a reusable turn-scoped constraint that lets a player discard a matching hand card to cancel an attack (#3255)
+
+### Web Client
+
+- Movement destinations can be picked on a full-screen map of Middle-earth: every legal destination is a clickable marker, and hovering previews the site card and a typical route (#3249)
+- Lucky Strike / Swift Strokes animate both dice pairs side by side, marking the kept and discarded roll (#3250)
+
+### Text Client
+
+- Two-roll strikes print both rolls (#3250)
+
+### AI
+
+- The modular AI's hazards-first discard tie-break is turned back off, after it made the AI bleed hazards while cycling every turn (#3253)
+
+### Documentation
+
+- README project status and card test README refreshed
+
 ## 0.180.0 — 2026-09-30
 
 Modular AI Settings Go Live
