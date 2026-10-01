@@ -1974,15 +1974,18 @@ function summonsFromLongSleepActions(
  * (e.g. Undead). A creature is offered only if it can be keyed against the
  * target company ("if target Undead can attack" / "that could immediately
  * attack") and the chain is null (creatures must initiate a new chain). The
- * play does NOT count against the hazard limit, so no limit gating is
- * applied. One action is emitted per (creature, keying-match) pair, mirroring
- * the play-hazard creature path.
+ * creature's attack does not count against the hazard limit, but the driving
+ * short-event is itself a hazard played from hand and counts as one (CoE
+ * 2.IV.vii.3), so nothing is offered once the limit is reached. One action is
+ * emitted per (creature, keying-match) pair, mirroring the play-hazard
+ * creature path.
  */
 function playCreatureFromDiscardActions(
   state: GameState,
   playerId: PlayerId,
   mhState: MovementHazardPhaseState,
   targetCompanyId: CompanyId,
+  limitReached: boolean,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   const player = playerById(state, playerId);
@@ -2002,6 +2005,12 @@ function playCreatureFromDiscardActions(
     if (!effect) continue;
 
     const defName = (def as { name?: string })?.name ?? (handCard.definitionId as string);
+
+    // The short-event itself counts against the hazard limit (CoE 2.IV.vii.3).
+    if (limitReached) {
+      logDetail(`${defName}: play-creature-from-discard not available — hazard limit reached`);
+      continue;
+    }
 
     // Creatures must initiate a new chain — not playable in response (CoE rule 307).
     if (state.chain != null) {
@@ -4836,8 +4845,9 @@ function playHazardsActions(
     // --- Summons from Long Sleep (as-39): play a reserved creature (costs hazard limit) ---
     actions.push(...summonsFromLongSleepActions(state, playerId, mhState, targetCompanyId, limitReached, liveLimit));
 
-    // --- Exhalation of Decay (dm-55): play a creature from the discard pile (no hazard limit) ---
-    actions.push(...playCreatureFromDiscardActions(state, playerId, mhState, targetCompanyId));
+    // --- Exhalation of Decay (dm-55): play a creature from the discard pile
+    //     (the event counts against the hazard limit, the attack does not) ---
+    actions.push(...playCreatureFromDiscardActions(state, playerId, mhState, targetCompanyId, limitReached));
 
     // --- Out of the Black Sky (dm-77): trigger an in-play Nazgûl
     //     permanent-event (either player's) into an immediate attack ---
