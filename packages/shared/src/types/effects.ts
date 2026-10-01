@@ -2977,6 +2977,8 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * card is played — td-135 is playable on *any* moving company at the end of
    * the organization phase and is simply inert if that company ends up
    * somewhere other than a Border-hold. Omit for an unconditional grant.
+   * Also gates an `end-of-mh-heal-and-untap` constraint (Healing of Nimrodel
+   * dm-135: "If the company moves to another Haven") the same way.
    */
   readonly requiresDestinationSiteType?: string;
   /**

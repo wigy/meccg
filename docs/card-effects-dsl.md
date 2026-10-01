@@ -15792,6 +15792,39 @@ second move also lands on a qualifying site. A company that moved elsewhere — 
 did not move at all — leaves the constraint in place, inert, until the turn-end
 sweep.
 
+#### `end-of-mh-heal-and-untap` constraint
+
+The same end-of-org promise, but with a restoring payoff. Healing of Nimrodel
+(dm-135): "Playable during the organization phase on a moving company whose site
+of origin is a Haven [{H}]. If the company moves to another Haven [{H}] this
+turn, at the end of the movement/hazard phase all wounded characters in the
+company heal (from wounded to untapped) and all tapped characters untap."
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "company",
+  "filter": { "company.moving": true, "company.atHaven": true } },
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "end-of-mh-heal-and-untap",
+    "scope": "turn",
+    "requiresDestinationSiteType": "haven"
+  },
+  "target": "target-company"
+}
+```
+
+`fireEndOfMHHealAndUntap` (`mh-hazard-play.ts`) runs when the company's
+movement/hazard phase ends, before Hall of Fire's offer. If the company `moved`
+and its new site matches `requiresDestinationSiteType` (`haven` is resolved via
+`isHavenForPlayer`), every tapped or wounded character becomes untapped and the
+constraint is consumed. A `bearer-cannot-untap` lock still binds: that character
+stays tapped, or heals only as far as tapped. Otherwise the constraint stays
+inert until the turn ends.
+
 ### 52b-iii. `ally-tap-extra-mh-phase`
 
 Carried by an **in-play ally** attached to a character in the company (not the
