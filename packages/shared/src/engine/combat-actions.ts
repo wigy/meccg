@@ -26,7 +26,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect, TargetCharacterStatModifierEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
@@ -2111,6 +2111,78 @@ export function handleTapAllyCombatBoost(state: GameState, action: GameAction, c
   logDetail(`${allyName} tapped — applied combat boost to ${applied} character(s) in company ${company.id as string}`);
 
   return { state: newState };
+}
+
+/**
+ * Tap an in-play dual-mode creature permanent-event whose on-tap short-event
+ * modifies one character's body (`target-character-stat-modifier` on `body` —
+ * Akhôrahil tw-4) while a body check against the current strike's character is
+ * pending (CoE 3.I.1: actions directly affecting the body check may be
+ * declared before the roll). The card "becomes a short-event": it leaves play
+ * to its owner's discard pile, consumes one hazard-limit slot, and installs the
+ * same turn-scoped `character-stat-modifier` constraint the out-of-combat chain
+ * resolution places, so the recomputed `effectiveStats.body` read by
+ * `handleBodyCheckRoll` already carries the modifier.
+ */
+export function handleCombatTapAltPermanentEvent(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
+  if (action.type !== 'tap-alt-permanent-event') return wrongActionType(state, action, 'tap-alt-permanent-event');
+  if (combat.phase !== 'body-check' || combat.bodyCheckTarget !== 'character') {
+    return { state, error: 'tap-alt-permanent-event: only usable in combat while a character body check is pending' };
+  }
+  if (action.player !== combat.attackingPlayerId || action.player === state.activePlayer) {
+    return { state, error: 'tap-alt-permanent-event: only the hazard player may tap this' };
+  }
+  if (state.phaseState.phase !== Phase.MovementHazard) {
+    return { state, error: 'tap-alt-permanent-event: a creature-permanent-event may only be tapped during the opponent\'s movement/hazard phase' };
+  }
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  if (!strike || action.targetCharacterId !== strike.characterId) {
+    return { state, error: 'tap-alt-permanent-event: must target the character making the body check' };
+  }
+  const playerIndex = getPlayerIndex(state, action.player);
+  if (playerIndex < 0) return { state, error: 'Player not found' };
+  const card = findById(state.players[playerIndex].cardsInPlay, action.cardInstanceId);
+  if (!card) return { state, error: 'tap-alt-permanent-event: card not found in cardsInPlay' };
+  if (card.status !== CardStatus.Untapped) return { state, error: 'tap-alt-permanent-event: card is already tapped' };
+  const def = defById(state, card.definitionId);
+  if (!def) return { state, error: 'Card definition not found' };
+  const effects = getCardEffects(def);
+  const altEvent = effects.find(e => e.type === 'creature-alt-event');
+  if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) {
+    return { state, error: 'tap-alt-permanent-event: not a convertible creature-permanent-event' };
+  }
+  const statMod = effects.find(
+    (e): e is TargetCharacterStatModifierEffect => e.type === 'target-character-stat-modifier' && e.stat === 'body',
+  );
+  if (!statMod) return { state, error: 'tap-alt-permanent-event: card does not modify a character\'s body' };
+
+  const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  let phaseState = state.phaseState;
+  if (!bypassesLimit) {
+    const charge = chargeHazardLimit(state, state.phaseState, combat.companyId, 'tap-alt-permanent-event');
+    if ('error' in charge) return { state, error: charge.error };
+    phaseState = { ...state.phaseState, hazardsPlayedThisCompany: charge.newHazardCount };
+  }
+
+  const targetId = strike.characterId;
+  logDetail(`${def.name} tapped during body check → short-event: ${targetId as string} body ${formatSignedNumber(statMod.value)} for the rest of the turn`);
+  const afterDiscard: GameState = {
+    ...updatePlayer(state, playerIndex, p => ({
+      ...p,
+      cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== card.instanceId),
+      discardPile: [...p.discardPile, toCardInstance(card)],
+    })),
+    phaseState,
+  };
+  return {
+    state: addConstraint(afterDiscard, {
+      source: card.instanceId,
+      sourceDefinitionId: card.definitionId,
+      scope: { kind: 'turn' },
+      target: { kind: 'character', characterId: targetId },
+      kind: { type: 'character-stat-modifier', stat: statMod.stat, value: statMod.value, characterId: targetId },
+    }),
+  };
 }
 
 /**

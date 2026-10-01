@@ -593,6 +593,21 @@ corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold
              "constraintWhen": { "$not": { "target.siteType": { "$in": ["shadow-hold", "dark-hold"] } } } } }
 ```
 
+A resource short-event may instead aim the `check-modifier` at its own
+`play-target` character with `"target": "action-target-character"` (resolved
+from `action.targetCharacterId`). Add `lasting: true` so the modifier applies
+to **every** matching check by that character until its `scope` sweeps it
+rather than being consumed by the first. Used by First of the Order (dm-131):
+"Playable on Saruman. Saruman receives +2 to all corruption checks for the
+rest of the turn."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier",
+             "target": "action-target-character", "check": "corruption",
+             "value": 2, "lasting": true, "scope": "turn" } }
+```
+
 A **player-scoped, ongoing** influence `check-modifier` is instead expressed as
 a bare `check-modifier` effect carrying `"target": "player-in-play"`, borne by a
 bare permanent-event in the influencing player's `cardsInPlay` (not attached to
@@ -1197,6 +1212,14 @@ Two optional fields refine the modifier:
   a player matching a player-context condition `{ bearer: { alignment, minion } }`
   (`minion` is true for the Ringwraith and Balrog alignments — MEBA: the Balrog
   player is a minion player). Absent → every player's items are affected.
+- **`activeWhileStored`** makes the modifier apply **only while its card is
+  stored** in a marshalling-point pile (a `killPile` entry carrying
+  `storedAtSite`); while the card merely sits in play it is dormant. A negative
+  delta never takes an item below 0 corruption points. Into the Smoking Cone
+  (dm-146): "If stored, all ring items give one less corruption point." —
+  `itemFilter` `{ "item.keywords": { "$includes": "ring" } }`,
+  `corruptionPoints: -1`, `activeWhileStored: true`. The browser CP badges pass
+  both players' marshalling-point piles as `storedDefs`.
 
 ```json
 { "type": "in-play-item-modifier",
@@ -7372,6 +7395,12 @@ printed `region`, not from a resolved travel path. Used by *Secret Entrance*
 (tw-324): "may not be played on a company moving to a site in a Dark-domain
 [{d}]" — `filter: { "company.destinationSiteRegionType": { "$ne": "dark" } }`.
 
+`company.enteredSite` is `true` when the candidate's company is the active
+company of the **site** phase and has reached its `play-resources` step — i.e.
+the character is "during his site phase" and his company has entered its site.
+Used by *Here, There, or Yonder* (td-123): "Tap a character during his site
+phase at a tapped or untapped Ruins & Lairs".
+
 For **hazard** character-targeting plays during the movement/hazard phase
 (`movement-hazard.ts`), the filter context additionally exposes
 `company.siteType` and `company.atHaven` — resolved from the target company's
@@ -8307,6 +8336,11 @@ whole company jointly controls has none.
 { "type": "storable-at", "siteTypes": ["haven"],
   "requiresTapped": true, "marshallingPoints": 4 }
 ```
+
+**`requiresInverted` — storable only once the card itself is inverted.** Into
+the Smoking Cone (dm-146): "If inverted, you can store this card at a Haven
+[{H}]". Same company-bound path as `requiresTapped`, gated on
+`CardStatus.Inverted` (set by a `grant-action` with `cost.invert: "self"`).
 
 ### 21z. Item-cache primitives (`item-cache-hand-store`, `item-cache-alt-storage`, `item-cache-play-source`, `item-cache-count-bonus`)
 
@@ -14574,6 +14608,41 @@ defaults to `0` when omitted.
 Used by: *Wielded Twice* (td-167) — "Sage only. Ritual. Tap a sage to untap
 an item in his company. Sage makes a corruption check."
 
+### 43g. `roll-play-ally`
+
+A resource short-event that taps a character during his company's site phase
+and rolls to bring an ally from hand into play under his control, regardless
+of the ally's printed playable sites. Paired with a `play-target` character
+tap-cost effect.
+
+```json
+{ "type": "play-window", "phase": "site", "siteTypes": ["ruins-and-lairs"] },
+{
+  "type": "play-target",
+  "target": "character",
+  "filter": { "$and": [ { "company.enteredSite": true }, { "company.siteType": "ruins-and-lairs" } ] },
+  "cost": { "tap": "character" }
+},
+{ "type": "roll-play-ally", "diplomatBonus": 3, "threshold": 6, "tapSite": true }
+```
+
+Per CoE 9.4/9.5 the play rides the chain of effects: the character's tap is
+paid on declaration (`handlePlayResourceShortEvent`, payload `rollPlayAlly` +
+`costTapCharacterId`). On un-negated resolution `applyShortEventRollPlayAlly`
+(`roll-play-ally.ts`) rolls 2d6 (+`diplomatBonus` when the character has the
+diplomat skill) and enqueues an `ally-placement-offer` pending resolution. Its
+legal actions offer one `play-ally-placement-offer` per hand ally whose roll
+total is greater than `threshold` + the ally's mind and that is not
+**restricted from moving** at the site — its `bearer-company-moves` /
+`company-arrives-at-site` self-discard (CRF 22's ally movement restriction)
+would not fire for the site, unless an `ally-movement-restriction-exemption`
+covers it — plus the usual ally gates (uniqueness incl. eliminated copies,
+manifestations, company duplication limit, join blocks, wizard-specific
+control), and a `pass` to decline. Accepting attaches the ally to the
+character and, with `tapSite`, taps the site.
+
+Used by *Here, There, or Yonder* (td-123).
+
 ### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target
@@ -15811,6 +15880,39 @@ constraint is what bounds the card to exactly one extra phase even when the
 second move also lands on a qualifying site. A company that moved elsewhere — or
 did not move at all — leaves the constraint in place, inert, until the turn-end
 sweep.
+
+#### `end-of-mh-heal-and-untap` constraint
+
+The same end-of-org promise, but with a restoring payoff. Healing of Nimrodel
+(dm-135): "Playable during the organization phase on a moving company whose site
+of origin is a Haven [{H}]. If the company moves to another Haven [{H}] this
+turn, at the end of the movement/hazard phase all wounded characters in the
+company heal (from wounded to untapped) and all tapped characters untap."
+
+```json
+{ "type": "play-window", "phase": "organization", "step": "end-of-org" },
+{ "type": "play-target", "target": "company",
+  "filter": { "company.moving": true, "company.atHaven": true } },
+{
+  "type": "on-event",
+  "event": "self-enters-play",
+  "apply": {
+    "type": "add-constraint",
+    "constraint": "end-of-mh-heal-and-untap",
+    "scope": "turn",
+    "requiresDestinationSiteType": "haven"
+  },
+  "target": "target-company"
+}
+```
+
+`fireEndOfMHHealAndUntap` (`mh-hazard-play.ts`) runs when the company's
+movement/hazard phase ends, before Hall of Fire's offer. If the company `moved`
+and its new site matches `requiresDestinationSiteType` (`haven` is resolved via
+`isHavenForPlayer`), every tapped or wounded character becomes untapped and the
+constraint is consumed. A `bearer-cannot-untap` lock still binds: that character
+stays tapped, or heals only as far as tapped. Otherwise the constraint stays
+inert until the turn ends.
 
 ### 52b-iii. `ally-tap-extra-mh-phase`
 
@@ -20217,3 +20319,49 @@ matched by name, so every version of the bound site counts.
 Used by *Sudden Fury* (dm-91) — "any attack by a scout agent at this site has
 its number of strikes increased by one and attacker chooses defending
 characters."
+
+### 89. `tap-on-company-item-play` + site-phase company events + `invert: "self"` / `discardCompanyKeywordCard` grant-action costs (Into the Smoking Cone)
+
+Into the Smoking Cone (dm-146): "Playable on a company with a sage during the
+site phase at a site where gold ring items are playable. Tap this card if the
+company plays a ring special item; this card never untaps. If this card is
+tapped, the company can discard (for no effect) a Lost Knowledge card it
+controls during its site phase at Mount Doom and invert this card … If
+inverted, you can store this card at a Haven … If stored, all ring items give
+one less corruption point. Once inverted, no other copy of this card can be
+inverted."
+
+- **Site-phase company events.** A `play-target: "company"` permanent event
+  that also declares `play-window` `phase: "site"` is offered at the
+  play-resources step (`playResourcesActions`, `legal-actions/site.ts`) on the
+  company taking its site phase, and nowhere else. Its `filter` sees
+  `target.hasSage` (effective skills — an item-granted sage counts),
+  `target.playableResources` (the site's printed list, empty under Hidden
+  Haven), `target.siteType` and `target.memberCount`.
+- **`tap-on-company-item-play`** `{ itemFilter }` — taps the untapped carrying
+  card the moment its company plays a matching item (`item.keywords`,
+  `item.name`, `item.subtype`, `item.cardType`). Fired by
+  `tapCompanyCardsOnItemPlay` (`reducer-utils.ts`) from the site-phase item
+  play and from the `ring-play-offer`, `named-card-play-offer` and
+  `item-placement-offer` resolutions.
+- **`cost.invert: "self"`** — a company-bound card's site-phase ability that
+  inverts the card in place; only offered/accepted while it is `Tapped`.
+  The `when` context now also carries `site.name`.
+- **`cost.discardCompanyKeywordCard`** — an extra cost: discard for no effect
+  one card with this keyword that the company controls (its characters' items
+  or permanent events bound to it). One action per candidate, carried as
+  `targetCardId`.
+
+```json
+{ "type": "play-target", "target": "company",
+  "filter": { "target.hasSage": true, "target.playableResources": { "$includes": "gold-ring" } } }
+{ "type": "play-window", "phase": "site" }
+{ "type": "tap-on-company-item-play",
+  "itemFilter": { "item.subtype": "special", "item.keywords": { "$includes": "ring" } } }
+{ "type": "grant-action", "action": "invert-into-the-smoking-cone",
+  "cost": { "invert": "self", "discardCompanyKeywordCard": "lost-knowledge" },
+  "singletonLock": true, "when": { "site.name": "Mount Doom" } }
+```
+
+The Lost Knowledge items (Forgotten Scrolls dm-169, Lost Tome dm-172) carry the
+new `lost-knowledge` keyword.

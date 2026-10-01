@@ -41,7 +41,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, characterHasCannotUntapConstraint, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -2215,6 +2215,11 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     );
   }
 
+  // Healing of Nimrodel (dm-135): a company that moved to a Haven heals and
+  // untaps all its characters at the end of its M/H phase. Runs before Hall
+  // of Fire so that optional offer only sees what is still tapped/wounded.
+  updatedState = fireEndOfMHHealAndUntap(updatedState, mhStateLocal);
+
   // Hall of Fire (dm-134): immediately following this company's M/H phase,
   // if it is at a Haven where a Hall of Fire is in play, the controlling
   // player may untap or heal one of its characters. Enqueued as a pending
@@ -2241,6 +2246,67 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
   }
 
   return advanceAfterCompanyMH(updatedState, mhStateLocal);
+}
+
+/**
+ * Apply `end-of-mh-heal-and-untap` constraints (Healing of Nimrodel dm-135)
+ * targeting the active company once its movement/hazard phase has ended:
+ * "If the company moves to another Haven [{H}] this turn, at the end of the
+ * movement/hazard phase all wounded characters in the company heal (from
+ * wounded to untapped) and all tapped characters untap."
+ *
+ * The company must have actually moved this phase and its new site must have
+ * the constraint's `requiresDestinationSiteType` (Havens resolved through
+ * {@link isHavenForPlayer}). On a match every tapped or wounded character
+ * becomes untapped and the constraint is consumed; otherwise it stays inert
+ * until swept at end of turn. A `bearer-cannot-untap` lock (Reforging tw-314
+ * etc.) still binds — such a character stays tapped, and a wounded one heals
+ * only as far as tapped.
+ */
+export function fireEndOfMHHealAndUntap(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+): GameState {
+  const activeIndex = getPlayerIndex(state, state.activePlayer!);
+  const player = state.players[activeIndex];
+  const company = player.companies[mhState.activeCompanyIndex];
+  if (!company?.currentSite || !company.moved) return state;
+
+  const constraints = state.activeConstraints.filter(c =>
+    c.kind.type === 'end-of-mh-heal-and-untap'
+    && c.target.kind === 'company' && c.target.companyId === company.id);
+  if (constraints.length === 0) return state;
+
+  const siteDefId = company.currentSite.definitionId;
+  const siteDef = defById(state, siteDefId);
+  if (!siteDef || !isSiteCard(siteDef)) return state;
+  const atHaven = isHavenForPlayer(siteDef, player.alignment, { state, siteDefinitionId: siteDefId, playerId: player.id });
+
+  let result = state;
+  for (const c of constraints) {
+    if (c.kind.type !== 'end-of-mh-heal-and-untap') continue;
+    const required = c.kind.requiresDestinationSiteType;
+    const matches = required === undefined
+      || (required === SiteType.Haven ? atHaven : siteDef.siteType === required);
+    if (!matches) {
+      logDetail(`end-of-mh-heal-and-untap: company ${company.id as string} moved to ${siteDef.name} (${siteDef.siteType}), requires ${required} — no effect`);
+      continue;
+    }
+    logDetail(`end-of-mh-heal-and-untap: company ${company.id as string} moved to ${siteDef.name} — healing and untapping its characters`);
+    result = updatePlayer(result, activeIndex, p => {
+      const characters = { ...p.characters };
+      for (const charId of company.characters) {
+        const ch = characters[charId];
+        if (!ch || ch.status === CardStatus.Untapped) continue;
+        const locked = characterHasCannotUntapConstraint(result, charId);
+        const next = locked ? CardStatus.Tapped : CardStatus.Untapped;
+        if (next !== ch.status) characters[charId] = { ...ch, status: next };
+      }
+      return { ...p, characters };
+    });
+    result = removeConstraint(result, c.id);
+  }
+  return result;
 }
 
 /**

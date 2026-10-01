@@ -15,6 +15,7 @@
 import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
+import { applyShortEventRollPlayAlly } from './roll-play-ally.js';
 import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect, ActsAsSiteEffect } from '../types/effects.js';
 import { ACTS_AS_SITE_ID_SUFFIX } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -5165,6 +5166,37 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         logDetail(`${def.name}: site-untap did not resolve — ${result.error}`);
       } else {
         current = result.state;
+      }
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      logDetail(`${def.name}: spent event card → discard`);
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+      }));
+    }
+  }
+
+  // A resource short-event that rolls to bring an ally into play under the
+  // tapped character (Here, There, or Yonder td-123): make the roll, enqueue
+  // the ally-placement offer, and dispose of the spent event card.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && entry.payload.rollPlayAlly) {
+    const def = defById(current, entry.card.definitionId);
+    if (def) {
+      const result = applyShortEventRollPlayAlly(
+        current,
+        def,
+        entry.card.instanceId,
+        entry.declaredBy,
+        entry.payload.costTapCharacterId,
+      );
+      if (result.error) {
+        logDetail(`${def.name}: ally roll did not resolve — ${result.error}`);
+      } else {
+        current = result.state;
+        if (result.effects) resolveEffects.push(...result.effects);
       }
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
       logDetail(`${def.name}: spent event card → discard`);

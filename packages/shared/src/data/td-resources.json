@@ -935,7 +935,45 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "company.siteRegion": {
+            "$in": [
+              "Horse Plains",
+              "Khand",
+              "Nurn",
+              "Harondor"
+            ]
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "set-company-special-movement",
+          "specialMovement": "named-region-crossing",
+          "crossingRegions": [
+            "Horse Plains",
+            "Khand",
+            "Nurn",
+            "Harondor"
+          ],
+          "crossingSitePath": ["wilderness", "wilderness", "wilderness"],
+          "crossingHazardLimitDelta": -2,
+          "crossingHazardLimitFloor": 2
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-10-01",
     "text": "Playable during organization phase on a company moving without region cards. Company may move from a site of origin in one of the following regions to a new site in one of the following regions: Horse Plains, Khand, Nurn, and Harondor.The site path is [{w} {w} {w}] and the hazard limit is decreased by two to a minimum of two."
   },
   {
@@ -961,8 +999,32 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Tap a character during his site phase at a tapped or untapped Ruins & Lairs [{R}]. Make a roll modified by +3 if character is a diplomat. An ally may be played and placed under the character’s control if the result is greater than 6 plus the ally’s mind stat and the ally is not restricted from moving in this site’s region. If an ally is played, tap the site if it is not already tapped."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site",
+        "siteTypes": ["ruins-and-lairs"]
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "company.enteredSite": true },
+            { "company.siteType": "ruins-and-lairs" }
+          ]
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "roll-play-ally",
+        "diplomatBonus": 3,
+        "threshold": 6,
+        "tapSite": true
+      }
+    ],
+    "text": "Tap a character during his site phase at a tapped or untapped Ruins & Lairs [{R}]. Make a roll modified by +3 if character is a diplomat. An ally may be played and placed under the character’s control if the result is greater than 6 plus the ally’s mind stat and the ally is not restricted from moving in this site’s region. If an ally is played, tap the site if it is not already tapped.",
+    "certified": "2026-10-01"
   },
   {
     "cardType": "hero-resource-event",

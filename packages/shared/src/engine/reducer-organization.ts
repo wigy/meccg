@@ -1595,6 +1595,10 @@ function storeCompanyBoundCard(
     logDetail(`Store rejected: ${cardDef?.name ?? '?'} must be tapped before it can be stored`);
     return { state, error: `${cardDef?.name ?? '?'} must be tapped before it can be stored` };
   }
+  if (storable.requiresInverted && card.status !== CardStatus.Inverted) {
+    logDetail(`Store rejected: ${cardDef?.name ?? '?'} must be inverted before it can be stored`);
+    return { state, error: `${cardDef?.name ?? '?'} must be inverted before it can be stored` };
+  }
 
   const siteDef = companySiteDef(state, company);
   if (!siteDef) return { state, error: 'Company is not at a site' };

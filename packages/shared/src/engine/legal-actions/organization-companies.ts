@@ -1421,6 +1421,10 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
         logDetail(`Store-item: ${cipDef?.name ?? '?'} is ${cip.status} — storable only once tapped`);
         continue;
       }
+      if (storable.requiresInverted && cip.status !== CardStatus.Inverted) {
+        logDetail(`Store-item: ${cipDef?.name ?? '?'} is ${cip.status} — storable only once inverted`);
+        continue;
+      }
       logDetail(`  → viable: store ${cipDef?.name ?? '?'} from company ${company.id as string} at ${siteName}`);
       actions.push({
         action: {

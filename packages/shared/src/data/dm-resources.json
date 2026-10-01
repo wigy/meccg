@@ -922,8 +922,30 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Saruman. Saruman receives +2 to all corruption checks for the rest of the turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Saruman"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "target": "action-target-character",
+          "check": "corruption",
+          "value": 2,
+          "lasting": true,
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Playable on Saruman. Saruman receives +2 to all corruption checks for the rest of the turn.",
+    "certified": "2026-10-01"
   },
   {
     "cardType": "hero-resource-event",
@@ -977,7 +999,33 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "company.moving": true,
+          "company.atHaven": true
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "end-of-mh-heal-and-untap",
+          "scope": "turn",
+          "requiresDestinationSiteType": "haven"
+        },
+        "target": "target-company"
+      }
+    ],
+    "certified": "2026-10-01",
     "text": "Playable during the organization phase on a moving company whose site of origin is a Haven [{H}]. If the company moves to another Haven [{H}] this turn, at the end of the movement/hazard phase all wounded characters in the company heal (from wounded to untapped) and all tapped characters untap."
   },
   {
@@ -1208,8 +1256,61 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on a company with a sage during the site phase at a site where gold ring items are playable. Tap this card if the company plays a ring special item; this card never untaps. If this card is tapped, the company can discard (for no effect) a Lost Knowledge card it controls during its site phase at Mount Doom and invert this card on the playing surface (rotate it 180°). If inverted, you can store this card at a Haven [{H}]—only if stored do you receive its marshalling points. If stored, all ring items give one less corruption point. Once inverted, no other copy of this card can be inverted."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "company",
+        "filter": {
+          "target.hasSage": true,
+          "target.playableResources": { "$includes": "gold-ring" }
+        }
+      },
+      {
+        "type": "play-window",
+        "phase": "site"
+      },
+      {
+        "type": "tap-on-company-item-play",
+        "itemFilter": {
+          "item.subtype": "special",
+          "item.keywords": { "$includes": "ring" }
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-auto-untap"
+      },
+      {
+        "type": "grant-action",
+        "action": "invert-into-the-smoking-cone",
+        "cost": {
+          "invert": "self",
+          "discardCompanyKeywordCard": "lost-knowledge"
+        },
+        "singletonLock": true,
+        "when": {
+          "site.name": "Mount Doom"
+        }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": [
+          "haven"
+        ],
+        "requiresInverted": true,
+        "marshallingPoints": 6
+      },
+      {
+        "type": "in-play-item-modifier",
+        "itemFilter": {
+          "item.keywords": { "$includes": "ring" }
+        },
+        "corruptionPoints": -1,
+        "activeWhileStored": true
+      }
+    ],
+    "text": "Playable on a company with a sage during the site phase at a site where gold ring items are playable. Tap this card if the company plays a ring special item; this card never untaps. If this card is tapped, the company can discard (for no effect) a Lost Knowledge card it controls during its site phase at Mount Doom and invert this card on the playing surface (rotate it 180°). If inverted, you can store this card at a Haven [{H}]—only if stored do you receive its marshalling points. If stored, all ring items give one less corruption point. Once inverted, no other copy of this card can be inverted.",
+    "certified": "2026-10-01"
   },
   {
     "cardType": "hero-resource-event",

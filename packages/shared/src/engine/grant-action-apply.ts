@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, isBearerCannotUntapLive, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
+import { gateDeckSearchFetch, isBearerCannotUntapLive, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, removeAttachment, companyKeywordDiscardCandidates, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -1561,6 +1561,15 @@ function resolveConstraintTarget(
  *    later unlocks storage (`storable-at` `requiresTapped`) and what the card's
  *    "this card never untaps" (`no-auto-untap`) preserves.
  *
+ *  - `invert: self` — the source, which must currently be tapped, is set to
+ *    {@link CardStatus.Inverted} in place. Into the Smoking Cone (dm-146):
+ *    "If this card is tapped, … invert this card"; the inverted status is what
+ *    unlocks `storable-at` `requiresInverted`.
+ *
+ * Either self cost may be paired with `discardCompanyKeywordCard`: the card
+ * named by `action.targetCardId` must be one the source's bound company
+ * controls carrying that keyword, and is discarded for no effect.
+ *
  * `apply` is therefore optional: when the effect declares none, paying the cost
  * is the entire resolution. When it is declared, only `add-constraint` is
  * supported.
@@ -1650,8 +1659,9 @@ function handleInPlayCardGrantAction(
   );
   if (!effect) return { state, error: `in-play grant-action ${action.actionId} not declared on ${sourceName}` };
   const paysWithTap = effect.cost.tap === 'self';
-  if (!paysWithTap && effect.cost.discard !== 'self') {
-    return { state, error: `in-play grant-action ${action.actionId}: only discard-self or tap-self cost supported (${sourceName})` };
+  const paysWithInvert = effect.cost.invert === 'self';
+  if (!paysWithTap && !paysWithInvert && effect.cost.discard !== 'self') {
+    return { state, error: `in-play grant-action ${action.actionId}: only discard-self, tap-self or invert-self cost supported (${sourceName})` };
   }
 
   // "Once tapped, no other copy of this card can be tapped" — the lock is keyed
@@ -1663,8 +1673,54 @@ function handleInPlayCardGrantAction(
     return { state, error: `Another copy of ${sourceName} has already used this ability` };
   }
 
+  // `cost.discardCompanyKeywordCard` (Into the Smoking Cone dm-146): the
+  // chosen card must be one the source's bound company controls carrying the
+  // keyword. Validated before any state change.
+  const discardKeyword = effect.cost.discardCompanyKeywordCard;
+  let discardTarget: { readonly instanceId: CardInstanceId; readonly name: string } | undefined;
+  if (discardKeyword) {
+    const company = player.companies.find(c => c.id === source.companyId);
+    const candidates = company ? companyKeywordDiscardCandidates(state, player, company, discardKeyword) : [];
+    discardTarget = candidates.find(c => c.instanceId === action.targetCardId);
+    if (!discardTarget) {
+      return { state, error: `${sourceName}: must discard a "${discardKeyword}" card the company controls` };
+    }
+  }
+
   const newPlayers = clonePlayers(state);
-  if (paysWithTap) {
+  if (discardTarget) {
+    const discardTargetId = discardTarget.instanceId;
+    // Discarded "for no effect": straight to the discard pile, none of the
+    // card's own discard-triggered abilities fire.
+    const removed = removeAttachment(newPlayers[playerIndex], 'items', discardTargetId);
+    if (removed) {
+      newPlayers[playerIndex] = {
+        ...removed.player,
+        discardPile: [...removed.player.discardPile, toCardInstance(removed.attachment)],
+      };
+    } else {
+      const inPlay = newPlayers[playerIndex].cardsInPlay.find(c => c.instanceId === discardTargetId)!;
+      newPlayers[playerIndex] = {
+        ...newPlayers[playerIndex],
+        cardsInPlay: newPlayers[playerIndex].cardsInPlay.filter(c => c.instanceId !== discardTargetId),
+        discardPile: [...newPlayers[playerIndex].discardPile, toCardInstance(inPlay)],
+      };
+    }
+    logDetail(`In-play grant-action ${action.actionId}: discarded ${discardTarget.name} for no effect`);
+  }
+  if (paysWithInvert) {
+    // "If this card is tapped, … invert this card" — only a tapped card may
+    // be inverted; the emitter filters on it, re-checked here.
+    if (source.status !== CardStatus.Tapped) {
+      return { state, error: `${sourceName} is not tapped — cannot be inverted` };
+    }
+    newPlayers[playerIndex] = {
+      ...newPlayers[playerIndex],
+      cardsInPlay: newPlayers[playerIndex].cardsInPlay.map(c =>
+        c.instanceId === source.instanceId ? { ...c, status: CardStatus.Inverted } : c),
+    };
+    logDetail(`In-play grant-action ${action.actionId}: inverting ${sourceName} in place`);
+  } else if (paysWithTap) {
     // Tap the source in place. The emitter already filters on Untapped; check
     // again here so a stale or hand-crafted action cannot re-tap a tapped card.
     if (source.status !== CardStatus.Untapped) {

@@ -45,7 +45,7 @@ import { resolveFaceStrikeOnTapAction } from './combat-face-strike-action.js';
 import { resolveCancelByTapAllyAction } from './combat-cancel-by-tap-ally-action.js';
 import { strikeResultDisplay, strikeArrowStyle } from './strike-result-display.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
-import { createCardImage, createCardImageFromDefId, inPlayCardDefs, findIsolatingEventName } from './render-utils.js';
+import { createCardImage, createCardImageFromDefId, inPlayCardDefs, storedCardDefs, findIsolatingEventName } from './render-utils.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getSelectedCancelAttack, clearCancelAttackSelection, getSelectedCvCCAttacker, setSelectedCvCCAttacker, clearSelectedCvCCAttacker, getSelectedCvCCDefender, setSelectedCvCCDefender, clearSelectedCvCCDefender } from './render-selection-state.js';
 import { setAllCompaniesOverride, rerender } from './company-view-state.js';
@@ -108,6 +108,7 @@ export function renderCombatView(
   // hazards (e.g. Lure of the Senses) use their printed CP.
   cachedItemCp = new Map();
   const inPlayDefs = inPlayCardDefs(view, cardPool);
+  const storedDefs = storedCardDefs(view, cardPool);
   for (const player of [view.self, view.opponent]) {
     for (const char of Object.values(player.characters)) {
       const charDef = cardPool[char.definitionId as string];
@@ -115,7 +116,7 @@ export function renderCombatView(
       for (const item of char.items) {
         const def = cardPool[item.definitionId as string];
         if (def && isItemCard(def)) {
-          const cp = effectiveItemCorruptionPoints(def, inPlayDefs, player.alignment, bearerRace);
+          const cp = effectiveItemCorruptionPoints(def, inPlayDefs, player.alignment, bearerRace, storedDefs);
           if (cp > 0) cachedItemCp.set(item.instanceId as string, cp);
         }
       }

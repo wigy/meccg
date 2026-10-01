@@ -446,6 +446,34 @@ export function addCardInPlay(state: GameState, ownerIdx: 0 | 1, defId: CardDefi
 }
 
 /**
+ * Set the status of every card of definition `defId` in a player's
+ * `cardsInPlay` — e.g. to put a company-bound permanent event into the tapped
+ * or inverted state its own ability would have produced (Into the Smoking
+ * Cone dm-146 is tapped by a ring play and inverted at Mount Doom).
+ */
+export function setInPlayCardStatus(
+  state: GameState,
+  playerIdx: 0 | 1,
+  defId: CardDefinitionId,
+  status: CardStatus,
+): GameState {
+  const players = state.players.map((p, i) => (i !== playerIdx ? p : {
+    ...p,
+    cardsInPlay: p.cardsInPlay.map(c => (c.definitionId === defId ? { ...c, status } : c)),
+  }));
+  return { ...state, players: players as unknown as typeof state.players };
+}
+
+/** Status of the first card of definition `defId` in a player's `cardsInPlay`, if any. */
+export function inPlayCardStatus(
+  state: GameState,
+  playerIdx: 0 | 1,
+  defId: CardDefinitionId,
+): CardStatus | undefined {
+  return state.players[playerIdx].cardsInPlay.find(c => c.definitionId === defId)?.status;
+}
+
+/**
  * Mark a site as **protected** for a player via an `until-cleared`
  * `site-protected` constraint — the effect The Fortress of Isen (wh-68),
  * Fortress of the Towers (wh-69), and Guarded Haven (wh-74) apply to a

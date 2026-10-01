@@ -412,6 +412,14 @@ export interface InPlayItemModifierEffect extends EffectBase {
    * and Balrog alignments). Absent → every player's items are affected.
    */
   readonly bearerFilter?: Condition;
+  /**
+   * When true the modifier applies **only while its card is stored** in a
+   * marshalling-point pile (a `killPile` entry carrying `storedAtSite`), never
+   * while it merely sits in play. Into the Smoking Cone (dm-146): "If stored,
+   * all ring items give one less corruption point." A negative delta never
+   * takes an item below 0 corruption points.
+   */
+  readonly activeWhileStored?: boolean;
 }
 
 /**
@@ -2273,6 +2281,25 @@ export interface ActionCost {
    * possessions (`pending-reducers.ts`).
    */
   readonly alsoDiscardItemName?: string;
+  /**
+   * `"self"` inverts the source card in place ({@link CardStatus.Inverted},
+   * "rotate it 180°"). Only meaningful on a bearer-less company-bound
+   * permanent event in `cardsInPlay`, and only payable while the source is
+   * currently **tapped** — "If this card is tapped, … invert this card" (Into
+   * the Smoking Cone dm-146). Offered during the bound company's site phase by
+   * `inPlayCompanyTapGrantActions` (`legal-actions/site.ts`), resolved by
+   * `handleInPlayCardGrantAction` (`grant-action-apply.ts`).
+   */
+  readonly invert?: 'self';
+  /**
+   * An additional cost: discard (for no effect) one card **the bound company
+   * controls** carrying this keyword — an item borne by one of its characters
+   * or another permanent event bound to it. The player picks which; the
+   * chosen instance rides the activation's `targetCardId`. Into the Smoking
+   * Cone (dm-146): "the company can discard (for no effect) a Lost Knowledge
+   * card it controls".
+   */
+  readonly discardCompanyKeywordCard?: Keyword;
 }
 
 /**
@@ -2977,6 +3004,8 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * card is played — td-135 is playable on *any* moving company at the end of
    * the organization phase and is simply inert if that company ends up
    * somewhere other than a Border-hold. Omit for an unconditional grant.
+   * Also gates an `end-of-mh-heal-and-untap` constraint (Healing of Nimrodel
+   * dm-135: "If the company moves to another Haven") the same way.
    */
   readonly requiresDestinationSiteType?: string;
   /**
@@ -5888,6 +5917,36 @@ export interface SiteUntapEffect extends EffectBase {
 }
 
 /**
+ * A resource short-event that taps a character during his company's site
+ * phase and rolls to bring an ally from hand into play under his control,
+ * waiving the ally's printed playability (Here, There, or Yonder, td-123):
+ * "Make a roll modified by +3 if character is a diplomat. An ally may be
+ * played and placed under the character's control if the result is greater
+ * than 6 plus the ally's mind stat and the ally is not restricted from moving
+ * in this site's region. If an ally is played, tap the site if it is not
+ * already tapped."
+ *
+ * Combined with a `play-target` tap-cost effect naming the character. The
+ * event rides the chain of effects (CoE 9.4/9.5, payload `rollPlayAlly`); on
+ * un-negated resolution `applyShortEventRollPlayAlly` (`roll-play-ally.ts`)
+ * rolls 2d6 (+{@link diplomatBonus} for a diplomat) and enqueues an
+ * `ally-placement-offer` pending resolution. A hand ally is offered when the
+ * total is greater than {@link threshold} + its mind and it is not
+ * movement-restricted at the site (its `bearer-company-moves` /
+ * `company-arrives-at-site` self-discard would not fire there, unless an
+ * `ally-movement-restriction-exemption` covers it). The player may decline.
+ */
+export interface RollPlayAllyEffect extends EffectBase {
+  readonly type: 'roll-play-ally';
+  /** Added to the roll when the tapped character is a diplomat. */
+  readonly diplomatBonus: number;
+  /** The roll must be greater than this value plus the ally's mind. */
+  readonly threshold: number;
+  /** When `true`, playing an ally taps the company's site. */
+  readonly tapSite?: boolean;
+}
+
+/**
  * A resource short-event that lets the player untap one currently-tapped
  * item borne by a character in the tapping sage's **own company**, chosen at
  * play time (Wielded Twice, td-167). The company-scoped sibling of
@@ -7708,6 +7767,31 @@ export interface StorableAtEffect extends EffectBase {
    * has no bearer); character-borne items ignore it.
    */
   readonly requiresTapped?: boolean;
+  /**
+   * When true the card may only be stored once it is itself **inverted**
+   * ({@link CardStatus.Inverted}). Into the Smoking Cone (dm-146): "If
+   * inverted, you can store this card at a Haven [{H}]". Same company-bound
+   * storage path as {@link requiresTapped}.
+   */
+  readonly requiresInverted?: boolean;
+}
+
+/**
+ * Taps the carrying company-bound permanent event (`play-target: "company"`)
+ * the moment its company **plays** an item matching {@link itemFilter} — "Tap
+ * this card if the company plays a ring special item" (Into the Smoking Cone
+ * dm-146). Only an `Untapped` card is affected. `itemFilter` is matched
+ * against `{ item: { keywords, name, subtype, cardType } }`.
+ *
+ * Fired for site-phase item plays (`reducer-site.ts`) and for a special ring
+ * played onto a character after a gold-ring test (`ring-play-offer`,
+ * `pending-reducers.ts`) — see `tapCompanyCardsOnItemPlay` in
+ * `reducer-utils.ts`.
+ */
+export interface TapOnCompanyItemPlayEffect extends EffectBase {
+  readonly type: 'tap-on-company-item-play';
+  /** Condition on the played item (`item.*` context). */
+  readonly itemFilter: Condition;
 }
 
 /**
@@ -10303,6 +10387,7 @@ export interface TapDiscardInPlayEffect extends EffectBase {
  * The `type` field serves as the discriminant for type narrowing.
  */
 export type CardEffect =
+  | TapOnCompanyItemPlayEffect
   | EvilHourTapTriggerEffect
   | EvilHourGrantMovementEffect
   | AllyMovementRestrictionExemptionEffect
@@ -10392,6 +10477,7 @@ export type CardEffect =
   | RegionTypeConversionEffect
   | RegionTransformEffect
   | SiteUntapEffect
+  | RollPlayAllyEffect
   | ItemUntapEffect
   | ItemPlayCorruptionCheckEffect
   | AgentAttackBoostEffect

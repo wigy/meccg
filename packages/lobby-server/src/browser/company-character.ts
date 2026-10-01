@@ -112,6 +112,8 @@ interface AttachmentRowContext {
   itemClickBuilder?: ((itemInstId: CardInstanceId, charInstId: CardInstanceId) => CardClick | undefined) | undefined;
   hazardClickBuilder?: ((hazardInstId: CardInstanceId) => CardClick | undefined) | undefined;
   inPlayDefs: readonly CardDefinition[];
+  /** Definitions of cards in either marshalling-point pile, whose "if stored" item modifiers apply (Into the Smoking Cone dm-146). */
+  storedDefs: readonly CardDefinition[];
   bearerAlignment?: Alignment | undefined;
   /** Both players' `cardsInPlay`, searched for cards attached to each bearer (CardInPlay.attachedTo) via {@link cardsAttachedToCharacter}. */
   attachedEventCandidates?: readonly CardInPlay[] | undefined;
@@ -159,7 +161,7 @@ function appendAttachmentCards(
     }
     // Wrap item in a container for CP badge positioning
     const bearerRace = isCharacterCard(bearerDef) ? bearerDef.race : undefined;
-    const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, ctx.inPlayDefs, ctx.bearerAlignment, bearerRace) : 0;
+    const attCp = isItemCard(attDef) ? effectiveItemCorruptionPoints(attDef, ctx.inPlayDefs, ctx.bearerAlignment, bearerRace, ctx.storedDefs) : 0;
     if (attCp > 0) {
       const itemWrap = document.createElement('div');
       itemWrap.className = 'item-card-wrap';
@@ -203,7 +205,9 @@ function hasAttachedEvents(bearer: CharacterInPlay, ctx: AttachmentRowContext): 
  * badge matches the corruption check the engine computes. `bearerAlignment` is
  * the alignment of the player controlling this character, needed because some
  * modifiers spare certain players (*Bane of the Ithil-stone* tw-13 doubles
- * Palantír corruption but "has no effect on a minion player").
+ * Palantír corruption but "has no effect on a minion player"). `storedDefs`
+ * are the definitions of cards in either marshalling-point pile, for "if
+ * stored" modifiers (*Into the Smoking Cone* dm-146).
  */
 export function renderCharacterColumn(
   char: CharacterInPlay,
@@ -218,6 +222,7 @@ export function renderCharacterColumn(
   bearerAlignment?: Alignment,
   attachedEventCandidates?: readonly CardInPlay[],
   renderAttachedEvent?: (card: CardInPlay) => HTMLElement | null,
+  storedDefs: readonly CardDefinition[] = [],
 ): HTMLElement {
   const col = document.createElement('div');
   col.className = 'character-column';
@@ -228,7 +233,7 @@ export function renderCharacterColumn(
   const imgPath = cardImageProxyPath(def);
   if (!imgPath) return col;
 
-  const ctx: AttachmentRowContext = { cardPool, itemClickBuilder, hazardClickBuilder, inPlayDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent };
+  const ctx: AttachmentRowContext = { cardPool, itemClickBuilder, hazardClickBuilder, inPlayDefs, storedDefs, bearerAlignment, attachedEventCandidates, renderAttachedEvent };
 
   const hasFollowers = charMap != null && char.followers.length > 0;
   const hasAttachments = char.items.length > 0 || char.allies.length > 0 || char.hazards.length > 0 || hasFollowers || hasAttachedEvents(char, ctx);

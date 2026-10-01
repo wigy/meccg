@@ -249,6 +249,8 @@ export const ACTION_TYPES: readonly string[] = [
   'propose-early-council',
   'accept-early-council',
   'decline-early-council',
+  // Added by certifying td-123 (Here, There, or Yonder).
+  'play-ally-placement-offer',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

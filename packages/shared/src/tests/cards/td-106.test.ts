@@ -146,6 +146,34 @@ describe("Dragon's Hunger (td-106)", () => {
     expect(shortEvent).toBeUndefined();
   });
 
+  test('not playable as a short event during the organization phase', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS] }],
+          hand: [DRAGONS_HUNGER],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [CAVE_DRAKE],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
+    const cardInstance = findHandCardId(state, RESOURCE_PLAYER, DRAGONS_HUNGER);
+
+    const shortEvent = viableActions(state, PLAYER_1, 'play-short-event').find(
+      a => (a.action as { cardInstanceId?: CardInstanceId }).cardInstanceId === cardInstance,
+    );
+    expect(shortEvent).toBeUndefined();
+  });
+
   // ── Rule 1: offered when facing a Dragon attack ────────────────────────
 
   test('offered when facing a Dragon attack (Cave-drake)', () => {

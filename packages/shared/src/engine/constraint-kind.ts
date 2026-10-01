@@ -108,6 +108,13 @@ export function buildConstraintKind(
         .requiresDestinationSiteType;
       return { type: 'extra-mh-phase', ...(required ? { requiresDestinationSiteType: required } : {}) };
     }
+    case 'end-of-mh-heal-and-untap': {
+      // Healing of Nimrodel (dm-135): destination gate evaluated when the
+      // company's M/H phase ends, like `extra-mh-phase` above.
+      const required = (onEvent.apply as { requiresDestinationSiteType?: import('../types/common.js').SiteType })
+        .requiresDestinationSiteType;
+      return { type: 'end-of-mh-heal-and-untap', ...(required ? { requiresDestinationSiteType: required } : {}) };
+    }
     case 'no-creatures-keyed-to-site': {
       const unless = (onEvent.apply as { unlessSiteRegionType?: import('../types/common.js').RegionType }).unlessSiteRegionType;
       return { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };

@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect, ForceOpponentDiscardEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect, ForceOpponentDiscardEffect, TargetCharacterStatModifierEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -334,7 +334,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
     case 'creature-storage-offer':
       return creatureStorageOfferActions(state, playerId, combat);
     case 'body-check':
-      return [...bodyCheckActions(state, playerId, combat), ...tapAllyBodyCheckBoostActions(state, playerId, combat), ...captureInLieuOfBodyCheckActions(state, playerId, combat)];
+      return [...altPermanentEventBodyModifierActions(state, playerId, combat), ...bodyCheckActions(state, playerId, combat), ...tapAllyBodyCheckBoostActions(state, playerId, combat), ...captureInLieuOfBodyCheckActions(state, playerId, combat)];
     case 'shield-discard-roll':
       return shieldDiscardRollActions(state, playerId, combat);
     case 'item-salvage':
@@ -2274,6 +2274,65 @@ function bodyCheckActions(
     },
     viable: true,
   }];
+}
+
+/**
+ * Offer tapping an in-play dual-mode creature permanent-event whose on-tap
+ * short-event modifies one character's body (`target-character-stat-modifier`
+ * on `body` — Akhôrahil tw-4) while a body check against one of the
+ * resource player's characters is pending.
+ *
+ * CoE 3.I.1: the declaration of a body check opens a chain in which actions
+ * may be declared if they directly affect the body check — lowering the body
+ * of the character making it qualifies, so the only offered target is that
+ * character. Restricted to the opponent's M/H phase (the card's printed
+ * timing) and gated on the company's hazard limit, which the conversion
+ * consumes one slot of.
+ */
+function altPermanentEventBodyModifierActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  if (combat.bodyCheckTarget !== 'character') return actions;
+  if (playerId !== combat.attackingPlayerId || playerId === state.activePlayer) return actions;
+  // Printed timing: "tapped during the opponent's movement/hazard phase".
+  if (state.phaseState.phase !== Phase.MovementHazard) return actions;
+  const strike = combat.strikeAssignments[combat.currentStrikeIndex];
+  const defender = playerById(state, combat.defendingPlayerId);
+  if (!strike || !defender?.characters[strike.characterId]) return actions;
+  const player = playerById(state, playerId);
+  if (!player) return actions;
+
+  for (const card of player.cardsInPlay) {
+    if (card.status !== CardStatus.Untapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effects = getCardEffects(def);
+    const altEvent = effects.find(e => e.type === 'creature-alt-event');
+    if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) continue;
+    const statMod = effects.find(
+      (e): e is TargetCharacterStatModifierEffect => e.type === 'target-character-stat-modifier' && e.stat === 'body',
+    );
+    if (!statMod) continue;
+    if (statMod.targetFilter) {
+      const ctx = buildPlayOptionContext(state, defender.characters[strike.characterId], defender);
+      if (!matchesCondition(statMod.targetFilter, ctx)) continue;
+    }
+
+    const action = { type: 'tap-alt-permanent-event' as const, player: playerId, cardInstanceId: card.instanceId, targetCharacterId: strike.characterId };
+    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+    const hazardLimit = bypassesLimit ? undefined : hazardLimitStatus(state, combat.companyId);
+    if (hazardLimit?.reached) {
+      logDetail(`Body-check permanent-event tap ${def.name}: hazard limit reached (${hazardLimit.played}/${hazardLimit.limit})`);
+      actions.push({ action, viable: false, reason: 'Hazard limit reached' });
+      continue;
+    }
+    logDetail(`Body-check permanent-event tap available: ${def.name} (body ${formatSignedNumber(statMod.value)} to ${strike.characterId as string})`);
+    actions.push({ action, viable: true });
+  }
+  return actions;
 }
 
 /**

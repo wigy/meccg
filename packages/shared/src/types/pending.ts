@@ -684,6 +684,25 @@ export interface PendingResolution {
       }
     | {
         /**
+         * Ally-placement offer — enqueued when a `roll-play-ally` short event
+         * resolves (Here, There, or Yonder td-123). The actor may play one
+         * hand ally whose mind is below `rollTotal - threshold` and that is
+         * not movement-restricted at the character's site, placing it under
+         * `characterInstanceId` (`play-ally-placement-offer`), or decline
+         * (generic `pass`).
+         */
+        readonly type: 'ally-placement-offer';
+        /** Character who takes control of the played ally. */
+        readonly characterInstanceId: CardInstanceId;
+        /** The modified roll total. */
+        readonly rollTotal: number;
+        /** The roll must exceed this plus the ally's mind. */
+        readonly threshold: number;
+        /** Tap the character's site when an ally is played. */
+        readonly tapSite: boolean;
+      }
+    | {
+        /**
          * Rumor of Wealth (td-58): enqueued by `fireDragonAmbushWindow`
          * (`reducer-site.ts`) once a major/greater item is successfully
          * played at a site bound by a `dragon-ambush-window` constraint. The
@@ -1761,6 +1780,25 @@ export interface ActiveConstraint {
          * granted no matter where the second move lands.
          */
         readonly type: 'extra-mh-phase';
+        /** Site type the company must have moved to, or undefined for any. */
+        readonly requiresDestinationSiteType?: import('./common.js').SiteType;
+      }
+    | {
+        /**
+         * Healing of Nimrodel (dm-135): "If the company moves to another
+         * Haven [{H}] this turn, at the end of the movement/hazard phase all
+         * wounded characters in the company heal (from wounded to untapped)
+         * and all tapped characters untap."
+         *
+         * Played at the end of the organization phase, before the move
+         * resolves, so the destination gate is evaluated when the company's
+         * movement/hazard phase ends (`fireEndOfMHHealAndUntap`): the company
+         * must actually have moved and its new site must match
+         * {@link requiresDestinationSiteType} (absent = any destination). On a
+         * match every tapped or wounded character in the company becomes
+         * untapped and the constraint is consumed.
+         */
+        readonly type: 'end-of-mh-heal-and-untap';
         /** Site type the company must have moved to, or undefined for any. */
         readonly requiresDestinationSiteType?: import('./common.js').SiteType;
       }
