@@ -7372,6 +7372,12 @@ printed `region`, not from a resolved travel path. Used by *Secret Entrance*
 (tw-324): "may not be played on a company moving to a site in a Dark-domain
 [{d}]" — `filter: { "company.destinationSiteRegionType": { "$ne": "dark" } }`.
 
+`company.enteredSite` is `true` when the candidate's company is the active
+company of the **site** phase and has reached its `play-resources` step — i.e.
+the character is "during his site phase" and his company has entered its site.
+Used by *Here, There, or Yonder* (td-123): "Tap a character during his site
+phase at a tapped or untapped Ruins & Lairs".
+
 For **hazard** character-targeting plays during the movement/hazard phase
 (`movement-hazard.ts`), the filter context additionally exposes
 `company.siteType` and `company.atHaven` — resolved from the target company's
@@ -14553,6 +14559,41 @@ defaults to `0` when omitted.
 
 Used by: *Wielded Twice* (td-167) — "Sage only. Ritual. Tap a sage to untap
 an item in his company. Sage makes a corruption check."
+
+### 43g. `roll-play-ally`
+
+A resource short-event that taps a character during his company's site phase
+and rolls to bring an ally from hand into play under his control, regardless
+of the ally's printed playable sites. Paired with a `play-target` character
+tap-cost effect.
+
+```json
+{ "type": "play-window", "phase": "site", "siteTypes": ["ruins-and-lairs"] },
+{
+  "type": "play-target",
+  "target": "character",
+  "filter": { "$and": [ { "company.enteredSite": true }, { "company.siteType": "ruins-and-lairs" } ] },
+  "cost": { "tap": "character" }
+},
+{ "type": "roll-play-ally", "diplomatBonus": 3, "threshold": 6, "tapSite": true }
+```
+
+Per CoE 9.4/9.5 the play rides the chain of effects: the character's tap is
+paid on declaration (`handlePlayResourceShortEvent`, payload `rollPlayAlly` +
+`costTapCharacterId`). On un-negated resolution `applyShortEventRollPlayAlly`
+(`roll-play-ally.ts`) rolls 2d6 (+`diplomatBonus` when the character has the
+diplomat skill) and enqueues an `ally-placement-offer` pending resolution. Its
+legal actions offer one `play-ally-placement-offer` per hand ally whose roll
+total is greater than `threshold` + the ally's mind and that is not
+**restricted from moving** at the site — its `bearer-company-moves` /
+`company-arrives-at-site` self-discard (CRF 22's ally movement restriction)
+would not fire for the site, unless an `ally-movement-restriction-exemption`
+covers it — plus the usual ally gates (uniqueness incl. eliminated copies,
+manifestations, company duplication limit, join blocks, wizard-specific
+control), and a `pass` to decline. Accepting attaches the ally to the
+character and, with `tapSite`, taps the site.
+
+Used by *Here, There, or Yonder* (td-123).
 
 ### 44. `company-strike`
 

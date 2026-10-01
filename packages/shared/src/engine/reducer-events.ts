@@ -893,6 +893,22 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
   }
 
+  // A short event that rolls to bring an ally into play under the tapped
+  // character (Here, There, or Yonder td-123) rides the chain of effects for
+  // the same CoE 9.4/9.5 reason as the site-untap mode above. The
+  // character's tap cost was already paid; `resolveEntry` makes the roll and
+  // enqueues the ally-placement offer once both players pass priority.
+  if (action.targetScoutInstanceId && def.effects?.some(e => e.type === 'roll-play-ally')) {
+    logDetail(`${def.name} → chain of effects (ally roll resolves on chain resolution)`);
+    const afterHand = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand }));
+    const payload: ChainEntryPayload = {
+      type: 'short-event',
+      rollPlayAlly: true,
+      costTapCharacterId: action.targetScoutInstanceId,
+    };
+    return { state: initiateOrPushChain(afterHand, action.player, handCard, payload) };
+  }
+
   // A short event that untaps a chosen item in the tapping sage's own
   // company (Wielded Twice td-167: "Tap a sage to untap an item in his
   // company") rides the chain of effects for the same CoE 9.4/9.5 reason as

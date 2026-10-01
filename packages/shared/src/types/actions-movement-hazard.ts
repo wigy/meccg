@@ -865,6 +865,20 @@ export interface PlayItemPlacementOfferAction {
 }
 
 /**
+ * Play a hand ally under the fixed character of an `ally-placement-offer`
+ * pending resolution (Here, There, or Yonder td-123). To decline, the player
+ * sends a generic `pass` action instead.
+ */
+export interface PlayAllyPlacementOfferAction {
+  /** Action discriminant. */
+  readonly type: 'play-ally-placement-offer';
+  /** The card's owner (who plays). */
+  readonly player: PlayerId;
+  /** The hand ally instance to play. */
+  readonly cardInstanceId: CardInstanceId;
+}
+
+/**
  * Resolve a `force-discard-card` pending resolution: the actor picks one
  * candidate card (a ring) to discard. Used by *Rolled down to the Sea*
  * (wh-29), where the card-player's opponent must discard one ring from their
