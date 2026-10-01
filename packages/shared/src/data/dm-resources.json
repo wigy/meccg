@@ -922,8 +922,30 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on Saruman. Saruman receives +2 to all corruption checks for the rest of the turn."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.name": "Saruman"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "check-modifier",
+          "target": "action-target-character",
+          "check": "corruption",
+          "value": 2,
+          "lasting": true,
+          "scope": "turn"
+        }
+      }
+    ],
+    "text": "Playable on Saruman. Saruman receives +2 to all corruption checks for the rest of the turn.",
+    "certified": "2026-10-01"
   },
   {
     "cardType": "hero-resource-event",

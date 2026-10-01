@@ -593,6 +593,21 @@ corruption check made by a character not in a Shadow-hold [{S}] or Dark-hold
              "constraintWhen": { "$not": { "target.siteType": { "$in": ["shadow-hold", "dark-hold"] } } } } }
 ```
 
+A resource short-event may instead aim the `check-modifier` at its own
+`play-target` character with `"target": "action-target-character"` (resolved
+from `action.targetCharacterId`). Add `lasting: true` so the modifier applies
+to **every** matching check by that character until its `scope` sweeps it
+rather than being consumed by the first. Used by First of the Order (dm-131):
+"Playable on Saruman. Saruman receives +2 to all corruption checks for the
+rest of the turn."
+
+```json
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "check-modifier",
+             "target": "action-target-character", "check": "corruption",
+             "value": 2, "lasting": true, "scope": "turn" } }
+```
+
 A **player-scoped, ongoing** influence `check-modifier` is instead expressed as
 a bare `check-modifier` effect carrying `"target": "player-in-play"`, borne by a
 bare permanent-event in the influencing player's `cardsInPlay` (not attached to
