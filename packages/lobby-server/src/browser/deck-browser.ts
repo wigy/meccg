@@ -61,10 +61,10 @@ export function updatePlayControls(): void {
 
 /**
  * Build the deck-info block shared by the "My Decks" and catalog rows: the
- * deck name, a meta line, and warning chips for missing and uncertified
- * cards.
+ * deck name, a meta line with the row's `actions` icons squeezed onto its
+ * right end, and warning chips for missing and uncertified cards.
  */
-function buildDeckInfo(deck: FullDeck, metaText: string): HTMLDivElement {
+function buildDeckInfo(deck: FullDeck, metaText: string, actions: HTMLElement): HTMLDivElement {
   const info = document.createElement('div');
   info.className = 'lobby-deck-info';
   const nameEl = document.createElement('span');
@@ -73,8 +73,12 @@ function buildDeckInfo(deck: FullDeck, metaText: string): HTMLDivElement {
   const meta = document.createElement('span');
   meta.className = 'lobby-deck-meta';
   meta.textContent = metaText;
+  const metaRow = document.createElement('div');
+  metaRow.className = 'lobby-deck-meta-row';
+  metaRow.appendChild(meta);
+  metaRow.appendChild(actions);
   info.appendChild(nameEl);
-  info.appendChild(meta);
+  info.appendChild(metaRow);
   const addWarning = (cards: readonly string[], label: string, extraClass: string): void => {
     if (cards.length === 0) return;
     const warn = document.createElement('span');
@@ -96,6 +100,13 @@ function buildDeckInfo(deck: FullDeck, metaText: string): HTMLDivElement {
  */
 function makeExportButton(deck: FullDeck): HTMLButtonElement {
   return makeIconButton('\u{2B07}\u{FE0F}', 'Download this deck as a .meccg-json file', () => downloadDeck(deck));
+}
+
+/** Create the flex container holding a deck row's action icons. */
+function makeActionsRow(): HTMLDivElement {
+  const btns = document.createElement('div');
+  btns.className = 'lobby-deck-actions';
+  return btns;
 }
 
 /**
@@ -175,17 +186,13 @@ export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElemen
   item.className = 'lobby-deck-item lobby-deck-item--owned' + (isCurrent ? ' lobby-deck-item--current' : '');
 
   const infoSlot = document.createElement('div');
+  infoSlot.className = 'lobby-deck-info-slot';
+  const btns = makeActionsRow();
   const showInfo = (): void => {
     infoSlot.innerHTML = '';
-    infoSlot.appendChild(buildDeckInfo(deck, deck.alignment + (isCurrent ? ' \u2014 selected' : '')));
+    infoSlot.appendChild(buildDeckInfo(deck, deck.alignment + (isCurrent ? ' \u2014 selected' : ''), btns));
   };
-  showInfo();
   item.appendChild(infoSlot);
-
-  const btns = document.createElement('div');
-  btns.style.display = 'flex';
-  btns.style.flexWrap = 'wrap';
-  btns.style.gap = '0.4rem';
 
   btns.appendChild(makeIconButton('\u{270F}\u{FE0F}', 'Rename this deck', () => {
     renderInlineRename(infoSlot, deck.name, 'Save', (name) => {
@@ -212,7 +219,7 @@ export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElemen
       if (ok) void deleteDeck(deck.id);
     });
   }));
-  item.appendChild(btns);
+  showInfo();
   return item;
 }
 
@@ -220,11 +227,7 @@ export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElemen
 function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: (name: string) => void): HTMLElement {
   const item = document.createElement('div');
   item.className = 'lobby-deck-item';
-  item.appendChild(buildDeckInfo(deck, deck.alignment));
-  const btns = document.createElement('div');
-  btns.style.display = 'flex';
-  btns.style.flexWrap = 'wrap';
-  btns.style.gap = '0.4rem';
+  const btns = makeActionsRow();
   const btnSlot = document.createElement('div');
   if (owned) {
     const btn = makeIconButton('\u{2714}\u{FE0F}', 'You already own this deck');
@@ -249,7 +252,7 @@ function renderCatalogDeckItem(deck: FullDeck, owned: boolean, onAdd: (name: str
   }
   btns.appendChild(btnSlot);
   btns.appendChild(makeExportButton(deck));
-  item.appendChild(btns);
+  item.appendChild(buildDeckInfo(deck, deck.alignment, btns));
   return item;
 }
 
