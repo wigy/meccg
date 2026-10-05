@@ -502,4 +502,36 @@ describe('Sacrifice of Form (tw-321)', () => {
 
     assertEveryInstanceReachable(replay);
   });
+  test('a different copy of the sacrificed Wizard put into play also gets the items and +1 bonuses (bug: Saruman replayed with base stats)', () => {
+    const state = gandalfFacingAttack();
+    const cardId = findHandCardId(state, RESOURCE_PLAYER, SACRIFICE_OF_FORM);
+    const after = toOrgPhase(playAndFinishAttack(state));
+
+    // A second physical copy of Gandalf in hand — not the sacrificed instance.
+    const secondGandalfId = mint();
+    const withSecondCopy: GameState = {
+      ...after,
+      players: [
+        { ...after.players[RESOURCE_PLAYER], hand: [...after.players[RESOURCE_PLAYER].hand, { instanceId: secondGandalfId, definitionId: GANDALF }] },
+        after.players[1],
+      ] as typeof after.players,
+    };
+
+    const replayActions = viableActions(withSecondCopy, PLAYER_1, 'play-character').filter(
+      ea => (ea.action as PlayCharacterAction).characterInstanceId === secondGandalfId,
+    );
+    expect(replayActions.length).toBeGreaterThan(0);
+    const replay = dispatch(withSecondCopy, replayActions[0].action);
+
+    expect(replay.players[RESOURCE_PLAYER].characters[secondGandalfId].items.some(i => i.definitionId === GLAMDRING)).toBe(true);
+    const host = replay.players[RESOURCE_PLAYER].cardsInPlay.find(c => c.instanceId === cardId)!;
+    expect(host.attachedTo).toBe(secondGandalfId);
+    expect(host.sacrificeOfFormCharacterInstanceId).toBe(secondGandalfId);
+    const bonuses = replay.activeConstraints.filter(
+      c => c.kind.type === 'character-stat-modifier' && c.kind.characterId === secondGandalfId,
+    );
+    expect(bonuses.map(c => c.kind.type === 'character-stat-modifier' && c.kind.stat).sort()).toEqual(['body', 'direct-influence', 'prowess']);
+
+    assertEveryInstanceReachable(replay);
+  });
 });
