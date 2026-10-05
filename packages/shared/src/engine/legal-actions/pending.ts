@@ -2287,6 +2287,10 @@ function applyOneConstraint(
       // immediate M/H-phase duplicate attack in `chain-reducer.ts` — no
       // broad legal-action filtering needed here.
       return base;
+    case 'auto-attack-strikes-halved':
+      // Quiet Lands (tw-309): read directly by the site auto-attack
+      // initiation in `reducer-site.ts` — no legal-action filtering.
+      return base;
     case 'defeat-attack-strikes':
       // Liquid Fire (wh-52): consumed directly by the site auto-attack
       // initiation in `reducer-site.ts` (forces every strike of a qualifying

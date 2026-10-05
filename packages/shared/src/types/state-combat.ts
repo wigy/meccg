@@ -1291,6 +1291,24 @@ export type ChainEntryPayload =
       /** The {@link RegionType} the named region becomes on resolution. */
       readonly regionTransformType?: import('./common.js').RegionType;
       /**
+       * For a {@link SiteTransformEffect} card (Quiet Lands, tw-309), the site
+       * definition chosen at declaration time and the {@link SiteType} it is
+       * treated as on resolution.
+       */
+      readonly siteTransformDefinitionId?: import('./common.js').CardDefinitionId;
+      /** The {@link SiteType} the chosen site is treated as on resolution. */
+      readonly siteTransformType?: import('./common.js').SiteType;
+      /**
+       * For an {@link AutoAttackStrikeHalvingEffect} card (Quiet Lands,
+       * tw-309): the company, its current site definition and the index of the
+       * automatic-attack whose strikes are halved on resolution.
+       */
+      readonly halveAutoAttack?: {
+        readonly companyId: import('./common.js').CompanyId;
+        readonly siteDefinitionId: import('./common.js').CardDefinitionId;
+        readonly attackIndex: number;
+      };
+      /**
        * For a {@link SiteUntapEffect} card (Look More Closely Later, td-128),
        * the site instance chosen at declaration time to untap on resolution.
        * Resolved by the chain resolver — not at play time — so the opponent

@@ -3927,8 +3927,24 @@
     ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Environment. Until the end of the turn, the number of strikes for one automatic-attack at a Shadow-hold [{S}] or a Ruins & Lairs [{R}] is reduced by half (rounded up).Alternatively, if Gates of Morning is in play, treat one Shadow-land [{s}] as a Wilderness [{w}] or one Shadow-hold [{S}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated."
+    "effects": [
+      { "type": "duplication-limit", "scope": "turn", "max": 1 },
+      { "type": "auto-attack-strike-halving", "siteTypes": ["shadow-hold", "ruins-and-lairs"] },
+      {
+        "type": "region-transform",
+        "when": { "inPlay": "Gates of Morning" },
+        "duration": "turn",
+        "options": [{ "from": "shadow", "to": "wilderness" }]
+      },
+      {
+        "type": "site-transform",
+        "when": { "inPlay": "Gates of Morning" },
+        "duration": "turn",
+        "options": [{ "from": "shadow-hold", "to": "ruins-and-lairs" }]
+      }
+    ],
+    "text": "Environment. Until the end of the turn, the number of strikes for one automatic-attack at a Shadow-hold [{S}] or a Ruins & Lairs [{R}] is reduced by half (rounded up).Alternatively, if Gates of Morning is in play, treat one Shadow-land [{s}] as a Wilderness [{w}] or one Shadow-hold [{S}] as a Ruins & Lairs [{R}] until the end of the turn.Cannot be duplicated.",
+    "certified": "2026-10-05"
   },
   {
     "cardType": "hero-resource-event",

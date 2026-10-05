@@ -5143,6 +5143,55 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     }
   }
 
+  // Quiet Lands (tw-309) alternatives rode the chain carrying their chosen
+  // target: halve one automatic-attack's strikes, or treat one site as another
+  // type, until the end of the turn. Install the turn-scoped constraint and
+  // dispose of the spent event card.
+  if (entry.payload.type === 'short-event'
+    && !entry.negated
+    && entry.card
+    && (entry.payload.halveAutoAttack
+      || (entry.payload.siteTransformDefinitionId && entry.payload.siteTransformType))) {
+    const def = defById(current, entry.card.definitionId);
+    if (def) {
+      const halve = entry.payload.halveAutoAttack;
+      if (halve) {
+        logDetail(`${def.name}: automatic-attack #${halve.attackIndex + 1} at ${halve.siteDefinitionId as string} has its strikes halved (rounded up) this turn`);
+        current = addConstraint(current, {
+          source: entry.card.instanceId,
+          sourceDefinitionId: entry.card.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'company', companyId: halve.companyId },
+          kind: { type: 'auto-attack-strikes-halved', siteDefinitionId: halve.siteDefinitionId, attackIndex: halve.attackIndex },
+        });
+      } else {
+        const siteDefId = entry.payload.siteTransformDefinitionId!;
+        const newType = entry.payload.siteTransformType!;
+        const transform = getCardEffects(def).find(e => e.type === 'site-transform');
+        logDetail(`${def.name}: site ${siteDefId as string} is treated as ${newType} (${transform?.duration === 'turn' ? 'until end of turn' : 'permanent'})`);
+        current = addConstraint(current, {
+          source: entry.card.instanceId,
+          sourceDefinitionId: entry.card.definitionId,
+          scope: transform?.duration === 'turn' ? { kind: 'turn' } : { kind: 'until-cleared' },
+          target: { kind: 'player', playerId: entry.declaredBy },
+          kind: {
+            type: 'attribute-modifier',
+            attribute: 'site.type',
+            op: 'override',
+            value: newType,
+            filter: { 'site.definitionId': siteDefId as string },
+          },
+        });
+      }
+      const declaringIndex = getPlayerIndex(current, entry.declaredBy);
+      logDetail(`${def.name}: spent event card → discard`);
+      current = updatePlayer(current, declaringIndex, p => ({
+        ...p,
+        discardPile: [...p.discardPile, toCardInstance(entry.card!)],
+      }));
+    }
+  }
+
   // A resource short-event that untaps a chosen site (Look More Closely
   // Later td-128) rides the chain from the player's hand for the same CoE
   // 9.4/9.5 reason as the region-transform mode above. Now that the entry

@@ -2017,6 +2017,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Quiet Lands (tw-309): "the number of strikes for one
+         * automatic-attack at a Shadow-hold or a Ruins & Lairs is reduced by
+         * half (rounded up)" until the end of the turn. Bound to the company
+         * (target), the site definition and the automatic-attack index chosen
+         * at play time; `reducer-site.ts` halves that attack's strikes
+         * (`Math.ceil(strikes / 2)`) when it is initiated. Turn-scoped.
+         */
+        readonly type: 'auto-attack-strikes-halved';
+        /** The site definition whose automatic-attack is halved. */
+        readonly siteDefinitionId: CardDefinitionId;
+        /** Index into the site's active automatic-attacks. */
+        readonly attackIndex: number;
+      }
+    | {
+        /**
          * Liquid Fire (wh-52): a single-use constraint on the target company
          * that causes all strikes of the next qualifying automatic-attack the
          * company faces to automatically be defeated (as if parried),

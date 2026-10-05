@@ -1658,7 +1658,23 @@ function handleSiteAutomaticAttacks(
   });
   boostedState = pendingModifier.state;
   effectiveProwess = pendingModifier.strikeProwess;
-  const finalStrikes = pendingModifier.strikesTotal;
+  let finalStrikes = pendingModifier.strikesTotal;
+
+  // Quiet Lands (tw-309): "the number of strikes for one automatic-attack at a
+  // Shadow-hold or a Ruins & Lairs is reduced by half (rounded up)" — a
+  // turn-scoped constraint bound to this company, site and attack index.
+  const halvedBy = boostedState.activeConstraints.find(
+    c => c.target.kind === 'company'
+      && c.target.companyId === company.id
+      && c.kind.type === 'auto-attack-strikes-halved'
+      && c.kind.siteDefinitionId === company.currentSite!.definitionId
+      && c.kind.attackIndex === resolvedAttackIndex,
+  );
+  if (halvedBy) {
+    const halved = Math.ceil(finalStrikes / 2);
+    logDetail(`Site: "${cardName(state, halvedBy.sourceDefinitionId, '?')}" halves the strikes of this automatic-attack: ${finalStrikes} → ${halved}`);
+    finalStrikes = halved;
+  }
   const finalBody = pendingModifier.creatureBody;
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;

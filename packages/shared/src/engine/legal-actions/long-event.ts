@@ -25,6 +25,7 @@ import { Phase } from '../../types/state-phases.js';
 import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
+import { hasSiteTransformModes, siteTransformShortEventActions } from './site-transform.js';
 import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, collectSiteUntapTargets, collectItemUntapTargets, withdrawAgentTargetActions, eligibleSkillAllyTargetsForCharacter } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
@@ -339,6 +340,13 @@ export function heroResourceShortEventActions(
     if (!playerStateGateMet(state, player, playerId, def)) {
       logDetail(`${def.name}: play-condition player-state not satisfied`);
       actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: play conditions not met`));
+      continue;
+    }
+
+    // Site-transform / automatic-attack strike-halving alternatives (Quiet
+    // Lands tw-309) — see `siteTransformShortEventActions`.
+    if (hasSiteTransformModes(def)) {
+      actions.push(...siteTransformShortEventActions(state, player, playerId, handCard, def));
       continue;
     }
 
