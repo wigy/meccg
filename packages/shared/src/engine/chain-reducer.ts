@@ -33,6 +33,7 @@ import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, isWardedAgainst, normalizeCreatureRace, resolveDef, resolveHandSize, getEffectiveSkills } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { arrivalModeEffects, buildArrivalContext } from './arrival-modes.js';
 import { siteAttacksCanceled, getEffectiveSiteType } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
@@ -1053,16 +1054,12 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   // `sequence` of `add-constraint`s (River — adds
   // site-phase-do-nothing + granted-action together).
   //
-  // Multiple effects allow a card to declare several mutually-exclusive
-  // modes (e.g. Choking Shadows' +2 prowess vs. type-override); the
-  // first effect whose `when` condition matches is applied and the
-  // rest skipped.
-  const onEvents = getCardEffects(def).filter(
-    (e): e is import('../types/effects.js').OnEventEffect =>
-      e.type === 'on-event'
-      && e.event === 'company-arrives-at-site'
-      && (e.apply.type === 'add-constraint' || e.apply.type === 'sequence'),
-  );
+  // Multiple effects declare mutually-exclusive modes (e.g. Choking
+  // Shadows' +2 prowess vs. type-override). The hazard player picks one at
+  // play time (`arrivalModeIndex` on the payload); without a recorded
+  // choice the first effect whose `when` condition matches is applied and
+  // the rest skipped.
+  const onEvents = arrivalModeEffects(def);
   if (onEvents.length === 0) return state;
 
   // New Moon (tw-68): a card offering a `tap-character` (or, Gloom tw-41,
@@ -1107,7 +1104,9 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   // gate on destination site-type / region / environment (Doors of Night).
   const ctx = buildArrivalContext(state);
 
-  for (const onEvent of onEvents) {
+  const chosenIndex = entry.payload.type === 'short-event' ? entry.payload.arrivalModeIndex : undefined;
+  for (const [modeIndex, onEvent] of onEvents.entries()) {
+    if (chosenIndex !== undefined && modeIndex !== chosenIndex) continue;
     if (onEvent.when && !matchesCondition(onEvent.when, ctx)) {
       logDetail(`Short-event "${def.name}": skipping on-event mode — condition not met`);
       continue;
@@ -1416,36 +1415,6 @@ function applyAgentAttackBoostConstraint(
     },
   });
 }
-
-/**
- * Build the evaluation context for a `company-arrives-at-site` `when`
- * clause. Exposes the active company's destination site type, destination
- * region type, site-path region types, and whether Doors of Night is in play — enough for a
- * card like Choking Shadows to pick between its modes.
- */
-function buildArrivalContext(state: GameState): Record<string, unknown> {
-  const ctx: Record<string, unknown> = {};
-  if (state.phaseState.phase !== Phase.MovementHazard) return ctx;
-  const mh = state.phaseState;
-  const company: Record<string, unknown> = {};
-  if (mh.destinationSiteType) company.destinationSiteType = mh.destinationSiteType;
-  if (mh.destinationSiteName) company.destinationSiteName = mh.destinationSiteName;
-  // The destination region type is the last entry in the resolved path
-  // (the region the destination site sits in).
-  if (mh.resolvedSitePath.length > 0) {
-    company.destinationRegionType = mh.resolvedSitePath[mh.resolvedSitePath.length - 1];
-  }
-  // Every region type in the company's site path, so a card that converts
-  // "one Wilderness" (Choking Shadows) can apply to any Wilderness on the
-  // path — not only the destination region.
-  company.pathRegionTypes = [...mh.resolvedSitePath];
-  ctx.company = company;
-  const inPlayNames = buildInPlayNames(state);
-  ctx.inPlay = inPlayNames;
-  ctx.environment = { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') };
-  return ctx;
-}
-
 
 /**
  * Queues pending {@link FetchToDeckEffect}s for a resolving hazard short-event.

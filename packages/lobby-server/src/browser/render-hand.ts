@@ -8,7 +8,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction, DeclareBurglaryAction } from '@meccg/shared';
-import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup } from '@meccg/shared';
+import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup, describeArrivalMode } from '@meccg/shared';
 import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
 import {
@@ -744,6 +744,13 @@ function showHazardKeyingMenu(
       const charDefId = cachedInstanceLookup(action.targetCharacterId);
       const charDef = charDefId ? cardPool[charDefId as string] : undefined;
       label = charDef ? `Play on ${charDef.name}` : `Play on ${action.targetCharacterId as string}`;
+    }
+    // Mutually-exclusive arrival modes (Choking Shadows tw-21): one action
+    // per mode, so name the mode the hazard player is choosing.
+    if (action.arrivalModeIndex !== undefined && cardPool) {
+      const cardDefId = cachedInstanceLookup(action.cardInstanceId);
+      const cardDef = cardDefId ? cardPool[cardDefId as string] : undefined;
+      if (cardDef) label = `${label}: ${describeArrivalMode(cardDef, action.arrivalModeIndex)}`;
     }
     items.push({ label, onClick: () => onAction(action) });
   }
