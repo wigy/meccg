@@ -690,6 +690,7 @@
         "cost": {
           "tap": "bearer"
         },
+        "anyPhase": true,
         "apply": {
           "type": "enqueue-pending-fetch",
           "fetchFrom": ["discard-pile", "deck"],
