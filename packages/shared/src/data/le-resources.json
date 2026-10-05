@@ -3280,8 +3280,18 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Opponent reveals to you 5 random cards at once from his hand."
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "peek-opponent-hand",
+          "count": 5
+        }
+      }
+    ],
+    "text": "Opponent reveals to you 5 random cards at once from his hand.",
+    "certified": "2026-10-05"
   },
   {
     "cardType": "minion-resource-event",
