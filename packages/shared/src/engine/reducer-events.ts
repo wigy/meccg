@@ -2455,6 +2455,16 @@ function applyPlayOptionAddConstraint(
       }
       kind = { type: 'hazard-limit-modifier', value: apply.value };
       break;
+    case 'stage-points-modifier':
+      if (typeof apply.value !== 'number') {
+        return { error: `${def.name} option '${option.id}': stage-points-modifier requires numeric 'value'` };
+      }
+      kind = {
+        type: 'stage-points-modifier',
+        value: apply.value,
+        ...(apply.floor !== undefined ? { floor: apply.floor } : {}),
+      };
+      break;
     case 'site-type-override': {
       // Changes destination site type during M/H phase (e.g. Deeper Shadow: R→S).
       const overrideType = (apply as { overrideType?: string }).overrideType;

@@ -9588,6 +9588,21 @@ for reference:
 | `bounce-hazard-events` | `{ select: 'filter-all', from: 'attached-to-target-company', to: 'hand', toOwner: 'opponent', filter, corruptionCheck }` | Wizard Uncloaked |
 | `sideboard-self-to-deck` | `{ select: 'self', from: ['sideboard'], to: 'deck', shuffleAfter: true }` | Terror Heralds Doom (ba-78) |
 
+A single-target `discard-in-play` move may carry `targetScope:
+"play-target-company"`: instead of every in-play match, the candidates are the
+hazards attached to characters in the company of each eligible filter-only
+`play-target` character (the caster, who is not tapped). The caster makes the
+move's `corruptionCheck` (Ringwraiths exempt, rule 7.4). Used by Poison of his
+Voice (wh-48): "Playable on a hazard permanent-event on a character in a
+spirit-magic-using character's company. Discard target hazard."
+
+```json
+{ "type": "move", "select": "target", "from": "in-play", "to": "discard",
+  "targetScope": "play-target-company",
+  "filter": { "$and": [{ "cardType": "hazard-event" }, { "eventType": "permanent" }] },
+  "corruptionCheck": { "modifier": -3 } }
+```
+
 A `select: 'target'` fetch move may also draw from the player's own **play
 deck** (`from` includes `'deck'`) — a self-tutor. When the chosen card is
 searched out of the play deck, the reducer reshuffles the deck after removing
@@ -10034,6 +10049,12 @@ Supported `apply` kinds today:
   target is resolved to the company containing the targeted character and
   the constraint modifies the hazard limit during the company's M/H phase.
   The `scope` should be `"company-mh-phase"`.
+  When `constraint: "stage-points-modifier"` is used (with `value` and an
+  optional `floor`), the constraint sits on the targeted Fallen-wizard and
+  adjusts his player's stage-point total by `value`, never below `floor` and
+  never raising a total already under it (Poison of his Voice wh-48: "-6 to
+  his stage points (to a minimum of 3) for the rest of the turn", `scope:
+  "turn"`).
 
 **Hazard short-events.** `play-option` is also honoured on character-targeting
 *hazard* short-events (e.g. Weariness of the Heart le-149). The legal-action

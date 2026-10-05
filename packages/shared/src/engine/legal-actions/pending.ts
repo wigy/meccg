@@ -2080,6 +2080,7 @@ function applyOneConstraint(
     case 'auto-attack-race-duplicate':
       return base;
     case 'hazard-limit-modifier':
+    case 'stage-points-modifier':
       return base;
     case 'hazard-limit-multiplier':
       // Lost in Dark-domains (tw-52): consulted directly by
