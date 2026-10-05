@@ -1657,9 +1657,36 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/DrivenasbyaMadness.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spirit-magic"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "company-combat-boost",
+        "stat": "prowess",
+        "value": 2,
+        "requiredSkill": "spirit-magic",
+        "cost": {
+          "check": "corruption",
+          "modifier": -3
+        },
+        "costExemptRace": "ringwraith",
+        "boostScope": "company"
+      },
+      {
+        "type": "company-combat-boost",
+        "stat": "body",
+        "value": -1
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "attack",
+        "max": 1
+      }
+    ],
+    "certified": "2026-10-05",
     "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character facing an attack. All characters in his company receive +2 prowess and -1 body against the attack. Unless he is a Ringwraith, character makes a corruption check modified by -3. Cannot be duplicated against a given attack."
   },
   {

@@ -25,7 +25,7 @@ import {
   Phase,
 } from '../test-helpers.js';
 import type { CardDefinitionId, EndOfTurnPhaseState, GameState } from '../../index.js';
-import { computeLegalActions, isMetaAction } from '../../index.js';
+import { computeLegalActions, computePlayerFacingActions, isMetaAction } from '../../index.js';
 import { reduce } from '../../engine/reducer.js';
 
 const TEMPERING_FRIENDSHIP = 'tw-337' as CardDefinitionId;
@@ -58,6 +58,17 @@ describe('Early Free Council by agreement', () => {
     expect(viableEarlyCouncilActionTypes(state, PLAYER_2)).toEqual(['propose-early-council']);
     expect(computeLegalActions(state, PLAYER_1).some(a => isMetaAction(a.action.type))).toBe(false);
     expect(computeLegalActions(state, PLAYER_2).some(a => isMetaAction(a.action.type))).toBe(false);
+  });
+
+  test('a seat facing an AI opponent is not offered a proposal it could never get answered', () => {
+    // Bug report (game mumf07ey-d352bc): a human proposed an early Council to
+    // AI-Heuristic, which drops every meta-action, so the request spun until
+    // withdrawn.
+    expect(viableEarlyCouncilActionTypes(base, PLAYER_1, { opponentIsAi: true })).toEqual([]);
+    expect(computePlayerFacingActions(base, PLAYER_1, { opponentIsAi: true }).some(a => a.action.type === 'concede')).toBe(true);
+    // A proposal already pending (e.g. from an older save) can still be withdrawn.
+    const proposed = dispatch(base, { type: 'propose-early-council', player: PLAYER_1 });
+    expect(viableEarlyCouncilActionTypes(proposed, PLAYER_1, { opponentIsAi: true })).toEqual(['decline-early-council']);
   });
 
   test('propose records the proposal and offers accept/decline to the opponent, withdraw to the proposer', () => {

@@ -16,7 +16,7 @@
 
 import { expect } from 'vitest';
 import { computeLegalActions, computePlayerFacingActions } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, CharacterCard, ActivateGrantedAction, ActiveConstraint, CompanyId, OnGuardCard } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, CharacterCard, ActivateGrantedAction, ActiveConstraint, CompanyId, OnGuardCard, MetaActionOptions } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import { pool } from './test-helpers-constants.js';
 import type { PileKey } from './test-helpers-constants.js';
@@ -432,8 +432,8 @@ export function collectCreatureTypesFromCardData(): RaceDataValue[] {
  * offered to a human seat — i.e. from {@link computePlayerFacingActions},
  * not the engine's own legal-action set — sorted for stable comparison.
  */
-export function viableEarlyCouncilActionTypes(state: GameState, playerId: PlayerId): string[] {
-  return computePlayerFacingActions(state, playerId)
+export function viableEarlyCouncilActionTypes(state: GameState, playerId: PlayerId, options: MetaActionOptions = {}): string[] {
+  return computePlayerFacingActions(state, playerId, options)
     .filter(a => a.viable && a.action.type.endsWith('-early-council'))
     .map(a => a.action.type)
     .sort();

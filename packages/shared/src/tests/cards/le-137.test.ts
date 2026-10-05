@@ -6,7 +6,7 @@
  * Effects: 4 (play-target character filter:non-wizard/non-ringwraith,
  *             duplication-limit scope:character max:1,
  *             stat-modifier direct-influence -2 min:0,
- *             grant-action remove-self-on-roll cost:tap-bearer threshold:8)
+ *             grant-action remove-self-on-roll no-cost oncePerTurn threshold:8)
  *
  * "Playable on a non-Wizard, non-Ringwraith character. -2 to character's direct
  *  influence (to a minimum of zero). Once during each of his organization
@@ -20,7 +20,7 @@
  * | 1 | Play from hand targeting char         | IMPLEMENTED | play-hazard with targetCharacterId          |
  * | 2 | Filter: non-wizard, non-ringwraith    | IMPLEMENTED | play-target filter with $ne                 |
  * | 3 | -2 direct influence (min 0)           | IMPLEMENTED | stat-modifier direct-influence value:-2 min:0 |
- * | 4 | Tap to attempt removal (roll>7)       | IMPLEMENTED | grant-action remove-self-on-roll            |
+ * | 4 | Attempt removal once per org (roll>7) | IMPLEMENTED | grant-action remove-self-on-roll, no tap    |
  * | 5 | Cannot be duplicated on character     | IMPLEMENTED | duplication-limit scope:character max:1     |
  *
  * Unlike Rebel-talk (le-132) there is NO mind≤7 filter, so a high-mind
@@ -45,6 +45,7 @@ import {
 import type { PlayHazardAction, ActivateGrantedAction, CardDefinitionId } from '../../index.js';
 
 const SHUT_YER_MOUTH = 'le-137' as CardDefinitionId;
+const REBEL_TALK = 'le-132' as CardDefinitionId;
 
 describe('Shut Yer Mouth (le-137)', () => {
   beforeEach(() => resetMint());
@@ -248,7 +249,7 @@ describe('Shut Yer Mouth (le-137)', () => {
 
   // ── Effect 4: grant-action remove-self-on-roll ────────────────────────────
 
-  test('untapped bearer gets exactly one remove action (tap to roll, threshold 8)', () => {
+  test('bearer gets exactly one remove action (roll, no tap, threshold 8)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -268,7 +269,7 @@ describe('Shut Yer Mouth (le-137)', () => {
     expect(act.rollThreshold).toBe(8);
   });
 
-  test('tapped bearer cannot activate remove-self-on-roll', () => {
+  test('tapped bearer can still attempt removal (card text has no tap cost)', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -282,10 +283,10 @@ describe('Shut Yer Mouth (le-137)', () => {
     const tapped = setCharStatus(withSYM, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(0);
+    expect(actions.length).toBe(1);
   });
 
-  test('successful removal roll (>7) discards Shut Yer Mouth and taps the bearer', () => {
+  test('successful removal roll (>7) discards Shut Yer Mouth without tapping the bearer', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -304,7 +305,7 @@ describe('Shut Yer Mouth (le-137)', () => {
 
     const next = dispatch(cheated, actions[0].action);
 
-    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Untapped);
 
     const legolasId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[legolasId].hazards).toHaveLength(0);
@@ -312,7 +313,7 @@ describe('Shut Yer Mouth (le-137)', () => {
     expectInDiscardPile(next, HAZARD_PLAYER, SHUT_YER_MOUTH);
   });
 
-  test('failed removal roll (≤7) keeps Shut Yer Mouth attached and taps the bearer', () => {
+  test('failed removal roll (≤7) keeps Shut Yer Mouth attached without tapping the bearer', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -330,12 +331,61 @@ describe('Shut Yer Mouth (le-137)', () => {
 
     const next = dispatch(cheated, actions[0].action);
 
-    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
+    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Untapped);
 
     const legolasId = charIdAt(next, RESOURCE_PLAYER);
     expect(next.players[0].characters[legolasId].hazards).toHaveLength(1);
     expect(next.players[0].characters[legolasId].hazards[0].definitionId).toBe(SHUT_YER_MOUTH);
 
     expect(next.players[1].discardPile.some(c => c.definitionId === SHUT_YER_MOUTH)).toBe(false);
+  });
+
+  test('removal may be attempted only once per organization phase', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withSYM = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, SHUT_YER_MOUTH, HAZARD_PLAYER);
+    const cheated = { ...withSYM, cheatRollTotal: 7 };
+
+    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    expect(actions.length).toBe(1);
+
+    const next = dispatch(cheated, actions[0].action);
+    expect(viableActions(next, PLAYER_1, 'activate-granted-action')).toHaveLength(0);
+  });
+
+  test('bearer of both Shut Yer Mouth and Rebel-talk may attempt to remove each in the same organization phase', () => {
+    // Bug report (game muse6t2b-aqyg7j): the first removal attempt tapped the
+    // character, which then blocked the attempt to remove the second card.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withSYM = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, SHUT_YER_MOUTH, HAZARD_PLAYER);
+    const withBoth = attachHazardToChar(withSYM, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK, HAZARD_PLAYER);
+    const cheated = { ...withBoth, cheatRollTotal: 7 };
+
+    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    expect(actions).toHaveLength(2);
+
+    const symAction = actions.find(a => (a.action as ActivateGrantedAction).sourceCardDefinitionId === SHUT_YER_MOUTH);
+    expect(symAction).toBeDefined();
+    const afterFirst = dispatch(cheated, symAction!.action);
+
+    expectCharStatus(afterFirst, RESOURCE_PLAYER, LEGOLAS, CardStatus.Untapped);
+    const remaining = viableActions(afterFirst, PLAYER_1, 'activate-granted-action');
+    expect(remaining).toHaveLength(1);
+    expect((remaining[0].action as ActivateGrantedAction).sourceCardDefinitionId).toBe(REBEL_TALK);
   });
 });

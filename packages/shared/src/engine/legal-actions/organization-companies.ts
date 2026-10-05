@@ -31,6 +31,7 @@ import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
+import { companyStoresAsDarkhaven } from '../pending.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
 import { getEffectiveSiteType } from '../effective.js';
@@ -1372,16 +1373,22 @@ const REGULAR_ITEM_SUBTYPES = new Set(['minor', 'major', 'greater', 'gold-ring',
  *    the card itself is tapped — Pass the Doors of Dol Guldur (dm-154): "*If
  *    tapped*, this card can be stored at a Haven [{H}]".
  *
+ * A company carrying a `storage-as-darkhaven` constraint at its current site
+ * (Messenger of Mordor le-204) stores as though that site were a Darkhaven:
+ * every check above treats the site as a Haven for storage purposes.
+ *
  * After storage, the initial bearer (if any) must make a corruption check.
  * Emits one action per valid (item, character) pair, plus one per storable
- * company-bound card.
+ * company-bound card. `onlyCompanyId` restricts the scan to a single company
+ * (the site phase offers storage only to the active company).
  */
-export function storeItemActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
+export function storeItemActions(state: GameState, playerId: PlayerId, onlyCompanyId?: CompanyId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
 
   for (const company of player.companies) {
     if (!company.currentSite) continue;
+    if (onlyCompanyId !== undefined && company.id !== onlyCompanyId) continue;
 
     const siteDef = resolveDef(state, company.currentSite.instanceId);
     if (!siteDef || !isSiteCard(siteDef)) continue;
@@ -1396,6 +1403,8 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       siteDef.siteType,
       company.currentSite.instanceId,
     );
+    // Messenger of Mordor (le-204): the site counts as a Darkhaven for storing.
+    const storageSiteType = companyStoresAsDarkhaven(state, company) ? SiteType.Haven : siteType;
 
     // `no-storage` site-rule: "Resources may never be stored at this site"
     // (Geann a-Lisch le-374 unconditionally; Barad-dûr for a Balrog player via
@@ -1414,7 +1423,7 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
       );
       if (!storable) continue;
       if (!(storable.sites?.includes(siteName) ?? false)
-        && !(storable.siteTypes?.includes(siteType) ?? false)) {
+        && !(storable.siteTypes?.includes(storageSiteType) ?? false)) {
         continue;
       }
       if (storable.requiresTapped && cip.status !== CardStatus.Tapped) {
@@ -1456,9 +1465,9 @@ export function storeItemActions(state: GameState, playerId: PlayerId): Evaluate
         let isStorable = false;
         if (storableEffect) {
           const siteNameMatch = storableEffect.sites?.includes(siteName) ?? false;
-          const siteTypeMatch = storableEffect.siteTypes?.includes(siteType) ?? false;
+          const siteTypeMatch = storableEffect.siteTypes?.includes(storageSiteType) ?? false;
           isStorable = siteNameMatch || siteTypeMatch;
-        } else if (isItemCard(itemDef) && siteType === 'haven') {
+        } else if (isItemCard(itemDef) && storageSiteType === SiteType.Haven) {
           // Special items (Palantíri, named rings, unique treasures, etc.) are
           // storable at any Haven too — CoE rule 2.II.4 places no subtype
           // restriction on storing.

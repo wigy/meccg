@@ -2080,6 +2080,7 @@ function applyOneConstraint(
     case 'auto-attack-race-duplicate':
       return base;
     case 'hazard-limit-modifier':
+    case 'stage-points-modifier':
       return base;
     case 'hazard-limit-multiplier':
       // Lost in Dark-domains (tw-52): consulted directly by
@@ -2107,6 +2108,7 @@ function applyOneConstraint(
       // legal-action filtering needed here.
       return base;
     case 'cancel-return-and-site-tap':
+    case 'storage-as-darkhaven':
       return base;
     case 'cancel-character-discard':
       return base;
@@ -4110,7 +4112,7 @@ export function revealHazardsChoiceActions(
       });
     }
 
-    if (revealedIds.length === 0) {
+    if (revealedIds.length === 0 && !top.kind.noAgentAlternative) {
       for (const ea of revealAgentActions(state, actor)) {
         const ra = ea.action as RevealAgentAction;
         const agent = player.agents.find(a => a.id === ra.agentId);

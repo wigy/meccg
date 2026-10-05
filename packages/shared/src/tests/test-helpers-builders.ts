@@ -3382,3 +3382,45 @@ export function shortEventPlaysOf(state: GameState, playerIdx: number, defId: Ca
     ea => cardIds.has((ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId),
   );
 }
+
+/** Every viable `play-short-event` action for `playerId`, typed. */
+export function viableShortEventPlays(
+  state: GameState,
+  playerId: PlayerId,
+): import('../index.js').PlayShortEventAction[] {
+  return viableActions(state, playerId, 'play-short-event')
+    .map(ea => ea.action as import('../index.js').PlayShortEventAction);
+}
+
+/**
+ * Organization-phase state for a non-hero resource player (PLAYER_1) with the
+ * given companies and hand, against an empty Wizard opponent at Lórien.
+ * `stageCards` are put into PLAYER_1's cards-in-play before the final
+ * recompute so a Fallen-wizard's running stage-point total reflects them.
+ */
+export function buildAlignedOrgState(opts: {
+  alignment: Alignment;
+  companies: readonly { site: CardDefinitionId; characters: CardDefinitionId[] }[];
+  hand: CardDefinitionId[];
+  siteDeck: CardDefinitionId[];
+  stageCards?: readonly CardDefinitionId[];
+}): GameState {
+  let state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.Organization,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        alignment: opts.alignment,
+        companies: [...opts.companies],
+        hand: opts.hand,
+        playDeck: [...opts.siteDeck],
+        siteDeck: opts.siteDeck,
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+  for (const card of opts.stageCards ?? []) state = addCardInPlay(state, RESOURCE_PLAYER, card);
+  return recomputeDerived(state);
+}

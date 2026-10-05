@@ -32,9 +32,10 @@ import {
   P1_COMPANY,
   handCardId, dispatch, playHazardAndResolve, HAZARD_PLAYER,
   makeSitePhase, placeOnGuard, buildSitePhaseTwoPlayer, RESOURCE_PLAYER,
+  resolveChain,
 } from '../test-helpers.js';
 import { Phase, SiteType, RegionType, CardStatus } from '../../index.js';
-import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId, CardDefinitionId, RevealOnGuardAction } from '../../index.js';
+import type { GameState, HazardEventCard, MovementHazardPhaseState, CardInstanceId, CardDefinitionId, RevealOnGuardAction, PlayHazardAction } from '../../index.js';
 
 const CHOKING_SHADOWS = 'tw-21' as CardDefinitionId;
 const ORC_GUARD = 'tw-072' as CardDefinitionId;
@@ -339,6 +340,53 @@ describe('Choking Shadows (tw-21)', () => {
       c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
     );
     expect(prowessMods).toHaveLength(0);
+  });
+
+  test('bug regression: with DoN in play at a R&L destination, the hazard player chooses the +2 prowess mode instead of the type override', () => {
+    // "Modify the prowess of one automatic-attack at a Ruins & Lairs site by
+    // +2. Alternatively, if Doors of Night is in play, treat …" — the modes
+    // are alternatives chosen by the hazard player. Previously the engine
+    // silently applied the first matching mode (R&L → Shadow-hold) when Doors
+    // of Night was out, so the +2 automatic-attack boost could not be picked.
+    const donInPlay = {
+      instanceId: 'don-1' as CardInstanceId,
+      definitionId: DOORS_OF_NIGHT,
+      status: CardStatus.Untapped,
+    };
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: MORIA }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH], cardsInPlay: [donInPlay] },
+      ],
+    });
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+      resolvedSitePath: [RegionType.Wilderness],
+      resolvedSitePathNames: ['Hollin'],
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+
+    // One play per applicable mode: R&L → Shadow-hold, Wilderness →
+    // Shadow-land, +2 automatic-attack prowess.
+    const plays = viableActions(mhGameState, PLAYER_2, 'play-hazard')
+      .map(a => a.action as PlayHazardAction);
+    expect(plays.map(a => a.arrivalModeIndex).sort()).toEqual([0, 1, 2]);
+
+    const boostPlay = plays.find(a => a.arrivalModeIndex === 2)!;
+    const afterPlay = resolveChain(dispatch(mhGameState, boostPlay));
+
+    const boost = afterPlay.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
+    );
+    expect(boost).toBeDefined();
+    if (boost!.kind.type === 'attribute-modifier') expect(boost!.kind.value).toBe(2);
+    // The type-override alternatives must not also apply.
+    expect(afterPlay.activeConstraints.some(c =>
+      c.kind.type === 'attribute-modifier' && (c.kind.attribute === 'site.type' || c.kind.attribute === 'region.type'),
+    )).toBe(false);
   });
 
   // ─── Keying through the override: offer/validate symmetry ────────────────

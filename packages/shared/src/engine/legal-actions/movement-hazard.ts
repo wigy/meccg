@@ -46,6 +46,33 @@ import { buildCompanyCompositionContext } from '../company-composition.js';
 import { currentHazardLimit } from '../hazard-limit.js';
 import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from '../region-keying.js';
 import { asViable as viable } from './evaluated.js';
+import { applicableArrivalModeIndices, describeArrivalMode } from '../arrival-modes.js';
+
+/**
+ * Expand an untargeted hazard short-event play into one `play-hazard` per
+ * applicable "company arrives at site" mode. Cards like Choking Shadows
+ * (tw-21) offer mutually-exclusive alternatives ("Modify the prowess of one
+ * automatic-attack … by +2. Alternatively, if Doors of Night is in play,
+ * treat one Wilderness as a Shadow-land or one Ruins & Lairs as a
+ * Shadow-hold") and the choice belongs to the hazard player — so when more
+ * than one mode currently applies, each becomes its own legal action tagged
+ * with `arrivalModeIndex`. With zero or one applicable mode the action is
+ * returned unchanged.
+ */
+function arrivalModeVariants(
+  state: GameState,
+  def: CardDefinition,
+  action: PlayHazardAction,
+  targetCompany: Company,
+): PlayHazardAction[] {
+  if (!targetCompany.destinationSite) return [action];
+  const indices = applicableArrivalModeIndices(state, def);
+  if (indices.length < 2) return [action];
+  return indices.map(i => {
+    logDetail(`Hazard short-event "${def.name}": offering arrival mode ${i} (${describeArrivalMode(def, i)})`);
+    return { ...action, arrivalModeIndex: i };
+  });
+}
 import { notPlayable } from './action-builders.js';
 import { findEnvironmentTargets } from '../environment-targets.js';
 import { cardTargetsSetAside } from '../set-aside.js';
@@ -3279,7 +3306,9 @@ function playHazardsActions(
             };
             if (arrivalModes.some(m => !m.when || matchesCondition(m.when, arrivalCtx))) {
               logDetail(`Hazard short-event "${def.name}": Mode B — arrival-override available`);
-              actions.push({ action, viable: true });
+              for (const variant of arrivalModeVariants(state, def, action, targetCompany)) {
+                actions.push({ action: variant, viable: true });
+              }
               offeredAny = true;
             }
           }
@@ -3916,7 +3945,9 @@ function playHazardsActions(
               };
               if (arrivalModes.some(m => !m.when || matchesCondition(m.when, arrivalCtx))) {
                 logDetail(`Hazard short-event "${def.name}": arrival-override mode available`);
-                actions.push({ action, viable: true });
+                for (const variant of arrivalModeVariants(state, def, action, targetCompany)) {
+                  actions.push({ action: variant, viable: true });
+                }
               }
             }
           }
@@ -4171,7 +4202,9 @@ function playHazardsActions(
         }
 
         logDetail(`Hazard short-event "${def.name}" is playable`);
-        actions.push({ action, viable: true });
+        for (const variant of arrivalModeVariants(state, def, action, targetCompany)) {
+          actions.push({ action: variant, viable: true });
+        }
         continue;
       }
 

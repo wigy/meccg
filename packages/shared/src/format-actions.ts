@@ -14,6 +14,7 @@ import type { CardInstanceId, CardDefinitionId, CompanyId, PlayerId } from './ty
 import { UNKNOWN_CARD, UNKNOWN_SITE } from './card-ids.js';
 import { formatCardName } from './format-cards.js';
 import { formatSignedNumber } from './format-helpers.js';
+import { describeArrivalMode } from './engine/arrival-modes.js';
 import type { InstanceLookup } from './format-helpers.js';
 
 // ---- Company naming ----
@@ -368,11 +369,21 @@ export function describeAction(
         : `against ${compName(action.targetCompanyId)}`;
       const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
       const raceTag = action.chosenCreatureRace ? ` (race: ${action.chosenCreatureRace})` : '';
+      // Mutually-exclusive arrival modes (Choking Shadows tw-21) emit one
+      // otherwise-identical action per mode — name the mode so the player
+      // can tell which alternative they are choosing.
+      const modeDefId = action.arrivalModeIndex !== undefined && instanceLookup
+        ? (typeof instanceLookup === 'function' ? instanceLookup(action.cardInstanceId) : instanceLookup[action.cardInstanceId as string])
+        : undefined;
+      const modeDef = modeDefId ? cardPool[modeDefId as string] : undefined;
+      const modeTag = action.arrivalModeIndex !== undefined
+        ? ` (${modeDef ? describeArrivalMode(modeDef, action.arrivalModeIndex) : `mode ${action.arrivalModeIndex + 1}`})`
+        : '';
       if (action.prisonSiteInstanceId && action.agentInstanceId) {
         return `${base} (tap agent ${instName(action.agentInstanceId)}; prisoner held at ${instName(action.prisonSiteInstanceId)})`;
       }
       if (action.keyedBy) return `${base} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})${raceTag}`;
-      return `${base}${raceTag}`;
+      return `${base}${raceTag}${modeTag}`;
     }
     case 'sideboard-with-nazgul':
       return `Tap and discard Nazgûl ${instName(action.cardInstanceId)} to sideboard (${action.destination})`;

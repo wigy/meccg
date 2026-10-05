@@ -6,7 +6,7 @@
  * Effects: 4 (play-target character filter:non-wizard/non-ringwraith/mind≤7,
  *             duplication-limit scope:character max:1,
  *             play-flag no-direct-influence,
- *             grant-action remove-self-on-roll cost:tap-bearer threshold:8)
+ *             grant-action remove-self-on-roll no-cost oncePerTurn threshold:8)
  *
  * "Playable on a non-Ringwraith, non-Wizard character with mind of 7 or less.
  *  Character cannot be controlled by direct influence. Once during each of his
@@ -21,7 +21,7 @@
  * | 2 | Filter: non-wizard, non-ringwraith    | IMPLEMENTED | play-target filter with $ne                 |
  * | 3 | Filter: mind ≤ 7                      | IMPLEMENTED | target.mind in filter context               |
  * | 4 | Cannot be controlled by DI            | IMPLEMENTED | play-flag no-direct-influence                |
- * | 5 | Tap to attempt removal (roll>7)       | IMPLEMENTED | grant-action remove-self-on-roll            |
+ * | 5 | Attempt removal once per org (roll>7) | IMPLEMENTED | grant-action remove-self-on-roll, no tap    |
  * | 6 | Cannot be duplicated on character     | IMPLEMENTED | duplication-limit scope:character max:1     |
  *
  * Playable: YES
@@ -439,8 +439,8 @@ describe('Rebel-talk (le-132)', () => {
 
   // ── Effect 4: grant-action remove-self-on-roll ────────────────────────────
 
-  test('untapped character with Rebel-talk gets exactly one remove action (tap to roll)', () => {
-    // Rebel-talk is NOT a Corruption card — only one standard tap variant, no no-tap −3 variant.
+  test('character with Rebel-talk gets exactly one remove action (roll, no tap)', () => {
+    // Rebel-talk is NOT a Corruption card — only one standard variant, no no-tap −3 variant.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -460,8 +460,8 @@ describe('Rebel-talk (le-132)', () => {
     expect(act.rollThreshold).toBe(8);
   });
 
-  test('tapped character with Rebel-talk cannot activate remove-self-on-roll', () => {
-    // Rebel-talk is not a Corruption card — no no-tap −3 variant, so a tapped character cannot attempt removal.
+  test('tapped character with Rebel-talk can still attempt removal (card text has no tap cost)', () => {
+    // "the character may attempt to remove this card" — unlike Foolish Words, no tap is required.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -475,10 +475,10 @@ describe('Rebel-talk (le-132)', () => {
     const tapped = setCharStatus(withRT, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
 
     const actions = viableActions(tapped, PLAYER_1, 'activate-granted-action');
-    expect(actions.length).toBe(0);
+    expect(actions.length).toBe(1);
   });
 
-  test('successful removal roll (>7) discards Rebel-talk and taps character', () => {
+  test('successful removal roll (>7) discards Rebel-talk without tapping character', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -496,8 +496,8 @@ describe('Rebel-talk (le-132)', () => {
 
     const next = dispatch(cheated, actions[0].action);
 
-    // Character should be tapped
-    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
+    // Character stays untapped — removal has no tap cost
+    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Untapped);
 
     // Rebel-talk should be removed from character's hazards
     const legolasId = charIdAt(next, RESOURCE_PLAYER);
@@ -507,7 +507,7 @@ describe('Rebel-talk (le-132)', () => {
     expectInDiscardPile(next, HAZARD_PLAYER, REBEL_TALK);
   });
 
-  test('failed removal roll (≤7) keeps Rebel-talk attached and taps character', () => {
+  test('failed removal roll (≤7) keeps Rebel-talk attached without tapping character', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -525,8 +525,8 @@ describe('Rebel-talk (le-132)', () => {
 
     const next = dispatch(cheated, actions[0].action);
 
-    // Character should be tapped
-    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Tapped);
+    // Character stays untapped — removal has no tap cost
+    expectCharStatus(next, RESOURCE_PLAYER, LEGOLAS, CardStatus.Untapped);
 
     // Rebel-talk should still be attached
     const legolasId = charIdAt(next, RESOURCE_PLAYER);
@@ -535,5 +535,25 @@ describe('Rebel-talk (le-132)', () => {
 
     // Opponent's discard pile should not have Rebel-talk
     expect(next.players[1].discardPile.some(c => c.definitionId === REBEL_TALK)).toBe(false);
+  });
+
+  test('removal may be attempted only once per organization phase', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [GIMLI] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const withRT = attachHazardToChar(base, RESOURCE_PLAYER, LEGOLAS, REBEL_TALK, HAZARD_PLAYER);
+    const cheated = { ...withRT, cheatRollTotal: 7 };
+
+    const actions = viableActions(cheated, PLAYER_1, 'activate-granted-action');
+    expect(actions.length).toBe(1);
+
+    const next = dispatch(cheated, actions[0].action);
+    expect(viableActions(next, PLAYER_1, 'activate-granted-action')).toHaveLength(0);
   });
 });

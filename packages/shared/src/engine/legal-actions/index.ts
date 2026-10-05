@@ -400,8 +400,19 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
  * and the rules tests assert exact "no actions"/"only X" sets — none of which
  * should see a game-ending option that only a human should ever choose.
  */
-export function computePlayerFacingActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
-  return withMetaActions(state, playerId, computeLegalActions(state, playerId));
+export function computePlayerFacingActions(state: GameState, playerId: PlayerId, options: MetaActionOptions = {}): EvaluatedAction[] {
+  return withMetaActions(state, playerId, computeLegalActions(state, playerId), options);
+}
+
+/** Per-seat context for {@link withMetaActions}. */
+export interface MetaActionOptions {
+  /**
+   * The seat's opponent is AI-controlled. AI agents drop every meta-action
+   * (see {@link isMetaAction}), so they can never answer an early Free
+   * Council proposal — offering `propose-early-council` against one would
+   * leave the request pending forever.
+   */
+  readonly opponentIsAi?: boolean;
 }
 
 /**
@@ -429,7 +440,8 @@ export function isMetaAction(type: string): boolean {
  * set: `concede` (see {@link withConcedeAction}) plus the agreed early Free
  * Council handshake while {@link canNegotiateEarlyCouncil} holds —
  *
- * - no proposal pending: `propose-early-council` for either seat;
+ * - no proposal pending: `propose-early-council` for either seat, unless
+ *   the opponent is an AI (`options.opponentIsAi`), which cannot answer;
  * - proposal pending: `accept-early-council` and `decline-early-council`
  *   for the opponent, `decline-early-council` (withdraw) for the proposer.
  *
@@ -437,11 +449,12 @@ export function isMetaAction(type: string): boolean {
  * so the opponent can answer without waiting for priority. The game server
  * applies this per human connection only.
  */
-export function withMetaActions(state: GameState, playerId: PlayerId, evaluated: readonly EvaluatedAction[]): EvaluatedAction[] {
+export function withMetaActions(state: GameState, playerId: PlayerId, evaluated: readonly EvaluatedAction[], options: MetaActionOptions = {}): EvaluatedAction[] {
   const result = withConcedeAction(state, playerId, evaluated);
   if (!canNegotiateEarlyCouncil(state)) return result;
   const proposer = state.earlyCouncilProposal ?? null;
   if (proposer === null) {
+    if (options.opponentIsAi) return result;
     result.push({ action: { type: 'propose-early-council', player: playerId }, viable: true });
   } else if (proposer === playerId) {
     result.push({ action: { type: 'decline-early-council', player: playerId }, viable: true });
