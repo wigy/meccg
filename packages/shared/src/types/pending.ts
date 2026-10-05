@@ -1433,6 +1433,12 @@ export interface PendingResolution {
         readonly companyId: CompanyId;
         /** Hand instance IDs revealed to the card's controller so far, in reveal order. */
         readonly revealedIds: readonly CardInstanceId[];
+        /**
+         * Set when the source card has no tap-reveal-agent alternative
+         * (Spying out the Land le-233): `tap-reveal-agent-for-snake` is never
+         * offered.
+         */
+        readonly noAgentAlternative?: true;
       }
     | {
         /**

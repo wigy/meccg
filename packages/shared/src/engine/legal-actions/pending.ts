@@ -4110,7 +4110,7 @@ export function revealHazardsChoiceActions(
       });
     }
 
-    if (revealedIds.length === 0) {
+    if (revealedIds.length === 0 && !top.kind.noAgentAlternative) {
       for (const ea of revealAgentActions(state, actor)) {
         const ra = ea.action as RevealAgentAction;
         const agent = player.agents.find(a => a.id === ra.agentId);

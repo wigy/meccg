@@ -3735,27 +3735,36 @@ function applyShortEventOnEntersPlay(
       // opponent (hazard player) — reveal any number of hazards from hand
       // (restricting them to the revealed set for the rest of this
       // company's M/H phase), or tap-reveal a face-down agent instead.
-      const targetCompanyId = action.type === 'play-short-event' ? action.targetCompanyId : undefined;
-      if (!targetCompanyId) {
+      // Spying out the Land (le-233) targets a character during the
+      // organization phase instead: the restricted company is that
+      // character's company, whose M/H phase is still to come, and there is
+      // no agent alternative.
+      const playerCompanies = state.players[playerIndex].companies;
+      let company: import('../types/state-cards.js').Company | undefined;
+      if (action.type === 'play-short-event' && action.targetCompanyId) {
+        company = companyById(playerCompanies, action.targetCompanyId);
+      } else if (action.type === 'play-short-event' && action.targetCharacterId) {
+        company = findCharacterCompany(playerCompanies, action.targetCharacterId);
+      }
+      if (!company) {
         logDetail(`"${def.name}": enqueue-reveal-hazards-choice — no target company — fizzle`);
         continue;
       }
-      const company = companyById(state.players[playerIndex].companies, targetCompanyId);
-      if (!company) {
-        logDetail(`"${def.name}": enqueue-reveal-hazards-choice — company ${targetCompanyId as string} not found — fizzle`);
-        continue;
-      }
+      const noAgentAlternative = onEvent.apply.agentAlternative === false;
       const opponentIndex = 1 - playerIndex;
       const opponent = state.players[opponentIndex];
-      logDetail(`"${def.name}" played on company ${company.id as string} — ${opponent.name} may reveal hazards from hand or tap-reveal a face-down agent`);
+      logDetail(`"${def.name}" played on company ${company.id as string} — ${opponent.name} may reveal hazards from hand${noAgentAlternative ? '' : ' or tap-reveal a face-down agent'}`);
       state = enqueueResolution(state, {
         source: handCard.instanceId,
         actor: opponent.id,
-        scope: { kind: 'company-mh-subphase', companyId: company.id },
+        scope: state.phaseState.phase === Phase.MovementHazard
+          ? { kind: 'company-mh-subphase', companyId: company.id }
+          : { kind: 'phase', phase: state.phaseState.phase },
         kind: {
           type: 'reveal-hazards-choice',
           companyId: company.id,
           revealedIds: [],
+          ...(noAgentAlternative ? { noAgentAlternative: true as const } : {}),
         },
       });
     }
