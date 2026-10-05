@@ -4690,8 +4690,22 @@
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "-1 to each influence check against a faction, but for each influence check make an additional roll and choose which result to use. May also be played as a hero resource."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": -1,
+        "target": "all-in-play",
+        "when": { "influenceTarget.kind": "faction" }
+      },
+      {
+        "type": "check-extra-roll",
+        "check": "influence",
+        "when": { "influenceTarget.kind": "faction" }
+      }
+    ],
+    "text": "-1 to each influence check against a faction, but for each influence check make an additional roll and choose which result to use. May also be played as a hero resource.",
+    "certified": "2026-10-05"
   },
   {
     "cardType": "minion-resource-event",

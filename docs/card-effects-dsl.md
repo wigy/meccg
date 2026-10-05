@@ -642,6 +642,29 @@ long-event: "All offering attempts and influence attempts are modified by -3."
 { "type": "check-modifier", "check": ["influence", "offering"], "value": -3, "target": "all-in-play" }
 ```
 
+### `check-extra-roll` — roll a check twice, keep the better result
+
+A game-wide, ongoing "make an additional roll and choose which result to use"
+for a 2d6 check. Carried by a bare in-play event in **either** player's
+`cardsInPlay` (scanned like `check-modifier` `target: "all-in-play"`, via
+`globalCheckExtraRollSource` in `reducer-utils.ts`) and gated by its `when`
+against the check's resolver context. A matching check is rolled twice
+(`roll2d6KeepBetter`) and the higher total is kept — for influence attempts a
+higher total is never worse, so the choice is always the higher roll. The
+dice-roll effect carries the kept pair plus `alternateRoll`. Honoured for
+`check: "influence"` by the faction-influence roll (`reducer-site.ts`), the
+attacker's roll of an opponent-influence attempt, and the untethered
+faction-influence grant action (`grant-action-apply.ts`). Used by Tidings of
+Death (le-245): "-1 to each influence check against a faction, but for each
+influence check make an additional roll and choose which result to use."
+
+```json
+{ "type": "check-modifier", "check": "influence", "value": -1, "target": "all-in-play",
+  "when": { "influenceTarget.kind": "faction" } }
+{ "type": "check-extra-roll", "check": "influence",
+  "when": { "influenceTarget.kind": "faction" } }
+```
+
 ### `nullify-influence-modifications` — strip every card modifier from influence attempts
 
 `{ "type": "nullify-influence-modifications" }` is a game-wide environment
