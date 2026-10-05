@@ -42,7 +42,7 @@ import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js'
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
-import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -4576,6 +4576,44 @@ export function playResourceShortEventActions(
       if (siteIsTapped) {
         logDetail(`${def.name}: requires untapped site, but active site is already tapped`);
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: site must be untapped`));
+        continue;
+      }
+    }
+
+    // play-flag: "tapped-site-only" — a short event playable during the site
+    // phase only on a company at an already-tapped site (Old Cache le-213,
+    // Swag le-236). Mirrors the permanent-event check in legal-actions/site.ts.
+    if (hasPlayFlag(def, 'tapped-site-only')) {
+      const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
+      const company = currentPhase === 'site'
+        ? activePlayerState(state)?.companies[sitePhaseState.activeCompanyIndex]
+        : undefined;
+      if (company?.currentSite?.status !== CardStatus.Tapped) {
+        logDetail(`${def.name}: requires a company at a tapped site`);
+        actions.push(notPlayable(playerId, handCard.instanceId, `${def.name}: site must be tapped`));
+        continue;
+      }
+    }
+
+    // tap-take-item (Old Cache le-213, Swag le-236): the event's only effect
+    // is letting characters of the active company tap to take a matching item,
+    // so it is playable only when at least one company member is untapped and
+    // at least one matching item sits in the effect's source piles.
+    const tapTakeItemEffect = def.effects?.find(
+      (e): e is import('../../types/effects.js').TapTakeItemEffect => e.type === 'tap-take-item',
+    );
+    if (tapTakeItemEffect) {
+      const sitePhaseState = state.phaseState as { activeCompanyIndex: number };
+      const company = currentPhase === 'site'
+        ? player.companies[sitePhaseState.activeCompanyIndex]
+        : undefined;
+      const hasUntapped = !!company?.characters.some(id => player.characters[id]?.status === CardStatus.Untapped);
+      const hasItem = collectTapTakeItemCandidates(state, player, tapTakeItemEffect).length > 0;
+      if (!hasUntapped || !hasItem) {
+        logDetail(`${def.name}: tap-take-item needs an untapped company member (${String(hasUntapped)}) and a matching item (${String(hasItem)})`);
+        actions.push(notPlayable(playerId, handCard.instanceId, hasUntapped
+          ? `${def.name}: no matching item to take`
+          : `${def.name}: no untapped character in the company`));
         continue;
       }
     }

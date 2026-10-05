@@ -622,6 +622,10 @@ export function buildSitePhaseState(opts: {
   hand?: CardDefinitionId[];
   siteStatus?: CardStatus;
   discardPile?: CardDefinitionId[];
+  /** Player 1's play deck. Defaults to empty. */
+  playDeck?: CardDefinitionId[];
+  /** Player 1's sideboard. Defaults to empty. */
+  sideboard?: CardDefinitionId[];
   /** Player 1's alignment. Defaults to {@link Alignment.Wizard}. */
   alignment?: Alignment;
   /** Player 2's (hazard/opponent) hand. Defaults to empty. */
@@ -631,7 +635,7 @@ export function buildSitePhaseState(opts: {
     activePlayer: PLAYER_1,
     recompute: true,
     players: [
-      { id: PLAYER_1, alignment: opts.alignment, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA], discardPile: opts.discardPile ?? [] },
+      { id: PLAYER_1, alignment: opts.alignment, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA], discardPile: opts.discardPile ?? [], ...(opts.playDeck ? { playDeck: opts.playDeck } : {}), ...(opts.sideboard ? { sideboard: opts.sideboard } : {}) },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: opts.opponentHand ?? [], siteDeck: [MINAS_TIRITH] },
     ],
     phase: Phase.Site,

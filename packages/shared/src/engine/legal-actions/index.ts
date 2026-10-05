@@ -11,12 +11,12 @@
  * The function is pure: `(GameState, PlayerId) → EvaluatedAction[]`.
  */
 
-import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId } from '../../index.js';
-import type { PlayRestrictionEffect, TapDiscardInPlayEffect } from '../../types/effects.js';
+import type { GameState, PlayerId, EvaluatedAction, FetchToDeckEffect, CardInstanceId, CompanyId } from '../../index.js';
+import type { PlayRestrictionEffect, TapDiscardInPlayEffect, TapTakeItemEffect } from '../../types/effects.js';
 import { Alignment, CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { matchesContext } from '../../effects/condition-matcher.js';
-import { matchesDefinitionAcrossAlignment, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets } from '../reducer-utils.js';
+import { matchesDefinitionAcrossAlignment, playerById, defById, getCardEffects, findFallenWizardAvatarName, isCardPlayableAtSiteDef, agentHomeSiteMatchesTypes, collectTapDiscardInPlayTargets, collectTapTakeItemCandidates } from '../reducer-utils.js';
 import { isAvatarCharacter, isSiteCard } from '../../types/cards.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { getPlayerIndex, canNegotiateEarlyCouncil } from '../../state-utils.js';
@@ -52,6 +52,9 @@ function pendingEffectLegalActions(state: GameState, playerId: PlayerId): Evalua
   if (current.type === 'card-effect' && current.effect.type === 'tap-discard-in-play') {
     return tapDiscardInPlayLegalActions(state, playerId, current.effect);
   }
+  if (current.type === 'card-effect' && current.effect.type === 'tap-take-item') {
+    return tapTakeItemLegalActions(state, playerId, current.effect, current.companyId, current.cardInstanceId);
+  }
   // Unknown effect type: allow pass to skip
   return [{ action: { type: 'pass', player: playerId }, viable: true }];
 }
@@ -84,6 +87,39 @@ function tapDiscardInPlayLegalActions(
             viable: true,
           });
         }
+      }
+    }
+  }
+  actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+  return actions;
+}
+
+/**
+ * Legal actions while a `tap-take-item` sub-flow is active (Old Cache
+ * le-213, Swag le-236). One `tap-take-item` action per (untapped character in
+ * the bound company × matching item in the effect's source piles), plus
+ * `pass` to stop taking items.
+ */
+function tapTakeItemLegalActions(
+  state: GameState,
+  playerId: PlayerId,
+  effect: TapTakeItemEffect,
+  companyId: CompanyId | undefined,
+  sourceCardId: CardInstanceId,
+): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  const player = playerById(state, playerId);
+  const company = player?.companies.find(c => c.id === companyId);
+  if (player && company) {
+    const candidates = collectTapTakeItemCandidates(state, player, effect)
+      .filter(c => c.cardInstanceId !== sourceCardId);
+    for (const characterId of company.characters) {
+      if (player.characters[characterId]?.status !== CardStatus.Untapped) continue;
+      for (const { cardInstanceId, source } of candidates) {
+        actions.push({
+          action: { type: 'tap-take-item', player: playerId, characterId, cardInstanceId, source },
+          viable: true,
+        });
       }
     }
   }

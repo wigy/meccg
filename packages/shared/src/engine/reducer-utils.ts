@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment, OnGuardCard } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect } from '../types/effects.js';
+import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect, TapTakeItemEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -946,6 +946,35 @@ export function collectTapDiscardInPlayTargets(
     if (cDef && matchesDefinition(cDef, filter)) targets.push(c.instanceId);
   }
   return targets;
+}
+
+/**
+ * Cards in `player`'s piles that a `tap-take-item` effect (Old Cache le-213,
+ * Swag le-236) may hand to a tapping character: every card in the effect's
+ * `source` piles whose definition matches `filter`. Play-deck and
+ * discard-pile sources are dropped while a `cancel-deck-search` card (Lady
+ * of the Golden Wood as-13) cancels this player's searches.
+ */
+export function collectTapTakeItemCandidates(
+  state: GameState,
+  player: PlayerState,
+  effect: TapTakeItemEffect,
+): { cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' | 'deck' }[] {
+  const searchCanceled = deckSearchCancellerFor(state, player.id) !== null;
+  const candidates: { cardInstanceId: CardInstanceId; source: 'sideboard' | 'discard-pile' | 'deck' }[] = [];
+  for (const source of effect.source) {
+    if (searchCanceled && source !== 'sideboard') continue;
+    const pile = source === 'sideboard' ? player.sideboard
+      : source === 'deck' ? player.playDeck
+      : player.discardPile;
+    for (const card of pile) {
+      const def = defById(state, card.definitionId);
+      if (def && matchesDefinitionAcrossAlignment(def, effect.filter, player.alignment)) {
+        candidates.push({ cardInstanceId: card.instanceId, source });
+      }
+    }
+  }
+  return candidates;
 }
 
 /**

@@ -217,3 +217,22 @@ export interface TapDiscardInPlayAction {
   /** The opponent's untapped in-play card to discard. */
   readonly targetInstanceId: CardInstanceId;
 }
+
+/**
+ * One pick within a `tap-take-item` sub-flow (Old Cache le-213, Swag le-236).
+ * Taps `characterId` (an untapped character of the company the event was
+ * played on) and gives him control of `cardInstanceId`, a matching item taken
+ * from `source`. The pending effect stays queued while picks remain; `pass`
+ * ends the sub-flow.
+ */
+export interface TapTakeItemAction {
+  readonly type: 'tap-take-item';
+  /** The player taking the item. */
+  readonly player: PlayerId;
+  /** The untapped character who taps and receives the item. */
+  readonly characterId: CardInstanceId;
+  /** The item card instance being taken. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Which pile the item is taken from. */
+  readonly source: 'sideboard' | 'discard-pile' | 'deck';
+}
