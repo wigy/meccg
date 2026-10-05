@@ -4557,8 +4557,44 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character during the organization phase. Opponent may reveal to you any hazards from his hand, and only those hazards can be played during the character company’s movement/hazard phase. Unless he is a Ringwraith, character makes a corruption check modified by -3."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "spirit-magic"
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "enqueue-reveal-hazards-choice",
+          "agentAlternative": false
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": {
+          "$not": {
+            "target.race": "ringwraith"
+          }
+        },
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      }
+    ],
+    "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character during the organization phase. Opponent may reveal to you any hazards from his hand, and only those hazards can be played during the character company’s movement/hazard phase. Unless he is a Ringwraith, character makes a corruption check modified by -3.",
+    "certified": "2026-10-05"
   },
   {
     "cardType": "minion-resource-event",

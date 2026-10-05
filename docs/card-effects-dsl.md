@@ -2693,6 +2693,28 @@ you (including on-guard cards) for the remainder of target company's
 movement/hazard phase. Alternatively, a face-down agent is tapped and
 revealed."
 
+**Character target, organization phase, no agent alternative.** With a
+`play-target: "character"` target, the restricted company is the target
+character's company; outside the movement/hazard phase the resolution is scoped
+to the current phase rather than `company-mh-subphase`. The constraint keeps
+its `company-mh-phase` scope, so a reveal made during the organization phase
+survives until the end of that company's (later) movement/hazard phase.
+`"agentAlternative": false` removes step 2 (`tap-reveal-agent-for-snake` is
+neither offered nor accepted — the resolution carries `noAgentAlternative`).
+
+```json
+{ "type": "play-window", "phase": "organization" }
+{ "type": "play-target", "target": "character",
+  "filter": { "target.skills": { "$includes": "spirit-magic" } } }
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "enqueue-reveal-hazards-choice", "agentAlternative": false } }
+```
+
+Used by Spying out the Land (le-233): "Playable on a spirit-magic-using
+character during the organization phase. Opponent may reveal to you any hazards
+from his hand, and only those hazards can be played during the character
+company's movement/hazard phase."
+
 ### 7. `grant-action`
 
 Gives the card bearer a new activated ability. For roll-based actions,

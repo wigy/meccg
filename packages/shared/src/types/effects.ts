@@ -3695,7 +3695,10 @@ export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
  * `enqueue-reveal-hazards-choice` — Here Is a Snake! (dm-137): enqueues the
  * `reveal-hazards-choice` pending resolution (actor = the opponent of the
  * playing player) on the `play-target: "company"` target, scoped
- * `company-mh-subphase` to that company. See the resolution's own doc comment
+ * `company-mh-subphase` to that company. With a `play-target: "character"`
+ * target (Spying out the Land le-233, played in the organization phase) the
+ * restricted company is the target character's company and the resolution
+ * is scoped to the current phase. See the resolution's own doc comment
  * ({@link import('./pending.js').PendingResolution}) for the full flow — the
  * opponent reveals any number of hazard cards from hand (or taps and reveals
  * a face-down agent instead), and on `pass` an `only-revealed-hazards-on-company`
@@ -3704,6 +3707,13 @@ export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
  */
 export interface EnqueueRevealHazardsChoiceAction extends TriggeredActionBase {
   readonly type: 'enqueue-reveal-hazards-choice';
+  /**
+   * Whether the opponent may tap and reveal a face-down agent instead of
+   * revealing hazards (Here Is a Snake!'s printed alternative). Defaults to
+   * `true`; Spying out the Land (le-233) sets `false` — it has no such
+   * alternative.
+   */
+  readonly agentAlternative?: boolean;
 }
 
 /** `sequence` — run an ordered list of sub-applies on the state each produces. Recursive. */
