@@ -893,10 +893,71 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/PoisonofhisVoice.jpg",
     "unique": false,
     "eventType": "short",
+    "keywords": [
+      "spirit-magic"
+    ],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Magic. Spirit-magic. Playable on a hazard permanent-event on a character in a spirit-magic-using character’s company. Discard target hazard. Alternatively, playable on a spirit-magic-using Fallen-wizard. -6 to his stage points (to a minimum of 3) for the rest of the turn. Unless the spirit-magic-user is a Ringwraith, he makes a corruption check modified by -3."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.skills": {
+            "$includes": "spirit-magic"
+          }
+        }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
+        "targetScope": "play-target-company",
+        "filter": {
+          "$and": [
+            {
+              "cardType": "hazard-event"
+            },
+            {
+              "eventType": "permanent"
+            }
+          ]
+        },
+        "corruptionCheck": {
+          "modifier": -3
+        }
+      },
+      {
+        "type": "play-option",
+        "id": "reduce-stage-points",
+        "when": {
+          "target.race": "fallen-wizard"
+        },
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "stage-points-modifier",
+          "value": -6,
+          "floor": 3,
+          "scope": "turn"
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": {
+          "$not": {
+            "target.race": "ringwraith"
+          }
+        },
+        "apply": {
+          "type": "enqueue-corruption-check",
+          "modifier": -3
+        }
+      }
+    ],
+    "text": "Magic. Spirit-magic. Playable on a hazard permanent-event on a character in a spirit-magic-using character’s company. Discard target hazard. Alternatively, playable on a spirit-magic-using Fallen-wizard. -6 to his stage points (to a minimum of 3) for the rest of the turn. Unless the spirit-magic-user is a Ringwraith, he makes a corruption check modified by -3.",
+    "certified": "2026-10-05"
   },
   {
     "cardType": "minion-resource-event",

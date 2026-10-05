@@ -2301,6 +2301,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Poison of his Voice (wh-48) / White Light Broken (wh-50): "-6 to
+         * his stage points (to a minimum of 3) for the rest of the turn."
+         * Targets the Fallen-wizard character; folded into the owning
+         * player's stage-point total by `playerStagePoints`
+         * (recompute-derived.ts). A reduction never takes the total below
+         * `floor`, and never raises a total already below it.
+         */
+        readonly type: 'stage-points-modifier';
+        /** The adjustment to the stage-point total (negative to decrease). */
+        readonly value: number;
+        /** Minimum the modifier may reduce the total to. */
+        readonly floor?: number;
+      }
+    | {
+        /**
          * Lost in Dark-domains (tw-52): "If the company has a Dark-domain
          * [{d}] in its site path, its hazard limit is doubled until the end
          * of the turn." A hazard short-event played during the target

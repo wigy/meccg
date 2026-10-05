@@ -3088,7 +3088,9 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * carries the per-region delta.
    *
    * Also doubles as the floor for a `hazard-limit-region-name-match`
-   * constraint (Anduin River tw-191 and the "mountain-crossing" family).
+   * constraint (Anduin River tw-191 and the "mountain-crossing" family), and
+   * for a `stage-points-modifier` constraint (Poison of his Voice wh-48: "-6
+   * to his stage points (to a minimum of 3)").
    */
   readonly floor?: number;
   /**
@@ -10321,6 +10323,17 @@ export interface MoveEffect extends EffectBase {
    * Carried by bounce-hazard-events equivalents (Wizard Uncloaked).
    */
   readonly corruptionCheck?: { readonly modifier: number };
+  /**
+   * For a single-target `discard-in-play` move (`select: 'target'`,
+   * `from: 'in-play'`, `to: 'discard'`): narrows the candidate pool to hazards
+   * attached to characters in the **play-target character's own company**
+   * instead of every in-play card. Each eligible play-target (the caster) is
+   * crossed with the matching hazards in his company and makes the
+   * {@link corruptionCheck} himself, without tapping. Backs Poison of his
+   * Voice (wh-48): "Playable on a hazard permanent-event on a character in a
+   * spirit-magic-using character's company. Discard target hazard."
+   */
+  readonly targetScope?: 'play-target-company';
   /** For `select: 'named'`: the card name to match. */
   readonly cardName?: string;
   /**
