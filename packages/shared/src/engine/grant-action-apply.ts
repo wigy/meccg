@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, isBearerCannotUntapLive, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, removeAttachment, companyKeywordDiscardCandidates, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
+import { gateDeckSearchFetch, isBearerCannotUntapLive, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, removeAttachment, companyKeywordDiscardCandidates, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -979,13 +979,22 @@ function runGrantApply(
       }
     }
 
-    const { roll, rng, cheatRollTotal } = roll2d6({ ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal });
+    // Tidings of Death (le-245): a game-wide `check-extra-roll` makes an
+    // additional roll; the better total is kept.
+    const rollState = { ...state, rng: rngRef.rng, cheatRollTotal: rngRef.cheatRollTotal };
+    const extraRollSource = globalCheckExtraRollSource(state, 'influence', buildFactionCheckContext(state, factionDef));
+    const { roll, rng, cheatRollTotal, alternateRoll } = extraRollSource
+      ? roll2d6KeepBetter(rollState)
+      : { ...roll2d6(rollState), alternateRoll: undefined };
     rngRef.rng = rng;
     rngRef.cheatRollTotal = cheatRollTotal;
+    if (extraRollSource && alternateRoll) {
+      logDetail(`Grant-action ${ctx.action.actionId}: ${extraRollSource} — additional roll ${alternateRoll.die1} + ${alternateRoll.die2} discarded, keeping ${roll.die1} + ${roll.die2}`);
+    }
     const total = roll.die1 + roll.die2 + modifier;
     const modStr = modifier !== 0 ? ` + ${modifier}` : '';
     logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} discards ${ctx.sourceName} to attempt influencing ${factionDef.name} — rolls ${roll.die1} + ${roll.die2}${modStr} = ${total} vs influence # ${factionDef.influenceNumber}`);
-    const rollEffect = diceRollEffect(bearerPlayer.name, roll, `Influence (${ctx.sourceName}): ${factionDef.name}`);
+    const rollEffect = diceRollEffect(bearerPlayer.name, roll, `Influence (${ctx.sourceName}): ${factionDef.name}`, undefined, undefined, alternateRoll);
 
     const newHand = bearerPlayer.hand.filter((_, i) => i !== handIdx);
     const succeeded = total >= factionDef.influenceNumber;

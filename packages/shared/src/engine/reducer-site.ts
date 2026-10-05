@@ -26,7 +26,7 @@ import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI } from './le
 import { crossAlignmentInfluencePenalty } from '../alignment-rules.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
+import { agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
 import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit, handleStoreItem } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
@@ -4269,16 +4269,30 @@ export function resolveInfluenceAttemptRoll(
     total = influenceNumber; // guaranteed success (total >= influence #)
     logDetail(`Influence attempt: ${charName} automatically influences ${def.name} (no check)`);
   } else {
-    const rolled = roll2d6(state);
-    roll = rolled.roll;
-    rng = rolled.rng;
-    cheatRollTotal = rolled.cheatRollTotal;
+    // Tidings of Death (le-245): a game-wide `check-extra-roll` makes an
+    // additional roll; the better total is kept (a higher influence total is
+    // never a worse outcome).
+    const extraRollSource = globalCheckExtraRollSource(state, 'influence', buildFactionCheckContext(state, def));
+    let alternateRoll: TwoDiceSix | undefined;
+    if (extraRollSource) {
+      const rolled = roll2d6KeepBetter(state);
+      roll = rolled.roll;
+      alternateRoll = rolled.alternateRoll;
+      rng = rolled.rng;
+      cheatRollTotal = rolled.cheatRollTotal;
+      logDetail(`Influence attempt: ${extraRollSource} — additional roll ${alternateRoll.die1} + ${alternateRoll.die2} discarded, keeping ${roll.die1} + ${roll.die2}`);
+    } else {
+      const rolled = roll2d6(state);
+      roll = rolled.roll;
+      rng = rolled.rng;
+      cheatRollTotal = rolled.cheatRollTotal;
+    }
     const d1 = roll.die1;
     const d2 = roll.die2;
     total = d1 + d2 + modifier;
     const modStr = modifier !== 0 ? ` + ${modifier}` : '';
     logDetail(`Influence attempt: ${charName} rolls ${d1} + ${d2}${modStr} = ${total} vs influence # ${influenceNumber}`);
-    rollEffect = diceRollEffect(player.name, roll, `Influence: ${def.name}`);
+    rollEffect = diceRollEffect(player.name, roll, `Influence: ${def.name}`, undefined, undefined, alternateRoll);
   }
 
   const company = player.companies[siteState.activeCompanyIndex];
@@ -4597,12 +4611,6 @@ function handleOpponentInfluenceAttempt(
     characters: { ...p.characters, [charId as string]: updatedChar },
   }));
 
-  // Roll attacker 2d6
-  const { roll, rng, cheatRollTotal } = roll2d6(state);
-  const attackerRoll = roll.die1 + roll.die2;
-
-  const rollEffect = diceRollEffect(player.name, roll, `Opponent influence: ${charName} attacks${revealedCard ? ' (identical revealed)' : ''}`);
-
   // The resolver context for this attempt: the target's kind/identity gates
   // both the influencer's ongoing modifiers and any one-shot booster.
   const oppInfluenceCtx: ResolverContext = {
@@ -4619,6 +4627,21 @@ function handleOpponentInfluenceAttempt(
     },
     influenceTarget: buildInfluenceTargetContext(targetDefForCtx, action.targetKind),
   };
+
+  // Roll attacker 2d6. A game-wide `check-extra-roll` whose `when` matches this
+  // attempt (Tidings of Death le-245: influence checks against a faction) makes
+  // an additional roll; the better total is kept.
+  const extraRollSource = globalCheckExtraRollSource(state, 'influence', oppInfluenceCtx);
+  const { roll, rng, cheatRollTotal, alternateRoll } = extraRollSource
+    ? roll2d6KeepBetter(state)
+    : { ...roll2d6(state), alternateRoll: undefined };
+  const attackerRoll = roll.die1 + roll.die2;
+  if (extraRollSource && alternateRoll) {
+    logDetail(`Opponent influence: ${extraRollSource} — additional roll ${alternateRoll.die1} + ${alternateRoll.die2} discarded, keeping ${roll.die1} + ${roll.die2}`);
+  }
+
+  const rollEffect = diceRollEffect(player.name, roll, `Opponent influence: ${charName} attacks${revealedCard ? ' (identical revealed)' : ''}`, undefined, undefined, alternateRoll);
+
   // Every effect the influencer brings to this attempt, and the slice of them
   // printed on his own card — the only slice a le-150 nullification spares.
   const influencerEffects = collectCharacterEffects(state, charInPlay, oppInfluenceCtx);

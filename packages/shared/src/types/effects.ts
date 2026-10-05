@@ -300,6 +300,26 @@ export interface CheckModifierEffect extends EffectBase {
 }
 
 /**
+ * Game-wide, ongoing "make an additional roll and choose which result to use"
+ * for a 2d6 check. Carried by a bare in-play event (long- or permanent-event)
+ * in *either* player's `cardsInPlay`; while it is in play, every matching check
+ * (gated by the effect's `when` against the check's resolver context) is rolled
+ * twice and the better total is kept — for the checks it currently reaches
+ * (influence attempts) a higher total is never a worse outcome, so the choice
+ * is always the higher roll. Both rolls travel in one dice-roll effect (the
+ * kept pair plus `alternateRoll`), mirroring the combat reroll mode.
+ *
+ * Example: Tidings of Death (le-245) — "-1 to each influence check against a
+ * faction, but for each influence check make an additional roll and choose
+ * which result to use."
+ */
+export interface CheckExtraRollEffect extends EffectBase {
+  readonly type: 'check-extra-roll';
+  /** Which check kind(s) get the additional roll (logical OR for the array form). */
+  readonly check: import('./common.js').CheckKind | readonly import('./common.js').CheckKind[];
+}
+
+/**
  * Modifies the 2d6 body-check roll made against the bearer during combat
  * (CoE rule 2.V.2.2). A body check is distinct from the influence/corruption
  * {@link CheckModifierEffect} family — it is rolled inside combat resolution,
@@ -10435,6 +10455,7 @@ export type CardEffect =
   | AgentHomeSiteFactionLockEffect
   | StatModifierEffect
   | CheckModifierEffect
+  | CheckExtraRollEffect
   | BodyCheckModifierEffect
   | MpModifierEffect
   | InPlayItemModifierEffect
