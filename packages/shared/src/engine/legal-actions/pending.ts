@@ -2107,6 +2107,7 @@ function applyOneConstraint(
       // legal-action filtering needed here.
       return base;
     case 'cancel-return-and-site-tap':
+    case 'storage-as-darkhaven':
       return base;
     case 'cancel-character-discard':
       return base;

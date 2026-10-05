@@ -28,12 +28,12 @@ import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
 import { agentAttackSiteBoost, gateDeckSearchFetch, hasSiteFlag, markPrisonersRescuedAtDolGuldur, makeCombatState, matchesDefinition, companySiteName, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, canAttackAlignment, companyAttemptSupportBonus, companyHasBalrog, companyHasRingwraith, cvccAttackPermitted, siteDeniesCompanyAttack, cardName, characterEntries, cleanupEmptyCompanies, companyEffectiveSize, clonePlayers, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, defById, diceRollEffect, drawCardsExhausting, effectiveGeneralInfluence, findById, findCharacterCompany, getCardEffects, getOnEventEffects, isSelfDiscardMove, getOpponentInfluenceOverride, generalInfluenceSubstitutionValue, companySiteRegion, factionPlayableSiteRegions, influenceRegionPenalty, hazardPlayer, isCovertCompany, leaderControlEligibility, parseHomesiteNames, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, companySiteDef, playedAfterFactionMpPin, siteTypeForcesAutoAttacksNormal, unrevealedOnGuardDiscarded, agentAttackAllowedOnSkip, companySkipsSiteOnGuardCards, siteLockAntiMinion, siteFactionInfluenceModifier, findAttachment, updateAttachment, removeAttachment, removeById, rescuablePrisonersAtSite, roll2d6, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updatePlayer, wrongActionType, siteStartOfPhaseAttacks, buildFactionCheckContext, buildFactionControllerContext, defNamesOf } from './reducer-utils.js';
 import { handlePlayPermanentEvent, handlePlayResourceShortEvent, handlePlayShortEvent, dispatchShortEventByCardType } from './reducer-events.js';
-import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
+import { goldRingAutoTestModifier, goldRingAutoTestSiteName, handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit, handleStoreItem } from './reducer-organization.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { shuffle } from '../rng.js';
 import { buildInPlayNames } from './recompute-derived.js';
-import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint } from './pending.js';
+import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint, companyStoresAsDarkhaven } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
 import { getActiveAutoAttacks, isReduceAttacksToOneInPlay, consumePendingAttackModifier } from './manifestations.js';
@@ -2745,6 +2745,18 @@ function handleSitePlayResources(
   // play, available whenever a normal resource could be played (CRF 22).
   if (action.type === 'discard-to-recruit') {
     return handleDiscardToRecruit(state, action);
+  }
+
+  // Messenger of Mordor (le-204): "Any items and resource events with his
+  // company that can be stored at a Darkhaven may now be so stored." Storing
+  // is otherwise an organization-phase action; the site phase admits it only
+  // for the active company while it carries a `storage-as-darkhaven`
+  // constraint at its current site.
+  if (action.type === 'store-item') {
+    if (!company || !companyStoresAsDarkhaven(state, company)) {
+      return { state, error: 'store-item: storing is not allowed during the site phase here' };
+    }
+    return handleStoreItem(state, action);
   }
 
   // Pass — check whether CvCC attack is possible before advancing

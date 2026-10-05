@@ -3971,7 +3971,31 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
+    "keywords": [
+      "spirit-magic"
+    ],
     "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "spirit-magic" } },
+            { "company.siteType": { "$in": ["haven", "shadow-hold", "dark-hold"] } }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": { "type": "add-constraint", "constraint": "storage-as-darkhaven", "scope": "turn" }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "when": { "$not": { "target.race": "ringwraith" } },
+        "apply": { "type": "enqueue-corruption-check", "modifier": -4 }
+      },
       {
         "type": "deck-restriction",
         "rule": "excluded-from-deck",
@@ -3981,6 +4005,7 @@
         "reason": "rule 1.18"
       }
     ],
+    "certified": "2026-10-05",
     "text": "Magic. Spirit-magic. Playable on a spirit-magic-using character at a Darkhaven [{DH}], Shadow-hold [{S}], or Dark-hold [{D}]. Any items and resource events with his company that can be stored at a Darkhaven [{DH}] may now be so stored. Unless he is a Ringwraith, character makes a corruption check modified by -4. Cannot be included in a Fallen-wizard's deck."
   },
   {
