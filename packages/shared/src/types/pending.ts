@@ -2449,6 +2449,19 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Messenger of Mordor (le-204): items and resource events with the
+         * company that can be stored at a Darkhaven may be stored at the
+         * site the company occupied when the card was played (a Darkhaven,
+         * Shadow-hold or Dark-hold), as though it were a Darkhaven — in the
+         * phase it was played and for the rest of the turn while the company
+         * stays there. Read by `companyStoresAsDarkhaven` (`engine/pending.ts`).
+         */
+        readonly type: 'storage-as-darkhaven';
+        /** The site the company occupied when the card was played. */
+        readonly siteDefinitionId: CardDefinitionId;
+      }
+    | {
+        /**
          * Magical Harp: cancels effects for the rest of the turn that
          * discard a target character in the bearer's company. Placed when
          * the item is tapped; scoped to the rest of the turn. Pass-through

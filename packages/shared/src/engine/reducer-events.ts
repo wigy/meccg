@@ -3444,6 +3444,17 @@ function applyShortEventOnEntersPlay(
           // `hasCancelReturnAndSiteTap` (pending.ts) for every call site.
           kind = { type: 'cancel-return-and-site-tap' };
           break;
+        case 'storage-as-darkhaven':
+          // Messenger of Mordor (le-204): "Any items and resource events with
+          // his company that can be stored at a Darkhaven may now be so
+          // stored." Bound to the site the company occupies right now — see
+          // `companyStoresAsDarkhaven` (pending.ts) and `storeItemActions`.
+          if (!company.currentSite) {
+            logDetail(`add-constraint(storage-as-darkhaven): company has no current site — fizzle`);
+            continue;
+          }
+          kind = { type: 'storage-as-darkhaven', siteDefinitionId: company.currentSite.definitionId };
+          break;
         case 'hazard-limit-modifier': {
           if (typeof onEvent.apply.value !== 'number') {
             logDetail(`add-constraint(hazard-limit-modifier): missing numeric value — fizzle`);

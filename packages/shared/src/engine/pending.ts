@@ -25,6 +25,7 @@ import type {
   ConstraintId,
   ConstraintScope,
   ScopeBoundary,
+  Company,
 } from '../index.js';
 
 // ---- ID minting ----
@@ -313,6 +314,20 @@ export function markNazgulBoostUsed(
  */
 export function hasCancelReturnAndSiteTap(state: GameState, companyId: CompanyId): boolean {
   return constraintsOnCompany(state, companyId).some(c => c.kind.type === 'cancel-return-and-site-tap');
+}
+
+/**
+ * True when the company carries a `storage-as-darkhaven` constraint
+ * (Messenger of Mordor le-204) bound to the site it currently occupies: its
+ * items and resource events that can be stored at a Darkhaven may be stored
+ * there. A company that has since moved elsewhere loses the allowance.
+ */
+export function companyStoresAsDarkhaven(state: GameState, company: Company): boolean {
+  const siteDefId = company.currentSite?.definitionId;
+  if (!siteDefId) return false;
+  return constraintsOnCompany(state, company.id).some(
+    c => c.kind.type === 'storage-as-darkhaven' && c.kind.siteDefinitionId === siteDefId,
+  );
 }
 
 /**
