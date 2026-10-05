@@ -687,6 +687,7 @@
       {
         "type": "grant-action",
         "action": "choice-of-luthien-fetch",
+        "anyPhase": true,
         "cost": {
           "tap": "bearer"
         },
