@@ -4226,8 +4226,56 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable during the site phase on a company at a tapped Dark-hold [{D}], Shadow-hold [{S}], or Ruins & Lairs [{R}]. During the site phase, one or two characters in that company may each tap to take control of a non-unique, non-hoard minor item of the following type: weapon, armor, shield, or helmet. You may take these items from your play deck (reshuffle if used), discard pile, and/or sideboard."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "site",
+        "siteTypes": [
+          "dark-hold",
+          "shadow-hold",
+          "ruins-and-lairs"
+        ]
+      },
+      {
+        "type": "play-flag",
+        "flag": "tapped-site-only"
+      },
+      {
+        "type": "tap-take-item",
+        "source": [
+          "deck",
+          "discard-pile",
+          "sideboard"
+        ],
+        "count": 2,
+        "filter": {
+          "$and": [
+            {
+              "cardType": "minion-resource-item",
+              "subtype": "minor",
+              "unique": false
+            },
+            {
+              "keywords": {
+                "$ne": "hoard"
+              }
+            },
+            {
+              "keywords": {
+                "$in": [
+                  "weapon",
+                  "armor",
+                  "shield",
+                  "helmet"
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "text": "Playable during the site phase on a company at a tapped Dark-hold [{D}], Shadow-hold [{S}], or Ruins & Lairs [{R}]. During the site phase, one or two characters in that company may each tap to take control of a non-unique, non-hoard minor item of the following type: weapon, armor, shield, or helmet. You may take these items from your play deck (reshuffle if used), discard pile, and/or sideboard.",
+    "certified": "2026-10-05"
   },
   {
     "cardType": "minion-resource-event",

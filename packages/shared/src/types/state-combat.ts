@@ -1681,4 +1681,9 @@ export interface CardEffectPendingEffect {
     readonly characterId: CardInstanceId;
     readonly modifier: number;
   };
+  /**
+   * The company the effect is bound to — set for `tap-take-item` (Old Cache
+   * le-213): only characters of this company may tap to take an item.
+   */
+  readonly companyId?: CompanyId;
 }

@@ -113,6 +113,7 @@ export type { ReducerResult } from './reducer-utils.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { handleFetchFromPile, resolvePendingEffect, discardOrphanedControlledFactions, discardOrphanedSiteAttachedEvents, discardOrphanedAgentAttachedEvents, discardOrphanedConvertedAllyEvents, discardOrphanedItemAttachedEvents, discardOrphanedFactionAttachedEvents, discardOrphanedStoredAttachedEvents, sweepProhibitedCompanyEvents, sweepTapAtSiteItems } from './reducer-utils.js';
 import { applyTapDiscardInPlay } from './short-event-discard.js';
+import { applyTapTakeItem } from './tap-take-item.js';
 import { recordCardPlayed } from './card-play-prohibition.js';
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
@@ -279,13 +280,15 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
   const pendingEffectActor = !chainDeclaring && state.pendingEffects.length > 0
     ? (state.pendingEffects[0].actor ?? state.activePlayer)
     : null;
-  if (pendingEffectActor === action.player && (action.type === 'fetch-from-pile' || action.type === 'tap-discard-in-play' || action.type === 'pass')) {
+  if (pendingEffectActor === action.player && (action.type === 'fetch-from-pile' || action.type === 'tap-discard-in-play' || action.type === 'tap-take-item' || action.type === 'pass')) {
     logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
     let effectResult: ReducerResult;
     if (action.type === 'fetch-from-pile') {
       effectResult = handleFetchFromPile(state, action);
     } else if (action.type === 'tap-discard-in-play') {
       effectResult = applyTapDiscardInPlay(state, action);
+    } else if (action.type === 'tap-take-item') {
+      effectResult = applyTapTakeItem(state, action);
     } else {
       effectResult = resolvePendingEffect(state);
     }
@@ -353,13 +356,15 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
   // handled above; any remaining fetch-from-pile/pass for a queued effect
   // still routes to the effect handler (legacy path for effects without an
   // explicit actor when the active player differs).
-  if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'tap-discard-in-play' || action.type === 'pass')) {
+  if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'tap-discard-in-play' || action.type === 'tap-take-item' || action.type === 'pass')) {
     logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
     let effectResult: ReducerResult;
     if (action.type === 'fetch-from-pile') {
       effectResult = handleFetchFromPile(state, action);
     } else if (action.type === 'tap-discard-in-play') {
       effectResult = applyTapDiscardInPlay(state, action);
+    } else if (action.type === 'tap-take-item') {
+      effectResult = applyTapTakeItem(state, action);
     } else {
       effectResult = resolvePendingEffect(state);
     }

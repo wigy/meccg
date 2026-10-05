@@ -506,6 +506,8 @@ export function describeAction(
       return `Fetch ${instName(action.cardInstanceId)} from ${action.source}`;
     case 'tap-discard-in-play':
       return `${playerName(action.player)} taps ${instName(action.characterId)} to discard ${instName(action.targetInstanceId)} from play (Praise to Elbereth)`;
+    case 'tap-take-item':
+      return `${playerName(action.player)} taps ${instName(action.characterId)} to take ${instName(action.cardInstanceId)} from ${action.source}`;
     case 'finished':
       return `Finished`;
     case 'activate-granted-action': {

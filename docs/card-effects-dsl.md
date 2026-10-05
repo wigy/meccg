@@ -4992,6 +4992,41 @@ whose `when` is currently satisfied).
   "filter": { "keywords": { "$includes": "Nazgûl" } } }
 ```
 
+### 9a3. `tap-take-item`
+
+Repeatable "one or two characters in that company may each tap to take
+control of a matching item from your piles" resource short-event ability
+(Old Cache le-213, Swag le-236).
+
+- `source` — piles the items may come from: any of `"deck"` (reshuffled
+  after a pick), `"discard-pile"`, `"sideboard"`.
+- `filter` — DSL condition each taken card's `CardDefinition` must match
+  (evaluated with `matchesDefinitionAcrossAlignment`).
+- `count` — maximum number of characters that may tap (one item each).
+
+`handlePlayResourceShortEvent` (`reducer-events.ts`) queues a `card-effect`
+pending effect whose `companyId` is the active site-phase company. While it
+is active, `tapTakeItemLegalActions` (`legal-actions/index.ts`) offers one
+`tap-take-item` action per (untapped character of that company × matching
+card in a `source` pile), plus `pass`. Each pick (`applyTapTakeItem`,
+`tap-take-item.ts`) taps the character and attaches the item to him
+untapped. The item is taken into control, not played, so there is no site
+gate and no corruption check. Once `count` picks are made (or on `pass`),
+the event card is discarded. `cancel-deck-search` (as-13) removes the
+deck and discard-pile sources (`collectTapTakeItemCandidates`).
+`playResourceShortEventActions` lets the card be played only if the company
+has an untapped character and at least one matching item exists.
+
+```json
+{ "type": "tap-take-item",
+  "source": ["deck", "discard-pile", "sideboard"],
+  "count": 2,
+  "filter": { "$and": [
+    { "cardType": "minion-resource-item", "subtype": "minor", "unique": false },
+    { "keywords": { "$ne": "hoard" } },
+    { "keywords": { "$in": ["weapon", "armor", "shield", "helmet"] } } ] } }
+```
+
 ### 9b. `cancel-influence`
 
 Automatically cancels an opponent's influence check against one of the

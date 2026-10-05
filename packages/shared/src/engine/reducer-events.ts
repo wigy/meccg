@@ -1083,7 +1083,24 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       effect,
     }));
 
-  const interactiveEffects: PendingEffect[] = [...fetchInteractiveEffects, ...tapDiscardInteractiveEffects];
+  // `tap-take-item` (Old Cache le-213, Swag le-236): a sub-flow bound to the
+  // active site-phase company — up to `count` of its characters may each tap
+  // to take control of a matching item from the player's piles.
+  const tapTakeCompanyId = workingState.phaseState.phase === Phase.Site
+    ? workingState.players[playerIndex].companies[workingState.phaseState.activeCompanyIndex]?.id
+    : undefined;
+  const tapTakeInteractiveEffects: PendingEffect[] = tapTakeCompanyId
+    ? (def.effects ?? [])
+      .filter((e): e is import('../types/effects.js').TapTakeItemEffect => e.type === 'tap-take-item')
+      .map(effect => ({
+        type: 'card-effect' as const,
+        cardInstanceId: handCard.instanceId,
+        effect,
+        companyId: tapTakeCompanyId,
+      }))
+    : [];
+
+  const interactiveEffects: PendingEffect[] = [...fetchInteractiveEffects, ...tapDiscardInteractiveEffects, ...tapTakeInteractiveEffects];
 
   let newState: GameState = updatePlayer(workingState, playerIndex, p => ({ ...p, hand: newHand, characters: newCharacters }));
 

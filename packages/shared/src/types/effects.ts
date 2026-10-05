@@ -10401,6 +10401,33 @@ export interface TapDiscardInPlayEffect extends EffectBase {
 }
 
 /**
+ * Repeatable "tap a character in this company to take control of a matching
+ * item from your piles" resource short-event ability (Old Cache le-213, Swag
+ * le-236: "one or two characters in that company may each tap to take control
+ * of a non-unique, non-hoard minor item of the following type: weapon, armor,
+ * shield, or helmet. You may take these items from your play deck (reshuffle
+ * if used), discard pile, and/or sideboard.").
+ *
+ * On resolution the engine enqueues a `card-effect` pending effect bound to
+ * the playing company (`companyId`): the player repeatedly picks one untapped
+ * character of that company and one card matching {@link filter} from any of
+ * the {@link source} piles. The character taps and the item is attached to
+ * him untapped (it is not "played" — no site gate, no corruption check). A
+ * play-deck pick reshuffles the deck. At most {@link count} picks; `pass`
+ * ends the sub-flow early. Play-deck / discard-pile sources are stripped by
+ * `cancel-deck-search` (Lady of the Golden Wood as-13).
+ */
+export interface TapTakeItemEffect extends EffectBase {
+  readonly type: 'tap-take-item';
+  /** Piles the items may be taken from. */
+  readonly source: readonly ('deck' | 'discard-pile' | 'sideboard')[];
+  /** DSL condition each taken card's definition must match. */
+  readonly filter: Condition;
+  /** Maximum number of characters that may tap (one item each). */
+  readonly count: number;
+}
+
+/**
  * Discriminated union of all card effect types.
  * The `type` field serves as the discriminant for type narrowing.
  */
@@ -10693,6 +10720,7 @@ export type CardEffect =
   | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
   | TapDiscardInPlayEffect
+  | TapTakeItemEffect
   | RemovalProtectionEffect
   | ForceAgentAttackEffect
   | DiscardUnrevealedOnGuardEffect
