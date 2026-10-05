@@ -622,6 +622,10 @@ export function buildSitePhaseState(opts: {
   hand?: CardDefinitionId[];
   siteStatus?: CardStatus;
   discardPile?: CardDefinitionId[];
+  /** Player 1's play deck. Defaults to empty. */
+  playDeck?: CardDefinitionId[];
+  /** Player 1's sideboard. Defaults to empty. */
+  sideboard?: CardDefinitionId[];
   /** Player 1's alignment. Defaults to {@link Alignment.Wizard}. */
   alignment?: Alignment;
   /** Player 2's (hazard/opponent) hand. Defaults to empty. */
@@ -631,7 +635,7 @@ export function buildSitePhaseState(opts: {
     activePlayer: PLAYER_1,
     recompute: true,
     players: [
-      { id: PLAYER_1, alignment: opts.alignment, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA], discardPile: opts.discardPile ?? [] },
+      { id: PLAYER_1, alignment: opts.alignment, companies: [{ site: opts.site, characters: opts.characters ?? [ARAGORN] }], hand: opts.hand ?? [], siteDeck: [MORIA], discardPile: opts.discardPile ?? [], ...(opts.playDeck ? { playDeck: opts.playDeck } : {}), ...(opts.sideboard ? { sideboard: opts.sideboard } : {}) },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: opts.opponentHand ?? [], siteDeck: [MINAS_TIRITH] },
     ],
     phase: Phase.Site,
@@ -3377,6 +3381,75 @@ export function shortEventPlaysOf(state: GameState, playerIdx: number, defId: Ca
   return viableActions(state, state.players[playerIdx].id, 'play-short-event').filter(
     ea => cardIds.has((ea.action as { cardInstanceId: CardInstanceId }).cardInstanceId),
   );
+}
+
+/**
+ * Move a site-phase state to the `enter-or-skip` decision window: the active
+ * company is selected but has not yet entered its site, so none of the site's
+ * automatic-attacks has been faced. Used by cards played "before the
+ * automatic-attack" (Quiet Lands tw-309, Come By Night Upon Them le-176).
+ */
+export function atSiteEnterOrSkip(state: GameState): GameState {
+  const base = state.phaseState as SitePhaseState;
+  return { ...state, phaseState: { ...base, step: 'enter-or-skip', siteEntered: false } };
+}
+
+/**
+ * Every keying the hazard player can currently use to play the hazard
+ * creature `defId` from hand, as sorted `method:value` strings (e.g.
+ * `region-type:wilderness`, `site-type:shadow-hold`).
+ */
+export function hazardCreatureKeyings(state: GameState, defId: CardDefinitionId): string[] {
+  const inst = state.players[HAZARD_PLAYER].hand.find(c => c.definitionId === defId)!.instanceId;
+  return computeLegalActions(state, PLAYER_2)
+    .filter(ea => ea.viable && ea.action.type === 'play-hazard' && ea.action.cardInstanceId === inst)
+    .map(ea => (ea.action as { keyedBy?: CreatureKeyingMatch }).keyedBy)
+    .filter((k): k is CreatureKeyingMatch => !!k)
+    .map(k => `${k.method}:${String(k.value)}`)
+    .sort();
+}
+
+/**
+ * Organization-phase state in which P1's single-character (Aragorn) company at
+ * Rivendell has declared movement to `destination`; P2 (Legolas at Lórien)
+ * holds `hazards`. Pair with {@link mhWindowOnPath} to inspect hazard keying.
+ */
+export function buildMovingToSiteState(opts: {
+  destination: CardDefinitionId;
+  hand: CardDefinitionId[];
+  hazards?: CardDefinitionId[];
+}): GameState {
+  return buildTestState({
+    phase: Phase.Organization,
+    activePlayer: PLAYER_1,
+    players: [
+      { id: PLAYER_1, alignment: Alignment.Wizard, companies: [{ site: RIVENDELL, characters: [ARAGORN], destinationSite: opts.destination }], hand: opts.hand, siteDeck: [] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: opts.hazards ?? [], siteDeck: [MINAS_TIRITH] },
+    ],
+  });
+}
+
+/**
+ * Put `state` into the active company's M/H `play-hazards` window over a
+ * one-region site path (`regionName`, printed `regionType`) to a destination
+ * of the given printed type and name.
+ */
+export function mhWindowOnPath(
+  state: GameState,
+  regionName: string,
+  regionType: RegionType,
+  destinationSiteType: SiteType,
+  destinationSiteName: string,
+): GameState {
+  return {
+    ...state,
+    phaseState: makeMHState({
+      resolvedSitePath: [regionType],
+      resolvedSitePathNames: [regionName],
+      destinationSiteType,
+      destinationSiteName,
+    }),
+  };
 }
 
 /** Every viable `play-short-event` action for `playerId`, typed. */

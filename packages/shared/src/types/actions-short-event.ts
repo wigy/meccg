@@ -144,6 +144,18 @@ export interface PlayShortEventAction {
    */
   readonly targetSiteInstanceId?: CardInstanceId;
   /**
+   * For a {@link SiteTransformEffect} card (Quiet Lands, tw-309), the
+   * {@link SiteType} the site named by {@link targetSiteInstanceId} is
+   * treated as.
+   */
+  readonly newSiteType?: import('./common.js').SiteType;
+  /**
+   * For an {@link AutoAttackStrikeHalvingEffect} card (Quiet Lands, tw-309),
+   * the index (into the active company's site's automatic-attacks) of the
+   * automatic-attack whose strikes are halved.
+   */
+  readonly targetAutoAttackIndex?: number;
+  /**
    * For a {@link FactionInfluenceRegionPenaltyAction} card (Hour of Need,
    * dm-141), the faction card in hand the event plays and makes the
    * diplomat's influence attempt against. One legal action is emitted per
@@ -204,4 +216,23 @@ export interface TapDiscardInPlayAction {
   readonly characterId: CardInstanceId;
   /** The opponent's untapped in-play card to discard. */
   readonly targetInstanceId: CardInstanceId;
+}
+
+/**
+ * One pick within a `tap-take-item` sub-flow (Old Cache le-213, Swag le-236).
+ * Taps `characterId` (an untapped character of the company the event was
+ * played on) and gives him control of `cardInstanceId`, a matching item taken
+ * from `source`. The pending effect stays queued while picks remain; `pass`
+ * ends the sub-flow.
+ */
+export interface TapTakeItemAction {
+  readonly type: 'tap-take-item';
+  /** The player taking the item. */
+  readonly player: PlayerId;
+  /** The untapped character who taps and receives the item. */
+  readonly characterId: CardInstanceId;
+  /** The item card instance being taken. */
+  readonly cardInstanceId: CardInstanceId;
+  /** Which pile the item is taken from. */
+  readonly source: 'sideboard' | 'discard-pile' | 'deck';
 }

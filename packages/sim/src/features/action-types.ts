@@ -219,6 +219,7 @@ export const ACTION_TYPES: readonly string[] = [
   'riddling-guess',
   'store-item-in-cache',
   'tap-discard-in-play',
+  'tap-take-item',
   'tap-reveal-agent-for-snake',
   'use-discard-substitute',
   'capture-in-lieu-of-body-check',
