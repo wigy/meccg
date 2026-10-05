@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.183.0 — 2026-10-05
+
+Eight Cards Certified, Arrival Modes Chosen
+
+### Game Engine
+
+- The hazard player now chooses which arrival mode applies for cards with several mutually-exclusive company-arrives-at-site modes (Choking Shadows, Awaken the Earth's Fire, Gloom, New Moon), so e.g. Choking Shadows' +2 automatic-attack prowess option is reachable with Doors of Night in play (#3271)
+- Choice of Lúthien's tap-Arwen-to-fetch ability can be used during any phase of the player's turn, not just organization (CoE 2.1.1) (#3272, #3273, #3282)
+- Shut Yer Mouth and Rebel-talk removal attempts no longer tap the character; they are limited to once per organization phase instead (#3270)
+- Bûrat, Tûma and Wûluag are tagged as manifestations of Bert, Tom and William, so the troll creatures cannot be played while their character manifestation is in play (#3269)
+- Sacrifice of Form reattaches and grants its bonuses when a different copy of the sacrificed Wizard is played (#3268)
+- Early Free Council proposals are no longer offered against an AI opponent, which could never answer them (#3267)
+- New reusable primitives: `peek-opponent-hand` on-enters-play reveal, `tap-take-item` sub-flow, `tapped-site-only` for short events, `auto-attack-strike-halving` and `site-transform` short-event modes, game-wide `check-extra-roll`, organization-phase hazard reveal with `company-mh-phase` restriction, `play-target-company` hazard discard, `stage-points-modifier` and `storage-as-darkhaven` constraints, and the `spirit-magic` keyword
+
+### Cards
+
+- An Untimely Whisper (le-164) certified (#3281)
+- Old Cache (le-213) certified (#3280)
+- Quiet Lands (tw-309) certified (#3279)
+- Tidings of Death (le-245) certified (#3278)
+- Spying out the Land (le-233) certified (#3277)
+- Poison of his Voice (wh-48) certified (#3276)
+- Messenger of Mordor (le-204) certified (#3275)
+- Driven as by a Madness (as-81) certified (#3274)
+
+### Web Client
+
+- Deck list action icons moved onto the second line of the deck box (#3266)
+- Action menu and action text name each arrival mode of multi-mode hazards (#3271)
+
+### Documentation
+
+- DSL reference and card catalog updated for the new effects
+- README project status and card test README refreshed
+
 ## 0.182.0 — 2026-10-01
 
 Seven Cards Certified, White Tree Stands

@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1374 | 1374 | 0 | 100.0% |
+| 1382 | 1382 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 125 | 125 | 100.0% |
+| AS | 126 | 126 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 154 | 154 | 100.0% |
-| LE | 328 | 328 | 100.0% |
+| LE | 333 | 333 | 100.0% |
 | TD | 143 | 143 | 100.0% |
-| TW | 425 | 425 | 100.0% |
-| WH | 98 | 98 | 100.0% |
+| TW | 426 | 426 | 100.0% |
+| WH | 99 | 99 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -86,6 +86,7 @@
 | as-77 | Above the Abyss | — | 7 | ☑ |
 | as-79-the-dark-power | The Dark Power | — | 7 | ☑ |
 | as-80 | Dark Tryst | — | 5 | ☑ |
+| as-81 | Driven as by a Madness | — | 5 | ☑ |
 | as-82-eye-never-sleeping | Eye Never Sleeping | — | 6 | ☑ |
 | as-83 | Faithless Steward | — | 14 | ☑ |
 | as-85-the-great-eye | The Great Eye | — | 13 | ☑ |
@@ -355,7 +356,7 @@
 | dm-117 | Await the Advent of Allies | — | 16 | ☑ |
 | dm-118 | Balance Between Powers | — | 24 | ☑ |
 | dm-119 | Barrow-blade | — | 12 | ☑ |
-| dm-120 | Choice of Lúthien | — | 14 | ☑ |
+| dm-120 | Choice of Lúthien | — | 16 | ☑ |
 | dm-121 | Crown of Flowers | — | 9 | ☑ |
 | dm-122 | Cup of Farewell | — | 12 | ☑ |
 | dm-123 | Dark Numbers | — | 16 | ☑ |
@@ -520,12 +521,12 @@
 | le-129 | Plague | — | 12 | ☑ |
 | le-130 | Plague of Wights | — | 6 | ☑ |
 | le-131 | Rats! | — | 15 | ☑ |
-| le-132 | Rebel-talk | — | 12 | ☑ |
+| le-132 | Rebel-talk | — | 13 | ☑ |
 | le-133 | The Ring Will Have But One Master | — | 9 | ☑ |
 | le-134 | River | — | 2 | ☑ |
 | le-135 | The Roving Eye | — | 9 | ☑ |
 | le-136 | Searching Eye | — | 9 | ☑ |
-| le-137 | Shut Yer Mouth | — | 11 | ☑ |
+| le-137 | Shut Yer Mouth | — | 13 | ☑ |
 | le-138 | So You’ve Come Back  | — | 9 | ☑ |
 | le-140 | Stay Her Appetite | — | 5 | ☑ |
 | le-141 | Stench of Mordor | — | 11 | ☑ |
@@ -546,6 +547,7 @@
 | le-160 | A Nice Place to Hide | — | 9 | ☑ |
 | le-161 | Adûnaphel Unleashed | — | 10 | ☑ |
 | le-162 | Akhôrahil Unleashed | — | 8 | ☑ |
+| le-164 | An Untimely Whisper | — | 4 | ☑ |
 | le-165 | Awaiting the Call | — | 11 | ☑ |
 | le-167 | Bade to Rule | — | 16 | ☑ |
 | le-170 | Black Rider | — | 10 | ☑ |
@@ -571,10 +573,12 @@
 | le-196 | I’ll Report You | — | 18 | ☑ |
 | le-202 | Leg It Double Quick | — | 5 | ☑ |
 | le-203-the-lidless-eye | The Lidless Eye | — | 11 | ☑ |
+| le-204 | Messenger of Mordor | — | 8 | ☑ |
 | le-205 | Morgul-blade | — | 11 | ☑ |
 | le-210 | No More Nonsense | — | 13 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
 | le-212 | Not Slay Needlessly | — | 13 | ☑ |
+| le-213 | Old Cache | — | 9 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-217 | Orc Stealth | — | 5 | ☑ |
 | le-219 | Poisonous Despair | — | 9 | ☑ |
@@ -587,6 +591,7 @@
 | le-230 | Smoke on the Wind | — | 11 | ☑ |
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
+| le-233 | Spying out the Land | — | 8 | ☑ |
 | le-235 | Sudden Call | — | 11 | ☑ |
 | le-237 | Swarm of Bats | — | 14 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
@@ -595,6 +600,7 @@
 | le-241 | That’s Been Heard Before Tonight | — | 13 | ☑ |
 | le-243 | Thing Stolen | — | 18 | ☑ |
 | le-244 | Threats | — | 9 | ☑ |
+| le-245 | Tidings of Death | — | 10 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
 | le-247 | Under His Blow | — | 5 | ☑ |
 | le-250 | Voices of Malice | — | 22 | ☑ |
@@ -890,12 +896,12 @@
 | tw-13 | Bane of the Ithil-stone | — | 15 | ☑ |
 | tw-14 | Barrow-wight | — | 6 | ☑ |
 | tw-015 | Barrow-wight | — | 6 | ☑ |
-| tw-016 | “Bert” (Bûrat) | — | 7 | ☑ |
+| tw-016 | “Bert” (Bûrat) | — | 8 | ☑ |
 | tw-17 | Brigands | — | 10 | ☑ |
 | tw-18 | Call of Home | — | 9 | ☑ |
 | tw-19 | Call of the Sea | — | 6 | ☑ |
 | tw-020 | Cave-drake | — | 3 | ☑ |
-| tw-021 | — | — | 17 | ☑ |
+| tw-021 | — | — | 18 | ☑ |
 | tw-22 | Clouds | — | 7 | ☑ |
 | tw-23 | Corpse-candle | — | 13 | ☑ |
 | tw-024 | — | — | 4 | ☑ |
@@ -1168,6 +1174,7 @@
 | tw-306 | Precious Gold Ring | — | 21 | ☑ |
 | tw-307 | Quickbeam | — | 7 | ☑ |
 | tw-308 | Quickbeam | — | 7 | ☑ |
+| tw-309 | Quiet Lands | — | 12 | ☑ |
 | tw-310 | Rangers of Ithilien | — | 2 | ☑ |
 | tw-311 | Rangers of the North | — | 2 | ☑ |
 | tw-312 | Red Arrow | — | 8 | ☑ |
@@ -1178,7 +1185,7 @@
 | tw-317 | Riders of Rohan | — | 4 | ☑ |
 | tw-319 | Risky Blow | — | 8 | ☑ |
 | tw-320 | Roäc the Raven | — | 7 | ☑ |
-| tw-321 | Sacrifice of Form | — | 19 | ☑ |
+| tw-321 | Sacrifice of Form | — | 20 | ☑ |
 | tw-322 | Sapling of the White Tree | — | 8 | ☑ |
 | tw-323 | Scroll of Isildur | — | 5 | ☑ |
 | tw-324 | Secret Entrance | — | 8 | ☑ |
@@ -1337,6 +1344,7 @@
 | wh-45 | Govern the Storms | — | 9 | ☑ |
 | wh-46 | Open to the Summons | — | 14 | ☑ |
 | wh-47 | Piercing All Shadows | — | 8 | ☑ |
+| wh-48 | Poison of his Voice | — | 9 | ☑ |
 | wh-49 | Sojourn in Shadows | — | 9 | ☑ |
 | wh-51 | Blasting Fire | — | 10 | ☑ |
 | wh-52 | Liquid Fire | — | 10 | ☑ |
