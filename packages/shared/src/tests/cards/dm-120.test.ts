@@ -35,7 +35,7 @@ import {
   buildTestState, buildSitePhaseState, makePlayDeck, resetMint,
   viableActions, dispatch,
   findCharInstanceId, findHandCardId,
-  attachItemToChar, setCharStatus, makeMHState,
+  attachItemToChar, setCharStatus, makeMHState, buildSitePhaseState,
   playPermanentEventAndResolve,
   getCharacter,
   assertEveryInstanceReachable,
@@ -303,6 +303,12 @@ describe('Choice of Lúthien (dm-120)', () => {
 
   test('the tap ability is offered while Arwen (the bearer) is untapped', () => {
     const state = tapFixture({ discard: [MEN_OF_ANORIEN] });
+    expect(fetchActionsOf(state)).toHaveLength(1);
+  });
+
+  test('the tap ability is offered during the site phase too, not just organization (CoE 2.1.1: resource/character actions on cards in play are available during any phase)', () => {
+    const base = buildSitePhaseState({ characters: [ARWEN], site: MINAS_TIRITH, discardPile: [MEN_OF_ANORIEN] });
+    const state = attachItemToChar(base, RESOURCE_PLAYER, ARWEN, CHOICE_OF_LUTHIEN);
     expect(fetchActionsOf(state)).toHaveLength(1);
   });
 
