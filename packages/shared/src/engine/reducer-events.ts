@@ -569,6 +569,34 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
 
   logDetail(`Playing resource short-event: ${def.name} (${action.cardInstanceId as string})`);
 
+  // Quiet Lands (tw-309) alternatives: halve one automatic-attack's strikes,
+  // or (Gates of Morning) treat one site as another type. Both are actions
+  // declared on the chain of effects (CoE 9.4/9.5); the chosen target rides the
+  // chain entry and is applied by `resolveEntry` on un-negated resolution. The
+  // region-transform alternative uses the generic region-transform path below.
+  if (action.targetAutoAttackIndex !== undefined && def.effects?.some(e => e.type === 'auto-attack-strike-halving')) {
+    const ps = state.phaseState;
+    const company = ps.phase === Phase.Site ? player.companies[ps.activeCompanyIndex] : undefined;
+    if (!company?.currentSite) return { state, error: `${def.name}: no active company at a site` };
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, 'automatic-attack strike halving', {
+      type: 'short-event',
+      halveAutoAttack: {
+        companyId: company.id,
+        siteDefinitionId: company.currentSite.definitionId,
+        attackIndex: action.targetAutoAttackIndex,
+      },
+    });
+  }
+  if (action.targetSiteInstanceId && action.newSiteType && def.effects?.some(e => e.type === 'site-transform')) {
+    const siteDefId = resolveInstanceId(state, action.targetSiteInstanceId);
+    if (!siteDefId) return { state, error: `${def.name}: target site not in play` };
+    return routeShortEventToChain(state, playerIndex, action.player, handCard, `site ${siteDefId as string} → ${action.newSiteType}`, {
+      type: 'short-event',
+      siteTransformDefinitionId: siteDefId,
+      siteTransformType: action.newSiteType,
+    });
+  }
+
   // Dark Tryst (as-80) and any other draw-cards short event: per CoE 9.4/9.5
   // a short event is an action that must be declared on the chain of effects
   // so the opponent has a chance to respond before it resolves. Place the

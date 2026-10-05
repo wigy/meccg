@@ -14756,6 +14756,49 @@ character and, with `tapSite`, taps the site.
 
 Used by *Here, There, or Yonder* (td-123).
 
+### 43h. `site-transform` and `auto-attack-strike-halving`
+
+Two alternative modes of a resource short-event that act on a **site**
+rather than a character, offered side by side (one `play-short-event` action
+per concrete choice) by `legal-actions/site-transform.ts` from both resource
+short-event emitters. A card carrying either effect may also carry a
+`region-transform`; every mode is an alternative, and each action carries
+exactly one choice. Each mode rides the chain of effects (CoE 9.4/9.5).
+
+- **`site-transform`** — `{ options: [{ from, to }], duration?: "turn", when? }`.
+  Candidates are every company's (either player's) current and declared
+  destination site whose *effective* type matches an option's `from`
+  (Under-deeps sites excluded, MEAS §6(d)). The action carries
+  `targetSiteInstanceId` + `newSiteType`; on resolution a `site.type`
+  `override` `attribute-modifier` bound to the site definition is installed
+  (`scope: turn` with `duration: "turn"`), read by `getEffectiveSiteType`.
+- **`auto-attack-strike-halving`** — `{ siteTypes: [...] }`. Offered only in
+  the site phase at `enter-or-skip` (before any automatic-attack is faced),
+  when the active company's site's effective type is listed; one action per
+  automatic-attack (`targetAutoAttackIndex`; "each character" attacks are
+  skipped). On resolution a turn-scoped `auto-attack-strikes-halved`
+  constraint (company + site definition + attack index) makes
+  `reducer-site.ts` set that attack's strikes to `ceil(strikes / 2)`.
+
+```json
+{ "type": "duplication-limit", "scope": "turn", "max": 1 },
+{ "type": "auto-attack-strike-halving", "siteTypes": ["shadow-hold", "ruins-and-lairs"] },
+{
+  "type": "region-transform",
+  "when": { "inPlay": "Gates of Morning" },
+  "duration": "turn",
+  "options": [{ "from": "shadow", "to": "wilderness" }]
+},
+{
+  "type": "site-transform",
+  "when": { "inPlay": "Gates of Morning" },
+  "duration": "turn",
+  "options": [{ "from": "shadow-hold", "to": "ruins-and-lairs" }]
+}
+```
+
+Used by Quiet Lands (tw-309).
+
 ### 44. `company-strike`
 
 A hazard short-event effect that makes **each character** in the target

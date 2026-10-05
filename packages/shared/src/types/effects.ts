@@ -5922,6 +5922,62 @@ export interface RegionTransformEffect extends EffectBase {
 }
 
 /**
+ * One from→to choice offered by a {@link SiteTransformEffect}.
+ */
+export interface SiteTransformOption {
+  /** The site's current effective type. */
+  readonly from: SiteType;
+  /** The type the site is treated as. */
+  readonly to: SiteType;
+}
+
+/**
+ * A resource short-event mode that lets the player treat one site in play as
+ * a different site type — the site counterpart of {@link RegionTransformEffect}.
+ * The candidate sites are every company's (either player's) current site and
+ * declared destination site whose *effective* type matches an option's `from`
+ * (Under-deeps sites are never offered — MEAS §6(d)). The choice travels on the
+ * `play-short-event` action as `targetSiteInstanceId` + `newSiteType`; the card
+ * rides the chain of effects and, on un-negated resolution,
+ * `applyShortEventSiteTransform` (`short-event-discard.ts`) installs a
+ * `site.type` `override` `attribute-modifier` bound to the site's definition,
+ * read by every consumer of `getEffectiveSiteType` (creature keying, auto-attack
+ * detainment, item playability, …).
+ *
+ * Used by: *Quiet Lands* (tw-309) — "Alternatively, if Gates of Morning is in
+ * play, treat … one Shadow-hold [{S}] as a Ruins & Lairs [{R}] until the end of
+ * the turn." (`when: { inPlay: "Gates of Morning" }`, `duration: "turn"`).
+ */
+export interface SiteTransformEffect extends EffectBase {
+  readonly type: 'site-transform';
+  /** The from→to choices offered. */
+  readonly options: readonly SiteTransformOption[];
+  /** `"turn"` — the override is swept at end of turn. Omit for a permanent retype. */
+  readonly duration?: 'turn';
+}
+
+/**
+ * A resource short-event mode that halves (rounded up) the strikes of one
+ * automatic-attack at a site of one of the listed types. Offered during the
+ * site phase while the active company has not yet entered its site
+ * (`enter-or-skip`), one `play-short-event` action per automatic-attack of the
+ * company's current site (carried as `targetAutoAttackIndex`) whose site's
+ * effective type is in {@link siteTypes}. The card rides the chain; on
+ * resolution a turn-scoped `auto-attack-strikes-halved` constraint is bound to
+ * the company + site + attack index, and `reducer-site.ts` halves that attack's
+ * strikes when it is initiated.
+ *
+ * Used by: *Quiet Lands* (tw-309) — "Until the end of the turn, the number of
+ * strikes for one automatic-attack at a Shadow-hold [{S}] or a Ruins & Lairs
+ * [{R}] is reduced by half (rounded up)."
+ */
+export interface AutoAttackStrikeHalvingEffect extends EffectBase {
+  readonly type: 'auto-attack-strike-halving';
+  /** Site types (effective) at which the halving may be played. */
+  readonly siteTypes: readonly SiteType[];
+}
+
+/**
  * A resource short-event that lets the player untap one currently-tapped
  * site in play, chosen at play time from every company's `currentSite`
  * matching {@link filter}. The sibling of {@link RegionTransformEffect} for a
@@ -10565,6 +10621,8 @@ export type CardEffect =
   | SiteTypeRemapEffect
   | RegionTypeConversionEffect
   | RegionTransformEffect
+  | SiteTransformEffect
+  | AutoAttackStrikeHalvingEffect
   | SiteUntapEffect
   | RollPlayAllyEffect
   | ItemUntapEffect
