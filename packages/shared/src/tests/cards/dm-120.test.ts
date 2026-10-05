@@ -35,7 +35,7 @@ import {
   buildTestState, buildSitePhaseState, makePlayDeck, resetMint,
   viableActions, dispatch,
   findCharInstanceId, findHandCardId,
-  attachItemToChar, setCharStatus, makeMHState, buildSitePhaseState,
+  attachItemToChar, setCharStatus, makeMHState,
   playPermanentEventAndResolve,
   getCharacter,
   assertEveryInstanceReachable,
