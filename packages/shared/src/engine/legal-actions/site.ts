@@ -33,7 +33,8 @@ import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
 import { discardToRecruitActions } from './discard-to-recruit.js';
 import { wizardSpecificName } from '../fallen-wizard-specific.js';
-import { isUnderDeepsSurfaceSite, isDeepMinesSite, isUnderDeepsAdjacent } from './organization-companies.js';
+import { isUnderDeepsSurfaceSite, isDeepMinesSite, isUnderDeepsAdjacent, storeItemActions } from './organization-companies.js';
+import { companyStoresAsDarkhaven } from '../pending.js';
 import { buildInPlayNames } from '../recompute-derived.js';
 import { crossAlignmentInfluencePenalty } from '../../alignment-rules.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay, manifestationInCardsInPlay, manifestIdOf } from '../manifestations.js';
@@ -296,6 +297,13 @@ export function siteActions(state: GameState, playerId: PlayerId): EvaluatedActi
       // Prisoner rescue (CoE rule 8.36): if the active company is at a site
       // holding its own prisoners (e.g. by Troll-purse), offer to face the
       // host's rescue-attack to free them.
+      // Messenger of Mordor (le-204): the active company may store items and
+      // resource events "now" — during this site phase — at a site where the
+      // card's `storage-as-darkhaven` constraint applies.
+      const activeCompany = playerById(state, playerId)?.companies[siteState.activeCompanyIndex];
+      if (activeCompany && companyStoresAsDarkhaven(state, activeCompany)) {
+        base.push(...storeItemActions(state, playerId, activeCompany.id));
+      }
       const rescuable = rescuablePrisonersAtSite(state, getPlayerIndex(state, playerId), siteState.activeCompanyIndex);
       if (rescuable) {
         base.push(...viable([{ type: 'rescue-prisoner', player: playerId, hostInstanceId: rescuable.hostInstanceId }]));

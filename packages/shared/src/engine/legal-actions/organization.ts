@@ -3204,6 +3204,60 @@ export function collectDiscardInPlayTargets(
 }
 
 /**
+ * Emits the company-scoped "discard target hazard" mode of a resource short
+ * event whose single-target `discard-in-play` move carries
+ * `targetScope: "play-target-company"` (Poison of his Voice wh-48: "Playable
+ * on a hazard permanent-event on a character in a spirit-magic-using
+ * character's company. Discard target hazard.").
+ *
+ * Unlike {@link collectDiscardInPlayTargets}, the pool is relative to each
+ * eligible `play-target` character (the spell-caster): one action per
+ * (caster × matching hazard attached to a character in the caster's company),
+ * the caster himself included. The caster rides `targetScoutInstanceId` with
+ * no tap (the play-target has no cost) so the chain resolution
+ * ({@link applyShortEventDiscardInPlay}) knows who makes the move's follow-up
+ * corruption check; a Ringwraith caster is exempt there under rule 7.4.
+ *
+ * Returns an empty array when the card has no such move or nothing matches.
+ */
+export function companyHazardDiscardActions(
+  state: GameState,
+  player: PlayerState,
+  playerId: PlayerId,
+  cardInstanceId: CardInstanceId,
+  def: { name: string; effects?: readonly import('../../types/effects.js').CardEffect[] },
+  playTarget: PlayTargetEffect,
+): EvaluatedAction[] {
+  const move = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
+  if (!move || move.targetScope !== 'play-target-company') return [];
+  const actions: EvaluatedAction[] = [];
+  for (const casterId of eligiblePlayOptionTargets(state, player, playTarget)) {
+    const company = findCharacterCompany(player.companies, casterId);
+    if (!company) continue;
+    for (const charId of company.characters) {
+      const char = player.characters[charId];
+      if (!char) continue;
+      for (const haz of char.hazards) {
+        const hDef = defById(state, haz.definitionId);
+        if (!hDef || (move.filter && !matchesDefinition(hDef, move.filter))) continue;
+        logDetail(`${def.name} playable: caster ${casterId as string} discards ${hDef.name} (${haz.instanceId as string}) from ${charId as string}`);
+        actions.push({
+          action: {
+            type: 'play-short-event',
+            player: playerId,
+            cardInstanceId,
+            targetScoutInstanceId: casterId,
+            discardTargetInstanceId: haz.instanceId,
+          },
+          viable: true,
+        });
+      }
+    }
+  }
+  return actions;
+}
+
+/**
  * Enumerates every (region name, destination type) pair a
  * {@link RegionTransformEffect} (Master of Wood, Water, or Hill, td-136) can
  * offer right now: every named region card in the pool whose *effective*
@@ -4681,9 +4735,13 @@ export function playResourceShortEventActions(
     }
 
     if (playOptions.length > 0 && playTarget) {
-      const optionActions = playOptionActionsForCard(
-        state, player, playerId, handCard.instanceId, def, playTarget, playOptions, currentPhase,
-      );
+      const optionActions = [
+        ...playOptionActionsForCard(
+          state, player, playerId, handCard.instanceId, def, playTarget, playOptions, currentPhase,
+        ),
+        // Alternative company-scoped discard mode (Poison of his Voice wh-48).
+        ...companyHazardDiscardActions(state, player, playerId, handCard.instanceId, def, playTarget),
+      ];
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible ${playTarget.target} targets — not playable`);
         actions.push(notPlayable(playerId, handCard.instanceId, `No eligible ${playTarget.target} to target`));
@@ -4721,7 +4779,9 @@ export function playResourceShortEventActions(
     const discardWhenMet = !discardInPlay?.when
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
-    if (discardWhenMet && discardInPlay && discardInPlay.filter) {
+    // A company-scoped discard (`targetScope: "play-target-company"`) is
+    // enumerated per caster by `companyHazardDiscardActions` instead.
+    if (discardWhenMet && discardInPlay && discardInPlay.filter && !discardInPlay.targetScope) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
       if (discardTargetIds.length === 0 && !sideboardModeAvailable) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);

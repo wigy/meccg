@@ -2483,6 +2483,16 @@ function applyPlayOptionAddConstraint(
       }
       kind = { type: 'hazard-limit-modifier', value: apply.value };
       break;
+    case 'stage-points-modifier':
+      if (typeof apply.value !== 'number') {
+        return { error: `${def.name} option '${option.id}': stage-points-modifier requires numeric 'value'` };
+      }
+      kind = {
+        type: 'stage-points-modifier',
+        value: apply.value,
+        ...(apply.floor !== undefined ? { floor: apply.floor } : {}),
+      };
+      break;
     case 'site-type-override': {
       // Changes destination site type during M/H phase (e.g. Deeper Shadow: R→S).
       const overrideType = (apply as { overrideType?: string }).overrideType;
@@ -3472,6 +3482,17 @@ function applyShortEventOnEntersPlay(
           // `hasCancelReturnAndSiteTap` (pending.ts) for every call site.
           kind = { type: 'cancel-return-and-site-tap' };
           break;
+        case 'storage-as-darkhaven':
+          // Messenger of Mordor (le-204): "Any items and resource events with
+          // his company that can be stored at a Darkhaven may now be so
+          // stored." Bound to the site the company occupies right now — see
+          // `companyStoresAsDarkhaven` (pending.ts) and `storeItemActions`.
+          if (!company.currentSite) {
+            logDetail(`add-constraint(storage-as-darkhaven): company has no current site — fizzle`);
+            continue;
+          }
+          kind = { type: 'storage-as-darkhaven', siteDefinitionId: company.currentSite.definitionId };
+          break;
         case 'hazard-limit-modifier': {
           if (typeof onEvent.apply.value !== 'number') {
             logDetail(`add-constraint(hazard-limit-modifier): missing numeric value — fizzle`);
@@ -3763,27 +3784,36 @@ function applyShortEventOnEntersPlay(
       // opponent (hazard player) — reveal any number of hazards from hand
       // (restricting them to the revealed set for the rest of this
       // company's M/H phase), or tap-reveal a face-down agent instead.
-      const targetCompanyId = action.type === 'play-short-event' ? action.targetCompanyId : undefined;
-      if (!targetCompanyId) {
+      // Spying out the Land (le-233) targets a character during the
+      // organization phase instead: the restricted company is that
+      // character's company, whose M/H phase is still to come, and there is
+      // no agent alternative.
+      const playerCompanies = state.players[playerIndex].companies;
+      let company: import('../types/state-cards.js').Company | undefined;
+      if (action.type === 'play-short-event' && action.targetCompanyId) {
+        company = companyById(playerCompanies, action.targetCompanyId);
+      } else if (action.type === 'play-short-event' && action.targetCharacterId) {
+        company = findCharacterCompany(playerCompanies, action.targetCharacterId);
+      }
+      if (!company) {
         logDetail(`"${def.name}": enqueue-reveal-hazards-choice — no target company — fizzle`);
         continue;
       }
-      const company = companyById(state.players[playerIndex].companies, targetCompanyId);
-      if (!company) {
-        logDetail(`"${def.name}": enqueue-reveal-hazards-choice — company ${targetCompanyId as string} not found — fizzle`);
-        continue;
-      }
+      const noAgentAlternative = onEvent.apply.agentAlternative === false;
       const opponentIndex = 1 - playerIndex;
       const opponent = state.players[opponentIndex];
-      logDetail(`"${def.name}" played on company ${company.id as string} — ${opponent.name} may reveal hazards from hand or tap-reveal a face-down agent`);
+      logDetail(`"${def.name}" played on company ${company.id as string} — ${opponent.name} may reveal hazards from hand${noAgentAlternative ? '' : ' or tap-reveal a face-down agent'}`);
       state = enqueueResolution(state, {
         source: handCard.instanceId,
         actor: opponent.id,
-        scope: { kind: 'company-mh-subphase', companyId: company.id },
+        scope: state.phaseState.phase === Phase.MovementHazard
+          ? { kind: 'company-mh-subphase', companyId: company.id }
+          : { kind: 'phase', phase: state.phaseState.phase },
         kind: {
           type: 'reveal-hazards-choice',
           companyId: company.id,
           revealedIds: [],
+          ...(noAgentAlternative ? { noAgentAlternative: true as const } : {}),
         },
       });
     }

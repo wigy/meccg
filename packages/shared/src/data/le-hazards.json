@@ -214,9 +214,8 @@
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": {
-          "tap": "bearer"
-        },
+        "cost": {},
+        "oncePerTurn": true,
         "apply": {
           "type": "roll-then-apply",
           "threshold": 8,
@@ -1960,7 +1959,8 @@
       {
         "type": "grant-action",
         "action": "remove-self-on-roll",
-        "cost": { "tap": "bearer" },
+        "cost": {},
+        "oncePerTurn": true,
         "apply": {
           "type": "roll-then-apply",
           "threshold": 8,

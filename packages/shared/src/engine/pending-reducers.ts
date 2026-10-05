@@ -5265,6 +5265,9 @@ export function applyRevealHazardsChoiceResolution(
     if (top.kind.revealedIds.length > 0) {
       return { state, error: 'Cannot tap-reveal an agent after revealing hazards' };
     }
+    if (top.kind.noAgentAlternative) {
+      return { state, error: 'This reveal-hazards-choice has no agent alternative' };
+    }
     const revealResult = handleRevealAgent(state, {
       type: 'reveal-agent',
       player: action.player,

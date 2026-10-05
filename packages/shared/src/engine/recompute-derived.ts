@@ -1400,6 +1400,19 @@ function playerStagePoints(state: GameState, player: PlayerState): number {
     countedSiteInstances.add(site.instanceId as string);
     stagePoints += siteOccupancyStagePointsOfCard(defById(state, site.definitionId));
   }
+  // Turn-scoped stage-point reductions placed on the Fallen-wizard (Poison of
+  // his Voice wh-48: "-6 to his stage points (to a minimum of 3) for the rest
+  // of the turn"). The floor caps how far the modifier may reduce the total;
+  // it never raises a total that already sits below it.
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'stage-points-modifier' || c.target.kind !== 'character') continue;
+    if (!(c.target.characterId in player.characters)) continue;
+    const modified = stagePoints + c.kind.value;
+    const floor = c.kind.floor;
+    stagePoints = floor !== undefined && c.kind.value < 0
+      ? Math.min(stagePoints, Math.max(floor, modified))
+      : modified;
+  }
   return stagePoints;
 }
 

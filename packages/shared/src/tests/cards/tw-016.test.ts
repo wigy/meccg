@@ -21,9 +21,12 @@ import {
   buildTestState, resetMint, makeMHState, makeShadowMHState,
   playCreatureHazardAndResolve, runCreatureCombat,
   handCardId, companyIdAt, expectCharItemCount, phaseStateAs, RESOURCE_PLAYER, HAZARD_PLAYER,
+  viableActionsForHandCard,
 } from '../test-helpers.js';
 import { Phase, RegionType, SiteType } from '../../index.js';
-import type { MovementHazardPhaseState } from '../../index.js';
+import type { CardDefinitionId, MovementHazardPhaseState } from '../../index.js';
+
+const BURAT = 'as-1' as CardDefinitionId;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -246,5 +249,22 @@ describe('Bert (Burat) (tw-016)', () => {
     const afterWound = runCreatureCombat(afterChain, ARAGORN, 2, 5);
 
     expectCharItemCount(afterWound, RESOURCE_PLAYER, ARAGORN, 1);
+  });
+
+  test('cannot be played while its character manifestation Bûrat is in play', () => {
+    // Bûrat (as-1) is a "Manifestation of 'Bert'" — per g.man.1 only one
+    // manifestation of an entity may be in play, so "Bert" is unplayable.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, BURAT] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [BERT_BURAT], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const ready = { ...state, phaseState: makeShadowMHState() };
+
+    expect(viableActionsForHandCard(ready, PLAYER_2, 'play-hazard', HAZARD_PLAYER, BERT_BURAT)).toHaveLength(0);
   });
 });

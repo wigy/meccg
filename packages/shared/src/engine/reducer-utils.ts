@@ -1577,6 +1577,62 @@ export function collectGlobalCheckModifier(
 }
 
 /**
+ * Name of the first bare in-play event in **either** player's `cardsInPlay`
+ * carrying a `check-extra-roll` effect for the given {@link CheckKind} whose
+ * `when` matches `ctx`, or `undefined` when none applies. Scans the same bare,
+ * unattached play-area cards as {@link collectGlobalCheckModifier} — the effect
+ * is game-wide. Used by Tidings of Death (le-245): "for each influence check
+ * [against a faction] make an additional roll and choose which result to use".
+ */
+export function globalCheckExtraRollSource(
+  state: GameState,
+  check: import('../types/common.js').CheckKind,
+  ctx: import('./effects/resolver.js').ResolverContext,
+): string | undefined {
+  const ctxRecord = ctx as unknown as Record<string, unknown>;
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'check-extra-roll') continue;
+        const kinds: readonly string[] = Array.isArray(effect.check) ? effect.check : [effect.check];
+        if (!kinds.includes(check)) continue;
+        if (effect.when && !matchesContext(effect.when, ctxRecord)) continue;
+        return def.name;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Roll 2d6 twice and keep the better (higher) total — the "make an additional
+ * roll and choose which result to use" of a `check-extra-roll` effect, for a
+ * check where a higher total is never a worse outcome. Returns the kept roll,
+ * the other roll as `alternateRoll` (for the dice-roll effect), and the
+ * advanced RNG / cheat-roll state. A pending cheat roll is consumed by the
+ * first roll only.
+ */
+export function roll2d6KeepBetter(state: GameState): {
+  roll: TwoDiceSix; alternateRoll: TwoDiceSix; rng: typeof state.rng; cheatRollTotal: number | null;
+} {
+  const r1 = roll2d6(state);
+  const r2 = roll2d6({ ...state, rng: r1.rng, cheatRollTotal: r1.cheatRollTotal });
+  const firstBetter = r1.roll.die1 + r1.roll.die2 >= r2.roll.die1 + r2.roll.die2;
+  return {
+    roll: firstBetter ? r1.roll : r2.roll,
+    alternateRoll: firstBetter ? r2.roll : r1.roll,
+    rng: r2.rng,
+    cheatRollTotal: r2.cheatRollTotal,
+  };
+}
+
+/**
  * True while a bare in-play event in **either** player's `cardsInPlay` carries
  * a `nullify-influence-modifications` effect — Webs of Fear & Treachery
  * (le-150): "Except for unused general influence and unused normal direct

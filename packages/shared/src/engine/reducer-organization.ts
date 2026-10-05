@@ -27,7 +27,7 @@ import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
-import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired } from './pending.js';
+import { enqueueResolution, enqueueCorruptionCheck, removeConstraint, sweepExpired, companyStoresAsDarkhaven } from './pending.js';
 import { recomputeDerived } from './recompute-derived.js';
 import { resolveDef, getEffectiveSkills } from './effects/index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -1606,8 +1606,10 @@ function storeCompanyBoundCard(
     logDetail(`Store rejected: ${siteDef.name} carries no-storage site-rule`);
     return { state, error: `Resources may never be stored at ${siteDef.name}` };
   }
+  // Messenger of Mordor (le-204): the site counts as a Darkhaven for storing.
+  const storageSiteType = companyStoresAsDarkhaven(state, company) ? SiteType.Haven : siteDef.siteType;
   const siteMatches = (storable.sites?.includes(siteDef.name) ?? false)
-    || (storable.siteTypes?.includes(siteDef.siteType) ?? false);
+    || (storable.siteTypes?.includes(storageSiteType) ?? false);
   if (!siteMatches) {
     logDetail(`Store rejected: ${cardDef?.name ?? '?'} cannot be stored at ${siteDef.name}`);
     return { state, error: `${cardDef?.name ?? '?'} cannot be stored at ${siteDef.name}` };

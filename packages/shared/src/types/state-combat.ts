@@ -1259,6 +1259,12 @@ export type ChainEntryPayload =
        */
       readonly optionId?: string;
       /**
+       * For hazard short-events with mutually-exclusive arrival modes
+       * (Choking Shadows tw-21), the mode the hazard player chose at play
+       * time. The chain resolver applies only that mode.
+       */
+      readonly arrivalModeIndex?: number;
+      /**
        * For an untargeted `play-option` mode acting on one specific card
        * instance (Returned Beyond All Hope as-35), the instance declared at
        * play time. Consumed by the chain resolver as the `move` target.

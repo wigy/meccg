@@ -26,7 +26,7 @@ import { canCallEndgameNow } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { hasSiteTransformModes, siteTransformShortEventActions } from './site-transform.js';
-import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, collectSiteUntapTargets, collectItemUntapTargets, withdrawAgentTargetActions, eligibleSkillAllyTargetsForCharacter } from './organization.js';
+import { getPlayTargetEffect, getPlayOptionEffects, buildPlayOptionContext, playerStateGateMet, grantedActionActivations, collectDiscardInPlayTargets, collectRegionTransformTargets, collectSiteUntapTargets, collectItemUntapTargets, withdrawAgentTargetActions, eligibleSkillAllyTargetsForCharacter, companyHazardDiscardActions } from './organization.js';
 import { playPermanentEventActions } from './organization-events.js';
 import type { WithdrawAgentEffect } from '../../types/effects.js';
 import { findMoveEffectByShape } from '../reducer-move.js';
@@ -443,7 +443,9 @@ export function heroResourceShortEventActions(
     const discardWhenMet = !discardInPlay?.when
       || matchesCondition(discardInPlay.when, { inPlay: inPlayNames });
     let discardTargetIds: CardInstanceId[] | null = null;
-    if (discardWhenMet && discardInPlay && discardInPlay.filter) {
+    // A company-scoped discard (`targetScope: "play-target-company"`) is
+    // enumerated per caster by `companyHazardDiscardActions` instead.
+    if (discardWhenMet && discardInPlay && discardInPlay.filter && !discardInPlay.targetScope) {
       discardTargetIds = collectDiscardInPlayTargets(state, discardInPlay.filter, playerId);
       if (discardTargetIds.length === 0) {
         logDetail(`${def.name}: no eligible discard-in-play target — not playable`);
@@ -645,9 +647,13 @@ export function heroResourceShortEventActions(
     // tap cost, so the option's `when` gate is evaluated.
     const playOptions = getPlayOptionEffects(def);
     if (playOptions.length > 0 && playTarget) {
-      const optionActions = playOptionActionsForShortEvent(
-        state, player, playerId, cardInstanceId, def, playTarget, playOptions, currentPhase,
-      );
+      const optionActions = [
+        ...playOptionActionsForShortEvent(
+          state, player, playerId, cardInstanceId, def, playTarget, playOptions, currentPhase,
+        ),
+        // Alternative company-scoped discard mode (Poison of his Voice wh-48).
+        ...companyHazardDiscardActions(state, player, playerId, cardInstanceId, def, playTarget),
+      ];
       if (optionActions.length === 0) {
         logDetail(`${def.name}: no eligible play-option targets — not playable`);
         actions.push(notPlayable(playerId, cardInstanceId, `${def.name} requires a matching character and condition`));

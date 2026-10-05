@@ -1433,6 +1433,12 @@ export interface PendingResolution {
         readonly companyId: CompanyId;
         /** Hand instance IDs revealed to the card's controller so far, in reveal order. */
         readonly revealedIds: readonly CardInstanceId[];
+        /**
+         * Set when the source card has no tap-reveal-agent alternative
+         * (Spying out the Land le-233): `tap-reveal-agent-for-snake` is never
+         * offered.
+         */
+        readonly noAgentAlternative?: true;
       }
     | {
         /**
@@ -2316,6 +2322,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Poison of his Voice (wh-48) / White Light Broken (wh-50): "-6 to
+         * his stage points (to a minimum of 3) for the rest of the turn."
+         * Targets the Fallen-wizard character; folded into the owning
+         * player's stage-point total by `playerStagePoints`
+         * (recompute-derived.ts). A reduction never takes the total below
+         * `floor`, and never raises a total already below it.
+         */
+        readonly type: 'stage-points-modifier';
+        /** The adjustment to the stage-point total (negative to decrease). */
+        readonly value: number;
+        /** Minimum the modifier may reduce the total to. */
+        readonly floor?: number;
+      }
+    | {
+        /**
          * Lost in Dark-domains (tw-52): "If the company has a Dark-domain
          * [{d}] in its site path, its hazard limit is doubled until the end
          * of the turn." A hazard short-event played during the target
@@ -2461,6 +2482,19 @@ export interface ActiveConstraint {
          * bearer ranger taps; scoped to the rest of the turn.
          */
         readonly type: 'cancel-return-and-site-tap';
+      }
+    | {
+        /**
+         * Messenger of Mordor (le-204): items and resource events with the
+         * company that can be stored at a Darkhaven may be stored at the
+         * site the company occupied when the card was played (a Darkhaven,
+         * Shadow-hold or Dark-hold), as though it were a Darkhaven — in the
+         * phase it was played and for the rest of the turn while the company
+         * stays there. Read by `companyStoresAsDarkhaven` (`engine/pending.ts`).
+         */
+        readonly type: 'storage-as-darkhaven';
+        /** The site the company occupied when the card was played. */
+        readonly siteDefinitionId: CardDefinitionId;
       }
     | {
         /**

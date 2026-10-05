@@ -32,10 +32,10 @@ import {
   ARAGORN, LEGOLAS,
   MINAS_TIRITH, RIVENDELL, LORIEN, DOL_AMROTH,
   MEN_OF_ANORIEN, RANGERS_OF_THE_NORTH,
-  buildTestState, makePlayDeck, resetMint,
+  buildTestState, buildSitePhaseState, makePlayDeck, resetMint,
   viableActions, dispatch,
   findCharInstanceId, findHandCardId,
-  attachItemToChar, setCharStatus, makeMHState,
+  attachItemToChar, setCharStatus, makeMHState, buildSitePhaseState,
   playPermanentEventAndResolve,
   getCharacter,
   assertEveryInstanceReachable,
@@ -306,9 +306,31 @@ describe('Choice of Lúthien (dm-120)', () => {
     expect(fetchActionsOf(state)).toHaveLength(1);
   });
 
+  test('the tap ability is offered during the site phase too, not just organization (CoE 2.1.1: resource/character actions on cards in play are available during any phase)', () => {
+    const base = buildSitePhaseState({ characters: [ARWEN], site: MINAS_TIRITH, discardPile: [MEN_OF_ANORIEN] });
+    const state = attachItemToChar(base, RESOURCE_PLAYER, ARWEN, CHOICE_OF_LUTHIEN);
+    expect(fetchActionsOf(state)).toHaveLength(1);
+  });
+
   test('the tap ability is NOT offered while Arwen is already tapped', () => {
     const state = setCharStatus(tapFixture({ discard: [MEN_OF_ANORIEN] }), RESOURCE_PLAYER, ARWEN, CardStatus.Tapped);
     expect(fetchActionsOf(state)).toHaveLength(0);
+  });
+
+  // Bug report: with Arwen's company at Dol Amroth in the site phase
+  // (play-resources step), the tap ability was not offered — it was only
+  // scanned during the organization phase. CoE 2.1.1: the resource player may
+  // take resource/character actions on their cards in play during any phase
+  // of their turn; the fetch is gated on Arwen's *current* site.
+  test('the tap ability is offered during the site phase at Arwen\'s current site (Dol Amroth) (CoE 2.1.1)', () => {
+    const base = buildSitePhaseState({ characters: [ARWEN], site: DOL_AMROTH, discardPile: [MEN_OF_ANORIEN] });
+    const state = attachItemToChar(base, RESOURCE_PLAYER, ARWEN, CHOICE_OF_LUTHIEN);
+    const offered = fetchActionsOf(state);
+    expect(offered).toHaveLength(1);
+
+    const after = dispatch(state, offered[0].action);
+    const effect = (after.pendingEffects[0] as { effect: { playableAtSite?: string } }).effect;
+    expect(effect.playableAtSite).toBe(DOL_AMROTH);
   });
 
   test('activation taps Arwen (the bearer, not the card) and enqueues a to-hand fetch gated on Minas Tirith', () => {

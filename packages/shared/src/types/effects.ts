@@ -300,6 +300,26 @@ export interface CheckModifierEffect extends EffectBase {
 }
 
 /**
+ * Game-wide, ongoing "make an additional roll and choose which result to use"
+ * for a 2d6 check. Carried by a bare in-play event (long- or permanent-event)
+ * in *either* player's `cardsInPlay`; while it is in play, every matching check
+ * (gated by the effect's `when` against the check's resolver context) is rolled
+ * twice and the better total is kept — for the checks it currently reaches
+ * (influence attempts) a higher total is never a worse outcome, so the choice
+ * is always the higher roll. Both rolls travel in one dice-roll effect (the
+ * kept pair plus `alternateRoll`), mirroring the combat reroll mode.
+ *
+ * Example: Tidings of Death (le-245) — "-1 to each influence check against a
+ * faction, but for each influence check make an additional roll and choose
+ * which result to use."
+ */
+export interface CheckExtraRollEffect extends EffectBase {
+  readonly type: 'check-extra-roll';
+  /** Which check kind(s) get the additional roll (logical OR for the array form). */
+  readonly check: import('./common.js').CheckKind | readonly import('./common.js').CheckKind[];
+}
+
+/**
  * Modifies the 2d6 body-check roll made against the bearer during combat
  * (CoE rule 2.V.2.2). A body check is distinct from the influence/corruption
  * {@link CheckModifierEffect} family — it is rolled inside combat resolution,
@@ -3088,7 +3108,9 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * carries the per-region delta.
    *
    * Also doubles as the floor for a `hazard-limit-region-name-match`
-   * constraint (Anduin River tw-191 and the "mountain-crossing" family).
+   * constraint (Anduin River tw-191 and the "mountain-crossing" family), and
+   * for a `stage-points-modifier` constraint (Poison of his Voice wh-48: "-6
+   * to his stage points (to a minimum of 3)").
    */
   readonly floor?: number;
   /**
@@ -3693,7 +3715,10 @@ export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
  * `enqueue-reveal-hazards-choice` — Here Is a Snake! (dm-137): enqueues the
  * `reveal-hazards-choice` pending resolution (actor = the opponent of the
  * playing player) on the `play-target: "company"` target, scoped
- * `company-mh-subphase` to that company. See the resolution's own doc comment
+ * `company-mh-subphase` to that company. With a `play-target: "character"`
+ * target (Spying out the Land le-233, played in the organization phase) the
+ * restricted company is the target character's company and the resolution
+ * is scoped to the current phase. See the resolution's own doc comment
  * ({@link import('./pending.js').PendingResolution}) for the full flow — the
  * opponent reveals any number of hazard cards from hand (or taps and reveals
  * a face-down agent instead), and on `pass` an `only-revealed-hazards-on-company`
@@ -3702,6 +3727,13 @@ export interface EnqueueGoldRingTestAction extends TriggeredActionBase {
  */
 export interface EnqueueRevealHazardsChoiceAction extends TriggeredActionBase {
   readonly type: 'enqueue-reveal-hazards-choice';
+  /**
+   * Whether the opponent may tap and reveal a face-down agent instead of
+   * revealing hazards (Here Is a Snake!'s printed alternative). Defaults to
+   * `true`; Spying out the Land (le-233) sets `false` — it has no such
+   * alternative.
+   */
+  readonly agentAlternative?: boolean;
 }
 
 /** `sequence` — run an ordered list of sub-applies on the state each produces. Recursive. */
@@ -10377,6 +10409,17 @@ export interface MoveEffect extends EffectBase {
    * Carried by bounce-hazard-events equivalents (Wizard Uncloaked).
    */
   readonly corruptionCheck?: { readonly modifier: number };
+  /**
+   * For a single-target `discard-in-play` move (`select: 'target'`,
+   * `from: 'in-play'`, `to: 'discard'`): narrows the candidate pool to hazards
+   * attached to characters in the **play-target character's own company**
+   * instead of every in-play card. Each eligible play-target (the caster) is
+   * crossed with the matching hazards in his company and makes the
+   * {@link corruptionCheck} himself, without tapping. Backs Poison of his
+   * Voice (wh-48): "Playable on a hazard permanent-event on a character in a
+   * spirit-magic-using character's company. Discard target hazard."
+   */
+  readonly targetScope?: 'play-target-company';
   /** For `select: 'named'`: the card name to match. */
   readonly cardName?: string;
   /**
@@ -10468,6 +10511,7 @@ export type CardEffect =
   | AgentHomeSiteFactionLockEffect
   | StatModifierEffect
   | CheckModifierEffect
+  | CheckExtraRollEffect
   | BodyCheckModifierEffect
   | MpModifierEffect
   | InPlayItemModifierEffect

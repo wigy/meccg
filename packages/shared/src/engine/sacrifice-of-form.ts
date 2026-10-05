@@ -31,7 +31,7 @@ import { logDetail } from './legal-actions/log.js';
 import { cardName, cleanupEmptyCompanies, defById, getCardEffects, partitionLeavingAllies, toCardInstance } from './reducer-utils.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { placeCardSetAside } from './set-aside.js';
-import { ownerOf } from '../types/state.js';
+import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { sameAttack } from './post-attack-play.js';
 import { addConstraint } from './pending.js';
 
@@ -133,8 +133,9 @@ function itemInPlayFrom(card: CardInPlay): ItemInPlay {
 }
 
 /**
- * Reattach a Sacrifice of Form host to the Wizard it sacrificed: sets
- * `attachedTo` and moves every item held in its `setAside` list onto the
+ * Reattach a Sacrifice of Form host to the Wizard it sacrificed (or another
+ * copy of that Wizard): sets `attachedTo` — and rebinds
+ * `sacrificeOfFormCharacterInstanceId` — to the returning instance, and moves every item held in its `setAside` list onto the
  * Wizard's `items[]`.
  *
  * `collectCharacterEffects` (`effects/resolver.ts`) has no generic pathway
@@ -169,7 +170,7 @@ function reattachSacrificeOfForm(
     if (c.instanceId !== hostInstanceId) return c;
     const { setAside: _s, ...rest } = c;
     void _s;
-    return { ...rest, attachedTo: wizardId };
+    return { ...rest, attachedTo: wizardId, sacrificeOfFormCharacterInstanceId: wizardId };
   });
 
   logDetail(`Sacrifice of Form: ${wizardId as string} put back into play — reattaching ${returningItems.length} item(s), card placed with him`);
@@ -210,24 +211,31 @@ function reattachSacrificeOfForm(
 
 /**
  * `postReduce` sweep: when a Wizard previously sacrificed by a Sacrifice of
- * Form host is put back into play by any means (a `characters` map entry
- * newly appears for an instance ID some in-play host still names via
- * `sacrificeOfFormCharacterInstanceId` with no `attachedTo` yet), reattach the
- * host and return his items. A prev/next diff so it fires regardless of how
- * the character re-entered play.
+ * Form host is put back into play by any means, reattach the host and return
+ * his items. "The Wizard" is the character, not one physical copy: the
+ * sacrificed card itself returning, or another copy of the same (unique)
+ * Wizard being played, both count. Matches an in-play host (one with
+ * `sacrificeOfFormCharacterInstanceId` and no `attachedTo` yet) against a
+ * `characters` map entry that newly appears with the sacrificed instance ID
+ * or the sacrificed Wizard's definition. A prev/next diff so it fires
+ * regardless of how the character re-entered play.
  */
 export function sweepSacrificeOfFormReturn(prev: GameState, next: GameState): GameState {
   let working = next;
   for (let idx = 0; idx < working.players.length; idx++) {
     const player = working.players[idx];
+    const prevChars = prev.players[idx]?.characters ?? {};
     for (const card of player.cardsInPlay) {
       if (card.attachedTo) continue;
-      const wizardId = card.sacrificeOfFormCharacterInstanceId;
-      if (!wizardId) continue;
-      const wasInPlay = prev.players[idx]?.characters[wizardId] !== undefined;
-      const nowInPlay = player.characters[wizardId] !== undefined;
-      if (wasInPlay || !nowInPlay) continue;
-      working = reattachSacrificeOfForm(working, idx, card.instanceId, wizardId);
+      const sacrificedId = card.sacrificeOfFormCharacterInstanceId;
+      if (!sacrificedId) continue;
+      const sacrificedDefId = resolveInstanceId(prev, sacrificedId) ?? player.wizardSacrificed;
+      const returning = Object.values(player.characters).find(ch =>
+        prevChars[ch.instanceId] === undefined
+        && (ch.instanceId === sacrificedId || ch.definitionId === sacrificedDefId),
+      );
+      if (!returning) continue;
+      working = reattachSacrificeOfForm(working, idx, card.instanceId, returning.instanceId);
     }
   }
   return working;
