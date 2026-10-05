@@ -1083,6 +1083,9 @@ export function handlePlayHazardCard(
       ...(action.type === 'play-hazard' && action.optionId
         ? { optionId: action.optionId }
         : {}),
+      ...(action.type === 'play-hazard' && action.arrivalModeIndex !== undefined
+        ? { arrivalModeIndex: action.arrivalModeIndex }
+        : {}),
       ...(action.type === 'play-hazard' && action.optionTargetInstanceId
         ? { optionTargetInstanceId: action.optionTargetInstanceId }
         : {}),
