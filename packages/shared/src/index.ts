@@ -33,6 +33,7 @@ export type { ReducerResult } from './engine/reducer.js';
 export { computeLegalActions, computePlayerFacingActions, withConcedeAction, withMetaActions, isMetaAction, META_ACTION_TYPES } from './engine/legal-actions/index.js';
 export type { MetaActionOptions } from './engine/legal-actions/index.js';
 export { currentHazardLimit, effectiveHazardLimit } from './engine/hazard-limit.js';
+export { describeArrivalMode } from './engine/arrival-modes.js';
 export { isDetainmentAttack } from './engine/detainment.js';
 export type { DetainmentContext } from './engine/detainment.js';
 export { canonicalActionKey, stampActionIds } from './engine/action-id.js';

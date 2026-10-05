@@ -201,6 +201,14 @@ export interface PlayHazardAction {
    */
   readonly optionId?: string;
   /**
+   * For hazard short-events with several mutually-exclusive `on-event
+   * company-arrives-at-site` modes (Choking Shadows tw-21: +2 automatic-attack
+   * prowess, or with Doors of Night a site/region type override), the index
+   * of the mode the hazard player chose (see `arrivalModeEffects`). Absent
+   * when only one mode applies.
+   */
+  readonly arrivalModeIndex?: number;
+  /**
    * For an untargeted `play-option` mode whose apply acts on one specific card
    * instance (Returned Beyond All Hope as-35: the creature in the discard pile,
    * the Maia permanent-event in play, or the eliminated creature to recover),
