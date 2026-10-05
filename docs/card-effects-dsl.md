@@ -911,6 +911,10 @@ Lidless Eye's once-per-organization-phase dual-mode ability
 play deck and shuffles; `peek-opponent-hand` discards a chosen hand card and
 reveals `min(count, oppHandSize)` random opponent-hand cards (they stay in hand).
 The chosen card travels on `activate-granted-action.targetCardId` for both modes.
+`peek-opponent-hand` may also be an `on-event: self-enters-play` apply on a
+resource short-event, where it has no cost and simply reveals the random
+opponent-hand cards on resolution (An Untimely Whisper le-164: "Opponent
+reveals to you 5 random cards at once from his hand").
 
 ```json
 { "type": "play-as-sauron" },

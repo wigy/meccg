@@ -2628,6 +2628,19 @@ function applyShortEventOnEntersPlay(
       continue;
     }
 
+    // An Untimely Whisper (le-164): "Opponent reveals to you 5 random cards
+    // at once from his hand." Reveals min(count, oppHandSize) random
+    // opponent-hand cards to the card-player; they stay in the opponent's
+    // hand (same random pick as The Lidless Eye's granted peek).
+    if (onEvent.apply.type === 'peek-opponent-hand') {
+      const opponentIndex = playerIndex === 0 ? 1 : 0;
+      const [shuffledHand, peekRng] = shuffle([...state.players[opponentIndex].hand], state.rng);
+      const peeked = shuffledHand.slice(0, Math.min(onEvent.apply.count, shuffledHand.length));
+      logDetail(`"${def.name}": opponent reveals ${peeked.length} random card(s) from hand`);
+      state = revealInstances({ ...state, rng: peekRng }, peeked);
+      continue;
+    }
+
     // Show Things Unbidden (ba-32): the card-player's opponent must choose
     // and reveal `count` non-environment hazards (any hazard-creature, or a
     // hazard-event lacking the `environment` keyword) from hand and shuffle

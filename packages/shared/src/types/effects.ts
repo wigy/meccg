@@ -3448,6 +3448,11 @@ export interface SauronSideboardFetchAction extends TriggeredActionBase {
  * The engine reveals `min(count, oppHandSize)` random opponent-hand instances via
  * `revealInstances` (they stay in the opponent's hand). Once-per-phase lock is
  * `OrganizationPhaseState.sauronOrgActionUsed`.
+ *
+ * Also usable as an `on-event: self-enters-play` apply on a resource
+ * short-event (resolved in `applyShortEventOnEntersPlay`, no cost): An
+ * Untimely Whisper (le-164) — "Opponent reveals to you 5 random cards at
+ * once from his hand."
  */
 export interface PeekOpponentHandAction extends TriggeredActionBase {
   readonly type: 'peek-opponent-hand';
