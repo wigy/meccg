@@ -5307,7 +5307,7 @@ function resetHandActions(
  * site-type and region-type keys — the override type is tried in
  * addition to the natural type.
  */
-function findCreatureKeyingMatches(
+export function findCreatureKeyingMatches(
   def: CreatureCard,
   mhState: MovementHazardPhaseState,
   state: GameState,

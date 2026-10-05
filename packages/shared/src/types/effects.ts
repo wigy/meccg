@@ -2413,6 +2413,7 @@ export type TriggeredActionType =
   | 'force-attacker-kill-on-resolution'
   | 'force-body-check-on-strike-failure'
   | 'attach-corruption-on-strike-wound'
+  | 'hold-creature-if-strike-not-defeated'
   | 'move'
   | 'place-item-on-character'
   | 'place-source-with-item'
@@ -4011,6 +4012,22 @@ export interface AttachCorruptionOnStrikeWoundAction extends TriggeredActionBase
   readonly type: 'attach-corruption-on-strike-wound';
 }
 
+/**
+ * `hold-creature-if-strike-not-defeated` — Foes Shall Fall (dm-59): a
+ * permanent hazard-event played on the character facing the current strike of
+ * a hazard-creature attack. The card attaches to the character at once and
+ * `CombatState.pendingHeldCreature` records the strike. When the attack ends
+ * (`settlePendingHeldCreature`, `engine/held-creature.ts`): a **defeated**
+ * strike (`result: 'success'`) discards the card; any other outcome places the
+ * attacking creature's card "off to the side" with it
+ * (`CardInPlay.heldCreature`) instead of in the attacker's discard pile. Only
+ * one such card may be played per attack. Pairs with the
+ * {@link HeldCreatureAttackEffect} card effect. Type-only marker.
+ */
+export interface HoldCreatureIfStrikeNotDefeatedAction extends TriggeredActionBase {
+  readonly type: 'hold-creature-if-strike-not-defeated';
+}
+
 /** `transform-site` — override all versions of the bearer's current site's type, optionally with a bespoke attack (Vile Fumes). */
 export interface TransformSiteAction extends TriggeredActionBase {
   readonly type: 'transform-site';
@@ -4241,6 +4258,7 @@ export type TriggeredAction =
   | ForceAttackerKillOnResolutionAction
   | ForceBodyCheckOnStrikeFailureAction
   | AttachCorruptionOnStrikeWoundAction
+  | HoldCreatureIfStrikeNotDefeatedAction
   | TransformSiteAction
   | UntapSiteAction
   | LockCompanyMovementAction
@@ -7697,6 +7715,24 @@ export interface RestoredItemStatsEffect extends EffectBase {
 }
 
 /**
+ * `held-creature-attack` — a hazard attached to a character that keeps a
+ * creature card "off to the side" (`CardInPlay.heldCreature`, placed by
+ * {@link HoldCreatureIfStrikeNotDefeatedAction}). At the start of each
+ * movement/hazard phase of the bearer's company (the order-effects step, after
+ * any Ahunt attacks — `handleOrderEffects`, `mh-steps.ts`), the company faces
+ * an attack from the held creature if the creature is playable on the company
+ * (its normal keying against the company's site path / site). The attack does
+ * not count against the hazard limit. If the attack is defeated the creature
+ * goes to the defender's kill pile as usual and this card is discarded;
+ * otherwise the creature returns off to the side with this card. If this card
+ * leaves play by any path, the held creature is discarded with it
+ * (`sweepOrphanedHeldCreatures`). Used by Foes Shall Fall (dm-59).
+ */
+export interface HeldCreatureAttackEffect extends EffectBase {
+  readonly type: 'held-creature-attack';
+}
+
+/**
  * Declares that a hero-resource-item may hold a defeated hazard creature
  * instead of routing it to the defending player's kill pile for marshalling
  * points (Elven Rope ba-34: "Instead of eliminating a creature the bearer's
@@ -10592,6 +10628,7 @@ export type CardEffect =
   | MultiStrikeOptionEffect
   | RestoredItemStatsEffect
   | CreatureStorageEffect
+  | HeldCreatureAttackEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
   | CombatDiscardOpponentItemEffect

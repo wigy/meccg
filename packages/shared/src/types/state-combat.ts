@@ -42,6 +42,14 @@ export type AttackSource =
        * this instance ID is discarded regardless of the attack outcome.
        */
       readonly reservingCardInstanceId?: CardInstanceId;
+      /**
+       * Set when the creature attacks out of a Foes Shall Fall (dm-59)-style
+       * holder (`held-creature-attack`): the instance ID of the hazard card
+       * holding it. After the attack the creature returns to that holder
+       * unless defeated, in which case the holder is discarded
+       * (`settleHeldCreatureAttack`, `engine/held-creature.ts`).
+       */
+      readonly heldByHostInstanceId?: CardInstanceId;
     }
   | {
       /**
@@ -866,6 +874,20 @@ export interface CombatState {
     readonly targetCharacterId: CardInstanceId;
   };
   /**
+   * Foes Shall Fall (dm-59): set when a permanent-event carrying
+   * `hold-creature-if-strike-not-defeated` was played on the character facing
+   * strike `strikeIndex`. When the attack ends, a defeated strike discards the
+   * host; otherwise the attacking creature (`creatureInstanceId`) is placed
+   * off to the side with it (`settlePendingHeldCreature`,
+   * `engine/held-creature.ts`). At most one per attack.
+   */
+  readonly pendingHeldCreature?: {
+    readonly hostInstanceId: CardInstanceId;
+    readonly targetCharacterId: CardInstanceId;
+    readonly strikeIndex: number;
+    readonly creatureInstanceId: CardInstanceId;
+  };
+  /**
    * True when the creature carries `combat-attacker-chooses-defenders`
    * (e.g. Cave-drake). Determines the post-cancel-window transition:
    * attacker-chooses → `'attacker'` assignment; otherwise → `'defender'`
@@ -1398,6 +1420,12 @@ export type ChainEntryPayload =
        * which fall back to the union of the card's `keyedTo`.
        */
       readonly keyedBy?: CreatureKeyingMatch;
+      /**
+       * Foes Shall Fall (dm-59): the creature attacks out of this held
+       * hazard card rather than from hand; threaded onto
+       * `AttackSource.heldByHostInstanceId`.
+       */
+      readonly heldByHostInstanceId?: CardInstanceId;
     }
   | {
       /**

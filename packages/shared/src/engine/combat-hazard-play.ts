@@ -26,6 +26,7 @@ import { defById, findById, findDuplicationLimitEffect, getCardEffects, getOnEve
 import { isWardedAgainst } from './effects/index.js';
 import { addConstraint } from './pending.js';
 import { parseConstraintScope } from './constraint-kind.js';
+import { holdableAttackCreatureInstanceId } from './held-creature.js';
 
 /**
  * Look up the card definition for the attack source in combat.
@@ -252,6 +253,24 @@ export function handleCombatPlayHazard(
             targetCharacterId: targetCharId,
           },
         };
+      } else if (eff.apply.type === 'hold-creature-if-strike-not-defeated') {
+        // Foes Shall Fall (dm-59): the card is attached above; once the
+        // attack ends `settlePendingHeldCreature` (held-creature.ts) either
+        // discards it (strike defeated) or places the attacking creature's
+        // card off to the side with it.
+        const creatureInstanceId = holdableAttackCreatureInstanceId(workingCombat);
+        if (creatureInstanceId) {
+          logDetail(`Combat play-hazard: "${def.name}" will hold the attacking creature if the strike against ${targetCharId as string} is not defeated`);
+          workingCombat = {
+            ...workingCombat,
+            pendingHeldCreature: {
+              hostInstanceId: handCard.instanceId,
+              targetCharacterId: targetCharId,
+              strikeIndex: workingCombat.currentStrikeIndex,
+              creatureInstanceId,
+            },
+          };
+        }
       } else if (eff.apply.type === 'force-attacker-kill-on-resolution') {
         // Fury of the Iron Crown (tw-492): schedule the forced kill /
         // named-card offer for `finalizeCombat` to apply once this attack

@@ -40,6 +40,9 @@ import { isDetainmentAttack } from './detainment.js';
 import { manifestIdOf } from './manifestations.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayPermanentEvent } from './reducer-events.js';
+import { initiateHeldCreatureCombat } from './chain-reducer.js';
+import { nextHeldCreatureAttack, liftHeldCreature, restoreHeldCreature } from './held-creature.js';
+import { findCreatureKeyingMatches } from './legal-actions/movement-hazard.js';
 
 /**
  * Snapshot the hazard limit and immediately process order-effects,
@@ -1494,6 +1497,10 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
   const matchingAhunts = collectMatchingAhuntAttacks(state, mhState);
 
   if (mhState.ahuntAttacksResolved >= matchingAhunts.length) {
+    // Foes Shall Fall (dm-59): after the Ahunts, the company faces an attack
+    // from each creature held off to the side with one of its characters.
+    const heldAttack = startNextHeldCreatureAttack(state, mhState);
+    if (heldAttack) return heldAttack;
     // All ahunt attacks for this company are resolved. Evaluate any ahunt
     // group rewards (e.g. Mordor in Arms dm-72) before continuing.
     const rewardedState = applyAhuntGroupRewards(state, mhState, matchingAhunts);
@@ -1529,6 +1536,64 @@ export function handleOrderEffects(state: GameState, mhState: MovementHazardPhas
       },
     },
   };
+}
+
+/**
+ * Start-of-M/H recurring attack of a creature held off to the side with a
+ * `held-creature-attack` hazard (Foes Shall Fall dm-59) borne by a character
+ * in the active company: "Target character's company faces an attack from
+ * creature at the start of each movement/hazard phase if creature is
+ * playable." Each holder is handled once per company M/H phase (tracked in
+ * `heldCreatureAttacksFaced`). "Playable" is the creature's ordinary keying
+ * against this company's site path and site (`findCreatureKeyingMatches`, the
+ * same check a play from hand uses); an unplayable creature simply does not
+ * attack this phase and stays with its holder. Returns null once no holder
+ * remains, so the caller proceeds to the Ahunt rewards / draw step. After the
+ * combat ends, `autoAdvanceMHOrderEffects` re-enters `handleOrderEffects`.
+ */
+function startNextHeldCreatureAttack(state: GameState, mhState: MovementHazardPhaseState): ReducerResult | null {
+  let working = state;
+  let workingMh = mhState;
+  for (;;) {
+    const next = nextHeldCreatureAttack(working, workingMh);
+    if (!next) {
+      return workingMh === mhState ? null : handleOrderEffectsAfterHeld(working, workingMh);
+    }
+    workingMh = {
+      ...workingMh,
+      heldCreatureAttacksFaced: [...(workingMh.heldCreatureAttacksFaced ?? []), next.host.instanceId],
+    };
+    const creatureDef = defById(working, next.creature.definitionId);
+    const creatureName = creatureDef?.name ?? (next.creature.definitionId as string);
+    const activeIdx = getPlayerIndex(working, working.activePlayer!);
+    const company = working.players[activeIdx].companies[workingMh.activeCompanyIndex];
+    const matches = creatureDef && creatureDef.cardType === 'hazard-creature' && company
+      ? findCreatureKeyingMatches(creatureDef, workingMh, working, company)
+      : [];
+    if (matches.length === 0) {
+      logDetail(`Held creature "${creatureName}" (with ${cardName(working, next.host.definitionId)}) is not playable on company ${company ? (company.id as string) : '?'} — no attack this phase`);
+      continue;
+    }
+    logDetail(`Held creature "${creatureName}" (with ${cardName(working, next.host.definitionId)}) attacks company ${company.id as string} at the start of its movement/hazard phase (keyed by ${matches[0].method} ${String(matches[0].value)})`);
+    const lifted = liftHeldCreature({ ...working, phaseState: workingMh }, next.host.instanceId);
+    const started = initiateHeldCreatureCombat(lifted, next.creature, next.host.instanceId, matches[0]);
+    if (!started.combat) {
+      // The attack was canceled outright on initiation (e.g. Hidden Haven):
+      // never defeated, so the creature stays with its holder.
+      logDetail(`Held creature "${creatureName}": attack did not start — returning it to its holder`);
+      working = restoreHeldCreature(started, next.host.instanceId, next.creature);
+      continue;
+    }
+    return { state: { ...started, phaseState: workingMh } };
+  }
+}
+
+/**
+ * Continue the order-effects step with the held-creature bookkeeping carried
+ * forward when every remaining holder was skipped without an attack.
+ */
+function handleOrderEffectsAfterHeld(state: GameState, mhState: MovementHazardPhaseState): ReducerResult {
+  return handleOrderEffects({ ...state, phaseState: mhState }, mhState);
 }
 
 /**

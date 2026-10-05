@@ -32,6 +32,7 @@ import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolut
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveStrikeCore, nextStrikePhase, advanceStrikeOrFinalize } from './combat-strike.js';
 import { continueOrDisposeCardTriggeredAttack, recordHazardEncountered, finalizeCombat, completeCombat } from './combat-finalize.js';
+import { settlePendingHeldCreature, settleHeldCreatureAttack } from './held-creature.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
 import { cvccSides } from './cvcc-sides.js';
@@ -749,6 +750,10 @@ function endCanceledCombat(
   combat: CombatState,
 ): GameState {
   let s = continueOrDisposeCardTriggeredAttack(stateWithCombatCleared, combat, true);
+  // Foes Shall Fall (dm-59): a canceled attack is never defeated — a pending
+  // holder keeps the creature, and a held creature returns to its holder.
+  s = settlePendingHeldCreature(s, combat);
+  s = settleHeldCreatureAttack(s, combat, false);
   if (combat.attackSource.type === 'great-hunt-attack' && combat.attackSource.continuation === 'reveal') {
     s = advanceGreatHuntReveal(s, combat.attackSource.greatHuntInstanceId);
   }

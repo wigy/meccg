@@ -332,6 +332,30 @@ export function attachHazardToChar(
   return { ...state, players: [p0, p1] as unknown as typeof state.players };
 }
 
+/**
+ * Attach a hazard owned by the opponent of `playerIdx` to a character, with a
+ * freshly minted creature card (`creatureDefId`) held off to the side with it
+ * (`CardInPlay.heldCreature` — Foes Shall Fall dm-59). Returns the state and
+ * both instance IDs.
+ */
+export function attachHolderWithCreature(
+  state: GameState,
+  playerIdx: number,
+  charDefId: CardDefinitionId,
+  hostDefId: CardDefinitionId,
+  creatureDefId: CardDefinitionId,
+): { state: GameState; hostId: CardInstanceId; creatureId: CardInstanceId } {
+  const charId = findCharInstanceId(state, playerIdx, charDefId);
+  const hostId = mint();
+  const creatureId = mint();
+  const char = state.players[playerIdx].characters[charId];
+  const host = { instanceId: hostId, definitionId: hostDefId, status: CardStatus.Untapped, heldCreature: { instanceId: creatureId, definitionId: creatureDefId } };
+  const updatedChar = { ...char, hazards: [...char.hazards, host] };
+  const updatedPlayer = { ...state.players[playerIdx], characters: { ...state.players[playerIdx].characters, [charId as string]: updatedChar } };
+  const players = playerIdx === 0 ? [updatedPlayer, state.players[1]] : [state.players[0], updatedPlayer];
+  return { state: { ...state, players: players as unknown as typeof state.players }, hostId, creatureId };
+}
+
 /** Attach an ally card to a character and return the updated GameState. */
 export function attachAllyToChar(
   state: GameState,

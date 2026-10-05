@@ -4061,6 +4061,32 @@ function findAttackBeginsCorruptionEffect(creatureDef: CreatureCard): { modifier
  * at play time. Combat will determine whether it moves to the defending
  * player's marshalling point pile (all strikes defeated) or stays in discard.
  */
+/**
+ * Foes Shall Fall (dm-59): start the attack of a creature held off to the
+ * side with a `held-creature-attack` hazard against the active M/H company,
+ * exactly as though the creature had just resolved from the chain keyed by
+ * `keyedBy` — so every printed combat rule of the creature applies. The
+ * caller has already lifted `creature` off its holder; the attack source
+ * records the holder so the creature returns to it afterwards
+ * (`settleHeldCreatureAttack`). Not a play: nothing counts against the
+ * hazard limit.
+ */
+export function initiateHeldCreatureCombat(
+  state: GameState,
+  creature: CardInstance,
+  hostInstanceId: CardInstanceId,
+  keyedBy: import('../types/actions-movement-hazard.js').CreatureKeyingMatch | undefined,
+): GameState {
+  return initiateCreatureCombat(state, {
+    index: 0,
+    declaredBy: hazardPlayer(state).id,
+    card: creature,
+    payload: { type: 'creature', heldByHostInstanceId: hostInstanceId, ...(keyedBy ? { keyedBy } : {}) },
+    resolved: true,
+    negated: false,
+  });
+}
+
 function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState {
   const creatureDef = state.cardPool[entry.card?.definitionId as CardDefinitionId] as CreatureCard | undefined;
   if (!creatureDef || creatureDef.cardType !== 'hazard-creature') {
@@ -4219,6 +4245,9 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   const reservingCardInstanceId = entry.payload.type === 'creature'
     ? entry.payload.reservingCardInstanceId
     : undefined;
+  const heldByHostInstanceId = entry.payload.type === 'creature'
+    ? entry.payload.heldByHostInstanceId
+    : undefined;
   const attackSource = entry.payload.type === 'nazgul-permanent-event-attack'
     ? {
         type: 'nazgul-permanent-event-attack' as const,
@@ -4232,6 +4261,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
           type: 'creature' as const,
           instanceId: entry.card!.instanceId,
           ...(reservingCardInstanceId ? { reservingCardInstanceId } : {}),
+          ...(heldByHostInstanceId ? { heldByHostInstanceId } : {}),
         };
 
   const inPlayNames = buildInPlayNames(state);

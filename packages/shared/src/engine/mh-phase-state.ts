@@ -68,6 +68,7 @@ function freshCompanyFields() {
     hazardLimitRaceGrantsUsed: [],
     ahuntAttacksResolved: 0,
     ahuntGroupOutcomes: [],
+    heldCreatureAttacksFaced: [],
   };
 }
 
