@@ -34,6 +34,7 @@ import { Phase } from '../../types/state-phases.js';
 import type { PlayTargetEffect, PlayOptionEffect, Condition, WithdrawAgentEffect, GrantActionEffect, RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { logDetail, logHeading } from './log.js';
+import { hasSiteTransformModes, siteTransformShortEventActions } from './site-transform.js';
 import { notPlayable } from './action-builders.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, checkConditionalEffects, resolveStatModifiers, getEffectiveSkills, normalizeCreatureRace } from '../effects/index.js';
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
@@ -4661,6 +4662,13 @@ export function playResourceShortEventActions(
         actions.push(notPlayable(playerId, handCard.instanceId, `${def.name} requires ${requiredName} in play`));
         continue;
       }
+    }
+
+    // Site-transform / automatic-attack strike-halving alternatives (Quiet
+    // Lands tw-309): one action per concrete choice across every mode.
+    if (hasSiteTransformModes(def)) {
+      actions.push(...siteTransformShortEventActions(state, player, playerId, handCard, def));
+      continue;
     }
 
     // Cards declaring `play-option` DSL effects (e.g. Halfling Strength):
