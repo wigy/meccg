@@ -1537,10 +1537,15 @@ export class GameSession {
     this.updateIdleTimer();
   }
 
+  /** Whether the seat with this name is AI-controlled. */
+  private isAiName(name: string): boolean {
+    return this.aiPlayers.has(name.toLowerCase()) || /^ai-/i.test(name);
+  }
+
   /** Whether any connected player or pending join is a human. */
   private hasConnectedHuman(): boolean {
     for (const { name } of this.players.values()) {
-      if (!this.aiPlayers.has(name.toLowerCase()) && !/^ai-/i.test(name)) return true;
+      if (!this.isAiName(name)) return true;
     }
     for (const [name, p] of this.pending.entries()) {
       if (!(p.join.ai ?? /^ai-/i.test(name))) return true;
@@ -1876,7 +1881,10 @@ export class GameSession {
       // engine's legal-action set: auto-resolution,
       // AI clients and the sim harness all read the projected engine set
       // and must never see a game-ending option only a human should pick.
-      view = { ...view, legalActions: stampActionIds(withMetaActions(this.state, playerId, view.legalActions)) };
+      // An AI opponent never answers the handshake, so a human facing one is
+      // not offered a proposal that would stay pending forever.
+      const opponentIsAi = this.state.players.some(p => p.id !== playerId && this.isAiName(p.name));
+      view = { ...view, legalActions: stampActionIds(withMetaActions(this.state, playerId, view.legalActions, { opponentIsAi })) };
       if (this.tutorial && playerId === this.tutorial.humanId) {
         // Gate the human to the current script beat and attach progress.
         // The membership map below is built from the gated list, so
