@@ -6,13 +6,13 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 348 | 301 | 47 | 86.5% |
+| 349 | 302 | 47 | 86.5% |
 
 ## Section Breakdown
 
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
-| 00 | [Engine](00-engine/) | 17 | 17 | 100.0% |
+| 00 | [Engine](00-engine/) | 18 | 18 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 62 | 61 | 98.4% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
@@ -48,6 +48,7 @@
 | — | Engine | [Concede](concede.test.ts) | ☑ |
 | — | Engine | [Early Council By Agreement](early-council-by-agreement.test.ts) | ☑ |
 | — | Engine | [Move Primitive](move-primitive.test.ts) | ☑ |
+| — | Engine | [Withdraw Support](withdraw-support.test.ts) | ☑ |
 | — | Deck Construction & Setup | [Challenge Deck S Beornings](01-deck-construction/challenge-deck-s-beornings.test.ts) | ☑ |
 | — | Deck Construction & Setup | [Challenge Decks Valid](01-deck-construction/challenge-decks-valid.test.ts) | ☑ |
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☑ |

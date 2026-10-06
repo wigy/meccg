@@ -1114,7 +1114,7 @@
 | tw-237 | Fair Travels in Wilderness | — | 11 | ☑ |
 | tw-238 | Far-sight | — | 10 | ☑ |
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
-| tw-240 | Fellowship | — | 16 | ☑ |
+| tw-240 | Fellowship | — | 17 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |

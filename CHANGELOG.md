@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.185.0 — 2026-10-06
+
+Support Withdrawn, New Companies Formed
+
+### Game Engine
+
+- Players may withdraw a support tap (support-strike or support-corruption-check, including Free Council and item boosts such as Phial of Galadriel) and untap the supporter before any other action happens; offered only as a human meta-action, never to AI agents (#3289)
+- A general-influence character played at a haven that already holds a company may now form its own new company there instead of always joining the existing one (CoE 2.II.2.2.1) (#3288)
+
+### Web Client
+
+- A "withdraw support" banner and a clickable badge on the tapped supporter let players take back a support tap before the roll (#3289)
+- Character plays at an occupied haven offer a "New company at <haven>" target (#3288)
+
+### AI
+
+- The modular AI now splits companies the engine will not let move (two leaders, or a Ringwraith mixed with non-Ringwraiths) instead of staying stranded at their site (#3287)
+
+### Infrastructure
+
+- Project status and rules test README metrics refreshed
+
 ## 0.184.0 — 2026-10-06
 
 Foes Shall Fall, Long Sleep Awakens
