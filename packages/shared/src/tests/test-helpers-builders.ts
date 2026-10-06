@@ -19,16 +19,16 @@ import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { Phase, Alignment, RegionType, SiteType, computeLegalActions } from '../index.js';
 import { MovementType, Race } from '../types/common.js';
-import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind } from '../index.js';
-import { addConstraint } from '../engine/pending.js';
+import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind, FreeCouncilPhaseState } from '../index.js';
+import { addConstraint, enqueueCorruptionCheck as enqueueEngineCorruptionCheck } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { CollectedEffect } from '../engine/effects/index.js';
-import { ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR, GANDALF, GLAMDRING, STING, THE_MITHRIL_COAT, DAGGER_OF_WESTERNESSE, HAUBERK_OF_BRIGHT_MAIL, CAVE_DRAKE, ORC_WARBAND, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG, SUN, EYE_OF_SAURON, AN_UNEXPECTED_OUTPOST, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, HENNETH_ANNUN, EDHELLOND, ISENGARD, BREE } from '../index.js';
+import { ARAGORN, BILBO, FRODO, LEGOLAS, GIMLI, FARAMIR, GANDALF, GLAMDRING, STING, THE_MITHRIL_COAT, DAGGER_OF_WESTERNESSE, HAUBERK_OF_BRIGHT_MAIL, CAVE_DRAKE, ORC_WARBAND, ORC_LIEUTENANT, ORC_PATROL, BARROW_WIGHT, BERT_BURAT, TOM_TUMA, WILLIAM_WULUAG, GWAIHIR, SUN, EYE_OF_SAURON, AN_UNEXPECTED_OUTPOST, RIVENDELL, LORIEN, MORIA, MINAS_TIRITH, MOUNT_DOOM, HENNETH_ANNUN, EDHELLOND, ISENGARD, BREE } from '../index.js';
 import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test-helpers-constants.js';
-import { companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
+import { charIdAt, companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 import { getCharacter } from './test-helpers-assertions.js';
-import { dispatch, executeAction, resolveChain, runActions, setupAutoAttackStep } from './test-helpers-dispatch.js';
-import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, attachHolderWithCreature, setAllyStatus, setCharStatus } from './test-helpers-core.js';
+import { dispatch, enqueueCorruptionCheck, executeAction, resolveChain, runActions, setupAutoAttackStep } from './test-helpers-dispatch.js';
+import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, attachItemToChar, attachHolderWithCreature, setAllyStatus, setCharStatus } from './test-helpers-core.js';
 import type { CharacterEntry } from './test-helpers-core.js';
 
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
@@ -3532,4 +3532,134 @@ export function buildAlignedOrgState(opts: {
   });
   for (const card of opts.stageCards ?? []) state = addCardInPlay(state, RESOURCE_PLAYER, card);
   return recomputeDerived(state);
+}
+
+/**
+ * Withdraw-support strike scenario: an Orc-lieutenant attack on Aragorn
+ * (bearing the ally Gwaihir), Bilbo and Legolas at Moria, its single strike
+ * assigned to Bilbo and now in resolve-strike — so Aragorn, Legolas and
+ * Gwaihir are all available to tap in support.
+ */
+export function buildSupportStrikeScenario(): {
+  state: GameState;
+  aragorn: CardInstanceId;
+  bilbo: CardInstanceId;
+  legolas: CardInstanceId;
+  gwaihir: CardInstanceId;
+} {
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN, BILBO, LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_LIEUTENANT], siteDeck: [RIVENDELL] },
+    ],
+  });
+  const withAlly = attachAllyToChar(base, RESOURCE_PLAYER, ARAGORN, GWAIHIR);
+  const gameState: GameState = {
+    ...withAlly,
+    phaseState: makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    }),
+  };
+  const afterChain = resolveChain(dispatch(gameState, {
+    type: 'play-hazard',
+    player: PLAYER_2,
+    cardInstanceId: handCardId(gameState, HAZARD_PLAYER),
+    targetCompanyId: companyIdAt(gameState, RESOURCE_PLAYER),
+    keyedBy: { method: 'site-type', value: 'ruins-and-lairs' },
+  }));
+  const aragorn = charIdAt(afterChain, RESOURCE_PLAYER);
+  const bilbo = charIdAt(afterChain, RESOURCE_PLAYER, 0, 1);
+  const legolas = charIdAt(afterChain, RESOURCE_PLAYER, 0, 2);
+  const gwaihir = afterChain.players[RESOURCE_PLAYER].characters[aragorn].allies[0].instanceId;
+  const state = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: bilbo, tapped: false });
+  expect(state.combat?.phase).toBe('resolve-strike');
+  return { state, aragorn, bilbo, legolas, gwaihir };
+}
+
+/**
+ * Withdraw-support Free Council scenario: Bilbo and Aragorn share a company,
+ * a corruption check has been declared for Bilbo (`pendingCheck`), so
+ * Aragorn may tap to support it.
+ */
+export function buildSupportFreeCouncilScenario(): { state: GameState; bilbo: CardInstanceId; aragorn: CardInstanceId } {
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.FreeCouncil,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [BILBO, ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+  const [bilbo, aragorn] = base.players[RESOURCE_PLAYER].companies[0].characters;
+  const fcState: FreeCouncilPhaseState = {
+    phase: Phase.FreeCouncil,
+    tiebreaker: false,
+    step: 'corruption-checks',
+    currentPlayer: PLAYER_1,
+    checkedCharacters: [],
+    firstPlayerDone: false,
+    pendingCheck: {
+      characterId: bilbo,
+      corruptionPoints: 0,
+      corruptionModifier: 4,
+      possessions: [],
+      need: -3,
+      explanation: 'test',
+      supportCount: 0,
+    },
+  };
+  return { state: { ...base, phaseState: fcState }, bilbo, aragorn };
+}
+
+/**
+ * Withdraw-support pending-check scenario: an organization-phase corruption
+ * check queued for Bilbo with `allowSupport` (as Ren the Unclean tw-83
+ * queues it), so his company-mate Aragorn may tap for +1.
+ */
+export function buildSupportPendingCheckScenario(): { state: GameState; bilbo: CardInstanceId; aragorn: CardInstanceId } {
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.Organization,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [BILBO, ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+  const [bilbo, aragorn] = base.players[RESOURCE_PLAYER].companies[0].characters;
+  const state = enqueueEngineCorruptionCheck(base, {
+    source: 'support-test-source' as CardInstanceId,
+    actor: PLAYER_1,
+    scope: { kind: 'phase', phase: Phase.Organization },
+    characterId: bilbo,
+    reason: 'test',
+    allowSupport: true,
+  });
+  return { state, bilbo, aragorn };
+}
+
+/**
+ * Withdraw-support item-boost scenario: Aragorn bears `itemDefId` (a
+ * `corruption-check-boost` item such as Phial of Galadriel dm-176) and has an
+ * organization-phase corruption check queued, so the item may tap to boost it.
+ */
+export function buildItemBoostCheckScenario(itemDefId: CardDefinitionId): { state: GameState; aragorn: CardInstanceId; item: CardInstanceId } {
+  const base = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.Organization,
+    players: [
+      { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+    ],
+  });
+  const withItem = attachItemToChar(base, RESOURCE_PLAYER, ARAGORN, itemDefId);
+  const aragorn = findCharInstanceId(withItem, RESOURCE_PLAYER, ARAGORN);
+  const item = withItem.players[RESOURCE_PLAYER].characters[aragorn].items[0].instanceId;
+  const state = enqueueCorruptionCheck(withItem, PLAYER_1, aragorn);
+  return { state, aragorn, item };
 }

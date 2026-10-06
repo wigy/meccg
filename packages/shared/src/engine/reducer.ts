@@ -143,6 +143,7 @@ import { handleEndOfTurn, reshuffleCardFromHand, handleEarlyCouncilAction } from
 import { applyBannedVsBalrogSwap } from './balrog-banned-swap.js';
 import { handleFreeCouncil, endGame } from './reducer-free-council.js';
 import { handleCombatAction, COMBAT_ACTION_TYPES } from './reducer-combat.js';
+import { handleWithdrawSupport, updateWithdrawableSupport } from './withdraw-support.js';
 
 /**
  * Applies a single game action to the current state.
@@ -160,7 +161,8 @@ import { handleCombatAction, COMBAT_ACTION_TYPES } from './reducer-combat.js';
 export function reduce(state: GameState, action: GameAction): ReducerResult {
   const result = reduceAction(state, action);
   if (result.error) return result;
-  return { ...result, state: recordCardPlayed(state, result.state, action) };
+  const next = updateWithdrawableSupport(state, recordCardPlayed(state, result.state, action), action);
+  return { ...result, state: next };
 }
 
 /** Dispatches `action` to the handler for the current sub-state or phase. */
@@ -195,6 +197,16 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
   // opponent can answer a proposal from any sub-state without disturbing it.
   if (action.type === 'propose-early-council' || action.type === 'accept-early-council' || action.type === 'decline-early-council') {
     const result = handleEarlyCouncilAction(state, action);
+    if (result.error) return result;
+    const recomputed = postReduce(result.state, state);
+    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+  }
+
+  // Taking back a support tap (see withdraw-support.ts) — a human-only
+  // meta-action valid in whatever sub-state the support was given in, so it
+  // is handled ahead of chain/combat/pending dispatch like concede.
+  if (action.type === 'withdraw-support') {
+    const result = handleWithdrawSupport(state, action);
     if (result.error) return result;
     const recomputed = postReduce(result.state, state);
     return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };

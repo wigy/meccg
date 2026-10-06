@@ -16,7 +16,7 @@
 
 import { expect } from 'vitest';
 import { computeLegalActions, computePlayerFacingActions } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, CharacterCard, ActivateGrantedAction, ActiveConstraint, CompanyId, OnGuardCard, MetaActionOptions } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, CharacterCard, ActivateGrantedAction, ActiveConstraint, CompanyId, OnGuardCard, MetaActionOptions, WithdrawSupportAction, ResolveStrikeAction, CorruptionCheckAction } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import { pool } from './test-helpers-constants.js';
 import type { PileKey } from './test-helpers-constants.js';
@@ -437,4 +437,30 @@ export function viableEarlyCouncilActionTypes(state: GameState, playerId: Player
     .filter(a => a.viable && a.action.type.endsWith('-early-council'))
     .map(a => a.action.type)
     .sort();
+}
+
+/**
+ * The viable `withdraw-support` meta-actions a human seat is offered (see
+ * `withdraw-support.ts`). Read from {@link computePlayerFacingActions}, since
+ * the action is never part of `computeLegalActions`.
+ */
+export function withdrawSupportOffers(state: GameState, playerId: PlayerId): WithdrawSupportAction[] {
+  return computePlayerFacingActions(state, playerId)
+    .filter(ea => ea.viable && ea.action.type === 'withdraw-support')
+    .map(ea => ea.action as WithdrawSupportAction);
+}
+
+/** The `need` of the player's tap-to-fight `resolve-strike` action; fails the test if none is offered. */
+export function tapToFightNeed(state: GameState, playerId: PlayerId): number {
+  const resolve = computeLegalActions(state, playerId)
+    .find(ea => ea.action.type === 'resolve-strike' && ea.action.tapToFight);
+  expect(resolve).toBeDefined();
+  return (resolve!.action as ResolveStrikeAction).need;
+}
+
+/** The `corruptionModifier` of the player's first offered `corruption-check` roll; fails the test if none is offered. */
+export function corruptionRollModifier(state: GameState, playerId: PlayerId): number {
+  const roll = computeLegalActions(state, playerId).find(ea => ea.action.type === 'corruption-check');
+  expect(roll).toBeDefined();
+  return (roll!.action as CorruptionCheckAction).corruptionModifier;
 }

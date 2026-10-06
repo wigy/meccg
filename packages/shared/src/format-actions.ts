@@ -579,6 +579,8 @@ export function describeAction(
       return action.supportingItemInstanceId !== undefined
         ? `Tap ${instName(action.supportingItemInstanceId)} for CC support`
         : `Tap ${instName(action.supportingCharacterId!)} for CC support (+1)`;
+    case 'withdraw-support':
+      return `Withdraw ${instName(action.supportSourceId)}'s support (untap)`;
     case 'resolve-dice-check':
       return action.explanation;
     case 'flattery-attempt':

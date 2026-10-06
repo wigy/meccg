@@ -39,6 +39,7 @@ import { bannedVsBalrogHandCards } from '../balrog-banned-swap.js';
 import { applyLocationMagicRestriction } from '../location-magic-restriction.js';
 import { applyConstraints } from './pending.js';
 import { resolutionLegalActions } from '../pending-handlers.js';
+import { withdrawSupportActions } from '../withdraw-support.js';
 
 /**
  * Computes legal actions when a pending card effect is being resolved.
@@ -416,18 +417,21 @@ export interface MetaActionOptions {
 }
 
 /**
- * Action types that are player-facing meta-actions: `concede` and the
- * agreed-early-Free-Council handshake. They are layered onto a human seat's
+ * Action types that are player-facing meta-actions: `concede`, the
+ * agreed-early-Free-Council handshake and `withdraw-support` (taking back a
+ * support tap before the roll, see `withdraw-support.ts`). They are layered onto a human seat's
  * action set by {@link withMetaActions} and are never part of
  * {@link computeLegalActions}. Autonomous agents, auto-pass and pseudo-AI
  * auto-pick must drop them (see {@link isMetaAction}) — none of them may end
- * or negotiate the end of a game on a human's behalf.
+ * or negotiate the end of a game on a human's behalf, and none should
+ * second-guess a support tap.
  */
 export const META_ACTION_TYPES: ReadonlySet<string> = new Set([
   'concede',
   'propose-early-council',
   'accept-early-council',
   'decline-early-council',
+  'withdraw-support',
 ]);
 
 /** True if `type` is a human-only meta-action (see {@link META_ACTION_TYPES}). */
@@ -437,8 +441,10 @@ export function isMetaAction(type: string): boolean {
 
 /**
  * Appends every player-facing meta-action to an already-computed legal-action
- * set: `concede` (see {@link withConcedeAction}) plus the agreed early Free
- * Council handshake while {@link canNegotiateEarlyCouncil} holds —
+ * set: `concede` (see {@link withConcedeAction}), one `withdraw-support` per
+ * support tap the seat may still take back (see `withdrawSupportActions`),
+ * plus the agreed early Free Council handshake while
+ * {@link canNegotiateEarlyCouncil} holds —
  *
  * - no proposal pending: `propose-early-council` for either seat, unless
  *   the opponent is an AI (`options.opponentIsAi`), which cannot answer;
@@ -451,6 +457,7 @@ export function isMetaAction(type: string): boolean {
  */
 export function withMetaActions(state: GameState, playerId: PlayerId, evaluated: readonly EvaluatedAction[], options: MetaActionOptions = {}): EvaluatedAction[] {
   const result = withConcedeAction(state, playerId, evaluated);
+  result.push(...withdrawSupportActions(state, playerId));
   if (!canNegotiateEarlyCouncil(state)) return result;
   const proposer = state.earlyCouncilProposal ?? null;
   if (proposer === null) {
