@@ -38,7 +38,7 @@ import type { PlayerState } from './state-player.js';
 import type { PhaseState } from './state-phases.js';
 import { Phase, SetupStep } from './state-phases.js';
 import type { CombatState, ChainState, PendingEffect } from './state-combat.js';
-import type { PendingResolution, ActiveConstraint } from './pending.js';
+import type { PendingResolution, ActiveConstraint, ConstraintId } from './pending.js';
 
 // ---- Hazard Hosts (Rule 8.35 — Prisoners) ----
 
@@ -88,6 +88,19 @@ export interface RngState {
 }
 
 // ---- Full Game State ----
+
+/**
+ * A support tap that may still be withdrawn (see `GameState.withdrawableSupport`
+ * and `WithdrawSupportAction`). Records how the +bonus was banked so the
+ * withdrawal can reverse exactly that bookkeeping.
+ */
+export type WithdrawableSupport =
+  /** `support-strike`: +1 on the strike at `strikeIndex` (its `supportCount`). */
+  | { readonly kind: 'strike'; readonly player: PlayerId; readonly source: CardInstanceId; readonly strikeIndex: number }
+  /** Free Council character support: +1 on `pendingCheck.supportCount`. */
+  | { readonly kind: 'fc-check'; readonly player: PlayerId; readonly source: CardInstanceId }
+  /** Support banked as a one-shot corruption `check-modifier` constraint (pending checks, item boosts). */
+  | { readonly kind: 'check-modifier'; readonly player: PlayerId; readonly source: CardInstanceId; readonly constraintId: ConstraintId };
 
 /**
  * The complete, authoritative game state maintained by the server.
@@ -232,6 +245,14 @@ export interface GameState {
    * existed load as "no proposal".
    */
   readonly earlyCouncilProposal?: PlayerId | null;
+  /**
+   * Support taps that may still be taken back with a `withdraw-support`
+   * action. Each support tap appends an entry; any other action clears the
+   * list (see `reduce`), so a support is only withdrawable until anything
+   * else happens — the roll it was meant for, a card play, the opponent
+   * acting. Optional so games saved before this field existed load as empty.
+   */
+  readonly withdrawableSupport?: readonly WithdrawableSupport[];
   /**
    * Dev-only: when set, the next dice roll will produce this total (2-12)
    * instead of using the RNG. The individual dice are randomly split to

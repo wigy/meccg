@@ -381,6 +381,23 @@ export interface DeclineEarlyCouncilAction {
   readonly player: PlayerId;
 }
 
+/**
+ * Take back a support tap made since the last other action: untap the
+ * supporting character, ally or item and remove the bonus it added to the
+ * pending strike or corruption check roll. A human-only meta-action (never
+ * part of `computeLegalActions`), offered for each entry of
+ * `GameState.withdrawableSupport` — i.e. only until anything else happens,
+ * so a mistaken or regretted support can be undone before the roll without
+ * reacting to new information.
+ */
+export interface WithdrawSupportAction {
+  readonly type: 'withdraw-support';
+  /** The player who tapped the supporter. */
+  readonly player: PlayerId;
+  /** Character, ally or item instance that previously tapped to support. */
+  readonly supportSourceId: CardInstanceId;
+}
+
 // ---- Chain of Effects actions ----
 
 /**

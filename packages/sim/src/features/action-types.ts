@@ -252,6 +252,8 @@ export const ACTION_TYPES: readonly string[] = [
   'decline-early-council',
   // Added by certifying td-123 (Here, There, or Yonder).
   'play-ally-placement-offer',
+  // Human-only meta-action: take back a support tap before the roll.
+  'withdraw-support',
 ];
 
 /** Fast index lookup: action type string → 1-based index (0 = unknown). */

@@ -19,6 +19,7 @@ import { renderState, renderDraft, renderMHInfo, renderSiteInfo, renderFreeCounc
 import { renderCompanyViews, resetCompanyViews } from './company-view.js';
 import { clearTutorialPanel, renderTutorialPanel, setExitTutorial } from './tutorial-panel.js';
 import { renderEarlyCouncil } from './early-council.js';
+import { renderWithdrawSupport } from './withdraw-support.js';
 import { rollDice, clearDice, waitForDice } from './dice.js';
 import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
@@ -544,6 +545,12 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   renderCompanyViews(msg.view, cardPool, sendAction);
   renderGameOverView(msg.view, cardPool);
   renderChainPanel(msg.view, cardPool, sendAction);
+  // After the board and combat overlay so the "↶" badges find the supporters' cards.
+  renderWithdrawSupport(msg.view, (id) => {
+    const defId = appState.lastInstanceLookup(id);
+    const def = defId ? cardPool[defId as string] : undefined;
+    return (def as { name?: string } | undefined)?.name ?? (id as string);
+  }, sendAction);
   // Animate cards from old positions to new positions
   animateFromSnapshot();
   // The full state is now rendered — reveal the board.
