@@ -15,7 +15,7 @@
  * | # | Rule                                                  | Status      | Notes                                                          |
  * |---|-------------------------------------------------------|-------------|----------------------------------------------------------------|
  * | 1 | Force moving company (≥2 Wilderness, no ranger) home  | IMPLEMENTED | rule 5.31 force-return-to-origin enforced in endCompanyMH      |
- * | 2 | Doors of Night: tap each non-Haven/non-Darkhaven site | IMPLEMENTED | `tap-sites-in-play` effect, applied on resolution (chain-reducer.ts) |
+ * | 2 | Doors of Night: tap each non-Haven/non-Darkhaven site | IMPLEMENTED | `tap-sites-in-play` effect, applied on resolution to current and new sites |
  * |   | in play with ≥2 Wilderness in its site path           |             |                                                                |
  * | 3 | Cannot be duplicated                                  | IMPLEMENTED | duplication-limit scope game max 1                             |
  *
@@ -201,6 +201,30 @@ describe('Long Winter (le-117)', () => {
     // The ≥2-Wilderness shadow-hold is tapped; the Haven is left untapped.
     expect(resolved.players[RESOURCE_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Tapped);
     expect(resolved.players[HAZARD_PLAYER].companies[0].currentSite?.status).toBe(CardStatus.Untapped);
+  });
+
+  test('Doors of Night in play: a moving company\'s new site (≥2 Wildernesses) is tapped on resolution', () => {
+    // Bug report (game muwm6170-056qc9): P1 moves Rivendell → Moria; Long
+    // Winter resolves with Doors of Night in play. Moria is already in play
+    // as the new site, so it is tapped and the company arrives at a tapped
+    // site. Rivendell (a Haven) is left untapped.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, destinationSite: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    expect(base.players[RESOURCE_PLAYER].companies[0].destinationSite?.status).toBe(CardStatus.Untapped);
+
+    const withDon = addCardInPlay({ ...base, phaseState: makeMHState() }, HAZARD_PLAYER, DOORS_OF_NIGHT);
+    const chained = initiateChain(withDon, PLAYER_2, { instanceId: mint(), definitionId: LONG_WINTER }, { type: 'long-event' });
+    const resolved = resolveChain(chained);
+
+    const company = resolved.players[RESOURCE_PLAYER].companies[0];
+    expect(company.destinationSite?.status).toBe(CardStatus.Tapped);
+    expect(company.currentSite?.status).toBe(CardStatus.Untapped);
   });
 
   test('without Doors of Night, the site-tap clause does not fire', () => {

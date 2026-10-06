@@ -12,7 +12,7 @@
  * helpers from this module to push entries onto the chain stack.
  */
 
-import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction } from '../index.js';
+import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardInstanceId, CardDefinitionId, ChainState, ChainEntry, ChainEntryPayload, ChainRestriction, DeferredPassive, CombatState, CreatureCard, PendingEffect, CancelReturnToOriginAction, CounterCancelAttackAction, SiteInPlay } from '../index.js';
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
 import { applyShortEventRollPlayAlly } from './roll-play-ally.js';
@@ -3870,8 +3870,6 @@ function applyTapSitesInPlayOnResolve(
       const player = players[pIdx];
       const ownerIsMinion = isMinionOrBalrog(player);
       const companies = player.companies.map(co => {
-        const site = co.currentSite;
-        if (!site || site.status === CardStatus.Tapped) return co;
         // Promptings of Wisdom (wh-34) / Piercing All Shadows (wh-47) /
         // Govern the Storms (wh-45): a `cancel-return-and-site-tap`
         // constraint on this company negates a hazard effect that would tap
@@ -3880,19 +3878,29 @@ function applyTapSitesInPlayOnResolve(
           logDetail(`tap-sites-in-play (${def?.name ?? '?'}): company ${co.id as string} is shielded by cancel-return-and-site-tap — site not tapped`);
           return co;
         }
-        const siteDef = defById(newState, site.definitionId);
-        if (!siteDef || !isSiteCard(siteDef)) return co;
-        const ctx = {
-          site: { type: siteDef.siteType },
-          sitePath: regionTypeCounts(siteDef.sitePath),
-          // Owning player's alignment, so a card with "no effect on a minion
-          // player" can exclude minion/Balrog-owned sites (Foul Fumes tw-36).
-          player: { minion: ownerIsMinion },
+        const tapIfMatching = (site: SiteInPlay | null): SiteInPlay | null => {
+          if (!site || site.status === CardStatus.Tapped) return site;
+          const siteDef = defById(newState, site.definitionId);
+          if (!siteDef || !isSiteCard(siteDef)) return site;
+          const ctx = {
+            site: { type: siteDef.siteType },
+            sitePath: regionTypeCounts(siteDef.sitePath),
+            // Owning player's alignment, so a card with "no effect on a minion
+            // player" can exclude minion/Balrog-owned sites (Foul Fumes tw-36).
+            player: { minion: ownerIsMinion },
+          };
+          if (eff.condition && !matchesCondition(eff.condition, ctx as unknown as Record<string, unknown>)) return site;
+          tappedCount++;
+          logDetail(`tap-sites-in-play (${def?.name ?? '?'}): tapping site "${siteDef.name}" (${site.instanceId as string})`);
+          return { ...site, status: CardStatus.Tapped };
         };
-        if (eff.condition && !matchesCondition(eff.condition, ctx as unknown as Record<string, unknown>)) return co;
-        tappedCount++;
-        logDetail(`tap-sites-in-play (${def?.name ?? '?'}): tapping site "${siteDef.name}" (${site.instanceId as string})`);
-        return { ...co, currentSite: { ...site, status: CardStatus.Tapped } };
+        // A moving company's new site is already in play (revealed during
+        // the M/H phase), so it is tapped too and the company arrives at a
+        // tapped site (CRF: applied once to each site each turn).
+        const currentSite = tapIfMatching(co.currentSite);
+        const destinationSite = tapIfMatching(co.destinationSite);
+        if (currentSite === co.currentSite && destinationSite === co.destinationSite) return co;
+        return { ...co, currentSite, destinationSite };
       });
       players[pIdx] = { ...player, companies };
     }
