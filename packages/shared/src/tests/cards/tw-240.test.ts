@@ -29,7 +29,7 @@ import {
   P1_COMPANY,
   baseProwess,
   buildTestState, resetMint,
-  viableActions, dispatch, getCharacter, handCardId, makeMHState,
+  viableActions, viablePlayCharacterActions, dispatch, getCharacter, handCardId, makeMHState,
   companyIdAt, findCharInstanceId,
   playPermanentEventAndResolve, enqueueTransferCorruptionCheck, enqueueCorruptionCheck,
   makeBodyCheckCombat, setCharStatus,
@@ -274,6 +274,48 @@ describe('Fellowship (tw-240)', () => {
     // Fellowship is discarded when company membership changes
     expect(after.players[0].cardsInPlay).toHaveLength(0);
     expect(after.players[0].discardPile.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
+  });
+
+  test('a character played at the Haven may form its own new company, keeping Fellowship', () => {
+    // Bug report (game muwb4vqs-555mg0, seq 1139): Celeborn played at the
+    // Haven where Pallando's Fellowship company stood auto-joined it, with no
+    // option to form a separate company, and Fellowship was discarded. Rule
+    // 2.II.2.2.1 lets a general-influence character be played into "a
+    // preexisting company or its own new company".
+    const fellowshipInPlay: CardInPlay = {
+      instanceId: 'fellowship-1' as CardInstanceId,
+      definitionId: FELLOWSHIP,
+      status: CardStatus.Untapped,
+      companyId: P1_COMPANY,
+    };
+
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, LEGOLAS, GIMLI, BILBO] }], hand: [FARAMIR], siteDeck: [MORIA], cardsInPlay: [fellowshipInPlay] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const rivendellInstId = state.players[0].companies[0].currentSite!.instanceId;
+    const faramirInstId = handCardId(state, RESOURCE_PLAYER);
+
+    const plays = viablePlayCharacterActions(state, PLAYER_1)
+      .filter(a => a.characterInstanceId === faramirInstId && a.atSite === rivendellInstId && a.controlledBy === 'general');
+    expect(plays.some(a => !a.newCompany)).toBe(true);
+    const newCompanyPlay = plays.find(a => a.newCompany);
+    expect(newCompanyPlay).toBeDefined();
+
+    const after = dispatch(state, newCompanyPlay!);
+
+    const companies = after.players[0].companies;
+    expect(companies).toHaveLength(2);
+    expect(companies.find(c => c.id === P1_COMPANY)!.characters).toHaveLength(4);
+    const newCompany = companies.find(c => c.id !== P1_COMPANY)!;
+    expect(newCompany.characters).toEqual([faramirInstId]);
+    expect(newCompany.currentSite!.instanceId).toBe(rivendellInstId);
+    expect(after.players[0].cardsInPlay.map(c => c.instanceId)).toContain('fellowship-1' as CardInstanceId);
   });
 
   // ── Auto-discard when companies merge ─────────────────────────────────────

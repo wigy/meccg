@@ -737,7 +737,35 @@ export function handlePlayCharacter(state: GameState, action: GameAction): Reduc
 
   // Update or create company
   let newSiteDeck = player.siteDeck;
-  if (existingCompanyIdx >= 0) {
+  if (action.newCompany && controllerId === undefined && existingCompanyIdx >= 0) {
+    // Rule 2.II.2.2.1: a general-influence character may form "its own new
+    // company" instead of joining the one already at this haven. As for a
+    // split at a haven (rule 2.II.3.6.2), take an additional untapped copy of
+    // the haven from the site deck when one is available; otherwise the new
+    // company shares the site card already in play.
+    const sharedSite = companies[existingCompanyIdx].currentSite!;
+    let newCompanySite: SiteInPlay = sharedSite;
+    let siteCardOwned = false;
+    const duplicate = player.siteDeck.find(c => c.definitionId === sharedSite.definitionId);
+    if (duplicate) {
+      newSiteDeck = removeById(player.siteDeck, duplicate.instanceId);
+      newCompanySite = { ...toCardInstance(duplicate), status: CardStatus.Untapped };
+      siteCardOwned = true;
+    }
+    logDetail(`  Forming a new company at ${sharedSite.definitionId as string}${duplicate ? ' with an additional copy of the haven from the site deck' : ' sharing the site card in play'}`);
+    companies.push({
+      id: nextCompanyId({ ...player, companies }),
+      characters: [charInstId],
+      currentSite: newCompanySite,
+      siteCardOwned,
+      destinationSite: null,
+      movementPath: [],
+      moved: false,
+      siteOfOrigin: null,
+      onGuardCards: [],
+      hazards: [],
+    });
+  } else if (existingCompanyIdx >= 0) {
     const company = companies[existingCompanyIdx];
     logDetail(`  Adding to existing company ${company.id as string}`);
     companies[existingCompanyIdx] = {
