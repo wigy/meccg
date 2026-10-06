@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1384 | 1384 | 0 | 100.0% |
+| 1386 | 1386 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -16,7 +16,7 @@
 | BA | 101 | 101 | 100.0% |
 | DM | 155 | 155 | 100.0% |
 | LE | 334 | 334 | 100.0% |
-| TD | 143 | 143 | 100.0% |
+| TD | 145 | 145 | 100.0% |
 | TW | 426 | 426 | 100.0% |
 | WH | 99 | 99 | 100.0% |
 
@@ -514,7 +514,7 @@
 | le-114 | Heedless Revelry | — | 12 | ☑ |
 | le-115 | Incite Defenders | — | 12 | ☑ |
 | le-116 | Incite Denizens | — | 10 | ☑ |
-| le-117 | Long Winter | — | 8 | ☑ |
+| le-117 | Long Winter | — | 9 | ☑ |
 | le-122 | Lure of Expedience | — | 13 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
 | le-126 | Muster Disperses | — | 6 | ☑ |
@@ -829,6 +829,7 @@
 | td-119 | Gold Belt of Lórien  | — | 5 | ☑ |
 | td-120 | Habergeon of Silver | — | 7 | ☑ |
 | td-121 | Harad | — | 8 | ☑ |
+| td-122 | Helm of Her Secrecy | — | 11 | ☑ |
 | td-123 | Here, There, or Yonder | — | 11 | ☑ |
 | td-124 | Hey! come merry dol! | — | 10 | ☑ |
 | td-125 | Houses of Healing | — | 10 | ☑ |
@@ -853,6 +854,7 @@
 | td-148 | Riddling Talk | — | 16 | ☑ |
 | td-149 | Sated Beast | — | 15 | ☑ |
 | td-150 | Scabbard of Chalcedony | — | 7 | ☑ |
+| td-152 | Skin-changer | — | 10 | ☑ |
 | td-153 | Staff Asunder | — | 4 | ☑ |
 | td-154 | Star of High Hope | — | 3 | ☑ |
 | td-157 | Three Golden Hairs | — | 11 | ☑ |

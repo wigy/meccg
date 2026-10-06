@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.186.0 — 2026-10-06
+
+Skin-changer Unleashed, Helm Hides Éowyn
+
+### Cards
+
+- Skin-changer (td-152) certified: Beorn gains +2 prowess/body, may take a second strike of an attack as a separate strike sequence, makes a corruption check (-2) after each attack on his company, and returns to hand at end of turn, passing his items to unwounded company-mates (#3291)
+- Helm of Her Secrecy (td-122) certified: Éowyn joins a company with an Edoras home-site character before strikes are assigned, gaining +2 prowess, +1 body and +1 direct influence; the Helm is discarded after the attack unless it was a Nazgûl attack (#3292)
+
+### Game Engine
+
+- New card-effect DSL support: character-targeted `multi-strike-allowance`, `post-attack-check` and `return-to-hand-at-end-of-turn` constraints, and a `combat-join-character` effect that brings a named character from hand into an attacked company (#3291, #3292)
+- Long Winter and Foul Fumes (with Doors of Night) now also tap the new site of a company moving to a qualifying site, not only companies' current sites (#3290)
+
+### Infrastructure
+
+- Project status and card test README metrics refreshed
+
 ## 0.185.0 — 2026-10-06
 
 Support Withdrawn, New Companies Formed
