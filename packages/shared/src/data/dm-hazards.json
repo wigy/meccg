@@ -837,8 +837,31 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/FoesShallFall.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Corruption. Playable on a non-Wizard character facing a strike from a Dragon or Drake hazard creature attack. If the strike is defeated, discard this card. If the strike is not defeated, place creature’s card with Foes Shall Fall—creature is considered off to the side. Target character’s company faces an attack from creature at the start of each movement/hazard phase if creature is playable. Discard associated creature’s card if Foes Shall Fall is discarded. Discard Foes Shall Fall if attached Dragon or Drake is defeated. If target character is a Dwarf, he receives 2 corruption points."
+    "keywords": ["corruption"],
+    "effects": [
+      { "type": "play-window", "phase": "combat", "step": "resolve-strike" },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "$not": { "target.race": { "$in": ["wizard", "ringwraith", "balrog"] } } },
+            { "attack.race": { "$in": ["dragon", "drake"] } },
+            { "attack.holdableCreature": true }
+          ]
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play-combat",
+        "apply": { "type": "hold-creature-if-strike-not-defeated" }
+      },
+      { "type": "held-creature-attack" },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 1 },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 1, "when": { "bearer.race": "dwarf" } }
+    ],
+    "text": "Corruption. Playable on a non-Wizard character facing a strike from a Dragon or Drake hazard creature attack. If the strike is defeated, discard this card. If the strike is not defeated, place creature’s card with Foes Shall Fall—creature is considered off to the side. Target character’s company faces an attack from creature at the start of each movement/hazard phase if creature is playable. Discard associated creature’s card if Foes Shall Fall is discarded. Discard Foes Shall Fall if attached Dragon or Drake is defeated. If target character is a Dwarf, he receives 2 corruption points.",
+    "certified": "2026-10-05"
   },
   {
     "cardType": "hazard-event",

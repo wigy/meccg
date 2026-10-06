@@ -40,6 +40,7 @@ import { sweepDiscardSelfWhenCompany } from './company-composition.js';
 import { sweepKeywordReplaced } from './keyword-replaced.js';
 import { sweepSacrificeOfForm, sweepSacrificeOfFormReturn } from './sacrifice-of-form.js';
 import { sweepOrphanedStoredCreatures } from './creature-storage.js';
+import { sweepOrphanedHeldCreatures } from './held-creature.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -106,7 +107,12 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   const afterAgentPrisonerSweep = prevState
     ? sweepUnusedAgentPrisonerHost(prevState, afterStoredCreatureSweep)
     : afterStoredCreatureSweep;
-  return accrueRevealedInstances(recomputeDerived(afterAgentPrisonerSweep));
+  // Foes Shall Fall (dm-59): discard a held creature whose holder left play
+  // through a path that didn't know about it (see `held-creature.ts`).
+  const afterHeldCreatureSweep = prevState
+    ? sweepOrphanedHeldCreatures(prevState, afterAgentPrisonerSweep)
+    : afterAgentPrisonerSweep;
+  return accrueRevealedInstances(recomputeDerived(afterHeldCreatureSweep));
 }
 
 export type { ReducerResult } from './reducer-utils.js';

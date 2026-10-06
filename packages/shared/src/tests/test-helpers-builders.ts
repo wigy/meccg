@@ -28,7 +28,7 @@ import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test
 import { companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 import { getCharacter } from './test-helpers-assertions.js';
 import { dispatch, executeAction, resolveChain, runActions, setupAutoAttackStep } from './test-helpers-dispatch.js';
-import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, setAllyStatus, setCharStatus } from './test-helpers-core.js';
+import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, attachHolderWithCreature, setAllyStatus, setCharStatus } from './test-helpers-core.js';
 import type { CharacterEntry } from './test-helpers-core.js';
 
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
@@ -2993,6 +2993,43 @@ export function buildAhuntOrderEffectsState(opts: {
 }
 
 /**
+ * Foes Shall Fall (dm-59) fixture: P1's company (`characters`) at Rivendell is
+ * at the M/H order-effects step with the given keying path, and `holderOn`
+ * bears a P2-owned `hostDefId` holding `creatureDefId` off to the side. Passing
+ * the step starts any held-creature attack.
+ */
+export function buildHeldCreatureOrderEffectsState(opts: {
+  characters: readonly CardDefinitionId[];
+  holderOn: CardDefinitionId;
+  hostDefId: CardDefinitionId;
+  creatureDefId: CardDefinitionId;
+  pathTypes: readonly RegionType[];
+  pathNames: readonly string[];
+}): { state: GameState; hostId: CardInstanceId; creatureId: CardInstanceId } {
+  const base = buildTestState({
+    phase: Phase.MovementHazard,
+    activePlayer: PLAYER_1,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [...opts.characters] }], hand: [], siteDeck: [MORIA] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+    ],
+  });
+  const held = attachHolderWithCreature(base, RESOURCE_PLAYER, opts.holderOn, opts.hostDefId, opts.creatureDefId);
+  return {
+    ...held,
+    state: {
+      ...held.state,
+      phaseState: makeMHState({
+        step: 'order-effects' as const,
+        resolvedSitePath: [...opts.pathTypes],
+        resolvedSitePathNames: [...opts.pathNames],
+      }),
+    },
+  };
+}
+
+/**
  * Drive an already-active ahunt combat sequence to completion, forcing every
  * strike roll (and body-check roll) to `roll` via `cheatRollTotal`. Returns the
  * terminal state (combat null) plus the distinct combats observed in order
@@ -3139,6 +3176,9 @@ export function setupCombatWithCaveDrake(opts: {
   /** Cards to seed into the hazard player's cardsInPlay (e.g. a permanent
    * hazard event whose effect modifies the creature attack). */
   hazardCardsInPlay?: readonly CardInPlay[];
+  /** Further cards for the hazard player's hand, after the creature (e.g. a
+   * combat-window hazard to play once strikes are assigned). */
+  extraHazardHand?: readonly CardDefinitionId[];
 }): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
@@ -3154,7 +3194,7 @@ export function setupCombatWithCaveDrake(opts: {
       {
         id: PLAYER_2,
         companies: [{ site: LORIEN, characters: [opts.hazardCharacter ?? GIMLI] }],
-        hand: [opts.creatureDefId],
+        hand: [opts.creatureDefId, ...(opts.extraHazardHand ?? [])],
         siteDeck: [RIVENDELL],
         ...(opts.hazardCardsInPlay ? { cardsInPlay: [...opts.hazardCardsInPlay] } : {}),
       },

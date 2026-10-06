@@ -345,6 +345,9 @@ export function resolveInstanceId(state: GameState, instanceId: CardInstanceId):
       }
       for (const hazard of ch.hazards) {
         if (hazard.instanceId === instanceId) return hazard.definitionId;
+        // A creature held off to the side with a hazard (Foes Shall Fall
+        // dm-59) lives only here while held.
+        if (hazard.heldCreature?.instanceId === instanceId) return hazard.heldCreature.definitionId;
       }
       // Creatures taken as trophies (MELE §8.37) live only here once taken.
       for (const trophy of ch.trophies ?? []) {

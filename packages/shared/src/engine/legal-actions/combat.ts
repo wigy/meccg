@@ -28,7 +28,8 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
+import { holdableAttackCreatureInstanceId } from '../held-creature.js';
 import { countConstraintsFromDefinition, constraintsOnCompany } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
@@ -5223,12 +5224,24 @@ function combatHazardPermanentPlays(
         attack: {
           race: combat.creatureRace ?? null,
           prowess: combat.strikeProwess,
+          // Foes Shall Fall (dm-59): "facing a strike from a ... hazard
+          // creature attack" whose creature card can be placed with it.
+          holdableCreature: holdableAttackCreatureInstanceId(combat) !== null,
         },
       };
       if (!matchesCondition(playTarget.filter, ctx)) {
         logDetail(`Combat play-hazard "${def.name}" filter excludes ${targetDef.name}`);
         continue;
       }
+    }
+
+    // Foes Shall Fall (dm-59): an attack's creature card can be placed with
+    // only one card — at most one holder per attack.
+    const holdsCreature = getOnEventEffects(def, 'self-enters-play-combat')
+      .some(e => e.apply.type === 'hold-creature-if-strike-not-defeated');
+    if (holdsCreature && (combat.pendingHeldCreature || holdableAttackCreatureInstanceId(combat) === null)) {
+      logDetail(`Combat play-hazard "${def.name}": attack's creature card cannot be held (no hazard-creature card, or already claimed this attack)`);
+      continue;
     }
 
     // take-prisoner: require a valid rescue site in the hazard player's location deck.

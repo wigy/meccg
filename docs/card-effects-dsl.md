@@ -20525,3 +20525,43 @@ inverted."
 
 The Lost Knowledge items (Forgotten Scrolls dm-169, Lost Tome dm-172) carry the
 new `lost-knowledge` keyword.
+
+### 90. `hold-creature-if-strike-not-defeated` + `held-creature-attack` (Foes Shall Fall)
+
+A combat-window corruption permanent-event that keeps the attacking creature
+"off to the side" with itself and sends it back against the bearer's company
+every movement/hazard phase. Mechanics live in `engine/held-creature.ts`.
+
+- **`on-event self-enters-play-combat` → `hold-creature-if-strike-not-defeated`**
+  — the card attaches to the character facing the current strike (like
+  Dragon's Curse) and records `CombatState.pendingHeldCreature`. When the
+  attack ends (finalization or cancellation), a **defeated** strike
+  (`result: 'success'`) discards the card; any other outcome (wounded,
+  eliminated, tie, canceled, …) moves the creature's card out of the
+  attacker's discard pile into the card's `CardInPlay.heldCreature` slot. One
+  per attack.
+- **`play-target` filter field `attack.holdableCreature`** — true when the
+  attack has a hazard-creature card that could be held: a creature from hand
+  (M/H or on-guard) or one attacking in place (The Hunt, Long Dark Reach).
+  False for automatic-attacks, Ahunts, agents, and a creature already
+  attacking out of a holder.
+- **`held-creature-attack`** — at the start of each of the bearer company's
+  M/H phases (order-effects step, after Ahunts) the held creature attacks if
+  it is playable on the company (its ordinary keying vs. the company's site
+  path and site). The attack is a normal creature attack
+  (`AttackSource.heldByHostInstanceId`), not a hazard play. Defeated → kill
+  pile and the holder is discarded; otherwise the creature returns to the
+  holder. A holder that leaves play by any path discards its held creature
+  (`sweepOrphanedHeldCreatures`).
+
+```json
+{ "type": "play-window", "phase": "combat", "step": "resolve-strike" }
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "$not": { "target.race": { "$in": ["wizard", "ringwraith", "balrog"] } } },
+    { "attack.race": { "$in": ["dragon", "drake"] } },
+    { "attack.holdableCreature": true } ] } }
+{ "type": "on-event", "event": "self-enters-play-combat",
+  "apply": { "type": "hold-creature-if-strike-not-defeated" } }
+{ "type": "held-creature-attack" }
+```

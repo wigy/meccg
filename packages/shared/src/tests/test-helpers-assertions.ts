@@ -194,6 +194,7 @@ export function assertEveryInstanceReachable(state: GameState): void {
       addAll(ch.items, 'item');
       addAll(ch.allies, 'ally');
       addAll(ch.hazards, 'char-hazard');
+      for (const h of ch.hazards) add(h.heldCreature, 'held-creature');
       addAll(ch.trophies ?? [], 'trophy');
     }
     addAll(p.cardsInPlay, 'cardsInPlay');

@@ -49,6 +49,7 @@ import { getAttackSourceCard } from './combat-hazard-play.js';
 import { advanceGreatHuntReveal } from './great-hunt.js';
 import { tapHuntBearerAfterwards } from './hunt.js';
 import { revealInstances, forgetDeckReveals } from './visibility.js';
+import { settlePendingHeldCreature, settleHeldCreatureAttack } from './held-creature.js';
 
 export function discardCardTriggeredCard(
   state: GameState,
@@ -730,6 +731,12 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
       logDetail(`${cardLabel}: strike against ${pending.targetCharacterId as string} was not successful — remains discarded`);
     }
   }
+
+  // Foes Shall Fall (dm-59): a holder played into this attack keeps the
+  // creature off to the side unless its strike was defeated; a held creature
+  // that just attacked returns to its holder unless defeated (held-creature.ts).
+  stateAfterCombat = settlePendingHeldCreature(stateAfterCombat, combat);
+  stateAfterCombat = settleHeldCreatureAttack(stateAfterCombat, combat, allDefeated);
 
   // Combatants whose strike *succeeded* — CoE 3.iv.5: "the strike is successful.
   // The defending character is immediately wounded (which is considered

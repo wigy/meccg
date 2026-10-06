@@ -293,6 +293,16 @@ export interface CardInPlay {
    */
   readonly setAside?: readonly CardInstanceId[];
   /**
+   * A hazard creature's card kept "off to the side" with this card while it
+   * is attached to a character — Foes Shall Fall (dm-59), see
+   * `HeldCreatureAttackEffect` and `engine/held-creature.ts`. The creature
+   * lives only here while held (reachable via `resolveInstanceId`); it leaves
+   * to fight the bearer's company at the start of each of its movement/hazard
+   * phases and returns unless defeated. Discarded to its owner if this card
+   * leaves play.
+   */
+  readonly heldCreature?: CardInstance;
+  /**
    * Set on a card that has itself been placed "off to the side": the instance
    * ID of the host permanent-event it is kept with (MEAS §1). A set-aside card
    * is excluded from ordinary targeting and from its host player's marshalling

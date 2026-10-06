@@ -690,6 +690,13 @@ export interface MovementHazardPhaseState {
    */
   readonly ahuntGroupOutcomes?: readonly { readonly instanceId: CardInstanceId; readonly defeated: boolean }[];
   /**
+   * Hazards holding a creature off to the side (`held-creature-attack`, Foes
+   * Shall Fall dm-59) whose start-of-phase attack the current company has
+   * already faced — or skipped as unplayable — during this order-effects
+   * step. Reset when a new company is selected.
+   */
+  readonly heldCreatureAttacksFaced?: readonly CardInstanceId[];
+  /**
    * Set of character instance IDs that have already had a corruption card played
    * on them during this turn (CoE rule 7.2.1: only one corruption card per character per turn).
    * Persists across all companies' M/H phases within the same turn.
