@@ -12,7 +12,7 @@ import { getPlayerIndex } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { companyById, playerById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, defById, getCardEffects, companySubphaseScope } from './reducer-utils.js';
-import { enqueueCorruptionCheck } from './pending.js';
+import { enqueueCorruptionCheck, multiStrikeAllowance } from './pending.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handleCombatPlayHazard } from './combat-hazard-play.js';
@@ -244,15 +244,19 @@ function handleAssignStrike(state: GameState, action: GameAction, combat: Combat
     // formula already treats bundled `excessStrikes` as extra strikes drawn
     // from the same pool. Instead the cumulative -1 prowess/-1 body penalty
     // is stamped directly onto this new entry.
+    //
+    // A `multi-strike-allowance` constraint (Skin-changer td-152) covering
+    // this strike carries no penalty: "he may choose to face a second strike".
     const priorCount = combat.strikeAssignments.filter(a => a.characterId === action.characterId).length;
+    const maxStrikes = multiStrikeAllowance(state, action.characterId);
+    const penalty = maxStrikes !== null && priorCount < maxStrikes ? 0 : priorCount;
     newAssignments = [...combat.strikeAssignments, {
       characterId: action.characterId,
       excessStrikes: 0,
-      strikeProwessBonus: -priorCount,
-      strikeBodyPenalty: -priorCount,
+      ...(penalty > 0 ? { strikeProwessBonus: -penalty, strikeBodyPenalty: -penalty } : {}),
       resolved: false,
     }];
-    logDetail(`Multi-strike-option: additional strike assigned to ${action.characterId as string} (${priorCount} prior strike(s) — cumulative -${priorCount} prowess/body)`);
+    logDetail(`Additional strike sequence assigned to ${action.characterId as string} (${priorCount} prior strike(s) — ${penalty > 0 ? `multi-strike-option cumulative -${penalty} prowess/body` : 'multi-strike-allowance, no penalty'})`);
   } else if (existingIdx >= 0) {
     newAssignments = combat.strikeAssignments.map((a, i) =>
       i === existingIdx ? { ...a, excessStrikes: a.excessStrikes + 1 } : a,

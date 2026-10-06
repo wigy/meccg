@@ -3299,6 +3299,48 @@ function applyShortEventOnEntersPlay(
         continue;
       }
 
+      // Character-targeted constraints on the event's play-target character
+      // (Skin-changer td-152): the second-strike allowance, the corruption
+      // check after every attack on his company, and the end-of-turn return
+      // to hand.
+      if (constraintKind === 'multi-strike-allowance'
+        || constraintKind === 'post-attack-check'
+        || constraintKind === 'return-to-hand-at-end-of-turn') {
+        const characterId = action.type === 'play-short-event' ? action.targetCharacterId : undefined;
+        const scope = parseConstraintScope(scopeName, null);
+        if (!characterId || !scope) {
+          logDetail(`add-constraint(${constraintKind}): missing target character or unknown scope "${scopeName}" — fizzle`);
+          continue;
+        }
+        type Kind = import('../types/pending.js').ActiveConstraint['kind'];
+        let kind: Kind;
+        if (constraintKind === 'multi-strike-allowance') {
+          const maxStrikes = onEvent.apply.maxStrikes;
+          if (typeof maxStrikes !== 'number') {
+            logDetail(`add-constraint(multi-strike-allowance): missing maxStrikes — fizzle`);
+            continue;
+          }
+          kind = { type: 'multi-strike-allowance', maxStrikes };
+        } else if (constraintKind === 'post-attack-check') {
+          if (onEvent.apply.check !== 'corruption') {
+            logDetail(`add-constraint(post-attack-check): unsupported check "${onEvent.apply.check ?? ''}" — fizzle`);
+            continue;
+          }
+          kind = { type: 'post-attack-check', check: 'corruption', modifier: onEvent.apply.value ?? 0 };
+        } else {
+          kind = { type: 'return-to-hand-at-end-of-turn' };
+        }
+        logDetail(`"${def.name}" played — adding ${constraintKind} on ${characterId as string} (scope ${scopeName})`);
+        state = addConstraint(state, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope,
+          target: { kind: 'character', characterId },
+          kind,
+        });
+        continue;
+      }
+
       // Player-scoped site-path-reduction (Roam the Waste ba-73: "Each of your
       // companies this turn is considered to have one fewer Wilderness and one
       // fewer Shadow-land in its site path"). Turn-scoped, player-targeted; read

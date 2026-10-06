@@ -14,6 +14,7 @@ import { isCharacterCard, isItemCard, isAllyCard, isFactionCard, isSiteCard, isR
 import { CardStatus, Race, Alignment } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
+import { fireEndOfTurnCharacterReturns } from './end-of-turn-return.js';
 import { freeOrDiscardFollowers } from './follower-dispersal.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { buildBearerContext, buildInfluenceTargetContext, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, applyWardToBearer, resolveDef } from './effects/index.js';
@@ -136,7 +137,7 @@ export function handleSite(state: GameState, action: GameAction): ReducerResult 
   const withFetch = fireEndOfTurnFetchEffects(state);
   const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
   const withPlague = fireEndOfTurnSiteWoundRolls(withChecks);
-  const withRingTests = fireEndOfTurnGoldRingTests(withPlague);
+  const withRingTests = fireEndOfTurnCharacterReturns(fireEndOfTurnGoldRingTests(withPlague));
   return {
     state: {
       ...withRingTests,
@@ -5856,7 +5857,7 @@ function endSitePhase(state: GameState): ReducerResult {
   const withFetch = fireEndOfTurnFetchEffects(cleanedState);
   const withChecks = fireEndOfTurnCorruptionChecks(withFetch);
   const withPlague = fireEndOfTurnSiteWoundRolls(withChecks);
-  const withRingTests = fireEndOfTurnGoldRingTests(withPlague);
+  const withRingTests = fireEndOfTurnCharacterReturns(fireEndOfTurnGoldRingTests(withPlague));
   // `specialMovement` (Gwaihir/Paths of the Dead) is granted in the
   // organization phase and must stay set through the whole Site phase — Army
   // of the Dead (tw-193) checks it there. Clear it now, at the true end of

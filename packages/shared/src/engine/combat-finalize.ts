@@ -1455,6 +1455,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   // company they joined — the card text says "join", not "temporarily
   // assist", and nothing returns them afterward.
   stateAfterCombat = applyPostAttackEffects(stateAfterCombat, state, combat);
+  stateAfterCombat = applyPostAttackCheckConstraints(stateAfterCombat, state, combat);
 
   // Fury of the Iron Crown (tw-492): once the forced kill has fired, if the
   // defender holds the offered card by name in hand, let them immediately
@@ -1925,6 +1926,50 @@ function applyPostAttackEffects(
     }
   }
 
+  return s;
+}
+
+/**
+ * Fire every `post-attack-check` constraint on a character who was in the
+ * attacked company when the attack began and is still in play now: enqueue
+ * his check (corruption) with the constraint's modifier, scoped to the
+ * company's current M/H or site sub-phase (whole phase otherwise).
+ * Skin-changer (td-152): "Beorn makes a corruption check modified by -2
+ * after any attack made against his company."
+ */
+function applyPostAttackCheckConstraints(
+  stateAfterCombat: GameState,
+  stateBeforeFinalize: GameState,
+  combat: CombatState,
+): GameState {
+  const defIdx = getPlayerIndex(stateBeforeFinalize, combat.defendingPlayerId);
+  if (defIdx < 0) return stateAfterCombat;
+  const company = companyById(stateBeforeFinalize.players[defIdx].companies, combat.companyId);
+  if (!company) return stateAfterCombat;
+  const phase = stateBeforeFinalize.phaseState.phase;
+  let s = stateAfterCombat;
+  for (const constraint of stateAfterCombat.activeConstraints) {
+    if (constraint.kind.type !== 'post-attack-check') continue;
+    if (constraint.target.kind !== 'character') continue;
+    const characterId = constraint.target.characterId;
+    if (!company.characters.includes(characterId)) continue;
+    if (!s.players[defIdx].characters[characterId]) {
+      logDetail(`post-attack-check: ${characterId as string} no longer in play — no check`);
+      continue;
+    }
+    const reason = cardName(s, constraint.sourceDefinitionId, 'post-attack check');
+    logDetail(`post-attack-check (${reason}): ${characterId as string} makes a ${constraint.kind.check} check (modifier ${constraint.kind.modifier})`);
+    s = enqueueCorruptionCheck(s, {
+      source: constraint.source,
+      actor: combat.defendingPlayerId,
+      scope: phase === Phase.MovementHazard || phase === Phase.Site
+        ? companySubphaseScope(phase, combat.companyId)
+        : { kind: 'phase', phase },
+      characterId,
+      modifier: constraint.kind.modifier,
+      reason,
+    });
+  }
   return s;
 }
 

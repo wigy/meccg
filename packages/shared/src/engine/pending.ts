@@ -255,6 +255,21 @@ export function removeConstraint(state: GameState, id: ConstraintId): GameState 
   return { ...state, activeConstraints: next };
 }
 
+/**
+ * The most strikes of one attack `characterId` may choose to face under an
+ * active `multi-strike-allowance` constraint (Skin-changer td-152), or `null`
+ * when no such constraint targets him.
+ */
+export function multiStrikeAllowance(state: GameState, characterId: CardInstanceId): number | null {
+  let max: number | null = null;
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'multi-strike-allowance') continue;
+    if (c.target.kind !== 'character' || c.target.characterId !== characterId) continue;
+    max = Math.max(max ?? 0, c.kind.maxStrikes);
+  }
+  return max;
+}
+
 /** All active constraints whose target is the given company. */
 export function constraintsOnCompany(
   state: GameState,

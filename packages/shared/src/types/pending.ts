@@ -1066,6 +1066,14 @@ export interface PendingResolution {
         readonly ownerPlayerIndex: number;
         /** Definition ID of the source hazard event (for logging). */
         readonly sourceDefinitionId: CardDefinitionId;
+        /**
+         * Skin-changer (td-152): "**Any** items he bears may be transferred to
+         * **unwounded** characters in his company." When set, the resolution
+         * stays queued after each transfer (so every item may move) until the
+         * owner declines or no transferable item remains, and only unwounded
+         * mates are offered as recipients. Omit for Pilfer's single transfer.
+         */
+        readonly anyNumberToUnwounded?: boolean;
       }
     | {
         /**
@@ -2862,6 +2870,49 @@ export interface ActiveConstraint {
          * against the card whose ability is being gated).
          */
         readonly type: 'can-use-palantir';
+      }
+    | {
+        /**
+         * The targeted character may choose to face more than one strike of
+         * an attack once he has been chosen as the target of one of its
+         * strikes — each extra strike a separate strike sequence (CoE
+         * 3.i.5), with no prowess/body penalty. Offered as an
+         * `assign-strike` with `extraSequence: true` while he faces fewer
+         * than {@link maxStrikes} strikes of the attack. Skin-changer
+         * (td-152): "If Beorn is chosen to be the target of a strike from an
+         * attack, he may choose to face a second strike from that attack."
+         */
+        readonly type: 'multi-strike-allowance';
+        /** Total strikes of one attack the character may face (2 = "a second strike"). */
+        readonly maxStrikes: number;
+      }
+    | {
+        /**
+         * The targeted character makes a check after every attack made
+         * against his company while the constraint lasts (fired by
+         * `finalizeCombat`, provided he is still in play). Skin-changer
+         * (td-152): "Beorn makes a corruption check modified by -2 after
+         * any attack made against his company."
+         */
+        readonly type: 'post-attack-check';
+        /** The check made (currently only `'corruption'`). */
+        readonly check: 'corruption';
+        /** Modifier applied to the check. */
+        readonly modifier: number;
+      }
+    | {
+        /**
+         * The targeted character returns to his owner's hand at the end of
+         * the turn if he is still in play (fired as the turn enters its
+         * end-of-turn phase). His items are discarded with him, but his
+         * owner may first transfer any of them to unwounded characters in
+         * his company (no corruption checks) via a repeatable
+         * `transfer-returned-item` resolution. Skin-changer (td-152): "If
+         * still in play at the end of the turn, place Beorn in your hand.
+         * Any items he bears may be transferred to unwounded characters in
+         * his company (no corruption checks are required)."
+         */
+        readonly type: 'return-to-hand-at-end-of-turn';
       }
     | {
         /**

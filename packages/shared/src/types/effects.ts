@@ -2933,6 +2933,12 @@ export interface AddConstraintAction extends TriggeredActionBase {
    * characters in bearer's company until the end of the turn."
    */
   readonly max?: number;
+  /**
+   * For a `multi-strike-allowance` payload: the total strikes of one attack
+   * the target character may choose to face (Skin-changer td-152: `2` — "he
+   * may choose to face a second strike from that attack").
+   */
+  readonly maxStrikes?: number;
   /** Creature race filter for creature-attack-boost. */
   readonly race?: Race;
   /** Excluded creature races for `defeat-attack-strikes` (Liquid Fire wh-52). */
