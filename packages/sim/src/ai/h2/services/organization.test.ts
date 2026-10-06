@@ -297,3 +297,56 @@ describe('a company\'s free direct influence against a specific faction', () => 
     expect(checkPOf(matchedValue, 'Wood-elves')).toBeGreaterThan(checkPOf(swappedValue, 'Wood-elves'));
   });
 });
+
+describe('a company the engine will not let move', () => {
+  /** Instance ID of the named character in the view. */
+  function characterNamed(view: PlayerView, name: string): string {
+    const character = Object.values(view.self.characters).find(
+      c => (cardPool[c.definitionId] as unknown as { name?: string } | undefined)?.name === name);
+    expect(character).toBeDefined();
+    return character!.instanceId as string;
+  }
+
+  /** The current arrangement with `peeled` split out of its company. */
+  function splitOff(arrangement: Arrangement, peeled: string): Arrangement {
+    return {
+      companies: arrangement.companies.flatMap(company =>
+        (company.characterIds as readonly string[]).includes(peeled)
+          ? [
+            { ...company, characterIds: company.characterIds.filter(id => (id as string) !== peeled) },
+            { ...company, characterIds: [peeled as CardInstanceId] },
+          ]
+          : [company]),
+    };
+  }
+
+  test('two leaders: the stranded company serves nothing, and splitting a leader off scores above staying', () => {
+    // Bug report muw4vwzc-b0h15y: Troll-chief and Orc Captain started in one
+    // company at Dol Guldur, which can never declare movement (CoE 2.II.3.1.3).
+    // The potential credited it with routes it could not walk and priced the
+    // first split as pure extra harm, so the agent kept it together all game.
+    const { view, organization } = organizationFor('organization/two-leaders-stranded');
+    const current = organization.current();
+    const before = organization.valueOf(current);
+    expect(before.assignments).toHaveLength(0);
+
+    const after = organization.valueOf(splitOff(current, characterNamed(view, 'Orc Captain')));
+    expect(after.assignments.length).toBeGreaterThan(0);
+    expect(after.u).toBeGreaterThan(before.u);
+  });
+
+  test('a Ringwraith with non-Ringwraiths: splitting part of the company off scores above staying', () => {
+    // Same game, turn 14: Akhôrahil joined the stranded company, which now
+    // breaks CoE 2.II.2.1.R3 too. The game is lost enough that W is flat, so
+    // the expected TSD carries the comparison.
+    const { view, organization } = organizationFor('organization/ringwraith-mixed-stranded');
+    const current = organization.current();
+    const before = organization.valueOf(current);
+    expect(before.assignments).toHaveLength(0);
+
+    const after = organization.valueOf(
+      splitOff(current, characterNamed(view, 'Akhôrahil the Ringwraith')));
+    expect(after.expectedTsd).toBeGreaterThan(before.expectedTsd);
+    expect(after.u).toBeGreaterThanOrEqual(before.u);
+  });
+});
