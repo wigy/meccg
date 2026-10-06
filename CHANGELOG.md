@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.184.0 — 2026-10-06
+
+Foes Shall Fall, Long Sleep Awakens
+
+### Game Engine
+
+- New held-creature primitives: `hold-creature-if-strike-not-defeated` places an attacking creature off to the side with a corruption card when its strike is not defeated, and `held-creature-attack` makes the held creature attack the bearer's company at the start of each movement/hazard phase; a held creature is discarded if its holder leaves play (#3284)
+- New play-target filter `attack.holdableCreature` restricts plays to hazard creature attacks (excluding automatic-attacks, Ahunts and agents) (#3284)
+
+### Cards
+
+- Foes Shall Fall (dm-59) certified (#3284)
+- Land-drake (le-80) certified (#3283)
+
+### Web Client
+
+- Summons from Long Sleep can be used from the board: clicking the in-play card reserves a Dragon/Drake from hand or plays the reserved creature (#3285)
+- A scout ally such as Gollum can be clicked to pay Concealment in the combat view instead of being assigned a strike (#3286)
+
+### Documentation
+
+- DSL reference and engine-support catalog updated for the held-creature effects
+- README project status and card test README refreshed
+
 ## 0.183.0 — 2026-10-05
 
 Eight Cards Certified, Arrival Modes Chosen

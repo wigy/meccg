@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1382 | 1382 | 0 | 100.0% |
+| 1384 | 1384 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,8 +14,8 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 126 | 126 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 154 | 154 | 100.0% |
-| LE | 333 | 333 | 100.0% |
+| DM | 155 | 155 | 100.0% |
+| LE | 334 | 334 | 100.0% |
 | TD | 143 | 143 | 100.0% |
 | TW | 426 | 426 | 100.0% |
 | WH | 99 | 99 | 100.0% |
@@ -303,6 +303,7 @@
 | dm-56 | Eyes of the Shadow | — | 10 | ☑ |
 | dm-57 | Faces of the Dead | — | 8 | ☑ |
 | dm-58 | Flies and Spiders | — | 7 | ☑ |
+| dm-59 | Foes Shall Fall | — | 13 | ☑ |
 | dm-60 | Gnaw with Words | — | 9 | ☑ |
 | dm-61 | Good Sense Revolts | — | 14 | ☑ |
 | dm-62 | Great Need or Purpose | — | 5 | ☑ |
@@ -479,6 +480,7 @@
 | le-77 | Hobgoblins | — | 4 | ☑ |
 | le-78 | Horse-lords | — | 6 | ☑ |
 | le-79 | Huorn | — | 10 | ☑ |
+| le-80 | Land-drake | — | 6 | ☑ |
 | le-81 | Landroval | — | 5 | ☑ |
 | le-82 | Lawless Men | — | 6 | ☑ |
 | le-83 | Lesser Spiders | — | 9 | ☑ |
