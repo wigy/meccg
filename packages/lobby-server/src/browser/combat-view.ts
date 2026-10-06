@@ -965,8 +965,25 @@ function renderCombatCharacterColumn(
       const faceStrikeAction = resolveFaceStrikeOnTapAction(faceStrikeOnTapActions, allyIdStr);
 
       const allyCancelAttackInPlay = cancelAttackInPlayMap.get(allyIdStr);
+      // Allies count as characters for "skill only" cards (CoE 2.V.2.2), so a
+      // scout ally (Gollum) can be tapped to play the selected Concealment.
+      const allyCancelAttackAsScout = cancelAttackScoutMap.get(allyIdStr);
 
-      if (modifyAction) {
+      if (allyCancelAttackAsScout) {
+        // Cancel-attack scout targeting: click this ally to play the selected
+        // cancel-attack card, tapping the ally as its scout.
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (allyCancelAttackAsScout.length > 1) {
+            showCancelAttackModeTooltip(itemEl, allyCancelAttackAsScout, cardPool, onAction);
+          } else {
+            clearCancelAttackSelection();
+            onAction(allyCancelAttackAsScout[0]);
+          }
+        });
+      } else if (modifyAction) {
         // Item has a usable modify-attack ability (e.g. Black Arrow): click to tap
         // and apply the modifier to the current attack.
         itemEl.classList.add('combat-card--assignable');
