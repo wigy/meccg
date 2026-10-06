@@ -1229,6 +1229,7 @@
     "id": "le-80",
     "name": "Land-drake",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Landdrake.jpg",
+    "certified": "2026-10-05",
     "unique": false,
     "strikes": 1,
     "prowess": 8,
@@ -1245,7 +1246,9 @@
         ]
       }
     ],
-    "effects": [],
+    "effects": [
+      { "type": "combat-attacker-chooses-defenders" }
+    ],
     "text": "Drake. One strike. Attacker chooses defending characters."
   },
   {
