@@ -1044,6 +1044,32 @@ export function playCharacterActions(
             viable: true,
           });
         }
+
+        // Rule 2.II.2.2.1: a general-influence character may be played "into
+        // a preexisting company or its own new company". At a haven, where
+        // companies may freely coexist, offer founding a separate company
+        // alongside the one already standing there — joining it would, for
+        // example, discard a Fellowship (tw-240) on that company. Any
+        // company-bound play-limit or influence exemption belongs to the
+        // existing company, so it never carries over to the new one.
+        if (companyHere
+          && giAllowedAtSite && !site.directInfluenceOnly
+          && !rawPlayLimitReached
+          && isHavenForPlayer(site.siteDef, player.alignment, { state, siteDefinitionId: site.siteDef.id, playerId })) {
+          logDetail(`  → viable: play under GI as a new company at ${site.siteName} (mind cost ${costHere})`);
+          results.push({
+            action: {
+              type: 'play-character',
+              player: playerId,
+              characterInstanceId: cardInstanceId,
+              atSite: site.instanceId,
+              controlledBy: 'general',
+              newCompany: true,
+              ...recruitFieldHere,
+            },
+            viable: true,
+          });
+        }
       }
     }
   }

@@ -381,10 +381,11 @@ export function renderAllCompaniesView(
           lastOnAction(moveAction);
         };
       }
-    } else if (targetActions && company.currentSite && targetActions.has(company.currentSite.instanceId as string)) {
+    } else if (targetActions && company.currentSite
+      && (targetActions.get(company.currentSite.instanceId as string) ?? []).some(a => !a.newCompany)) {
       // This company is a valid target for playing the selected character
       block.classList.add('company-block--target');
-      const actions = targetActions.get(company.currentSite.instanceId as string)!;
+      const actions = targetActions.get(company.currentSite.instanceId as string)!.filter(a => !a.newCompany);
       const targetCompanyId = company.id;
       block.onclick = () => {
         // For now, use the first action (GI preferred, DI options come later)
@@ -410,8 +411,13 @@ export function renderAllCompaniesView(
   // Dummy companies for site-deck sites with no existing company — omitted
   // when narrowed to a corruption-check batch (irrelevant to resolving it).
   if (targetActions && !visibleCompanyIds) {
-    for (const [siteInstId, actions] of targetActions) {
-      if (companySiteIds.has(siteInstId)) continue;
+    for (const [siteInstId, siteActions] of targetActions) {
+      // A haven already holding a company also gets a dummy block when the
+      // character may found its own new company there (rule 2.II.2.2.1).
+      const actions = companySiteIds.has(siteInstId)
+        ? siteActions.filter(a => a.newCompany)
+        : siteActions;
+      if (actions.length === 0) continue;
       const siteInstanceId = siteInstId as CardInstanceId;
       const block = renderDummyCompanyBlock(siteInstanceId, view, cardPool);
       block.classList.add('company-block--target');

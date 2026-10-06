@@ -48,6 +48,14 @@ export interface PlayCharacterAction {
    */
   readonly controlledBy: 'general' | CardInstanceId;
   /**
+   * When true, a general-influence character played at a haven where one of
+   * the player's companies already stands forms its own new company instead
+   * of joining that company (CoE 2.II.2.2.1: "played either into a
+   * preexisting company or its own new company"). Absent means the character
+   * joins the company already at the site (or founds one if none is there).
+   */
+  readonly newCompany?: true;
+  /**
    * Recruitment-vehicle play (Thrall of the Voice, wh-82). When set, this is
    * the in-hand permanent resource-event with a `recruitment-vehicle` effect
    * that enables an otherwise-ineligible character (a minion agent, or one

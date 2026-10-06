@@ -103,6 +103,9 @@ export const organizationEvaluator: ActionEvaluator = {
         return 100;
 
       case 'play-character': {
+        // Founding a separate company at a haven is only worth it to protect
+        // a company-bound card (e.g. Fellowship); keep the AI joining.
+        if (action.newCompany) return 0;
         const card = view.self.hand.find(c => c.instanceId === action.characterInstanceId);
         if (!card) return 1;
         const def = lookupDef(pool, card.definitionId);

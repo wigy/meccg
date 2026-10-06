@@ -303,6 +303,9 @@ export function describeAction(
       // The same character can be offered at the same site both under general
       // influence and as another character's direct-influence follower — the
       // controller must be in the label or the two actions look identical.
+      if (action.newCompany) {
+        return `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)} as a new company`;
+      }
       return action.controlledBy === 'general'
         ? `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)}`
         : `Play character ${instName(action.characterInstanceId)} at site ${instName(action.atSite)} under ${instName(action.controlledBy)}'s direct influence`;
