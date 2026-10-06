@@ -40,7 +40,7 @@
  * falls out as arithmetic, with no counting rule to tune.
  */
 
-import { CardStatus, GENERAL_INFLUENCE, isCharacterCard, isFactionCard, matchesContext } from '@meccg/shared';
+import { CardStatus, GENERAL_INFLUENCE, Race, isCharacterCard, isFactionCard, matchesContext } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, FactionCard, PlayerView } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
 import type { Outcome, Rationale, Standing } from '../core/types.js';
@@ -113,6 +113,49 @@ function factionDirectInfluenceBonus(charDef: CardDefinition, faction: FactionCh
     if (matchesContext(effect.when, { reason: 'faction-influence-check', faction })) bonus += effect.value;
   }
   return bonus;
+}
+
+/**
+ * Whether a roster is a company the engine will never let declare movement —
+ * the shapes that are legal only while standing at a haven:
+ *
+ * - more than one leader (CoE 2.II.3.1.3, rule 3.26): a company holding two
+ *   leaders cannot even declare haven-to-haven movement
+ *   (`wouldViolateLeaderRestriction` in `organization-companies.ts`);
+ * - a Ringwraith mixed with any non-Ringwraith character (CoE 2.II.2.1.R3,
+ *   rule 3.07): moving takes the company away from its Darkhaven, so no
+ *   destination is ever offered (`wouldViolateRingwraithComposition`).
+ *
+ * Such a company serves no goal anywhere but where it stands, which is what
+ * makes the split that dissolves it worth something; without this the
+ * matching credited a stranded company with every route it could never walk
+ * and the agent kept it together for the whole game. Leadership is read from
+ * the character's printed keywords and any item granting the `leader`
+ * keyword, as the engine reads it; the permanent events that open extra
+ * leader slots are not in the view and are not modelled.
+ */
+function isImmobileRoster(
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  characterIds: readonly string[],
+): boolean {
+  let leaders = 0;
+  let ringwraiths = 0;
+  let others = 0;
+  for (const id of characterIds) {
+    const character = view.self.characters[id as CardInstanceId];
+    const def = character ? cardPool[character.definitionId] : undefined;
+    if (!def || !isCharacterCard(def)) continue;
+    if (def.race === Race.Ringwraith) ringwraiths++;
+    else others++;
+    const grantsLeader = character.items.some(item => {
+      const effects = (cardPool[item.definitionId] as unknown as
+        { effects?: readonly { type: string; keyword?: string }[] } | undefined)?.effects ?? [];
+      return effects.some(e => e.type === 'grant-keyword' && e.keyword === 'leader');
+    });
+    if ((def.keywords ?? []).includes('leader') || grantsLeader) leaders++;
+  }
+  return leaders > 1 || (ringwraiths > 0 && others > 0);
 }
 
 /** One MP-bearing thing the arrangement could be serving. */
@@ -392,16 +435,46 @@ function buildComputeOrganization(
   const baselineFreeGi = (view.self.generalInfluence ?? GENERAL_INFLUENCE)
     - view.self.generalInfluenceUsed;
 
+  // Per-roster immobility, cached by canonical roster signature.
+  const immobileCache = new Map<string, boolean>();
+  const immobileOf = (characterIds: readonly string[]): boolean => {
+    const key = characterIds.join('|');
+    let immobile = immobileCache.get(key);
+    if (immobile === undefined) {
+      immobile = isImmobileRoster(view, cardPool, characterIds);
+      immobileCache.set(key, immobile);
+    }
+    return immobile;
+  };
+
   // Per-roster harm, cached by canonical roster signature — the same rosters
   // recur across every candidate this position offers.
+  //
+  // An immobile roster (see `isImmobileRoster`) is priced at the cheapest
+  // sequence of single-character splits that leaves every piece free to move —
+  // one split action peels one character off, so the recursion is over the
+  // shapes the agent can actually reach. Pricing it at its own hazard limit
+  // instead made a stranded company *cheaper* than every first step out of it
+  // (a lone character still invites two hazards), so the agent never took
+  // that step and the company sat at its haven for the whole game. With this,
+  // staying stranded costs what resolving it costs and serves nothing, and
+  // the goals the freed companies can reach decide.
   const harmCache = new Map<string, number>();
   const harmOf = (characterIds: readonly string[]): number => {
     const key = characterIds.join('|');
     let harm = harmCache.get(key);
     if (harm === undefined) {
-      const roster = rosterOf({ characters: characterIds as unknown as CardInstanceId[] },
-        view.self.characters, cardPool);
-      harm = defence.expectedHarm(roster, hazardSlots(roster.length));
+      if (characterIds.length > 1 && immobileOf(characterIds)) {
+        harm = Infinity;
+        for (const peeled of characterIds) {
+          const rest = characterIds.filter(id => id !== peeled);
+          harm = Math.min(harm, harmOf([peeled]) + harmOf(rest));
+        }
+      } else {
+        const roster = rosterOf({ characters: characterIds as unknown as CardInstanceId[] },
+          view.self.characters, cardPool);
+        harm = defence.expectedHarm(roster, hazardSlots(roster.length));
+      }
       harmCache.set(key, harm);
     }
     return harm;
@@ -504,6 +577,13 @@ function buildComputeOrganization(
       companyIndex: number,
     ): { p: number; valueTsd: number; weightTsd: number } => {
       const company = companies[companyIndex];
+      // A company that cannot declare movement only serves goals where it
+      // already stands.
+      if (goal.siteDefinitionId !== undefined
+        && goal.siteDefinitionId !== company.currentSiteDefinitionId
+        && immobileOf(company.characterIds)) {
+        return { p: 0, valueTsd: 0, weightTsd: 0 };
+      }
       const liveHarm = goal.committed || goal.siteDefinitionId === undefined
         ? 0
         : siteHarmOf(company.characterIds, goal.siteDefinitionId);
@@ -631,7 +711,10 @@ function buildComputeOrganization(
         note: serving
           ? `serves "${serving.goal.label}" at ${(serving.p * 100).toFixed(0)}% `
             + `for ${serving.weightTsd.toFixed(2)} tsd`
-          : 'serves no goal — it only carries harm',
+          : immobileOf(company.characterIds)
+            ? 'serves no goal — it cannot declare movement (two leaders, or a Ringwraith '
+              + 'with non-Ringwraiths); harm priced at the cheapest splits that free it'
+            : 'serves no goal — it only carries harm',
       });
     });
     detail.push(leaf('general-influence headroom', headroomTsd, {
