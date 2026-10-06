@@ -20565,3 +20565,46 @@ every movement/hazard phase. Mechanics live in `engine/held-creature.ts`.
   "apply": { "type": "hold-creature-if-strike-not-defeated" } }
 { "type": "held-creature-attack" }
 ```
+
+### 91. Character-targeted `multi-strike-allowance` / `post-attack-check` / `return-to-hand-at-end-of-turn` add-constraints (Skin-changer)
+
+Three turn-scoped constraints a short event installs on its play-target
+character (`action.targetCharacterId`, handled in `reducer-events.ts`):
+
+- **`multi-strike-allowance`** (`maxStrikes`) — once the character has been
+  assigned a strike of an attack, the defender may give him further strikes of
+  it via `assign-strike` with `extraSequence: true` while he holds fewer than
+  `maxStrikes`. Each is a separate strike sequence (CoE 3.i.5) with **no**
+  penalty — unlike `multi-strike-option`'s cumulative -1/-1.
+- **`post-attack-check`** (`check: "corruption"`, `value`) — `finalizeCombat`
+  enqueues the check on the character after every attack on the company he
+  was in, provided he is still in play.
+- **`return-to-hand-at-end-of-turn`** — when the site phase hands over to the
+  end-of-turn phase, a character still in play goes back to his owner's hand
+  (`returnCharacterToHand`). His items can then be moved onto **unwounded**
+  company-mates through a repeatable `transfer-returned-item` resolution
+  (`anyNumberToUnwounded`). No corruption checks follow. Items he does not
+  pass on stay discarded.
+
+Skin-changer (td-152): "Only playable on Beorn. Until the end of the turn, his
+prowess and body are each modified by +2. If Beorn is chosen to be the target
+of a strike from an attack, he may choose to face a second strike from that
+attack (he faces a separate strike sequence for each strike). Beorn makes a
+corruption check modified by -2 after any attack made against his company. If
+still in play at the end of the turn, place Beorn in your hand. Any items he
+bears may be transferred to unwounded characters in his company (no
+corruption checks are required)."
+
+```json
+{ "type": "play-target", "target": "character", "filter": { "target.name": "Beorn" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "prowess", "value": 2, "scope": "turn" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "character-stat-modifier", "stat": "body", "value": 2, "scope": "turn" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "multi-strike-allowance", "maxStrikes": 2, "scope": "turn" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "post-attack-check", "check": "corruption", "value": -2, "scope": "turn" } },
+{ "type": "on-event", "event": "self-enters-play",
+  "apply": { "type": "add-constraint", "constraint": "return-to-hand-at-end-of-turn", "scope": "turn" } }
+```

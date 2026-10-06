@@ -1945,19 +1945,35 @@ export function applyTransferReturnedItemResolution(
     return { state, error: `Item ${action.itemInstanceId as string} not in owner's discard pile` };
   }
 
+  if (kind.anyNumberToUnwounded && owner.characters[action.targetCharacterId]?.status === CardStatus.Inverted) {
+    return { state, error: `Target character ${action.targetCharacterId as string} is wounded — items may only go to unwounded characters` };
+  }
+
   const itemName = defById(state, itemInDiscard.definitionId)?.name ?? (itemInDiscard.definitionId as string);
   const targetName = defById(state, owner.characters[action.targetCharacterId].definitionId)?.name ?? (action.targetCharacterId as string);
   logDetail(`Transfer-returned-item: moving ${itemName} from discard onto ${targetName}`);
 
   const targetCharacterId = action.targetCharacterId;
   const itemInstanceId = action.itemInstanceId;
-  const newState = updatePlayer(post, ownerIndex, p => {
+  let newState = updatePlayer(post, ownerIndex, p => {
     const withItem = updateCharacter(p, targetCharacterId, c => ({
       ...c,
       items: [...c.items, { instanceId: itemInstanceId, definitionId: itemInDiscard.definitionId, status: CardStatus.Untapped }],
     }));
     return { ...withItem, discardPile: withItem.discardPile.filter(c => c.instanceId !== itemInstanceId) };
   });
+
+  // Skin-changer (td-152): "any items" — re-offer the remaining items until
+  // the owner declines or none are left.
+  const remaining = kind.itemInstanceIds.filter(id => id !== itemInstanceId);
+  if (kind.anyNumberToUnwounded && remaining.length > 0) {
+    newState = enqueueResolution(newState, {
+      source: top.source,
+      actor: top.actor,
+      scope: top.scope,
+      kind: { ...kind, itemInstanceIds: remaining },
+    });
+  }
 
   return { state: newState };
 }

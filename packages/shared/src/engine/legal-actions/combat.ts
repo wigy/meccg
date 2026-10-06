@@ -30,7 +30,7 @@ import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
 import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
 import { holdableAttackCreatureInstanceId } from '../held-creature.js';
-import { countConstraintsFromDefinition, constraintsOnCompany } from '../pending.js';
+import { countConstraintsFromDefinition, constraintsOnCompany, multiStrikeAllowance } from '../pending.js';
 import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { hazardLimitStatus } from '../hazard-limit.js';
@@ -807,6 +807,26 @@ export function assignStrikeActions(
         if (!charDef || !isCharacterCard(charDef)
           || !charDef.skills.includes(combat.multiStrikeSkill as import('../../types/common.js').Skill)) continue;
         logDetail(`Multi-strike-option: ${charId as string} (${priorCount} strike(s) already faced) can face an additional strike (-${priorCount} prowess/body)`);
+        actions.push({
+          action: { type: 'assign-strike', player: playerId, characterId: charId, extraSequence: true, tapped: false },
+          viable: true,
+        });
+      }
+    }
+
+    // multi-strike-allowance constraint (Skin-changer td-152): a character
+    // already chosen as the target of a strike may face further strikes of
+    // the attack, up to the constraint's `maxStrikes`, each a separate strike
+    // sequence with no penalty. Skipped for a character the multi-strike-option
+    // branch above already offered.
+    if (strikesRemaining > 0) {
+      for (const charId of company.characters) {
+        const priorCount = combat.strikeAssignments.filter(a => a.characterId === charId).length;
+        if (priorCount === 0) continue;
+        const maxStrikes = multiStrikeAllowance(state, charId);
+        if (maxStrikes === null || priorCount >= maxStrikes) continue;
+        if (actions.some(ea => ea.action.type === 'assign-strike' && ea.action.extraSequence && ea.action.characterId === charId)) continue;
+        logDetail(`multi-strike-allowance: ${charId as string} faces ${priorCount}/${maxStrikes} strike(s) — may face another (separate strike sequence)`);
         actions.push({
           action: { type: 'assign-strike', player: playerId, characterId: charId, extraSequence: true, tapped: false },
           viable: true,

@@ -80,7 +80,8 @@ export function stayHerAppetiteRollActions(
  * Legal actions while a `transfer-returned-item` resolution is at the head of
  * the queue (Pilfer Anything Unwatched as-33). The returned character's owner
  * may transfer one of the discarded items to a company-mate, or decline. Emits
- * one action per `(item, mate)` pair plus a single decline action.
+ * one action per `(item, mate)` pair plus a single decline action. With
+ * `anyNumberToUnwounded` (Skin-changer td-152) wounded mates are skipped.
  */
 export function transferReturnedItemActions(
   state: GameState,
@@ -106,6 +107,11 @@ export function transferReturnedItemActions(
     if (!isItemCard(itemDef)) continue;
     const itemName = itemDef?.name ?? (itemId as string);
     for (const mateId of company.characters) {
+      // Skin-changer (td-152): only unwounded characters may receive an item.
+      if (kind.anyNumberToUnwounded && owner.characters[mateId]?.status === CardStatus.Inverted) {
+        logDetail(`transfer-returned-item: ${mateId as string} is wounded — not an eligible recipient`);
+        continue;
+      }
       logDetail(`transfer-returned-item: offering ${itemName} → ${mateId as string}`);
       actions.push({
         action: { type: 'transfer-returned-item', player: actor, itemInstanceId: itemId, targetCharacterId: mateId },
@@ -2169,6 +2175,12 @@ function applyOneConstraint(
       return base;
     case 'hand-size-modifier':
       // Consumed directly by `resolveHandSize` — no legal-action filtering needed.
+      return base;
+    case 'multi-strike-allowance':
+    case 'post-attack-check':
+    case 'return-to-hand-at-end-of-turn':
+      // Consumed directly by strike assignment, `finalizeCombat` and the
+      // end-of-turn transition (Skin-changer td-152) — no filtering here.
       return base;
     case 'can-use-palantir':
       // Consumed directly by `buildGrantActionContext` (Palantír of Elostirion
