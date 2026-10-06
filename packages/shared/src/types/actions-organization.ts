@@ -75,6 +75,14 @@ export interface PlayCharacterAction {
    * Absent for a normal character play.
    */
   readonly viaEventInstanceId?: CardInstanceId;
+  /**
+   * Combat-join event play (Helm of Her Secrecy td-122). When set, this is the
+   * in-hand permanent resource-event with a `combat-join-character` effect
+   * that lets the defending player bring the character into the attacked
+   * company before strikes are assigned. On resolution the event is placed
+   * with the character. Only valid while combat is active.
+   */
+  readonly viaCombatEventInstanceId?: CardInstanceId;
 }
 
 /**

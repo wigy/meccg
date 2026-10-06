@@ -986,8 +986,19 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "If Éowyn is in your hand, this card is playable on a company facing an attack (before strikes are assigned)—the company must contain a character with Edoras as a home site. If enough influence is available to control her, Éowyn may be played with (i. e., joins) the company. She gains +2 prowess, +1 body, and +1 direct influence. If the attack is a Nazgûl, place Helm of Her Secrecy with Éowyn following the attack. Otherwise, discard this card following the attack. Regardless, Éowyn remains in play."
+    "effects": [
+      {
+        "type": "combat-join-character",
+        "characterName": "Éowyn",
+        "requiresCompanyHomesite": "Edoras",
+        "keepWhen": { "attack.creatureRace": "ringwraith" }
+      },
+      { "type": "stat-modifier", "stat": "prowess", "value": 2 },
+      { "type": "stat-modifier", "stat": "body", "value": 1 },
+      { "type": "stat-modifier", "stat": "direct-influence", "value": 1 }
+    ],
+    "text": "If Éowyn is in your hand, this card is playable on a company facing an attack (before strikes are assigned)—the company must contain a character with Edoras as a home site. If enough influence is available to control her, Éowyn may be played with (i. e., joins) the company. She gains +2 prowess, +1 body, and +1 direct influence. If the attack is a Nazgûl, place Helm of Her Secrecy with Éowyn following the attack. Otherwise, discard this card following the attack. Regardless, Éowyn remains in play.",
+    "certified": "2026-10-06"
   },
   {
     "cardType": "hero-resource-event",

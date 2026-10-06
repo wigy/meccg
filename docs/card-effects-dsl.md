@@ -6171,6 +6171,46 @@ offering + the forced-target status bypass in `assignStrikeActions`) and
 post-attack-tap block). Reuses `CombatState.forcedStrikeTargets` and
 `PostAttackEffect` from the Alatar haven-join primitive.
 
+### 10g-ter. `combat-join-character`
+
+A **resource permanent-event** played by the defending player, on their own
+turn, in the pre-assignment window of the `assign-strikes` combat sub-phase. It
+brings a named character from hand into play directly in the attacked company,
+paid for with available influence, and the event is placed with that character.
+
+```json
+{
+  "type": "combat-join-character",
+  "characterName": "Éowyn",
+  "requiresCompanyHomesite": "Edoras",
+  "keepWhen": { "attack.creatureRace": "ringwraith" }
+}
+```
+
+Fields:
+
+- `characterName` — the character card in hand (by name) that joins the
+  company. Unique / manifestation-in-play checks apply as for any character.
+- `requiresCompanyHomesite` — playability gate: a character in the attacked
+  company must list this site among its home sites.
+- `keepWhen` — condition on the attack (`attack.creatureRace`,
+  `attack.creatureRaces`); when it does not match, the event is discarded
+  following the attack (a `PostAttackEffect` `discardAttachedInstanceId`).
+  The character always stays in play.
+
+Offered as a `play-character` carrying `viaCombatEventInstanceId`, one per
+influence source: unused general influence, or a general-controlled character in
+the attacked company with enough unused direct influence. Other effects on the
+event (e.g. `stat-modifier`) apply to the character as bearer, since the event
+sits in its `items`. The event is never offered as a bare permanent event.
+
+Example: Helm of Her Secrecy (td-122), with `stat-modifier` +2 prowess / +1 body
+/ +1 direct influence.
+
+Implemented in `engine/legal-actions/combat-join-character.ts` (offering) and
+`engine/combat-join-character.ts` (reducer, routed via the combat handler map);
+the post-attack discard lives in `combat-finalize.ts` `applyPostAttackEffects`.
+
 ### 10g-bis. `combat-discard-opponent-item`
 
 A **Balrog resource short-event** played during a company-vs-company combat in

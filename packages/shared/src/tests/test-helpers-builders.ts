@@ -2744,6 +2744,8 @@ export interface CompanyCombatOpts {
   site?: CardDefinitionId;
   /** Site deck for the defending player. Defaults to Minas Tirith (hero copy). */
   siteDeck?: readonly CardDefinitionId[];
+  /** Defending player's hand. Defaults to empty. */
+  hand?: readonly CardDefinitionId[];
 }
 
 /**
@@ -2760,7 +2762,7 @@ export function makeCompanyCombatState(opts: CompanyCombatOpts): GameState {
       {
         id: PLAYER_1,
         companies: [{ site: opts.site ?? MORIA, characters: [...opts.characters] }],
-        hand: [],
+        hand: [...(opts.hand ?? [])],
         siteDeck: [...(opts.siteDeck ?? [MINAS_TIRITH])],
       },
       { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },

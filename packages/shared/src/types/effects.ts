@@ -7828,6 +7828,50 @@ export interface JoinCombatForceStrikeEffect extends EffectBase {
 }
 
 /**
+ * `combat-join-character` — a resource permanent-event played by the defending
+ * player during the pre-assignment window of the `assign-strikes` combat
+ * sub-phase (before strikes are assigned) that brings a named character from
+ * the player's hand into play directly in the attacked company. The character
+ * is paid for with available influence like a normal character play — the
+ * player's unused general influence, or the unused direct influence of a
+ * character in the attacked company — and the event card is placed with
+ * (attached to) the character, so its `stat-modifier` effects apply to it as
+ * bearer. Following the attack the event is discarded unless the attack
+ * matches {@link keepWhen}; the character remains in play either way.
+ *
+ * Offered by `combatJoinCharacterActions` (`legal-actions/combat.ts`) as a
+ * `play-character` carrying `viaCombatEventInstanceId`; resolved by
+ * `handleCombatJoinCharacter` (`combat-join-character.ts`), which schedules a
+ * {@link PostAttackEffect} `discardAttachedInstanceId` when the event is not
+ * kept.
+ *
+ * Used by Helm of Her Secrecy (td-122): "If Éowyn is in your hand, this card is
+ * playable on a company facing an attack (before strikes are assigned)—the
+ * company must contain a character with Edoras as a home site. If enough
+ * influence is available to control her, Éowyn may be played with (i. e.,
+ * joins) the company. … If the attack is a Nazgûl, place Helm of Her Secrecy
+ * with Éowyn following the attack. Otherwise, discard this card following the
+ * attack. Regardless, Éowyn remains in play."
+ */
+export interface CombatJoinCharacterEffect extends EffectBase {
+  readonly type: 'combat-join-character';
+  /** Name of the character card in hand that joins the attacked company. */
+  readonly characterName: string;
+  /**
+   * When set, the attacked company must contain a character whose home site
+   * list includes this site name (e.g. `"Edoras"`).
+   */
+  readonly requiresCompanyHomesite?: string;
+  /**
+   * Condition on the attack under which the event stays with the character
+   * after the attack; otherwise it is discarded following the attack. Matched
+   * against `{ attack: { creatureRace, creatureRaces } }`. Absent means the
+   * event is always discarded following the attack.
+   */
+  readonly keepWhen?: Condition;
+}
+
+/**
  * `combat-discard-opponent-item` — a Balrog resource short-event played during
  * a **company-vs-company combat** in which The Balrog is untapped and a
  * participant. On play, the card-player chooses one item borne by any character
@@ -10637,6 +10681,7 @@ export type CardEffect =
   | HeldCreatureAttackEffect
   | CombatCancelWeaponEffect
   | JoinCombatForceStrikeEffect
+  | CombatJoinCharacterEffect
   | CombatDiscardOpponentItemEffect
   | SiteStormDevastationEffect
   | HalveStrikesEffect

@@ -37,6 +37,7 @@ import { hazardLimitStatus } from '../hazard-limit.js';
 import { cvccSides } from '../cvcc-sides.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
 import { noBetterUseAlreadyUsed } from '../no-better-use.js';
+import { combatJoinCharacterActions } from './combat-join-character.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -175,7 +176,12 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
   // Dragon's Hunger (td-106): force-opponent-discard (match: hazard-creature).
   const hazardCreatureForceDiscards = hazardCreatureForceDiscardActions(state, playerId, combat);
-  const joinForceStrikes = joinCombatForceStrikeActions(state, playerId, combat);
+  // Helm of Her Secrecy (td-122): a combat-join-character event brings a named
+  // character from hand into the attacked company in the same window.
+  const joinForceStrikes = [
+    ...joinCombatForceStrikeActions(state, playerId, combat),
+    ...combatJoinCharacterActions(state, playerId, combat),
+  ];
   // Tap-ally combat boosts (e.g. Great Lord of Goblin-gate) are available to
   // the ally's owner during the assign-strikes and resolve-strike windows.
   const allyCombatBoosts = tapAllyCombatBoostActions(state, playerId, combat);
