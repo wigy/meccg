@@ -212,6 +212,14 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       continue;
     }
 
+    // A `combat-join-character` effect (Helm of Her Secrecy td-122) is only
+    // playable bundled with its character while the company faces an attack,
+    // via `combatJoinCharacterActions` (legal-actions/combat-join-character.ts).
+    if (getCardEffects(def).some(e => e.type === 'combat-join-character')) {
+      logDetail(`Permanent event ${def.name}: combat-join-character — combat-only, not offered here`);
+      continue;
+    }
+
     // A `recruitment-vehicle` effect (Thrall of the Voice wh-82, Open to the
     // Summons wh-46) is never playable as a bare permanent event during the
     // organization phase — its card text is explicit: "Instead of a normal

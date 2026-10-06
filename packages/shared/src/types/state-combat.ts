@@ -1206,6 +1206,12 @@ export interface PostAttackEffect {
    * the character may rejoin his original company.
    */
   readonly leftBehindSplit?: boolean;
+  /**
+   * Helm of Her Secrecy (td-122): discard the card with this instance ID from
+   * the target character's `items` (an attached permanent-event) to its
+   * owner's discard pile following the attack.
+   */
+  readonly discardAttachedInstanceId?: CardInstanceId;
 }
 
 // ---- Chain of Effects sub-state ----

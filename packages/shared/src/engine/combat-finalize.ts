@@ -1919,6 +1919,25 @@ function applyPostAttackEffects(
       });
       logDetail(`Post-attack: corruption check queued on ${effect.targetCharacterId as string} (mod ${modifier})`);
     }
+    // Helm of Her Secrecy (td-122): discard the attached event following the
+    // attack. If the character already left play its items went with it.
+    if (effect.discardAttachedInstanceId) {
+      const char = s.players[defIdx].characters[effect.targetCharacterId];
+      const attached = char?.items.find(i => i.instanceId === effect.discardAttachedInstanceId);
+      if (char && attached) {
+        const newPlayers: [PlayerState, PlayerState] = [s.players[0], s.players[1]];
+        newPlayers[defIdx] = {
+          ...s.players[defIdx],
+          characters: {
+            ...s.players[defIdx].characters,
+            [effect.targetCharacterId as string]: { ...char, items: char.items.filter(i => i !== attached) },
+          },
+          discardPile: [...s.players[defIdx].discardPile, toCardInstance(attached)],
+        };
+        s = { ...s, players: newPlayers };
+        logDetail(`Post-attack: discarded ${attached.definitionId as string} from ${effect.targetCharacterId as string}`);
+      }
+    }
     // Left Behind (td-41): peel the character off into a separate company.
     if (effect.leftBehindSplit) {
       s = applyLeftBehindSplit(s, defIdx, effect.targetCharacterId, combat.companyId);

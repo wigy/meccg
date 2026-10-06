@@ -5,6 +5,7 @@
  * strike resolution, support strikes, body checks, and combat finalization.
  */
 
+import { handleCombatJoinCharacter } from './combat-join-character.js';
 import type { GameState, CombatState, StrikeAssignment, GameAction, CardInstanceId } from '../index.js';
 import { isAvatarCharacter } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
@@ -76,6 +77,9 @@ const COMBAT_HANDLERS: Partial<Record<GameAction['type'], CombatActionHandler>> 
   'cancel-prisoner-taking': handleCancelPrisonerTaking,
   'play-hazard': handleCombatPlayHazard,
   'haven-join-attack': handleHavenJoinAttack,
+  // Helm of Her Secrecy (td-122): a combat-join-character event brings a
+  // character from hand into the attacked company before strikes are assigned.
+  'play-character': handleCombatJoinCharacter,
   // Rule 3.iv / 3.iv.5: resource short-events may be played between strike
   // sequences or during step 5 if they affect the current strike. The event
   // handler applies its effects without touching the combat state.
