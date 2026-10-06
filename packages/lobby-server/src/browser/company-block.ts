@@ -1459,6 +1459,53 @@ export function eventMaintenanceActionLabel(
   return `Discard ${handName ?? 'card'} from hand`;
 }
 
+/** A Summons from Long Sleep (as-39) slot action: reserve or play the reserved creature. */
+export type SummonsFromLongSleepAction = Extract<GameAction, { type: 'reserve-creature' | 'play-reserved-creature' }>;
+
+/**
+ * Find the viable Summons from Long Sleep (as-39) slot actions for the given
+ * card-in-play instance: one `reserve-creature` per Dragon/Drake in hand (slot
+ * empty) and the `play-reserved-creature` variants (one per keying match) once
+ * a creature is reserved. Both reference the in-play card through
+ * `sourceCardInstanceId`.
+ *
+ * Exported so the cards-in-play renderer can wire a board click handler and
+ * the behaviour can be regression-tested without a full DOM render. Without
+ * this neither action had any UI affordance — the card could be played but
+ * never used (bug report 1d452f3f0db6495d).
+ */
+export function findSummonsFromLongSleepActions(
+  actions: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+): SummonsFromLongSleepAction[] {
+  return actionsOfTypeFor(
+    actions,
+    ['reserve-creature', 'play-reserved-creature'] as const,
+    cardInstanceId,
+    'sourceCardInstanceId',
+  );
+}
+
+/**
+ * Build the tooltip menu label for one Summons from Long Sleep slot action.
+ * `reserve-creature` names the hand creature (resolved through `defIdOf`);
+ * `play-reserved-creature` names the keying when the engine offers several.
+ */
+export function summonsFromLongSleepActionLabel(
+  action: SummonsFromLongSleepAction,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  defIdOf: (id: CardInstanceId) => CardDefinitionId | undefined,
+): string {
+  if (action.type === 'reserve-creature') {
+    const defId = defIdOf(action.cardInstanceId);
+    const name = defId ? cardPool[defId as string]?.name : undefined;
+    return `Reserve ${name ?? 'creature'}`;
+  }
+  return action.keyedBy
+    ? `Play reserved creature (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`
+    : 'Play reserved creature';
+}
+
 /**
  * Resolve the `tap-alt-permanent-event` action that taps `targetCharacterId`
  * using the already-selected in-play permanent-event `cardInstanceId`, or
@@ -1634,6 +1681,11 @@ export function renderInPlayCardImage(
     // no board affordance and the ability was only reachable from the debug
     // action panel (bug report d758b623d2af1fb2).
     const sideboardWithNazgulActs = findSideboardWithNazgulActions(viableActions(view.legalActions), card.instanceId);
+    // Summons from Long Sleep (as-39): clicking the in-play card reserves a
+    // Dragon/Drake from hand into its slot or plays the reserved creature.
+    // Without this neither action had a board affordance (bug report
+    // 1d452f3f0db6495d).
+    const summonsActs = findSummonsFromLongSleepActions(viableActions(view.legalActions), card.instanceId);
     if (tapAltActions.length > 0) {
       const isSelected = getSelectedTapAltPermanentEvent() === card.instanceId;
       img.classList.add('company-card--movable');
@@ -1706,6 +1758,24 @@ export function renderInPlayCardImage(
           img,
           sideboardWithNazgulActs.map(action => ({
             label: action.destination === 'deck' ? 'Fetch to Deck' : 'Fetch to Discard',
+            onClick: () => onAction(action),
+          })),
+          { placement: 'auto' },
+        );
+      });
+    } else if (summonsActs.length > 0) {
+      img.classList.add('company-card--movable');
+      img.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (summonsActs.length === 1) {
+          onAction(summonsActs[0]);
+          return;
+        }
+        const defIdOf = getCachedInstanceLookup();
+        showTooltipMenu(
+          img,
+          summonsActs.map(action => ({
+            label: summonsFromLongSleepActionLabel(action, cardPool, defIdOf),
             onClick: () => onAction(action),
           })),
           { placement: 'auto' },
