@@ -5477,6 +5477,33 @@ export interface CompanyCombatBoostEffect extends EffectBase {
   readonly bodyModifier?: number;
 }
 
+/**
+ * A from-hand combat short-event that, before an attack against the caster's
+ * company is resolved, rolls 2d6 and adds the casting character's current
+ * prowess: if the total exceeds the attack's prowess, every strike of the
+ * attack fails (the attack still runs its strike sequence, each strike being
+ * automatically defeated via `CombatState.forcedStrikeDefeat`, so an attack
+ * with body still faces body checks); otherwise the attack proceeds normally.
+ * The caster pays `cost` whatever the roll's outcome. Offered in the
+ * defender's pre-assignment cancel window, never in company-vs-company
+ * combat.
+ *
+ * Used by True Fána (tw-354): "Spell. Wizard only. Before resolving an attack
+ * against the Wizard's company, make a roll and add the Wizard's prowess to
+ * the result. If the total is greater than the attack's prowess, all of the
+ * attack's strikes fail (if the attack has body, make body checks to
+ * determine if the attack is defeated). Otherwise, the attack proceeds
+ * normally. Wizard makes a corruption check modified by -3. Cannot be used in
+ * company vs. company combat."
+ */
+export interface AttackRollStrikesFailEffect extends EffectBase {
+  readonly type: 'attack-roll-strikes-fail';
+  /** Race the casting character must have (e.g. `"wizard"`). */
+  readonly requiredRace?: Race;
+  /** Cost the casting character pays whatever the roll's outcome (e.g. a corruption check). */
+  readonly cost?: ActionCost;
+}
+
 /** Discard-cost payload for {@link CompanyCombatBoostEffect.costDiscard}. */
 export interface CompanyCombatBoostDiscardCost {
   /** Pile the cost cards are discarded from. Currently only `"hand"`. */
@@ -10789,6 +10816,7 @@ export type CardEffect =
   | FetchWizardOnStoreEffect
   | ExtraAgentActionsEffect
   | CompanyCombatBoostEffect
+  | AttackRollStrikesFailEffect
   | PermanentEventAutoAttackEffect
   | FactionSiegeEffect
   | AttackerAttackOptionEffect

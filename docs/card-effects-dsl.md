@@ -13523,6 +13523,35 @@ Contrast with Wizard's Fire (tw-360), the same shape minus `boostScope`
 
 ---
 
+### 53a-quater. `attack-roll-strikes-fail`
+
+Played from hand as a resource **short event during combat**, in the
+defender's pre-resolution cancel window (the same window as `cancel-attack`;
+never in company-vs-company combat). The player chooses a casting character
+in the attacked company matching `requiredRace`; the engine rolls 2d6 and adds
+that character's current prowess. If the total is **greater** than the
+attack's prowess (`combat.strikeProwess`), every strike of the attack fails —
+`combat.forcedStrikeDefeat` is set, so each strike is still assigned and
+resolved but automatically defeated, and an attack with body faces the normal
+body checks. Otherwise the attack proceeds normally. `cost` is paid by the
+caster either way. Resolved immediately (no chain), like `company-combat-boost`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `requiredRace` | no | Race the casting character must have. |
+| `cost` | no | Cost the caster pays regardless of the roll (e.g. a corruption check). |
+
+True Fána (tw-354): "Spell. Wizard only. Before resolving an attack against
+the Wizard's company, make a roll and add the Wizard's prowess to the result.
+If the total is greater than the attack's prowess, all of the attack's strikes
+fail … Wizard makes a corruption check modified by -3. Cannot be used in
+company vs. company combat."
+
+```json
+{ "type": "attack-roll-strikes-fail", "requiredRace": "wizard",
+  "cost": { "check": "corruption", "modifier": -3 } }
+```
+
 ### 53b. `combat-tap-company-boost`
 
 Tap an in-play ally **during combat** to grant an attack-scoped stat boost to
