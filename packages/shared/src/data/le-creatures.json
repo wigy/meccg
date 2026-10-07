@@ -1461,9 +1461,29 @@
     "body": 6,
     "killMarshallingPoints": 2,
     "race": "elf",
-    "keyedTo": [],
-    "effects": [],
-    "text": "Elves. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Woodland Realm, Western Mirkwood, Heart of Mirkwood, Northern Rhovanion, and Grey Mountain Narrows; and may also be played at sites in these regions. May not be played against a company containing a character with Thranduil’s Halls as a home site."
+    "keyedTo": [
+      { "regionNames": ["Woodland Realm", "Western Mirkwood", "Heart of Mirkwood", "Northern Rhovanion", "Grey Mountain Narrows"] },
+      { "siteInRegionNames": ["Woodland Realm", "Western Mirkwood", "Heart of Mirkwood", "Northern Rhovanion", "Grey Mountain Narrows"] }
+    ],
+    "effects": [
+      { "type": "combat-one-strike-per-character" },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            { "defender.alignment": "hero" },
+            { "$and": [{ "defender.alignment": "fallen-wizard" }, { "defender.covert": true }] }
+          ]
+        }
+      },
+      {
+        "type": "play-condition",
+        "requires": "target-company",
+        "condition": { "$not": { "company.homeSites": "Thranduil’s Halls" } }
+      }
+    ],
+    "text": "Elves. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Woodland Realm, Western Mirkwood, Heart of Mirkwood, Northern Rhovanion, and Grey Mountain Narrows; and may also be played at sites in these regions. May not be played against a company containing a character with Thranduil’s Halls as a home site.",
+    "certified": "2026-10-07"
   },
   {
     "cardType": "hazard-creature",
