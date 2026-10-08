@@ -3990,6 +3990,55 @@ export function fireSuccessfulInfluenceTriggers(
   return next;
 }
 
+/**
+ * Fire `bearer-makes-influence-check` on-event triggers carried by items the
+ * influencing character bears, after that character makes an influence check
+ * — successful or not. Fired from both influence seams: the faction influence
+ * roll ({@link resolveInfluenceAttemptRoll}) and the opponent-influence
+ * resolution ({@link resolveOpponentInfluenceDefend}). An attempt that
+ * succeeds automatically with no roll (Red Arrow tw-312) is no check and does
+ * not fire.
+ *
+ * The Iron Crown (tw-496): "Whenever bearer makes an influence check, he must
+ * also make a corruption check." The apply is `enqueue-corruption-check`; the
+ * check is a Site-phase pending resolution on the bearer, so it resolves
+ * before any further site action.
+ */
+export function fireBearerInfluenceCheckTriggers(
+  state: GameState,
+  influencerCharId: CardInstanceId,
+  controllerId: PlayerId,
+): GameState {
+  const controller = state.players[getPlayerIndex(state, controllerId)];
+  const char = controller.characters[influencerCharId];
+  if (!char) return state;
+  const charDef = defById(state, char.definitionId);
+  if (!charDef || !isCharacterCard(charDef)) return state;
+
+  let next = state;
+  for (const item of char.items) {
+    const def = defById(state, item.definitionId);
+    for (const effect of getOnEventEffects(def, 'bearer-makes-influence-check')) {
+      if (effect.when && !matchesContext(effect.when, { bearer: { race: charDef.race, name: charDef.name } })) {
+        logDetail(`"${def?.name}" bearer-makes-influence-check: when condition not met for ${charDef.name} — not triggered`);
+        continue;
+      }
+      if (effect.apply.type !== 'enqueue-corruption-check') continue;
+      logDetail(`"${def?.name}": ${charDef.name} made an influence check — corruption check (modifier ${formatSignedNumber(effect.apply.modifier ?? 0)})`);
+      next = enqueueCorruptionCheck(next, {
+        source: item.instanceId,
+        actor: controllerId,
+        scope: { kind: 'phase', phase: Phase.Site },
+        characterId: influencerCharId,
+        modifier: effect.apply.modifier ?? 0,
+        reason: `${def?.name ?? 'Item'} (bearer made an influence check)`,
+        possessions: characterPossessions(char),
+      });
+    }
+  }
+  return next;
+}
+
 export function resolveInfluenceAttemptRoll(
   state: GameState,
   entry: { readonly card: CardInstance | null; readonly declaredBy: import('../index.js').PlayerId; readonly payload: { readonly type: 'influence-attempt'; readonly influencingCharacterId: CardInstanceId; readonly placeUnderLeaderControl?: boolean; readonly bonusModifier?: number } },
@@ -4435,7 +4484,12 @@ export function resolveInfluenceAttemptRoll(
     // wh-86) influenced into play counts as "playing a stage card". A failed
     // influence attempt never puts the faction in play, so it does not trigger.
     const stageTriggered = fireStageCardPlayedTriggers(triggeredState, playerIndex, def);
-    return { state: stageTriggered, effects: rollEffect ? [rollEffect] : [] };
+    // The Iron Crown (tw-496): an influence check by the bearer also forces a
+    // corruption check. Auto-influence (no roll) is no check.
+    const crownTriggered = charInPlay && roll
+      ? fireBearerInfluenceCheckTriggers(stageTriggered, charId, entry.declaredBy)
+      : stageTriggered;
+    return { state: crownTriggered, effects: rollEffect ? [rollEffect] : [] };
   }
 
   logDetail(`Influence attempt failed (${total} < ${influenceNumber})`);
@@ -4457,7 +4511,10 @@ export function resolveInfluenceAttemptRoll(
     rng: failRng, cheatRollTotal,
     phaseState: { ...siteState, resourcePlayed: true },
   }, playerIndex, siteState.activeCompanyIndex, !skipSiteTap);
-  return { state: failureState, effects: rollEffect ? [rollEffect] : [] };
+  const crownTriggered = charInPlay
+    ? fireBearerInfluenceCheckTriggers(failureState, charId, entry.declaredBy)
+    : failureState;
+  return { state: crownTriggered, effects: rollEffect ? [rollEffect] : [] };
 }
 
 /**
@@ -4971,6 +5028,11 @@ export function resolveOpponentInfluenceDefend(
     // "successful influence attempt" — fire the in-play triggers on the
     // influencing character (corruption check, then self-discard).
     afterSweep = fireSuccessfulInfluenceTriggers(afterSweep, attempt.influencerId, state.players[playerIndex].id);
+    // The Iron Crown (tw-496): the influencer's check also forces a corruption
+    // check on the bearer. An automatically successful attempt is no check.
+    if (!attempt.autoSuccess) {
+      afterSweep = fireBearerInfluenceCheckTriggers(afterSweep, attempt.influencerId, state.players[playerIndex].id);
+    }
 
     // CoE 10.13: with an identical card revealed, the attacker may now play it
     // with the influencing character — no site tap, no second influence check.
@@ -5004,11 +5066,11 @@ export function resolveOpponentInfluenceDefend(
   }
 
   return {
-    state: {
+    state: fireBearerInfluenceCheckTriggers({
       ...state,
       players: newPlayers,
       rng, cheatRollTotal,
-    },
+    }, attempt.influencerId, state.players[playerIndex].id),
     effects: rollEffects,
   };
 }

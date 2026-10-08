@@ -2617,9 +2617,39 @@
     "marshallingCategory": "item",
     "corruptionPoints": 5,
     "prowessModifier": 0,
-    "bodyModifier": 1,
+    "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
+    "effects": [
+      {
+        "type": "on-event",
+        "event": "bearer-makes-influence-check",
+        "apply": { "type": "enqueue-corruption-check" }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "body",
+        "value": 1,
+        "max": 10,
+        "when": { "bearer.race": { "$ne": "hobbit" } }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 4,
+        "when": { "bearer.race": { "$ne": "hobbit" } }
+      },
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "self" },
+        "when": {
+          "$and": [
+            { "bearer.race": { "$ne": "hobbit" } },
+            { "enemy.race": { "$in": ["orc", "troll", "man"] } }
+          ]
+        }
+      }
+    ],
+    "certified": "2026-10-08",
     "text": "Unique. Whenever bearer makes an influence check, he must also make a corruption check. If the bearer is not a Hobbit: he receives +1 to body to a maximum of 10; he receives +4 to direct influence; and he may tap The Iron Crown to cancel an attack by Orcs, Trolls, or Men against his company."
   },
   {

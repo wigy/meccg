@@ -3828,6 +3828,13 @@ Events:
     ] } }
   ```
 
+- `bearer-makes-influence-check` -- fires on an **item** borne by a character whenever that character makes an influence check, successful or not, from both influence seams: a faction influence roll (`resolveInfluenceAttemptRoll`) and an opponent-influence resolution (`resolveOpponentInfluenceDefend`). An attempt that succeeds automatically with no roll (Red Arrow tw-312, an opponent-influence `autoSuccess`) is no check and does not fire. Scanned by `fireBearerInfluenceCheckTriggers` in `reducer-site.ts`; the optional `when` is evaluated against `{ bearer: { race, name } }`. Supports `apply: { type: "enqueue-corruption-check", modifier? }` (a Site-phase pending check on the bearer). Used by *The Iron Crown* (tw-496): "Whenever bearer makes an influence check, he must also make a corruption check."
+
+  ```json
+  { "type": "on-event", "event": "bearer-makes-influence-check",
+    "apply": { "type": "enqueue-corruption-check" } }
+  ```
+
 - `end-of-turn` -- fires when the active player's site phase ends and the game transitions into the End-of-Turn phase (both when all companies have been handled and when the player passes with no active step). The reducer (`reducer-site.ts`) scans every character of the active player for attached hazards carrying this on-event. Supports `apply: { type: "force-check-per-others-item", check: "corruption" }`, which enqueues one `corruption-check` pending resolution per item in the bearer's company that the bearer does not bear; the modifier for each check is the negative corruption-point value of that item (`-item.corruptionPoints`). Used by *Covetous Thoughts* (le-107). Implemented in `reducer-site.ts` `fireEndOfTurnCorruptionChecks()`.
 - `site-phase-company-begins` -- fires when a company is selected at the start of the site phase (`select-company` → `enter-or-skip` transition). The reducer (`reducer-site.ts` `fireSitePhaseCompanyBeginsEvents`) scans **all** players' `cardsInPlay` for **global** permanent events (no `companyId`) carrying this on-event. The condition is evaluated against a context including `company.siteRegionType` (the `RegionType` string of the region the company's current site is in, e.g. `"dark"` or `"shadow"`) and the standard `inPlay` card-name list. Currently supports `apply: { type: "tap-one-character" }`, which enqueues a `tap-one-character` pending resolution for the resource player: the player must tap one untapped character in the company, or pass if none are untapped. Used by *Stench of Mordor* (le-141).
 
