@@ -982,6 +982,16 @@ Bûthrakaur the Green (dm-105): "Unique. Troll. One strike. Also playable at Mor
 
 Used by *Bûthrakaur the Green* (dm-105).
 
+### `hazard-limit-race-grant` gains `uniqueOnly` (Agburanar at Home td-2)
+
+"One unique Dragon manifestation played against each company does not count against the hazard limit." The mirror of `nonUniqueOnly`: with `uniqueOnly: true` the grant matches only a candidate creature whose own `unique` is true (checked beside the race match in `findHazardLimitRaceGrant`, `mh-hazard-play.ts`), so a non-unique Dragon such as Cave-drake still counts. Per-company consumption is unchanged (`hazardLimitRaceGrantsUsed`). The card's first half reuses `dragon-at-home` unchanged.
+
+```json
+{ "type": "hazard-limit-race-grant", "race": "dragon", "uniqueOnly": true }
+```
+
+Used by *Agburanar at Home* (td-2).
+
 ### `grant-creature-keying` named-region branch reused for the Mirkwood/Anduin sibling (Reaching Shadow dm-81)
 
 Reaching Shadow (dm-81): "Any creature that can be keyed to one single Shadow-land [{s}] may be keyed to Anduin Vales, Northern Rhovanion, Southern Rhovanion, Grey Mountain Narrows, Woodland Realm, Western Mirkwood, Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Any creature that can be keyed to a Dark-domain [{d}] may be keyed to Heart of Mirkwood, Southern Mirkwood, Brown Lands, or Dagorlad. Discard this card when a creature keyed to one of these regions (not to the region symbol) is defeated." Word-for-word the In Darkness Bind Them (dm-65) template with a different region list, so it is certified on exactly the mechanism documented in the dm-65 section above with **no new engine code**: two `grant-creature-keying` effects using the `siteFilter.regionNames` named-region branch, gated by `requiresKeyedToRegionType` (`{ "regionType": "shadow", "exactCount": 1 }` for "one single Shadow-land" — a double-Shadow-land keying such as Wild Fell Beast is excluded per CRF 22 "may not be used to play creatures keyed to double Shadow-lands"; `{ "regionType": "dark" }` for "a Dark-domain"), plus an `on-event: attack-defeated` self-discard gated on `attack.keyingRegionNames` (`{ "$in": [<the ten names>] }`), which only sees a name when the creature was actually keyed via the grant (`keyedBy.grantedRegionName`) or via its own printed `keyedTo.regionNames` — never via a region-type symbol elsewhere on the path.

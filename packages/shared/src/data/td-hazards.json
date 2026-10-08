@@ -573,10 +573,16 @@
           "prowess": 16,
           "body": 9
         }
+      },
+      {
+        "type": "hazard-limit-race-grant",
+        "race": "dragon",
+        "uniqueOnly": true
       }
     ],
     "text": "Unique. Unless Agburanar Ahunt is in play, Caves of Ûlund has an additional automatic-attack: Dragon — 2 strikes at 16/9. In addition, one unique Dragon manifestation played against each company does not count against the hazard limit.",
-    "manifestId": "tw-3"
+    "manifestId": "tw-3",
+    "certified": "2026-10-08"
   },
   {
     "cardType": "hazard-event",

@@ -20257,6 +20257,7 @@ hazard-creature whose grant outlives it (see `source` below).
 | `race` | yes | The creature race exempted from the hazard limit. |
 | `maxPerCompany` | no | Exempted creatures of `race` per company per M/H phase (default 1). |
 | `nonUniqueOnly` | no | When true, only *non-unique* creatures of `race` are exempted (Bûthrakaur the Green dm-105: "Any non-unique Orc or Troll hazard creature …" — one effect per race, no `races` array). |
+| `uniqueOnly` | no | When true, only *unique* creatures of `race` are exempted (Agburanar at Home td-2: "one unique Dragon manifestation played against each company …"). |
 | `source` | no | `'in-play'` (default) or `'faced-this-turn'` — see below. |
 
 Unlike `creature-race-choice`'s `creature-type-no-hazard-limit`
