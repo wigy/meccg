@@ -28,6 +28,7 @@ import type {
   ModifyAttackAction,
   TapItemForStrikeAction,
   FaceStrikeOnTapAction,
+  TapAllyCombatBoostAction,
   SalvageItemAction,
   TakeTrophyAction,
   EvaluatedAction,
@@ -43,6 +44,7 @@ import { resolveAttackerCardInstanceId } from './attacker-card-instance.js';
 import { resolveCardElement } from './combat-arrow-card-el.js';
 import { resolveFaceStrikeOnTapAction } from './combat-face-strike-action.js';
 import { resolveCancelByTapAllyAction } from './combat-cancel-by-tap-ally-action.js';
+import { resolveTapCombatBoostAction, tapCombatBoostChoices } from './combat-tap-boost-action.js';
 import { strikeResultDisplay, strikeArrowStyle } from './strike-result-display.js';
 import type { CardInstanceId, CardDefinitionId } from '@meccg/shared';
 import { createCardImage, createCardImageFromDefId, inPlayCardDefs, storedCardDefs, findIsolatingEventName } from './render-utils.js';
@@ -149,6 +151,9 @@ export function renderCombatView(
   const modifyAttackActions = viable.filter((a): a is ModifyAttackAction => a.type === 'modify-attack');
   const tapItemForStrikeActions = viable.filter((a): a is TapItemForStrikeAction => a.type === 'tap-item-for-strike');
   const faceStrikeOnTapActions = viable.filter((a): a is FaceStrikeOnTapAction => a.type === 'face-strike-on-tap');
+  // Tap-to-boost-company abilities (Great Lord of Goblin-gate, Lore of the
+  // Ages): clicked on the source ally/item under its character.
+  const tapCombatBoostActions = viable.filter((a): a is TapAllyCombatBoostAction => a.type === 'tap-ally-combat-boost');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
   const takeTrophyActions = viable.filter((a): a is TakeTrophyAction => a.type === 'take-trophy');
 
@@ -187,7 +192,7 @@ export function renderCombatView(
 
   // Build attacker row and defender row
   const attackerRow = renderAttackerRow(combat, view, cardPool, assignActions, selectedCvCCAttacker, selectedCvCCDefender, iAmDefender, onAction);
-  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, faceStrikeOnTapActions, takeTrophyActions, selectedCvCCAttacker, selectedCvCCDefender, onAction);
+  const defenderRow = renderDefenderRow(combat, view, cardPool, assignActions, supportActions, chooseOrderActions, cancelByTapActions, cancelStrikeActions, cancelAttackActions, modifyAttackActions, tapItemForStrikeActions, faceStrikeOnTapActions, tapCombatBoostActions, takeTrophyActions, selectedCvCCAttacker, selectedCvCCDefender, onAction);
 
   // Top row is the "opponent" side, bottom row is "my" side
   const topRow = document.createElement('div');
@@ -583,6 +588,7 @@ function renderDefenderRow(
   modifyAttackActions: ModifyAttackAction[],
   tapItemForStrikeActions: TapItemForStrikeAction[],
   faceStrikeOnTapActions: FaceStrikeOnTapAction[],
+  tapCombatBoostActions: TapAllyCombatBoostAction[],
   takeTrophyActions: TakeTrophyAction[],
   selectedCvCCAttacker: CardInstanceId | null,
   selectedCvCCDefender: CardInstanceId | null,
@@ -708,7 +714,7 @@ function renderDefenderRow(
     const char = charMap[charId];
     if (!char) continue;
 
-    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, faceStrikeOnTapActions, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, takeTrophyMap, onAction);
+    const col = renderCombatCharacterColumn(char, cardPool, combat, strikeMap, assignableIds, supportableIds, cancelByTapIds, cancelStrikeMap, cancelAttackScoutMap, cancelAttackInPlayMap, chooseOrderMap, modifyAttackMap, tapItemForStrikeMap, faceStrikeOnTapActions, tapCombatBoostActions, effectiveAssignActions, supportActions, cancelByTapActions, isCvCCAttackerPhase, isCvCCDefenderPhase, cvccDefenderPhaseEligibleIds, selectedCvCCDefender, takeTrophyMap, onAction);
     container.appendChild(col);
   }
 
@@ -741,6 +747,7 @@ function renderCombatCharacterColumn(
   modifyAttackMap: Map<string, ModifyAttackAction>,
   tapItemForStrikeMap: Map<string, TapItemForStrikeAction>,
   faceStrikeOnTapActions: FaceStrikeOnTapAction[],
+  tapCombatBoostActions: TapAllyCombatBoostAction[],
   assignActions: AssignStrikeAction[],
   supportActions: SupportStrikeAction[],
   cancelByTapActions: CancelByTapAction[],
@@ -963,6 +970,7 @@ function renderCombatCharacterColumn(
       const modifyAction = modifyAttackMap.get(allyIdStr);
       const tapForStrikeAction = tapItemForStrikeMap.get(allyIdStr);
       const faceStrikeAction = resolveFaceStrikeOnTapAction(faceStrikeOnTapActions, allyIdStr);
+      const tapCombatBoostAction = resolveTapCombatBoostAction(tapCombatBoostActions, allyIdStr);
 
       const allyCancelAttackInPlay = cancelAttackInPlayMap.get(allyIdStr);
       // Allies count as characters for "skill only" cards (CoE 2.V.2.2), so a
@@ -1009,6 +1017,28 @@ function renderCombatCharacterColumn(
         itemEl.addEventListener('click', (e) => {
           e.stopPropagation();
           onAction(faceStrikeAction);
+        });
+      } else if (tapCombatBoostAction) {
+        // Tap this ally (Great Lord of Goblin-gate) or this item's bearer
+        // (Lore of the Ages) to boost the whole company against the attack.
+        // An ally that could also take a strike or support the current one
+        // gets a menu so neither choice is hidden behind the other.
+        itemEl.classList.add('combat-card--assignable');
+        itemEl.style.cursor = 'pointer';
+        const assignAction = combat.phase === 'assign-strikes' && assignableIds.has(allyIdStr)
+          ? assignActions.find(a => a.characterId === item.instanceId)
+          : undefined;
+        const supportAction = combat.phase === 'resolve-strike'
+          ? supportActions.find(a => a.supportingCharacterId === item.instanceId)
+          : undefined;
+        const choices = tapCombatBoostChoices(tapCombatBoostAction, assignAction, supportAction);
+        itemEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (choices.length === 1) {
+            onAction(choices[0].action);
+          } else {
+            showTooltipMenu(itemEl, choices.map(c => ({ label: c.label, onClick: () => onAction(c.action) })));
+          }
         });
       } else if (allyCancelAttackInPlay) {
         // In-play ally cancel-attack: tap this ally to cancel the attack directly
