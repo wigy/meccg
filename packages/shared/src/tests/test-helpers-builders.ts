@@ -1048,6 +1048,106 @@ export function snapshotHazardLimitFor(
 }
 
 /**
+ * Like {@link snapshotHazardLimitFor}, but for a single-[ARAGORN] company at an
+ * arbitrary `site`, moving to `destination` (or stationary when `null`). Lets a
+ * card test vary the company's origin and destination sites — e.g. Drums
+ * (dm-52), whose bonus applies to companies "at or moving to an Under-deeps
+ * site". `envInPlay` cards go into the hazard player's `cardsInPlay`.
+ */
+export function snapshotHazardLimitAtSites(
+  site: CardDefinitionId,
+  destination: CardDefinitionId | null,
+  envInPlay: readonly CardDefinitionId[] = [],
+): number {
+  let state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      {
+        id: PLAYER_1,
+        companies: [{ site, characters: [ARAGORN], ...(destination ? { destinationSite: destination } : {}) }],
+        hand: [],
+        siteDeck: [MORIA],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+    ],
+  });
+  for (const def of envInPlay) {
+    state = addCardInPlay(state, HAZARD_PLAYER, def);
+  }
+  const ready = { ...state, phaseState: makeMHState({ step: 'set-hazard-limit', activeCompanyIndex: 0 }) };
+  const after = dispatch(ready, { type: 'pass', player: PLAYER_1 });
+  return (after.phaseState as MovementHazardPhaseState).hazardLimitAtReveal;
+}
+
+/**
+ * Plays `creatureDefId` (keyed to Wilderness) against a single-[ARAGORN]
+ * company at `site` moving to `destination`, and returns the state with the
+ * combat started. Unlike {@link setupCombatWithCaveDrake} (company fixed at
+ * Moria) the company's origin and destination are configurable, so a test can
+ * check attack modifiers that depend on where the defending company is or is
+ * going (Drums dm-52: "+1 prowess to all attacks" against a company at or
+ * moving to an Under-deeps site). `hazardCardsInPlay` go into the hazard
+ * player's `cardsInPlay`.
+ */
+export function setupCreatureCombatAtSites(opts: {
+  site: CardDefinitionId;
+  destination: CardDefinitionId;
+  creatureDefId: CardDefinitionId;
+  hazardCardsInPlay?: readonly CardInPlay[];
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      { id: PLAYER_1, companies: [{ site: opts.site, characters: [ARAGORN], destinationSite: opts.destination }], hand: [], siteDeck: [MINAS_TIRITH] },
+      {
+        id: PLAYER_2,
+        companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        hand: [opts.creatureDefId],
+        siteDeck: [RIVENDELL],
+        ...(opts.hazardCardsInPlay ? { cardsInPlay: [...opts.hazardCardsInPlay] } : {}),
+      },
+    ],
+  });
+  const gameState = {
+    ...state,
+    phaseState: makeMHState({
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Hollin', 'Enedhwaith'],
+      destinationSiteType: SiteType.RuinsAndLairs,
+    }),
+  };
+  const creatureId = handCardId(gameState, HAZARD_PLAYER);
+  const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+  const s = playCreatureHazardAndResolve(gameState, PLAYER_2, creatureId, companyId, { method: 'region-type', value: 'wilderness' });
+  expect(s.combat).not.toBeNull();
+  return s;
+}
+
+/**
+ * Starts the first automatic-attack faced by a single-[ARAGORN] company at
+ * `site` during the site phase and returns the resulting combat.
+ * `hazardCardsInPlay` (definition IDs) go into the hazard player's
+ * `cardsInPlay` first — e.g. a long-event that boosts automatic-attacks and
+ * Doors of Night (Drums dm-52).
+ */
+export function firstAutoAttackCombatAt(
+  site: CardDefinitionId,
+  hazardCardsInPlay: readonly CardDefinitionId[] = [],
+): CombatState {
+  let state: GameState = buildSitePhaseState({ site });
+  for (const def of hazardCardsInPlay) {
+    state = addCardInPlay(state, HAZARD_PLAYER, def);
+  }
+  const result = reduce(setupAutoAttackStep(state), { type: 'pass', player: PLAYER_1 });
+  expect(result.error).toBeUndefined();
+  expect(result.state.combat).toBeDefined();
+  return result.state.combat!;
+}
+
+/**
  * Build a {@link CombatState} in the body-check phase for a single
  * wounded character, set up against a generic automatic-attack source.
  *

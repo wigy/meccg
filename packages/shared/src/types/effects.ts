@@ -11985,7 +11985,8 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
  * non-ranger characters, or 0 if none), `company.alignment` (the owning
  * player's alignment), `company.covert` (MELE covert/overt status — an
  * overt company is `false`) and `company.regionNames` (the names of the regions
- * the company is moving through this phase, empty when stationary) — see
+ * the company is moving through this phase, empty when stationary) and
+ * `company.atOrMovingToUnderDeeps` (at, or moving to, an Under-deeps site) — see
  * `snapshotHazardLimit` in `mh-steps.ts`. An absent `when` matches every
  * company.
  *
@@ -12007,6 +12008,10 @@ export interface ProhibitCompanyEventsEffect extends EffectBase {
  * their hazard limit increased by one." — `value: 1` (default
  * `appliesTo: "moving"`) with an `$or` of
  * `{ "company.regionNames": { "$includes": <region> } }` clauses.
+ *
+ * Used by Drums (dm-52): "For each company at or moving to an Under-deeps
+ * site, the hazard limit is increased by one" — `value: 1, appliesTo: "all"`
+ * with `when: { "company.atOrMovingToUnderDeeps": true }`.
  */
 export interface HazardLimitEnvironmentEffect extends EffectBase {
   readonly type: 'hazard-limit-environment';

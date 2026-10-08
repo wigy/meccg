@@ -218,6 +218,30 @@ on the site type it applies at, e.g. `when: { "site.siteType": { "$in": ["free-h
 `resolveAttackStrikes` and `resolveAttackProwess` thread the site type in, so
 the same gate works on either stat.
 
+Whenever the defending company is known, `resolveAttackStrikes` and
+`resolveAttackProwess` also expose two facts about it
+(`withDefendingCompanyFacts`, `effects/resolver.ts`):
+
+- `attack.atOrMovingToUnderDeeps` — the company is at an Under-deeps site, or
+  moving to one (a moving company is judged by its destination only, so leaving
+  an Under-deeps site for the surface does not count). Applies to every attack.
+- `site.region` — for **automatic-attacks** only, the named region of the site
+  whose automatic-attack is faced (the destination while the company is still
+  moving, e.g. Tidings of Bold Spies; otherwise its current site).
+
+Used by Drums (dm-52): "the prowess of all attacks is increased by one" against
+a company at or moving to an Under-deeps site, and "all automatic-attacks at
+sites in the following regions have their number of strikes and prowess
+increased by one (by two if Doors of Night is in play)":
+
+```json
+{ "type": "stat-modifier", "stat": "prowess", "value": 1, "target": "all-attacks",
+  "when": { "attack.atOrMovingToUnderDeeps": true } }
+{ "type": "stat-modifier", "stat": "strikes", "value": 1, "target": "all-automatic-attacks",
+  "when": { "$and": [ { "site.region": { "$in": ["Angmar", "Gap of Isen", "…"] } },
+                      { "$not": { "inPlay": "Doors of Night" } } ] } }
+```
+
 **`activeWhileStored: true` — an "if stored" ongoing effect.** A card *stored*
 in its controller's marshalling-point pile has left `cardsInPlay`, where
 `collectGlobalEffects` normally looks. Marking a modifier `activeWhileStored`
@@ -16578,6 +16602,10 @@ The `when` condition is evaluated against a per-company context exposing:
   this phase (the M/H state's `resolvedSitePathNames`; empty for a stationary
   company), for rules that name the regions they cover. Match with `$includes`
   (or a bare string, which the matcher also treats as array membership).
+- `company.atOrMovingToUnderDeeps` — the company is at an Under-deeps site or
+  moving to one (a moving company is judged by its destination only). Used by
+  Drums (dm-52), `value: 1, appliesTo: "all"`, `when: {
+  "company.atOrMovingToUnderDeeps": true }`.
 
 ```json
 {

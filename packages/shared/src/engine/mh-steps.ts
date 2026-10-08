@@ -25,7 +25,7 @@ import { isCharacterCard, isSiteCard, isFactionCard } from '../types/cards.js';
 import { RegionType, Race, Skill, Alignment, MovementType, CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { collectCharacterEffects, collectPlayerInPlayEffects, resolveDrawModifier } from './effects/index.js';
-import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
+import { resolveAttackProwess, resolveAttackStrikes, companyAtOrMovingToUnderDeeps } from './effects/resolver.js';
 import type { ResolverContext, CollectedEffect } from './effects/index.js';
 import { matchesCondition, matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
@@ -926,6 +926,8 @@ export function handleUnderDeepsRoll(state: GameState, action: GameAction, mhSta
  *   environment can name the regions it covers ("all companies moving in
  *   Southern Mirkwood, Western Mirkwood, Woodland Realm, and/or Heart of
  *   Mirkwood", Radagast the Tamer as-18). Empty for a stationary company.
+ * - `company.atOrMovingToUnderDeeps` — the company is at an Under-deeps site
+ *   or moving to one ({@link companyAtOrMovingToUnderDeeps}; Drums dm-52).
  *
  * The company belongs to the active (moving) player, so its characters are
  * resolved from `state.players[activeIndex].characters`.
@@ -946,6 +948,7 @@ export function buildCompanyHazardContext(
       alignment: Alignment;
       covert: boolean;
       regionNames: readonly string[];
+      atOrMovingToUnderDeeps: boolean;
     };
   } {
   const player = state.players[activeIndex];
@@ -971,6 +974,7 @@ export function buildCompanyHazardContext(
       alignment: player.alignment,
       covert: isCovertCompany(company, player, state),
       regionNames: pathNames,
+      atOrMovingToUnderDeeps: companyAtOrMovingToUnderDeeps(state, company),
     },
   };
 }
