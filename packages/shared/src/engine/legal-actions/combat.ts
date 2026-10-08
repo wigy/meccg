@@ -2984,6 +2984,10 @@ function cancelAttackActions(
     // may tap to cancel an attack against his company."
     const bearerCharDef = defById(state, charData.definitionId);
     const bearerSkills = bearerCharDef && isCharacterCard(bearerCharDef) ? bearerCharDef.skills : [];
+    // `bearer.race` lets an item's cancel gate on who bears it, e.g. The Iron
+    // Crown (tw-496): "If the bearer is not a Hobbit: … he may tap The Iron
+    // Crown to cancel an attack by Orcs, Trolls, or Men against his company."
+    const bearerRace = bearerCharDef && isCharacterCard(bearerCharDef) ? bearerCharDef.race : undefined;
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
       if (!itemDef) continue;
@@ -3006,7 +3010,7 @@ function cancelAttackActions(
       }
       if (cancelEffect.when) {
         const baseCtx = whenContext();
-        const itemCtx = { ...baseCtx, bearer: { ...(baseCtx.bearer as object), skills: bearerSkills } };
+        const itemCtx = { ...baseCtx, bearer: { ...(baseCtx.bearer as object), skills: bearerSkills, race: bearerRace } };
         if (!matchesCondition(cancelEffect.when, itemCtx)) {
           logDetail(`Cancel-attack ${itemName}: when condition not met`);
           continue;
