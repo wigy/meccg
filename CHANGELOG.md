@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.188.0 — 2026-10-08
+
+Drums Beat, Dragons Hunt, Iron Crown Claimed
+
+### Cards
+
+- Drums (dm-52) certified: +1 hazard limit and +1 prowess to attacks against companies at or moving to an Under-deeps site, +1 strikes/prowess (+2 with Doors of Night) to automatic-attacks at sites in nine named regions; cannot be duplicated (#3295)
+- Leucaruth Ahunt (td-43) certified: unique Dragon long-event attacking companies moving in Withered Heath, Northern Rhovanion, Iron Hills and Grey Mountain Narrows with 3 strikes at 14/7, extended to Southern Rhovanion, Dorwinion, Heart of Mirkwood and Woodland Realm with Doors of Night (#3296)
+- Agburanar at Home (td-2) certified: one unique Dragon manifestation played against each company no longer counts against the hazard limit, alongside the existing at-home lair attack (#3297)
+- The Iron Crown (tw-496) certified: non-Hobbit bearer gains +1 body (max 10) and +4 direct influence, may tap to cancel Orc, Troll and Man attacks, and makes a corruption check after each influence check (#3298)
+
+### Game Engine
+
+- New card-effect DSL support: `atOrMovingToUnderDeeps` hazard-limit and attack context fields, `site.region` for automatic-attack conditions, `uniqueOnly` on `hazard-limit-race-grant`, a `bearer-makes-influence-check` item trigger, and `bearer.race` in item cancel-attack conditions (#3295, #3297, #3298)
+
+### Web Client
+
+- Combat view now wires a click target for tap-to-boost abilities (e.g. Lore of the Ages' +1 prowess to the company); an ally that can also take or support a strike gets a choice menu (#3299)
+
+### Infrastructure
+
+- Generic test builders for hazard-limit snapshots and site-based combat setups (#3295)
+- Project status and card test README metrics refreshed
+
 ## 0.187.0 — 2026-10-08
 
 True Fána Fails Strikes, Thranduil's Folk Detain

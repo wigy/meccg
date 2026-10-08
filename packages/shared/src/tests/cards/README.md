@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1388 | 1388 | 0 | 100.0% |
+| 1392 | 1392 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,10 +14,10 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 126 | 126 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 155 | 155 | 100.0% |
+| DM | 156 | 156 | 100.0% |
 | LE | 335 | 335 | 100.0% |
-| TD | 145 | 145 | 100.0% |
-| TW | 427 | 427 | 100.0% |
+| TD | 147 | 147 | 100.0% |
+| TW | 428 | 428 | 100.0% |
 | WH | 99 | 99 | 100.0% |
 
 ## Detailed Test Matrix
@@ -298,6 +298,7 @@
 | dm-49 | Chance of Being Lost | — | 11 | ☑ |
 | dm-50 | Cunning Foes | — | 8 | ☑ |
 | dm-51 | Doubled Vigilance | — | 18 | ☑ |
+| dm-52 | Drums | — | 15 | ☑ |
 | dm-53 | Earth-tremors | — | 10 | ☑ |
 | dm-55 | Exhalation of Decay | — | 8 | ☑ |
 | dm-56 | Eyes of the Shadow | — | 10 | ☑ |
@@ -742,6 +743,7 @@
 | le-418 | The Arkenstone | — | 20 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
 | td-1 | Agburanar Ahunt | — | 13 | ☑ |
+| td-2 | Agburanar at Home | — | 11 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 17 | ☑ |
 | td-7 | Carrion Birds | — | 6 | ☑ |
@@ -767,6 +769,7 @@
 | td-38 | Itangast at Home | — | 8 | ☑ |
 | td-41 | Left Behind | — | 10 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
+| td-43 | Leucaruth Ahunt | — | 9 | ☑ |
 | td-44 | Leucaruth at Home | — | 14 | ☑ |
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
@@ -1310,6 +1313,7 @@
 | tw-493 | Neeker-breekers | — | 16 | ☑ |
 | tw-494 | Black Arrow | — | 9 | ☑ |
 | tw-495 | Fatty Bolger | — | 9 | ☑ |
+| tw-496 | The Iron Crown | — | 9 | ☑ |
 | tw-497 | A Pack at the Door | — | 11 | ☑ |
 | tw-498 | Swordmaster | — | 17 | ☑ |
 | tw-499 | Dwarven Axe | — | 7 | ☑ |
