@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.187.0 — 2026-10-08
+
+True Fána Fails Strikes, Thranduil's Folk Detain
+
+### Cards
+
+- Thranduil's Folk (le-93) certified: Elves keyed to Woodland Realm, Western Mirkwood, Heart of Mirkwood, Northern Rhovanion and Grey Mountain Narrows (and sites there); each character faces one strike, detainment against covert and hero companies, and may not be played against a company with a Thranduil's Halls home-site character (#3293)
+- True Fána (tw-354) certified: an Elf casts the spell in the defender's cancel window, rolling 2d6 plus prowess; beating the attack's prowess makes every strike fail (body checks still made), and the caster makes a corruption check (-3) either way (#3294)
+
+### Game Engine
+
+- New card-effect DSL effect `attack-roll-strikes-fail`: a from-hand combat short-event offered before strike resolution (never in company-vs-company combat) that forces every strike of the attack to be defeated on a successful roll (#3294)
+
+### Infrastructure
+
+- Project status and card test README metrics refreshed
+
 ## 0.186.0 — 2026-10-06
 
 Skin-changer Unleashed, Helm Hides Éowyn

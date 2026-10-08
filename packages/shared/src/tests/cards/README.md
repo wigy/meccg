@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1386 | 1386 | 0 | 100.0% |
+| 1388 | 1388 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -15,9 +15,9 @@
 | AS | 126 | 126 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 155 | 155 | 100.0% |
-| LE | 334 | 334 | 100.0% |
+| LE | 335 | 335 | 100.0% |
 | TD | 145 | 145 | 100.0% |
-| TW | 426 | 426 | 100.0% |
+| TW | 427 | 427 | 100.0% |
 | WH | 99 | 99 | 100.0% |
 
 ## Detailed Test Matrix
@@ -492,6 +492,7 @@
 | le-90 | Slayer | — | 10 | ☑ |
 | le-91 | Sons of Kings | — | 5 | ☑ |
 | le-92 | Stirring Bones | — | 8 | ☑ |
+| le-93 | Thranduil’s Folk | — | 9 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |
 | le-96 | Uruk-lieutenant | — | 5 | ☑ |
 | le-97 | Wandering Eldar | — | 13 | ☑ |
@@ -1220,6 +1221,7 @@
 | tw-351 | Torque of Hues | — | 10 | ☑ |
 | tw-352 | Tower Guard of Minas Tirith | — | 2 | ☑ |
 | tw-353 | Treebeard | — | 5 | ☑ |
+| tw-354 | True Fána | — | 7 | ☑ |
 | tw-355 | Use Palantír | — | 8 | ☑ |
 | tw-356 | Vanishment | — | 4 | ☑ |
 | tw-357 | Variags of Khand | — | 5 | ☑ |
