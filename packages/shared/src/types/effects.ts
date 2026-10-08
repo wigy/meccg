@@ -12047,6 +12047,7 @@ export interface HazardLimitEnvironmentEffect extends EffectBase {
  *
  * Used by Host of Bats (td-31): "Against each company, one Orc hazard
  * creature may be played that does not count against the hazard limit."
+ * and Agburanar at Home (td-2, `uniqueOnly`).
  */
 export interface HazardLimitRaceGrantEffect extends EffectBase {
   readonly type: 'hazard-limit-race-grant';
@@ -12061,6 +12062,13 @@ export interface HazardLimitRaceGrantEffect extends EffectBase {
    * uniqueness restriction (Host of Bats td-31).
    */
   readonly nonUniqueOnly?: boolean;
+  /**
+   * When true, only *unique* creatures of {@link race} are exempted — "one
+   * unique Dragon manifestation played against each company does not count
+   * against the hazard limit" (Agburanar at Home td-2). The mirror of
+   * {@link nonUniqueOnly}.
+   */
+  readonly uniqueOnly?: boolean;
   /**
    * Where the grant is active — mirrors {@link GrantCreatureKeyingEffect.source}.
    * Defaults to `'in-play'`.

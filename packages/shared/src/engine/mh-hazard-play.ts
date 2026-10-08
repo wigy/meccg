@@ -4649,7 +4649,8 @@ function isCreatureRaceExemptViaConstraint(state: GameState, action: GameAction,
 
 /**
  * Find a `hazard-limit-race-grant` effect matching `def`'s race (and, when
- * the grant carries `nonUniqueOnly`, only if `def` is non-unique), from
+ * the grant carries `nonUniqueOnly`, only if `def` is non-unique; with
+ * `uniqueOnly`, only if `def` is unique), from
  * either of two sources:
  *
  * - `source: 'in-play'` (default) — scans both players' `cardsInPlay`
@@ -4662,7 +4663,8 @@ function isCreatureRaceExemptViaConstraint(state: GameState, action: GameAction,
  */
 function findHazardLimitRaceGrant(state: GameState, def: CreatureCard): HazardLimitRaceGrantEffect | undefined {
   const matches = (e: CardEffect): e is HazardLimitRaceGrantEffect =>
-    e.type === 'hazard-limit-race-grant' && e.race === def.race && (!e.nonUniqueOnly || !def.unique);
+    e.type === 'hazard-limit-race-grant' && e.race === def.race
+      && (!e.nonUniqueOnly || !def.unique) && (!e.uniqueOnly || def.unique);
 
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
