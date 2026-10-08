@@ -6,7 +6,7 @@
  * shared across multiple phases (organization, long-event, movement/hazard).
  */
 
-import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction, PlayerId } from '../index.js';
+import type { GameState, CardInstance, CardInstanceId, ChainEntryPayload, PendingEffect, GameAction, GameEffect, PlayerId } from '../index.js';
 import type { ResolutionId } from '../types/pending.js';
 import { parseConstraintScope } from './constraint-kind.js';
 import { enterMovementHazardPhase } from './mh-phase-state.js';
@@ -21,7 +21,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, dequeueResolution, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -1640,6 +1640,58 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
     }
   }
 
+  // Handle attack-roll-strikes-fail (True Fána tw-354): before the attack is
+  // resolved, roll 2d6 and add the caster's prowess. A total greater than the
+  // attack's prowess makes every strike of the attack fail — reusing the
+  // `forcedStrikeDefeat` mechanism (Liquid Fire wh-52 / Sacrifice of Form
+  // tw-321), so an attack with body still faces body checks. Otherwise the
+  // attack proceeds normally. The caster pays the cost (corruption check)
+  // either way. Resolved immediately, like company-combat-boost above.
+  const attackRollEffects: GameEffect[] = [];
+  const attackRollStrikesFail = (def.effects ?? []).find(
+    (e): e is import('../types/effects.js').AttackRollStrikesFailEffect => e.type === 'attack-roll-strikes-fail',
+  );
+  if (attackRollStrikesFail && newState.combat) {
+    const combat = newState.combat;
+    const defPlayerIndex = getPlayerIndex(newState, combat.defendingPlayerId);
+    const company = companyById(newState.players[defPlayerIndex].companies, combat.companyId);
+    const casterId = action.targetCharacterId;
+    const caster = casterId ? newState.players[defPlayerIndex].characters[casterId] : undefined;
+    if (!casterId || !caster || !company?.characters.includes(casterId)) {
+      return { state, error: `${def.name}: requires a caster in the attacked company` };
+    }
+    const casterName = defById(newState, caster.definitionId)?.name ?? casterId as string;
+    const casterProwess = caster.effectiveStats.prowess;
+    const rolled = rollDiceForPlayer(newState, defPlayerIndex, `${def.name}: ${casterName}`);
+    newState = rolled.state;
+    attackRollEffects.push(rolled.rollEffect);
+    const total = rolled.total + casterProwess;
+    if (total > combat.strikeProwess) {
+      logDetail(`${def.name}: roll ${rolled.total} + ${casterName}'s prowess ${casterProwess} = ${total} > attack prowess ${combat.strikeProwess} — all strikes of the attack fail`);
+      newState = {
+        ...newState,
+        combat: {
+          ...combat,
+          forcedStrikeDefeat: true,
+          forcedDefeatBodyCheckModifier: combat.forcedDefeatBodyCheckModifier ?? 0,
+        },
+      };
+    } else {
+      logDetail(`${def.name}: roll ${rolled.total} + ${casterName}'s prowess ${casterProwess} = ${total} ≤ attack prowess ${combat.strikeProwess} — attack proceeds normally`);
+    }
+    if (attackRollStrikesFail.cost) {
+      const costResult = applyCost(newState, attackRollStrikesFail.cost, casterId, {
+        playerIndex: defPlayerIndex,
+        sourceCardId: handCard.instanceId,
+        companyId: combat.companyId,
+        checkScopeKind: newState.phaseState.phase === Phase.MovementHazard ? 'company-mh-subphase' : 'company-site-subphase',
+        label: def.name ?? '?',
+      });
+      if ('error' in costResult) return { state, error: `${def.name}: ${costResult.error}` };
+      newState = costResult.state;
+    }
+  }
+
   // Handle force-opponent-discard (match: 'hazard-creature') played as a
   // combat-window resource short event (Dragon's Hunger td-106): "Playable
   // on a Dragon or Drake attack. If one is available, opponent must discard
@@ -2410,6 +2462,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
   // play deck (see `discardOrRecyclePlayedEvent`).
   return {
     state: discardOrRecyclePlayedEvent(newState, playerIndex, handCard),
+    ...(attackRollEffects.length > 0 ? { effects: attackRollEffects } : {}),
   };
 }
 

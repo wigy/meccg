@@ -3237,6 +3237,27 @@ export function assignBothStrikesTo(
 }
 
 /**
+ * Jump a combat (e.g. from {@link makeCancelWindowCombat}) straight to the
+ * `resolve-strike` step with its single strike assigned to the resource
+ * player's character `targetDefId`, skipping the assignment flow. Preserves
+ * every other combat field, so effects declared in the cancel window (e.g.
+ * `forcedStrikeDefeat`) carry over into the strike resolution.
+ */
+export function placeSingleStrikeOn(state: GameState, targetDefId: CardDefinitionId): GameState {
+  const characterId = findCharInstanceId(state, RESOURCE_PLAYER, targetDefId);
+  return {
+    ...state,
+    combat: {
+      ...state.combat!,
+      phase: 'resolve-strike',
+      assignmentPhase: 'done',
+      currentStrikeIndex: 0,
+      strikeAssignments: [{ characterId, excessStrikes: 0, resolved: false }],
+    },
+  };
+}
+
+/**
  * Build a Ringwraith (minion) defending company at Moria facing a single
  * creature attack in the assign-strikes window, for testing
  * `convert-creature-to-ally` (Ready to His Will le-220). The named creature is

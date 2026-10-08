@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect, ForceOpponentDiscardEffect, TargetCharacterStatModifierEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, AttackRollStrikesFailEffect, MultiStrikeOptionEffect, ForceOpponentDiscardEffect, TargetCharacterStatModifierEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -174,6 +174,9 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
   const multiStrikeOptionActs = multiStrikeOptionActions(state, playerId, combat);
   const modifyActions = modifyAttackActions(state, playerId, combat);
   const companyCombatBoosts = companyCombatBoostActions(state, playerId, combat);
+  // True Fána (tw-354): roll + caster's prowess vs the attack's prowess —
+  // offered in the same pre-resolution cancel window as cancel-attack.
+  const attackRollStrikesFails = attackRollStrikesFailActions(state, playerId, combat);
   // Dragon's Hunger (td-106): force-opponent-discard (match: hazard-creature).
   const hazardCreatureForceDiscards = hazardCreatureForceDiscardActions(state, playerId, combat);
   // Helm of Her Secrecy (td-122): a combat-join-character event brings a named
@@ -236,7 +239,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           ...protectActions,
           ...multiStrikeOptionActs,
           ...modifyActions,
-          ...companyCombatBoosts,
+          ...companyCombatBoosts, ...attackRollStrikesFails,
           ...hazardCreatureForceDiscards,
           ...joinForceStrikes,
           ...allyCombatBoosts,
@@ -257,7 +260,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
       if (combat.assignmentPhase === 'defender' && !combat.isCvCC && !combat.attackerPreAssignDone) {
         const attackerModifyOptions = modifyAttackActions(state, combat.attackingPlayerId, combat);
         if (attackerModifyOptions.length > 0) {
-          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...hazardCreatureForceDiscards, ...joinForceStrikes, ...allyCombatBoosts];
+          const preAssignActions = [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...attackRollStrikesFails, ...hazardCreatureForceDiscards, ...joinForceStrikes, ...allyCombatBoosts];
           if (playerId === combat.attackingPlayerId) {
             logDetail(`Pre-assignment window: attacker has ${attackerModifyOptions.length} modify-attack option(s) — defender waits`);
             return [...preAssignActions, { action: { type: 'pass' as const, player: playerId }, viable: true }];
@@ -266,13 +269,13 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
           return preAssignActions;
         }
       }
-      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...hazardCreatureForceDiscards, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...preAssignmentGrantedActions, ...assignStrikeActions(state, playerId, combat)];
+      return [...cancelActions, ...cancelWeaponActs, ...discardOppItemActs, ...stormAtSiteActs, ...convertActions, ...halveActions, ...protectActions, ...multiStrikeOptionActs, ...modifyActions, ...companyCombatBoosts, ...attackRollStrikesFails, ...hazardCreatureForceDiscards, ...joinForceStrikes, ...allyCombatBoosts, ...preAssignmentResourceEvents, ...preAssignmentGrantedActions, ...assignStrikeActions(state, playerId, combat)];
     case 'choose-strike-order':
       // Each-character auto-attacks pre-assign strikes and open here, skipping
       // the `assign-strikes` cancel window. cancelActions is gated to the
       // pre-resolution window (see inCancelWindow), so it is empty for normal
       // multi-strike attacks that reach choose-strike-order after assignment.
-      return [...cancelActions, ...chooseStrikeOrderActions(state, playerId, combat), ...sacrificeOfFormActions(state, playerId, combat)];
+      return [...cancelActions, ...attackRollStrikesFails, ...chooseStrikeOrderActions(state, playerId, combat), ...sacrificeOfFormActions(state, playerId, combat)];
     case 'resolve-strike': {
       // CvCC resolve-strike: two-step sub-phase — attacker declares -3 first,
       // then defender resolves. No hazard window (rule 8.42: no hazards in CvCC).
@@ -327,6 +330,7 @@ export function combatActions(state: GameState, playerId: PlayerId): EvaluatedAc
         // no prior cancel window; cancelActions is gated to the pre-resolution
         // window so it stays empty for ordinary resolve-strike sequences.
         ...cancelActions,
+        ...attackRollStrikesFails,
         ...resolveStrikeActions(state, playerId, combat),
         ...fleeFromStrikeActions(state, playerId, combat),
         ...sacrificeOfFormActions(state, playerId, combat),
@@ -4622,6 +4626,58 @@ function companyCombatBoostActions(
     });
   }
 
+  return actions;
+}
+
+/**
+ * `play-short-event` actions for resource short-events in the defending
+ * player's hand carrying an `attack-roll-strikes-fail` effect (True Fána
+ * tw-354): "Before resolving an attack against the Wizard's company, make a
+ * roll and add the Wizard's prowess …". Offered in the same pre-resolution
+ * window as cancel-attack ({@link inCancelWindow}) and never in
+ * company-vs-company combat. One action per company character matching
+ * `requiredRace` (the caster, whose prowess is added and who pays `cost`),
+ * carrying `targetCharacterId`.
+ */
+function attackRollStrikesFailActions(
+  state: GameState,
+  playerId: PlayerId,
+  combat: CombatState,
+): EvaluatedAction[] {
+  if (playerId !== combat.defendingPlayerId) return [];
+  if (combat.isCvCC) return [];
+  if (!inCancelWindow(combat)) return [];
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const company = companyById(player.companies, combat.companyId);
+  if (!company) return [];
+
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const cardDef = defById(state, handCard.definitionId);
+    const effect = getCardEffects(cardDef).find(
+      (e): e is AttackRollStrikesFailEffect => e.type === 'attack-roll-strikes-fail',
+    );
+    if (!effect) continue;
+    for (const charId of company.characters) {
+      const charData = player.characters[charId];
+      if (!charData) continue;
+      const charDef = defById(state, charData.definitionId);
+      if (!charDef || !isCharacterCard(charDef)) continue;
+      if (effect.requiredRace && charDef.race !== effect.requiredRace) continue;
+      if (effect.cost && !canPayCost(effect.cost, charData)) continue;
+      logDetail(`Attack-roll-strikes-fail available: ${cardDef?.name ?? handCard.definitionId as string} cast by ${charDef.name}`);
+      actions.push({
+        action: {
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          targetCharacterId: charId,
+        },
+        viable: true,
+      });
+    }
+  }
   return actions;
 }
 

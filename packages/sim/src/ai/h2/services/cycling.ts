@@ -39,6 +39,7 @@ import { computeBeliefs } from './beliefs.js';
 /** Effect types that protect a company in combat. */
 const COMBAT_EFFECTS = new Set([
   'cancel-attack', 'cancel-strike', 'strike-modifier', 'company-combat-boost', 'halve-strikes', 'modify-attack',
+  'attack-roll-strikes-fail',
 ]);
 
 /** A marshalling-point card this big may be kept beyond next turn's need. */
