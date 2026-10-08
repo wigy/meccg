@@ -694,8 +694,76 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/Drums.jpg",
     "unique": false,
     "eventType": "long",
-    "effects": [],
-    "text": "For each company at or moving to an Under-deeps site, the hazard limit is increased by one and the prowess of all attacks is increased by one. All automatic-attacks at sites in the following regions have their number of strikes and prowess increased by one (by two if Doors of Night is in play): Angmar, Gap of Isen, Gorgoroth, Gundabad, High Pass, Redhorn Gate, Rohan, Southern Mirkwood, and Udûn. Cannot be duplicated."
+    "effects": [
+      {
+        "type": "hazard-limit-environment",
+        "value": 1,
+        "appliesTo": "all",
+        "when": { "company.atOrMovingToUnderDeeps": true }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-attacks",
+        "when": { "attack.atOrMovingToUnderDeeps": true }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 1,
+        "target": "all-automatic-attacks",
+        "when": {
+          "$and": [
+            { "site.region": { "$in": ["Angmar", "Gap of Isen", "Gorgoroth", "Gundabad", "High Pass", "Redhorn Gate", "Rohan", "Southern Mirkwood", "Udûn", "Ûdun"] } },
+            { "$not": { "inPlay": "Doors of Night" } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 1,
+        "target": "all-automatic-attacks",
+        "when": {
+          "$and": [
+            { "site.region": { "$in": ["Angmar", "Gap of Isen", "Gorgoroth", "Gundabad", "High Pass", "Redhorn Gate", "Rohan", "Southern Mirkwood", "Udûn", "Ûdun"] } },
+            { "$not": { "inPlay": "Doors of Night" } }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "strikes",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": {
+          "$and": [
+            { "site.region": { "$in": ["Angmar", "Gap of Isen", "Gorgoroth", "Gundabad", "High Pass", "Redhorn Gate", "Rohan", "Southern Mirkwood", "Udûn", "Ûdun"] } },
+            { "inPlay": "Doors of Night" }
+          ]
+        }
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "prowess",
+        "value": 2,
+        "target": "all-automatic-attacks",
+        "when": {
+          "$and": [
+            { "site.region": { "$in": ["Angmar", "Gap of Isen", "Gorgoroth", "Gundabad", "High Pass", "Redhorn Gate", "Rohan", "Southern Mirkwood", "Udûn", "Ûdun"] } },
+            { "inPlay": "Doors of Night" }
+          ]
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      }
+    ],
+    "text": "For each company at or moving to an Under-deeps site, the hazard limit is increased by one and the prowess of all attacks is increased by one. All automatic-attacks at sites in the following regions have their number of strikes and prowess increased by one (by two if Doors of Night is in play): Angmar, Gap of Isen, Gorgoroth, Gundabad, High Pass, Redhorn Gate, Rohan, Southern Mirkwood, and Udûn. Cannot be duplicated.",
+    "certified": "2026-10-08"
   },
   {
     "cardType": "hazard-event",

@@ -195,6 +195,15 @@ export interface ResolverContext {
    */
   readonly attack?: {
     readonly keying?: readonly RegionType[];
+    /**
+     * True when the attacked company is at an Under-deeps site, or is moving
+     * to one (see {@link companyAtOrMovingToUnderDeeps}). Populated while
+     * resolving attack prowess/strikes (`resolveAttackProwess` /
+     * `resolveAttackStrikes`) whenever the defending company is known. Used by
+     * Drums (dm-52): "For each company at or moving to an Under-deeps site …
+     * the prowess of all attacks is increased by one."
+     */
+    readonly atOrMovingToUnderDeeps?: boolean;
   };
   /**
    * The defending character's company's current site type. Also populated
@@ -208,6 +217,14 @@ export interface ResolverContext {
    */
   readonly site?: {
     readonly siteType?: string;
+    /**
+     * The named region of the site whose automatic-attack is being resolved
+     * (the defending company's destination site while it is still moving,
+     * otherwise its current site). Populated only for automatic-attacks in
+     * `resolveAttackProwess` / `resolveAttackStrikes`. Used by Drums (dm-52):
+     * "All automatic-attacks at sites in the following regions …".
+     */
+    readonly region?: string;
   };
   /** The faction being influenced (in faction influence check contexts). */
   readonly faction?: {
@@ -1049,6 +1066,54 @@ function findCompanyById(
 }
 
 /**
+ * True when `company` is at an Under-deeps site or is moving to one. A moving
+ * company (one with a declared `destinationSite`) is judged by its
+ * destination only — it is moving *to* that site, and a company leaving an
+ * Under-deeps site for the surface is neither at nor moving to one. A
+ * stationary company is judged by its `currentSite`.
+ *
+ * Drums (dm-52): "For each company at or moving to an Under-deeps site …".
+ */
+export function companyAtOrMovingToUnderDeeps(
+  state: GameState,
+  company: import('../../types/state-cards.js').Company,
+): boolean {
+  const site = company.destinationSite ?? company.currentSite;
+  if (!site) return false;
+  const def = state.cardPool[site.definitionId];
+  return !!(def && 'keywords' in def
+    && (def as { keywords?: readonly string[] }).keywords?.includes('under-deeps'));
+}
+
+/**
+ * Extends an attack-resolution context with facts about the defending
+ * company: `attack.atOrMovingToUnderDeeps` always, and — for automatic-attacks
+ * — `site.region`, the named region of the site whose automatic-attack is
+ * being faced (the destination while the company is still moving, otherwise
+ * its current site). Returns the context unchanged when the company is unknown.
+ */
+function withDefendingCompanyFacts(
+  state: GameState,
+  context: ResolverContext,
+  companyId: import('../../types/common.js').CompanyId | undefined,
+  isAutomaticAttack: boolean,
+): ResolverContext {
+  if (!companyId) return context;
+  const company = findCompanyById(state, companyId);
+  if (!company) return context;
+  const withAttack: ResolverContext = {
+    ...context,
+    attack: { ...context.attack, atOrMovingToUnderDeeps: companyAtOrMovingToUnderDeeps(state, company) },
+  };
+  if (!isAutomaticAttack) return withAttack;
+  const site = company.destinationSite ?? company.currentSite;
+  const siteDef = site ? state.cardPool[site.definitionId] : undefined;
+  const region = siteDef && 'region' in siteDef ? (siteDef as { region?: string }).region : undefined;
+  if (!region) return withAttack;
+  return { ...withAttack, site: { ...context.site, region } };
+}
+
+/**
  * Context for applying `creature-attack-boost` constraints during attack
  * resolution. When provided, the resolver checks active constraints targeting
  * the given company and applies prowess/strike bonuses to matching attacks.
@@ -1600,7 +1665,12 @@ export function resolveAttackProwess(
   isAgentAttack = false,
   siteType?: string,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying, creatureSelf?.companyFacedNames);
+  const context = withDefendingCompanyFacts(
+    state,
+    buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying, creatureSelf?.companyFacedNames),
+    attackBoostCtx?.companyId,
+    isAutomaticAttack,
+  );
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
@@ -1663,7 +1733,12 @@ export function resolveAttackStrikes(
   isAgentAttack = false,
   creatureSelf?: CreatureSelfContext,
 ): number {
-  const context = buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying, creatureSelf?.companyFacedNames);
+  const context = withDefendingCompanyFacts(
+    state,
+    buildAttackContext(inPlayNames, creatureRace, creatureSelf?.companyFacedRaces, creatureSelf?.defenderAlignment, siteType, isAgentAttack, isAutomaticAttack, creatureSelf?.attackKeying, creatureSelf?.companyFacedNames),
+    attackBoostCtx?.companyId,
+    isAutomaticAttack,
+  );
   const globalEffects = collectGlobalEffects(state, 'all-attacks', context, attackBoostCtx?.companyId);
   if (isAutomaticAttack) {
     globalEffects.push(...collectGlobalEffects(state, 'all-automatic-attacks', context, attackBoostCtx?.companyId));
