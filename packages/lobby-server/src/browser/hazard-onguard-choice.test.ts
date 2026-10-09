@@ -55,3 +55,34 @@ describe('character-targeting hazard offers an on-guard placement alongside play
     expect(choices[0].action).toBeNull();
   });
 });
+
+/**
+ * Regression test for bug cadf106b1681ccbd (game mv19r5h1-m5bvpa, seq 740):
+ * Echoes of the Song (wh-17) against a Fallen-wizard holding three stage cards
+ * and 5 stage points. The engine offered the untargeted "discard-stage-card"
+ * play (no `targetCharacterId`) alongside the per-character corruption-check
+ * plays, but the hand menu only offered "on a character" targeting and
+ * on-guard placement, so the stage-card mode was unreachable.
+ */
+describe('character-targeting hazard with an untargeted play-option', () => {
+  const ECHOES = 'p1-107' as CardInstanceId;
+  const stageDiscard: GameAction = {
+    type: 'play-hazard',
+    player: HAZARD_PLAYER,
+    cardInstanceId: ECHOES,
+    targetCompanyId: 'company-p2-1',
+    optionId: 'discard-stage-card',
+  } as GameAction;
+  const echoesOnGuard: GameAction = { type: 'place-on-guard', player: HAZARD_PLAYER, cardInstanceId: ECHOES } as GameAction;
+
+  test('the untargeted option is offered as a directly dispatched choice', () => {
+    const choices = charTargetHazardPlayChoices('Echoes of the Song', echoesOnGuard, [stageDiscard]);
+
+    expect(choices.map(c => c.label)).toEqual([
+      'Play Echoes of the Song on a character',
+      'Play Echoes of the Song: discard stage card',
+      'Place on-guard',
+    ]);
+    expect(choices[1].action).toBe(stageDiscard);
+  });
+});

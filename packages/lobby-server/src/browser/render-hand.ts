@@ -806,12 +806,24 @@ export interface CharTargetHazardChoice {
  * company's *site* card while the hazard was selected — an unlabelled shortcut
  * that read as "play the hazard here", so players could not find it at all. The
  * shortcut still works; this menu makes the option discoverable.
+ *
+ * A card may also carry `untargeted` play-options alongside its character
+ * modes (Echoes of the Song wh-17: "your opponent must discard one stage
+ * card" needs no target character). Those legal `play-hazard` actions have no
+ * `targetCharacterId`, so character targeting can never reach them — each is
+ * listed here as its own directly-dispatched choice.
  */
 export function charTargetHazardPlayChoices(
   cardName: string,
   onGuardAction: GameAction | undefined,
+  untargetedActions: readonly GameAction[] = [],
 ): readonly CharTargetHazardChoice[] {
   const choices: CharTargetHazardChoice[] = [{ label: `Play ${cardName} on a character`, action: null }];
+  for (const action of untargetedActions) {
+    const optionId = action.type === 'play-hazard' ? action.optionId : undefined;
+    const optionLabel = optionId ? optionId.replace(/-/g, ' ') : 'without a target';
+    choices.push({ label: `Play ${cardName}: ${optionLabel}`, action });
+  }
   if (onGuardAction) choices.push({ label: 'Place on-guard', action: onGuardAction });
   return choices;
 }
@@ -1484,6 +1496,12 @@ export function renderHand(
         a => a.type === 'play-hazard' && 'targetCharacterId' in a && a.targetCharacterId,
       );
       const hasCharTargets = charTargetActions.length > 0;
+      // Untargeted play-options on a character-targeting card (Echoes of the
+      // Song wh-17's stage-card discard) are not reachable by clicking a
+      // character, so the menu below must offer them explicitly.
+      const untargetedHazardActions = hasCharTargets
+        ? hazardActions.filter(a => a.type === 'play-hazard' && !('targetCharacterId' in a && a.targetCharacterId))
+        : [];
       // Two-step targeting: hazard targets characters AND can be placed on-guard
       if (hasCharTargets && onGuardAction) {
         img.className = isHazardSelected
@@ -1508,7 +1526,7 @@ export function renderHand(
               return;
             }
             // Both plays are legal, so neither may be assumed: offer them by name.
-            const choices = charTargetHazardPlayChoices(def.name, onGuardAction);
+            const choices = charTargetHazardPlayChoices(def.name, onGuardAction, untargetedHazardActions);
             showCursorTooltipMenu(e, choices.map(c => ({
               label: c.label,
               onClick: () => (c.action ? dispatch(c.action) : enterTargeting()),
