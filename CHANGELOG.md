@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.189.0 — 2026-10-09
+
+Rangers Hold the Ford
+
+### Cards
+
+- Ford (tw-242) certified: played at end of organization on an untapped ranger, which taps; until end of turn no creature may be played against the ranger's company keyed to Wilderness, while site, region-name and other region-type keyings of the same creature remain playable (#3300)
+
+### Game Engine
+
+- New constraint kind `no-creatures-keyed-to-region-type`: filters hazard-creature plays against the protected company that are keyed by the given region type, leaving alternative keyings available as separate actions (#3300)
+
+### Infrastructure
+
+- Project status and card test README metrics refreshed
+
 ## 0.188.0 — 2026-10-08
 
 Drums Beat, Dragons Hunt, Iron Crown Claimed

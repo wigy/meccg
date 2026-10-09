@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1392 | 1392 | 0 | 100.0% |
+| 1393 | 1393 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -17,7 +17,7 @@
 | DM | 156 | 156 | 100.0% |
 | LE | 335 | 335 | 100.0% |
 | TD | 147 | 147 | 100.0% |
-| TW | 428 | 428 | 100.0% |
+| TW | 429 | 429 | 100.0% |
 | WH | 99 | 99 | 100.0% |
 
 ## Detailed Test Matrix
@@ -1122,6 +1122,7 @@
 | tw-239 | Favor of the Valar | — | 7 | ☑ |
 | tw-240 | Fellowship | — | 17 | ☑ |
 | tw-241 | Fog | — | 12 | ☑ |
+| tw-242 | Ford | — | 6 | ☑ |
 | tw-243 | Gates of Morning | — | 11 | ☑ |
 | tw-244 | Glamdring | — | 5 | ☑ |
 | tw-245 | Goldberry | — | 15 | ☑ |
