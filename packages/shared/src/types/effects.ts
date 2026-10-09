@@ -3106,7 +3106,9 @@ export interface AddConstraintAction extends TriggeredActionBase {
   readonly discardFilter?: Condition;
   /**
    * For a `hazard-limit-region-count` constraint (Fair Sailing tw-232): the
-   * region type counted in the target company's resolved site path.
+   * region type counted in the target company's resolved site path. For a
+   * `no-creatures-keyed-to-region-type` constraint (Ford tw-242): the region
+   * type hazard creatures may no longer be keyed to by type.
    */
   readonly regionType?: RegionType;
   /**
