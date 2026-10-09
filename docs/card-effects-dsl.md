@@ -15978,6 +15978,44 @@ faction is one of the manifestations.
   "maxPerTurn": 1 }
 ```
 
+### 52a-2. `prohibit-character-play`
+
+While the carrying card is in play (on either side of the table), a player
+matching `when` may not bring into play any character matching `filter`. The
+character sibling of `prohibit-card-play`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `when` | no | Condition on the would-be playing player: `player.alignment`, `player.stagePoints`. Absent → every player. |
+| `filter` | yes | Condition matched against the character's card **definition** (e.g. `mind`). Avatars carry `mind: null`, so a numeric bound never catches them. |
+
+Several clauses on one card act independently, so a stricter cap can sit behind
+a stage-point gate:
+
+```json
+{ "type": "prohibit-character-play",
+  "when": { "player.alignment": "fallen-wizard" },
+  "filter": { "mind": { "$gt": 4 } } }
+```
+
+```json
+{ "type": "prohibit-character-play",
+  "when": { "player.alignment": "fallen-wizard", "player.stagePoints": { "$gt": 9 } },
+  "filter": { "mind": { "$gt": 3 } } }
+```
+
+Behaviour: enforced centrally in `computeLegalActions`
+(`applyCharacterPlayProhibitions`, `engine/card-play-prohibition.ts`), which
+turns every viable `play-character` action for a barred character — from hand,
+via a recruiting event, or joining combat — into a single `not-playable` entry.
+Characters already in play are untouched.
+
+Used by:
+
+- Mask Torn (wh-26): "Fallen-wizards may not bring characters with more than 4
+  mind into play. If a Fallen-wizard has more than 9 stage points, he may not
+  bring characters with more than 3 mind into play."
+
 ### 52b. `extra-under-deeps-mh-phase`
 
 Carried by an in-play permanent-event; grants repeated Under-deeps

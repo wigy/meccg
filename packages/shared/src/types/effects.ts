@@ -10829,6 +10829,7 @@ export type CardEffect =
   | PassiveMovementBonusEffect
   | UnderDeepsRollModifierEffect
   | ProhibitCardPlayEffect
+  | ProhibitCharacterPlayEffect
   | ExtraUnderDeepsMhPhaseEffect
   | GrantExtraMHPhaseEffect
   | KeyedAttacksNormalEffect
@@ -11572,6 +11573,34 @@ export interface ProhibitCardPlayEffect extends EffectBase {
    * Dragon manifestation may be played per turn."
    */
   readonly maxPerTurn?: number;
+}
+
+/**
+ * While the carrying card is in play (on either side of the table), a player
+ * matching {@link ProhibitCharacterPlayEffect.when} may not bring into play any
+ * character whose definition matches {@link ProhibitCharacterPlayEffect.filter}.
+ *
+ * `when` is matched against `{ player: { alignment, stagePoints } }` of the
+ * player who would bring the character into play; `filter` against the
+ * character's card definition (e.g. `{ "mind": { "$gt": 4 } }` — avatars carry
+ * `mind: null` and so never match a numeric bound). Several clauses on one card
+ * act independently, so a stricter cap can be layered behind a stage-point gate.
+ *
+ * Enforced centrally in `computeLegalActions` (`card-play-prohibition.ts`):
+ * every `play-character` action — from hand, via a recruiting event, joining
+ * combat — for a barred character becomes a `not-playable` entry. Characters
+ * already in play are untouched.
+ *
+ * Mask Torn (wh-26): "Fallen-wizards may not bring characters with more than 4
+ * mind into play. If a Fallen-wizard has more than 9 stage points, he may not
+ * bring characters with more than 3 mind into play."
+ */
+export interface ProhibitCharacterPlayEffect extends EffectBase {
+  readonly type: 'prohibit-character-play';
+  /** Condition on the would-be playing player (`player.alignment`, `player.stagePoints`). */
+  readonly when?: Condition;
+  /** Condition matched against the character's card definition. */
+  readonly filter: Condition;
 }
 
 /**

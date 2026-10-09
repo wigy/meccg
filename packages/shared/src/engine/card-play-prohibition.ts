@@ -19,6 +19,10 @@
  *   recorded by {@link recordCardPlayed}). This variant also covers faction
  *   influence attempts, a Dragon's Roused faction being a manifestation too.
  *
+ * A sibling lock, `prohibit-character-play` ({@link applyCharacterPlayProhibitions}),
+ * bars a player matching its `when` from bringing matching characters into
+ * play — Mask Torn (wh-26) capping a Fallen-wizard's characters by mind.
+ *
  * Enforcement is central rather than per-phase: `computeLegalActions` runs
  * every candidate action through {@link applyCardPlayProhibitions}, so the lock
  * covers the organization/long-event/site phases, hazard play during the
@@ -27,7 +31,8 @@
  */
 
 import type { CardDefinition, CardDefinitionId, CardInstanceId, EvaluatedAction, GameState, PlayerId } from '../index.js';
-import type { ProhibitCardPlayEffect } from '../types/effects.js';
+import type { ProhibitCardPlayEffect, ProhibitCharacterPlayEffect } from '../types/effects.js';
+import { matchesCondition } from '../effects/condition-matcher.js';
 import { resolveInstanceId } from '../types/state.js';
 import { defById, getCardEffects, matchesDefinition } from './reducer-utils.js';
 import { notPlayable } from './legal-actions/action-builders.js';
@@ -155,6 +160,70 @@ export function applyCardPlayProhibitions(
     const name = def?.name ?? (defId as string);
     logDetail(`prohibit-card-play: ${name} may not be played while a card prohibiting it is in play`);
     result.push(notPlayable(playerId, instId, `${name}: cannot be played while it is prohibited by a card in play`));
+  }
+  return result;
+}
+
+/** Every `prohibit-character-play` effect currently active on either side of the table. */
+function activeCharacterProhibitions(state: GameState): readonly ProhibitCharacterPlayEffect[] {
+  const found: ProhibitCharacterPlayEffect[] = [];
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      for (const eff of getCardEffects(defById(state, card.definitionId))) {
+        if (eff.type === 'prohibit-character-play') found.push(eff);
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * True when `playerId` may not bring the character `def` into play because an
+ * in-play `prohibit-character-play` effect bars it (Mask Torn, wh-26).
+ */
+export function isCharacterPlayProhibited(state: GameState, playerId: PlayerId, def: CardDefinition | undefined | null): boolean {
+  if (!def) return false;
+  const player = state.players.find(p => p.id === playerId);
+  if (!player) return false;
+  const context = { player: { alignment: player.alignment, stagePoints: player.stagePoints } };
+  return activeCharacterProhibitions(state).some(eff =>
+    (eff.when === undefined || matchesCondition(eff.when, context))
+    && matchesDefinition(def, eff.filter));
+}
+
+/**
+ * Replace every viable `play-character` action for a character the acting
+ * player may not bring into play with a single `not-playable` entry. Covers
+ * every route a character enters play by — from hand, via a recruiting event,
+ * or joining combat — since they all share the `play-character` action.
+ */
+export function applyCharacterPlayProhibitions(
+  state: GameState,
+  playerId: PlayerId,
+  evaluated: readonly EvaluatedAction[],
+): EvaluatedAction[] {
+  if (activeCharacterProhibitions(state).length === 0) return [...evaluated];
+
+  const explained = new Set<string>();
+  const result: EvaluatedAction[] = [];
+  for (const ea of evaluated) {
+    const a = ea.action as unknown as Record<string, unknown>;
+    const instId = a['characterInstanceId'];
+    if (!ea.viable || a['type'] !== 'play-character' || typeof instId !== 'string') {
+      result.push(ea);
+      continue;
+    }
+    const defId = resolveInstanceId(state, instId as CardInstanceId);
+    const def = defId ? defById(state, defId) : undefined;
+    if (!isCharacterPlayProhibited(state, playerId, def)) {
+      result.push(ea);
+      continue;
+    }
+    if (explained.has(instId)) continue;
+    explained.add(instId);
+    const name = def?.name ?? (defId as string);
+    logDetail(`prohibit-character-play: ${name} may not be brought into play while a card prohibiting it is in play`);
+    result.push(notPlayable(playerId, instId as CardInstanceId, `${name}: cannot be brought into play while a card in play prohibits it`));
   }
   return result;
 }

@@ -640,8 +640,45 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/MaskTorn.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
-    "text": "Fallen-wizards may not bring characters with more than 4 mind into play. If a Fallen-wizard has more than 9 stage points, he may not bring characters with more than 3 mind into play. Discard when any play deck is exhausted."
+    "effects": [
+      {
+        "type": "prohibit-character-play",
+        "when": {
+          "player.alignment": "fallen-wizard"
+        },
+        "filter": {
+          "mind": {
+            "$gt": 4
+          }
+        }
+      },
+      {
+        "type": "prohibit-character-play",
+        "when": {
+          "player.alignment": "fallen-wizard",
+          "player.stagePoints": {
+            "$gt": 9
+          }
+        },
+        "filter": {
+          "mind": {
+            "$gt": 3
+          }
+        }
+      },
+      {
+        "type": "on-event",
+        "event": "play-deck-exhausted",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "discard"
+        }
+      }
+    ],
+    "text": "Fallen-wizards may not bring characters with more than 4 mind into play. If a Fallen-wizard has more than 9 stage points, he may not bring characters with more than 3 mind into play. Discard when any play deck is exhausted.",
+    "certified": "2026-10-09"
   },
   {
     "cardType": "hazard-event",
