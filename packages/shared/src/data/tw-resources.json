@@ -3061,8 +3061,46 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Ranger only. Playable at the end of the organization phase on an untapped ranger. Tap the ranger. No hazard creatures may be keyed by type to Wilderness [{w}] against the ranger’s company this turn."
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "organization",
+        "step": "end-of-org"
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            {
+              "target.skills": {
+                "$includes": "ranger"
+              }
+            },
+            {
+              "target.status": "untapped"
+            }
+          ]
+        },
+        "cost": {
+          "tap": "character"
+        },
+        "requiredSkill": "ranger"
+      },
+      {
+        "type": "on-event",
+        "event": "self-enters-play",
+        "apply": {
+          "type": "add-constraint",
+          "constraint": "no-creatures-keyed-to-region-type",
+          "regionType": "wilderness",
+          "scope": "turn"
+        },
+        "target": "scout-company"
+      }
+    ],
+    "text": "Ranger only. Playable at the end of the organization phase on an untapped ranger. Tap the ranger. No hazard creatures may be keyed by type to Wilderness [{w}] against the ranger’s company this turn.",
+    "certified": "2026-10-09"
   },
   {
     "cardType": "hero-resource-event",

@@ -1848,6 +1848,20 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Ford (tw-242) / Hidden Ways (le-191): "No hazard creatures may be
+         * keyed by type to Wilderness [{w}] against the ranger's company this
+         * turn." Any hazard-creature play against the target company whose
+         * keying match is `region-type` with this {@link regionType} is
+         * dropped; the same creature keyed some other way (by region name,
+         * by site, or to a different region type in the path) survives as its
+         * own play action.
+         */
+        readonly type: 'no-creatures-keyed-to-region-type';
+        /** The region type creatures may no longer be keyed to by type. */
+        readonly regionType: import('./common.js').RegionType;
+      }
+    | {
+        /**
          * Hide in Dark Places (le-192): the company may not declare movement
          * (plan a new destination) for the rest of this turn. The card is
          * "playable on a scout whose company is not moving", and locks that

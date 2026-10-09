@@ -11500,6 +11500,18 @@ playing only hazard creatures keyed to the target company's destination site (by
 site-type or site-name); creatures keyable only via region terrain are dropped
 (`legal-actions/pending.ts` `applyOnlyCreaturesKeyedToSite`).
 
+The `no-creatures-keyed-to-region-type` constraint (added by *Ford* tw-242 via
+`on-event: self-enters-play` → `add-constraint` with `regionType: "wilderness"`)
+drops every hazard-creature play against the target company keyed **by region
+type** to that region type (`keyedBy.method === "region-type"`); keying by site,
+by region name, or to another region type in the path is unaffected
+(`applyNoCreaturesKeyedToRegionType`).
+
+```json
+{ "type": "add-constraint", "constraint": "no-creatures-keyed-to-region-type",
+  "regionType": "wilderness", "scope": "turn" }
+```
+
 The `only-creatures-keyed-to-site-at-ruins-lairs` constraint (added by *Down
 Down to Goblin-town* le-181, the minion twin of Secret Passage, via the same
 `on-event: self-enters-play` → `add-constraint` shape) is the **R&L-gated**

@@ -119,6 +119,11 @@ export function buildConstraintKind(
       const unless = (onEvent.apply as { unlessSiteRegionType?: import('../types/common.js').RegionType }).unlessSiteRegionType;
       return { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
     }
+    case 'no-creatures-keyed-to-region-type': {
+      const regionType = (onEvent.apply as { regionType?: RegionType }).regionType;
+      if (!regionType) return null;
+      return { type: 'no-creatures-keyed-to-region-type', regionType };
+    }
     case 'deny-scout-resources':
       return { type: 'deny-scout-resources' };
     case 'dragon-ambush-window': {

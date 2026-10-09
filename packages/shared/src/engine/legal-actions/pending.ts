@@ -2039,6 +2039,8 @@ function applyOneConstraint(
       return base;
     case 'no-creatures-keyed-to-site':
       return applyNoCreaturesKeyedToSite(state, playerId, base, constraint);
+    case 'no-creatures-keyed-to-region-type':
+      return applyNoCreaturesKeyedToRegionType(state, playerId, base, constraint);
     case 'company-cannot-move':
       // Enforced directly by the org-phase `plan-movement` emitter
       // (`planMovementActions`) and reducer (`handlePlanMovement`) — no broad
@@ -2528,7 +2530,7 @@ function applyNoCreatureHazardsOnCompany(
 type CreaturePlayAction = {
   targetCompanyId?: CompanyId;
   cardInstanceId?: CardInstanceId;
-  keyedBy?: { method: string };
+  keyedBy?: { method: string; value?: string };
   altEventMode?: 'short-event' | 'permanent-event';
 };
 
@@ -2774,6 +2776,32 @@ function applyNoCreaturesKeyedToSite(
     const method = action.keyedBy?.method;
     if (!method || !SITE_KEYING_METHODS.has(method)) return { allow: true };
     return { allow: false, note: `dropping site-keyed (${method}) creature play "${def.name}" against protected company ${protectedCompany as string}` };
+  });
+}
+
+/**
+ * Ford (tw-242) / Hidden Ways (le-191): drop every play-hazard action against
+ * the protected company whose creature keying match is `region-type` with the
+ * constraint's region type ("no hazard creatures may be keyed by type to
+ * Wilderness"). Each keying match is its own action, so the same creature
+ * keyed by region name, by site, or to another region type in the path is
+ * still offered.
+ */
+function applyNoCreaturesKeyedToRegionType(
+  state: GameState,
+  _playerId: PlayerId,
+  base: EvaluatedAction[],
+  constraint: ActiveConstraint,
+): EvaluatedAction[] {
+  if (constraint.target.kind !== 'company') return base;
+  if (constraint.kind.type !== 'no-creatures-keyed-to-region-type') return base;
+  const protectedCompany = constraint.target.companyId;
+  const regionType = constraint.kind.regionType;
+
+  return filterCreaturePlaysAgainstCompany(state, base, constraint, protectedCompany, 'no-creatures-keyed-to-region-type', (def, action) => {
+    const keyedBy = action.keyedBy;
+    if (keyedBy?.method !== 'region-type' || keyedBy.value !== regionType) return { allow: true };
+    return { allow: false, note: `dropping ${regionType}-keyed creature play "${def.name}" against protected company ${protectedCompany as string}` };
   });
 }
 

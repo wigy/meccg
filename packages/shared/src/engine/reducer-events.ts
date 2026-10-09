@@ -3550,6 +3550,17 @@ function applyShortEventOnEntersPlay(
           kind = { type: 'no-creatures-keyed-to-site', ...(unless ? { unlessSiteRegionType: unless } : {}) };
           break;
         }
+        case 'no-creatures-keyed-to-region-type': {
+          // Ford (tw-242): "No hazard creatures may be keyed by type to
+          // Wilderness [{w}] against the ranger's company this turn."
+          const regionType = onEvent.apply.regionType;
+          if (!regionType) {
+            logDetail(`add-constraint(no-creatures-keyed-to-region-type): missing regionType — fizzle`);
+            continue;
+          }
+          kind = { type: 'no-creatures-keyed-to-region-type', regionType };
+          break;
+        }
         case 'company-stat-modifier': {
           // Company-targeted bonus for the rest of the turn to every
           // character in the target company (Miruvor / Orc-draughts style),
