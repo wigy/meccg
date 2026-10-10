@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1393 | 1393 | 0 | 100.0% |
+| 1394 | 1394 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -18,7 +18,7 @@
 | LE | 335 | 335 | 100.0% |
 | TD | 147 | 147 | 100.0% |
 | TW | 429 | 429 | 100.0% |
-| WH | 99 | 99 | 100.0% |
+| WH | 100 | 100 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -1340,6 +1340,7 @@
 | wh-23 | Inner Rot | — | 10 | ☑ |
 | wh-24 | Ire of the East | — | 5 | ☑ |
 | wh-25 | Longing for the West | — | 11 | ☑ |
+| wh-26 | Mask Torn | — | 7 | ☑ |
 | wh-27 | Nature’s Revenge | — | 12 | ☑ |
 | wh-28 | Power Relinquished to Artifice | — | 11 | ☑ |
 | wh-29 | Rolled down to the Sea | — | 5 | ☑ |

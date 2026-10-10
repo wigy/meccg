@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.190.0 — 2026-10-10
+
+Mask Torn, Echoes Heard
+
+### Cards
+
+- Mask Torn (wh-26) certified: Fallen-wizards may not bring into play characters with mind greater than 4, any player above 9 stage points may not play characters with mind greater than 3; discarded when its player's play deck is exhausted (#3301)
+
+### Game Engine
+
+- New effect `prohibit-character-play`: while the carrying card is in play, a player matching its `when` condition may not bring into play characters matching `filter`; enforced centrally in legal-action computation so every play-character route (hand, recruit-via-event, combat join) is covered (#3301)
+
+### Web Client
+
+- Hand menu now offers untargeted hazard play-options alongside character targeting and on-guard placement, making Echoes of the Song's (wh-17) stage-card discard mode reachable (#3302)
+
+### Infrastructure
+
+- Project status and card test README metrics refreshed
+
 ## 0.189.0 — 2026-10-09
 
 Rangers Hold the Ford
