@@ -8704,6 +8704,39 @@ action), and `pending-reducers.ts` (execute roll and apply consequences).
 Used by Call of Home (tw-18, le-105), Tookish Blood (tw-104), and Call of
 the Sea (tw-19).
 
+### 23-bis. `stored-value-roll`
+
+A hazard short-event played on a character (selected via `play-target`) that
+weighs the character's possessions. On resolution the card's player rolls 2d6
+and adds the marshalling points (as though stored — a `storable-at`
+`marshallingPoints` override replaces the printed value) and corruption points
+of every item and resource event the target bears (its `items` list; allies and
+hazards are not counted). Every item (except a `no-store` one) and every event
+carrying `storable-at` is then automatically stored in its owner's
+marshalling-point pile (`storedAtSite` = the company's site) with **no**
+corruption checks. If the total is greater than `threshold`, the target is then
+discarded with his remaining cards.
+
+Implemented as a generic `dice-check` (roller = card player, constant modifier
+= the stored value fixed at enqueue time, `comparison: "gt"`) whose `onFail` is
+the `store-character-cards` triggered action and whose `onPass` is a `sequence`
+of `store-character-cards` then `discard-character` (`chain-reducer.ts`,
+`pending-reducers.ts`, `auto-store.ts`).
+
+The hazard character-target filter context also exposes `target.cardType`,
+`company.siteName` and `company.atDarkhaven` (the company's new site when
+moving, else its current site; Darkhaven = a Ringwraith/Balrog Haven).
+
+```json
+{ "type": "play-target", "target": "character",
+  "filter": { "$and": [
+    { "target.cardType": "minion-character" },
+    { "$or": [{ "company.atDarkhaven": true }, { "company.siteName": "Barad-dûr" }] } ] } }
+{ "type": "stored-value-roll", "threshold": 15 }
+```
+
+Used by Fealty Under Trial (as-28).
+
 ### 23a. `protect-from-removal`
 
 Resource-mode companion to a `playable-as-resource` hazard-event: played on

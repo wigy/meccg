@@ -262,8 +262,21 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/as/FealtyUnderTrial.jpg",
     "unique": false,
     "eventType": "short",
-    "effects": [],
-    "text": "Playable on a minion in a Darkhaven [{DH}] or Barad-dûr. Make a roll adding the marshalling points (as though they were stored) and corruption points of all items and events played with target minion. All items and storable events played with target minion are then automatically stored (no corruption checks are made). Then, if the result was greater than 15, discard the minion (and all other cards played with him)."
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.cardType": "minion-character" },
+            { "$or": [{ "company.atDarkhaven": true }, { "company.siteName": "Barad-dûr" }] }
+          ]
+        }
+      },
+      { "type": "stored-value-roll", "threshold": 15 }
+    ],
+    "text": "Playable on a minion in a Darkhaven [{DH}] or Barad-dûr. Make a roll adding the marshalling points (as though they were stored) and corruption points of all items and events played with target minion. All items and storable events played with target minion are then automatically stored (no corruption checks are made). Then, if the result was greater than 15, discard the minion (and all other cards played with him).",
+    "certified": "2026-10-10"
   },
   {
     "cardType": "hazard-event",
