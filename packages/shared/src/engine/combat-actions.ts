@@ -21,7 +21,7 @@
 import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, Company } from '../index.js';
 import type { CardDefinition } from '../types/cards.js';
 import type { PlayerState } from '../types/state-player.js';
-import type { CharacterInPlay } from '../types/state-cards.js';
+import type { CardInstance, CharacterInPlay } from '../types/state-cards.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../types/cards.js';
@@ -43,7 +43,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired, countConstraintsFromDefinition } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite, applyTakePrisonerAtAgentHome } from './combat-hazard-play.js';
-import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, completeCombat } from './combat-finalize.js';
+import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, completeCombat, creatureKillMpMatchesAlignment } from './combat-finalize.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { captureCharacterInLieuOfBodyCheck, noBetterUseAlreadyUsed } from './no-better-use.js';
@@ -3026,7 +3026,15 @@ export function handleTakeTrophy(state: GameState, action: GameAction, combat: C
   } else {
     newPlayers[atkPlayerIndex] = { ...newPlayers[atkPlayerIndex], discardPile: removeById(atkPlayer.discardPile, action.creatureInstanceId) };
   }
-  const newTrophies = [...(char.trophies ?? []), creatureCard];
+  // CoE 3.IV.2: a trophy provides the kill MP the creature would have given
+  // the defender had it not been taken — none for a detainment attack (it sat
+  // in the attacker's discard pile) or a CoE 8.22 starred/alignment mismatch.
+  const worthMp = creatureInKillPile !== undefined
+    && creatureKillMpMatchesAlignment(resolveDef(state, creatureCard.instanceId) as { starredKillMarshallingPoints?: boolean } | undefined, defPlayer.alignment);
+  const trophyCard: CardInstance = worthMp
+    ? { instanceId: creatureCard.instanceId, definitionId: creatureCard.definitionId }
+    : { instanceId: creatureCard.instanceId, definitionId: creatureCard.definitionId, trophyWorthNoMarshallingPoints: true };
+  const newTrophies = [...(char.trophies ?? []), trophyCard];
   newPlayers[defPlayerIndex] = {
     ...newPlayers[defPlayerIndex],
     characters: {

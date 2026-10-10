@@ -15,8 +15,9 @@
  * marshalling points to that player* goes to the player's marshalling-point
  * pile (`killPile`, which the MP tally sums); a trophy that is *not* currently
  * worth marshalling points is removed from play (`outOfPlayPile`). In the
- * engine's model a trophy is only ever taken from the kill pile, so its
- * printed `killMarshallingPoints` is the MP-worth test.
+ * engine's model the MP-worth test is the printed `killMarshallingPoints`,
+ * unless the trophy is stamped `trophyWorthNoMarshallingPoints` (taken from a
+ * detainment attack or a CoE 8.22 alignment mismatch).
  */
 
 import type { GameState, CharacterInPlay, CardInstance } from '../index.js';
@@ -27,7 +28,7 @@ import { logDetail } from './legal-actions/log.js';
  * destinations, both belonging to the trophy-holder's *own* player:
  *
  * - `toKillPile` — trophies still worth marshalling points (printed
- *   `killMarshallingPoints > 0`); they go to that player's marshalling-point
+ *   `killMarshallingPoints > 0` and not `trophyWorthNoMarshallingPoints`); they go to that player's marshalling-point
  *   pile, where the MP tally scores them again.
  * - `toOutOfPlay` — trophies worth no marshalling points; removed from play.
  *
@@ -43,7 +44,7 @@ export function partitionLeavingTrophies(
   const toOutOfPlay: CardInstance[] = [];
   for (const trophy of char.trophies ?? []) {
     const def = state.cardPool[trophy.definitionId];
-    const killMp = def && 'killMarshallingPoints' in def
+    const killMp = def && 'killMarshallingPoints' in def && !trophy.trophyWorthNoMarshallingPoints
       ? (def as { killMarshallingPoints: number }).killMarshallingPoints
       : 0;
     if (killMp > 0) {

@@ -39,6 +39,15 @@ export interface CardInstance {
    */
   readonly storedAtSite?: CardDefinitionId;
   /**
+   * For a creature held as a trophy (`CharacterInPlay.trophies`): stamped by
+   * the `take-trophy` reducer when the creature would not have been worth
+   * kill marshalling points to the defending player had it not been taken —
+   * a detainment attack (CoE 3.II.3) or a starred/unstarred alignment
+   * mismatch (CoE 8.22). CoE 3.IV.2: such a trophy provides zero marshalling
+   * points (its printed MPs still drive the 3.IV.3 attribute bonuses).
+   */
+  readonly trophyWorthNoMarshallingPoints?: true;
+  /**
    * Stamped by {@link applyDraftResults} on a Stage resource it sets aside to
    * hand at draft finalize instead of putting into play (no gated character
    * to pair with, no site pairing, a site-pairing collision, or the

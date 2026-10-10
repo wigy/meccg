@@ -275,6 +275,20 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
 }
 
 /**
+ * CoE rule 8.22: whether a defeated creature's kill marshalling points count
+ * for a defender of `alignment` — starred (*) kill MP count only for
+ * Ringwraith/Balrog players, unstarred kill MP only for everyone else.
+ */
+export function creatureKillMpMatchesAlignment(
+  creatureDef: { starredKillMarshallingPoints?: boolean } | undefined,
+  alignment: Alignment,
+): boolean {
+  const isStarred = creatureDef?.starredKillMarshallingPoints === true;
+  const isMinion = alignment === Alignment.Ringwraith || alignment === Alignment.Balrog;
+  return isMinion ? isStarred : !isStarred;
+}
+
+/**
  * Apply CoE rule 8.22 after the trophy decision is resolved (either no eligible
  * characters or player declined). Checks the creature in the defender's kill pile
  * and moves it to out-of-play if the alignment doesn't match the creature's starred status.
@@ -303,8 +317,7 @@ export function applyRule8_22AfterTrophyDecision(state: GameState, combat: Comba
   const creatureDef = resolveDef(state, creatureInstanceId) as { starredKillMarshallingPoints?: boolean } | undefined;
   const isStarred = creatureDef?.starredKillMarshallingPoints === true;
   const defAlignment = defPlayer.alignment;
-  const defIsMinion = defAlignment === Alignment.Ringwraith || defAlignment === Alignment.Balrog;
-  const worthMP = defIsMinion ? isStarred : !isStarred;
+  const worthMP = creatureKillMpMatchesAlignment(creatureDef, defAlignment);
 
   if (!worthMP) {
     logDetail(`Rule 8.22: moving ${isStarred ? 'starred' : 'non-starred'} creature from kill pile to out-of-play for ${defAlignment} defender`);
