@@ -2,11 +2,11 @@
  * @module le-418.test
  *
  * Card test: The Arkenstone (le-418)
- * Type: minion-resource-item (greater, hoard, unique, ringwraith)
+ * Type: minion-resource-item (greater, unique, ringwraith)
  * Corruption: 3 · MP: 3
  *
- * Text: "Unique. Hoard item. +5 to bearer's direct influence against Dwarves
- * and Dwarf factions. Each Dwarf in play has +1 mind. If the bearer of this
+ * Text: "Unique. +5 to bearer's direct influence against Dwarves and Dwarf
+ * factions. Each Dwarf in play has +1 mind. If the bearer of this
  * item is at the same site as a Dwarf character, you may discard this item
  * to force the discard of the Dwarf (and all non-follower cards he
  * controls)."
@@ -14,10 +14,12 @@
  * Effects:
  * | # | Effect Type               | Status | Notes                                                              |
  * |---|---------------------------|--------|--------------------------------------------------------------------|
- * | 1 | item-play-site (hoard)    | OK     | playable only at hoard-keyword sites                               |
- * | 2 | stat-modifier +5 DI       | OK     | fires on influence-check when target.race=dwarf or faction.race=dwarf |
- * | 3 | stat-modifier +1 mind     | OK     | target all-characters, when bearer.race=dwarf; global from items   |
- * | 4 | grant-action discard-dwarf| OK     | force-discard-dwarf-at-site; org-phase; one action per Dwarf at site |
+ * | 1 | stat-modifier +5 DI       | OK     | fires on influence-check when target.race=dwarf or faction.race=dwarf |
+ * | 2 | stat-modifier +1 mind     | OK     | target all-characters, when bearer.race=dwarf; global from items   |
+ * | 3 | grant-action discard-dwarf| OK     | force-discard-dwarf-at-site; org-phase; one action per Dwarf at site |
+ *
+ * Not a hoard item: the printed card carries no "Hoard item." wording, so it
+ * plays as an ordinary greater item at any site listing greater items.
  *
  * Playable: YES
  *
@@ -71,28 +73,27 @@ const BLUE_MOUNTAIN_DWARF_HOLD = 'tw-377' as CardDefinitionId; // hero site for 
 // Other minion sites for non-co-location tests
 const MORIA_MINION = 'le-392' as CardDefinitionId;
 
-// A minion Ruins & Lairs with no Dragon's lair (no hoard).
+// A minion Ruins & Lairs listing greater items but with no hoard.
 const THE_PUKEL_DEEPS = 'as-158' as CardDefinitionId;
+
+// A minion Dragon's lair (hoard) that does not list greater items.
+const GONDMAEGLOM = 'le-379' as CardDefinitionId;
 
 describe('The Arkenstone (le-418)', () => {
   beforeEach(() => resetMint());
 
-  test('card text carries the "Hoard item." designation, matching every other hoard item', () => {
-    // Regression test: the minion printing's text field was missing "Hoard
-    // item." (unlike every other hoard-keyword card in the data set, e.g.
-    // td-96, as-129), even though `keywords` already listed "hoard" and the
-    // engine correctly enforced hoard-site-only play. Bug report: minion
-    // Arkenstone still doesn't bear the wording "Hoard Item".
-    expect(pool[THE_ARKENSTONE as string].text).toContain('Hoard item.');
+  test('is not a hoard item: no "hoard" keyword and no "Hoard item." wording', () => {
+    // Regression test: the printed minion Arkenstone is an ordinary greater
+    // item. The data previously tagged it "hoard", restricting it to hoard
+    // sites and making it playable at Gondmaeglom (no greater items listed).
+    const def = pool[THE_ARKENSTONE as string] as { keywords?: readonly string[]; text: string };
+    expect(def.keywords ?? []).not.toContain('hoard');
+    expect(def.text).not.toContain('Hoard item');
   });
 
-  // ── Effect 1: item-play-site (hoard) ──────────────────────────────────────
+  // ── Play site: any site listing greater items ─────────────────────────────
 
-  test('playable at a minion Dragon-lair site (le-387), a hoard site', () => {
-    // Regression test: le-387 "The Lonely Mountain" (minion/ringwraith side)
-    // has a permanent Dragon automatic-attack and must carry the `hoard`
-    // keyword, same as every other Dragon's-lair Ruins & Lairs, so The
-    // Arkenstone (a greater hoard item) is playable there.
+  test('playable at The Lonely Mountain (le-387), which lists greater items', () => {
     const state = buildMinionSitePhaseState({
       site: LONELY_MOUNTAIN_MINION,
       characters: [THE_MOUTH],
@@ -108,21 +109,37 @@ describe('The Arkenstone (le-418)', () => {
     expect(plays.some(a => a.cardInstanceId === handInst && a.attachToCharacterId === mouthId)).toBe(true);
   });
 
-  test('NOT playable at a minion Ruins & Lairs without a hoard', () => {
+  test('playable at a non-hoard site listing greater items (The Pûkel-deeps)', () => {
     const state = buildMinionSitePhaseState({
       site: THE_PUKEL_DEEPS,
       characters: [THE_MOUTH],
       hand: [THE_ARKENSTONE],
     });
+    const handInst = findHandCardId(state, RESOURCE_PLAYER, THE_ARKENSTONE);
 
     const plays = computeLegalActions(state, PLAYER_1)
       .filter(ea => ea.viable && ea.action.type === 'play-hero-resource')
       .map(ea => ea.action as PlayHeroResourceAction);
 
-    expect(plays).toHaveLength(0);
+    expect(plays.some(a => a.cardInstanceId === handInst)).toBe(true);
   });
 
-  // ── Effect 2: +5 DI against Dwarf characters (influence-check) ───────────
+  test('NOT playable at a hoard site that does not list greater items (Gondmaeglom)', () => {
+    const state = buildMinionSitePhaseState({
+      site: GONDMAEGLOM,
+      characters: [THE_MOUTH],
+      hand: [THE_ARKENSTONE],
+    });
+    const handInst = findHandCardId(state, RESOURCE_PLAYER, THE_ARKENSTONE);
+
+    const plays = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'play-hero-resource')
+      .map(ea => ea.action as PlayHeroResourceAction);
+
+    expect(plays.some(a => a.cardInstanceId === handInst)).toBe(false);
+  });
+
+  // ── Effect 1: +5 DI against Dwarf characters (influence-check) ───────────
 
   test('+5 DI bonus: availableDI returns 9 (base 4 + 5) when targeting Gimli (dwarf)', () => {
     // Gimli is a hero character and cannot be a follower of a minion, so the
@@ -185,7 +202,7 @@ describe('The Arkenstone (le-418)', () => {
     expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER], gimliDef)).toBe(4);
   });
 
-  // ── Effect 2: +5 DI against Dwarf factions (faction-influence-check) ─────
+  // ── Effect 1: +5 DI against Dwarf factions (faction-influence-check) ─────
 
   test('+5 DI reduces need against Dwarf faction Blue Mountain Dwarves (influenceNumber 10)', () => {
     // Aragorn (dunadan, DI 3) with Arkenstone at Blue Mountain Dwarf-hold.
@@ -232,7 +249,7 @@ describe('The Arkenstone (le-418)', () => {
     expect(attempt!.need).toBe(6);
   });
 
-  // ── Effect 3: each Dwarf in play has +1 mind ─────────────────────────────
+  // ── Effect 2: each Dwarf in play has +1 mind ─────────────────────────────
 
   test('Gimli (mind 6) has effectiveStats.mind = 7 while Arkenstone is in play', () => {
     // The Mouth bears The Arkenstone; Gimli is in the opponent's company.
@@ -385,7 +402,7 @@ describe('The Arkenstone (le-418)', () => {
     expect(availableDI(state, mouthId, state.players[RESOURCE_PLAYER], gimliDef)).toBe(5);
   });
 
-  // ── Effect 4: force-discard-dwarf-at-site ────────────────────────────────
+  // ── Effect 3: force-discard-dwarf-at-site ────────────────────────────────
 
   test('force-discard-dwarf-at-site offered when a Dwarf is at the same site', () => {
     // PLAYER_1 (ringwraith): The Mouth + Arkenstone at The Lonely Mountain (le-387).
