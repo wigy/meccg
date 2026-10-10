@@ -245,6 +245,40 @@ export function getEffectiveSiteType(
 }
 
 /**
+ * The site *instance* a hazard creature's keying is evaluated against for
+ * `targetCompany`: its destination site while it is moving, or — for a
+ * company that is not moving this phase — the site it stays at.
+ *
+ * A non-moving company has no `destinationSite` instance, and its M/H phase
+ * state records its own site as the destination (see the non-moving branch of
+ * `handleRevealNewSite`), so comparing `destinationSiteName` against the
+ * current site's name is what tells the two cases apart. A *moving* company
+ * must never fall back to its current site — that is the site it is leaving,
+ * and keying against it would offer (and accept) creatures keyed to the
+ * origin instead of the destination.
+ *
+ * Resolving by instance matters because the alignment-scoped by-name fallback
+ * the keying callers use finds nothing when the mover's alignment differs from
+ * the printed site card's: a Fallen-wizard staying at minion Barrow-downs
+ * otherwise resolved to no site at all, losing the empty-path counts Rain-drake
+ * (td-57) keys on.
+ */
+export function resolveCreatureKeyingSiteInstanceId(
+  state: GameState,
+  targetCompany: {
+    readonly destinationSite?: { readonly instanceId: CardInstanceId } | null;
+    readonly currentSite?: { readonly instanceId: CardInstanceId } | null;
+  },
+  destinationSiteName: string | null | undefined,
+): CardInstanceId | undefined {
+  if (targetCompany.destinationSite) return targetCompany.destinationSite.instanceId;
+  const currentInstanceId = targetCompany.currentSite?.instanceId;
+  if (!currentInstanceId || !destinationSiteName) return undefined;
+  const currentName = siteNameOf(state, resolveInstanceId(state, currentInstanceId));
+  return currentName === destinationSiteName ? currentInstanceId : undefined;
+}
+
+/**
  * Resolve the effective site type a hazard creature may key against for a
  * target company, applying {@link getEffectiveSiteType}'s **replacement**
  * semantics: an active site-type override (Rebuild the Town dm-155 — "the
