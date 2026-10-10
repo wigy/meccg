@@ -793,6 +793,9 @@ export function buildFallenWizardOrgPhaseState(opts: {
    *  event another player controls that the tested card can discard
    *  (Keys to the White Towers wh-89). */
   opponentCardsInPlay?: CardInPlay[];
+  /** Overrides P1's derived stage-point total (applied after recompute) —
+   *  e.g. to cross Mask Torn's (wh-26) "more than 9 stage points" gate. */
+  stagePoints?: number;
 }): GameState {
   const state = buildTestState({
     activePlayer: PLAYER_1,
@@ -806,6 +809,9 @@ export function buildFallenWizardOrgPhaseState(opts: {
 
   if (opts.siteStatus) {
     (state.players[0].companies[0].currentSite as { status: CardStatus }).status = opts.siteStatus;
+  }
+  if (opts.stagePoints !== undefined) {
+    (state.players[0] as { stagePoints: number }).stagePoints = opts.stagePoints;
   }
   return state;
 }

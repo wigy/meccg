@@ -34,7 +34,7 @@ import { logDetail, logEvaluated, logHeading, logResult } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { asViable } from './evaluated.js';
 import { topResolutionFor } from '../pending.js';
-import { applyCardPlayProhibitions, applyPendingPlayFilter } from '../card-play-prohibition.js';
+import { applyCardPlayProhibitions, applyCharacterPlayProhibitions, applyPendingPlayFilter } from '../card-play-prohibition.js';
 import { bannedVsBalrogHandCards } from '../balrog-banned-swap.js';
 import { applyLocationMagicRestriction } from '../location-magic-restriction.js';
 import { applyConstraints } from './pending.js';
@@ -381,7 +381,10 @@ export function computeLegalActions(state: GameState, playerId: PlayerId): Evalu
     state, playerId,
     applyLocationMagicRestriction(
       state, playerId,
-      applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId)),
+      applyCharacterPlayProhibitions(
+        state, playerId,
+        applyCardPlayProhibitions(state, playerId, computePhaseLegalActions(state, playerId)),
+      ),
     ),
   );
 }
