@@ -2112,6 +2112,23 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     mp = { ...mp, kill: mp.kill + killContribution };
   }
 
+  // CoE 3.IV.2: creatures held as trophies by this player's Orc/Troll
+  // characters provide the same kill MP they would have from the kill pile
+  // (zero when stamped `trophyWorthNoMarshallingPoints` at take time).
+  for (const char of Object.values(player.characters)) {
+    for (const trophy of char.trophies ?? []) {
+      if (trophy.trophyWorthNoMarshallingPoints) continue;
+      const def = state.cardPool[trophy.definitionId];
+      if (!def || !('killMarshallingPoints' in def)) continue;
+      const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
+      if (killMP === 0) continue;
+      if (manifestIdOf(def) && ownerOf(trophy.instanceId) === player.id) continue;
+      const killContribution =
+        player.alignment === 'fallen-wizard' && killMP > 0 && !fullKillMp ? 1 : killMP;
+      mp = { ...mp, kill: mp.kill + killContribution };
+    }
+  }
+
   // Out-of-play pile: holds eliminated characters and sites stored via
   // stolen-knowledge.
   // - Sites with `stolen-knowledge` earn misc MPs as declared in the effect.

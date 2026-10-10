@@ -48,6 +48,10 @@ const ORC_GUARD = 'tw-072' as CardDefinitionId;
 // and detainment attacks skip body checks entirely (CoE 3.II.1).
 const ORC_WATCH = 'tw-078' as CardDefinitionId;
 
+// Starred-kill-MP creature (Ent in Search of the Entwives: 1* kill MP, worth
+// MP to a Ringwraith player per CoE 8.22)
+const ENT_IN_SEARCH = 'le-71' as CardDefinitionId;
+
 // Minion sites
 const CARN_DUM = 'le-359' as CardDefinitionId;
 const MINAS_MORGUL = 'le-390' as CardDefinitionId;
@@ -252,8 +256,36 @@ describe('Rule 8.37 — Trophies', () => {
     expect(char?.trophies?.some(t => t.instanceId === creatureInstanceId)).toBe(true);
     expect(afterTrophy.players[HAZARD_PLAYER].discardPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
     expect(afterTrophy.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
+    // CoE 3.IV.2: a detainment trophy is worth zero kill marshalling points.
+    expect(afterTrophy.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(0);
 
     assertEveryInstanceReachable(afterTrophy);
+  });
+
+  test('3.IV.2 — a creature taken as a trophy keeps providing its kill MP', () => {
+    // Regression for a bug report (game mv2ac7lq-4dox7e, seq 68): Lieutenant
+    // of Morgul defeated Ent in Search of the Entwives (le-71, 1* kill MP) and
+    // took it as a trophy — the player's kill MP dropped from 1 to 0 because
+    // the MP tally only summed the kill pile, never characters' trophies.
+    const { state, orcId, creatureInstanceId } = makeTrophyOfferState({
+      orcDefId: ORC_CAPTAIN,
+      creatureDefId: ENT_IN_SEARCH,
+    });
+    const [bodyCheckAction] = viableActions(state, PLAYER_1, 'body-check-roll');
+    const afterBodyCheck = dispatch(state, bodyCheckAction.action);
+    expect(afterBodyCheck.combat?.phase).toBe('trophy-offer');
+    expect(afterBodyCheck.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(1);
+
+    const afterTrophy = dispatch(afterBodyCheck, {
+      type: 'take-trophy',
+      player: PLAYER_1,
+      characterId: orcId,
+      creatureInstanceId,
+    });
+
+    const char = afterTrophy.players[RESOURCE_PLAYER].characters[orcId];
+    expect(char?.trophies?.some(t => t.instanceId === creatureInstanceId)).toBe(true);
+    expect(afterTrophy.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(1);
   });
 
   test('CoE 3.II.3 — declining a detainment-creature trophy offer discards it with no kill MP', () => {
