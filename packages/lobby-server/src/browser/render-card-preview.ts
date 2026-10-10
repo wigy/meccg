@@ -335,4 +335,36 @@ export function setupCardPreview(cardPool: Readonly<Record<string, CardDefinitio
   view.addEventListener('click', () => {
     preview.innerHTML = '';
   });
+
+  const logPanel = document.getElementById('game-log-panel');
+  if (logPanel) installLogCardPreview(logPanel, preview, cardPool);
+}
+
+/**
+ * Wire hover preview for the underlined card names in the text-log panel.
+ * The panel lives outside `#visual-view`, so the delegated listener above
+ * never sees it. Hovering a `.card-name` span shows the card (image and
+ * attributes) in the shared `#card-preview` panel; leaving it clears it.
+ */
+export function installLogCardPreview(
+  logPanel: HTMLElement,
+  preview: HTMLElement,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): void {
+  const cardNameAt = (e: Event): HTMLElement | null =>
+    (e.target as HTMLElement).closest?.<HTMLElement>('.card-name[data-card-id]') ?? null;
+
+  logPanel.addEventListener('mouseover', (e) => {
+    const span = cardNameAt(e);
+    if (!span) return;
+    const def = cardPool[span.dataset.cardId ?? ''];
+    if (!def) return;
+    preview.innerHTML = '';
+    preview.appendChild(buildCardPreviewInfo(def));
+  });
+
+  logPanel.addEventListener('mouseout', (e) => {
+    if (!cardNameAt(e)) return;
+    preview.innerHTML = '';
+  });
 }
