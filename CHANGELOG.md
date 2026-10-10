@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.191.0 — 2026-10-10
+
+The Arkenstone Leaves the Hoard
+
+### Cards
+
+- The Arkenstone (le-418) is no longer treated as a hoard item: the minion version carries no "Hoard item." designation, so the hoard keyword and hoard-site play restriction were removed — it is now playable at ordinary greater-item sites and no longer at hoard sites lacking greater items (#3303)
+
+### Infrastructure
+
+- Card test README metrics refreshed
+
 ## 0.190.0 — 2026-10-10
 
 Mask Torn, Echoes Heard

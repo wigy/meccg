@@ -740,7 +740,7 @@
 | le-415 | The Worthy Hills | — | 19 | ☑ |
 | le-416 | Wose Passage-hold | — | 5 | ☑ |
 | le-417 | Zarak Dûm | — | 5 | ☑ |
-| le-418 | The Arkenstone | — | 20 | ☑ |
+| le-418 | The Arkenstone | — | 21 | ☑ |
 | le-pending-effects-parity | — | — | 3 | ☑ |
 | td-1 | Agburanar Ahunt | — | 13 | ☑ |
 | td-2 | Agburanar at Home | — | 11 | ☑ |
