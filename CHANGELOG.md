@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.192.0 — 2026-10-10
+
+Trophies Keep Their Worth
+
+### Game Engine
+
+- Trophies keep their kill marshalling points: a creature taken as a trophy now counts toward its defender's kill MP (CoE 3.IV.2) instead of vanishing from the tally; trophies taken while detained or under a CoE 8.22 alignment mismatch are stamped as worth no MP, which also feeds 3.IV.4 trophy dispersal (#3304)
+- Creature keying for a non-moving company now uses the company's current site as the keying site, so Rain-drake (td-57) can be keyed to a Ruins & Lairs where a company stays (e.g. a fallen-wizard company at Barrow-downs); moving companies still key against their destination (#3305)
+
+### Web Client
+
+- Trophies are now rendered on their bearer alongside the character's items (#3304)
+
+### Infrastructure
+
+- Card test README metrics refreshed
+
 ## 0.191.0 — 2026-10-10
 
 The Arkenstone Leaves the Hoard

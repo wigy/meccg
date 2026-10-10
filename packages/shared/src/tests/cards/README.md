@@ -777,7 +777,7 @@
 | td-52 | Parsimony of Seclusion | — | 11 | ☑ |
 | td-54 | Peril Returned | — | 5 | ☑ |
 | td-55 | Prowess of Age | — | 10 | ☑ |
-| td-57 | Rain-drake | — | 14 | ☑ |
+| td-57 | Rain-drake | — | 15 | ☑ |
 | td-58 | Rumor of Wealth | — | 12 | ☑ |
 | td-59 | Sand-drake | — | 3 | ☑ |
 | td-60 | Scatha | — | 8 | ☑ |
