@@ -5334,9 +5334,13 @@ export function findCreatureKeyingMatches(
   );
 
   const inPlayNames = buildInPlayNames(state);
-  const destSiteDefId = targetCompany.destinationSite?.instanceId
-    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
-    : null;
+  // A non-moving company's "destination" is the site it stays at — resolve
+  // that instance too, otherwise a stationary company falls through to the
+  // alignment-scoped by-name lookup below, which finds nothing when the
+  // mover's alignment differs from the printed site's (a Fallen-wizard at
+  // minion Barrow-downs lost Rain-drake td-57's sitePath-count keying).
+  const destSiteInst = targetCompany.destinationSite ?? targetCompany.currentSite ?? null;
+  const destSiteDefId = destSiteInst ? resolveInstanceId(state, destSiteInst.instanceId) : null;
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
   // Falls back to a by-name (alignment-scoped) lookup so `when` conditions on
   // `destinationSite.region`/`.siteType` still resolve when the company's

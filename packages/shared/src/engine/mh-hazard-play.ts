@@ -3601,9 +3601,9 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // rejecting keyings the legal-action list had offered (Rain-drake td-57's
   // sitePath-count `when`, Nameless Thing dm-109's under-deeps keyword and
   // adjacency entries — u/p bench seeds 10000001+, 20/100 engine-errors).
-  const destSiteInstDefId = targetCompany?.destinationSite?.instanceId
-    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
-    : null;
+  // A non-moving company stays at its current site — use that instance too.
+  const destSiteInst = targetCompany?.destinationSite ?? targetCompany?.currentSite ?? null;
+  const destSiteInstDefId = destSiteInst ? resolveInstanceId(state, destSiteInst.instanceId) : null;
   const destSiteInstDef = destSiteInstDefId ? defById(state, destSiteInstDefId) : undefined;
   const destSiteDef = (destSiteInstDef && isSiteCard(destSiteInstDef))
     ? destSiteInstDef
