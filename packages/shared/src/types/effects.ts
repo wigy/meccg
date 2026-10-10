@@ -2442,7 +2442,8 @@ export type TriggeredActionType =
   | 'transfer-item-free'
   | 'reattach-to-item'
   | 'declare-virtual-site-movement'
-  | 'offer-swap-new-site';
+  | 'offer-swap-new-site'
+  | 'store-character-cards';
 
 /**
  * One threshold band of a {@link WinConditionRollAction.bands} roll table.
@@ -4188,6 +4189,16 @@ export interface OfferSwapNewSiteAction extends TriggeredActionBase {
 }
 
 /**
+ * `store-character-cards` — a `dice-check` branch (Fealty Under Trial as-28):
+ * automatically store every item and storable (`storable-at`) event borne by
+ * the dice-check's `targetCharacterId` in its owner's marshalling-point pile.
+ * No corruption checks are made. See {@link StoredValueRollEffect}.
+ */
+export interface StoreCharacterCardsAction extends TriggeredActionBase {
+  readonly type: 'store-character-cards';
+}
+
+/**
  * A triggered effect's apply payload — a fully discriminated, recursive union.
  * Every verb has its own member interface keyed by the `type` discriminant, so
  * reading any payload field forces an `apply.type === '<verb>'` narrow. (P05
@@ -4277,7 +4288,8 @@ export type TriggeredAction =
   | ReattachToItemAction
   | RestoreItemAction
   | DeclareVirtualSiteMovementAction
-  | OfferSwapNewSiteAction;
+  | OfferSwapNewSiteAction
+  | StoreCharacterCardsAction;
 
 /**
  * Payload carried by a TriggeredAction that adds a `granted-action`
@@ -8590,6 +8602,23 @@ export interface CallOfHomeCheckEffect extends EffectBase {
 }
 
 /**
+ * Fealty Under Trial (as-28): a hazard short-event played on a character (via
+ * `play-target`). On resolution the card's player rolls 2d6 and adds the
+ * marshalling points (counted as though stored — a `storable-at`
+ * `marshallingPoints` override wins over the printed value) and corruption
+ * points of every item and resource event the target bears. Every item and
+ * storable (`storable-at`) event the target bears is then automatically
+ * stored in its owner's marshalling-point pile with no corruption checks.
+ * Finally, if the total is greater than `threshold`, the target is discarded
+ * along with every other card played with him.
+ */
+export interface StoredValueRollEffect extends EffectBase {
+  readonly type: 'stored-value-roll';
+  /** The target is discarded when roll + stored value is greater than this. */
+  readonly threshold: number;
+}
+
+/**
  * Tookish Blood (tw-104), resource mode: played as a resource on the
  * controller's own Hobbit, it protects that character from being discarded or
  * returned to hand "for the rest of the turn … for any reason." Resolution
@@ -10773,6 +10802,7 @@ export type CardEffect =
   | StorageSiteTransferEffect
   | PlayWithStoredCardEffect
   | CallOfHomeCheckEffect
+  | StoredValueRollEffect
   | ProtectFromRemovalEffect
   | ForceCheckAllCompanyTopEffect
   | ForceCheckAllInPlayEffect

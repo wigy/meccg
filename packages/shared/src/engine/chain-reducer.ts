@@ -28,6 +28,7 @@ import { CardStatus, cardStatusFromName, SiteType, Race, RegionType } from '../t
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
+import { characterCardsStoredValue } from './auto-store.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import { availableDI } from './legal-actions/organization.js';
 import type { ReducerResult } from './reducer.js';
@@ -6027,6 +6028,49 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
           continuation: { kind: 'chain-entry', match: 'target-character' },
           requireTargetPresent: true,
           targetCharacterId: entry.payload.targetCharacterId,
+        },
+      });
+      return { state: current, needsInput: true };
+    }
+  }
+
+  // Fealty Under Trial (as-28): hazard short-event targeting a character.
+  // The card's player rolls 2d6 + the MP (as though stored) and CP of every
+  // item/resource event the target bears; the storable ones are then stored
+  // (no corruption checks) and, if the total exceeds the threshold, the
+  // target is discarded. The stored value is fixed at enqueue time — nothing
+  // can change the target's cards while the roll is pending.
+  if (entry.payload.type === 'short-event'
+    && entry.payload.targetCharacterId
+    && !entry.negated
+    && entry.card) {
+    const cardDef = defById(current, entry.card.definitionId);
+    const svrEffect = getCardEffects(cardDef).find(
+      (e): e is import('../types/effects.js').StoredValueRollEffect => e.type === 'stored-value-roll',
+    );
+    if (svrEffect) {
+      const targetCharId = entry.payload.targetCharacterId;
+      const svrOwner = current.players.find(p => !!p.characters[targetCharId]);
+      const svrChar = svrOwner?.characters[targetCharId];
+      const storedValue = svrChar ? characterCardsStoredValue(current, svrChar) : 0;
+      const svrCharName = (svrChar ? defById(current, svrChar.definitionId)?.name : undefined) ?? (targetCharId as string);
+      logDetail(`${cardDef?.name ?? 'stored-value-roll'}: ${svrCharName} carries ${storedValue} MP+CP — enqueuing roll (discard if > ${svrEffect.threshold})`);
+      current = enqueueResolution(current, {
+        source: entry.card.instanceId,
+        actor: entry.declaredBy,
+        scope: { kind: 'phase-step', phase: Phase.MovementHazard, step: 'play-hazards' },
+        kind: {
+          type: 'dice-check',
+          label: `${cardDef?.name ?? 'Roll'}: ${svrCharName}`,
+          roller: entry.declaredBy,
+          modifiers: storedValue !== 0 ? [{ kind: 'constant', value: storedValue }] : [],
+          threshold: svrEffect.threshold,
+          comparison: 'gt',
+          onPass: { type: 'sequence', apps: [{ type: 'store-character-cards' }, { type: 'discard-character' }] },
+          onFail: { type: 'store-character-cards' },
+          continuation: { kind: 'chain-entry', match: 'target-character' },
+          requireTargetPresent: true,
+          targetCharacterId: targetCharId,
         },
       });
       return { state: current, needsInput: true };

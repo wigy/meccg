@@ -464,3 +464,15 @@ export function corruptionRollModifier(state: GameState, playerId: PlayerId): nu
   expect(roll).toBeDefined();
   return (roll!.action as CorruptionCheckAction).corruptionModifier;
 }
+
+/**
+ * Character instance ids a hazard player may currently target with a
+ * character-targeting `play-hazard` (one per viable action carrying a
+ * `targetCharacterId`).
+ */
+export function hazardCharacterTargets(state: GameState, playerId: PlayerId): CardInstanceId[] {
+  return computeLegalActions(state, playerId)
+    .filter(a => a.viable && a.action.type === 'play-hazard')
+    .map(a => (a.action as Extract<GameAction, { type: 'play-hazard' }>).targetCharacterId)
+    .filter((id): id is CardInstanceId => id !== undefined);
+}
