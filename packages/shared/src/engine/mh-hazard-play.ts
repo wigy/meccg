@@ -51,7 +51,7 @@ import { discardCharacterToDiscardPile } from './pending-reducers.js';
 import { resolveAdjacency, isUnderDeepsAdjacent, getUnderDeepsReachable, ringwraithHasModeCard, wouldViolateLeaderRestriction } from './legal-actions/organization-companies.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { collectRegionNameKeyingGrants, computeCandidateRegionPaths, extraKeyedToFromRegionNameGrants } from './region-keying.js';
-import { resolveCreatureKeyingSiteType } from './effective.js';
+import { resolveCreatureKeyingSiteType, resolveCreatureKeyingSiteInstanceId } from './effective.js';
 import { handleAgentMove, handleAgentMoveBack, handleAgentReturnHome, handleAgentHeal, handleAgentUntap, handleAgentTurnFaceDown, handleAgentKeyCreatures, handleAgentInfluenceAttempt, handleAgentTapAttack, handleAgentTapGrantCreatureKeying, handleTapAgentAtSite, handleAgentTapReturnCharacter, handleAgentTapFactionInfluence, handleAgentTapMultiInfluence, handleAgentInfluenceBoost, handleAgentTapOpponentInfluence } from './mh-agents.js';
 
 /**
@@ -3601,9 +3601,13 @@ export function checkCreatureKeying(state: GameState, def: CreatureCard, mhState
   // rejecting keyings the legal-action list had offered (Rain-drake td-57's
   // sitePath-count `when`, Nameless Thing dm-109's under-deeps keyword and
   // adjacency entries — u/p bench seeds 10000001+, 20/100 engine-errors).
-  const destSiteInstDefId = targetCompany?.destinationSite?.instanceId
-    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
-    : null;
+  // A company that is not moving this phase stays at its current site, which
+  // is then its keying destination — see
+  // {@link resolveCreatureKeyingSiteInstanceId}.
+  const destSiteInstId = targetCompany
+    ? resolveCreatureKeyingSiteInstanceId(state, targetCompany, mhState.destinationSiteName)
+    : undefined;
+  const destSiteInstDefId = destSiteInstId ? resolveInstanceId(state, destSiteInstId) : null;
   const destSiteInstDef = destSiteInstDefId ? defById(state, destSiteInstDefId) : undefined;
   const destSiteDef = (destSiteInstDef && isSiteCard(destSiteInstDef))
     ? destSiteInstDef

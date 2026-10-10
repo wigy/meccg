@@ -562,6 +562,57 @@ describe('Rain-drake (td-57)', () => {
     expect(afterChain.combat!.strikesTotal).toBe(1);
   });
 
+  test('keyable at a FALLEN-WIZARD company that stays at an R&L whose site path has two wildernesses (regression: non-moving company)', () => {
+    // A non-moving company has no `destinationSite` — the site it stays at is
+    // its "destination" for keying. The engine only resolved the destination
+    // instance, then fell back to a by-name lookup restricted to the mover's
+    // alignment, which finds nothing for a fallen-wizard (Barrow-downs is
+    // printed as wizard and ringwraith only). The site-path counts came out
+    // empty and Rain-drake's R&L keying was never offered (game
+    // mv0tlvor-icokvs, minion Barrow-downs).
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: BARROW_DOWNS, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [GIMLI] }],
+          hand: [RAIN_DRAKE],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mh = makeMHState({
+      resolvedSitePath: [],
+      resolvedSitePathNames: [],
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Barrow-downs',
+    });
+    const ready: GameState = { ...state, phaseState: mh };
+
+    const plays = viableActions(ready, PLAYER_2, 'play-hazard');
+    expect(plays.some(p => {
+      const a = p.action as { keyedBy?: { method: string; value: string } };
+      return a.keyedBy?.method === 'site-type' && a.keyedBy?.value === SiteType.RuinsAndLairs;
+    })).toBe(true);
+
+    const drakeId = handCardId(ready, HAZARD_PLAYER);
+    const companyId = companyIdAt(ready, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(
+      ready, PLAYER_2, drakeId, companyId,
+      { method: 'site-type' as const, value: SiteType.RuinsAndLairs },
+    );
+    expect(afterChain.combat).not.toBeNull();
+  });
+
   // ─── On-guard reveal honors the site-type entry's `when` gate ─────────────
 
   test('on-guard copy is revealable at a qualifying Ruins & Lairs (2 Wildernesses in site path)', () => {

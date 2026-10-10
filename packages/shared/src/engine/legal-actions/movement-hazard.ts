@@ -19,7 +19,10 @@ import { isSiteCard, isCharacterCard, isAllyCard, isFactionCard, isAvatarCharact
 import { RegionType, Race, Skill, CardStatus, Alignment, MovementType, SiteType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { defenderAlignmentLabel } from '../detainment.js';
-import { getEffectiveSiteType, buildSiteFilterContext, resolveCreatureKeyingSiteType } from '../effective.js';
+import {
+  getEffectiveSiteType, buildSiteFilterContext, resolveCreatureKeyingSiteType,
+  resolveCreatureKeyingSiteInstanceId,
+} from '../effective.js';
 import { isUnderDeepsAdjacent, isDeepMinesSite, isDeepMinesDescentLegal, isDeepMinesAscentLegal, balrogOutHeSprangRegionAllowance } from './organization-companies.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, DiscardCardForHazardLimitAction } from '../../types/actions-movement-hazard.js';
 import { resolveInstanceId } from '../../types/state.js';
@@ -5334,9 +5337,15 @@ export function findCreatureKeyingMatches(
   );
 
   const inPlayNames = buildInPlayNames(state);
-  const destSiteDefId = targetCompany.destinationSite?.instanceId
-    ? resolveInstanceId(state, targetCompany.destinationSite.instanceId)
-    : null;
+  // The destination instance, which for a company that is not moving this
+  // phase is the site it stays at — see
+  // {@link resolveCreatureKeyingSiteInstanceId}. Without that, a stationary
+  // company falls through to the alignment-scoped by-name lookup below, which
+  // finds nothing when the mover's alignment differs from the printed site's
+  // (a Fallen-wizard at minion Barrow-downs lost Rain-drake td-57's
+  // sitePath-count keying).
+  const destSiteInstId = resolveCreatureKeyingSiteInstanceId(state, targetCompany, mhState.destinationSiteName);
+  const destSiteDefId = destSiteInstId ? resolveInstanceId(state, destSiteInstId) : null;
   const destSiteDef = destSiteDefId ? defById(state, destSiteDefId) : undefined;
   // Falls back to a by-name (alignment-scoped) lookup so `when` conditions on
   // `destinationSite.region`/`.siteType` still resolve when the company's
