@@ -4,7 +4,7 @@
  * Card test: Wandering Eldar (le-97)
  * Type: hazard-creature (Elves)
  * Effects: 2 (combat-one-strike-per-character, combat-detainment
- *   vs hero and covert-fallen-wizard)
+ *   vs hero and covert companies)
  *
  * Text:
  *   "Elves. Each character in the company faces one strike (detainment
@@ -18,7 +18,7 @@
  * | # | Effect Type                     | Status | Notes                                                    |
  * |---|---------------------------------|--------|----------------------------------------------------------|
  * | 1 | combat-one-strike-per-character | OK     | strikesTotal = company.characters.length                 |
- * | 2 | combat-detainment               | OK     | Hero or covert fallen-wizard defender → detainment       |
+ * | 2 | combat-detainment               | OK     | Hero or covert defender → detainment                     |
  *
  * keyedTo:
  * | # | Entry                   | When                        | Notes                         |
@@ -49,6 +49,7 @@ import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js
 
 const WANDERING_ELDAR = 'le-97' as CardDefinitionId;
 const MIONID = 'as-3' as CardDefinitionId;
+const GORBAG = 'le-11' as CardDefinitionId; // Orc — makes the company overt
 const AZOG = 'ba-2' as CardDefinitionId;
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: RegionType.Wilderness };
@@ -286,7 +287,7 @@ describe('Wandering Eldar (le-97)', () => {
 
   // ─── Detainment depends on defender alignment ───────────────────────────
 
-  test('attack on Ringwraith (minion) company: no detainment', () => {
+  test('attack on overt Ringwraith (minion) company: no detainment', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -295,7 +296,7 @@ describe('Wandering Eldar (le-97)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MORIA, characters: [MIONID] }],
+          companies: [{ site: MORIA, characters: [MIONID, GORBAG] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },
@@ -317,7 +318,7 @@ describe('Wandering Eldar (le-97)', () => {
     );
 
     expect(afterChain.combat).not.toBeNull();
-    expect(afterChain.combat!.strikesTotal).toBe(1);
+    expect(afterChain.combat!.strikesTotal).toBe(2);
     expect(afterChain.combat!.detainment).toBe(false);
   });
 
