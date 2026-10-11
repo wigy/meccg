@@ -335,6 +335,7 @@
         "cost": {
           "tap": "self"
         },
+        "anyCompany": true,
         "when": {
           "$and": [
             {

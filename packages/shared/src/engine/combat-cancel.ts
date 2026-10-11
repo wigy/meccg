@@ -333,7 +333,15 @@ export function handleCancelAttackByInPlayCharacter(
   const charData = defPlayer.characters[action.cardInstanceId];
   if (!charData) return { state, error: 'Cancel-attack source character not found' };
   if (!company.characters.includes(action.cardInstanceId)) {
-    return { state, error: 'Cancel-attack character is not in the defending company' };
+    // "against any one of your companies" (Adûnaphel le-50): the character
+    // may cancel from another of the player's companies.
+    const anyCompany = getCardEffects(defById(state, charData.definitionId)).some(
+      e => e.type === 'cancel-attack' && e.anyCompany === true,
+    );
+    const inOwnCompany = defPlayer.companies.some(c => c.characters.includes(action.cardInstanceId));
+    if (!anyCompany || !inOwnCompany) {
+      return { state, error: 'Cancel-attack character is not in the defending company' };
+    }
   }
   if (charData.status !== CardStatus.Untapped) {
     return { state, error: 'Character must be untapped to cancel attack' };

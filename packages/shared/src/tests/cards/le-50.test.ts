@@ -18,6 +18,7 @@
  * |---|------------------------------------------------------|-------------|---------------------------------------------------------|
  * | 1 | Darkhaven tap → cancel M/H creature attack           | IMPLEMENTED | `cancel-attack` + `bearer.atHaven` + `attack.source`    |
  * | 2 | "Not played at a site" discriminator                 | IMPLEMENTED | `attack.source === "creature"` (M/H-played only)        |
+ * | 2b| "Against any one of your companies"                  | IMPLEMENTED | `anyCompany` — Darkhaven checked at her own site        |
  * | 3 | Can use spirit-magic                                 | FLAVOR      | No certified spirit-magic consumer today; deferred      |
  * | 4 | +2 DI in Heralded Lord mode / -2 prow in Fell Rider  | IMPLEMENTED | per-mode stat-modifiers on the avatar gated on `bearer.ringwraithMode` |
  * | 5 | Manifestation of Adûnaphel (tw-2)                    | IMPLEMENTED | `manifestId` chain + on-event self-enters-play discard (rule 3.06) |
@@ -334,6 +335,87 @@ describe('Adûnaphel the Ringwraith (le-50)', () => {
 
     const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
     expect(cancelActions).toHaveLength(1);
+  });
+
+  // ─── "Against any one of your companies" ───────────────────────────────────
+
+  test('cancel-attack IS available when Adûnaphel at a Darkhaven cancels an attack against another of her player\'s companies', () => {
+    // Regression (game mv3uc6g0-8es3ud): Adûnaphel waited alone at Dol
+    // Guldur while a hazard creature attacked another company moving
+    // elsewhere — her cancel was never offered.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [
+            { site: GOBLIN_GATE_MINION, characters: [LUITPRAND] },
+            { site: DOL_GULDUR, characters: [ADUNAPHEL_RW] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+    const combatState = makeCancelWindowCombat(base, {
+      creatureDefId: ORC_PATROL,
+      creatureRace: Race.Orc,
+      attackSourceType: 'creature',
+    });
+
+    const cancelActions = viableActions(combatState, PLAYER_1, 'cancel-attack');
+    expect(cancelActions).toHaveLength(1);
+    const adunaphelId = findCharInstanceId(combatState, RESOURCE_PLAYER, ADUNAPHEL_RW);
+    expect((cancelActions[0].action as CancelAttackAction).cardInstanceId).toBe(adunaphelId);
+
+    const after = dispatch(combatState, cancelActions[0].action);
+    expect(after.combat).toBeNull();
+    expect(after.players[RESOURCE_PLAYER].characters[adunaphelId].status).toBe(CardStatus.Tapped);
+    expectInDiscardPile(after, HAZARD_PLAYER, ORC_PATROL);
+  });
+
+  test('cancel-attack is NOT available from another company when Adûnaphel herself is not at a Darkhaven', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [
+            { site: DOL_GULDUR, characters: [LUITPRAND] },
+            { site: GOBLIN_GATE_MINION, characters: [ADUNAPHEL_RW] },
+          ],
+          hand: [],
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Wizard,
+          companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+    const combatState = makeCancelWindowCombat(base, {
+      creatureDefId: ORC_PATROL,
+      creatureRace: Race.Orc,
+      attackSourceType: 'creature',
+    });
+
+    expect(viableActions(combatState, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
   // ─── Rule #4: per-mode stat changes to the Ringwraith ─────────────────────────

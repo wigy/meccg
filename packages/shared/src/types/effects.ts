@@ -6755,6 +6755,15 @@ export interface CancelAttackEffect extends EffectBase {
    */
   readonly enqueueCorruptionCheck?: true;
   /**
+   * When true on an in-play character's `tap: "self"` cancel, the character
+   * may cancel an attack against *any* of its player's companies, not only
+   * its own. `bearer.*` conditions are then evaluated against the
+   * character's own company (e.g. "if at a Darkhaven"). Used by Adûnaphel
+   * the Ringwraith (le-50): "she may tap to cancel one hazard creature
+   * attack … against any one of your companies."
+   */
+  readonly anyCompany?: true;
+  /**
    * When set, the card offers an alternative "reduce attack prowess by this
    * amount" mode alongside the outright cancellation — the player chooses one
    * at play time (CoE: "Cancels the attack OR gives the attack -N prowess,
