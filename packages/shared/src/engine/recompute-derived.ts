@@ -55,6 +55,7 @@ import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
 import { manifestIdOf } from './manifestations.js';
+import { trophyKillMarshallingPoints } from './trophy-dispersal.js';
 import { ownerOf } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -2114,15 +2115,13 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
 
   // CoE 3.IV.2: creatures held as trophies by this player's Orc/Troll
   // characters provide the same kill MP they would have from the kill pile
-  // (zero when stamped `trophyWorthNoMarshallingPoints` at take time).
+  // (zero for detainment or a CoE 8.22 starred/alignment mismatch).
   for (const char of Object.values(player.characters)) {
     for (const trophy of char.trophies ?? []) {
-      if (trophy.trophyWorthNoMarshallingPoints) continue;
-      const def = state.cardPool[trophy.definitionId];
-      if (!def || !('killMarshallingPoints' in def)) continue;
-      const killMP = (def as { killMarshallingPoints: number }).killMarshallingPoints;
+      const killMP = trophyKillMarshallingPoints(state, trophy, player.alignment);
       if (killMP === 0) continue;
-      if (manifestIdOf(def) && ownerOf(trophy.instanceId) === player.id) continue;
+      const def = state.cardPool[trophy.definitionId];
+      if (def && manifestIdOf(def) && ownerOf(trophy.instanceId) === player.id) continue;
       const killContribution =
         player.alignment === 'fallen-wizard' && killMP > 0 && !fullKillMp ? 1 : killMP;
       mp = { ...mp, kill: mp.kill + killContribution };

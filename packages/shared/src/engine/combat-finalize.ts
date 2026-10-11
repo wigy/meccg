@@ -40,7 +40,7 @@ import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
 import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
-import { partitionLeavingTrophies } from './trophy-dispersal.js';
+import { partitionLeavingTrophies, creatureKillMpMatchesAlignment } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -274,19 +274,7 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
   return state;
 }
 
-/**
- * CoE rule 8.22: whether a defeated creature's kill marshalling points count
- * for a defender of `alignment` — starred (*) kill MP count only for
- * Ringwraith/Balrog players, unstarred kill MP only for everyone else.
- */
-export function creatureKillMpMatchesAlignment(
-  creatureDef: { starredKillMarshallingPoints?: boolean } | undefined,
-  alignment: Alignment,
-): boolean {
-  const isStarred = creatureDef?.starredKillMarshallingPoints === true;
-  const isMinion = alignment === Alignment.Ringwraith || alignment === Alignment.Balrog;
-  return isMinion ? isStarred : !isStarred;
-}
+export { creatureKillMpMatchesAlignment } from './trophy-dispersal.js';
 
 /**
  * Apply CoE rule 8.22 after the trophy decision is resolved (either no eligible
