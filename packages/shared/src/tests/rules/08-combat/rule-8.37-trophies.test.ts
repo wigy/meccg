@@ -371,7 +371,7 @@ describe('Rule 8.37 — Trophies', () => {
   // the CardInstance vanishes from the game (violating the no-disappear
   // invariant). These regressions cover the corruption-check removal and
   // press-gang capture/return paths.
-  const buildOrcWithTrophy = () => {
+  const buildOrcWithTrophy = (trophyDefId: CardDefinitionId = ENT_IN_SEARCH) => {
     const base = buildTestState({
       phase: Phase.MovementHazard,
       activePlayer: PLAYER_1,
@@ -394,7 +394,7 @@ describe('Rule 8.37 — Trophies', () => {
       ],
     });
     const orcId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
-    const trophy = { instanceId: 'trophy-inst' as never, definitionId: ORC_GUARD };
+    const trophy = { instanceId: 'trophy-inst' as never, definitionId: trophyDefId };
     const withTrophy = {
       ...base,
       players: base.players.map((p, i) =>
@@ -426,10 +426,41 @@ describe('Rule 8.37 — Trophies', () => {
 
     // Orc removed from play.
     expect(after.players[RESOURCE_PLAYER].characters[orcId]).toBeUndefined();
-    // Orc-guard trophy (kill-MP 2 > 0) → the holder's marshalling-point pile,
-    // and it must remain reachable in game state.
+    // Ent in Search of the Entwives trophy (1* kill MP, worth MP to a
+    // Ringwraith player) → the holder's marshalling-point pile, and it must
+    // remain reachable in game state.
     expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophyId)).toBe(true);
-    expect(resolveInstanceId(after, trophyId)).toBe(ORC_GUARD);
+    expect(resolveInstanceId(after, trophyId)).toBe(ENT_IN_SEARCH);
+    assertEveryInstanceReachable(after);
+  });
+
+  test('3.IV.2/3.IV.4 + 8.22 — an unstarred trophy is worth 0 MP to a Ringwraith player and is removed from play when its bearer leaves', () => {
+    // Regression for a bug report (game mv3pu2rs-kjx35n, seq 1788): a
+    // Ringwraith player's Orc took Slayer (tw-89, 2 kill MP, no "*") as a
+    // trophy without the take-time `trophyWorthNoMarshallingPoints` stamp.
+    // When the bearer was eliminated the trophy went to the kill pile and
+    // scored 2 MP, though an unstarred creature is worth nothing to a
+    // Ringwraith player (CoE 3.v.R1 / 3.IV.2) and must be removed from play.
+    const SLAYER = 'tw-89' as CardDefinitionId;
+    const { state, orcId, trophyId } = buildOrcWithTrophy(SLAYER);
+    expect(recomputeDerived(state).players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(0);
+
+    const withCheck = enqueueCorruptionCheck(state, PLAYER_1, orcId);
+    const after = dispatch({ ...withCheck, cheatRollTotal: 3 }, {
+      type: 'corruption-check',
+      player: PLAYER_1,
+      characterId: orcId,
+      corruptionPoints: 5,
+      corruptionModifier: 0,
+      possessions: [],
+      need: 6,
+      explanation: 'Test',
+    });
+
+    expect(after.players[RESOURCE_PLAYER].characters[orcId]).toBeUndefined();
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophyId)).toBe(false);
+    expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === trophyId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(0);
     assertEveryInstanceReachable(after);
   });
 
@@ -441,13 +472,13 @@ describe('Rule 8.37 — Trophies', () => {
     const captured = capturePressGang(state, RESOURCE_PLAYER, orcId, 'press-gang-host' as CardInstanceId);
     expect(captured.players[RESOURCE_PLAYER].characters[orcId]?.trophies ?? []).toHaveLength(0);
     expect(captured.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === trophyId)).toBe(true);
-    expect(resolveInstanceId(captured, trophyId)).toBe(ORC_GUARD);
+    expect(resolveInstanceId(captured, trophyId)).toBe(ENT_IN_SEARCH);
     assertEveryInstanceReachable(captured);
 
     // Returning the character to hand must not resurrect the disappearance —
     // the trophy stays in the pile, reachable.
     const returned = returnPressedCharacter(captured, orcId);
-    expect(resolveInstanceId(returned, trophyId)).toBe(ORC_GUARD);
+    expect(resolveInstanceId(returned, trophyId)).toBe(ENT_IN_SEARCH);
     assertEveryInstanceReachable(returned);
   });
 
