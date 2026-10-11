@@ -3223,7 +3223,11 @@ export function handleSitePlayHeroResource(
   const itemDoesNotTapSite = isItem && (def.effects ?? []).some(
     e => e.type === 'item-play-site' && e.doesNotTapSite === true,
   );
-  if (itemDoesNotTapSite) {
+  // play-flag does-not-tap-site: the same for an ally, whose controller still
+  // taps (Black Horse as-72 — "Playable on a Ringwraith at a Darkhaven (does
+  // not tap the site)").
+  const allyDoesNotTapSite = isAlly && hasPlayFlag(def, 'does-not-tap-site');
+  if (itemDoesNotTapSite || allyDoesNotTapSite) {
     logDetail(`Site: ${def.name} does not tap the site (special play rule) — leaving site untapped`);
   }
 
@@ -3323,7 +3327,7 @@ export function handleSitePlayHeroResource(
   // Thorough Search (and the Saruman's Machinery Technology bonus, and a
   // no-tap-on-play ally) prevent site tap and do not count as the "first
   // resource played" (so the opening minor-item bonus does not fire for them).
-  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !usingTechnologyBonus && !usingWarForgesBonus && !usingStolenBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
+  const openingBonusActual = !siteState.resourcePlayed && !neverTaps && !usingThoroughSearch && !itemDoesNotTapSite && !allyDoesNotTapSite && !usingTechnologyBonus && !usingWarForgesBonus && !usingStolenBonus && !noTapOnPlay && !usingFirstItemNoTap && !usingFirstMinorItemNoTap;
   const nextMinorItemAvailableActual = openingBonusActual
     ? true
     : consumingBonus
@@ -3346,7 +3350,7 @@ export function handleSitePlayHeroResource(
     logDetail(`Site: ${def.name} played via Dragon-lore's tapped-site allowance — allowance consumed`);
   }
 
-  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
+  const leavesSiteUntapped = neverTaps || usingThoroughSearch || itemDoesNotTapSite || allyDoesNotTapSite || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap;
   const newCompaniesActual = [...player.companies];
   newCompaniesActual[siteState.activeCompanyIndex] = {
     ...company,
@@ -3365,7 +3369,7 @@ export function handleSitePlayHeroResource(
     })),
     phaseState: {
       ...siteState,
-      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
+      resourcePlayed: (usingThoroughSearch || usingTechnologyBonus || usingWarForgesBonus || usingStolenBonus || noTapOnPlay || allyDoesNotTapSite || usingFirstItemNoTap || usingFirstMinorItemNoTap) ? siteState.resourcePlayed : true,
       minorItemAvailable: nextMinorItemAvailableActual,
       hoardBountyAvailable: nextHoardBountyAvailable,
       thoroughSearchAvailable: nextThoroughSearchAvailable,

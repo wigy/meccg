@@ -2340,6 +2340,73 @@ export function companyHasRingwraith(state: GameState, owner: PlayerState, compa
 }
 
 /**
+ * The Ringwraith mode a company is in through its **allies** (rather than a
+ * company-bound mode card): a `ringwraith-mode` effect with
+ * `granted: "each-ringwraith-bears"` applies while the company contains at
+ * least one Ringwraith and every Ringwraith in it controls an ally carrying
+ * that same mode effect (Black Horse as-72: "If each Ringwraith in a company
+ * has a Black Horse, the company is in Black Rider mode"). Derived live from
+ * the allies borne right now, so the mode lapses the moment one leaves
+ * (CoE 2.II.7.R3). Undefined when no ally grants a mode.
+ */
+export function companyAllyRingwraithMode(
+  state: GameState,
+  owner: PlayerState,
+  characterIds: readonly CardInstanceId[],
+): import('../types/effects.js').RingwraithModeEffect['mode'] | undefined {
+  const allyModes = (ch: CharacterInPlay): Set<string> => {
+    const modes = new Set<string>();
+    for (const ally of ch.allies) {
+      for (const e of getCardEffects(defById(state, ally.definitionId))) {
+        if (e.type === 'ringwraith-mode' && e.granted === 'each-ringwraith-bears' && e.mode) modes.add(e.mode);
+      }
+    }
+    return modes;
+  };
+  let common: Set<string> | undefined;
+  for (const charId of characterIds) {
+    const ch = owner.characters[charId];
+    if (!ch) continue;
+    const charDef = defById(state, ch.definitionId);
+    if (!isCharacterCard(charDef) || charDef.race !== Race.Ringwraith) continue;
+    const modes = allyModes(ch);
+    common = common === undefined ? modes : new Set([...common].filter(m => modes.has(m)));
+    if (common.size === 0) return undefined;
+  }
+  if (common === undefined) return undefined;
+  return [...common][0] as import('../types/effects.js').RingwraithModeEffect['mode'];
+}
+
+/**
+ * Number of Ringwraith followers the revealed Ringwraith `avatar` may control
+ * with no influence: the avatar's own `ringwraith-follower-slots` count (The
+ * Witch-king le-58) plus the `count` of every ally carrying that effect borne
+ * by any character in the avatar's company (Black Horse as-72: "Each Black
+ * Horse in your Ringwraith's company allows you to play one Ringwraith
+ * follower who requires no direct influence to control").
+ */
+export function ringwraithFollowerSlotCount(
+  state: GameState,
+  owner: { readonly characters: Readonly<Record<string, CharacterInPlay>>; readonly companies: readonly Company[] },
+  avatar: CharacterInPlay,
+): number {
+  let slots = 0;
+  for (const e of getCardEffects(defById(state, avatar.definitionId))) {
+    if (e.type === 'ringwraith-follower-slots') slots += e.count;
+  }
+  const company = owner.companies.find(c => c.characters.includes(avatar.instanceId));
+  for (const charId of company?.characters ?? []) {
+    const ch = owner.characters[charId as string];
+    for (const ally of ch?.allies ?? []) {
+      for (const e of getCardEffects(defById(state, ally.definitionId))) {
+        if (e.type === 'ringwraith-follower-slots') slots += e.count;
+      }
+    }
+  }
+  return slots;
+}
+
+/**
  * True when any character in `company` has the Balrog race — i.e. the
  * company "contains a Balrog" (the Balrog avatar, `race: balrog`).
  */

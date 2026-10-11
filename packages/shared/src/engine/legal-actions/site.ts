@@ -2698,16 +2698,32 @@ export function playResourcesActions(
             .map(cId => player.characters[cId])
             .filter((ch): ch is NonNullable<typeof ch> => ch !== undefined)
         : untappedCharacters;
+      // Bearer filter (play-target with target: 'character'): restricts which
+      // characters may control the ally — e.g. Black Horse (as-72) "Playable
+      // on a Ringwraith" is `{ "target.race": "ringwraith" }`.
+      const allyBearerTarget = allyDef.effects?.find(
+        (e): e is import('../../index.js').PlayTargetEffect => e.type === 'play-target' && e.target === 'character',
+      );
       const controllerCandidates = controllerPool.filter(ch => {
-        if (requiredController === null) return true;
         const cd = defById(state, ch.definitionId);
-        return isCharacterCard(cd) && cd.name === requiredController;
+        if (requiredController !== null && !(isCharacterCard(cd) && cd.name === requiredController)) return false;
+        if (allyBearerTarget?.filter) {
+          if (!isCharacterCard(cd)) return false;
+          const bearerCtx = { target: { race: cd.race, name: cd.name, skills: getEffectiveSkills(state, ch, cd), status: ch.status } };
+          if (!matchesCondition(allyBearerTarget.filter, bearerCtx)) {
+            logDetail(`Ally ${allyDef.name}: ${cd.name} fails bearer filter`);
+            return false;
+          }
+        }
+        return true;
       });
 
       if (controllerCandidates.length === 0) {
         const reason = requiredController !== null
           ? `${allyDef.name}: only ${requiredController} may control it`
-          : `${allyDef.name}: no untapped character in company`;
+          : allyBearerTarget?.filter
+            ? `${allyDef.name}: no eligible character in company may control it`
+            : `${allyDef.name}: no untapped character in company`;
         logDetail(`Ally ${allyDef.name}: no eligible controlling character (${reason})`);
         actions.push(notPlayable(playerId, cardInstanceId, reason));
         continue;

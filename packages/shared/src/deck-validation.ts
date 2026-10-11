@@ -414,10 +414,13 @@ export function validateDeck(
           });
         }
       } else {
-        if (count > 3) {
+        // A card may raise its own limit (Black Horse as-72: "You may include
+        // up to nine copies of this card").
+        const maxCopies = deckRestrictions(def, 'max-copies')[0]?.max ?? 3;
+        if (count > maxCopies) {
           errors.push({
             section: isCharacterCard(def) ? 'characters' : 'resources',
-            message: `non-unique card "${(def as { name: string }).name}" has ${count} copies (max 3)`,
+            message: `non-unique card "${(def as { name: string }).name}" has ${count} copies (max ${maxCopies})`,
             card: cardId as CardDefinitionId,
           });
         }

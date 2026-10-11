@@ -6774,6 +6774,15 @@ single `$in` condition, so each error still cites the rule that produced it.
   "when": { "deck.alignment": "fallen-wizard" }, "reason": "rule 1.18" }
 ```
 
+**`max-copies`** — replaces rule 1.04's default limit of three copies of a
+non-unique card with `max` (counted across play deck, pool and sideboards).
+Black Horse (as-72): "You may include up to nine copies of this card in your
+play deck and sideboard combined."
+
+```json
+{ "type": "deck-restriction", "rule": "max-copies", "max": 9 }
+```
+
 **`any-location-deck`** — a Balrog site with no hero or minion counterpart
 (Ancient Deep-hold ba-83, The Wind-deeps ba-104, The Drowning-deeps ba-89, The
 Rusted-deeps ba-96, Remains of Thangorodrim ba-95). Rule 1.25 / CoE 1.4.1 lets
@@ -7382,6 +7391,31 @@ by *Echoes of the Song* (wh-17).
 ```json
 { "type": "play-flag", "flag": "remove-from-game" }
 ```
+
+### 15e-ter. Black Horse primitives (`does-not-tap-site`, ally bearer filter, `return-controller-to-hand-on-leave`)
+
+- **`play-flag: "does-not-tap-site"`** — playing the ally leaves the company's
+  site untapped (its controller still taps), and the play is not the site's
+  tapping resource, so further resources may follow. Handled in
+  `handleSitePlayHeroResource` (`reducer-site.ts`).
+- **`play-target` `target: "character"` on an ally** — restricts which company
+  character may control the ally, matched against
+  `{ target: { race, name, skills, status } }` in the site-phase ally emitter
+  (`legal-actions/site.ts`). Black Horse: `{ "target.race": "ringwraith" }`.
+- **`return-controller-to-hand-on-leave`** — when the ally leaves active play
+  by any route while its controller remains in play, the controller is
+  returned to its owner's hand (`returnCharacterToHand`). Evaluated as a
+  prev/next diff after every reducer step (`return-controller-on-leave.ts`).
+
+```json
+{ "type": "play-flag", "flag": "does-not-tap-site" },
+{ "type": "play-target", "target": "character", "filter": { "target.race": "ringwraith" } },
+{ "type": "return-controller-to-hand-on-leave" }
+```
+
+Used by Black Horse (as-72): "Playable on a Ringwraith at a Darkhaven (does not
+tap the site). … Return its controller to your hand if Black Horse leaves
+active play."
 
 ### 15f. Radagast's Black Bird primitives (`no-tap-on-play`, `influences-factions`, `return-to-hand`)
 
@@ -13815,9 +13849,18 @@ can carry per-mode `stat-modifier` effects gated on the current mode.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `mode` | optional | `"black-rider"`, `"fell-rider"`, or `"heralded-lord"`. Surfaced as `bearer.ringwraithMode` during effective-stats resolution. |
+| `granted` | optional | `"each-ringwraith-bears"` — the effect sits on an **ally**, not a mode card: the ally's company is in `mode` while it contains a Ringwraith and every Ringwraith in it controls an ally carrying the same mode effect (`companyAllyRingwraithMode`, `reducer-utils.ts`). Derived live, so the mode lapses as soon as such an ally leaves (CoE 2.II.7.R3). |
 
 ```json
 { "type": "ringwraith-mode", "mode": "fell-rider" }
+```
+
+Ally-granted form — Black Horse (as-72): "If each Ringwraith in a company has a
+Black Horse, the company is in Black Rider mode and may freely move (using
+starter movement)":
+
+```json
+{ "type": "ringwraith-mode", "mode": "black-rider", "granted": "each-ringwraith-bears" }
 ```
 
 A Ringwraith avatar then gates per-mode stat changes on the bound mode card, e.g.
@@ -13870,6 +13913,14 @@ Evaluated in `legal-actions/organization-characters.ts`
 Used by: The Witch-king (le-58) — "As your Ringwraith, up to two Ringwraith
 followers in his company may be controlled with no influence. You may bring
 these followers into play during separate organization phases."
+
+The effect may also sit on an **ally**: each such ally borne by any character
+in the revealed Ringwraith's company adds `count` slots to his budget
+(`ringwraithFollowerSlotCount`, `reducer-utils.ts`, shared by the
+organization-phase and recruit-via-event follower emitters). Black Horse
+(as-72): "Each Black Horse in your Ringwraith's company allows you to play one
+Ringwraith follower who requires no direct influence to control" —
+`{ "type": "ringwraith-follower-slots", "count": 1 }`.
 
 ---
 

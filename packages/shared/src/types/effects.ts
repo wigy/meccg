@@ -4548,6 +4548,20 @@ export interface SkipNextUntapOnPlayEffect extends EffectBase {
  * during your organization phase or if its controlling character leaves active
  * play."
  */
+/**
+ * Carried by an ally: when the ally leaves active play by any route
+ * (discarded, eliminated, returned …) while its controlling character stays
+ * in play, that character is returned to its owner's hand (its other
+ * possessions follow the normal return-to-hand handling). Detected as a
+ * prev/next diff after every reducer step (`return-controller-on-leave.ts`).
+ *
+ * Used by Black Horse (as-72): "Return its controller to your hand if Black
+ * Horse leaves active play."
+ */
+export interface ReturnControllerToHandOnLeaveEffect extends EffectBase {
+  readonly type: 'return-controller-to-hand-on-leave';
+}
+
 export interface ReturnToHandEffect extends EffectBase {
   readonly type: 'return-to-hand';
   /**
@@ -4843,6 +4857,10 @@ export interface CombatStrikeEffectEffect extends EffectBase {
  *   an untapped site" rule). Used by Noble Steed, which is playable at "tapped
  *   or untapped" non-Haven sites in its region list, and by Snaga-hai (le-286),
  *   which is playable at "any tapped or untapped Shadow-hold".
+ * - `does-not-tap-site` — playing this ally leaves the site untapped (the
+ *   controlling character still taps as usual), and the play does not count
+ *   as the site's tapping resource (Black Horse as-72: "Playable on a
+ *   Ringwraith at a Darkhaven (does not tap the site)").
  * - `no-tap-on-play` — playing this ally taps neither the controlling character
  *   nor the site (overrides the default "an ally taps its controller and the
  *   site"). Combined with a wizard-specific keyword, models "X may play this
@@ -4890,7 +4908,7 @@ export interface CombatStrikeEffectEffect extends EffectBase {
  *   by Ent-draughts (tw-227): "This item may not be … stored" and The One
  *   Ring (tw-347, le-326 — rule g.sto.1: "The One Ring cannot be stored").
  */
-export type PlayFlag = 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'no-transfer' | 'no-store';
+export type PlayFlag = 'does-not-tap-site' | 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'no-transfer' | 'no-store';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
@@ -8253,7 +8271,13 @@ export interface PlayRestrictionEffect extends EffectBase {
  */
 export interface DeckRestrictionEffect extends EffectBase {
   readonly type: 'deck-restriction';
-  readonly rule: 'excluded-from-deck' | 'any-location-deck' | 'superseded-by-balrog-site';
+  readonly rule: 'excluded-from-deck' | 'any-location-deck' | 'superseded-by-balrog-site' | 'max-copies';
+  /**
+   * For `max-copies`: the number of copies of this card allowed across the
+   * play deck, pool and sideboards combined, replacing rule 1.04's default
+   * limit (Black Horse as-72: "You may include up to nine copies").
+   */
+  readonly max?: number;
   /**
    * For `excluded-from-deck`: the CoE rule cited in the validation error
    * (e.g. `"rule 1.18"`).
@@ -10750,6 +10774,7 @@ export type CardEffect =
   | UntapMindRollEffect
   | SkipNextUntapOnPlayEffect
   | ReturnToHandEffect
+  | ReturnControllerToHandOnLeaveEffect
   | CombatAttackerChoosesDefendersEffect
   | CombatMultiAttackEffect
   | CombatCancelAttackByTapEffect
@@ -12948,6 +12973,16 @@ export interface RingwraithModeEffect extends EffectBase {
   readonly type: 'ringwraith-mode';
   /** Which mode this card establishes when bound to a company. */
   readonly mode?: 'black-rider' | 'fell-rider' | 'heralded-lord';
+  /**
+   * Set when the mode is carried by an **ally** rather than a company-bound
+   * mode card. `each-ringwraith-bears`: the ally's company is in `mode` while
+   * it contains at least one Ringwraith and every Ringwraith in it controls an
+   * ally carrying this same mode effect (Black Horse as-72: "If each Ringwraith
+   * in a company has a Black Horse, the company is in Black Rider mode and may
+   * freely move"). Derived live, so the mode ends the moment an ally leaves
+   * (CoE 2.II.7.R3).
+   */
+  readonly granted?: 'each-ringwraith-bears';
 }
 
 /**
@@ -12969,6 +13004,13 @@ export interface RingwraithModeEffect extends EffectBase {
  * followers in his company may be controlled with no influence."
  */
 export interface RingwraithFollowerSlotsEffect extends EffectBase {
+  /**
+   * Also carried by an **ally**: each such ally borne by any character in the
+   * revealed Ringwraith's company adds `count` slots to that Ringwraith's
+   * budget (Black Horse as-72: "Each Black Horse in your Ringwraith's company
+   * allows you to play one Ringwraith follower who requires no direct
+   * influence to control").
+   */
   readonly type: 'ringwraith-follower-slots';
   /** Maximum number of Ringwraith followers this avatar may control. */
   readonly count: number;
