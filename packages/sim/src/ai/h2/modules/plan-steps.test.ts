@@ -55,17 +55,23 @@ function step(tag: string, owner: string, p = 1): PlanStep {
 }
 
 /**
- * A context whose company holds the given untapped characters.
+ * A context whose company holds the given untapped characters (plus any
+ * `tapped` ones), standing at `siteDefinitionId` when one is given.
  *
  * The real `computeBudget` runs over this, so the untapped set is derived the
  * way the module derives it rather than stubbed — a stub would pass even if
  * `untappedIn` were reading the wrong company.
  */
-function context(untapped: readonly CardInstanceId[]): ModuleContext {
-  const characters = Object.fromEntries(untapped.map(id => [id as string, {
+function context(
+  untapped: readonly CardInstanceId[],
+  tapped: readonly CardInstanceId[] = [],
+  siteDefinitionId?: string,
+): ModuleContext {
+  const roster = [...untapped, ...tapped];
+  const characters = Object.fromEntries(roster.map(id => [id as string, {
     instanceId: id,
     definitionId: 'ch-1',
-    status: 'untapped',
+    status: untapped.includes(id) ? 'untapped' : 'tapped',
     company: COMPANY,
     followers: [],
     items: [],
@@ -75,7 +81,14 @@ function context(untapped: readonly CardInstanceId[]): ModuleContext {
     view: {
       turnNumber: 3,
       self: {
-        companies: [{ id: COMPANY, characters: untapped, currentSite: null, destinationSite: null }],
+        companies: [{
+          id: COMPANY,
+          characters: roster,
+          currentSite: siteDefinitionId
+            ? { instanceId: 'site-inst', definitionId: siteDefinitionId, status: 'untapped' }
+            : null,
+          destinationSite: null,
+        }],
         characters,
         hand: [],
         siteDeck: [],
@@ -201,5 +214,23 @@ describe('travel owns the route step', () => {
     const p = plan([step(ROUTE_STEP, 'travel', 0.25)]);
     const action = { type: 'plan-movement', companyId: OTHER_COMPANY } as unknown as GameAction;
     expect(travelModule.planStepDelta?.(action, p, p.steps[0], 0, context([]))).toBeNull();
+  });
+
+  test('entering the plan\'s site completes the route when someone can still make the play', () => {
+    const p = plan([step(ROUTE_STEP, 'travel', 0.25)]);
+    const action = { type: 'enter-site', companyId: COMPANY } as unknown as GameAction;
+    expect(travelModule.planStepDelta?.(action, p, p.steps[0], 0, context([THEODEN], [GIMLI], 'isengard'))).toBe(1);
+  });
+
+  test('entering with every character tapped completes nothing', () => {
+    // Regression: bug report on game mv39kkpr-e3uq7f (stateSeq 1696). The
+    // portfolio was committed at the start of the turn, while the company was
+    // untapped; after movement/hazard combat tapped both characters, entering
+    // Barrow-downs was still credited as completing the plan's route, so H2
+    // walked a fully tapped company into the automatic attack with nobody
+    // able to tap for the item it went there for.
+    const p = plan([step(ROUTE_STEP, 'travel', 0.25)]);
+    const action = { type: 'enter-site', companyId: COMPANY } as unknown as GameAction;
+    expect(travelModule.planStepDelta?.(action, p, p.steps[0], 0, context([], [THEODEN, GIMLI], 'isengard'))).toBeNull();
   });
 });

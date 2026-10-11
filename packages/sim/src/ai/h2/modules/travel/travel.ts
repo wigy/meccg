@@ -984,11 +984,21 @@ export const travelModule: H2Module = {
     // the plan layer and after it, which is what gave the defect away: a
     // number that does not move when you add a mechanism is a number the
     // mechanism never reached.
+    //
+    // …but only when someone is left to make the play. A commitment is made at
+    // the start of the turn, while the company is still untapped, and its
+    // carrier step is not re-read inside the turn; a company that tapped
+    // everyone in movement/hazard combat would otherwise be credited with the
+    // whole plan for walking into the site's attacks with nobody able to tap
+    // for the card — entering then is pure risk, and staying lets it enter
+    // after the next untap (game mv39kkpr-e3uq7f, turns 36 and 38).
     if (action.type === 'enter-site') {
       const company = context.view.self.companies.find(
         c => (c.id as unknown as string) === named,
       );
-      return company?.currentSite?.definitionId === required.siteDefinitionId ? 1 : null;
+      if (company?.currentSite?.definitionId !== required.siteDefinitionId) return null;
+      const budget = computeBudget(context.view, context.cardPool);
+      return budget.untappedIn(company.id).length > 0 ? 1 : null;
     }
 
     if (action.type !== 'plan-movement') return null;
