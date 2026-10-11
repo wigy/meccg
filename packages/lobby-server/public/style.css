@@ -5227,6 +5227,12 @@ h2 {
   pointer-events: auto;
 }
 
+/* Card names stay hoverable (card preview) while the rest of the panel
+ * lets clicks through to the board underneath. */
+#game-log-panel .card-name {
+  pointer-events: auto;
+}
+
 #game-log-header {
   position: absolute;
   top: 0;
