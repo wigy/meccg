@@ -78,3 +78,25 @@ export function groupCancelAttackActionsByScout<
   }
   return map;
 }
+
+/**
+ * Name the kind of character the player must click to commit a hand card's
+ * cancel-attack, for the targeting instruction ("Click a highlighted <noun>
+ * to play <card>"). Derived from the card's `cancel-attack` effect: its
+ * `requiredSkill` (e.g. Concealment → "scout") or `requiredRace` (e.g.
+ * Vanishment → "Wizard"); otherwise any character qualifies ("character").
+ *
+ * Previously the noun was "scout" whenever the action carried a
+ * `scoutInstanceId` — the field naming whichever character pays the cost —
+ * so Vanishment ("Wizard only") told the player to click a scout.
+ */
+export function cancelAttackTargetNoun(
+  effects: readonly { readonly type: string; readonly requiredSkill?: string; readonly requiredRace?: string }[] | undefined,
+): string {
+  for (const effect of effects ?? []) {
+    if (effect.type !== 'cancel-attack') continue;
+    if (effect.requiredSkill) return effect.requiredSkill;
+    if (effect.requiredRace) return effect.requiredRace.charAt(0).toUpperCase() + effect.requiredRace.slice(1);
+  }
+  return 'character';
+}

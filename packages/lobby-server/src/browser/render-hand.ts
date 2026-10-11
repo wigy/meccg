@@ -39,6 +39,7 @@ import {
 import { findSelfIndex } from './render-debug-panels.js';
 import { actionsOfTypeFor } from './render-utils.js';
 import { combatButtonLabel } from './combat-button-label.js';
+import { cancelAttackTargetNoun } from './cancel-attack-targets.js';
 import { showCursorTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
 import { getFocusedCompanyId } from './company-view-state.js';
 
@@ -1727,7 +1728,9 @@ export function renderHand(
         img.className = isCASelected ? 'hand-card hand-card-selected' : 'hand-card hand-card-playable';
         if (onAction && cardInstanceId) {
           const instId = cardInstanceId;
-          const noun = hasScoutTarget ? 'scout' : 'character';
+          const noun = hasScoutTarget
+            ? cancelAttackTargetNoun('effects' in def ? def.effects : undefined)
+            : 'character';
           img.addEventListener('click', () => {
             setSelectedCancelAttack(isCASelected ? null : instId);
             setTargetingInstruction(
