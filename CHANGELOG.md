@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.193.0 — 2026-10-11
+
+Stealthy Scouts and Ahunt Fixes
+
+### Game Engine
+
+- Stealth now protects a company when its scout is an ally (e.g. Gollum): tapping the ally scout applies the no-creature-hazards constraint just as a character scout would (#3311)
+- An Ahunt attack now ends when its long-event is discarded mid-combat (#3308)
+
+### Cards
+
+- Fealty Under Trial (as-28) certified (#3307)
+
+### AI
+
+- The modular AI no longer enters a site when every character in the company is tapped, and no longer credits such an entry in its evaluation (#3310)
+
+### Web Client
+
+- Hovering a card name in the text log now shows the card preview (#3306)
+- Cancel-attack targeting prompts name the required skill/race; the Vanishment prompt asks for a Wizard rather than a scout (#3309)
+
+### Infrastructure
+
+- README and card test README metrics refreshed
+
 ## 0.192.0 — 2026-10-10
 
 Trophies Keep Their Worth

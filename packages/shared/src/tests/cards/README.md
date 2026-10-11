@@ -6,13 +6,13 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1394 | 1394 | 0 | 100.0% |
+| 1395 | 1395 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 126 | 126 | 100.0% |
+| AS | 127 | 127 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 156 | 156 | 100.0% |
 | LE | 335 | 335 | 100.0% |
@@ -46,6 +46,7 @@
 | as-23 | A Lie in Your Eyes | — | 7 | ☑ |
 | as-24 | Alone and Unadvised | — | 18 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
+| as-28 | Fealty Under Trial | — | 8 | ☑ |
 | as-29 | FEAR! FIRE! FOES! | — | 14 | ☑ |
 | as-30 | Full of Froth and Rage | — | 6 | ☑ |
 | as-31 | Near to Hear a Whisper | — | 10 | ☑ |
@@ -844,7 +845,7 @@
 | td-131 | Many Foes He Fought | — | 9 | ☑ |
 | td-132 | Many Turns and Doublings | — | 13 | ☑ |
 | td-133 | Map to Mithril | — | 14 | ☑ |
-| td-134 | Marvels Told | — | 29 | ☑ |
+| td-134 | Marvels Told | — | 30 | ☑ |
 | td-135 | Master of Esgaroth | — | 11 | ☑ |
 | td-136 | Master of Wood, Water, or Hill | — | 16 | ☑ |
 | td-138 | Men of Dale | — | 3 | ☑ |
@@ -1203,7 +1204,7 @@
 | tw-328 | Skinbark | — | 5 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 15 | ☑ |
-| tw-332 | Stealth | — | 14 | ☑ |
+| tw-332 | Stealth | — | 15 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
 | tw-334 | Stone of Erech | — | 8 | ☑ |
 | tw-335 | Sun | — | 7 | ☑ |
