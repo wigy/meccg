@@ -465,6 +465,7 @@
     "name": "Stinker",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/Stinker.jpg",
     "unique": true,
+    "manifestId": "tw-246",
     "prowess": 2,
     "body": 9,
     "mind": 4,

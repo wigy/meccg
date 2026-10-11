@@ -197,6 +197,12 @@ interface AllyCardBase extends ResourceCardBase {
   /** The ally's mind value, used as the comparison value in opponent influence attempts. */
   readonly mind: number;
   /**
+   * Manifestation-chain tag: the id of another card this ally is a
+   * manifestation of (e.g. Stinker le-154 tags Gollum tw-246). Wires the ally
+   * into manifestation uniqueness (g.man.1) across alignments.
+   */
+  readonly manifestId?: ManifestId;
+  /**
    * The ally's direct influence, relevant only when the ally can "attempt to
    * influence factions as if he were a character" (the `influences-factions`
    * play-flag, e.g. Radagast's Black Bird wh-114). Optional: most allies do not
