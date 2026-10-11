@@ -300,3 +300,18 @@ export function dispatchResult(state: GameState, action: GameAction): ReducerRes
  * Find the first viable action of a given type, optionally narrowed by a
  * predicate. Returns undefined if no match is found.
  */
+
+/**
+ * Resolve the single `resolve-dice-check` action currently offered to the
+ * player, with `total` cheated in as the 2d6 result. Returns the state after
+ * the roll's pass/fail branch and chain continuation have run.
+ */
+export function rollDiceCheck(
+  state: GameState,
+  playerId: PlayerId,
+  total: number,
+): GameState {
+  const rolls = viableActions(state, playerId, 'resolve-dice-check');
+  expect(rolls.length).toBe(1);
+  return dispatch({ ...state, cheatRollTotal: total }, rolls[0].action);
+}

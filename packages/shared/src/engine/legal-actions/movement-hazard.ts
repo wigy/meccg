@@ -29,7 +29,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -3836,6 +3836,11 @@ function playHazardsActions(
             const cd = resourcePlayer.characters[cid];
             return cd ? defNamesOf(state, cd.items) : [];
           });
+          // The company's relevant site — its new site when moving, else its
+          // current site — for `company.siteName` / `company.atDarkhaven`
+          // (Fealty Under Trial as-28: "a minion in a Darkhaven or Barad-dûr").
+          const targetCompanySite = targetCompany.destinationSite ?? targetCompany.currentSite;
+          const targetCompanySiteDef = targetCompanySite ? defById(state, targetCompanySite.definitionId) : undefined;
           for (const charId of targetedCandidates) {
             const charData = resourcePlayer.characters[charId];
             const charDef = charData ? defById(state, charData.definitionId) : undefined;
@@ -3855,6 +3860,7 @@ function playHazardsActions(
                   possessions: possessionNames,
                   itemKeywords,
                   itemSubtypes,
+                  cardType: charDef.cardType,
                 },
                 // `company.moving` (Gloom tw-41: "Playable only on a company
                 // that is moving this turn") mirrors the `target.moving` field
@@ -3863,6 +3869,8 @@ function playHazardsActions(
                 company: {
                   moving: !!targetCompany.destinationSite,
                   itemNames: targetCompanyItemNames,
+                  siteName: targetCompanySiteDef && isSiteCard(targetCompanySiteDef) ? targetCompanySiteDef.name : undefined,
+                  atDarkhaven: isDarkhavenSiteDef(targetCompanySiteDef),
                 },
               };
               if (!matchesCondition(shortPlayTarget.filter, ctx)) {

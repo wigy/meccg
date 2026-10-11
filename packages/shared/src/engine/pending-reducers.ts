@@ -67,6 +67,7 @@ import { availableDI } from './legal-actions/organization.js';
 import { burglaryCheckModifierBonus, eligibleRingCategories, opposedRollStat, eligibleCompanyDiscardItems, itemOrWoundChoiceActions, discardCompanyCharacterCandidates } from './legal-actions/pending.js';
 import type { RingTestTableEffect, RingTestSearchEffect, TriggeredAction } from '../types/effects.js';
 import { applyMove, type MoveContext } from './reducer-move.js';
+import { autoStoreCharacterCards } from './auto-store.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { revealInstances, forgetDeckReveals } from './visibility.js';
 import { handleRevealAgent } from './mh-hazard-play.js';
@@ -1438,6 +1439,12 @@ function applyDiceCheckBranch(
     const charInPlay = state.players[ownerIndex].characters[ctx.targetCharacterId];
     const allowItemTransfer = branch.allowItemTransfer === true;
     return { state: returnCharacterToHand(state, ownerIndex, ctx.targetCharacterId, charInPlay, allowItemTransfer, ctx.source) };
+  }
+  if (branch.type === 'store-character-cards') {
+    // Fealty Under Trial (as-28): store every item / storable event the
+    // target bears — owner-agnostic, no corruption checks.
+    if (!ctx.targetCharacterId) return { state };
+    return { state: autoStoreCharacterCards(state, ctx.targetCharacterId) };
   }
   if (branch.type === 'discard-character') {
     if (!ctx.targetCharacterId) return { state };
