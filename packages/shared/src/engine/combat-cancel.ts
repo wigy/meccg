@@ -766,6 +766,29 @@ function endCanceledCombat(
 }
 
 /**
+ * End an Ahunt attack whose long-event has left play mid-combat.
+ *
+ * An Ahunt attack is an effect of its long-event in play, and per CoE 9.4.1
+ * a card's effects end the moment the card leaves play (contrast CoE
+ * 2.V.ii.7, which carves out site automatic-attacks as the explicit
+ * exception). So when e.g. Marvels Told (td-134) discards Itangast Ahunt
+ * (td-37) while its attack is in progress, the attack ends: any unresolved
+ * strikes have no further effect. The company still faced it, so this runs
+ * the same tail as a canceled attack ({@link endCanceledCombat}).
+ *
+ * No-op unless an `ahunt` combat is active and its long-event is no longer
+ * in either player's cardsInPlay.
+ */
+export function endAhuntAttackIfSourceLeftPlay(state: GameState): GameState {
+  const combat = state.combat;
+  if (!combat || combat.attackSource.type !== 'ahunt') return state;
+  const longEventId = combat.attackSource.longEventInstanceId;
+  if (state.players.some(p => p.cardsInPlay.some(c => c.instanceId === longEventId))) return state;
+  logDetail(`Ahunt long-event ${longEventId as string} left play — its attack ends (CoE 9.4.1)`);
+  return endCanceledCombat({ ...state, combat: null }, state, combat);
+}
+
+/**
  * Apply the cancel-attack effect when its chain entry resolves.
  *
  * Called from the chain resolver when a short-event entry with a

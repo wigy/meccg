@@ -52,6 +52,7 @@ import { resolveWinConditionRoll } from './reducer-win-conditions.js';
 import { interceptSkipNextUntap } from './reducer-untap.js';
 import { revealInstances } from './visibility.js';
 import { findRevealAndAttackEffect, kickoffGreatHunt } from './great-hunt.js';
+import { endAhuntAttackIfSourceLeftPlay } from './combat-cancel.js';
 import { findLongDarkReachCandidates, fizzleLongDarkReach } from './long-dark-reach.js';
 import { applyShortEventDiscardAllInPlay, applyShortEventDiscardInPlay, applyShortEventRegionTransform, applyShortEventSiteUntap, applyShortEventItemUntap } from './short-event-discard.js';
 import { fireStageCardPlayedTriggers } from './stage-card-played.js';
@@ -792,7 +793,9 @@ export function autoResolve(state: GameState): ReducerResult {
 
     // Resolve this entry
     const result = resolveEntry(current, nextIndex);
-    current = result.state;
+    // An entry that discarded an Ahunt long-event (Marvels Told td-134)
+    // ends that Ahunt's in-progress attack (CoE 9.4.1).
+    current = endAhuntAttackIfSourceLeftPlay(result.state);
     if (result.effects) allEffects.push(...result.effects);
 
     // If resolution needs player input, stop auto-advancing

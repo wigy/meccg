@@ -20,7 +20,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  ELROND, ARAGORN, LEGOLAS, BALIN, SARUMAN, GLORFINDEL_II,
+  ELROND, ARAGORN, LEGOLAS, BALIN, SARUMAN, GLORFINDEL_II, GANDALF,
   TREEBEARD,
   MARVELS_TOLD, FOOLISH_WORDS, LURE_OF_THE_SENSES, EYE_OF_SAURON, DOORS_OF_NIGHT,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
@@ -31,13 +31,15 @@ import {
   handCardId, dispatch, setCharStatus, expectCharStatus,
   makeMHState, resolveChain, makeCancelWindowCombat,
   actionAs, RESOURCE_PLAYER, HAZARD_PLAYER,
+  buildAhuntOrderEffectsState,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CardInPlay, PlayShortEventAction, EndOfTurnPhaseState } from '../../index.js';
-import { computeLegalActions, Phase, CardStatus, Race } from '../../index.js';
+import { computeLegalActions, Phase, CardStatus, Race, RegionType } from '../../index.js';
 import type { SupportCorruptionCheckAction } from '../../types/actions-universal.js';
 
 const ADUNAPHEL = 'tw-2' as CardDefinitionId;
 const WAKE_OF_WAR = 'tw-108' as CardDefinitionId; // hazard long-event: +1 strike/+1 prowess vs Wolf/Spider/Animal
+const ITANGAST_AHUNT = 'td-37' as CardDefinitionId; // hazard long-event: Dragon Ahunt attack, 4 strikes @ 16/7
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -859,5 +861,44 @@ describe('Marvels Told (td-134)', () => {
     expect(next.players[1].cardsInPlay.map(c => c.instanceId)).not.toContain(wakeOfWarInPlay.instanceId);
     expect(next.combat!.strikesTotal).toBe(3);
     expect(next.combat!.strikeProwess).toBe(8);
+  });
+
+  test('discarding Itangast Ahunt during its own attack ends that attack (CoE 9.4.1, bug 7357eb658d87951f)', () => {
+    // Reported in bug 7357eb658d87951f (game mv2w712f-exwq39, seq 2021-2024):
+    // Itangast Ahunt's attack (4 strikes @ 16/7) was in progress when the
+    // defender played Marvels Told to discard the Ahunt long-event. The
+    // long-event went to the discard pile but the attack carried on, forcing
+    // the defender to spend Vanishment on it. An Ahunt attack is an effect of
+    // the long-event in play, so it ends when the long-event leaves play.
+    const base = buildAhuntOrderEffectsState({
+      ahuntDefId: ITANGAST_AHUNT,
+      pathNames: ['Withered Heath'],
+      pathTypes: [RegionType.Wilderness],
+    });
+    const marvelsId = mint();
+    const withHand = {
+      ...base,
+      players: [
+        { ...base.players[0], hand: [{ instanceId: marvelsId, definitionId: MARVELS_TOLD }] },
+        base.players[1],
+      ] as unknown as typeof base.players,
+    };
+    const ahuntId = withHand.players[1].cardsInPlay.find(c => c.definitionId === ITANGAST_AHUNT)!.instanceId;
+
+    const inCombat = dispatch(withHand, viableActions(withHand, PLAYER_1, 'pass')[0].action);
+    expect(inCombat.combat?.attackSource).toEqual({ type: 'ahunt', longEventInstanceId: ahuntId });
+
+    const gandalfId = (Object.keys(inCombat.players[0].characters) as CardInstanceId[])
+      .find(k => inCombat.players[0].characters[k].definitionId === GANDALF)!;
+    const next = resolveChain(dispatch(inCombat, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: marvelsId,
+      targetScoutInstanceId: gandalfId,
+      discardTargetInstanceId: ahuntId,
+    }));
+
+    expect(next.players[1].discardPile.map(c => c.instanceId)).toContain(ahuntId);
+    expect(next.combat).toBeNull();
   });
 });
