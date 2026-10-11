@@ -62,7 +62,7 @@ import { Phase } from '../types/state-phases.js';
 import { getPlayerIndex } from '../state-utils.js';
 import {
   defById, companyById, updatePlayer, makeCombatState,
-  playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes,
+  playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, isCovertCompany,
 } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody } from './effects/resolver.js';
@@ -218,6 +218,7 @@ export function buildLongDarkReachCombat(
       attackKeyedTo: cDef.keyedTo,
       inPlayNames,
       defendingAlignment: working.players[defIdx].alignment,
+      defendingCovert: isCovertCompany(company, working.players[defIdx], working),
       defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(working, working.players[defIdx]),
       // No declared keying (the attack bypasses the creature's normal keying
       // check entirely) — falls back to the union of the creature's

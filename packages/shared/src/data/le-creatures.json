@@ -277,14 +277,7 @@
               "defender.alignment": "hero"
             },
             {
-              "$and": [
-                {
-                  "defender.alignment": "fallen-wizard"
-                },
-                {
-                  "defender.covert": true
-                }
-              ]
+              "defender.covert": true
             }
           ]
         }
@@ -440,14 +433,7 @@
               "defender.alignment": "hero"
             },
             {
-              "$and": [
-                {
-                  "defender.alignment": "fallen-wizard"
-                },
-                {
-                  "defender.covert": true
-                }
-              ]
+              "defender.covert": true
             }
           ]
         }
@@ -695,14 +681,7 @@
               "defender.alignment": "hero"
             },
             {
-              "$and": [
-                {
-                  "defender.alignment": "fallen-wizard"
-                },
-                {
-                  "defender.covert": true
-                }
-              ]
+              "defender.covert": true
             }
           ]
         }
@@ -805,14 +784,7 @@
               "defender.alignment": "hero"
             },
             {
-              "$and": [
-                {
-                  "defender.alignment": "fallen-wizard"
-                },
-                {
-                  "defender.covert": true
-                }
-              ]
+              "defender.covert": true
             }
           ]
         }
@@ -914,14 +886,7 @@
               "defender.alignment": "hero"
             },
             {
-              "$and": [
-                {
-                  "defender.alignment": "fallen-wizard"
-                },
-                {
-                  "defender.covert": true
-                }
-              ]
+              "defender.covert": true
             }
           ]
         }
@@ -1146,14 +1111,7 @@
               "defender.alignment": "hero"
             },
             {
-              "$and": [
-                {
-                  "defender.alignment": "fallen-wizard"
-                },
-                {
-                  "defender.covert": true
-                }
-              ]
+              "defender.covert": true
             }
           ]
         }
@@ -1472,7 +1430,7 @@
         "when": {
           "$or": [
             { "defender.alignment": "hero" },
-            { "$and": [{ "defender.alignment": "fallen-wizard" }, { "defender.covert": true }] }
+            { "defender.covert": true }
           ]
         }
       },
@@ -1483,7 +1441,7 @@
       }
     ],
     "text": "Elves. Each character in the company faces one strike (detainment against covert and hero companies). May be played keyed to Woodland Realm, Western Mirkwood, Heart of Mirkwood, Northern Rhovanion, and Grey Mountain Narrows; and may also be played at sites in these regions. May not be played against a company containing a character with Thranduil’s Halls as a home site.",
-    "certified": "2026-10-07"
+    "certified": "2026-10-11"
   },
   {
     "cardType": "hazard-creature",

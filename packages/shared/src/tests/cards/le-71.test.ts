@@ -3,7 +3,7 @@
  *
  * Card test: Ent in Search of the Entwives (le-71)
  * Type: hazard-creature (Awakened Plant)
- * Effects: 1 (combat-detainment vs hero and covert fallen-wizard)
+ * Effects: 1 (combat-detainment vs hero and covert companies)
  *
  * Text:
  *   "Awakened Plant. One strike (detainment against covert and hero companies).
@@ -46,6 +46,7 @@ import type { CardDefinitionId, CardInstanceId, GameState } from '../../index.js
 
 const ENT_IN_SEARCH = 'le-71' as CardDefinitionId;
 const MIONID = 'as-3' as CardDefinitionId;
+const GORBAG = 'le-11' as CardDefinitionId; // Orc — makes the company overt
 const AZOG = 'ba-2' as CardDefinitionId;
 
 const WILDERNESS_KEYING = { method: 'region-type' as const, value: RegionType.Wilderness };
@@ -134,7 +135,7 @@ describe('Ent in Search of the Entwives (le-71)', () => {
     expect(afterChain.combat!.detainment).toBe(true);
   });
 
-  test('attack on Ringwraith (minion) company: no detainment, prowess 14', () => {
+  test('attack on overt Ringwraith (minion) company: no detainment, prowess 14', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -143,7 +144,7 @@ describe('Ent in Search of the Entwives (le-71)', () => {
         {
           id: PLAYER_1,
           alignment: Alignment.Ringwraith,
-          companies: [{ site: MORIA, characters: [MIONID] }],
+          companies: [{ site: MORIA, characters: [MIONID, GORBAG] }],
           hand: [],
           siteDeck: [MINAS_TIRITH],
         },

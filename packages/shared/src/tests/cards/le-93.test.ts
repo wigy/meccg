@@ -8,7 +8,10 @@
  *
  * Key rules:
  *   - Each character in the company faces one strike (combat-one-strike-per-character)
- *   - Detainment against covert and hero (Wizard) companies (combat-detainment)
+ *   - Detainment against covert and hero (Wizard) companies (combat-detainment):
+ *     `{ $or: [hero, defender.covert] }` — a covert minion company (no Orc,
+ *     Troll, Fell-Rider Ringwraith or Balrog) is also detained; an overt one
+ *     faces a normal attack.
  *   - Keyed to named regions: Woodland Realm, Western Mirkwood, Heart of
  *     Mirkwood, Northern Rhovanion, Grey Mountain Narrows
  *   - May also be played at sites in these regions (site-in-region). Like
@@ -28,11 +31,14 @@ import {
   playCreatureHazardAndResolve,
   handCardId, RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
-import { computeLegalActions, Phase, SiteType } from '../../index.js';
+import { Alignment, computeLegalActions, Phase, SiteType } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const THRANDUILS_FOLK = 'le-93' as CardDefinitionId;
 const SARN_GORIWING = 'tw-423' as CardDefinitionId;
+const ASTERNAK = 'le-1' as CardDefinitionId;   // minion Man — keeps a company covert
+const GORBAG = 'le-11' as CardDefinitionId;    // minion Orc — makes a company overt
+const DOL_GULDUR = 'le-367' as CardDefinitionId;
 
 // ─── Region-name keying context for Western Mirkwood ─────────────────────────
 
@@ -105,6 +111,69 @@ describe('Thranduil’s Folk (le-93)', () => {
 
     expect(afterChain.combat).not.toBeNull();
     expect(afterChain.combat!.detainment).toBe(true);
+  });
+
+  test('combat is detainment against a covert minion company', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [ASTERNAK] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [ARAGORN] }],
+          hand: [THRANDUILS_FOLK],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const gameState = { ...state, phaseState: makeMHState(MH_MIRKWOOD) };
+
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(gameState, PLAYER_2, creatureId, companyId, MIRKWOOD_KEYING);
+
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.detainment).toBe(true);
+  });
+
+  test('combat is a normal attack against an overt (Orc) minion company', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [ASTERNAK, GORBAG] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [ARAGORN] }],
+          hand: [THRANDUILS_FOLK],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const gameState = { ...state, phaseState: makeMHState(MH_MIRKWOOD) };
+
+    const creatureId = handCardId(gameState, HAZARD_PLAYER);
+    const companyId = companyIdAt(gameState, RESOURCE_PLAYER);
+    const afterChain = playCreatureHazardAndResolve(gameState, PLAYER_2, creatureId, companyId, MIRKWOOD_KEYING);
+
+    expect(afterChain.combat).not.toBeNull();
+    expect(afterChain.combat!.strikesTotal).toBe(2);
+    expect(afterChain.combat!.detainment).toBe(false);
   });
 
   test('not playable against company containing character with Thranduil’s Halls as home site', () => {
