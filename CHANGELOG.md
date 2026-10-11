@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.194.0 — 2026-10-11
+
+Covert Detainment and Trophy Fixes
+
+### Game Engine
+
+- Unstarred creature trophies no longer give kill MP to minion players: when the bearer is eliminated such a trophy is removed from play instead of scoring, and the trophy MP tally applies the starred/alignment check itself (#3313)
+- Hazard-creature combat (normal attacks, Hunt, Great Hunt, Long Dark Reach) now passes the defending company's covert status, so "detainment against covert companies" works against covert Ringwraith/Balrog companies (#3312)
+
+### Cards
+
+- Thranduil's Folk (le-93) certified; the same covert-detainment clause fixed on le-60, le-62, le-71, le-76, le-78 and le-97 (#3312)
+
+### Infrastructure
+
+- Card test README metrics refreshed
+
 ## 0.193.0 — 2026-10-11
 
 Stealthy Scouts and Ahunt Fixes

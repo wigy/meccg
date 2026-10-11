@@ -494,7 +494,7 @@
 | le-90 | Slayer | — | 10 | ☑ |
 | le-91 | Sons of Kings | — | 5 | ☑ |
 | le-92 | Stirring Bones | — | 8 | ☑ |
-| le-93 | Thranduil’s Folk | — | 9 | ☑ |
+| le-93 | Thranduil’s Folk | — | 11 | ☑ |
 | le-95 | True Fire-drake | — | 7 | ☑ |
 | le-96 | Uruk-lieutenant | — | 5 | ☑ |
 | le-97 | Wandering Eldar | — | 13 | ☑ |
