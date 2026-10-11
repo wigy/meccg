@@ -21,7 +21,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, dequeueResolution, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -3469,7 +3469,10 @@ function applyShortEventOnEntersPlay(
           logDetail(`add-constraint(${constraintKind}): no target character — fizzle`);
           continue;
         }
-        company = findCharacterCompany(player.companies, targetCharId);
+        // The scout may be an ally (e.g. Gollum, rule 2.V.2.2) — its company
+        // is the company of the character it is attached to.
+        const allyHost = findAttachment(player, 'allies', targetCharId);
+        company = findCharacterCompany(player.companies, allyHost?.charId ?? targetCharId);
         if (!company) {
           logDetail(`add-constraint(${constraintKind}): scout ${targetCharId as string} not in any company — fizzle`);
           continue;

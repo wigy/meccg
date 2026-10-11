@@ -268,6 +268,36 @@ describe('Stealth (tw-332)', () => {
     expect(gollumAction).toBeDefined();
   });
 
+  test('Stealth tapping a scout ally (Gollum) protects the ally\'s company', () => {
+    // Bug report (game mv3flaaj-xsqskz, seq 966): Stealth was played by
+    // tapping Gollum (an ally of Frodo in Aragorn/Bilbo/Frodo's company),
+    // yet the hazard player could still play Lesser Spiders on the company.
+    // The constraint resolution only looked for the scout among company
+    // characters, so an ally scout fizzled the constraint.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN, BILBO, FRODO] }], hand: [STEALTH], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const state = attachAllyToChar(base, RESOURCE_PLAYER, FRODO, GOLLUM);
+    const gollumId = findAllyInstanceId(state, RESOURCE_PLAYER, FRODO, GOLLUM)!;
+    const companyId = companyIdAt(state, RESOURCE_PLAYER);
+
+    const nextState = dispatch(state, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: findHandCardId(state, RESOURCE_PLAYER, STEALTH),
+      targetScoutInstanceId: gollumId,
+    });
+
+    const constraint = nextState.activeConstraints.find(c => c.kind.type === 'no-creature-hazards-on-company');
+    expect(constraint).toBeDefined();
+    expect(constraint!.target).toEqual({ kind: 'company', companyId });
+  });
+
   test('playing Stealth through the reducer adds no-creature-hazards-on-company constraint', () => {
     // Regression: playing Stealth used to leave activeConstraints empty
     // because handlePlayResourceShortEvent did not process on-event
