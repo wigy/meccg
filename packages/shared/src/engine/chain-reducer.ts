@@ -39,6 +39,7 @@ import { siteAttacksCanceled, getEffectiveSiteType } from './effective.js';
 import { allyEffectiveMind, allyEffectiveProwess } from './ally-stats.js';
 import { addConstraint, removeConstraint, enqueueResolution, enqueueCorruptionCheck, characterPossessions, characterPossessionsById, hasCancelReturnAndSiteTap } from './pending.js';
 import { eligibleCompanyDiscardItems } from './legal-actions/pending.js';
+import { findCreatureKeyingMatches } from './legal-actions/movement-hazard.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
 import { roll2d6, diceRollEffect, rollDiceForPlayer, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, isCovertCompany, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findDuplicationLimitEffect, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
@@ -4682,6 +4683,35 @@ function matchRaceThresholdEffect<E extends FlatteryCancelAttackEffect | Riddlin
   };
 }
 
+/**
+ * CoE 2.IV.vii.2 — a creature's key is an *active condition*, so it must still
+ * hold when the creature resolves, not only when it was declared. A resource
+ * played in response that changes the keyed region or site type (Deeper Shadow
+ * le-179: "change one Wilderness to a Shadow-land") can therefore cancel the
+ * creature — e.g. "Tom" (Tûma) keyed to two Wildernesses fizzles once one of
+ * them becomes a Shadow-land.
+ *
+ * Only declared `region-type` / `site-type` keys are re-validated: those are
+ * the keys type-changing effects can invalidate, and re-deriving the other
+ * methods (keying bypasses, follow-up attacks, …) at resolution time could
+ * reject keys that were legitimately granted only for the declaration.
+ */
+function creatureKeyInvalidAtResolution(state: GameState, entry: ChainEntry): boolean {
+  if (entry.payload.type !== 'creature' || !entry.card) return false;
+  if (state.phaseState.phase !== Phase.MovementHazard) return false;
+  const keyedBy = entry.payload.keyedBy;
+  if (!keyedBy || (keyedBy.method !== 'region-type' && keyedBy.method !== 'site-type')) return false;
+  const def = defById(state, entry.card.definitionId);
+  if (!def || def.cardType !== 'hazard-creature') return false;
+  const mhState = state.phaseState;
+  const activePlayerIndex = state.players.findIndex(p => p.id === state.activePlayer);
+  if (activePlayerIndex < 0) return false;
+  const company = state.players[activePlayerIndex].companies[mhState.activeCompanyIndex];
+  if (!company) return false;
+  const matches = findCreatureKeyingMatches(def, mhState, state, company);
+  return !matches.some(m => m.method === keyedBy.method && m.value === keyedBy.value);
+}
+
 function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   const chain = state.chain!;
   const entry = chain.entries[entryIndex];
@@ -4701,6 +4731,22 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       .companies[mhState.activeCompanyIndex];
     const limit = currentHazardLimit(state, mhState, activeCompany.id);
     logDetail(`Hazard "${def?.name ?? entry.payload.type}" fizzles — hazard limit exceeded at resolution (${mhState.hazardsPlayedThisCompany} declared > limit ${limit})`);
+    const negatedEntries = chain.entries.map((e, i) =>
+      i === entryIndex ? { ...e, negated: true, resolved: true } : e,
+    );
+    return {
+      state: { ...state, chain: { ...chain, entries: negatedEntries } },
+      needsInput: false,
+    };
+  }
+
+  // CoE 2.IV.vii.2: the creature's declared key must still be valid now. A
+  // creature whose key was invalidated in response is discarded without effect
+  // but still counts against the hazard limit (cf. 2.IV.vii.2.4).
+  if (creatureKeyInvalidAtResolution(state, entry) && entry.payload.type === 'creature') {
+    const def = defById(state, entry.card!.definitionId);
+    const keyedBy = entry.payload.keyedBy!;
+    logDetail(`Creature "${def?.name ?? entry.card!.definitionId}" fizzles — declared key ${keyedBy.method} "${keyedBy.value}" no longer valid at resolution`);
     const negatedEntries = chain.entries.map((e, i) =>
       i === entryIndex ? { ...e, negated: true, resolved: true } : e,
     );

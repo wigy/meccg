@@ -33,6 +33,8 @@ import {
   viableActions, dispatch,
   makeMHState,
   pool,
+  findHandCardId, companyIdAt, resolveChain,
+  RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import type { PlayShortEventAction } from '../../index.js';
 import { RegionType, SiteType, describeAction } from '../../index.js';
@@ -40,6 +42,7 @@ import type { CardDefinitionId } from '../../index.js';
 import { Alignment } from '../../index.js';
 
 const DEEPER_SHADOW = 'le-179' as CardDefinitionId;
+const TOM = 'tw-103' as CardDefinitionId;        // troll, keyed to two Wildernesses
 
 // Ringwraith characters (race=ringwraith → shadow-magic users by default)
 const ADUNAPHEL = 'le-50' as CardDefinitionId;   // ringwraith avatar, warrior/scout/diplomat
@@ -661,5 +664,70 @@ describe('Deeper Shadow (le-179)', () => {
       r => r.kind.type === 'corruption-check',
     );
     expect(ccResolutions).toHaveLength(0);
+  });
+
+  // ── Bug report (game mv556rr7-1p305v, seq 1433–1437): "Tom" (Tûma), keyed
+  // to two Wildernesses, still attacked after Deeper Shadow turned one of
+  // them into a Shadow-land. The creature's key is an active condition
+  // (CoE 2.IV.vii.2) and must still hold when it resolves. ───────────────────
+
+  /** Tom declared against a company moving through two Wildernesses. */
+  function tomDeclaredAgainstTwoWildernesses(hand: CardDefinitionId[]) {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, destinationSite: MORIA_MINION, characters: [ADUNAPHEL] }],
+          hand,
+          siteDeck: [MINAS_MORGUL],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [TOM],
+          siteDeck: [MINAS_TIRITH],
+        },
+      ],
+    });
+    const mhState = makeMHState({
+      activeCompanyIndex: 0,
+      siteRevealed: true,
+      destinationSiteType: SiteType.ShadowHold,
+      destinationSiteName: 'Moria',
+      resolvedSitePath: [RegionType.Shadow, RegionType.Wilderness, RegionType.Wilderness],
+      resolvedSitePathNames: ['Brown Lands', 'Wold & Foothills', 'Fangorn'],
+    });
+    const stateAtMH = { ...state, phaseState: mhState };
+    return dispatch(stateAtMH, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: findHandCardId(stateAtMH, HAZARD_PLAYER, TOM),
+      targetCompanyId: companyIdAt(stateAtMH, RESOURCE_PLAYER),
+      keyedBy: { method: 'region-type' as const, value: 'wilderness' },
+    });
+  }
+
+  test('Tom attacks when its two Wildernesses are untouched (control)', () => {
+    const afterChain = resolveChain(tomDeclaredAgainstTwoWildernesses([]));
+    expect(afterChain.combat).not.toBeNull();
+  });
+
+  test('changing one of Tom\'s Wildernesses in response cancels Tom on resolution', () => {
+    const afterTom = tomDeclaredAgainstTwoWildernesses([DEEPER_SHADOW]);
+    const change = viableActions(afterTom, PLAYER_1, 'play-short-event')
+      .map(ea => ea.action as PlayShortEventAction)
+      .find(a => a.optionId === 'change-region-type');
+    expect(change).toBeDefined();
+
+    const afterChain = resolveChain(dispatch(afterTom, change!));
+
+    expect(afterChain.combat).toBeNull();
+    expect(afterChain.players[HAZARD_PLAYER].discardPile.map(c => c.definitionId)).toContain(TOM);
+    // Still counts against the hazard limit.
+    expect(afterChain.phaseState.phase === Phase.MovementHazard
+      && afterChain.phaseState.hazardsPlayedThisCompany).toBe(1);
   });
 });
