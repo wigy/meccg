@@ -439,4 +439,45 @@ describe('Dol Guldur (le-367)', () => {
     expect(kind.rollModifier).toBe(-2);
     expect(kind.goldRingInstanceId).toBe(store.itemInstanceId);
   });
+
+  test('failed store corruption check discards the gold ring and drops its auto-test', () => {
+    // Regression (game mv4un6cy-7o6hvw): the bearer failed the store check,
+    // the ring went to the discard pile, yet the gold-ring-test stayed queued
+    // for a ring that was never stored — leaving the player stuck on it.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{
+            site: DOL_GULDUR,
+            characters: [{ defId: LIEUTENANT_OF_DOL_GULDUR, items: [THE_LEAST_OF_GOLD_RINGS] }],
+          }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: RIVENDELL, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [MORIA],
+        },
+      ],
+    });
+
+    const store = computeLegalActions(state, PLAYER_1)
+      .filter(ea => ea.viable && ea.action.type === 'store-item')
+      .map(ea => ea.action as StoreItemAction)[0];
+    const afterStore = dispatch(state, store);
+
+    const check = viableActions(afterStore, PLAYER_1, 'corruption-check')[0].action;
+    const afterCheck = dispatch({ ...afterStore, cheatRollTotal: 2 }, check);
+
+    const p1 = afterCheck.players[0];
+    expect(p1.killPile.some(c => c.instanceId === store.itemInstanceId)).toBe(false);
+    expect(p1.discardPile.some(c => c.instanceId === store.itemInstanceId)).toBe(true);
+    expect(afterCheck.pendingResolutions.some(r => r.kind.type === 'gold-ring-test')).toBe(false);
+    expect(viableActions(afterCheck, PLAYER_1, 'gold-ring-test-roll')).toHaveLength(0);
+  });
 });
