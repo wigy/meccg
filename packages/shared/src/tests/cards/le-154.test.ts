@@ -23,6 +23,7 @@
  * | 4 | Gate on The One Ring at the same site                | IMPLEMENTED | `site.hasOneRing` — name-matched across both players      |
  * | 5 | Discard ring even when held by opposing hero player  | IMPLEMENTED | `discard-named-card-from-company` scans all co-located    |
  * | 6 | Combat cancel-attack when company size < 3 (W/S key)  | IMPLEMENTED | `cancel-attack` with `attack.keying` + `bearer.companySize` |
+ * | 7 | Manifestation of Gollum (g.man.1 uniqueness)          | IMPLEMENTED | `manifestId: tw-246`                                     |
  *
  * Playable: YES.
  */
@@ -57,6 +58,7 @@ import type {
 
 const STINKER = 'le-154' as CardDefinitionId;
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
+const GOLLUM = 'tw-246' as CardDefinitionId;         // hero ally manifestation
 
 // Minion host character for attaching Stinker
 const HORSEMAN_IN_THE_NIGHT = 'le-16' as CardDefinitionId;
@@ -163,6 +165,46 @@ describe('Stinker (le-154)', () => {
       .map(a => a.action as PlayHeroResourceAction)
       .filter(a => a.cardInstanceId === stinkerInstanceId);
     expect(playActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ─── Manifestation of Gollum (g.man.1) ───────────────────────────────────────
+
+  test('opponent cannot play Gollum while Stinker is in play (regression for game mv4aa8qc-kwj7r2)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_2,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [HORSEMAN_IN_THE_NIGHT] }], hand: [], siteDeck: [] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MORIA_HERO, characters: [ARAGORN] }], hand: [GOLLUM], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withStinker = attachAllyToChar(base, 0, HORSEMAN_IN_THE_NIGHT, STINKER);
+    const state = { ...withStinker, phaseState: makeSitePhase() };
+    const gollumId = state.players[1].hand[0].instanceId;
+
+    const plays = viableActions(state, PLAYER_2, 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === gollumId);
+    expect(plays).toHaveLength(0);
+  });
+
+  test('Stinker cannot be played while the opponent\'s Gollum is in play', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MORIA_MINION, characters: [HORSEMAN_IN_THE_NIGHT] }], hand: [STINKER], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const withGollum = attachAllyToChar(base, 1, ARAGORN, GOLLUM);
+    const state = { ...withGollum, phaseState: makeSitePhase() };
+    const stinkerInstanceId = state.players[0].hand[0].instanceId;
+
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === stinkerInstanceId);
+    expect(plays).toHaveLength(0);
   });
 
   test('Stinker is NOT playable at a non-Goblin-gate/Moria shadow-hold (Dead Marshes)', () => {
