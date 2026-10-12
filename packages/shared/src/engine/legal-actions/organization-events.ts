@@ -721,8 +721,23 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
           && e.apply.purpose !== undefined,
       );
       if (!orgPhaseSiteTiming && (havenRestoreTrigger || wizardhavenConversionTrigger || purposeSiteOverrideTrigger)) {
+        // play-condition: card-stored-at-site — Mallorn (dm-148): "Playable
+        // at Bag End only if Earth of Galadriel's Orchard is stored there."
+        // The named card must be in the player's marshalling-point pile with
+        // `storedAtSite` bound to the target site (game mv4dh4bv-qtuwtm, seq
+        // 965: Mallorn was played while the Earth was still carried as an item).
+        const cardStoredAtSiteCond = findPlayConditionEffect(def, 'card-stored-at-site');
         let anyPlayable = false;
         for (const { siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
+          if (cardStoredAtSiteCond?.cardName) {
+            const requiredName = cardStoredAtSiteCond.cardName;
+            const stored = player.killPile.some(c =>
+              c.storedAtSite === siteDefId && defById(state, c.definitionId)?.name === requiredName);
+            if (!stored) {
+              logDetail(`Permanent event ${def.name}: requires "${requiredName}" stored at ${siteDef.name} — not satisfied`);
+              continue;
+            }
+          }
           anyPlayable = true;
           logDetail(`Permanent event ${def.name}: playable at ${siteDef.name} (any phase, current ${state.phaseState.phase})`);
           actions.push({

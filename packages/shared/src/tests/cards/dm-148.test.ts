@@ -147,6 +147,28 @@ describe('dm-148 Mallorn', () => {
     expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
   });
 
+  // Regression (game mv4dh4bv-qtuwtm, seq 965): outside the site phase the
+  // "any phase" site play-target path offered Mallorn at Bag End while Earth
+  // of Galadriel's Orchard was still carried as an item, not stored.
+  test('not playable outside the site phase without the Orchard stored at Bag End', () => {
+    let state: GameState = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: BAG_END, characters: [ARAGORN] }], hand: [MALLORN], siteDeck: [CARN_DUM] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    state = attachItemToChar(state, RESOURCE_PLAYER, ARAGORN, EARTH_OF_GALADRIELS_ORCHARD);
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+
+    state = addStoredCard(state, RESOURCE_PLAYER, EARTH_OF_GALADRIELS_ORCHARD, BAG_END).state;
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event')
+      .map(a => a.action as PlayPermanentEventAction);
+    expect(playActions).toHaveLength(1);
+    expect(playActions[0].targetSiteDefinitionId).toBe(BAG_END);
+  });
+
   // ─── Playing it binds to the site and installs all three constraints ─────
 
   test('playing it binds to Bag End and installs the haven, untap, and return-to-deck constraints', () => {
