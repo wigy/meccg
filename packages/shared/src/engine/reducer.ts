@@ -57,7 +57,10 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   // Alliance of Free Peoples (as-45): discard the card when a matching faction
   // just left its controller's play area. Prev/next diff, so it runs on the raw
   // post-action state before the single-state sweeps and recompute below.
-  const afterLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
+  const afterDiscardOnLeaves = prevState ? applyDiscardOnCardLeaves(prevState, tapped) : tapped;
+  // Black Horse (as-72): return the controller to hand when such an ally just
+  // left play. Prev/next diff for the same reason as the sweep above.
+  const afterLeaves = prevState ? applyReturnControllerOnLeave(prevState, afterDiscardOnLeaves) : afterDiscardOnLeaves;
   const swept = sweepTapAtSiteItems(sweepKeywordReplaced(sweepProhibitedCompanyEvents(sweepDiscardSelfWhenCompany(sweepReturnSelfToHandWhen(sweepDiscardSelfWhen(sweepGreatHuntDiscards(sweepFallenWizardSpecific(sweepNoBetterUseCaptures(sweepPressGang(sweepSetAside(discardOrphanedLongEventAttachedEvents(discardOrphanedFactionAttachedEvents(discardOrphanedStoredAttachedEvents(discardOrphanedItemAttachedEvents(discardOrphanedConvertedAllyEvents(discardOrphanedAgentAttachedEvents(discardOrphanedSiteAttachedEvents(discardOrphanedControlledFactions(applyManifestationCascade(afterLeaves))))))))))))))))))));
   // The Will of Sauron (tw-100): when the card retaining hazard long-events left
   // play this step, every hazard long-event goes with it. Runs *after* the
@@ -124,6 +127,7 @@ import { recordCardPlayed } from './card-play-prohibition.js';
 import { topResolutionFor } from './pending.js';
 import { applyEvilHourTaps } from './evil-hour.js';
 import { applyDiscardOnCardLeaves } from './discard-on-card-leaves.js';
+import { applyReturnControllerOnLeave } from './return-controller-on-leave.js';
 import { sweepRetainedHazardLongEvents } from './retain-hazard-long-events.js';
 import { discardOrphanedLongEventAttachedEvents, sweepProtectedLongEventCascade } from './protected-long-event.js';
 import { enqueuePostAttackPlayOffers } from './post-attack-play.js';

@@ -28,7 +28,7 @@ import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
 import { SiteType, Race, RegionType } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
-import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef, companyAllyRingwraithMode } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
 import { companyHasUnlimitedSize } from '../company-composition.js';
 import { companyStoresAsDarkhaven } from '../pending.js';
@@ -486,7 +486,8 @@ export function getUnderDeepsReachable(state: GameState, currentSiteDef: SiteCar
 
 /**
  * Returns true if a Ringwraith company has a mode card (Black Rider,
- * Fell Rider, or Heralded Lord) bound to it via `cardsInPlay`.
+ * Fell Rider, or Heralded Lord) bound to it via `cardsInPlay`, or is in a
+ * mode through its allies (Black Horse as-72).
  *
  * Mode cards are permanent-event resources with a `ringwraith-mode` effect.
  * They are bound to the company via `CardInPlay.companyId`. Without a mode
@@ -503,7 +504,10 @@ export function ringwraithHasModeCard(
     if (!def) continue;
     if (getCardEffects(def).some(e => e.type === 'ringwraith-mode')) return true;
   }
-  return false;
+  // Ally-granted mode (Black Horse as-72: "If each Ringwraith in a company has
+  // a Black Horse, the company is in Black Rider mode and may freely move").
+  const live = player.companies.find(c => c.id === company.id);
+  return live !== undefined && companyAllyRingwraithMode(state, player, live.characters) !== undefined;
 }
 
 /**

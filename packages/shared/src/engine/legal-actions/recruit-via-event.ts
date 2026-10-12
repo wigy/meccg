@@ -46,7 +46,6 @@ import { Alignment, Race } from '../../types/common.js';
 import type {
   CardEffect,
   RecruitCharacterEffect,
-  RingwraithFollowerSlotsEffect,
 } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { resolveDef } from '../effects/index.js';
@@ -61,6 +60,7 @@ import {
   matchesDefinition,
   playerById,
   playerPlaysAsSauron,
+  ringwraithFollowerSlotCount,
 } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay } from '../manifestations.js';
 import { getEffectiveSiteType } from '../effective.js';
@@ -99,7 +99,8 @@ function agentsAreHazardsFor(alignment: Alignment): boolean {
  * Per R5 the follower costs one point of the revealed Ringwraith's direct
  * influence, unless a no-influence ability covers it — a free
  * `ringwraith-follower-slots` slot on the revealed Ringwraith (The Witch-king
- * le-58, Khamûl le-55) or `ringwraith-self-follower` on the card being played
+ * le-58, Khamûl le-55) or on an ally in his company (Black Horse as-72), or
+ * `ringwraith-self-follower` on the card being played
  * (Ûvatha le-57).
  */
 function ringwraithFollowerRecruits(
@@ -144,9 +145,7 @@ function ringwraithFollowerRecruits(
 
   // A free slot on the revealed Ringwraith, or the follower's own
   // self-granting ability, makes the follower cost no influence.
-  const slots = (avatarDef.effects ?? []).find(
-    (e): e is RingwraithFollowerSlotsEffect => e.type === 'ringwraith-follower-slots',
-  );
+  const slotCount = ringwraithFollowerSlotCount(state, player, avatar);
   const selfFollower = (recruitDef.effects ?? []).some(e => e.type === 'ringwraith-self-follower');
   const followersControlled = avatar.followers.filter(fid => {
     const follower = player.characters[fid];
@@ -154,7 +153,7 @@ function ringwraithFollowerRecruits(
     const fDef = resolveDef(state, follower.instanceId);
     return isCharacterCard(fDef) && fDef.mind === null;
   }).length;
-  const freeSlot = slots !== undefined && followersControlled < slots.count;
+  const freeSlot = followersControlled < slotCount;
 
   if (!freeSlot && !selfFollower) {
     // Rule 2.II.2.1.R5: one point of direct influence to control.

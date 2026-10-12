@@ -1552,7 +1552,11 @@
     "mind": 2,
     "marshallingPoints": 0,
     "marshallingCategory": "ally",
-    "playableAt": [],
+    "playableAt": [
+      {
+        "siteType": "haven"
+      }
+    ],
     "effects": [
       {
         "type": "deck-restriction",
@@ -1561,9 +1565,38 @@
           "deck.alignment": "balrog"
         },
         "reason": "rule 1.23"
+      },
+      {
+        "type": "deck-restriction",
+        "rule": "max-copies",
+        "max": 9
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "target.race": "ringwraith"
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "does-not-tap-site"
+      },
+      {
+        "type": "ringwraith-follower-slots",
+        "count": 1
+      },
+      {
+        "type": "ringwraith-mode",
+        "mode": "black-rider",
+        "granted": "each-ringwraith-bears"
+      },
+      {
+        "type": "return-controller-to-hand-on-leave"
       }
     ],
-    "text": "Playable on a Ringwraith at a Darkhaven [{DH}] (does not tap the site). Each Black Horse in your Ringwraith’s company allows you to play one Ringwraith follower who requires no direct influence to control. If each Ringwraith in a company has a Black Horse, the company is in Black Rider mode and may freely move (using starter movement). You may include up to nine copies of this card in your play deck and sideboard combined. Return its controller to your hand if Black Horse leaves active play.Cannot be included in a Balrog's deck."
+    "text": "Playable on a Ringwraith at a Darkhaven [{DH}] (does not tap the site). Each Black Horse in your Ringwraith’s company allows you to play one Ringwraith follower who requires no direct influence to control. If each Ringwraith in a company has a Black Horse, the company is in Black Rider mode and may freely move (using starter movement). You may include up to nine copies of this card in your play deck and sideboard combined. Return its controller to your hand if Black Horse leaves active play.Cannot be included in a Balrog's deck.",
+    "certified": "2026-10-12"
   },
   {
     "cardType": "minion-resource-ally",

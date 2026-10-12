@@ -12,12 +12,12 @@ import { requirePhaseState, isBalrogAvatarDef } from '../../state-utils.js';
 import { isCharacterCard, isSiteCard, isAvatarCharacter } from '../../types/cards.js';
 import { SiteType, RegionType, Alignment, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { PlayFlagEffect, RingwraithFollowerSlotsEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
+import type { PlayFlagEffect, RingwraithSelfFollowerEffect, RecruitmentVehicleEffect, CardEffect } from '../../types/effects.js';
 import { logDetail } from './log.js';
 import { evaluateAction } from '../../rules/evaluator.js';
 import { CHARACTER_PLAY_RULES } from '../../rules/definitions/character-play.js';
 import { resolveDef } from '../effects/index.js';
-import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf, parseHomesiteNames } from '../reducer-utils.js';
+import { findPlayerAvatar, matchesDefinition, characterEntries, findCharacterCompany, playerById, defById, companyBlocksJoins, getCardEffects, isHavenForPlayer, generalInfluenceControlLimit, isUniqueCharacterInPlay, playerPlaysAsSauron, playerHasNoCharacterPlayLimit, wouldViolateRingwraithComposition, isDarkhavenSiteDef, siteRegionTypeOf, parseHomesiteNames, ringwraithFollowerSlotCount } from '../reducer-utils.js';
 import { blockingManifestationForCharacterPlay } from '../manifestations.js';
 import { companyAtSiteInstance, companyExemptsCharacterFromInfluence, companyExemptsCharacterFromPlayLimit } from '../company-composition.js';
 import { wouldViolateLeaderRestriction } from './organization-companies.js';
@@ -555,16 +555,16 @@ function ringwraithFollowerPlayAction(
     return blocked(`${cardDef.name}: an avatar is already revealed — a different avatar cannot be played (rule 2.II.2.1.1)`);
   }
 
-  const slots = (avatarDef.effects ?? []).find(
-    (e): e is RingwraithFollowerSlotsEffect => e.type === 'ringwraith-follower-slots',
-  );
+  // Slots come from the avatar's own ability and from allies in his company
+  // carrying `ringwraith-follower-slots` (Black Horse as-72).
+  const slotCount = ringwraithFollowerSlotCount(state, player, avatar);
   // A self-granting follower (Ûvatha le-57) brings its own slot: it may be
   // played as a follower even when the revealed avatar has no slot ability, and
   // it does not draw from that avatar's slot budget.
   const selfFollower = (cardDef.effects ?? []).find(
     (e): e is RingwraithSelfFollowerEffect => e.type === 'ringwraith-self-follower',
   );
-  if (!slots && !selfFollower) {
+  if (slotCount === 0 && !selfFollower) {
     return blocked(`${cardDef.name}: ${avatarDef.name} is already revealed and has no ability allowing a Ringwraith follower to be played (rule 2.II.2.1.1)`);
   }
   if (cardDef.race !== Race.Ringwraith) {
@@ -573,7 +573,7 @@ function ringwraithFollowerPlayAction(
 
   // Slot-budget check only applies when relying on the host avatar's slots. A
   // self-granting follower is exempt (it grants its own slot).
-  if (slots && !selfFollower) {
+  if (!selfFollower) {
     // Count the Ringwraith followers (avatar cards) the avatar already controls.
     const ringwraithFollowers = avatar.followers.filter(fid => {
       const follower = player.characters[fid as string];
@@ -581,8 +581,8 @@ function ringwraithFollowerPlayAction(
       const fDef = resolveDef(state, follower.instanceId);
       return isCharacterCard(fDef) && fDef.mind === null;
     }).length;
-    if (ringwraithFollowers >= slots.count) {
-      return blocked(`${cardDef.name}: ${avatarDef.name} already controls ${ringwraithFollowers} Ringwraith follower(s) (max ${slots.count})`);
+    if (ringwraithFollowers >= slotCount) {
+      return blocked(`${cardDef.name}: ${avatarDef.name} already controls ${ringwraithFollowers} Ringwraith follower(s) (max ${slotCount})`);
     }
   }
 
@@ -603,7 +603,7 @@ function ringwraithFollowerPlayAction(
     return blocked(`${cardDef.name}: ${avatarDef.name}'s company is closed to new joins`);
   }
 
-  logDetail(`  → viable: play ${cardDef.name} as Ringwraith follower of ${avatarDef.name} at ${siteDef.name} (${selfFollower ? 'self-granted slot' : `via ${avatarDef.name}'s ${slots?.count ?? 0} slot(s)`}, no influence)`);
+  logDetail(`  → viable: play ${cardDef.name} as Ringwraith follower of ${avatarDef.name} at ${siteDef.name} (${selfFollower ? 'self-granted slot' : `via ${slotCount} follower slot(s)`}, no influence)`);
   return {
     action: {
       type: 'play-character',

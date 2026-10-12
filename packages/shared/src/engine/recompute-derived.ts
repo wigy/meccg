@@ -49,7 +49,7 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, permanentEventSiteResourceSubtypes, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState } from './reducer-utils.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, permanentEventSiteResourceSubtypes, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState, companyAllyRingwraithMode } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect, RestoredItemStatsEffect, CreatureStorageEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
@@ -751,7 +751,8 @@ function buildEffectiveStatsContext(
 /**
  * Resolves the Ringwraith mode currently established for a company by an in-play
  * mode card (Black Rider / Fell Rider / Heralded Lord) bound to it via
- * `CardInPlay.companyId`. Returns undefined when no mode card is bound.
+ * `CardInPlay.companyId`, or else by its allies ({@link companyAllyRingwraithMode}).
+ * Returns undefined when the company is in no mode.
  *
  * Exposed to the effective-stats resolver as `bearer.ringwraithMode` so a
  * Ringwraith avatar's per-mode `stat-modifier` effects can fire (e.g. Hoarmûrath
@@ -772,7 +773,10 @@ function resolveCompanyRingwraithMode(
       if (eff.type === 'ringwraith-mode') return eff.mode;
     }
   }
-  return undefined;
+  // No mode card: the company may still be in a mode through its allies
+  // (Black Horse as-72 — each Ringwraith bearing one puts it in Black Rider mode).
+  const company = player.companies.find(c => c.id === companyId);
+  return company ? companyAllyRingwraithMode(state, player, company.characters) : undefined;
 }
 
 /**
