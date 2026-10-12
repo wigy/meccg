@@ -2906,35 +2906,51 @@ function cancelAttackActions(
     return ctx;
   };
 
-  // In-play characters in the defending company with a cancel-attack effect
-  // and a "tap self" cost (e.g. Adûnaphel the Ringwraith's Darkhaven tap).
-  for (const charId of company.characters) {
-    const charData = player.characters[charId];
-    if (!charData) continue;
-    const charDef = defById(state, charData.definitionId);
-    if (!charDef) continue;
-    const cancelEffect = getCardEffects(charDef).find(
-      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-    );
-    if (!cancelEffect) continue;
-    if (cancelEffect.cost?.tap !== 'self') continue;
-    if (charData.status !== CardStatus.Untapped) {
-      logDetail(`Cancel-attack ${charDef.name ?? charData.definitionId as string}: character tapped, cannot activate`);
-      continue;
+  // In-play characters with a cancel-attack effect and a "tap self" cost
+  // (e.g. Adûnaphel the Ringwraith's Darkhaven tap). Characters in the
+  // defending company always qualify; characters in the player's other
+  // companies qualify only when the effect carries `anyCompany`, and then
+  // their `bearer.*` context comes from their own company's site.
+  const candidateCompanies = [company, ...player.companies.filter(c => c.id !== company.id)];
+  for (const ownCompany of candidateCompanies) {
+    const isDefending = ownCompany.id === company.id;
+    for (const charId of ownCompany.characters) {
+      const charData = player.characters[charId];
+      if (!charData) continue;
+      const charDef = defById(state, charData.definitionId);
+      if (!charDef) continue;
+      const cancelEffect = getCardEffects(charDef).find(
+        (e): e is CancelAttackEffect => e.type === 'cancel-attack',
+      );
+      if (!cancelEffect) continue;
+      if (cancelEffect.cost?.tap !== 'self') continue;
+      if (!isDefending && !cancelEffect.anyCompany) continue;
+      if (charData.status !== CardStatus.Untapped) {
+        logDetail(`Cancel-attack ${charDef.name ?? charData.definitionId as string}: character tapped, cannot activate`);
+        continue;
+      }
+      const ownSiteDef = ownCompany.currentSite ? state.cardPool[ownCompany.currentSite.definitionId] : undefined;
+      const ownAtHaven = isDefending
+        ? atHaven
+        : !!ownSiteDef && isSiteCard(ownSiteDef) && ownSiteDef.siteType === SiteType.Haven;
+      const ctx = whenContext();
+      if (!isDefending) {
+        ctx['bearer'] = { companySize: ownCompany.characters.length, atHaven: ownAtHaven };
+      }
+      if (cancelEffect.when && !matchesCondition(cancelEffect.when, ctx)) {
+        logDetail(`Cancel-attack ${charDef.name ?? charData.definitionId as string}: when condition not met (attack source: ${combat.attackSource.type}, atHaven: ${ownAtHaven})`);
+        continue;
+      }
+      logDetail(`Cancel-attack available: tap ${charDef.name ?? charData.definitionId as string} (in-play character${isDefending ? '' : `, from ${ownCompany.id as string}`})`);
+      actions.push({
+        action: {
+          type: 'cancel-attack',
+          player: playerId,
+          cardInstanceId: charId,
+        },
+        viable: true,
+      });
     }
-    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-      logDetail(`Cancel-attack ${charDef.name ?? charData.definitionId as string}: when condition not met (attack source: ${combat.attackSource.type}, atHaven: ${atHaven})`);
-      continue;
-    }
-    logDetail(`Cancel-attack available: tap ${charDef.name ?? charData.definitionId as string} (in-play character)`);
-    actions.push({
-      action: {
-        type: 'cancel-attack',
-        player: playerId,
-        cardInstanceId: charId,
-      },
-      viable: true,
-    });
   }
 
   // In-play allies in the defending company with a cancel-attack effect
