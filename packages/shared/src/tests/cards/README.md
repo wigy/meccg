@@ -6,13 +6,13 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1395 | 1395 | 0 | 100.0% |
+| 1396 | 1396 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 127 | 127 | 100.0% |
+| AS | 128 | 128 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 156 | 156 | 100.0% |
 | LE | 335 | 335 | 100.0% |
@@ -80,6 +80,7 @@
 | as-68 | Bow of the Galadhrim | — | 5 | ☑ |
 | as-70 | Jewel of Beleriand | — | 12 | ☑ |
 | as-71 | The Balrog | — | 2 | ☑ |
+| as-72 | Black Horse | — | 15 | ☑ |
 | as-73 | Creature of an Older World | — | 3 | ☑ |
 | as-74 | Great Bats | — | 18 | ☑ |
 | as-75 | Great Lord of Goblin-gate | — | 10 | ☑ |

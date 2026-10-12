@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.195.0 — 2026-10-12
+
+Black Horse Rides and Adûnaphel Fixes
+
+### Game Engine
+
+- Adûnaphel can now tap at a Darkhaven to cancel a hazard creature attack against any one of her player's companies, not just her own: `cancel-attack` gains an `anyCompany` flag, with bearer conditions evaluated against the canceller's own company (#3314)
+- Stinker (le-154) is now a manifestation of Gollum (tw-246), so the two allies can no longer be in play at the same time; `manifestId` is allowed on ally cards (#3316)
+- New reusable primitives for Black Horse: ally play-target bearer filters, a `does-not-tap-site` play flag, ally-granted Ringwraith follower slots, Black Rider mode when every Ringwraith in a company bears a Black Horse, returning the controller to hand when an ally leaves play, and a `max-copies` deck restriction (#3315)
+
+### Cards
+
+- Black Horse (as-72) certified (#3315)
+
+### Infrastructure
+
+- README and card test README metrics refreshed
+
 ## 0.194.0 — 2026-10-11
 
 Covert Detainment and Trophy Fixes
