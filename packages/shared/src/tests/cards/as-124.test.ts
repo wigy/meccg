@@ -100,6 +100,44 @@ describe('Dwarven Ring of Thrár\'s Tribe (as-124)', () => {
     expect(getCharacter(withRing, RESOURCE_PLAYER, DROR).effectiveStats.corruptionPoints).toBe(5);
   });
 
+  // ─── Prowess/body/direct influence (CRF 22 erratum + Dwarven Rings ruling) ───
+
+  test('non-Dwarf bearer gets +2 prowess, +1 body and +2 direct influence', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
+      ],
+    });
+    const before = getCharacter(base, RESOURCE_PLAYER, PERCHEN).effectiveStats;
+    const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, PERCHEN, DWARVEN_RING));
+    const after = getCharacter(withRing, RESOURCE_PLAYER, PERCHEN).effectiveStats;
+    expect(after.prowess).toBe(before.prowess + 2);
+    expect(after.body).toBe(before.body + 1);
+    expect(after.directInfluence).toBe(before.directInfluence + 2);
+  });
+
+  test('Dwarf bearer gets +4 prowess, +1 body and +7 direct influence', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: DOL_GULDUR, characters: [DROR] }], hand: [], siteDeck: [CARN_DUM] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [PERCHEN] }], hand: [], siteDeck: [CARN_DUM] },
+      ],
+    });
+    const before = getCharacter(base, RESOURCE_PLAYER, DROR).effectiveStats;
+    const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, DROR, DWARVEN_RING));
+    const after = getCharacter(withRing, RESOURCE_PLAYER, DROR).effectiveStats;
+    expect(after.prowess).toBe(before.prowess + 4);
+    expect(after.body).toBe(before.body + 1);
+    expect(after.directInfluence).toBe(before.directInfluence + 7);
+  });
+
   // ─── Effect 2: grant-action dwarven-ring-fetch ────────────────────────────────
 
   test('grant-action is offered during organization phase for untapped Dwarf bearer', () => {

@@ -23,6 +23,8 @@
  * | 5 | Play deck reshuffled after deck search                  | IMPLEMENTED | handleFetchFromPile reshuffle on deck source      |
  * | 6 | Tap ability only for Dwarf bearer                       | IMPLEMENTED | when: { bearer.race: "dwarf" }                   |
  * | 7 | Bearer makes corruption check modified by +2 after fetch | IMPLEMENTED | postCorruptionCheck + postCorruptionCheckModifier:2 |
+ * | 8 | +2(4) prowess / +1 body (CRF erratum)                   | IMPLEMENTED | stat-modifier with dwarf override                 |
+ * | 9 | +2 direct influence, +7 for a Dwarf bearer (CRF)        | IMPLEMENTED | stat-modifier with dwarf override                 |
  *
  * Fixture alignment: minion (ringwraith)
  *
@@ -123,6 +125,30 @@ describe('Dwarven Ring of Thélor\'s Tribe (as-123)', () => {
     const char = withRing.players[RESOURCE_PLAYER].characters[drorId];
     // 3 base + 2 (Dwarf bonus from stat-modifier effect) = 5
     expect(char.effectiveStats.corruptionPoints).toBe(5);
+  });
+
+  // ── Rules 8–9: Prowess/body/direct influence (CRF 22 erratum + ruling) ────
+
+  test('non-Dwarf bearer gets +2 prowess, +1 body and +2 direct influence', () => {
+    const base = buildMinionOrgPhase({ characters: [GORBAG] });
+    const gorbagId = findCharInstanceId(base, RESOURCE_PLAYER, GORBAG);
+    const before = base.players[RESOURCE_PLAYER].characters[gorbagId].effectiveStats;
+    const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, GORBAG, DWARVEN_RING));
+    const after = withRing.players[RESOURCE_PLAYER].characters[gorbagId].effectiveStats;
+    expect(after.prowess).toBe(before.prowess + 2);
+    expect(after.body).toBe(before.body + 1);
+    expect(after.directInfluence).toBe(before.directInfluence + 2);
+  });
+
+  test('Dwarf bearer gets +4 prowess, +1 body and +7 direct influence', () => {
+    const base = buildMinionOrgPhase({ characters: [DROR] });
+    const drorId = findCharInstanceId(base, RESOURCE_PLAYER, DROR);
+    const before = base.players[RESOURCE_PLAYER].characters[drorId].effectiveStats;
+    const withRing = recomputeDerived(attachItemToChar(base, RESOURCE_PLAYER, DROR, DWARVEN_RING));
+    const after = withRing.players[RESOURCE_PLAYER].characters[drorId].effectiveStats;
+    expect(after.prowess).toBe(before.prowess + 4);
+    expect(after.body).toBe(before.body + 1);
+    expect(after.directInfluence).toBe(before.directInfluence + 7);
   });
 
   // ── Rule 6: Tap ability only available for Dwarf bearer ───────────────────
