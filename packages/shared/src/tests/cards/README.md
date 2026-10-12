@@ -108,8 +108,8 @@
 | as-120 | Nûriags | — | 8 | ☑ |
 | as-121 | Orcs of Dol Guldur | — | 12 | ☑ |
 | as-122 | Ancient Black Axe | — | 15 | ☑ |
-| as-123 | Dwarven Ring of Thélor’s Tribe | — | 14 | ☑ |
-| as-124 | Dwarven Ring of Thrár’s Tribe | — | 12 | ☑ |
+| as-123 | Dwarven Ring of Thélor’s Tribe | — | 16 | ☑ |
+| as-124 | Dwarven Ring of Thrár’s Tribe | — | 14 | ☑ |
 | as-125 | Goblin Earth-plumb | — | 6 | ☑ |
 | as-126 | Helm of Fear | — | 15 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
@@ -382,7 +382,7 @@
 | dm-143 | The Hunt | — | 19 | ☑ |
 | dm-145 | Into Dark Tunnels | — | 9 | ☑ |
 | dm-146 | Into the Smoking Cone | — | 16 | ☑ |
-| dm-148 | Mallorn | — | 18 | ☑ |
+| dm-148 | Mallorn | — | 19 | ☑ |
 | dm-150 | More Alert than Most | — | 8 | ☑ |
 | dm-152 | Ordered to Kill | — | 8 | ☑ |
 | dm-153 | Palm to Palm | — | 15 | ☑ |
@@ -454,7 +454,7 @@
 | le-47 | Uchel | — | 3 | ☑ |
 | le-48 | Ufthak | — | 2 | ☑ |
 | le-49 | Ulkaur the Tongueless | — | 12 | ☑ |
-| le-50 | Adûnaphel the Ringwraith | — | 9 | ☑ |
+| le-50 | Adûnaphel the Ringwraith | — | 11 | ☑ |
 | le-51 | Akhôrahil the Ringwraith | — | 7 | ☑ |
 | le-52 | Dwar the Ringwraith | — | 11 | ☑ |
 | le-53 | Hoarmûrath the Ringwraith | — | 7 | ☑ |
@@ -545,7 +545,7 @@
 | le-151 | Wrath of the West | — | 5 | ☑ |
 | le-152 | Blackbole | — | 6 | ☑ |
 | le-153 | Last Child of Ungoliant | — | 12 | ☑ |
-| le-154 | Stinker | — | 17 | ☑ |
+| le-154 | Stinker | — | 19 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
 | le-158 | The Warg-king | — | 12 | ☑ |

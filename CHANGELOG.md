@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.196.0 — 2026-10-12
+
+Mallorn and Minion Dwarven Ring Fixes
+
+### Game Engine
+
+- Mallorn's "Earth of Galadriel's Orchard stored at the site" play condition is now enforced on the any-phase site play-target path (site-type overrides, Hall of Fire, Hidden Haven), so it can no longer be played at Bag End during end-of-turn while the Orchard is still carried as an item (#3317)
+
+### Cards
+
+- Minion Dwarven Rings of Thélor's Tribe (as-123) and Thrár's Tribe (as-124) now grant their direct influence, prowess and body bonuses, not only the Dwarf corruption bonus and fetch ability (#3318)
+
+### Infrastructure
+
+- Card test README metrics refreshed
+
 ## 0.195.0 — 2026-10-12
 
 Black Horse Rides and Adûnaphel Fixes
