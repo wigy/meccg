@@ -1427,6 +1427,22 @@ export type ChainEntryPayload =
        */
       readonly keyedBy?: CreatureKeyingMatch;
       /**
+       * True when the declared `keyedBy` was a `region-type`/`site-type`
+       * match that the keying derivation still produced at the moment this
+       * entry was declared. CoE 2.IV.vii.2 makes the key an active condition,
+       * so such a key is re-checked when the entry resolves and the creature
+       * fizzles if a response (Deeper Shadow le-179) has invalidated it — see
+       * `creatureKeyInvalidAtResolution`.
+       *
+       * Recording it at declaration keeps the re-check a pure delta: a key
+       * that the derivation does not produce anyway — because it rode on a
+       * grant spent by the play itself (Fell Beast tw-33's Shadow-land /
+       * Shadow-hold option, whose `nazgul-boost-pending` constraint is
+       * consumed the moment the Nazgûl is played) — is never re-derived, so
+       * it can never fizzle a creature whose key was not in doubt.
+       */
+      readonly keyDerivableAtDeclaration?: true;
+      /**
        * Foes Shall Fall (dm-59): the creature attacks out of this held
        * hazard card rather than from hand; threaded onto
        * `AttackSource.heldByHostInstanceId`.
