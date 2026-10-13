@@ -565,7 +565,7 @@
 | le-176 | Come By Night Upon Them | — | 10 | ☑ |
 | le-177 | Crack in the Wall | — | 7 | ☑ |
 | le-178 | Crooked Promptings | — | 9 | ☑ |
-| le-179 | Deeper Shadow | — | 15 | ☑ |
+| le-179 | Deeper Shadow | — | 17 | ☑ |
 | le-180 | Diversion | — | 9 | ☑ |
 | le-181 | Down Down to Goblin-town | — | 7 | ☑ |
 | le-183 | Fell Rider | — | 18 | ☑ |
@@ -691,7 +691,7 @@
 | le-364 | Dead Marshes | — | 15 | ☑ |
 | le-365 | Dimrill Dale | — | 6 | ☑ |
 | le-366 | Dol Amroth | — | 8 | ☑ |
-| le-367 | Dol Guldur | — | 16 | ☑ |
+| le-367 | Dol Guldur | — | 17 | ☑ |
 | le-368 | Drúadan Forest | — | 4 | ☑ |
 | le-369 | Dunharrow | — | 7 | ☑ |
 | le-370 | Dunnish Clan-hold | — | 13 | ☑ |

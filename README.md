@@ -23,11 +23,11 @@ For player information, see the [Player Guide](docs/player-guide.md).
 
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
-| Rule tests | 302 | 349 | 86.5% |
+| Rule tests | 303 | 350 | 86.6% |
 | Card tests | 1396 | 1396 | 100.0% |
 | Cards created | 1683 | 1683 | 100.0% |
 | Cards certified | 1449 | 1683 | 86.1% |
-| **Total** | **4830** | **5111** | **94.5%** |
+| **Total** | **4831** | **5112** | **94.5%** |
 
 ### Deck Catalog
 
@@ -40,7 +40,7 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | (C) Dwarven Quest | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (D) Bargain between Friends | hero | 110 | 110 (100.0%) | 110 (100.0%) |
 | (E) Return of the King | hero | 110 | 110 (100.0%) | 110 (100.0%) |
-| (F) Spies and Traitors | minion | 110 | 110 (100.0%) | 110 (100.0%) |
+| (F) Spies and Traitors | minion | 111 | 111 (100.0%) | 111 (100.0%) |
 | (G) Marauding Brood of Uglies | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (H) Stealthy Tribe | minion | 110 | 110 (100.0%) | 110 (100.0%) |
 | (I) Morgul Rallying Cry | minion | 110 | 110 (100.0%) | 110 (100.0%) |

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.197.0 — 2026-10-13
+
+Creature Keys Re-checked at Resolution
+
+### Game Engine
+
+- A hazard creature's declared region-type or site-type key is now re-checked when it resolves (CoE 2.IV.vii.2): if the key no longer holds — e.g. Deeper Shadow played in response to "Tom" turns one of its Wildernesses into a Shadow-land — the creature fizzles to the discard pile while still counting against the hazard limit. Only keys that were derivable at declaration are re-checked, so one-shot grants such as Fell Beast's Shadow-land/Shadow-hold keying still reach combat (#3321)
+- A failed store corruption check now drops the store's queued follow-ups (gold-ring auto-test, wizard search), so storing a gold ring at a Darkhaven no longer leaves the player stuck on a "Gold-ring auto-test for ?" roll (#3319)
+
+### Decks
+
+- Challenge deck (F) Spies and Traitors now includes Minas Morgul in its location deck, matching the other Ringwraith challenge decks (#3320)
+
+### Infrastructure
+
+- Rule test and deck catalog README metrics refreshed
+
 ## 0.196.0 — 2026-10-12
 
 Mallorn and Minion Dwarven Ring Fixes
