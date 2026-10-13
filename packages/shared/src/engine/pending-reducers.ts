@@ -797,6 +797,21 @@ export function applyCorruptionCheckResolution(
       }
     }
   }
+  // A failed store means the item was never stored (CoE 2.II.4.1), so any
+  // follow-up the store enqueued behind this check — the Darkhaven gold-ring
+  // auto-test (CoE 6.2.3), The Windlord Found Me's wizard search — must not
+  // fire for a card that is now in the discard pile.
+  if (transferredItemPreDiscarded && transferredItemId) {
+    const storeFollowUps = postRollState.pendingResolutions.filter(
+      r => r.id !== top.id
+        && r.source === transferredItemId
+        && (r.kind.type === 'gold-ring-test' || r.kind.type === 'wizard-search-on-store'),
+    );
+    for (const r of storeFollowUps) {
+      logDetail(`Failed store: dropping ${r.kind.type} follow-up for ${transferredItemId as string}`);
+      postRollState = dequeueResolution(postRollState, r.id);
+    }
+  }
   let failedPossessions = transferredItemPreDiscarded
     ? action.possessions.filter(id => id !== transferredItemId && id !== combinedTransferItemId)
     : action.possessions;
