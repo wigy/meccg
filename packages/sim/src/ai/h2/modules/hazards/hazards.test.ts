@@ -919,6 +919,37 @@ describe('Foolish Words on the company\'s influencer', () => {
   });
 });
 
+describe('Shut Yer Mouth on the character who holds the company together', () => {
+  // Game mv75qcer-l0y0ov: the agent put Shut Yer Mouth (-2 direct influence)
+  // on Elrohir, a follower with no direct influence to lose, rather than on
+  // Glorfindel II, who controls him.
+  test('prefers the controller to a follower with no direct influence', () => {
+    const scenario = loadScenario('hazards/shut-yer-mouth-on-the-controller');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = viableActions(scenario);
+    const context = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const nameOf = (id: string | undefined): string | undefined => (cardPool[
+      view.opponent.characters[id as never]?.definitionId as string] as unknown as { name?: string } | undefined)?.name;
+    const plays = legalActions.filter(a => {
+      const id = (a as unknown as { cardInstanceId?: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return a.type === 'play-hazard'
+        && (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === 'Shut Yer Mouth';
+    });
+    const on = (name: string) => plays.find(a =>
+      nameOf((a as unknown as { targetCharacterId?: string }).targetCharacterId) === name)!;
+    const glorfindel = hazardsModule.evaluate(on('Glorfindel II'), context)!;
+    const elrohir = hazardsModule.evaluate(on('Elrohir'), context)!;
+    expect(glorfindel.expectedTsd).toBeGreaterThan(elrohir.expectedTsd);
+    expect(JSON.stringify(elrohir.rationale)).toContain('no direct influence to lose');
+    expect(JSON.stringify(glorfindel.rationale)).toContain('Elrohir falls out of his control');
+  });
+});
+
 describe('a boost played ahead of its creatures', () => {
   // Full of Froth and Rage with no Spider or Animal in hand: the planner finds
   // nothing to improve now. What it is for is the creatures still in the deck,
