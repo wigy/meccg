@@ -802,7 +802,43 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/dm/EndlessWhispers.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "keywords": ["dark-enchantment"],
+    "effects": [
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.race": { "$ne": "wizard" } },
+            { "target.woundedByRaceThisTurn": { "$includes": "undead" } }
+          ]
+        }
+      },
+      {
+        "type": "play-flag",
+        "flag": "no-hazard-limit"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      },
+      {
+        "type": "play-flag",
+        "flag": "bearer-never-untaps"
+      },
+      {
+        "type": "grant-action",
+        "action": "remove-self-on-roll",
+        "cost": { "tap": "sage-in-company" },
+        "apply": {
+          "type": "roll-then-apply",
+          "threshold": 8,
+          "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" }
+        }
+      }
+    ],
+    "certified": "2026-10-14",
     "text": "Dark Enchantment. Playable on a non-Wizard character wounded by an Undead attack this turn; does not count against the hazard limit. Target character can never become untapped while bearing this card. Any effect that would move him to an untapped state makes him tapped instead. Cannot be duplicated on a given character.During the organization phase, a sage in target character’s company may tap to attempt to remove this card. Make a roll: if the result is greater than 7, discard this card."
   },
   {

@@ -17,7 +17,7 @@ import { ownerOf } from '../types/state.js';
 import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { defById, isBearerCannotUntapLive, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, isBearerCannotUntapLive, bearsNeverUntapCard, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
@@ -341,6 +341,11 @@ function performUntap(state: GameState): GameState {
     if (c.kind.type === 'skip-untap-and-heal') {
       skipUntapAndHealIds.add(c.target.characterId as string);
     }
+  }
+  // Endless Whispers (dm-54): a borne `bearer-never-untaps` card locks the
+  // character exactly like a live bearer-cannot-untap constraint.
+  for (const [key, ch] of Object.entries(player.characters)) {
+    if (bearsNeverUntapCard(state, ch)) cannotUntapIds.add(key);
   }
 
   // Untap all tapped characters and their items/allies;

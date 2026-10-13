@@ -41,6 +41,7 @@ import { sweepKeywordReplaced } from './keyword-replaced.js';
 import { sweepSacrificeOfForm, sweepSacrificeOfFormReturn } from './sacrifice-of-form.js';
 import { sweepOrphanedStoredCreatures } from './creature-storage.js';
 import { sweepOrphanedHeldCreatures } from './held-creature.js';
+import { applyNeverUntapsLock } from './never-untaps.js';
 
 /**
  * Post-action housekeeping: sweep manifestation cascades (METD §4.2) and
@@ -115,7 +116,13 @@ function postReduce(state: GameState, prevState?: GameState): GameState {
   const afterHeldCreatureSweep = prevState
     ? sweepOrphanedHeldCreatures(prevState, afterAgentPrisonerSweep)
     : afterAgentPrisonerSweep;
-  return accrueRevealedInstances(recomputeDerived(afterHeldCreatureSweep));
+  // Endless Whispers (dm-54): a character bearing a `bearer-never-untaps`
+  // card who just became untapped — by any of the many untap/heal paths — is
+  // put back to tapped instead (prev/next status diff).
+  const afterNeverUntaps = prevState
+    ? applyNeverUntapsLock(prevState, afterHeldCreatureSweep)
+    : afterHeldCreatureSweep;
+  return accrueRevealedInstances(recomputeDerived(afterNeverUntaps));
 }
 
 export type { ReducerResult } from './reducer-utils.js';

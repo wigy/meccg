@@ -7532,7 +7532,8 @@ export function companyMHPhaseOptionSpent(
 
 /**
  * True when the character has an active `bearer-cannot-untap` constraint
- * (Reforging tw-314, Rescue Prisoners tw-315, etc.) — the bearer stays tapped
+ * (Reforging tw-314, Rescue Prisoners tw-315, etc.) or bears a
+ * `bearer-never-untaps` card (Endless Whispers dm-54) — the bearer stays tapped
  * until the source card is stored/discarded, overriding effects that would
  * otherwise untap them (e.g. Hall of Fire dm-134's "untap or heal" offer).
  */
@@ -7540,8 +7541,24 @@ export function characterHasCannotUntapConstraint(
   state: GameState,
   characterInstanceId: CardInstanceId,
 ): boolean {
+  if (state.players.some(p => {
+    const char = p.characters[characterInstanceId];
+    return char !== undefined && bearsNeverUntapCard(state, char);
+  })) return true;
   return state.activeConstraints.some(
     c => c.target.kind === 'character' && c.target.characterId === characterInstanceId && isBearerCannotUntapLive(state, c),
+  );
+}
+
+/**
+ * True when a card attached to `char` carries the `bearer-never-untaps`
+ * play-flag (Endless Whispers dm-54): the character can never become
+ * untapped while bearing it. Enforced by `applyNeverUntapsLock`
+ * (`never-untaps.ts`).
+ */
+export function bearsNeverUntapCard(state: GameState, char: CharacterInPlay): boolean {
+  return [...char.hazards, ...char.items, ...char.allies].some(card =>
+    hasPlayFlag(defById(state, card.definitionId) as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'bearer-never-untaps'),
   );
 }
 

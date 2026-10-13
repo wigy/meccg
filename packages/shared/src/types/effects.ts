@@ -4891,6 +4891,14 @@ export interface CombatStrikeEffectEffect extends EffectBase {
  *   That's Been Heard Before Tonight (le-241), Rescue Prisoners (tw-315), and
  *   The Windlord Found Me (dm-164); deliberately ABSENT on That Ain't No
  *   Secret (le-240), whose text omits the untap lock.
+ * - `bearer-never-untaps` — while a card carrying this flag is attached to a
+ *   character (in `hazards`/`items`/`allies`), the character can never become
+ *   untapped: any transition into the untapped state (untap phase, healing
+ *   straight to untapped, granted untap effects, …) leaves him tapped
+ *   instead. Enforced as a prev/next post-reduce diff
+ *   (`engine/never-untaps.ts`) and honoured by
+ *   `characterHasCannotUntapConstraint` so untap offers are withheld. Used by
+ *   Endless Whispers (dm-54).
  * - `rescues-prisoners` — this card *is* the rescue: successfully playing and
  *   keeping it frees the characters its company came for. Carried by Rescue
  *   Prisoners (tw-315). Cards that key on a rescue having happened read this
@@ -4908,7 +4916,7 @@ export interface CombatStrikeEffectEffect extends EffectBase {
  *   by Ent-draughts (tw-227): "This item may not be … stored" and The One
  *   Ring (tw-347, le-326 — rule g.sto.1: "The One Ring cannot be stored").
  */
-export type PlayFlag = 'does-not-tap-site' | 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'no-transfer' | 'no-store';
+export type PlayFlag = 'does-not-tap-site' | 'home-site-only' | 'playable-as-resource' | 'playable-as-hazard' | 'playable-as-event' | 'no-hazard-limit' | 'not-starting-character' | 'no-starting-company' | 'tapped-site-only' | 'untapped-site-required' | 'allow-store-eot' | 'tap-site-on-play' | 'tap-character-on-play' | 'tap-bearer-on-play' | 'healing-affects-all' | 'no-direct-influence' | 'no-attack' | 'no-attack-site-keyed' | 'playable-at-tapped-site' | 'no-auto-untap' | 'reduce-attacks-to-one' | 'combat-defender-prowess-from-mind' | 'can-use-palantir' | 'buddy-play' | 'block-company-joins' | 'no-allies-in-company' | 'bearer-cannot-untap-until-stored' | 'grants-followers' | 'hazard-agent-only' | 'no-tap-on-play' | 'influences-factions' | 'bearer-cannot-use-items' | 'bearer-cannot-move' | 'agent-may-move-to-haven' | 'remove-from-game' | 'rescues-prisoners' | 'no-transfer' | 'no-store' | 'bearer-never-untaps';
 
 /**
  * Declares a closed play-flag keyword on a card. See {@link PlayFlag}
