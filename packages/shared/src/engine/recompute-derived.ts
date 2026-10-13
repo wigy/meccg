@@ -1075,6 +1075,12 @@ function computeEffectiveStats(
         corruptionPoints += itemCp;
         if (trackCorruptionSources && itemCp > 0) corruptionSources.push(itemCp);
       }
+    } else if (itemDef && !bearerIsBalrogAvatar && 'corruptionPoints' in itemDef && typeof itemDef.corruptionPoints === 'number') {
+      // Non-item cards attached alongside items (Align Palantír tw-190, a
+      // permanent event placed on its Palantír) still give their printed
+      // corruption points to the bearer.
+      corruptionPoints += itemDef.corruptionPoints;
+      if (trackCorruptionSources && itemDef.corruptionPoints > 0) corruptionSources.push(itemDef.corruptionPoints);
     }
   }
 
