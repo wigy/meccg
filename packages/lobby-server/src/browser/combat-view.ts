@@ -411,6 +411,8 @@ function renderPhaseBanner(
     phaseText = `Salvage Items \u2014 ${itemCount} item${itemCount !== 1 ? 's' : ''} available`;
   } else if (combat.phase === 'trophy-offer') {
     phaseText = trophyOfferBannerText(racePrefix, combat.trophyEligibleCharacters?.length ?? 0);
+  } else if (combat.phase === 'creature-storage-offer') {
+    phaseText = `${racePrefix}Creature defeated \u2014 Store Creature to place it with the item, or Pass to decline`;
   } else if (combat.phase === 'body-check') {
     const target = combat.bodyCheckTarget === 'creature' ? 'Creature' : 'Character';
     phaseText = `Body Check \u2014 ${target}`;

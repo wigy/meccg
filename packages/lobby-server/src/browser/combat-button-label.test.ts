@@ -128,3 +128,28 @@ describe('free-later-cancel cancel-attack (Fifteen Birds in Five Firtrees dm-129
     expect(isCombatActionButton(handPlayed)).toBe(false);
   });
 });
+
+/**
+ * Regression test for bug report 3f1059ba4479ce55 (game mv74l794-dn391b,
+ * seq 1611): "Cant seem to bind the creatures with the rope." The engine
+ * entered `creature-storage-offer` and offered `store-creature-in-item` for
+ * the bearer's Elven Rope (ba-34) after Orc-watch and Orc-lieutenant were
+ * defeated, but the visual combat view had no button or click target for the
+ * action, so the only option the defender could pick was Pass.
+ */
+describe('store-creature-in-item button (Elven Rope)', () => {
+  const storeAction = (): GameAction => ({
+    type: 'store-creature-in-item',
+    player: 'p1' as PlayerId,
+    itemInstanceId: 'p1-111' as CardInstanceId,
+    creatureInstanceId: 'p2-39' as CardInstanceId,
+  });
+
+  it('is rendered as a combat button', () => {
+    expect(isCombatActionButton(storeAction())).toBe(true);
+  });
+
+  it('is labelled "Store Creature"', () => {
+    expect(combatButtonLabel(storeAction(), false)).toBe('Store Creature');
+  });
+});

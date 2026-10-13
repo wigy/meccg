@@ -7,8 +7,15 @@
  */
 import type { GameAction } from '@meccg/shared';
 
-/** Combat action types that get rendered as buttons (not handled by card clicks). */
-const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll', 'allocate-cvcc-excess']);
+/**
+ * Combat action types that get rendered as buttons (not handled by card clicks).
+ *
+ * `store-creature-in-item` (Elven Rope ba-34, `creature-storage-offer` phase)
+ * has no card or character click handler, so without a button the engine's
+ * storage offer was legal yet unreachable — the defender could only Pass
+ * (game mv74l794-dn391b, seq 1605 and 1611).
+ */
+const BUTTON_ACTION_TYPES = new Set(['resolve-strike', 'body-check-roll', 'agent-strike-roll', 'allocate-cvcc-excess', 'store-creature-in-item']);
 
 /**
  * Whether a combat action belongs in the generic bottom-right button stack
@@ -58,6 +65,7 @@ export function combatButtonLabel(action: GameAction, hasStayUntappedOption: boo
   if (action.type === 'body-check-roll') return 'Body Check';
   if (action.type === 'allocate-cvcc-excess') return 'Assign −1';
   if (action.type === 'cancel-attack' && action.mode === 'free-later-cancel') return 'Cancel Attack (Free)';
+  if (action.type === 'store-creature-in-item') return 'Store Creature';
   if (action.type === 'pass') return 'Pass';
   return action.type;
 }
