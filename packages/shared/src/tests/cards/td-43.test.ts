@@ -20,7 +20,7 @@
  * Engine Support:
  * | # | Feature                            | Status      | Notes                              |
  * |---|------------------------------------|-------------|------------------------------------|
- * | 1 | Unique (duplication-limit game:1)  | IMPLEMENTED | duplication-limit effect           |
+ * | 1 | Unique (duplication-limit game:1)  | IMPLEMENTED | play-hazard blocked while in play  |
  * | 2 | Ahunt attack on matching regions   | IMPLEMENTED | ahunt-attack in order-effects step |
  * | 3 | Doors of Night extends regions     | IMPLEMENTED | extended clause with condition     |
  * | 4 | Defender assigns (no attacker-pick)| IMPLEMENTED | no combatRules → defender phase    |
@@ -33,10 +33,14 @@ import {
   resetMint, buildAhuntOrderEffectsState,
   PLAYER_1, PLAYER_2,
   DOORS_OF_NIGHT,
+  ARAGORN, LEGOLAS,
+  RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
+  CardStatus, Phase,
+  buildTestState, makeMHState,
   viableActions, dispatch, continueAutoAttackCombat,
 } from '../test-helpers.js';
 import { RegionType } from '../../index.js';
-import type { CardDefinitionId, CombatState } from '../../index.js';
+import type { CardDefinitionId, CardInPlay, CardInstanceId, CombatState } from '../../index.js';
 
 const LEUCARUTH_AHUNT = 'td-43' as CardDefinitionId;
 
@@ -58,6 +62,25 @@ const PATH_NON_MATCHING = {
 } as const;
 const PATH_EMPTY = { pathNames: [], pathTypes: [] as RegionType[] } as const;
 
+/**
+ * Movement/hazard play-hazards state with Leucaruth Ahunt in the hazard
+ * player's hand, optionally with a copy already in their cardsInPlay.
+ */
+function buildPlayHazardsState(copyInPlay: boolean) {
+  const inPlay: CardInPlay[] = copyInPlay
+    ? [{ instanceId: 'leucaruth-ahunt-1' as CardInstanceId, definitionId: LEUCARUTH_AHUNT, status: CardStatus.Untapped }]
+    : [];
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    players: [
+      { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [LEUCARUTH_AHUNT], siteDeck: [MINAS_TIRITH], cardsInPlay: inPlay },
+    ],
+  });
+  return { ...state, phaseState: makeMHState({ hazardsPlayedThisCompany: 0, hazardLimitAtReveal: 4 }) };
+}
+
 function passOnce(state: ReturnType<typeof buildAhuntOrderEffectsState>) {
   return dispatch(state, viableActions(state, PLAYER_1, 'pass')[0].action);
 }
@@ -66,6 +89,16 @@ function passOnce(state: ReturnType<typeof buildAhuntOrderEffectsState>) {
 
 describe('Leucaruth Ahunt (td-43)', () => {
   beforeEach(() => resetMint());
+
+  test('playable as a hazard long-event when no copy is in play', () => {
+    const state = buildPlayHazardsState(false);
+    expect(viableActions(state, PLAYER_2, 'play-hazard').length).toBeGreaterThan(0);
+  });
+
+  test('unique — not playable while a copy is already in play', () => {
+    const state = buildPlayHazardsState(true);
+    expect(viableActions(state, PLAYER_2, 'play-hazard')).toHaveLength(0);
+  });
 
   test('company moving through Withered Heath faces a 3-strike 14/7 Dragon attack', () => {
     const state = buildAhuntOrderEffectsState({
