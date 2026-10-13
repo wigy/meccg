@@ -23,8 +23,12 @@ import { logDetail } from './log.js';
 import { grantedActionActivations, modifyCorruptionCheckGrantActions } from './organization.js';
 import { reactiveCorruptionCheckPlays } from './pending.js';
 import { characterPossessions } from '../pending.js';
-import { characterIds, findCharacterCompany, playerById, defById, getCardEffects } from '../reducer-utils.js';
+import { characterIds, findCharacterCompany, playerById, defById, getCardEffects, isCorruptionCardDef, matchesDefinition } from '../reducer-utils.js';
 import { asViable as viable } from './evaluated.js';
+import { isResourceEventCard } from '../../types/cards.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
+import { buildInPlayNames } from '../recompute-derived.js';
+import { findMoveEffectByShape } from '../reducer-move.js';
 
 export function freeCouncilActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const fcState = requirePhaseState(state, Phase.FreeCouncil);
@@ -114,6 +118,13 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
     });
   }
 
+  // CoE 10.3.i: discarding a corruption card from a character that has yet
+  // to make its check reduces that character's corruption point total, so
+  // short events that discard a hazard in play (The Cock Crows tw-342 with
+  // Gates of Morning) are playable here — before the check is declared, so
+  // the check is computed against the reduced total.
+  const discardPlays = actions.length > 0 ? corruptionHazardDiscardPlays(state, playerId, checked) : [];
+
   // Pass advances to scoring only after all characters have been checked
   if (actions.length === 0) {
     actions.push({ type: 'pass', player: playerId });
@@ -121,7 +132,52 @@ export function freeCouncilActions(state: GameState, playerId: PlayerId): Evalua
   } else {
     logDetail(`Free Council: ${actions.length} character(s) available for corruption checks`);
   }
-  return [...viable(actions), ...grantActions];
+  return [...viable(actions), ...viable(discardPlays), ...grantActions];
+}
+
+/**
+ * Resource short events in hand that discard a hazard in play (a `move`
+ * from `in-play` to `discard` with `select: "target"`), offered once per
+ * corruption card attached to one of the player's characters that has not
+ * yet made its Free Council corruption check. Only corruption cards qualify:
+ * per CRF 22 (End-of-Game) only resources that directly affect corruption
+ * checks may be played during the Free Council.
+ */
+function corruptionHazardDiscardPlays(
+  state: GameState,
+  playerId: PlayerId,
+  checked: ReadonlySet<string>,
+): GameAction[] {
+  const player = playerById(state, playerId);
+  if (!player) return [];
+  const actions: GameAction[] = [];
+  const inPlayNames = buildInPlayNames(state);
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    const move = findMoveEffectByShape(def, 'target', 'in-play', 'discard');
+    if (!move || move.targetScope) continue;
+    if (move.when && !matchesCondition(move.when, { inPlay: inPlayNames })) continue;
+    // Cards that also need a character to tap or target (Marvels Told's
+    // sage) go through their own play-target flow, not this one.
+    if (getCardEffects(def).some(e => e.type === 'play-target')) continue;
+    for (const charId of characterIds(player)) {
+      if (checked.has(charId)) continue;
+      for (const haz of player.characters[charId].hazards) {
+        const hDef = defById(state, haz.definitionId);
+        if (!hDef || !isCorruptionCardDef(hDef)) continue;
+        if (move.filter && !matchesDefinition(hDef, move.filter)) continue;
+        logDetail(`Free Council: ${def.name} playable to discard ${hDef.name} from ${charId as string} before its corruption check`);
+        actions.push({
+          type: 'play-short-event',
+          player: playerId,
+          cardInstanceId: handCard.instanceId,
+          discardTargetInstanceId: haz.instanceId,
+        });
+      }
+    }
+  }
+  return actions;
 }
 
 /**
