@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.198.0 — 2026-10-14
+
+Endless Whispers Certified, Corruption Fixes
+
+### Game Engine
+
+- Align Palantír's 2 corruption points now count toward its bearer's corruption total; previously only true item cards were summed, so the permanent event stored among the bearer's items was silently dropped (#3322)
+- Short events that discard a hazard in play (e.g. The Cock Crows with Gates of Morning) can now be played during the Free Council to discard a corruption card from a character still to make its check, per CoE 10.3.i (#3323)
+- New `bearer-never-untaps` play flag: a character bearing a flagged card stays tapped through untap-phase, haven healing and granted untaps (#3326)
+
+### Cards
+
+- Endless Whispers (dm-54) certified: non-Wizard wounded-by-Undead target, no hazard limit, duplication limit, bearer never untaps, and sage-in-company removal on a roll greater than 7 (#3326)
+- Leucaruth Ahunt (td-43) re-certified with added coverage for its uniqueness (#3327)
+
+### Web Client
+
+- The visual combat view now shows a Store Creature button for Elven Rope's creature-storage offer, so the defender can store the creature instead of only passing (#3325)
+
+### AI
+
+- The modular AI now prices direct-influence penalties such as Shut Yer Mouth by the influence attempts and followers they spoil, so it no longer wastes them on characters with no direct influence (#3324)
+
+### Infrastructure
+
+- Rule and card test README metrics refreshed
+
 ## 0.197.0 — 2026-10-13
 
 Creature Keys Re-checked at Resolution

@@ -24,10 +24,10 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | Metric | Done | Total | Progress |
 |:-------|-----:|------:|---------:|
 | Rule tests | 303 | 350 | 86.6% |
-| Card tests | 1396 | 1396 | 100.0% |
+| Card tests | 1397 | 1397 | 100.0% |
 | Cards created | 1683 | 1683 | 100.0% |
-| Cards certified | 1449 | 1683 | 86.1% |
-| **Total** | **4831** | **5112** | **94.5%** |
+| Cards certified | 1450 | 1683 | 86.2% |
+| **Total** | **4833** | **5113** | **94.5%** |
 
 ### Deck Catalog
 

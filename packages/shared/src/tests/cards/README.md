@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1396 | 1396 | 0 | 100.0% |
+| 1397 | 1397 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -14,7 +14,7 @@
 |:---------|:-----:|:----:|:-:|
 | AS | 128 | 128 | 100.0% |
 | BA | 101 | 101 | 100.0% |
-| DM | 156 | 156 | 100.0% |
+| DM | 157 | 157 | 100.0% |
 | LE | 335 | 335 | 100.0% |
 | TD | 147 | 147 | 100.0% |
 | TW | 429 | 429 | 100.0% |
@@ -302,6 +302,7 @@
 | dm-51 | Doubled Vigilance | — | 18 | ☑ |
 | dm-52 | Drums | — | 15 | ☑ |
 | dm-53 | Earth-tremors | — | 10 | ☑ |
+| dm-54 | Endless Whispers | — | 15 | ☑ |
 | dm-55 | Exhalation of Decay | — | 8 | ☑ |
 | dm-56 | Eyes of the Shadow | — | 10 | ☑ |
 | dm-57 | Faces of the Dead | — | 8 | ☑ |
@@ -771,7 +772,7 @@
 | td-38 | Itangast at Home | — | 8 | ☑ |
 | td-41 | Left Behind | — | 10 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
-| td-43 | Leucaruth Ahunt | — | 9 | ☑ |
+| td-43 | Leucaruth Ahunt | — | 11 | ☑ |
 | td-44 | Leucaruth at Home | — | 14 | ☑ |
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
@@ -1079,7 +1080,7 @@
 | tw-187 | Wacho | — | 4 | ☑ |
 | tw-188 | A Chance Meeting | — | 17 | ☑ |
 | tw-189 | A Friend or Three | — | 13 | ☑ |
-| tw-190 | Align Palantír | — | 12 | ☑ |
+| tw-190 | Align Palantír | — | 13 | ☑ |
 | tw-191 | Anduin River | — | 14 | ☑ |
 | tw-192 | Andúril, the Flame of the West | — | 19 | ☑ |
 | tw-193 | Army of the Dead | — | 5 | ☑ |

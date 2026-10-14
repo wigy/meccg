@@ -13,7 +13,7 @@
 | # | Section | Rules | Done | % |
 |:-:|:--------|:-----:|:----:|:-:|
 | 00 | [Engine](00-engine/) | 18 | 18 | 100.0% |
-| 01 | [Deck Construction & Setup](01-deck-construction/) | 62 | 61 | 98.4% |
+| 01 | [Deck Construction & Setup](01-deck-construction/) | 63 | 62 | 98.4% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
 | 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
