@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.199.0 — 2026-10-14
+
+Unabated in Malice Revealed at Site Entry
+
+### Game Engine
+
+- An on-guard Unabated in Malice (ba-26) can now be revealed when a company enters the site, before its automatic-attacks resolve (CoE 2.V.i); revealing it installs the same attack-modifier constraint as open movement/hazard play, so the first automatic-attack starts buffed with cancel protection armed instead of letting the defender cancel the attack first (#3328)
+
+### Infrastructure
+
+- Card test README metrics refreshed
+
 ## 0.198.0 — 2026-10-14
 
 Endless Whispers Certified, Corruption Fixes
