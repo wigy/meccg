@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldAnimateBetween } from './flip-animate.js';
+import { shouldAnimateBetween, shouldSkipFlipForViewSwitch } from './flip-animate.js';
 
 /**
  * Regression tests for the FLIP move decision.
@@ -41,5 +41,28 @@ describe('shouldAnimateBetween', () => {
 
   it('animates a one-pixel move on a single axis', () => {
     expect(shouldAnimateBetween(card(420, 800), card(421, 800))).toBe(true);
+  });
+});
+
+/**
+ * Regression tests for the board "zooming" in and out on every opponent
+ * creature: switching between the company view and the combat view must be a
+ * cut, not a FLIP flight of every card on the board.
+ */
+describe('shouldSkipFlipForViewSwitch', () => {
+  it('skips animation when the combat view opens', () => {
+    expect(shouldSkipFlipForViewSwitch(false, true)).toBe(true);
+  });
+
+  it('skips animation when the combat view closes', () => {
+    expect(shouldSkipFlipForViewSwitch(true, false)).toBe(true);
+  });
+
+  it('animates within the company view', () => {
+    expect(shouldSkipFlipForViewSwitch(false, false)).toBe(false);
+  });
+
+  it('animates within the combat view', () => {
+    expect(shouldSkipFlipForViewSwitch(true, true)).toBe(false);
   });
 });
