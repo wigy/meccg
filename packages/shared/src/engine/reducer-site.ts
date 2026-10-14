@@ -37,7 +37,7 @@ import { buildInPlayNames } from './recompute-derived.js';
 import { sweepExpired, enqueueResolution, removeConstraint, enqueueCorruptionCheck, characterPossessions, addConstraint, companyStoresAsDarkhaven } from './pending.js';
 import { resolveEffective, getEffectiveSiteType, siteAutoAttacksForcedDetainment, siteAttacksCanceled } from './effective.js';
 import { parseConstraintScope, buildConstraintKind } from './constraint-kind.js';
-import { getActiveAutoAttacks, isReduceAttacksToOneInPlay, consumePendingAttackModifier } from './manifestations.js';
+import { getActiveAutoAttacks, isReduceAttacksToOneInPlay, consumePendingAttackModifier, installPendingAttackModifier } from './manifestations.js';
 import { isDetainmentAttack } from './detainment.js';
 import { moveToFetchToDeckPayload } from './reducer-move.js';
 import { buildSiteRepeatedAttackCombat, facingAlliesFor } from './site-repeated-attack.js';
@@ -1032,6 +1032,49 @@ function handleRevealOnGuardAttacks(
             siteDefinitionId: company.currentSite.definitionId,
           },
         });
+
+        const hazardIndex = getPlayerIndex(stateWithConstraint, action.player);
+        const newPlayers = clonePlayers(stateWithConstraint);
+        newPlayers[activeIndex] = { ...newPlayers[activeIndex], companies: newCompanies };
+        newPlayers[hazardIndex] = {
+          ...newPlayers[hazardIndex],
+          discardPile: [...newPlayers[hazardIndex].discardPile, toCardInstance(revealedCard)],
+        };
+
+        return { state: { ...stateWithConstraint, players: newPlayers } };
+      }
+
+      // Short hazard-events with a from-hand `modify-attack` playable on an
+      // automatic-attack (Unabated in Malice ba-26): install the same
+      // single-use `pending-attack-modifier` constraint that playing the card
+      // openly in M/H installs (see chain-reducer.ts). It is consumed by the
+      // first automatic-attack the company faces at this site, so the
+      // strike/prowess/body deltas and the first-cancel protection are in
+      // place before anyone can respond to the attack.
+      const modifyAttackEffect = getCardEffects(def).find(
+        (e): e is import('../index.js').ModifyAttackEffect => e.type === 'modify-attack' && !!e.fromHand,
+      );
+      if (modifyAttackEffect?.when && company.currentSite
+        && matchesCondition(modifyAttackEffect.when, { attack: { automatic: true } })) {
+        logDetail(`"${def.name}" revealed on-guard → will modify the first automatic-attack faced by company ${company.id as string} (+${modifyAttackEffect.strikesModifier ?? 0} strikes, +${modifyAttackEffect.prowessModifier ?? 0} prowess, ${modifyAttackEffect.bodyModifier ?? 0} body)`);
+        const newOnGuardCards = [...company.onGuardCards];
+        newOnGuardCards.splice(ogIdx, 1);
+        const newCompanies = [...resourcePlayer.companies];
+        newCompanies[siteState.activeCompanyIndex] = { ...company, onGuardCards: newOnGuardCards };
+
+        const stateWithConstraint = installPendingAttackModifier(
+          state,
+          company.id,
+          company.currentSite.definitionId,
+          revealedCard.instanceId,
+          revealedCard.definitionId,
+          {
+            strikesModifier: modifyAttackEffect.strikesModifier ?? 0,
+            prowessModifier: modifyAttackEffect.prowessModifier ?? 0,
+            bodyModifier: modifyAttackEffect.bodyModifier ?? 0,
+            firstCancelRemovesEffect: !!modifyAttackEffect.firstCancelRemovesEffect,
+          },
+        );
 
         const hazardIndex = getPlayerIndex(stateWithConstraint, action.player);
         const newPlayers = clonePlayers(stateWithConstraint);
