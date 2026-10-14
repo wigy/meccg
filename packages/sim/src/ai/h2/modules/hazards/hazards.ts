@@ -85,7 +85,7 @@ import type { AttackProfile } from '../../services/strike/sequence.js';
 import { attackerChoosesDefenders } from '../../services/strike/ability.js';
 import type { Bundle, BundleSearch, Candidate } from './bundle.js';
 import { corruptionHazardGain } from './corruption-hazard.js';
-import { callOfHomeGain, influencePenaltyGain, siteDenialGain } from './event-families.js';
+import { callOfHomeGain, directInfluencePenaltyGain, influencePenaltyGain, siteDenialGain } from './event-families.js';
 import { automaticAttacksOf } from '../../services/defence.js';
 import { bestBundleStartingWith, planBundles } from './bundle.js';
 import { denialContext, denialPricer } from '../../services/denial.js';
@@ -864,6 +864,7 @@ function evaluateHazardEvent(
     ?? siteDenialGain(cardPool[card.definitionId], record.targetSiteDefinitionId, company, context)
     ?? callOfHomeGain(cardPool[card.definitionId], record.targetCharacterId as never, context)
     ?? influencePenaltyGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
+    ?? directInfluencePenaltyGain(cardPool[card.definitionId], record.targetCharacterId as never, company, context)
     ?? recoveryGain(def?.effects ?? [], tunables)
     // No family prices it. What is left is the play itself — a card traded for
     // the next one off the deck at the hand reset — so it is scored at that,

@@ -2,8 +2,8 @@
  * @module ai/h2/modules/hazards/event-families
  *
  * Hazard events priced by the family their effects declare, for the families
- * strong players reach for and `hazards` could not read — River and Call of
- * Home. Each returns null for a card outside its family, so the caller can try
+ * strong players reach for and `hazards` could not read — River, Call of
+ * Home, Foolish Words and Shut Yer Mouth. Each returns null for a card outside its family, so the caller can try
  * the next one.
  */
 
@@ -187,5 +187,91 @@ export function influencePenaltyGain(
       + `${(spoiled * 100).toFixed(0)}% of a typical attempt, against ${factionWorth.toFixed(1)} tsd a faction `
       + `is worth to them — discounted as potential`
       + (shedTap > 0 ? '; and a tap in his organization phase to shed it' : ''),
+  };
+}
+
+/**
+ * Shut Yer Mouth (le-137): -2 to one character's direct influence, until he
+ * rolls it off.
+ *
+ * Direct influence does two things, and the price is what each loses. It is
+ * added to his influence attempts, so the influence it takes spoils an attempt
+ * the way Foolish Words does — weighted by his share of the company's direct
+ * influence. And it holds his followers: once what is left no longer covers
+ * their mind, they fall out of his control (CoE 2.II.2.2.3) and must be taken
+ * under general influence in the next organization phase or be discarded — so
+ * a follower that no longer fits their unused general influence is priced as
+ * an elimination, one that still fits at the organization move it costs. Both
+ * are discounted as potential.
+ *
+ * A character with no direct influence to lose — a follower such as Elrohir
+ * under Glorfindel — loses nothing, and is priced at nothing: the card should
+ * go on the one who holds the company together.
+ */
+export function directInfluencePenaltyGain(
+  def: CardDefinition | undefined,
+  characterId: CardInstanceId | undefined,
+  company: OpponentCompanyView,
+  context: ModuleContext,
+): FamilyGain | null {
+  if (!characterId) return null;
+  const effects = (def as unknown as { effects?: readonly (Effect & { stat?: string; when?: unknown })[] }
+    | undefined)?.effects ?? [];
+  const penalty = effects
+    .filter(e => e.type === 'stat-modifier' && e.stat === 'direct-influence' && !e.when
+      && typeof e.value === 'number' && e.value < 0)
+    .reduce((sum, e) => sum + (e.value as number), 0);
+  if (penalty >= 0) return null;
+  const { view, cardPool, standing, tunables } = context;
+  const character = view.opponent.characters[characterId];
+  if (!character) return null;
+  const nameOf = (id: CardInstanceId): string =>
+    (cardPool[view.opponent.characters[id]?.definitionId as string] as unknown as { name?: string } | undefined)?.name
+    ?? (id as string);
+  const influenceOf = (id: CardInstanceId): number => Math.max(0,
+    view.opponent.characters[id]?.effectiveStats.directInfluence ?? 0);
+  const before = influenceOf(characterId);
+  const lost = Math.min(before, -penalty);
+  const name = nameOf(characterId);
+  if (lost <= 0) {
+    return { tsd: 0, reason: `${name} has no direct influence to lose` };
+  }
+
+  // The influence attempts it spoils, as Foolish Words prices them.
+  const total = company.characters.reduce((sum, id) => sum + influenceOf(id), 0);
+  const share = total > 0 ? before / total : 0;
+  const spoiled = pAtLeast(TYPICAL_INFLUENCE_NEED) - pAtLeast(TYPICAL_INFLUENCE_NEED + lost);
+  const factionWorth = Math.max(0, standing.tsd - standing.tsdAfter({}, { faction: 2 }));
+  const attempts = share * spoiled * factionWorth;
+
+  // The followers what is left can no longer hold.
+  const mindOf = (id: CardInstanceId): number => Math.max(0,
+    (cardPool[view.opponent.characters[id]?.definitionId as string] as unknown as { mind?: number | null }
+      | undefined)?.mind ?? 0);
+  const followers = character.followers;
+  const followerMind = followers.reduce((sum, id) => sum + mindOf(id), 0);
+  const released = followerMind > before - lost ? followers : [];
+  const opponent = view.opponent as unknown as { generalInfluence?: number; generalInfluenceUsed?: number };
+  let unused = Math.max(0, (opponent.generalInfluence ?? 20) - (opponent.generalInfluenceUsed ?? 0));
+  let control = 0;
+  for (const id of released) {
+    const mind = mindOf(id);
+    if (mind <= unused) {
+      unused -= mind;
+      control += tunables.tapTempoCost;
+    } else {
+      control += tunables.eliminationTempoCost;
+    }
+  }
+
+  const tsd = tunables.potentialDiscount * (attempts + control);
+  return {
+    tsd,
+    reason: `${name} loses ${lost} direct influence — ${(share * 100).toFixed(0)}% of his company's, `
+      + `spoiling ${(spoiled * 100).toFixed(0)}% of a typical attempt`
+      + (released.length > 0
+        ? `; and ${released.map(nameOf).join(', ')} fall${released.length === 1 ? 's' : ''} out of his control`
+        : '')
+      + ' — discounted as potential',
   };
 }
