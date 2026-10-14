@@ -423,6 +423,31 @@ describe('Align Palantír (tw-190)', () => {
     expect(checks[0].corruptionPoints).toBe(4);
   });
 
+  // ── Bearer's corruption point total includes Align Palantír's CP ──
+
+  test('bearer\'s effective corruption points include Align Palantír\'s 2 CP', () => {
+    // Palantír of Orthanc (2 CP) + Align Palantír (2 CP) → 4 CP. Align
+    // Palantír sits in the bearer's items list but is a permanent event, so
+    // the item-only CP sum previously dropped it and showed only 2.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LORIEN, characters: [{ defId: SARUMAN, items: [PALANTIR_OF_ORTHANC, ALIGN_PALANTIR] }] }],
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: MINAS_TIRITH, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    expect(getCharacter(state, RESOURCE_PLAYER, SARUMAN).effectiveStats.corruptionPoints).toBe(4);
+  });
+
   // ── CoE rule 3.I.2: elimination — only true items are salvageable ──
 
   test('Align Palantír is NOT salvageable when its bearer is eliminated — discarded immediately', () => {
