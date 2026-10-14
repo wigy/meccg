@@ -1735,9 +1735,30 @@
       {
         "type": "stage-points",
         "value": 2
+      },
+      {
+        "type": "grant-skill",
+        "skill": "sorcery",
+        "recipient": "own-fallen-wizard"
+      },
+      {
+        "type": "grant-skill",
+        "skill": "spirit-magic",
+        "recipient": "own-fallen-wizard"
+      },
+      {
+        "type": "grant-skill",
+        "skill": "shadow-magic",
+        "recipient": "own-fallen-wizard"
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "player",
+        "max": 1
       }
     ],
-    "text": "Your Fallen-wizard may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated by a given player."
+    "text": "Your Fallen-wizard may use sorcery, spirit-magic, and shadow-magic. Cannot be duplicated by a given player.",
+    "certified": "2026-10-15"
   },
   {
     "cardType": "minion-resource-event",

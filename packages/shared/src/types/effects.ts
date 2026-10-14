@@ -12756,6 +12756,14 @@ export interface GrantSkillEffect extends EffectBase {
   readonly type: 'grant-skill';
   /** The skill to grant (e.g. `"scout"`, `"warrior"`, `"sage"`). */
   readonly skill: string;
+  /**
+   * Who receives the skill. Absent: the bearer of the attached card.
+   * `"own-fallen-wizard"`: the controlling player's Fallen-wizard, granted
+   * from a general (unattached) permanent event in `cardsInPlay` — Spells
+   * Born of Discord wh-81: "Your Fallen-wizard may use sorcery, spirit-magic,
+   * and shadow-magic."
+   */
+  readonly recipient?: 'own-fallen-wizard';
 }
 
 /**

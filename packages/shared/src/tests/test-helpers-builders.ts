@@ -28,7 +28,7 @@ import { PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER, pool } from './test
 import { charIdAt, companyIdAt, draftInstId, findCharInstanceId, findHandCardId, getOnGuardCard, handCardId, viableActions, viableFor } from './test-helpers-queries.js';
 import { getCharacter } from './test-helpers-assertions.js';
 import { dispatch, enqueueCorruptionCheck, executeAction, resolveChain, runActions, setupAutoAttackStep } from './test-helpers-dispatch.js';
-import { buildTestState, mint, addCardInPlay, addStoredCard, pushCardInPlay, attachAllyToChar, attachItemToChar, attachHolderWithCreature, setAllyStatus, setCharStatus } from './test-helpers-core.js';
+import { buildTestState, mint, addCardInPlay, addCardToHand, addStoredCard, pushCardInPlay, attachAllyToChar, attachItemToChar, attachHolderWithCreature, setAllyStatus, setCharStatus } from './test-helpers-core.js';
 import type { CharacterEntry } from './test-helpers-core.js';
 
 const THE_ONE_RING = 'tw-347' as CardDefinitionId;
@@ -2559,6 +2559,23 @@ export function viableActionsForHandCard(
     const action = ea.action as { cardInstanceId?: CardInstanceId };
     return action.cardInstanceId !== undefined && matchingIds.has(action.cardInstanceId as string);
   });
+}
+
+/**
+ * Character instance IDs targeted by the viable `play-short-event` actions of
+ * a probe card added to the player's hand. Used to check whether a character
+ * has a skill a skill-gated short event requires (e.g. sorcery for Govern the
+ * Storms wh-45) — the skill-granting cards' certification probe.
+ */
+export function shortEventTargetIds(
+  state: GameState,
+  playerId: PlayerId,
+  playerIdx: 0 | 1,
+  probeDefId: CardDefinitionId,
+): string[] {
+  const withProbe = addCardToHand(state, playerIdx, probeDefId);
+  return viableActionsForHandCard(withProbe, playerId, 'play-short-event', playerIdx, probeDefId)
+    .map(ea => (ea.action as { targetCharacterId?: CardInstanceId }).targetCharacterId as string);
 }
 
 /** Hazards attached to a character (located by definition ID). */
