@@ -16,13 +16,15 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { Phase } from '../../../index.js';
 import { recomputeDerived } from '../../../engine/recompute-derived.js';
-import type { FreeCouncilPhaseState, CardDefinitionId, CorruptionCheckAction, ActiveConstraint, CardInstanceId, ConstraintId } from '../../../index.js';
+import type { FreeCouncilPhaseState, CardDefinitionId, CorruptionCheckAction, ActiveConstraint, CardInstanceId, ConstraintId, PlayShortEventAction } from '../../../index.js';
+import { CardStatus } from '../../../index.js';
 import {
   buildTestState, resetMint, dispatch, viableFor,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
   ARAGORN, LEGOLAS, GANDALF,
   RIVENDELL, LORIEN, MINAS_TIRITH,
   findCharInstanceId, attachHazardToChar,
+  GATES_OF_MORNING, resolveChain, expectInDiscardPile, mint,
 } from '../../test-helpers.js';
 
 // Minion character sharing a company with the Ringwraith avatar.
@@ -315,5 +317,59 @@ describe('Rule 10.44 — Step 1: Corruption Checks', () => {
     const actions = viableFor(state, PLAYER_1).map(a => a.action.type);
     expect(actions).not.toContain('corruption-check');
     expect(actions).toContain('pass');
+  });
+
+  test('The Cock Crows can discard a corruption card before its bearer\'s check (bug 18959bc84b982c99)', () => {
+    // Regression: with Gates of Morning in play, The Cock Crows (tw-342)
+    // discards one hazard permanent-event. Discarding a corruption card from
+    // a character still to make his Free Council check reduces his corruption
+    // point total — an action that directly affects the check (CoE 10.3.i) —
+    // but the Free Council only ever offered corruption-check actions.
+    const THE_COCK_CROWS = 'tw-342' as CardDefinitionId;
+    const LURE_OF_THE_SENSES = 'tw-60' as CardDefinitionId; // +2 CP corruption card
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.FreeCouncil,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [ARAGORN] }],
+          hand: [THE_COCK_CROWS],
+          siteDeck: [MINAS_TIRITH],
+          cardsInPlay: [{ instanceId: mint() as unknown as CardInstanceId, definitionId: GATES_OF_MORNING, status: CardStatus.Untapped }],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
+      ],
+    });
+    const withHazard = recomputeDerived(attachHazardToChar(base, RESOURCE_PLAYER, ARAGORN, LURE_OF_THE_SENSES, HAZARD_PLAYER));
+    const aragornId = findCharInstanceId(withHazard, RESOURCE_PLAYER, ARAGORN);
+    const lureId = withHazard.players[RESOURCE_PLAYER].characters[aragornId].hazards[0].instanceId;
+    const cpBefore = withHazard.players[RESOURCE_PLAYER].characters[aragornId].effectiveStats.corruptionPoints;
+
+    const fcState: FreeCouncilPhaseState = {
+      phase: Phase.FreeCouncil,
+      tiebreaker: false,
+      step: 'corruption-checks',
+      currentPlayer: PLAYER_1,
+      checkedCharacters: [],
+      firstPlayerDone: false,
+      pendingCheck: null,
+    };
+    const state = { ...withHazard, phaseState: fcState };
+
+    const plays = viableFor(state, PLAYER_1).filter(a => a.action.type === 'play-short-event');
+    expect(plays).toHaveLength(1);
+    const play = plays[0].action as PlayShortEventAction;
+    expect(play.discardTargetInstanceId).toBe(lureId);
+
+    const after = resolveChain(dispatch(state, play));
+    expect(after.phaseState.phase).toBe(Phase.FreeCouncil);
+    expectInDiscardPile(after, HAZARD_PLAYER, LURE_OF_THE_SENSES);
+    expectInDiscardPile(after, RESOURCE_PLAYER, THE_COCK_CROWS);
+
+    const check = viableFor(after, PLAYER_1)
+      .map(a => a.action)
+      .find((a): a is CorruptionCheckAction => a.type === 'corruption-check' && a.characterId === aragornId);
+    expect(check?.corruptionPoints).toBe(cpBefore - 2);
   });
 });
