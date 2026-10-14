@@ -26,7 +26,7 @@ import { CardStatus, cardStatusFromName } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
-import { gateDeckSearchFetch, isBearerCannotUntapLive, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, removeAttachment, companyKeywordDiscardCandidates, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
+import { gateDeckSearchFetch, characterHasCannotUntapConstraint, roll2d6, diceRollEffect, clonePlayers, companyAttemptSupportBonus, drawCardsExhausting, toCardInstance, removeAttachment, companyKeywordDiscardCandidates, updatePlayer, updateCharacter, findCharacterCompany, getCardEffects, defById, discardCardsInPlayWhere, collectGlobalCheckModifier, globalCheckExtraRollSource, roll2d6KeepBetter, influenceModificationsNullified, playedAfterFactionMpPin, buildFactionCheckContext, extendHealingToCompany } from './reducer-utils.js';
 import { isFactionCard } from '../types/cards.js';
 import { enqueueCorruptionCheck, enqueueResolution, addConstraint, removeConstraint } from './pending.js';
 import { revealInstances } from './visibility.js';
@@ -186,9 +186,8 @@ function runGrantApply(
     // a granted-action untap (Jewel of Beleriand as-70's tap-roll-untap-bearer)
     // must respect the same lock the organization-phase untap sweep honours —
     // it cannot bypass it just because the untap comes from a different source.
-    if (statusEnum === CardStatus.Untapped && state.activeConstraints.some(
-      c => c.target.kind === 'character' && c.target.characterId === char.instanceId && isBearerCannotUntapLive(state, c),
-    )) {
+    // Also covers a borne `bearer-never-untaps` card (Endless Whispers dm-54).
+    if (statusEnum === CardStatus.Untapped && characterHasCannotUntapConstraint(state, char.instanceId)) {
       logDetail(`Grant-action ${ctx.action.actionId}: ${ctx.charName} is locked by bearer-cannot-untap — untap has no effect`);
       return { updatedChar: char, effects: [], stateOps: [] };
     }

@@ -7314,6 +7314,28 @@ untap lock.
 { "type": "play-flag", "flag": "bearer-cannot-untap-until-stored" }
 ```
 
+### 15c-ter. `play-flag: "bearer-never-untaps"`
+
+While a card carrying this flag is attached to a character (in `hazards`,
+`items` or `allies`), that character can never become untapped: "Any effect
+that would move him to an untapped state makes him tapped instead." Unlike
+`bearer-cannot-untap-until-stored` there is no constraint to install or clear —
+the lock lives exactly as long as the card is borne.
+
+Enforcement is a prev/next diff run after every reducer step
+(`applyNeverUntapsLock`, `engine/never-untaps.ts`): a character who was not
+untapped before the step, is untapped after it, and bears a flagged card is
+moved to tapped. A character who was already untapped when the card attached
+is left alone. `characterHasCannotUntapConstraint` also reports the lock, so
+untap offers (Hall of Fire, haven restore, granted untaps) are withheld, and
+the untap phase heals a wounded bearer at a Haven only as far as tapped.
+
+Used by Endless Whispers (dm-54).
+
+```json
+{ "type": "play-flag", "flag": "bearer-never-untaps" }
+```
+
 ### 15c-bis. `play-flag: "rescues-prisoners"`
 
 Marks a card whose successful play *is* a prisoner rescue — carried by Rescue
