@@ -540,7 +540,13 @@ function revealOnGuardAttacksActions(
           // M/H play satisfies, so an on-guard copy is eligible for reveal
           // here too.
           || (e.type === 'auto-attack-boost'
-            && (!siteDef || !isSiteCard(siteDef) || e.siteTypes.includes(siteDef.siteType))),
+            && (!siteDef || !isSiteCard(siteDef) || e.siteTypes.includes(siteDef.siteType)))
+          // Rule 2.V.i: a from-hand `modify-attack` playable on an
+          // automatic-attack (Unabated in Malice ba-26) affects the site's
+          // automatic-attack — revealed here it applies to the first one the
+          // company faces, before either player can cancel that attack.
+          || (e.type === 'modify-attack' && !!e.fromHand && !!e.when
+            && matchesCondition(e.when, { attack: { automatic: true } })),
       );
       // A site-targeting event is played on the company's site as it is
       // revealed, so it must be legal there (Doubled Vigilance: a Shadow-hold,

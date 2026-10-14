@@ -35,6 +35,7 @@
  * |   | destination automatic-attack (rule 9.3.2.3)        |             | 9.3.2.3); consumed at auto-attack initiation    |
  * | 11| Duplicated (without being consumed) by Tidings of  | IMPLEMENTED | `duplicatePendingAttackModifier` in             |
  * |   | Bold Spies (CRF Digest #61/#103)                   |             | manifestations.ts, wired into chain-reducer.ts  |
+ * | 12| Revealable on-guard at site entry (rule 2.V.i)     | IMPLEMENTED | reveal installs `pending-attack-modifier`       |
  *
  * Playable: YES.
  */
@@ -54,7 +55,7 @@ import {
 import { Alignment, Race, computeLegalActions, RegionType, SiteType } from '../../index.js';
 import { resolveCancelAttackEntry } from '../../engine/combat-cancel.js';
 import { addConstraint } from '../../engine/pending.js';
-import type { CardDefinitionId, GameState, ModifyAttackAction, CardInstanceId } from '../../index.js';
+import type { CardDefinitionId, GameState, ModifyAttackAction, CardInstanceId, RevealOnGuardAction } from '../../index.js';
 
 const UNABATED_IN_MALICE = 'ba-26' as CardDefinitionId;
 const TIDINGS_OF_BOLD_SPIES = 'le-143' as CardDefinitionId;
@@ -144,6 +145,40 @@ describe('Unabated in Malice (ba-26)', () => {
       after.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === UNABATED_IN_MALICE),
     ).toBe(true);
     expect(after.combat!.cancelProtection).toBeDefined();
+  });
+
+  test('regression (game mv7t4jdd-mr0z3h, seq 66): revealable on-guard at site entry, before the automatic-attack can be canceled (rule 2.V.i)', () => {
+    // Bug report: Unabated in Malice was placed on-guard, but at the
+    // reveal-on-guard-attacks step the hazard player was not offered to reveal
+    // it. The defender then canceled the automatic-attack outright (Many Turns
+    // and Doublings) — had the card been revealed at site entry, its "first
+    // attempt to cancel" clause would have absorbed that cancel instead.
+    const site = buildSitePhaseState({ site: MORIA });
+    const atReveal: GameState = {
+      ...site,
+      phaseState: { ...(site.phaseState), step: 'reveal-on-guard-attacks', siteEntered: false },
+    };
+    const { state, ogCard } = placeOnGuard(atReveal, RESOURCE_PLAYER, 0, UNABATED_IN_MALICE);
+
+    const reveals = viableActions(state, PLAYER_2, 'reveal-on-guard');
+    expect(reveals).toHaveLength(1);
+    expect((reveals[0].action as RevealOnGuardAction).cardInstanceId).toBe(ogCard.instanceId);
+
+    // Revealing it discards the card and arms a pending modifier for the
+    // site's first automatic-attack.
+    const revealed = dispatch(state, reveals[0].action);
+    expect(revealed.players[RESOURCE_PLAYER].companies[0].onGuardCards).toHaveLength(0);
+    expect(revealed.players[HAZARD_PLAYER].discardPile.some(c => c.definitionId === UNABATED_IN_MALICE)).toBe(true);
+    expect(revealed.activeConstraints.some(c => c.kind.type === 'pending-attack-modifier')).toBe(true);
+
+    // The automatic-attack (Moria: Orcs, 4 strikes / 7 prowess) carries the
+    // buff and cancel protection from the moment it is initiated.
+    let next = dispatch(revealed, { type: 'pass', player: PLAYER_2 });
+    if (next.combat === null) next = dispatch(next, { type: 'pass', player: PLAYER_1 });
+    expect(next.combat).not.toBeNull();
+    expect(next.combat!.strikesTotal).toBe(5);
+    expect(next.combat!.strikeProwess).toBe(8);
+    expect(next.combat!.cancelProtection).toBeDefined();
   });
 
   test('NOT playable as an open hazard when the company has no declared destination', () => {
