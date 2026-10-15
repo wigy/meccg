@@ -24,6 +24,7 @@ import type {
   PlayerState,
   SiteCard,
   Company,
+  CompanyId,
 } from '../../index.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
@@ -40,7 +41,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
+import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -842,6 +843,86 @@ function cancelMovementActions(state: GameState, playerId: PlayerId, player: Pla
   return actions;
 }
 
+/**
+ * Company-size caps imposed by end-of-organization-phase cards already played
+ * this phase, keyed by the company they target.
+ *
+ * A card like Stealth (tw-332, "only if the scout's company size is less than
+ * three") is played "at the end of the organization phase", so its size
+ * condition describes the company as it leaves the organization phase. The
+ * engine still lets the player organize after such a play (CoE 2.II.7), so the
+ * card's `play-target` `maxCompanySize` keeps binding its company afterwards:
+ * any constraint whose source card has an `end-of-org` play window and a
+ * size-capped play-target contributes that cap to its target company.
+ */
+function endOfOrgCompanySizeCaps(state: GameState): Map<CompanyId, { cap: number; cardName: string }> {
+  const caps = new Map<CompanyId, { cap: number; cardName: string }>();
+  for (const constraint of state.activeConstraints) {
+    if (constraint.target.kind !== 'company') continue;
+    const def = defById(state, constraint.sourceDefinitionId);
+    if (!def) continue;
+    const effects = getCardEffects(def);
+    const endOfOrg = effects.some(e => e.type === 'play-window' && e.phase === 'organization' && e.step === 'end-of-org');
+    if (!endOfOrg) continue;
+    const playTarget = effects.find((e): e is PlayTargetEffect => e.type === 'play-target' && e.maxCompanySize !== undefined);
+    if (!playTarget) continue;
+    const cap = playTarget.maxCompanySize as number;
+    const existing = caps.get(constraint.target.companyId);
+    if (!existing || cap < existing.cap) caps.set(constraint.target.companyId, { cap, cardName: def.name });
+  }
+  return caps;
+}
+
+/**
+ * Mark non-viable every organization action that would grow a company past a
+ * cap from {@link endOfOrgCompanySizeCaps} — merging companies, moving a
+ * character (with followers) into it, or playing a character into it.
+ * Without this, a player could play Stealth on a two-character company and
+ * then merge a third character in, keeping Stealth's protection on a company
+ * the card could never have been played on.
+ */
+function blockEndOfOrgSizeCapGrowth(state: GameState, player: PlayerState, actions: EvaluatedAction[]): EvaluatedAction[] {
+  const caps = endOfOrgCompanySizeCaps(state);
+  if (caps.size === 0) return actions;
+  const rosterOf = (companyId: CompanyId): readonly CardInstanceId[] =>
+    player.companies.find(c => c.id === companyId)?.characters ?? [];
+  const withFollowers = (charId: CardInstanceId): CardInstanceId[] =>
+    [charId, ...((player.characters[charId] as import('../../index.js').CharacterInPlay | undefined)?.followers ?? [])];
+
+  /** Returns the blocking reason when `companyId` would exceed its cap with `roster`. */
+  const exceeds = (companyIds: readonly CompanyId[], roster: readonly CardInstanceId[]): string | null => {
+    for (const companyId of companyIds) {
+      const capInfo = caps.get(companyId);
+      if (!capInfo) continue;
+      const size = companyEffectiveSizeOf(state, roster);
+      if (size > capInfo.cap) {
+        return `${capInfo.cardName} was played on this company — its size cannot exceed ${capInfo.cap}`;
+      }
+    }
+    return null;
+  };
+
+  return actions.map(ea => {
+    if (!ea.viable) return ea;
+    const a = ea.action;
+    let reason: string | null = null;
+    if (a.type === 'merge-companies') {
+      reason = exceeds([a.sourceCompanyId, a.targetCompanyId], [...rosterOf(a.targetCompanyId), ...rosterOf(a.sourceCompanyId)]);
+    } else if (a.type === 'move-to-company') {
+      reason = exceeds([a.targetCompanyId], [...rosterOf(a.targetCompanyId), ...withFollowers(a.characterInstanceId)]);
+    } else if (a.type === 'play-character' && !(a.newCompany && a.controlledBy === 'general')) {
+      const controllerId = a.controlledBy !== 'general' ? a.controlledBy : undefined;
+      const company = controllerId !== undefined
+        ? player.companies.find(c => c.currentSite?.instanceId === a.atSite && c.characters.includes(controllerId))
+        : player.companies.find(c => c.currentSite?.instanceId === a.atSite);
+      if (company) reason = exceeds([company.id], [...company.characters, a.characterInstanceId]);
+    }
+    if (reason === null) return ea;
+    logDetail(`Organization: blocking ${a.type} — ${reason}`);
+    return { action: a, viable: false, reason };
+  });
+}
+
 export function organizationActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId);
   if (!player) return [];
@@ -1093,6 +1174,10 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   // Voluntary return-to-hand of an attached ally (Radagast's Black Bird wh-114)
   actions.push(...returnAttachedToHandActions(state, playerId));
 
+  // End-of-org size-gated plays (Stealth tw-332) pin their company's size:
+  // block organizing that would grow it past the card's cap.
+  const cappedActions = blockEndOfOrgSizeCapGrowth(state, player, actions);
+
   // Rule 2.II.3.6: "all but one of the companies must declare movement to a
   // new site during that organization phase." Withhold pass while more than
   // one split-lineage company still lacks a destination and a plan-movement
@@ -1105,9 +1190,9 @@ export function organizationActions(state: GameState, playerId: PlayerId): Evalu
   if (canStillDeclareMovement) {
     logDetail(`Organization: withholding pass — rule 2.II.3.6 requires ${pendingSplitMovement.length} more split company(ies) to declare movement`);
   } else {
-    actions.push({ action: { type: 'pass', player: playerId }, viable: true });
+    cappedActions.push({ action: { type: 'pass', player: playerId }, viable: true });
   }
-  return actions;
+  return cappedActions;
 }
 
 /**

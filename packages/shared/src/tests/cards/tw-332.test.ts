@@ -77,6 +77,55 @@ describe('Stealth (tw-332)', () => {
     expect(playActions.find(a => a.cardInstanceId === stealthInstance)).toBeDefined();
   });
 
+  test('after Stealth, the company cannot be merged past size two', () => {
+    // Regression (bug report "Stealth", game mv9l3omk-vfka6m): Stealth was
+    // played on a scout in a two-character company, which then merged with a
+    // third character's company and moved with Stealth's protection intact.
+    // Stealth is an end-of-org play "only if the scout's company size is less
+    // than three", so organizing that grows the company to three must be
+    // blocked after it is played.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: RIVENDELL, characters: [ARAGORN, BILBO] },
+            { site: RIVENDELL, characters: [GANDALF] },
+          ],
+          hand: [STEALTH],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const stealthInstance = handCardId(base, RESOURCE_PLAYER);
+    const aragornInstance = charIdAt(base, RESOURCE_PLAYER);
+    const stealthCompanyId = companyIdAt(base, RESOURCE_PLAYER, 0);
+    const otherCompanyId = companyIdAt(base, RESOURCE_PLAYER, 1);
+    const isMergeOf = (a: { type: string; sourceCompanyId?: string; targetCompanyId?: string }) =>
+      a.type === 'merge-companies'
+      && [a.sourceCompanyId, a.targetCompanyId].includes(stealthCompanyId)
+      && [a.sourceCompanyId, a.targetCompanyId].includes(otherCompanyId);
+
+    // Sanity: merging is allowed before Stealth is played.
+    expect(viableActions(base, PLAYER_1, 'merge-companies').some(ea => isMergeOf(ea.action))).toBe(true);
+
+    const afterPlay = dispatch(base, {
+      type: 'play-short-event',
+      player: PLAYER_1,
+      cardInstanceId: stealthInstance,
+      targetScoutInstanceId: aragornInstance,
+    });
+
+    // Merging in either direction would make a company of size three.
+    expect(viableActions(afterPlay, PLAYER_1, 'merge-companies').some(ea => isMergeOf(ea.action))).toBe(false);
+    // Moving Gandalf into the Stealth company is blocked too.
+    expect(viableActions(afterPlay, PLAYER_1, 'move-to-company')
+      .some(ea => (ea.action as { targetCompanyId: string }).targetCompanyId === stealthCompanyId)).toBe(false);
+  });
+
   test('playing Stealth does not lock out movement or other organization actions', () => {
     // Regression (bug report: "Saruman, Isengard", game mqi3vh2z-32ok2s):
     // playing an "end of the organization phase" card (Stealth) used to
