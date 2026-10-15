@@ -72,6 +72,29 @@ let instanceSnapshot: Map<string, SnapshotEntry> | null = null;
 /** Stored positions keyed by definition ID (list to handle duplicates). */
 let defIdSnapshot: Map<string, DOMRect[]> | null = null;
 
+/** Whether the combat view was showing when the snapshot was taken. */
+let snapshotInCombatView = false;
+
+/**
+ * Decide whether a re-render should skip FLIP animation entirely because the
+ * board switched between the company view and the combat view.
+ *
+ * The two views lay the same cards out in completely different places, so
+ * animating across the switch sends every card on the board flying while the
+ * rest fade in. An opponent playing creature after creature toggles the
+ * combat view on and off for each attack, and the board appearing to zoom in
+ * and out every time was reported as visually disruptive. A view switch is
+ * a cut, not a move.
+ */
+export function shouldSkipFlipForViewSwitch(wasCombatView: boolean, isCombatView: boolean): boolean {
+  return wasCombatView !== isCombatView;
+}
+
+/** Whether the combat view is currently rendered (see company-view.ts). */
+function inCombatView(): boolean {
+  return document.body.classList.contains('combat-active');
+}
+
 /** The parts of a DOMRect the animation decision needs. */
 interface RectLike {
   readonly width: number;
@@ -119,6 +142,7 @@ function animationTarget(img: HTMLElement): HTMLElement {
 export function snapshotPositions(): void {
   instanceSnapshot = new Map();
   defIdSnapshot = new Map();
+  snapshotInCombatView = inCombatView();
 
   // Snapshot individual card images
   for (const el of document.querySelectorAll(CARD_SELECTOR)) {
@@ -169,6 +193,8 @@ export function animateFromSnapshot(): void {
   const oldDefIds = defIdSnapshot;
   instanceSnapshot = null;
   defIdSnapshot = null;
+
+  if (shouldSkipFlipForViewSwitch(snapshotInCombatView, inCombatView())) return;
 
   // Nothing to animate from
   if ((!oldInstances || oldInstances.size === 0)
