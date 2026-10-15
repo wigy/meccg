@@ -3491,9 +3491,50 @@
       {
         "type": "stage-points",
         "value": 1
+      },
+      {
+        "type": "stat-modifier",
+        "stat": "corruption-points",
+        "value": 1
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": { "target.name": "Saruman" }
+      },
+      {
+        "type": "play-option",
+        "id": "no-saruman",
+        "untargeted": true,
+        "when": { "player.avatarInPlay": false },
+        "apply": { "type": "sequence", "apps": [] }
+      },
+      {
+        "type": "on-event",
+        "event": "avatar-enters-play",
+        "apply": {
+          "type": "move",
+          "select": "self",
+          "from": "self-location",
+          "to": "in-play-on-character"
+        }
+      },
+      {
+        "type": "grant-action",
+        "action": "many-coloured-robes-fetch",
+        "cost": { "tap": "bearer" },
+        "endOfTurnOnly": true,
+        "apply": {
+          "type": "move",
+          "select": "target",
+          "from": "discard",
+          "to": "hand",
+          "filter": { "name": { "$in": ["Ringlore", "Lordly Presence", "First of the Order"] } }
+        }
       }
     ],
-    "text": "Unique. Saruman specific. Place this card on Saruman if he is in play. If on Saruman, he may tap during his end-of-turn phase to take Ringlore, Lordly Presence, or First of the Order from his discard pile to his hand."
+    "text": "Unique. Saruman specific. Place this card on Saruman if he is in play. If on Saruman, he may tap during his end-of-turn phase to take Ringlore, Lordly Presence, or First of the Order from his discard pile to his hand.",
+    "certified": "2026-10-15"
   },
   {
     "cardType": "minion-resource-event",
