@@ -25,7 +25,7 @@ import { flagCouncilCall } from './reducer-end-of-turn.js';
 import type { CompanyId, CardDefinitionId, CardInstanceId, PlayerId } from '../types/common.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { formatSignedNumber } from '../format-helpers.js';
-import { buildMovementMap, getReachableSites } from '../movement-map.js';
+import { agentSiteAlignment, buildMovementMap, getReachableSites } from '../movement-map.js';
 import { resetCompanyMHFields } from './mh-phase-state.js';
 import { getPlayerIndex, isMinionOrBalrog, companyContainsRingwraithAvatar } from '../state-utils.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard } from '../types/cards.js';
@@ -437,9 +437,10 @@ export function isLegalMovementHop(
 ): boolean {
   // Restrict the map and candidate sites to the moving (agent owner's)
   // alignment so same-named sites of other sides don't create phantom hops.
-  const movementMap = buildMovementMap(state.cardPool, alignment);
+  const siteAlignment = agentSiteAlignment(alignment);
+  const movementMap = buildMovementMap(state.cardPool, siteAlignment);
   const allSites = Object.values(state.cardPool).filter(
-    (s): s is SiteCard => isSiteCard(s) && s.alignment === alignment,
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === siteAlignment,
   );
   const fromDef = allSites.find(s => s.name === fromSiteName);
   if (!fromDef) return false;
@@ -453,6 +454,9 @@ export function isLegalMovementHop(
  * Revealing does not cost a hazard slot. The engine:
  * 1. Places the chosen home site (from the location deck) as the agent's
  *    current site (rule 9.04). The site is removed from the location deck.
+ *    A face-down agent that already has site cards with it is instead
+ *    revealed in place at its top (current) site (rule 4.2; CRF: a site left
+ *    face-up when the agent turned face-down counts as a legal first card).
  * 2. Validates movement legality of the complete site stack (rule 4.2.1).
  *    Revealing at the home site with an empty prior stack is always legal.
  *    If any hop is illegal, the agent and home site are discarded.
@@ -476,8 +480,16 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
   const agentDef = defById(state, agent.character.definitionId);
   const agentName = agentDef?.name ?? String(agent.character.definitionId);
 
+  // A face-down agent with site cards already with it (moved face-down, or
+  // turned face-down leaving its current site face-up) is revealed in place
+  // at the top of its stack — that site is its current site, and no home site
+  // card is drawn from the location deck. Placing a second home site on top
+  // would fabricate a hop (e.g. Minas Morgul → Minas Morgul) that fails the
+  // movement check and wrongly discards the agent.
+  const inPlace = agent.siteStack.length > 0;
+
   // --- No home site available: reveal without site, discard at end of turn (rule 9.04) ---
-  if (!action.homeSiteInstanceId) {
+  if (!inPlace && !action.homeSiteInstanceId) {
     logDetail(`Reveal agent: ${agentName} (${agent.id as string}) — no home site available, will be discarded at end of turn`);
     const revealedAgent: AgentInPlay = {
       ...agent,
@@ -495,21 +507,25 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
     };
   }
 
-  // Pick the home site from the location deck
-  const homeSiteCard = hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
+  // Pick the reveal site: the agent's current (top) stack site when revealing
+  // in place, otherwise the chosen home site from the location deck.
+  const homeSiteCard = inPlace
+    ? agent.siteStack[agent.siteStack.length - 1]
+    : hazardPlayer.siteDeck.find(s => s.instanceId === action.homeSiteInstanceId);
   if (!homeSiteCard) return { state, error: 'Home site not in location deck' };
   const homeSiteDef = defById(state, homeSiteCard.definitionId);
 
   const homeSiteName = homeSiteDef && isSiteCard(homeSiteDef) ? homeSiteDef.name : String(homeSiteCard.definitionId);
-  logDetail(`Reveal agent: ${agentName} (${agent.id as string}) at home site "${homeSiteName}", prior stack length ${agent.siteStack.length}`);
+  logDetail(`Reveal agent: ${agentName} (${agent.id as string}) at ${inPlace ? 'current' : 'home'} site "${homeSiteName}", prior stack length ${agent.siteStack.length}`);
 
-  // Build the full site stack with the home site appended as the new current site
   const homeSiteEntry: AgentInPlay['siteStack'][0] = {
     instanceId: homeSiteCard.instanceId,
     definitionId: homeSiteCard.definitionId,
     status: CardStatus.Untapped,
   };
-  const fullStack = [...agent.siteStack, homeSiteEntry];
+  // The full movement history to validate; a home-site reveal appends the
+  // home site as the new current site.
+  const fullStack = inPlace ? agent.siteStack : [...agent.siteStack, homeSiteEntry];
 
   // --- Step 1: Validate movement history ---
   // Revealing at home site with empty prior stack is not movement (rule 9.04).
@@ -593,8 +609,10 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
     }
   }
 
-  // --- Step 3: Reveal — current site = home site, return earlier stack sites to deck ---
-  const returnedSites = agent.siteStack; // all prior sites go back (they were never in play)
+  // --- Step 3: Reveal — current site = reveal site, return earlier stack sites to deck ---
+  // All prior sites go back (they were never in play); an in-place reveal
+  // keeps its top site with the agent.
+  const returnedSites = inPlace ? agent.siteStack.slice(0, -1) : agent.siteStack;
   const revealedAgent: AgentInPlay = {
     ...agent,
     revealed: true,
@@ -607,7 +625,8 @@ export function handleRevealAgent(state: GameState, action: GameAction): Reducer
     state: updatePlayer(state, hazardIndex, p => ({
       ...p,
       agents: p.agents.map((a, i) => i === agentIdx ? revealedAgent : a),
-      // Remove home site from deck; return all prior stack sites
+      // Remove home site from deck (absent there for an in-place reveal);
+      // return all prior stack sites
       siteDeck: [...removeById(p.siteDeck, homeSiteCard.instanceId), ...returnedSites],
     })),
   };

@@ -21,7 +21,7 @@ import {
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
 } from '../../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, CompanyId } from '../../../index.js';
-import { Phase, CardStatus, ZERO_EFFECTIVE_STATS } from '../../../index.js';
+import { Phase, CardStatus, ZERO_EFFECTIVE_STATS, Alignment } from '../../../index.js';
 import type { AgentInPlay, CharacterInPlay } from '../../../index.js';
 
 const ANARIN = 'dm-1' as CardDefinitionId;   // homesite: "Moria"
@@ -227,5 +227,59 @@ describe('Rule 9.04 — Agent Reveal at Home Site', () => {
 
     expect(after.players[1].agents).toHaveLength(0);
     expect(after.players[1].discardPile.some(c => c.instanceId === AGENT_CHAR_ID)).toBe(true);
+  });
+
+  test('[FALLEN-WIZARD] agent turned face-down at its home site is revealed again in place, not discarded', () => {
+    // Bug report (game mv8xvzqi-4516ed): Golodhros was revealed at Minas
+    // Morgul, turned face-down (leaving Minas Morgul face-up with him), and
+    // on the next reveal the engine stacked a second Minas Morgul copy on
+    // top. The fabricated Minas Morgul → Minas Morgul hop failed the movement
+    // check and the agent was discarded. CRF: the site left face-up "counts
+    // as a legal first card" — the agent is revealed in place.
+    const GOLODHROS = 'dm-14' as CardDefinitionId;           // homesite: Minas Morgul, Cirith Ungol, Barad-dûr
+    const MINAS_MORGUL_HERO = 'tw-411' as CardDefinitionId;   // Fallen-wizard agents use hero sites (rule 9.08)
+    const LEFT_SITE_ID = 'test-home-mm-left' as CardInstanceId;
+    const DECK_SITE_ID = 'test-home-mm-deck' as CardInstanceId;
+    const GOLODHROS_ID = 'test-home-golodhros' as CardInstanceId;
+
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, alignment: Alignment.FallenWizard, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [] },
+      ],
+    });
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: { ...AGENT_CHAR, instanceId: GOLODHROS_ID, definitionId: GOLODHROS },
+      revealed: false,
+      siteStack: [{ instanceId: LEFT_SITE_ID, definitionId: MINAS_MORGUL_HERO, status: CardStatus.Untapped }],
+      remainingActions: 0,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+    const state = {
+      ...base,
+      players: [
+        base.players[0],
+        { ...base.players[1], agents: [agent], siteDeck: [{ instanceId: DECK_SITE_ID, definitionId: MINAS_MORGUL_HERO }] },
+      ] as unknown as typeof base.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 2, hazardsPlayedThisCompany: 0 }),
+    };
+
+    const revealActions = viableActions(state, PLAYER_2, 'reveal-agent');
+    expect(revealActions).toHaveLength(1);
+
+    const after = dispatch(state, revealActions[0].action);
+    const hazard = after.players[HAZARD_PLAYER];
+    expect(hazard.agents).toHaveLength(1);
+    expect(hazard.agents[0].revealed).toBe(true);
+    expect(hazard.agents[0].discardAtEndOfTurn).toBe(false);
+    expect(hazard.agents[0].siteStack.map(s => s.instanceId)).toEqual([LEFT_SITE_ID]);
+    expect(hazard.discardPile.some(c => c.instanceId === GOLODHROS_ID)).toBe(false);
+    // The second Minas Morgul copy stays in the location deck
+    expect(hazard.siteDeck.some(s => s.instanceId === DECK_SITE_ID)).toBe(true);
   });
 });

@@ -199,4 +199,56 @@ describe('Rule 9.08 — Agent Alignment Movement Restrictions', () => {
     );
     expect(toMinionSite).toHaveLength(0);
   });
+
+  test('[FALLEN-WIZARD] face-up agent at a hero site can move to a hero site in the same region', () => {
+    // Bug report (game mv8xvzqi-4516ed): a Fallen-wizard player's Golodhros,
+    // revealed at Minas Morgul, was never offered any agent-move — the agent
+    // site lookup filtered on the player's own `fallen-wizard` alignment,
+    // which no hero site carries.
+    const GOLODHROS = 'dm-14' as CardDefinitionId;
+    const MINAS_MORGUL_HERO = 'tw-411' as CardDefinitionId;  // Imlad Morgul
+    const SHELOBS_LAIR_HERO = 'tw-424' as CardDefinitionId;  // Imlad Morgul
+
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [] },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.FallenWizard,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [SHELOBS_LAIR_HERO],
+        },
+      ],
+    });
+
+    const agent: AgentInPlay = {
+      id: 'agent-0-0' as CompanyId,
+      character: { ...AGENT_CHAR, definitionId: GOLODHROS },
+      revealed: true,
+      siteStack: [{ instanceId: 'test-a08-minas-morgul' as CardInstanceId, definitionId: MINAS_MORGUL_HERO, status: CardStatus.Untapped }],
+      remainingActions: 1,
+      inPlayAtTurnStart: true,
+      attackedThisSitePhase: false,
+      discardAtEndOfTurn: false,
+    };
+
+    const withAgent = {
+      ...state,
+      players: [
+        state.players[0],
+        { ...state.players[1], agents: [agent] },
+      ] as unknown as typeof state.players,
+      phaseState: makeMHState({ hazardLimitAtReveal: 4, hazardsPlayedThisCompany: 0 }),
+    };
+
+    const moveActions = viableActions(withAgent, PLAYER_2, 'agent-move');
+    const lairInst = withAgent.players[1].siteDeck.find(s => s.definitionId === SHELOBS_LAIR_HERO);
+    const toLair = moveActions.filter(a =>
+      (a.action as AgentMoveAction).destinationSiteInstanceId === lairInst?.instanceId,
+    );
+    expect(toLair).toHaveLength(1);
+  });
 });
