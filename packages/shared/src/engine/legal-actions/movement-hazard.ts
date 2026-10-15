@@ -2514,7 +2514,82 @@ function untargetedOptionCandidates(
   }
 }
 
+/**
+ * Effect types a hazard short-event may carry and still be playable during
+ * the movement/hazard phase of a company whose characters have all left
+ * play: none of them reads or affects the company (e.g. An Unexpected
+ * Outpost dm-45 only shuffles cards into its own player's play deck).
+ */
+const COMPANYLESS_SHORT_EVENT_EFFECTS: ReadonlySet<string> = new Set([
+  'move', 'play-flag', 'duplication-limit', 'play-condition',
+]);
+
+/**
+ * Whether a `play-hazard` action can still be played once the active
+ * company has no characters left. The company's M/H phase does not end when
+ * its characters are eliminated — its base hazard limit "stays fixed"
+ * (CoE 2.IV, "even if a character is eliminated from the company") and its
+ * site stays in play until the end of all M/H phases (rule 2.3) — so the
+ * hazard player may keep playing hazards that do not need the company:
+ * long-events, untargeted permanent-events (e.g. Doors of Night) and
+ * short-events that only touch their own player's cards. Creatures and
+ * anything aimed at a character, site or other target have nothing left to
+ * act on.
+ */
+function isCompanylessHazardPlay(state: GameState, action: PlayHazardAction): boolean {
+  if (action.keyedBy || action.targetCharacterId || action.targetSiteDefinitionId
+    || action.targetFactionInstanceId || action.targetStoredItemInstanceId
+    || action.targetStoredPermanentEventInstanceId) {
+    return false;
+  }
+  const player = state.players.find(p => p.id === action.player);
+  const handCard = player?.hand.find(c => c.instanceId === action.cardInstanceId);
+  const def = handCard ? defById(state, handCard.definitionId) : undefined;
+  if (!def || def.cardType !== 'hazard-event') return false;
+  const effects = getCardEffects(def);
+  if (def.eventType === 'long') return true;
+  if (def.eventType === 'permanent') return !effects.some(e => e.type === 'play-target');
+  return effects.every(e => COMPANYLESS_SHORT_EVENT_EFFECTS.has(e.type));
+}
+
 function playHazardsActions(
+  state: GameState,
+  playerId: PlayerId,
+  mhState: MovementHazardPhaseState,
+  isResourcePlayer: boolean,
+): EvaluatedAction[] {
+  const activeIdx = getPlayerIndex(state, state.activePlayer!);
+  const targetCompanyRef = state.players[activeIdx].companies[mhState.activeCompanyIndex];
+  if (targetCompanyRef && targetCompanyRef.characters.length === 0 && !isResourcePlayer) {
+    // The active company's characters have all left play, but its M/H phase
+    // goes on (see isCompanylessHazardPlay): offer the hazard player only the
+    // hazards that do not need the company, plus pass.
+    const result: EvaluatedAction[] = [];
+    const blocked = new Set<string>();
+    for (const ea of playHazardsActionsForCompany(state, playerId, mhState, isResourcePlayer)) {
+      if (ea.action.type === 'pass') {
+        result.push(ea);
+      } else if (ea.action.type === 'play-hazard') {
+        if (isCompanylessHazardPlay(state, ea.action)) {
+          result.push(ea);
+        } else if (!blocked.has(ea.action.cardInstanceId as string)) {
+          blocked.add(ea.action.cardInstanceId as string);
+          result.push({ action: ea.action, viable: false, reason: 'The company has no characters left to play this hazard on' });
+        }
+      }
+    }
+    logDetail(`Play-hazards: active company no longer has characters — ${result.filter(a => a.viable && a.action.type === 'play-hazard').length} company-independent hazard(s) still playable`);
+    return result;
+  }
+  return playHazardsActionsForCompany(state, playerId, mhState, isResourcePlayer);
+}
+
+/**
+ * Enumerates the play-hazards step actions against the active company. When
+ * the company has no characters, the resource player may only pass; the
+ * hazard player's actions are further restricted by {@link playHazardsActions}.
+ */
+function playHazardsActionsForCompany(
   state: GameState,
   playerId: PlayerId,
   mhState: MovementHazardPhaseState,
@@ -2523,13 +2598,13 @@ function playHazardsActions(
   const actions: EvaluatedAction[] = [];
   const activeIdx = getPlayerIndex(state, state.activePlayer!);
   const targetCompanyRef = state.players[activeIdx].companies[mhState.activeCompanyIndex];
-  if (!targetCompanyRef || targetCompanyRef.characters.length === 0) {
-    // The active company dissolved mid-phase (all characters eliminated) —
-    // both players can only pass, which finalizes the company's M/H slot.
-    // During its own M/H phase an emptied company is kept in place (rule
-    // 2.3 holds its site until the end of all M/H phases — see
-    // `completeCombat`), but with no characters left there is nothing to
-    // play hazards on, so it is treated exactly like a missing company.
+  if (!targetCompanyRef || (targetCompanyRef.characters.length === 0 && isResourcePlayer)) {
+    // The active company dissolved mid-phase (all characters eliminated).
+    // A missing company leaves both players only pass; an emptied one is
+    // kept in place during its own M/H phase (rule 2.3 holds its site until
+    // the end of all M/H phases — see `completeCombat`), and while the
+    // hazard player may still play company-independent hazards on it, the
+    // resource player has nothing left to act with and may only pass.
     const alreadyPassed = isResourcePlayer ? mhState.resourcePlayerPassed : mhState.hazardPlayerPassed;
     if (alreadyPassed) {
       logDetail('Play-hazards: active company no longer has characters and player already passed — waiting');

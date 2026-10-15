@@ -16,12 +16,12 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER, HAZARD_PLAYER,
-  ARAGORN, LEGOLAS, GLAMDRING, ORC_PATROL,
+  ARAGORN, LEGOLAS, GLAMDRING, ORC_PATROL, AN_UNEXPECTED_OUTPOST, CAVE_DRAKE,
   RIVENDELL, LORIEN, MORIA, MINAS_TIRITH,
-  buildTestState, resetMint, makeShadowMHState, viableActions,
+  buildTestState, resetMint, makeShadowMHState, viableActions, actionAs, dispatch, resolveChain,
 } from '../../test-helpers.js';
 import { computeLegalActions, Phase } from '../../../index.js';
-import type { GameState, MovementHazardPhaseState, CardInstanceId } from '../../../index.js';
+import type { GameState, MovementHazardPhaseState, CardInstanceId, PlayHazardAction } from '../../../index.js';
 
 describe('Rule 5.16 — Step 7: Play Hazards', () => {
   beforeEach(() => resetMint());
@@ -112,19 +112,19 @@ describe('Rule 5.16 — Step 7: Play Hazards', () => {
     expect(notPlayable!.reason!.length).toBeGreaterThan(0);
   });
 
-  test('No hazards can be played once every character in the active company is eliminated', () => {
-    // Bug report (game mujoz3g6-6kpu10): Óin moved alone to Moria and was
-    // killed by a Cave-worm; the hazard player was still offered hazards
-    // against the now-empty company. During its own M/H phase an emptied
-    // company is kept in place (rule 2.3 holds its site), but with no
-    // characters left there is nothing to play hazards on — both players
-    // may only pass to end the company's movement/hazard phase.
+  test('Only company-independent hazards can be played once every character in the active company is eliminated', () => {
+    // Bug reports (games mujoz3g6-6kpu10, mv9u8oyi-spiga2): after the moving
+    // company's last character is eliminated, its M/H phase goes on — the
+    // base hazard limit "stays fixed ... even if a character is eliminated"
+    // (CoE 2.IV) and rule 2.3 holds its site until the end of all M/H
+    // phases. Creatures have nothing left to attack, but An Unexpected
+    // Outpost (which only touches its own player's cards) is still playable.
     const base = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
       players: [
         { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
-        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [ORC_PATROL, AN_UNEXPECTED_OUTPOST], siteDeck: [MINAS_TIRITH], sideboard: [CAVE_DRAKE] },
       ],
     });
     const emptied: GameState = {
@@ -135,11 +135,25 @@ describe('Rule 5.16 — Step 7: Play Hazards', () => {
         base.players[HAZARD_PLAYER],
       ] as typeof base.players,
     };
+    const [orcPatrolId, outpostId] = emptied.players[HAZARD_PLAYER].hand.map(c => c.instanceId);
 
-    expect(viableActions(emptied, PLAYER_2, 'play-hazard')).toHaveLength(0);
-    const hazardActions = computeLegalActions(emptied, PLAYER_2).filter(a => a.viable).map(a => a.action.type);
-    expect(hazardActions).toEqual(['pass']);
+    const hazardPlays = viableActions(emptied, PLAYER_2, 'play-hazard')
+      .map(ea => actionAs<PlayHazardAction>(ea.action).cardInstanceId);
+    expect(hazardPlays).toEqual([outpostId]);
+    const orcPatrol = computeLegalActions(emptied, PLAYER_2)
+      .find(ea => !ea.viable && 'cardInstanceId' in ea.action && ea.action.cardInstanceId === orcPatrolId);
+    expect(orcPatrol?.reason).toMatch(/no characters/);
     const resourceActions = computeLegalActions(emptied, PLAYER_1).filter(a => a.viable).map(a => a.action.type);
     expect(resourceActions).toEqual(['pass']);
+
+    const afterPlay = dispatch(emptied, {
+      type: 'play-hazard',
+      player: PLAYER_2,
+      cardInstanceId: outpostId,
+      targetCompanyId: emptied.players[RESOURCE_PLAYER].companies[0].id,
+    });
+    expect((afterPlay.phaseState as MovementHazardPhaseState).hazardsPlayedThisCompany).toBe(2);
+    const afterChain = resolveChain(afterPlay);
+    expect(afterChain.pendingEffects[0]?.effect.type).toBe('fetch-to-deck');
   });
 });
