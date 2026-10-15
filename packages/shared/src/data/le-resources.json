@@ -5542,11 +5542,29 @@
     "race": "man",
     "playableAt": [
       {
-        "site": "Gobel"
+        "site": "Gobel Mírlond"
       }
     ],
-    "effects": [],
-    "text": "Unique. Playable at Gobel Mírlond if the influence check is greater than 8. Standard Modifications: Black Númenóreans (+2), Southrons (+2)."
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Black Númenóreans"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Southrons"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Gobel Mírlond if the influence check is greater than 8. Standard Modifications: Black Númenóreans (+2), Southrons (+2).",
+    "certified": "2026-10-15"
   },
   {
     "cardType": "minion-resource-faction",
