@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1399 | 1399 | 0 | 100.0% |
+| 1401 | 1401 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 128 | 128 | 100.0% |
+| AS | 129 | 129 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 157 | 157 | 100.0% |
-| LE | 335 | 335 | 100.0% |
+| LE | 336 | 336 | 100.0% |
 | TD | 147 | 147 | 100.0% |
 | TW | 429 | 429 | 100.0% |
 | WH | 102 | 102 | 100.0% |
@@ -103,6 +103,7 @@
 | as-108 | Well-preserved | — | 13 | ☑ |
 | as-110 | World Gnawed by the Nameless | — | 13 | ☑ |
 | as-111 | Asdriags | — | 9 | ☑ |
+| as-113 | Black Númenóreans | — | 5 | ☑ |
 | as-114 | Corsairs of Rhûn | — | 8 | ☑ |
 | as-119 | Morgul-orcs | — | 12 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
@@ -643,6 +644,7 @@
 | le-286 | Snaga-hai | — | 7 | ☑ |
 | le-287 | Southrons | — | 9 | ☑ |
 | le-288 | Stone Trolls | — | 7 | ☑ |
+| le-289 | Umbarean Corsairs | — | 7 | ☑ |
 | le-291 | Uruk-hai | — | 8 | ☑ |
 | le-292 | Variags of Khand | — | 10 | ☑ |
 | le-293 | Wargs of the Forochel | — | 11 | ☑ |

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.201.0 — 2026-10-15
+
+Fallen-wizard Agents and Staff Fixed
+
+### Game Engine
+
+- Fallen-wizard players' agents can now move: agent site lookups use hero sites for a Fallen-wizard player, per rule 9.08 (#3334)
+- A face-down agent whose site card was left face-up (e.g. at Minas Morgul) is now revealed in place at its current site instead of fabricating a same-site hop that discarded the agent (#3334)
+- Wizard's Staff can now be played on a Fallen-wizard avatar, which counts as a Wizard for card text per CoE g.wiz.F1 (#3335)
+
+### Cards
+
+- Black Númenóreans (as-113) certified: influence check fixed to 9, playable at Gobel Mírlond, +2 influence check when the controller has Umbarean Corsairs in play (#3332)
+- Umbarean Corsairs (le-289) certified: playable-at site name corrected to Gobel Mírlond, +2 influence check modifiers for Black Númenóreans and Southrons in play (#3333)
+
+### Infrastructure
+
+- README and card test README metrics refreshed
+
 ## 0.200.0 — 2026-10-15
 
 Saruman's Robes and Discord Spells Certified
