@@ -2068,7 +2068,32 @@ export function getItemGrantedSkills(
   for (const item of charData.items) {
     const itemDef = state.cardPool[item.definitionId];
     for (const eff of getCardEffects(itemDef)) {
-      if (eff.type === 'grant-skill') {
+      if (eff.type === 'grant-skill' && eff.recipient === undefined) {
+        granted.push(eff.skill);
+      }
+    }
+  }
+  return granted;
+}
+
+/**
+ * Skills granted to a Fallen-wizard by `grant-skill` effects with
+ * `recipient: "own-fallen-wizard"` on general permanent events in his
+ * controller's `cardsInPlay` (Spells Born of Discord wh-81). Empty for any
+ * character who is not a Fallen-wizard.
+ */
+function getOwnFallenWizardGrantedSkills(
+  state: GameState,
+  charData: CharacterInPlay,
+): readonly string[] {
+  const def = state.cardPool[charData.definitionId];
+  if (!def || !isCharacterCard(def) || def.race !== Race.FallenWizard) return [];
+  const owner = state.players.find(p => p.characters[charData.instanceId] !== undefined);
+  if (!owner) return [];
+  const granted: string[] = [];
+  for (const card of owner.cardsInPlay) {
+    for (const eff of getCardEffects(state.cardPool[card.definitionId])) {
+      if (eff.type === 'grant-skill' && eff.recipient === 'own-fallen-wizard') {
         granted.push(eff.skill);
       }
     }
@@ -2105,7 +2130,7 @@ export function getEffectiveSkills(
       if (eff.type === 'override-skills') base = eff.skills;
     }
   }
-  const all = [...base, ...getItemGrantedSkills(state, charData)];
+  const all = [...base, ...getItemGrantedSkills(state, charData), ...getOwnFallenWizardGrantedSkills(state, charData)];
   // A `skill-suppression` effect (In the Heart of his Realm dm-67: "any sage
   // at a site in a Dark-domain … loses his sage skill") strips a matching
   // skill for the rest of every consumer here, so no caller needs its own

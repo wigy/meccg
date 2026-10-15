@@ -13812,12 +13812,15 @@ warrior, +2 prowess" —
 | Field | Required | Description |
 |-------|----------|-------------|
 | `skill` | yes | The skill name to grant (e.g. `"scout"`, `"sage"`, `"warrior"`). |
+| `recipient` | no | `"own-fallen-wizard"`: on a general permanent event, grants the skill to its controller's Fallen-wizard instead of a bearer. |
 
 ```json
 { "type": "grant-skill", "skill": "scout" }
 ```
 
 Used by Magic Ring of Stealth (tw-274), Magic Ring of Courage (tw-271).
+Spells Born of Discord (wh-81) uses `recipient: "own-fallen-wizard"` three times
+(sorcery, spirit-magic, shadow-magic) for "Your Fallen-wizard may use …".
 
 ---
 
