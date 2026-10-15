@@ -30,7 +30,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
   PLAYER_1, PLAYER_2,
-  Phase, CardStatus,
+  Phase, CardStatus, Alignment,
   GANDALF, SARUMAN, ARAGORN, LEGOLAS,
   WIZARDS_LAUGHTER, MARVELS_TOLD, GLAMDRING,
   LORIEN, MORIA, MINAS_TIRITH,
@@ -57,6 +57,8 @@ const WIZARDS_STAFF = 'td-170' as CardDefinitionId;
 const LONELY_MOUNTAIN = 'tw-428' as CardDefinitionId; // Smaug's Lair (hoard site)
 // wh-34 Promptings of Wisdom carries the "light-enchantment" keyword.
 const PROMPTINGS_OF_WISDOM = 'wh-34' as CardDefinitionId;
+// Pallando's Fallen-wizard avatar (race "fallen-wizard").
+const PALLANDO_FW = 'wh-7' as CardDefinitionId;
 
 describe('Wizard’s Staff (td-170)', () => {
   beforeEach(() => resetMint());
@@ -128,6 +130,28 @@ describe('Wizard’s Staff (td-170)', () => {
         && ea.action.attachToCharacterId === aragornId,
     );
     expect(onAragorn).toBeUndefined();
+  });
+
+  test('playable on a Fallen-wizard avatar (Pallando FW) — CoE glossary g.wiz.F1', () => {
+    // Bug report ff16da7597529e53: Pallando's Fallen-wizard avatar (wh-7,
+    // race "fallen-wizard") was refused Wizard's Staff at The Lonely
+    // Mountain. g.wiz.F1: card text referring to a Fallen-wizard player's
+    // "Wizard" means that player's Fallen-wizard avatar, so "Only a Wizard
+    // may bear this item" admits him.
+    const state = buildSitePhaseState({
+      site: LONELY_MOUNTAIN,
+      characters: [PALLANDO_FW],
+      hand: [WIZARDS_STAFF],
+      alignment: Alignment.FallenWizard,
+    });
+
+    const pallandoId = charIdAt(state, RESOURCE_PLAYER, 0, 0);
+    const plays = viableActions(state, PLAYER_1, 'play-hero-resource');
+    const onPallando = plays.find(
+      ea => ea.action.type === 'play-hero-resource'
+        && ea.action.attachToCharacterId === pallandoId,
+    );
+    expect(onPallando).toBeDefined();
   });
 
   test('mixed company: only offered on the Wizard, not the non-Wizard', () => {
