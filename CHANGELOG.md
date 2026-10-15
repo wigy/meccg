@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.202.0 — 2026-10-15
+
+Blocked Influence Moves Explained
+
+### Game Engine
+
+- Organization phase now reports every refused move of a character under another same-company character's direct influence as a non-viable move-to-influence entry with a reason: a control-source restriction (e.g. Wizard's Myrmidon), the character controlling followers, a no-direct-influence hazard (Rebel-talk), a Balrog controller, or insufficient direct influence (#3336)
+
+### Web Client
+
+- A character whose only influence moves are blocked stays clickable, and the action tooltip lists blocked moves as disabled entries showing why they are refused (#3336)
+
+### Infrastructure
+
+- README, rules test README and card test README metrics refreshed
+
 ## 0.201.0 — 2026-10-15
 
 Fallen-wizard Agents and Staff Fixed

@@ -878,7 +878,7 @@
 | td-167 | Wielded Twice | — | 20 | ☑ |
 | td-168 | Wit | — | 7 | ☑ |
 | td-169 | Wizard Uncloaked | — | 7 | ☑ |
-| td-170 | Wizard’s Staff | — | 20 | ☑ |
+| td-170 | Wizard’s Staff | — | 21 | ☑ |
 | td-171 | Wondrous Maps | — | 14 | ☑ |
 | td-172 | Wormsbane | — | 9 | ☑ |
 | td-173 | Buhr Widu | — | 7 | ☑ |
@@ -1390,7 +1390,7 @@
 | wh-81 | Spells Born of Discord | — | 7 | ☑ |
 | wh-82 | Thrall of the Voice | — | 17 | ☑ |
 | wh-83 | War-forges | — | 21 | ☑ |
-| wh-84 | Wizard’s Myrmidon | — | 8 | ☑ |
+| wh-84 | Wizard’s Myrmidon | — | 9 | ☑ |
 | wh-85 | Wizard’s Trove | — | 12 | ☑ |
 | wh-86 | Greater Half-orcs | — | 11 | ☑ |
 | wh-87 | Half-orcs | — | 10 | ☑ |
