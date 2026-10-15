@@ -11,7 +11,7 @@ import type { TapDiscardAttachedHazardEffect, TapAgentEffect, AgentTapAttackEffe
 import { GENERAL_INFLUENCE } from '../../constants.js';
 import { matchesCondition, matchesContext } from '../../effects/condition-matcher.js';
 import { hasPlayFlag } from '../../effects/play-flags.js';
-import { buildMovementMap, findRegionPaths, getReachableSites, withExtraRegionAdjacency, withVirtualAdjacency } from '../../movement-map.js';
+import { agentSiteAlignment, buildMovementMap, findRegionPaths, getReachableSites, withExtraRegionAdjacency, withVirtualAdjacency } from '../../movement-map.js';
 import { AGENT_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { getPlayerIndex, canCallEndgameNow, isWizard, isMinionOrBalrog, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, requirePhaseState } from '../../state-utils.js';
 import { evilHourRegionBonus } from '../evil-hour.js';
@@ -1035,6 +1035,25 @@ export function revealAgentActions(
     const agentDef = defById(state, agent.character.definitionId);
     if (!agentDef || !isCharacterCard(agentDef)) continue;
 
+    // A face-down agent that already has a site card with it (it moved while
+    // face-down, or was turned face-down leaving its current site face-up —
+    // CRF: that site "counts as a legal first card" for the next reveal) is
+    // revealed in place at the top of its stack. No home site card is taken
+    // from the location deck.
+    if (agent.siteStack.length > 0) {
+      const top = agent.siteStack[agent.siteStack.length - 1];
+      const topDef = defById(state, top.definitionId);
+      logDetail(`Agent reveal: ${agentDef.name} can reveal in place at current site "${topDef?.name ?? String(top.definitionId)}" (stack depth ${agent.siteStack.length})`);
+      const action: RevealAgentAction = {
+        type: 'reveal-agent',
+        player: playerId,
+        agentId: agent.id,
+        homeSiteInstanceId: top.instanceId,
+      };
+      actions.push({ action, viable: true });
+      continue;
+    }
+
     const homesiteNames = parseHomesiteNames(agentDef.homesite);
     if (homesiteNames.length === 0) {
       logDetail(`Agent ${agent.id as string}: no homesite defined — cannot reveal`);
@@ -1138,12 +1157,14 @@ function agentTurnActions(
     // (rule 4.1). When siteStack is non-empty, movement is from the top site.
     if (status === CardStatus.Untapped || status === CardStatus.Tapped) {
       const hazardAlignment = player.alignment;
-      // Agents navigate their owner's (minion/balrog) side of the site graph;
-      // restrict the map and candidates to that alignment so same-named sites
-      // of the hero side don't create phantom destinations.
-      const movementMap = buildMovementMap(state.cardPool, hazardAlignment);
+      // Agents navigate their owner's side of the site graph (hero sites for
+      // a Fallen-wizard, rule 9.08); restrict the map and candidates to that
+      // alignment so same-named sites of the other side don't create phantom
+      // destinations.
+      const siteAlignment = agentSiteAlignment(hazardAlignment);
+      const movementMap = buildMovementMap(state.cardPool, siteAlignment);
       const allSiteDefs = Object.values(state.cardPool).filter(
-        (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardAlignment,
+        (s): s is SiteCard => isSiteCard(s) && s.alignment === siteAlignment,
       );
 
       // Collect reachable site names from all valid starting points
@@ -1392,9 +1413,11 @@ function agentInfluenceActions(
   const { hazardPlayer, resourcePlayer, company } = ctx;
 
   // Agent site lookups resolve by name; restrict to the agent owner's
-  // (hazard) alignment so a same-named hero site isn't picked by mistake.
+  // (hazard) site alignment so a same-named site of the other side isn't
+  // picked by mistake.
+  const agentSites = agentSiteAlignment(hazardPlayer.alignment);
   const allSiteDefs = Object.values(state.cardPool).filter(
-    (s): s is SiteCard => isSiteCard(s) && s.alignment === hazardPlayer.alignment,
+    (s): s is SiteCard => isSiteCard(s) && s.alignment === agentSites,
   );
 
   type TapInfluenceEffect = { type: 'agent-tap-influence'; targetKinds: readonly ('character' | 'ally' | 'faction')[] };

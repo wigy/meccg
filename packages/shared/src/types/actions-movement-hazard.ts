@@ -1417,6 +1417,10 @@ export interface RevealAgentAction {
    * A site instance from the hazard player's own location deck that matches
    * one of the agent's home sites (rule 9.04). If omitted, no matching site
    * was available and the agent will be discarded at end of turn.
+   *
+   * For a face-down agent that already has site cards with it (it moved
+   * face-down, or was turned face-down at its current site), this is the
+   * top site of its `siteStack` instead: the agent is revealed in place.
    */
   readonly homeSiteInstanceId?: CardInstanceId;
 }

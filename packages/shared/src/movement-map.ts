@@ -114,6 +114,17 @@ export function computeAllPairsDistance(
 }
 
 /**
+ * The site-card alignment an agent hazard of a `playerAlignment` player
+ * navigates. A Fallen-wizard player's agents can only use hero site cards
+ * for movement (CoE rule 9.08), so their sites are the `wizard`-alignment
+ * ones — not the player's own `fallen-wizard` alignment, which no hero site
+ * carries. Every other alignment's agents use the player's own alignment.
+ */
+export function agentSiteAlignment(playerAlignment: Alignment): Alignment {
+  return playerAlignment === Alignment.FallenWizard ? Alignment.Wizard : playerAlignment;
+}
+
+/**
  * Whether a site whose card-alignment is `siteAlignment` belongs in the
  * movement topology of a player whose deck-alignment is `playerAlignment`.
  *
