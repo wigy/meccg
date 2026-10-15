@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.200.0 — 2026-10-15
+
+Saruman's Robes and Discord Spells Certified
+
+### Game Engine
+
+- New `own-fallen-wizard` grant-skill recipient: a general permanent event in a player's cards in play can grant skills to that player's Fallen-wizard (#3331)
+
+### Cards
+
+- Spells Born of Discord (wh-81) certified: grants sorcery, spirit-magic and shadow-magic to your Fallen-wizard, with stage points and a player-scoped duplication limit (#3331)
+- Many-coloured Robes (wh-118) certified: plays on Saruman (or waits for him to enter play), 1 stage point and 1 corruption point, and an end-of-turn fetch of Ringlore / Lordly Presence / First of the Order by tapping Saruman (#3330)
+
+### Web Client
+
+- Long lines in the in-game text log now wrap instead of being cut off (#3329)
+- Switching between the company and combat views no longer animates every card across the board, removing the zoom-in/zoom-out effect on each attack (#3329)
+
+### Infrastructure
+
+- README and card test README metrics refreshed
+
 ## 0.199.0 — 2026-10-14
 
 Unabated in Malice Revealed at Site Entry

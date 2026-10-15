@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1397 | 1397 | 0 | 100.0% |
+| 1399 | 1399 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -18,7 +18,7 @@
 | LE | 335 | 335 | 100.0% |
 | TD | 147 | 147 | 100.0% |
 | TW | 429 | 429 | 100.0% |
-| WH | 100 | 100 | 100.0% |
+| WH | 102 | 102 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -1385,6 +1385,7 @@
 | wh-75 | Hidden Haven | — | 28 | ☑ |
 | wh-76 | Legacy of Smiths | — | 12 | ☑ |
 | wh-77 | Mischief in a Mean Way | — | 12 | ☑ |
+| wh-81 | Spells Born of Discord | — | 7 | ☑ |
 | wh-82 | Thrall of the Voice | — | 17 | ☑ |
 | wh-83 | War-forges | — | 21 | ☑ |
 | wh-84 | Wizard’s Myrmidon | — | 8 | ☑ |
@@ -1418,6 +1419,7 @@
 | wh-114 | Radagast’s Black Bird | — | 10 | ☑ |
 | wh-115 | Shifter of Hues | — | 24 | ☑ |
 | wh-117 | The Forge-master | — | 9 | ☑ |
+| wh-118 | Many-coloured Robes | — | 14 | ☑ |
 | wh-119 | Man of Skill | — | 9 | ☑ |
 | wh-120 | Saruman’s Machinery | — | 24 | ☑ |
 | wh-122 | The White Hand | — | 10 | ☑ |
