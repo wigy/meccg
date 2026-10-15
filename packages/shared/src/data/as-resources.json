@@ -2217,11 +2217,25 @@
     "unique": true,
     "marshallingPoints": 2,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 9,
     "race": "dunadan",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable at Gobel Mírlond  if the influence check is greater than 8. Standard Modifications: Umbarean Corsairs (+2)."
+    "playableAt": [
+      {
+        "site": "Gobel Mírlond"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Umbarean Corsairs"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Gobel Mírlond  if the influence check is greater than 8. Standard Modifications: Umbarean Corsairs (+2).",
+    "certified": "2026-10-15"
   },
   {
     "cardType": "minion-resource-faction",
