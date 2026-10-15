@@ -19,6 +19,13 @@ export interface TooltipMenuItem {
    * menus instead of flattening the full cross product into one menu.
    */
   children?: readonly TooltipMenuItem[];
+  /**
+   * When set, the item is shown disabled with this explanation underneath
+   * (and as its hover title); clicking it does nothing. Used to explain why
+   * an option the player might expect — e.g. a move-to-influence the rules
+   * forbid — is not available.
+   */
+  disabledReason?: string;
 }
 
 /**
@@ -52,6 +59,24 @@ export function tooltipButton(label: string, onClick: () => void): HTMLButtonEle
 }
 
 /**
+ * Create a disabled tooltip menu button showing `label` with `reason`
+ * underneath. Clicks are swallowed so the menu stays open for reading.
+ */
+export function disabledTooltipButton(label: string, reason: string): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.className = 'char-action-tooltip__btn char-action-tooltip__btn--disabled';
+  btn.disabled = true;
+  btn.title = reason;
+  btn.textContent = label;
+  const why = document.createElement('span');
+  why.className = 'char-action-tooltip__reason';
+  why.textContent = reason;
+  btn.appendChild(why);
+  btn.addEventListener('click', (e) => e.stopPropagation());
+  return btn;
+}
+
+/**
  * Show a tooltip menu near an anchor element. Replaces any tooltip that is
  * already open; shows nothing when `items` is empty. Each item click
  * dismisses the menu before running its handler.
@@ -72,6 +97,10 @@ export function showTooltipMenu(
   tooltip.className = 'char-action-tooltip';
   options?.decorate?.(tooltip);
   for (const item of items) {
+    if (item.disabledReason !== undefined) {
+      tooltip.appendChild(disabledTooltipButton(item.label, item.disabledReason));
+      continue;
+    }
     tooltip.appendChild(tooltipButton(item.label, () => {
       if (item.children && item.children.length > 0) {
         showTooltipMenu(anchor, item.children, options);

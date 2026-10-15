@@ -42,6 +42,7 @@ import {
   rerender,
 } from './company-view-state.js';
 import { showConfirm } from './dialog.js';
+import type { BlockedMoveToInfluence } from './company-actions.js';
 import { setSelectedInfluencerForOpponent, clearOpponentInfluenceSelection, setTargetingInstruction, buildCardPreviewInfo } from './render.js';
 import { switchToAllCompanies } from './company-view.js';
 import { showTooltipMenu, tooltipButton, type TooltipMenuItem } from './tooltip-menu.js';
@@ -435,6 +436,7 @@ export function showCharacterActionTooltip(
   options: {
     onAction?: (action: GameAction) => void;
     influenceActions?: Map<string, MoveToInfluenceAction[]>;
+    blockedInfluenceActions?: Map<string, BlockedMoveToInfluence[]>;
     splitActions?: Map<string, SplitCompanyAction>;
     moveToCompanyActions?: Map<string, MoveToCompanyAction[]>;
     mergeActions?: Map<string, MergeCompaniesAction[]>;
@@ -469,6 +471,16 @@ export function showCharacterActionTooltip(
       label = `Move under DI of ${ctrlName ?? 'character'}`;
     }
     items.push({ label, onClick: () => onAction(ia) });
+  }
+
+  // Blocked reassignments are listed disabled with the engine's reason, so a
+  // move the rules forbid (e.g. Wizard's Myrmidon) is explained, not hidden.
+  for (const blocked of options.blockedInfluenceActions?.get(charInstId as string) ?? []) {
+    const ctrlId = blocked.action.controlledBy;
+    const ctrlDef = ctrlId === 'general' ? undefined : cachedInstanceLookup(ctrlId);
+    const ctrlName = ctrlDef ? cardPool[ctrlDef as string]?.name : undefined;
+    const label = ctrlId === 'general' ? 'Move under GI' : `Move under DI of ${ctrlName ?? 'character'}`;
+    items.push({ label, disabledReason: blocked.reason });
   }
 
   if (splitAction) {

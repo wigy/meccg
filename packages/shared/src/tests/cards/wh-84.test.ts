@@ -46,6 +46,7 @@ import {
   findCharInstanceId, findHandCardId,
   playPermanentEventAndResolve,
   getCharacter,
+  moveToInfluenceEntries,
 } from '../test-helpers.js';
 import type { CardDefinitionId } from '../../index.js';
 import { Phase, Alignment } from '../../index.js';
@@ -185,6 +186,27 @@ describe('Wizard\'s Myrmidon (wh-84)', () => {
     // character may not, even though its DI 4 ≥ cost 3.
     expect(controllers).toContain(avatarId);
     expect(controllers).not.toContain(mouthId);
+  });
+
+  test('the refused normal controller is reported as a blocked move naming Wizard\'s Myrmidon', () => {
+    const withCard = fwOrgState({ characters: [SARUMAN, THE_MOUTH, SLY_SOUTHERNER] });
+    const orcId = findCharInstanceId(withCard, RESOURCE_PLAYER, SLY_SOUTHERNER);
+    const avatarId = findCharInstanceId(withCard, RESOURCE_PLAYER, SARUMAN);
+    const mouthId = findCharInstanceId(withCard, RESOURCE_PLAYER, THE_MOUTH);
+    const cardId = findHandCardId(withCard, RESOURCE_PLAYER, WIZARDS_MYRMIDON);
+
+    const attached = playPermanentEventAndResolve(withCard, PLAYER_1, cardId, orcId);
+
+    const toAvatar = moveToInfluenceEntries(attached, PLAYER_1, orcId, avatarId);
+    expect(toAvatar).toHaveLength(1);
+    expect(toAvatar[0].viable).toBe(true);
+
+    const toMouth = moveToInfluenceEntries(attached, PLAYER_1, orcId, mouthId);
+    expect(toMouth).toHaveLength(1);
+    expect(toMouth[0].viable).toBe(false);
+    expect(toMouth[0].reason).toBe(
+      'Sly Southerner may only be controlled by general influence or a Fallen-wizard (Wizard’s Myrmidon)',
+    );
   });
 
   test('without the card, the same normal character IS a valid controller (isolates the restriction)', () => {

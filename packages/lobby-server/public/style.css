@@ -6872,6 +6872,27 @@ body.all-companies-mode:has(#debug-view.hidden) {
   border-color: rgba(196, 163, 90, 0.7);
 }
 
+/* Blocked option (e.g. a move-to-influence the rules forbid): dimmed, not
+   clickable, with the engine's reason shown underneath the label. */
+.char-action-tooltip__btn--disabled,
+.char-action-tooltip__btn--disabled:hover {
+  background: rgba(120, 120, 120, 0.12);
+  border-color: rgba(120, 120, 120, 0.3);
+  color: #8a8270;
+  cursor: not-allowed;
+  white-space: normal;
+  max-width: 22rem;
+  text-align: left;
+}
+
+.char-action-tooltip__reason {
+  display: block;
+  margin-top: 2px;
+  font-family: sans-serif;
+  font-size: 0.72rem;
+  color: #b0a58c;
+}
+
 /* Sideboard fetch modal — shows sideboard cards for avatar fetch action.
    The granted-target picker (Sauron's sideboard-fetch / peek-hand candidates)
    reuses the same card-fan presentation. */
