@@ -67,7 +67,7 @@ function getControlRestrictions(
  * `sources`) who may hold the character under direct influence, per the
  * CRF-22 "use the lower number" ruling. `undefined` when none are attached.
  */
-function governingControlRestriction(
+export function governingControlRestriction(
   state: GameState,
   char: CharacterInPlay,
 ): ControlRestrictionEffect | undefined {
@@ -118,4 +118,33 @@ export function directInfluenceControlAllowed(
     return isAvatarCharacter(ctrlDef) && controllerAlignment === 'fallen-wizard';
   }
   return false;
+}
+
+/**
+ * Name of the attached card whose `control-restriction` governs `char` (the
+ * lowest-cost one, per {@link governingControlRestriction}) — e.g. "Wizard's
+ * Myrmidon". Used to explain to the player why a move-to-influence is
+ * blocked. `undefined` when no attached card carries a restriction (a
+ * `control-cost-override` constraint has no attached source card).
+ */
+export function governingControlRestrictionSourceName(
+  state: GameState,
+  char: CharacterInPlay,
+): string | undefined {
+  let bestName: string | undefined;
+  let bestCost = Infinity;
+  for (const item of char.items) {
+    const def = resolveDef(state, item.instanceId);
+    const effects = (def as { effects?: readonly CardEffect[] } | undefined)?.effects;
+    if (!effects) continue;
+    for (const e of effects) {
+      if (e.type !== 'control-restriction') continue;
+      const cost = e.cost ?? Infinity;
+      if (bestName === undefined || cost < bestCost) {
+        bestName = (def as { name?: string }).name;
+        bestCost = cost;
+      }
+    }
+  }
+  return bestName;
 }

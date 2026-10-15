@@ -98,6 +98,24 @@ export function viableActions(state: GameState, playerId: PlayerId, actionType: 
     .filter(ea => ea.viable && ea.action.type === actionType);
 }
 
+/**
+ * All `move-to-influence` entries for a player — viable and blocked alike —
+ * optionally narrowed to moving `characterId` under `controlledBy`. Used to
+ * assert on the reasons the engine gives for refused influence moves.
+ */
+export function moveToInfluenceEntries(
+  state: GameState,
+  playerId: PlayerId,
+  characterId?: CardInstanceId,
+  controlledBy?: CardInstanceId | 'general',
+): EvaluatedAction[] {
+  return computeLegalActions(state, playerId).filter(ea => {
+    if (ea.action.type !== 'move-to-influence') return false;
+    if (characterId !== undefined && ea.action.characterInstanceId !== characterId) return false;
+    return controlledBy === undefined || ea.action.controlledBy === controlledBy;
+  });
+}
+
 /** All viable actions (of any type) for a player. */
 export function viableFor(state: GameState, playerId: PlayerId) {
   return computeLegalActions(state, playerId).filter(ea => ea.viable);

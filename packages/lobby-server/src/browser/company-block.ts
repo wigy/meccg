@@ -67,7 +67,7 @@ import { renderCharacterColumn } from './company-character.js';
 import { getHazardLimitLabel } from './render-player-names.js';
 import { showCharacterActionTooltip, showGrantedActionTooltip, showInPlayGrantedActionMenu, buildGrantedActionMenuItems, showOpponentInfluenceMenu, GRANTED_ACTION_LABELS } from './company-modals.js';
 import { showTooltipMenu, type TooltipMenuItem } from './tooltip-menu.js';
-import { resolveItemClick, isSelfDiscardGrantedAction } from './company-actions.js';
+import { resolveItemClick, isSelfDiscardGrantedAction, type BlockedMoveToInfluence } from './company-actions.js';
 import { switchToAllCompanies } from './company-view.js';
 import { showConfirm } from './dialog.js';
 
@@ -320,6 +320,12 @@ export function renderCompanyBlock(
     onAction?: (action: GameAction) => void;
     /** Map from character instance ID to move-to-influence actions for that character. */
     influenceActions?: Map<string, MoveToInfluenceAction[]>;
+    /**
+     * Map from character instance ID to the move-to-influence entries the
+     * engine reported as blocked, with reasons. A character with only blocked
+     * moves stays clickable so the action tooltip can explain why.
+     */
+    blockedInfluenceActions?: Map<string, BlockedMoveToInfluence[]>;
     /** Map from item instance ID to transfer-item actions for that item. */
     transferActions?: Map<string, TransferItemAction[]>;
     /** Map from item instance ID to store-item action for that item. */
@@ -524,7 +530,13 @@ export function renderCompanyBlock(
       return undefined;
     }
 
-    if (!actions || actions.length === 0) return undefined;
+    if (!actions || actions.length === 0) {
+      // Only blocked moves: keep the character clickable (no glow) so the
+      // action tooltip can show why each reassignment is not allowed.
+      const blocked = options.blockedInfluenceActions?.get(charInstId as string);
+      if (!blocked || blocked.length === 0) return undefined;
+      return { cls: '', handler: (e) => { e.stopPropagation(); } };
+    }
 
     // All actions are regress — still clickable but no glow
     const allRegress = actions.every(a => a.regress);

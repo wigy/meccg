@@ -21,7 +21,7 @@ import type {
   CardDefinitionId,
   Alignment as AlignmentType,
 } from '../../index.js';
-import { hasNoDirectInfluenceRestriction, hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
+import { hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites, withExtraRegionAdjacency } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
@@ -41,7 +41,7 @@ import { Phase } from '../../types/state-phases.js';
 import { regressable } from '../reverse-actions.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar, companyContainsRingwraithAvatar, totalMarshallingPoints } from '../../state-utils.js';
 import { availableDI } from './organization.js';
-import { controlCostOf, directInfluenceControlAllowed } from '../control-cost.js';
+import { controlCostOf, directInfluenceControlAllowed, governingControlRestriction, governingControlRestrictionSourceName } from '../control-cost.js';
 import { getItemSlot, pickActiveItemsForCharacter } from '../item-slots.js';
 
 /**
@@ -1120,10 +1120,18 @@ function buildRegionTypeMap(state: GameState): Map<string, string> {
  * 2. **To GI (un-follow)**: A follower can be moved to general influence,
  *    provided the total non-follower mind would not exceed the player's
  *    maximum general influence.
+ *
+ * To-DI moves that are not allowed (control-source restriction such as
+ * Wizard's Myrmidon, the character has followers, a no-direct-influence
+ * hazard, a Balrog controller, or insufficient direct influence) are emitted
+ * as non-viable entries carrying a human-readable `reason`, after all viable
+ * moves, so clients can explain why a target cannot be chosen.
  */
 export function moveToInfluenceActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
   const player = playerById(state, playerId)!;
   const actions: EvaluatedAction[] = [];
+  /** Non-viable to-DI moves with reasons, appended after every allowed move. */
+  const blocked: EvaluatedAction[] = [];
 
   for (const company of player.companies) {
     for (const charInstId of company.characters) {
@@ -1134,12 +1142,8 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
 
       const isAvatar = charDef.mind === null;
 
-      if (!isAvatar && char.followers.length === 0) {
-        // Block DI assignment when an attached hazard forbids it (e.g. Rebel-talk)
-        if (hasNoDirectInfluenceRestriction(char.hazards, state.cardPool)) {
-          logDetail(`  → blocked: ${charDef.name} has no-direct-influence restriction`);
-        } else {
-        // Rule 227: Move non-avatar character without followers to DI of a
+      if (!isAvatar) {
+        // Rule 227: Move a non-avatar character without followers to DI of a
         // non-follower character in the same company. Source can be GI or an
         // existing DI controller — CoE 2.II.3.2 doesn't require the character
         // to currently be under general influence, only that it has no
@@ -1152,8 +1156,13 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
         // 2.II.3.2 ("before any modifications applied as a result of being a
         // follower" — modifications that already apply while non-follower do
         // count).
+        //
+        // Every (character, controller) pair that cannot be taken is emitted
+        // as a non-viable entry with a reason, so the client can explain why
+        // a move is blocked instead of silently hiding the target.
         const baseMind = char.effectiveStats.mind ?? charDef.mind;
         const controlCost = controlCostOf(state, char, baseMind) ?? baseMind;
+        const noDIHazard = char.hazards.find(h => hasPlayFlag(defById(state, h.definitionId) as { readonly effects?: readonly CardEffect[] } | undefined, 'no-direct-influence'));
         for (const ctrlInstId of company.characters) {
           if (ctrlInstId === charInstId) continue;
           if (ctrlInstId === char.controlledBy) continue;
@@ -1161,30 +1170,55 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
           if (!ctrl) continue;
           // Controller must be under GI (non-follower)
           if (ctrl.controlledBy !== 'general') continue;
+          const ctrlDef = resolveDef(state, ctrl.instanceId);
+          const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
+          const action: GameAction = {
+            type: 'move-to-influence',
+            player: playerId,
+            characterInstanceId: charInstId,
+            controlledBy: ctrlInstId,
+          };
+          const block = (reason: string): void => {
+            logDetail(`  → blocked: move ${charDef.name} under DI of ${ctrlName}: ${reason}`);
+            blocked.push({ action, viable: false, reason });
+          };
           // The Balrog (ba-3) "may not have any followers" — excluded even
           // though he is under general influence, unless a fána card such as
           // Great Shadow (ba-62) grants him the permission (`grants-followers`
           // play-flag on an attached item).
-          const ctrlDef = resolveDef(state, ctrl.instanceId);
-          if (isBalrogAvatarDef(ctrlDef) && !hasFollowerGrantPermission(ctrl.items, state.cardPool)) continue;
+          if (isBalrogAvatarDef(ctrlDef) && !hasFollowerGrantPermission(ctrl.items, state.cardPool)) {
+            block(`${ctrlName} may not have any followers`);
+            continue;
+          }
+          // CoE 2.II.3.2: a character with followers cannot become a follower.
+          if (char.followers.length > 0) {
+            block(`${charDef.name} controls followers and cannot become a follower`);
+            continue;
+          }
+          // Block DI assignment when an attached hazard forbids it (e.g. Rebel-talk)
+          if (noDIHazard) {
+            const hazardName = defById(state, noDIHazard.definitionId)?.name ?? 'A hazard';
+            block(`${hazardName} prevents ${charDef.name} from being controlled by direct influence`);
+            continue;
+          }
           // Enforce control-source restriction (e.g. "only by general influence
-          // or a Fallen-wizard"): skip controllers the restriction disallows.
-          const ctrlName = isCharacterCard(ctrlDef) ? ctrlDef.name : '?';
+          // or a Fallen-wizard").
           if (!directInfluenceControlAllowed(state, char, ctrl, player.alignment)) {
-            logDetail(`  → blocked: ${charDef.name} may not be controlled by ${ctrlName} (control-source restriction)`);
+            const restriction = governingControlRestriction(state, char);
+            const sources = restriction?.sources?.includes('fallen-wizard')
+              ? 'general influence or a Fallen-wizard'
+              : 'general influence';
+            const sourceName = governingControlRestrictionSourceName(state, char);
+            block(`${charDef.name} may only be controlled by ${sources}${sourceName ? ` (${sourceName})` : ''}`);
             continue;
           }
           const avail = availableDI(state, ctrl.instanceId, player, charDef);
           if (avail >= controlCost) {
             logDetail(`  → viable: move ${charDef.name} (control cost ${controlCost}) under DI of ${ctrlName} (avail DI ${avail})`);
-            actions.push(regressable(state, {
-              type: 'move-to-influence',
-              player: playerId,
-              characterInstanceId: charInstId,
-              controlledBy: ctrlInstId,
-            }));
+            actions.push(regressable(state, action));
+          } else {
+            block(`${ctrlName} has ${avail} direct influence available, ${charDef.name} needs ${controlCost}`);
           }
-        }
         }
       }
 
@@ -1206,7 +1240,7 @@ export function moveToInfluenceActions(state: GameState, playerId: PlayerId): Ev
     }
   }
 
-  return actions;
+  return [...actions, ...blocked];
 }
 
 /**

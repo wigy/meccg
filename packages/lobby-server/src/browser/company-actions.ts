@@ -75,6 +75,32 @@ export function getMoveToInfluenceActions(view: PlayerView): Map<string, MoveToI
   return result;
 }
 
+/** A move-to-influence the engine reported as blocked, with its reason. */
+export interface BlockedMoveToInfluence {
+  /** The blocked action (never sent to the server). */
+  readonly action: MoveToInfluenceAction;
+  /** Human-readable explanation of why the move is not allowed. */
+  readonly reason: string;
+}
+
+/**
+ * Collect all non-viable move-to-influence entries (e.g. a character under
+ * Wizard's Myrmidon that only a Fallen-wizard may control, or a controller
+ * without enough direct influence), keyed by the source character instance
+ * ID. Used to explain to the player why a reassignment cannot be made.
+ */
+export function getBlockedMoveToInfluenceActions(view: PlayerView): Map<string, BlockedMoveToInfluence[]> {
+  const result = new Map<string, BlockedMoveToInfluence[]>();
+  for (const ea of view.legalActions) {
+    if (ea.viable || ea.action.type !== 'move-to-influence') continue;
+    const key = ea.action.characterInstanceId as string;
+    const existing = result.get(key) ?? [];
+    existing.push({ action: ea.action, reason: ea.reason ?? 'Not allowed' });
+    result.set(key, existing);
+  }
+  return result;
+}
+
 /**
  * Collect all viable store-item actions, keyed by the item instance ID.
  * At most one store-item action exists per item (the item belongs to exactly one character).

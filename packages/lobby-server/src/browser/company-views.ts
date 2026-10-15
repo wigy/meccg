@@ -37,6 +37,7 @@ import { renderCompanyBlock, renderDummyCompanyBlock } from './company-block.js'
 import {
   getMovableCompanyIds,
   getMoveToInfluenceActions,
+  getBlockedMoveToInfluenceActions,
   getTransferItemActions,
   getStoreItemActions,
   getDiscardItemFromCompanyActions,
@@ -168,6 +169,7 @@ export function renderSingleView(
   const movableIds = getMovableCompanyIds(view);
   const hasLegalMovement = movableIds.has(company.id as string);
   const influenceActions = owner === 'self' ? getMoveToInfluenceActions(view) : undefined;
+  const blockedInfluenceActions = owner === 'self' ? getBlockedMoveToInfluenceActions(view) : undefined;
   const transferActions = owner === 'self' ? getTransferItemActions(view) : undefined;
   const storeItemActs = owner === 'self' ? getStoreItemActions(view) : undefined;
   const discardItemFromCompanyActs = owner === 'self' ? getDiscardItemFromCompanyActions(view) : undefined;
@@ -183,7 +185,7 @@ export function renderSingleView(
   const grantedActs = owner === 'self' ? getGrantedActions(view) : undefined;
   const bearerActs = owner === 'self' ? getSelectCardBearerActions(view) : undefined;
   const discardActs = owner === 'self' ? getDiscardCharacterActions(view) : undefined;
-  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, singleView: true, hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, discardItemFromCompanyActions: discardItemFromCompanyActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, tapCharacterByEffectActions: tapByEffectActs, declareBurglaryActions: burglaryActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, discardCharacterActions: discardActs }));
+  single.appendChild(renderCompanyBlock(company, charMap, view, cardPool, owner, { hideTitle: true, singleView: true, hasLegalMovement, onAction: lastOnAction, influenceActions, blockedInfluenceActions, transferActions, storeItemActions: storeItemActs, discardItemFromCompanyActions: discardItemFromCompanyActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, tapCharacterByEffectActions: tapByEffectActs, declareBurglaryActions: burglaryActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, discardCharacterActions: discardActs }));
 
   // Minimap radar — always shown.
   const radarSelfIndex = owner === 'self'
@@ -275,6 +277,7 @@ export function renderAllCompaniesView(
 
   // Move-to-influence actions (for highlighting characters)
   const influenceActions = getMoveToInfluenceActions(view);
+  const blockedInfluenceActions = getBlockedMoveToInfluenceActions(view);
 
   // Transfer-item and store-item actions (for highlighting transferable/storable items)
   const transferActions = getTransferItemActions(view);
@@ -326,7 +329,7 @@ export function renderAllCompaniesView(
   for (const company of view.self.companies) {
     if (visibleCompanyIds && !visibleCompanyIds.has(company.id)) continue;
     const hasLegalMovement = movableIds.has(company.id as string);
-    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, transferActions, storeItemActions: storeItemActs, discardItemFromCompanyActions: discardItemFromCompanyActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, tapCharacterByEffectActions: tapByEffectActs, declareBurglaryActions: burglaryActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, discardCharacterActions: discardActs, renderedSiteInstances });
+    const block = renderCompanyBlock(company, view.self.characters, view, cardPool, 'self', { hasLegalMovement, onAction: lastOnAction, influenceActions, blockedInfluenceActions, transferActions, storeItemActions: storeItemActs, discardItemFromCompanyActions: discardItemFromCompanyActs, splitActions, moveToCompanyActions: moveToCompanyActs, mergeActions, sideboardIntentActions: sideboardIntentActs, corruptionCheckActions: ccActions, supportCorruptionCheckActions: ccSupportActs, restoreCharacterActions: restoreActs, tapCharacterByEffectActions: tapByEffectActs, declareBurglaryActions: burglaryActs, grantedActions: grantedActs, selectCardBearerActions: bearerActs, discardCharacterActions: discardActs, renderedSiteInstances });
 
     if (selectCompanyActions.size > 0) {
       // M/H phase select-company step: highlight selectable companies
