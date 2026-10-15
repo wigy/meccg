@@ -84,7 +84,7 @@
     "siteType": "free-hold",
     "sitePath": [
       "dark",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Anduin Vales",
@@ -561,7 +561,7 @@
     "siteType": "ruins-and-lairs",
     "sitePath": [
       "dark",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Anduin Vales",

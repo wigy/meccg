@@ -23,7 +23,7 @@
  * | # | Property          | Status | Notes                                              |
  * |---|-------------------|--------|----------------------------------------------------|
  * | 1 | siteType          | OK     | "border-hold" — valid ({B})                        |
- * | 2 | sitePath          | OK     | [shadow, wilderness, free, free, shadow] — {s}{w}{f}{f}{s} |
+ * | 2 | sitePath          | OK     | [shadow, wilderness, free, free, border] — {s}{w}{f}{f}{b} |
  * | 3 | nearestHaven      | OK     | "Minas Morgul" — valid minion haven (le-390)       |
  * | 4 | region            | OK     | "Lamedon"                                          |
  * | 5 | playableResources | OK     | ["gold-ring"] — matches card text (data fix)       |

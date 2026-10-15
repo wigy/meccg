@@ -26,7 +26,7 @@
  * | # | Property          | Notes                                                     |
  * |---|-------------------|-----------------------------------------------------------|
  * | 1 | siteType          | "ruins-and-lairs" — valid                                 |
- * | 2 | sitePath          | [dark, shadow] — matches {d}{s}                           |
+ * | 2 | sitePath          | [dark, border] — matches {d}{b}                           |
  * | 3 | nearestHaven      | "Dol Guldur" — valid minion darkhaven (le-367) in pool    |
  * | 4 | region            | "Anduin Vales" — valid region in card pool                |
  * | 5 | playableResources | [gold-ring] — matches card text "Items (gold ring)"       |

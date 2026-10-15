@@ -17,7 +17,7 @@
  * | # | Property          | Status | Notes                                                             |
  * |---|-------------------|--------|-------------------------------------------------------------------|
  * | 1 | siteType          | OK     | "free-hold" — valid                                               |
- * | 2 | sitePath          | OK     | [dark, wilderness, shadow] — matches card {d}{w}{s}               |
+ * | 2 | sitePath          | OK     | [dark, wilderness, border] — matches card {d}{w}{b}               |
  * | 3 | nearestHaven      | OK     | "Dol Guldur" — valid minion haven in card pool                    |
  * | 4 | region            | OK     | "Woodland Realm" — valid region in card pool                      |
  * | 5 | playableResources | OK     | [information, minor, major, gold-ring] — matches card text        |

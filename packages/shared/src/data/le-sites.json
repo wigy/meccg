@@ -159,7 +159,7 @@
     "siteType": "ruins-and-lairs",
     "sitePath": [
       "wilderness",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Geann a-Lisch",
     "region": "Gap of Isen",
@@ -424,7 +424,7 @@
     "siteType": "free-hold",
     "sitePath": [
       "dark",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Anduin Vales",
@@ -559,7 +559,7 @@
       "shadow",
       "wilderness",
       "free",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Rohan",
@@ -641,7 +641,7 @@
     "sitePath": [
       "dark",
       "wilderness",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Woodland Realm",
@@ -1430,7 +1430,7 @@
     "sitePath": [
       "dark",
       "wilderness",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Dorwinion",
@@ -1660,7 +1660,7 @@
       "shadow",
       "wilderness",
       "free",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Rohan",
@@ -2013,7 +2013,7 @@
       "shadow",
       "wilderness",
       "free",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Rohan",
@@ -2133,7 +2133,7 @@
     "siteType": "ruins-and-lairs",
     "sitePath": [
       "dark",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Dol Guldur",
     "region": "Anduin Vales",
@@ -2175,7 +2175,7 @@
     "unique": true,
     "sitePath": [
       "wilderness",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Geann a-Lisch",
     "region": "Gap of Isen",
@@ -2792,7 +2792,7 @@
       "wilderness",
       "free",
       "free",
-      "shadow"
+      "border"
     ],
     "nearestHaven": "Minas Morgul",
     "region": "Lamedon",
