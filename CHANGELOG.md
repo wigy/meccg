@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.204.0 — 2026-10-16
+
+Hoarmûrath Strikes on Click
+
+### Web Client
+
+- An in-play Hoarmûrath of Dír can now be clicked during combat to add +1 strike: the combat view gains a panel listing the player's cards-in-play that have a live modify-attack action, giving bearer-less permanent-events a click target (#3340)
+
+### Infrastructure
+
+- Rule test README metrics refreshed (new organization-phase and challenge-deck tests listed)
+
 ## 0.203.0 — 2026-10-16
 
 Stealth Capped, Hazards Unblocked

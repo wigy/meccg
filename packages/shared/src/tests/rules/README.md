@@ -15,7 +15,7 @@
 | 00 | [Engine](00-engine/) | 18 | 18 | 100.0% |
 | 01 | [Deck Construction & Setup](01-deck-construction/) | 63 | 62 | 98.4% |
 | 02 | [Untap Phase](02-untap-phase/) | 13 | 13 | 100.0% |
-| 03 | [Organization Phase](03-organization-phase/) | 48 | 45 | 93.8% |
+| 03 | [Organization Phase](03-organization-phase/) | 49 | 46 | 93.9% |
 | 04 | [Long-Event Phase](04-long-event-phase/) | 3 | 3 | 100.0% |
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 26 | 76.5% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
@@ -49,6 +49,7 @@
 | — | Engine | [Early Council By Agreement](early-council-by-agreement.test.ts) | ☑ |
 | — | Engine | [Move Primitive](move-primitive.test.ts) | ☑ |
 | — | Engine | [Withdraw Support](withdraw-support.test.ts) | ☑ |
+| — | Deck Construction & Setup | [Challenge Deck F Minas Morgul](01-deck-construction/challenge-deck-f-minas-morgul.test.ts) | ☑ |
 | — | Deck Construction & Setup | [Challenge Deck S Beornings](01-deck-construction/challenge-deck-s-beornings.test.ts) | ☑ |
 | — | Deck Construction & Setup | [Challenge Decks Valid](01-deck-construction/challenge-decks-valid.test.ts) | ☑ |
 | 1.01 | Deck Construction & Setup | [Game Length](01-deck-construction/rule-1.01-game-length.test.ts) | ☑ |
@@ -150,6 +151,7 @@
 | 3.24 | Organization Phase | [Company Size Limits](03-organization-phase/rule-3.24-company-size-limits.test.ts) | ☑ |
 | 3.25 | Organization Phase | [Race Mixing Restriction](03-organization-phase/rule-3.25-race-mixing-restriction.test.ts) | ☑ |
 | 3.26 | Organization Phase | [Leader Restriction](03-organization-phase/rule-3.26-leader-restriction.test.ts) | ☑ |
+| 3.27 | Organization Phase | [Move To Follower Blocked](03-organization-phase/rule-3.27-move-to-follower-blocked.test.ts) | ☑ |
 | 3.27 | Organization Phase | [Move To Follower](03-organization-phase/rule-3.27-move-to-follower.test.ts) | ☑ |
 | 3.28 | Organization Phase | [Move To Gi](03-organization-phase/rule-3.28-move-to-gi.test.ts) | ☑ |
 | 3.29 | Organization Phase | [Move Between Companies](03-organization-phase/rule-3.29-move-between-companies.test.ts) | ☑ |
