@@ -46,6 +46,7 @@ import type {
   CardInPlay,
   DeclareBurglaryAction,
   SideboardWithNazgulAction,
+  RunHomeAction,
 } from '@meccg/shared';
 import { cardImageProxyPath, isAttachedToPresentSite, cardsAttachedToCompany, isAttachedToPresentCompany, isAttachedToPresentCharacter, Phase, CardStatus, viableActions, getTitleCharacter } from '@meccg/shared';
 import type { CardDefinitionId } from '@meccg/shared';
@@ -804,6 +805,26 @@ export function renderCompanyBlock(
 
     if (CHARACTER_TARGETING_MODES.some(mode => mode.selected())) {
       return buildTargetingModeClick(instId);
+    }
+
+    // Bill the Pony (tw-198): at end of turn the engine offers `run-home`
+    // keyed by the ally's own instance id — discard him to replace the
+    // company's site with the nearest haven. It is not an
+    // `activate-granted-action`, so without this check the ally card had no
+    // click affordance and the option was reachable only from the debug
+    // action panel.
+    const runHomeAction = viableActions(view.legalActions).find(
+      (a): a is RunHomeAction => a.type === 'run-home' && a.allyInstanceId === instId,
+    );
+    const runHomeOnAction = options?.onAction;
+    if (runHomeAction && runHomeOnAction) {
+      return {
+        cls: 'company-card--transfer-source',
+        handler: (e) => {
+          e.stopPropagation();
+          runHomeOnAction(runHomeAction);
+        },
+      };
     }
 
     if (!options?.onAction || !options.grantedActions) return undefined;
