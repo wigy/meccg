@@ -14,7 +14,7 @@
  * | # | Property          | Status | Notes                                                |
  * |---|-------------------|--------|------------------------------------------------------|
  * | 1 | siteType          | OK     | "free-hold" — valid                                  |
- * | 2 | sitePath          | OK     | [dark, shadow] — matches {d}{s}                      |
+ * | 2 | sitePath          | OK     | [dark, border] — matches {d}{b}                      |
  * | 3 | nearestHaven      | OK     | "Dol Guldur" — valid minion haven (le-367)           |
  * | 4 | region            | OK     | "Anduin Vales" — adjacent to Dol Guldur's region     |
  * | 5 | playableResources | OK     | [gold-ring] — matches text                           |

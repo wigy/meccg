@@ -20,7 +20,7 @@
  * | # | Property          | Notes                                                       |
  * |---|-------------------|-------------------------------------------------------------|
  * | 1 | siteType          | "ruins-and-lairs" — valid                                   |
- * | 2 | sitePath          | [wilderness, shadow] — matches {w}{s}                       |
+ * | 2 | sitePath          | [wilderness, border] — matches {w}{b}                       |
  * | 3 | nearestHaven      | "Geann a-Lisch" — valid minion haven (le-374) in card pool  |
  * | 4 | region            | "Gap of Isen" — valid region in card pool                   |
  * | 5 | playableResources | [minor, major] — matches card text "Items (minor, major)"   |

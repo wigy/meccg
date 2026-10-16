@@ -20,7 +20,7 @@
  * | # | Property          | Status | Notes                                                                  |
  * |---|-------------------|--------|------------------------------------------------------------------------|
  * | 1 | siteType          | OK     | "free-hold" — valid                                                    |
- * | 2 | sitePath          | OK     | [shadow, wilderness, free, shadow] — matches card {s}{w}{f}{s}         |
+ * | 2 | sitePath          | OK     | [shadow, wilderness, free, border] — matches card {s}{w}{f}{b}         |
  * | 3 | nearestHaven      | OK     | "Minas Morgul" — valid minion haven in card pool (le-390)              |
  * | 4 | region            | OK     | "Rohan" — reachable from Imlad Morgul within 4 regions                 |
  * | 5 | playableResources | OK     | [gold-ring] — matches card text                                        |

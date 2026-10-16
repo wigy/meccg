@@ -22,7 +22,7 @@
  * | # | Property          | Status | Notes                                              |
  * |---|-------------------|--------|----------------------------------------------------|
  * | 1 | siteType          | OK     | "ruins-and-lairs" — valid                          |
- * | 2 | sitePath          | OK     | [shadow, wilderness, free, shadow] — matches {s}{w}{f}{s} |
+ * | 2 | sitePath          | OK     | [shadow, wilderness, free, border] — matches {s}{w}{f}{b} |
  * | 3 | nearestHaven      | OK     | "Minas Morgul" — valid minion haven (le-390)       |
  * | 4 | region            | OK     | "Rohan"                                            |
  * | 5 | playableResources | OK     | [information, minor] — matches card text           |

@@ -14,7 +14,7 @@
  *
  * Authoritative cost data (data/cards.json, LE-384):
  *   siteType   {R}  → ruins-and-lairs
- *   sitePath   {w}{s} → [wilderness, shadow]
+ *   sitePath   {w}{b} → [wilderness, border]
  *   haven      Geann a-Lisch
  *   playable   Information, Items (minor, major, gold ring)
  *   autoAttack Wolves - 3 strikes with 7 prowess
@@ -38,7 +38,7 @@
  * | # | Property          | Status | Notes                                                  |
  * |---|-------------------|--------|--------------------------------------------------------|
  * | 1 | siteType          | OK     | "ruins-and-lairs" — matches {R}                        |
- * | 2 | sitePath          | OK     | [wilderness, shadow] — {w}{s}                          |
+ * | 2 | sitePath          | OK     | [wilderness, border] — {w}{b}                          |
  * | 3 | nearestHaven      | OK     | "Geann a-Lisch" — darkhaven le-374 (added here)        |
  * | 4 | region            | OK     | "Gap of Isen" — valid region                           |
  * | 5 | playableResources | OK     | [information, minor, major, gold-ring]                 |

@@ -14,7 +14,7 @@
  * | # | Property          | Status | Notes                                                            |
  * |---|-------------------|--------|------------------------------------------------------------------|
  * | 1 | siteType          | OK     | "border-hold" — valid                                           |
- * | 2 | sitePath          | OK     | [dark, wilderness, shadow] — matches {d}{w}{s}                  |
+ * | 2 | sitePath          | OK     | [dark, wilderness, border] — matches {d}{w}{b}                  |
  * | 3 | nearestHaven      | OK     | "Dol Guldur" — valid minion haven in card pool (le-367)         |
  * | 4 | region            | OK     | "Dorwinion" — valid region in card pool                         |
  * | 5 | playableResources | OK     | [minor, major] — matches card text                             |
