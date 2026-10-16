@@ -21,8 +21,8 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import type { CardInstanceId, Company, ModifyAttackAction } from '@meccg/shared';
-import { onGuardModifyAttackActions } from './on-guard-modify-attack.js';
+import type { CardInPlay, CardInstanceId, Company, ModifyAttackAction } from '@meccg/shared';
+import { onGuardModifyAttackActions, inPlayPermanentModifyAttackActions } from './on-guard-modify-attack.js';
 
 const UNABATED = 'p1-34' as CardInstanceId;
 const REVEALED_EVENT = 'p1-33' as CardInstanceId;
@@ -72,5 +72,35 @@ describe('onGuardModifyAttackActions (Unabated in Malice revealed onto an automa
   test('returns nothing when the company is not found', () => {
     const result = onGuardModifyAttackActions(undefined, [modifyAttack(UNABATED)]);
     expect(result).toEqual([]);
+  });
+});
+
+/**
+ * Regression test for bug report 6ec0c1fca18b8f2f (game mv9ymggk-sjj4u0, seq
+ * 151/161): the hazard player had Hoarmûrath of Dír (tw-44) in play as a
+ * permanent-event and the engine offered `modify-attack` on it (tap for +1
+ * strike) in the pre-assignment window of Indûr Dawndeath's and Dwar of Waw's
+ * attacks, but the combat arena had no click target for a bearer-less
+ * card-in-play, so the player could not tap it.
+ */
+describe('inPlayPermanentModifyAttackActions (Hoarmûrath of Dír tapped for +1 strike)', () => {
+  const HOARMURATH = 'p1-42' as CardInstanceId;
+  const cardsInPlay: CardInPlay[] = [
+    { instanceId: HOARMURATH, definitionId: 'tw-44', status: 'untapped' } as unknown as CardInPlay,
+  ];
+
+  test('includes the in-play permanent-event modify-attack action', () => {
+    const result = inPlayPermanentModifyAttackActions(cardsInPlay, [modifyAttack(HOARMURATH)]);
+    expect(result).toEqual([modifyAttack(HOARMURATH)]);
+  });
+
+  test('excludes hand-card and on-guard modify-attack actions', () => {
+    const result = inPlayPermanentModifyAttackActions(cardsInPlay, [modifyAttack(UNABATED)]);
+    expect(result).toEqual([]);
+  });
+
+  test('excludes item/ally activations that carry a bearer', () => {
+    const withBearer = { ...modifyAttack(HOARMURATH), characterInstanceId: 'p1-1' as CardInstanceId } as ModifyAttackAction;
+    expect(inPlayPermanentModifyAttackActions(cardsInPlay, [withBearer])).toEqual([]);
   });
 });

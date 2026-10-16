@@ -55,7 +55,7 @@ import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
 import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
 import { getFocusedCompanyId, setSavedFocusedCompanyId, setFocusedCompanyId } from './company-view-state.js';
-import { onGuardModifyAttackActions } from './on-guard-modify-attack.js';
+import { onGuardModifyAttackActions, inPlayPermanentModifyAttackActions } from './on-guard-modify-attack.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -167,6 +167,12 @@ export function renderCombatView(
   // anywhere in the UI (game mthd1qtm-uee04u, seq 389).
   const defendingCompanyForModify = findCompany(combat.companyId, view);
   const onGuardModifyAttackActionsList = onGuardModifyAttackActions(defendingCompanyForModify, modifyAttackActions);
+  // Modify-attack actions sourced from the player's own bearer-less
+  // card-in-play — Hoarmûrath of Dír (tw-44) tapped as a permanent-event for
+  // +1 strike. The general play area is hidden behind the combat arena, so
+  // without a panel here the engine-legal action had no click target (bug
+  // report 6ec0c1fca18b8f2f, game mv9ymggk-sjj4u0 seq 151/161).
+  const inPlayModifyAttackActionsList = inPlayPermanentModifyAttackActions(view.self.cardsInPlay, modifyAttackActions);
 
   // Two-step attacker selection is used in two CvCC sub-phases:
   // - 'attacker': the attacker pairs their untapped characters with defenders
@@ -220,6 +226,9 @@ export function renderCombatView(
   // pre-assignment window (rule 2.V.i reveal onto an automatic-attack).
   if (onGuardModifyAttackActionsList.length > 0) {
     arena.appendChild(renderOnGuardModifyAttackPanel(onGuardModifyAttackActionsList, onAction));
+  }
+  if (inPlayModifyAttackActionsList.length > 0) {
+    arena.appendChild(renderInPlayModifyAttackPanel(inPlayModifyAttackActionsList, view, cardPool, onAction));
   }
 
   // SVG arrows placeholder — drawn after layout
@@ -1528,6 +1537,46 @@ function renderOnGuardModifyAttackPanel(
     img.alt = 'On-guard card';
     img.className = 'company-card company-card--item combat-card--assignable';
     img.dataset.instanceId = action.cardInstanceId as string;
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onAction(action);
+    });
+    cardsRow.appendChild(img);
+  }
+
+  panel.appendChild(cardsRow);
+  return panel;
+}
+
+/**
+ * Render the in-play modify-attack panel between the combat rows. Shows each
+ * of the player's bearer-less cards-in-play with a live `modify-attack`
+ * action (e.g. Hoarmûrath of Dír tw-44: tap for +1 strike to this attack) as
+ * a clickable face-up card; clicking dispatches the action directly.
+ */
+function renderInPlayModifyAttackPanel(
+  actions: readonly ModifyAttackAction[],
+  view: PlayerView,
+  cardPool: Readonly<Record<string, CardDefinition>>,
+  onAction: (action: GameAction) => void,
+): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'combat-modify-attack-panel';
+
+  const label = document.createElement('div');
+  label.className = 'combat-modify-attack-label';
+  label.textContent = 'Card in play affecting this attack — click to tap and play:';
+  panel.appendChild(label);
+
+  const cardsRow = document.createElement('div');
+  cardsRow.className = 'combat-modify-attack-cards';
+
+  for (const action of actions) {
+    const card = view.self.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
+    if (!card) continue;
+    const img = createCardImageFromDefId(card.definitionId, cardPool, 'company-card company-card--item combat-card--assignable', card.instanceId as string);
+    if (!img) continue;
     img.style.cursor = 'pointer';
     img.addEventListener('click', (e) => {
       e.stopPropagation();
