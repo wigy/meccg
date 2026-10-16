@@ -1208,7 +1208,7 @@
 | tw-328 | Skinbark | — | 5 | ☑ |
 | tw-329 | Southrons | — | 6 | ☑ |
 | tw-330 | Star-glass | — | 15 | ☑ |
-| tw-332 | Stealth | — | 15 | ☑ |
+| tw-332 | Stealth | — | 16 | ☑ |
 | tw-333 | Sting | — | 3 | ☑ |
 | tw-334 | Stone of Erech | — | 8 | ☑ |
 | tw-335 | Sun | — | 7 | ☑ |

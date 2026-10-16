@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.203.0 — 2026-10-16
+
+Stealth Capped, Hazards Unblocked
+
+### Game Engine
+
+- Organization actions that would grow a company past the size cap of an end-of-organization card already played on it (merge companies, move to company, play character) are now non-viable with an explanation, so Stealth can no longer protect a company that reaches size three after it is played (#3337)
+- The hazard player can keep using the hazard limit after all of the active company's characters are eliminated: long-events, untargeted permanent-events and short-events affecting only their own cards (e.g. An Unexpected Outpost, Doors of Night) remain playable, while creatures and targeted hazards are reported as not playable (#3338)
+
+### Cards
+
+- Twelve LE/AS minion sites (Beorn's House, Gladden Fields, Eagles' Eyrie, Framsburg, Isengard, Glittering Caves, Edoras, Amon Hen, Dunharrow, Vale of Erech, Shrel-Kain, Thranduil's Halls) no longer encode their final Border-land region as a Shadow-land in their site path (#3339)
+
+### Infrastructure
+
+- New data-integrity test checks that each site's last site-path region matches its region type (#3339)
+- Card test README metrics refreshed
+
 ## 0.202.0 — 2026-10-15
 
 Blocked Influence Moves Explained
