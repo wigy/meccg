@@ -340,7 +340,7 @@
 | dm-91 | Sudden Fury | — | 8 | ☑ |
 | dm-92 | To Get You Away | — | 9 | ☑ |
 | dm-95 | Troll-purse | — | 10 | ☑ |
-| dm-96 | Twisted Tales | — | 15 | ☑ |
+| dm-96 | Twisted Tales | — | 16 | ☑ |
 | dm-97 | Two or Three Tribes Present | — | 6 | ☑ |
 | dm-98 | The Way is Shut | — | 8 | ☑ |
 | dm-100 | Which Might Be Lies | — | 6 | ☑ |

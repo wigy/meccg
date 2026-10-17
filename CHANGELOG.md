@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.205.0 — 2026-10-17
+
+Bill Runs Home, Influence Told in Full
+
+### Web Client
+
+- Bill the Pony can now be clicked to run home: the ally returns to the nearest haven directly from the company block (#3341)
+
+### Game Engine
+
+- Opponent-influence attempts now report the full outcome (roll, bonuses such as +6, and the cross-alignment penalty) in an unclipped message-log notification (#3342)
+
+### Infrastructure
+
+- Card test README metrics refreshed (Twisted Tales test count)
+
 ## 0.204.0 — 2026-10-16
 
 Hoarmûrath Strikes on Click
