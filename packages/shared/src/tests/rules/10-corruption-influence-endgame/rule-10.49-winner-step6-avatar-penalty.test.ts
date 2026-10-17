@@ -19,7 +19,8 @@ import {
   PLAYER_1, PLAYER_2, GANDALF, LEGOLAS,
   RIVENDELL, LORIEN, MINAS_TIRITH,
 } from '../../test-helpers.js';
-import type { FreeCouncilPhaseState, GameOverPhaseState, GameState } from '../../../index.js';
+import { computeTournamentBreakdown, computeTournamentScore } from '../../../index.js';
+import type { FreeCouncilPhaseState, GameOverPhaseState, GameState, MarshallingPointTotals } from '../../../index.js';
 import type { CardInstanceId } from '../../../index.js';
 
 describe('Rule 10.49 — Step 6: Avatar Elimination Penalty', () => {
@@ -88,5 +89,24 @@ describe('Rule 10.49 — Step 6: Avatar Elimination Penalty', () => {
     expect(p1Score).toBe(p2Score - 5);
     // P2 wins
     expect(gameOver.winner).toBe(PLAYER_2);
+  });
+
+  test('Avatar penalty does not hide positive misc MPs from the half-of-total step', () => {
+    // Bug report ec551174c920a3b6 (game mvccfsbr-un4qu4): a Fallen-wizard with
+    // Guarded Haven (+1 misc) and an eliminated avatar showed misc -4, and the
+    // whole misc source was dropped from the step 4 total as "negative".
+    // Per CoE 10.3.ii the -5 is ignored while totaling; misc +1 counts toward
+    // the total (36 → faction may keep 15), then the -5 is applied last.
+    const self: MarshallingPointTotals = {
+      character: 4, item: 8, faction: 16, ally: 2, kill: 0, misc: -4, avatarPenalty: -5,
+    };
+    const opponent: MarshallingPointTotals = {
+      character: 5, item: 1, faction: 1, ally: 1, kill: 0, misc: 0,
+    };
+
+    const breakdown = computeTournamentBreakdown(self, opponent);
+    expect(breakdown.faction).toBe(15);
+    expect(breakdown.misc).toBe(-4);
+    expect(computeTournamentScore(self, opponent)).toBe(4 + 8 + 15 + 2 + 1 - 5);
   });
 });

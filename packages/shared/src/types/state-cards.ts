@@ -788,7 +788,18 @@ export interface MarshallingPointTotals {
   readonly kill: number;
   /** Points from miscellaneous sources (events, special abilities). */
   readonly misc: number;
+  /**
+   * The portion of {@link misc} that is the eliminated-avatar penalty
+   * (CoE 2.2: -5), or absent when the player's avatar has not been
+   * eliminated. Tournament scoring needs it separately: the penalty is
+   * ignored while totaling and halving (CoE 10.3.ii/iv) and only applied
+   * after all other modifications (CoE 10.3.vi).
+   */
+  readonly avatarPenalty?: number;
 }
+
+/** One of the six marshalling-point sources (CoE 10.3.ii) in {@link MarshallingPointTotals}. */
+export type MarshallingPointSource = Exclude<keyof MarshallingPointTotals, 'avatarPenalty'>;
 
 /** Zero effective stats, used for initialization before recomputeDerived runs. */
 export const ZERO_EFFECTIVE_STATS: EffectiveStats = {

@@ -6,7 +6,7 @@
  * index look-ups in one place so callers stay concise and consistent.
  */
 
-import type { CardDefinition, Company, GameLength, GameState, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
+import type { CardDefinition, Company, GameLength, GameState, MarshallingPointSource, MarshallingPointTotals, PlayerId, PlayerState, SetupStep, SetupStepState, PhaseState } from './types/index.js';
 import { Alignment, Phase, Race } from './types/index.js';
 import { isCharacterCard } from './types/cards.js';
 import { GAME_LENGTH_RULES } from './constants.js';
@@ -73,7 +73,7 @@ export function requirePhaseState<P extends Phase>(
  * The four MP sources eligible for the doubling rule (Step 3).
  * Kill and miscellaneous are excluded per tournament rules.
  */
-const DOUBLING_SOURCES: readonly (keyof MarshallingPointTotals)[] = [
+const DOUBLING_SOURCES: readonly (MarshallingPointSource)[] = [
   'character', 'item', 'faction', 'ally',
 ] as const;
 
@@ -82,7 +82,7 @@ const DOUBLING_SOURCES: readonly (keyof MarshallingPointTotals)[] = [
  * list them — which is also the order every scoreboard and MP tooltip
  * displays them in.
  */
-export const MP_SOURCES: readonly (keyof MarshallingPointTotals)[] = [
+export const MP_SOURCES: readonly (MarshallingPointSource)[] = [
   'character', 'item', 'faction', 'ally', 'kill', 'misc',
 ] as const;
 
@@ -100,8 +100,13 @@ export const MP_SOURCES: readonly (keyof MarshallingPointTotals)[] = [
  * comes from a single source (ignoring negative sources), that source is
  * reduced until it is no more than half of the player's total.
  *
- * Steps 5–6 (duplicate reveals, avatar-elimination penalty) are
- * interactive or handled separately and are not applied here.
+ * **Step 6 — Eliminated avatar:** The -5 penalty carried in
+ * `self.avatarPenalty` is ignored during steps 2–4 (CoE 10.3.ii: misc is
+ * totaled "temporarily ignoring the penalty") and added back to misc after
+ * them (CoE 10.3.vi), so it never hides the player's positive misc points
+ * from the step 4 total.
+ *
+ * Step 5 (duplicate reveals) is interactive and handled separately.
  *
  * @param self     - The player's raw marshalling point totals.
  * @param opponent - The opponent's raw marshalling point totals.
@@ -111,11 +116,14 @@ export function computeTournamentBreakdown(
   self: MarshallingPointTotals,
   opponent: MarshallingPointTotals,
 ): MarshallingPointTotals {
-  // Step 2: start with raw values per source
+  // Step 2: start with raw values per source, temporarily ignoring the
+  // eliminated-avatar penalty folded into misc
+  const avatarPenalty = self.avatarPenalty ?? 0;
   const adjusted: Record<string, number> = {};
   for (const src of MP_SOURCES) {
     adjusted[src] = self[src];
   }
+  adjusted.misc -= avatarPenalty;
 
   // Step 3: double sources where opponent has ≤ 0 (character/item/faction/ally only)
   for (const src of DOUBLING_SOURCES) {
@@ -140,6 +148,9 @@ export function computeTournamentBreakdown(
       }
     }
   }
+
+  // Step 6: apply the eliminated-avatar penalty after all other modifications
+  adjusted.misc += avatarPenalty;
 
   return adjusted as unknown as MarshallingPointTotals;
 }
