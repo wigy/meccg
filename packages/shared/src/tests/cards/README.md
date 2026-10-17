@@ -894,7 +894,7 @@
 | td-183 | Horn of Defiance | — | 12 | ☑ |
 | td-184 | Ringil | — | 17 | ☑ |
 | td-185 | Belegennon | — | 14 | ☑ |
-| tw-1 | Abductor | — | 8 | ☑ |
+| tw-1 | Abductor | — | 9 | ☑ |
 | tw-2 | Adûnaphel | — | 11 | ☑ |
 | tw-3 | Agburanar | — | 6 | ☑ |
 | tw-4 | Akhôrahil | — | 19 | ☑ |

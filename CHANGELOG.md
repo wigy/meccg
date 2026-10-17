@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.206.0 — 2026-10-17
+
+Abductor Takes the Fallen Wizard
+
+### Game Engine
+
+- Abductor now treats a Fallen-wizard avatar as a Wizard for its wound discard, so a wounded Fallen-wizard is no longer discarded by the attack (#3343)
+
+### Infrastructure
+
+- Card test README metrics refreshed (Abductor test count)
+
 ## 0.205.0 — 2026-10-17
 
 Bill Runs Home, Influence Told in Full
