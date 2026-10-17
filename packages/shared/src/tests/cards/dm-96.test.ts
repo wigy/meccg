@@ -48,7 +48,7 @@ import {
   PLAYER_1, PLAYER_2,
   ARAGORN, LEGOLAS, LORIEN,
   buildTestState, resetMint, makeMHState, makeAgent, addCardInPlay,
-  dispatch, viableActions, mint,
+  dispatch, dispatchResult, viableActions, mint,
   RESOURCE_PLAYER, HAZARD_PLAYER,
   Alignment, CardStatus,
 } from '../test-helpers.js';
@@ -265,6 +265,25 @@ describe('Twisted Tales (dm-96)', () => {
 
     expect(resolved.players[RESOURCE_PLAYER].cardsInPlay.some(c => c.instanceId === factionId)).toBe(false);
     expect(resolved.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === MEN_OF_ANORIEN)).toBe(true);
+  });
+
+  test('the outcome is reported in full, +6 bonus and cross-alignment penalty included', () => {
+    // Regression (game mv8pu6ce-fewd5o, seq 998-999): the defence roll's
+    // label omitted the +6, so its terms did not add up to the total, and the
+    // message panel clipped the label before the verdict. The full formula is
+    // now in the label and in an unclipped text notification.
+    const state = baseState({ agentSite: MINAS_TIRITH_MINION, faction: MEN_OF_ANORIEN });
+    const played = play({ ...state, cheatRollTotal: 9 });
+
+    const defending = { ...played, cheatRollTotal: 2 };
+    const defend = viableActions(defending, PLAYER_1, 'opponent-influence-defend');
+    const { effects } = dispatchResult(defending, defend[0].action);
+
+    const expected = 'Opponent influence: Gergeli vs Men of Anórien — 9 (attack) + 2 (DI) - 1 (GI) - 2 (defense) - 0 (controller DI) - 5 (cross-alignment) + 6 (bonus) = 9 vs mind 8 → succeeded (9 > 8)';
+    const note = effects?.find(e => e.effect === 'text-notification');
+    expect(note?.effect === 'text-notification' && note.message).toBe(expected);
+    const roll = effects?.find(e => e.effect === 'dice-roll');
+    expect(roll?.effect === 'dice-roll' && roll.label).toBe(expected);
   });
 
   test('away from home a poor attempt still fails and the faction stays in play', () => {

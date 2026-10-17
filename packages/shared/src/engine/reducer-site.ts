@@ -4989,10 +4989,11 @@ export function resolveOpponentInfluenceDefend(
     logDetail(`Opponent influence resolution: ${attempt.attackerRoll} + ${attempt.influencerDI} - ${attempt.opponentGI} - ${defenderRoll} - ${attempt.controllerDI} + ${attempt.crossAlignmentPenalty} (cross-alignment) - ${regionPenalty} (region) + ${boostModifier} (boost) = ${finalResult} vs mind ${attempt.targetMind}`);
   }
 
-  // The player-facing dice-roll toast is the only place the outcome of this
-  // check reaches the client — carry the full formula and verdict in the
-  // label so a player can verify the math from the log instead of having to
-  // infer success/failure from the resulting state diff.
+  // Carry the full formula and verdict to the client so a player can verify
+  // the math instead of inferring success/failure from the resulting state
+  // diff. Every non-zero modifier is listed so the terms add up to the total.
+  // The message panel clips dice-roll labels to a short width, so the outcome
+  // is also sent as an unclipped text notification.
   const targetDef = resolveDef(state, attempt.targetInstanceId);
   const targetName = targetDef && (isCharacterCard(targetDef) || isAllyCard(targetDef) || isFactionCard(targetDef) || isItemCard(targetDef))
     ? targetDef.name : '?';
@@ -5001,13 +5002,23 @@ export function resolveOpponentInfluenceDefend(
   const verdict = succeeded
     ? `succeeded (${attempt.autoSuccess ? 'automatic' : `${finalResult} > ${attempt.targetMind}`})`
     : `failed (${finalResult} <= ${attempt.targetMind})`;
-  const rollEffects = rolled
-    ? [diceRollEffect(
-        opponent.name,
-        rolled.roll,
-        `Opponent influence: ${influencerName} vs ${targetName} — ${attempt.attackerRoll} (attack) + ${attempt.influencerDI} (DI) - ${attempt.opponentGI} (GI) - ${defenderRoll} (defense) - ${attempt.controllerDI} (controller DI) = ${finalResult} vs mind ${attempt.targetMind} → ${verdict}`,
-      )]
-    : [];
+  const formulaTerms = [
+    `${attempt.attackerRoll} (attack)`,
+    `+ ${attempt.influencerDI} (DI)`,
+    `- ${attempt.opponentGI} (GI)`,
+    `- ${defenderRoll} (defense)`,
+    `- ${attempt.controllerDI} (controller DI)`,
+    ...(attempt.crossAlignmentPenalty !== 0 ? [`- ${-attempt.crossAlignmentPenalty} (cross-alignment)`] : []),
+    ...(regionPenalty !== 0 ? [`- ${regionPenalty} (region)`] : []),
+    ...(boostModifier !== 0 ? [`${boostModifier > 0 ? '+' : '-'} ${Math.abs(boostModifier)} (bonus)`] : []),
+  ];
+  const outcomeMessage = attempt.autoSuccess
+    ? `Opponent influence: ${influencerName} vs ${targetName} → ${verdict}`
+    : `Opponent influence: ${influencerName} vs ${targetName} — ${formulaTerms.join(' ')} = ${finalResult} vs mind ${attempt.targetMind} → ${verdict}`;
+  const rollEffects: GameEffect[] = [
+    ...(rolled ? [diceRollEffect(opponent.name, rolled.roll, outcomeMessage)] : []),
+    { effect: 'text-notification', message: outcomeMessage },
+  ];
 
   const newPlayers = clonePlayers(state);
 
