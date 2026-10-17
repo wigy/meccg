@@ -256,7 +256,7 @@ export type MeccgSharedState = {
    * when that name is one of the two seats. Rejects when the game has no
    * recording on the server.
    */
-  startReplay: ((gameId: string, seatName: string | null) => Promise<void>) | undefined;
+  startReplay: ((gameId: string, seatName: string | null, returnToOpponent?: string | null) => Promise<void>) | undefined;
 
   // ---- Registered by the deck-editor bundle ----
   /** Load and render the deck list. */
