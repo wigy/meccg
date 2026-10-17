@@ -1100,3 +1100,46 @@ describe('renderPassButton — choose-peek-deck (Mirror of Galadriel)', () => {
     expect(sent).toEqual(pass.action);
   });
 });
+
+/**
+ * Regression test for bug report ce4387311a155b37 (game mvccfsbr-un4qu4, seq
+ * 928): the hazard player held Cave-drake (tw-020) while the opponent's
+ * company faced The Under-leas (dm-40), whose 2nd automatic-attack lets the
+ * hazard player play a non-unique creature keyed to Ruins & Lairs. The engine
+ * offered `play-site-auto-attack`, but the bar showed only a generic
+ * "Continue" pass, so the player could not find the option and passed it
+ * away. The bar now offers a "Play <creature> as auto-attack" button per
+ * eligible creature next to a "Skip Auto-attack" pass.
+ */
+const CAVE_DRAKE_INSTANCE = 'p2-41' as CardInstanceId;
+
+const siteAutoAttackEval: EvaluatedAction = {
+  action: { type: 'play-site-auto-attack', player: 'p1', cardInstanceId: CAVE_DRAKE_INSTANCE },
+  viable: true,
+} as EvaluatedAction;
+
+const siteAutoAttackView = (legalActions: EvaluatedAction[]): PlayerView =>
+  ({
+    phaseState: { phase: Phase.Site, step: 'play-site-auto-attack' },
+    legalActions,
+    self: { id: 'p1', companies: [], hand: [{ instanceId: CAVE_DRAKE_INSTANCE, definitionId: 'tw-020' as CardDefinitionId }] },
+    opponent: { id: 'p2', companies: [] },
+    activePlayer: 'p2',
+  } as unknown as PlayerView);
+
+describe('renderPassButton — play-site-auto-attack (The Under-leas 2nd automatic-attack)', () => {
+  test('offers a button naming the eligible creature that plays it as the auto-attack', () => {
+    let sent: unknown = null;
+    renderPassButton(siteAutoAttackView([siteAutoAttackEval, passEval()]), action => { sent = action; });
+
+    const playBtn = tierInPhasePass.children.find(c => c.textContent === 'Play Cave-drake as auto-attack');
+    expect(playBtn).toBeDefined();
+    playBtn?.onclick?.();
+    expect(sent).toEqual(siteAutoAttackEval.action);
+  });
+
+  test('labels the pass button "Skip Auto-attack"', () => {
+    renderPassButton(siteAutoAttackView([siteAutoAttackEval, passEval()]), () => { /* no-op */ });
+    expect(passBtn.textContent).toBe('Skip Auto-attack');
+  });
+});

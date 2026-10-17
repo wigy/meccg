@@ -99,6 +99,10 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
   if (view.phaseState.phase === Phase.Site) {
     switch (view.phaseState.step) {
       case 'enter-or-skip': return 'Skip';
+      case 'play-site-auto-attack': {
+        const hasCreature = view.legalActions.some(ea => ea.viable && ea.action.type === 'play-site-auto-attack');
+        return hasCreature ? 'Skip Auto-attack' : 'Continue';
+      }
       case 'play-resources': return 'Pass Resources';
       case 'play-minor-item': return 'Pass Minor Item';
       case 'declare-company-attack': {

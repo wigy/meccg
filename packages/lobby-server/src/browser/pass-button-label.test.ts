@@ -125,6 +125,15 @@ describe('passButtonLabel — Phase.Site (generic pass)', () => {
     expect(passButtonLabel(passAction, view)).toBe('Pass Attack');
   });
 
+  test('play-site-auto-attack with an eligible creature -> Skip Auto-attack', () => {
+    const autoAttackEval = {
+      action: { type: 'play-site-auto-attack' },
+      viable: true,
+    } as unknown as EvaluatedAction;
+    const view = viewWith({ phase: Phase.Site, step: 'play-site-auto-attack' }, [autoAttackEval]);
+    expect(passButtonLabel(passAction, view)).toBe('Skip Auto-attack');
+  });
+
   test('unknown step falls back to Continue', () => {
     expect(passButtonLabel(passAction, viewWith({ phase: Phase.Site, step: 'resolve-attacks' }))).toBe('Continue');
   });

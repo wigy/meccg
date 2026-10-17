@@ -505,6 +505,27 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
     }
   }
 
+  // During play-site-auto-attack (The Under-leas dm-40, The Gem-deeps dm-30,
+  // Framsburg td-175 …) the hazard player may play one eligible creature from
+  // hand as the site's automatic-attack. The hand card is clickable, but with
+  // only a generic pass button on the bar nothing pointed the player at it,
+  // so the option went unnoticed and was passed away (bug report
+  // ce4387311a155b37: Cave-drake at The Under-leas). Offer one explicit
+  // button per eligible creature alongside the "Skip Auto-attack" pass.
+  if (view.phaseState.phase === Phase.Site && view.phaseState.step === 'play-site-auto-attack') {
+    for (const ea of view.legalActions) {
+      const action = ea.action;
+      if (!ea.viable || action.type !== 'play-site-auto-attack') continue;
+      const handCard = view.self.hand.find(c => c.instanceId === action.cardInstanceId);
+      const name = handCard ? cardPool[handCard.definitionId as string]?.name : undefined;
+      const playBtn = document.createElement('button');
+      playBtn.className = 'enter-site-btn';
+      playBtn.textContent = name ? `Play ${name} as auto-attack` : 'Play auto-attack';
+      playBtn.onclick = () => onAction(action);
+      inPhaseTier?.appendChild(playBtn);
+    }
+  }
+
   // During enter-or-skip, promote "Enter" to the primary pass button slot
   // (bottom-most, triggered by the Enter key) and demote "Skip" to the
   // secondary slot above it. Entering the site is the usual choice, so it
