@@ -43,7 +43,7 @@ import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js'
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
-import { fetchZoneItemInstanceIds, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, hasSitePlayableFetchCandidate, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -1637,6 +1637,8 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
             continue;
           }
 
+          if (sitePlayableFetchIsEmpty(state, player, findCharacterCompany(player.companies, charId), effect, charDef.name)) continue;
+
           // Generic character grant-action (future use)
           logDetail(`Grant-action ${effect.action} available: ${charDef.name} can activate`);
           actions.push(grantedActionFor(playerId, charId, char, effect));
@@ -1672,6 +1674,7 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
 
         const charDef = defById(state, char.definitionId);
         const def = defById(state, ally.definitionId);
+        if (sitePlayableFetchIsEmpty(state, player, company, effect, def?.name ?? '?')) continue;
 
         // `targets: { scope: "own-hand-factions" }` — Roäc the Raven (tw-320):
         // one activation per faction card of the player's own alignment
@@ -2905,6 +2908,41 @@ export function enumerateGrantActionTargets(
   }
 
   return matches;
+}
+
+/**
+ * True when a grant-action whose apply is an `enqueue-pending-fetch` with
+ * `playableAtBearerSite` (Mistress Lobelia dm-178, Strider ba-1: "search …
+ * for any one item, ally, or faction playable at her current site") has no
+ * card it could retrieve: the bearer has no current site, or nothing in the
+ * fetch zones matches the filter and is playable there. Offering such an
+ * ability would only tap its source for an empty search (e.g. Lobelia at
+ * Bag End, which lists no playable resources), so the character and ally
+ * scanners withhold it. Item-borne searches (the Dwarven Rings tw-214…,
+ * Dragon-lore td-108) are deliberately not gated: an empty search there still
+ * reshuffles and triggers the ring's corruption check.
+ */
+function sitePlayableFetchIsEmpty(
+  state: GameState,
+  player: PlayerState,
+  company: Company | undefined,
+  effect: import('../../types/effects.js').GrantActionEffect,
+  sourceName: string,
+): boolean {
+  const apply = effect.apply;
+  if (apply?.type !== 'enqueue-pending-fetch' || apply.playableAtBearerSite !== true) return false;
+  const site = company?.currentSite;
+  if (!site) {
+    logDetail(`Grant-action ${effect.action} on ${sourceName}: bearer has no current site — nothing playable to fetch`);
+    return true;
+  }
+  const siteDefId = resolveInstanceId(state, site.instanceId) ?? site.definitionId;
+  const zones = apply.fetchFrom ?? ['discard-pile'];
+  if (!hasSitePlayableFetchCandidate(state, player, zones, apply.filter, siteDefId)) {
+    logDetail(`Grant-action ${effect.action} on ${sourceName}: no card in [${zones.join(', ')}] matches the filter and is playable at ${defById(state, siteDefId)?.name ?? (siteDefId as string)} — withheld`);
+    return true;
+  }
+  return false;
 }
 
 /**
