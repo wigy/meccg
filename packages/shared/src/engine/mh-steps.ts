@@ -1874,9 +1874,7 @@ export function handleDrawCards(
     // advance to play-hazards — completeDeckExhaust doesn't touch
     // phaseState, so without this the draw-cards step would silently offer
     // no actions to either player.
-    const otherDone = isResourcePlayer
-      ? mhState.hazardDrawCount >= mhState.hazardDrawMax
-      : mhState.resourceDrawCount >= mhState.resourceDrawMax;
+    const otherDone = otherPlayerDoneDrawing(exhaustedState, mhState, isResourcePlayer);
 
     if (drawnSoFar >= drawMax && otherDone) {
       logDetail(`Movement/Hazard draw-cards: both players done after exhaust → advancing to play-hazards`);
@@ -1950,9 +1948,7 @@ export function handleDrawCards(
 
   // If this player just hit their max, check if both are done
   if (newDrawCount >= drawMax && !actingNeedsExhaust) {
-    const otherDone = isResourcePlayer
-      ? newMhState.hazardDrawCount >= newMhState.hazardDrawMax
-      : newMhState.resourceDrawCount >= newMhState.resourceDrawMax;
+    const otherDone = otherPlayerDoneDrawing(drawnState, newMhState, isResourcePlayer);
 
     if (otherDone) {
       logDetail(`Movement/Hazard draw-cards: both players done → advancing to play-hazards`);
@@ -1971,6 +1967,30 @@ export function handleDrawCards(
       phaseState: newMhState,
     },
   };
+}
+
+/**
+ * Whether the player other than the acting one is finished with the
+ * draw-cards step. Reaching the draw max is not enough: a player whose
+ * last draw emptied their play deck must still run (or is in the middle
+ * of) the rule 2.4 exhaust sub-flow, and advancing to play-hazards while
+ * that exchange window is open strands it — the sideboard exchange is
+ * only offered during draw-cards (bug report: hazard player could not
+ * exchange with their sideboard after the resource player passed).
+ */
+function otherPlayerDoneDrawing(
+  state: GameState,
+  mhState: MovementHazardPhaseState,
+  isResourcePlayer: boolean,
+): boolean {
+  const reachedMax = isResourcePlayer
+    ? mhState.hazardDrawCount >= mhState.hazardDrawMax
+    : mhState.resourceDrawCount >= mhState.resourceDrawMax;
+  if (!reachedMax) return false;
+  const other = state.players.find(p => (p.id === state.activePlayer) !== isResourcePlayer);
+  if (!other) return true;
+  if (other.deckExhaustPending) return false;
+  return !(other.playDeck.length === 0 && other.discardPile.length > 0);
 }
 
 /**
@@ -1995,9 +2015,7 @@ export function advanceDrawCards(
       : { hazardDrawCount: drawMax }),
   };
 
-  const otherDone = isResourcePlayer
-    ? newMhState.hazardDrawCount >= newMhState.hazardDrawMax
-    : newMhState.resourceDrawCount >= newMhState.resourceDrawMax;
+  const otherDone = otherPlayerDoneDrawing(state, newMhState, isResourcePlayer);
 
   if (otherDone) {
     logDetail(`Movement/Hazard draw-cards: both players done → advancing to play-hazards`);
