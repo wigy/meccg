@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.207.0 — 2026-10-17
+
+River Holds, Auto-attacks Get a Button
+
+### Game Engine
+
+- River's do-nothing site-phase restriction is now kept when an extra movement/hazard phase (Carambor, Shadowfax, Forced March, Master of Esgaroth, Gangways over the Fire) is offered but declined; constraints are swept only when the extra move is actually taken (#3344)
+- The eliminated-avatar -5 marshalling point penalty is now ignored while totaling and applied after the half-of-total step (CoE 10.3), so positive misc MPs are no longer dropped from the tournament breakdown (#3345)
+
+### Web Client
+
+- Sites with a dynamic automatic-attack (e.g. The Under-leas) now offer an explicit "Play <creature> as auto-attack" button per eligible creature, and the pass is labelled "Skip Auto-attack" (#3346)
+
+### Infrastructure
+
+- Card test README metrics refreshed (Carambor test count)
+
 ## 0.206.0 — 2026-10-17
 
 Abductor Takes the Fallen Wizard

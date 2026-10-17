@@ -414,7 +414,7 @@
 | le-1 | Asternak | — | 2 | ☑ |
 | le-2 | Belegorn | — | 3 | ☑ |
 | le-3 | Bróin | — | 7 | ☑ |
-| le-5 | Carambor | — | 10 | ☑ |
+| le-5 | Carambor | — | 12 | ☑ |
 | le-6 | Ciryaher | — | 3 | ☑ |
 | le-7 | Dôgrib | — | 1 | ☑ |
 | le-8 | Dorelas | — | 2 | ☑ |
