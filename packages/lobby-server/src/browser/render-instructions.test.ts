@@ -998,6 +998,53 @@ describe('renderPassButton — remove-corruption-offer (Elf-song)', () => {
 });
 
 /**
+ * Regression test for bug report f0ce310d1b10f47f (game mvckr9fe-clofvk, seq
+ * 393): "stored this card at rivendel during organization phase and the game
+ * froze". Storing The Windlord Found Me (dm-164) at a Haven queued a
+ * `wizard-search-on-store` resolution whose `play-wizard-from-search` /
+ * `skip-wizard-search` actions had no branch in {@link renderPassButton}, so
+ * the panel hid entirely. It now renders one button per offered Wizard plus a
+ * skip button.
+ */
+const playWizardFromSearch = (source: 'play-deck' | 'discard-pile'): EvaluatedAction => ({
+  action: { type: 'play-wizard-from-search', player: 'p1', wizardDefinitionId: 'tw-117', source },
+  viable: true,
+} as EvaluatedAction);
+const skipWizardSearch: EvaluatedAction = {
+  action: { type: 'skip-wizard-search', player: 'p1' },
+  viable: true,
+} as EvaluatedAction;
+
+describe('renderPassButton — wizard-search-on-store (The Windlord Found Me)', () => {
+  test('renders a button per Wizard source plus a skip button instead of hiding the panel', () => {
+    renderPassButton(
+      viewWith([playWizardFromSearch('play-deck'), playWizardFromSearch('discard-pile'), skipWizardSearch]),
+      () => { /* no-op */ },
+    );
+
+    expect(passBtn.classList.contains('hidden')).toBe(true);
+    expect(waitingEl.classList.contains('hidden')).toBe(true);
+    expect(tierInPhasePass.children.map(c => c.textContent)).toEqual([
+      'Play Alatar from Play Deck',
+      'Play Alatar from Discard Pile',
+      'Skip Wizard Search',
+    ]);
+  });
+
+  test('clicking a button sends its action', () => {
+    const sent: unknown[] = [];
+    const fromDeck = playWizardFromSearch('play-deck');
+
+    renderPassButton(viewWith([fromDeck, skipWizardSearch]), action => { sent.push(action); });
+
+    tierInPhasePass.children[0].onclick?.();
+    tierInPhasePass.children[1].onclick?.();
+
+    expect(sent).toEqual([fromDeck.action, skipWizardSearch.action]);
+  });
+});
+
+/**
  * Regression tests for the three-tier action-button layout (feature request
  * "changing tight buttons"): buttons that end the phase, resolve an in-phase
  * decision, or activate a card-granted ability now render into three
