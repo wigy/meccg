@@ -31,12 +31,13 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }));
 vi.mock('./api.js', () => ({ apiGet }));
 
-const { renderStateMessage, setLoadingCover, setReplayExit } = vi.hoisted(() => ({
+const { rejoinGame, renderStateMessage, setLoadingCover, setReplayExit } = vi.hoisted(() => ({
+  rejoinGame: vi.fn(),
   renderStateMessage: vi.fn(async () => { /* no-op: board rendering is out of scope for this test */ }),
   setLoadingCover: vi.fn(),
   setReplayExit: vi.fn(),
 }));
-vi.mock('./game-connection.js', () => ({ renderStateMessage, setLoadingCover, setReplayExit }));
+vi.mock('./game-connection.js', () => ({ rejoinGame, renderStateMessage, setLoadingCover, setReplayExit }));
 
 // Vitest hoists the vi.mock calls above the static imports below, so
 // replay.ts picks up the mocked api.js / game-connection.js.

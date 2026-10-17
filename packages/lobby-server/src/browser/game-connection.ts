@@ -296,6 +296,20 @@ function requestRejoin(): void {
 }
 
 /**
+ * Return to our live game against `opponent` after leaving it on purpose —
+ * used when the in-game replay viewer is closed. The game server may have
+ * exited meanwhile (it shuts down after a minute with no human connected),
+ * so this goes through the same lobby `rejoin-game` flow as a lost
+ * connection: the lobby hands back the running server or relaunches it from
+ * the autosave.
+ */
+export function rejoinGame(opponent: string): void {
+  appState.opponentName = opponent;
+  setLoadingCover(true, 'Returning to game...');
+  requestRejoin();
+}
+
+/**
  * Describe an opponent action for the game log, masking information that
  * should not be visible to the player at this point in the game.
  *
