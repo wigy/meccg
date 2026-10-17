@@ -367,6 +367,17 @@ describe('le-185 — Forced March', () => {
     expect(mh.step).toBe('extra-mh-move-offer');
     expect(state.players[0].companies[0].currentSite?.definitionId).toBe(CARN_DUM);
 
+    // Merely being offered the extra move keeps River: the player may still
+    // decline and run the site phase at Carn Dûm.
+    riverConstraints = state.activeConstraints.filter(c => c.source === riverInst);
+    expect(riverConstraints).toHaveLength(2);
+
+    const whiteTowersInst = state.players[0].siteDeck.find(s => s.definitionId === WHITE_TOWERS)!;
+    state = dispatch(state, {
+      type: 'extra-mh-move', player: PLAYER_1, companyId, destinationSite: whiteTowersInst.instanceId,
+    });
+    expect((state.phaseState as MovementHazardPhaseState).step).toBe('reveal-new-site');
+
     riverConstraints = state.activeConstraints.filter(c => c.source === riverInst);
     expect(riverConstraints).toHaveLength(0);
   });

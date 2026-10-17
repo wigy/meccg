@@ -20,23 +20,26 @@
  * | 3 | Tapping Carambor grants an extra movement/hazard phase           | IMPLEMENTED | routes to the shared `extra-mh-move-offer` step                 |
  * | 4 | Destination offer restricted to sites with a Wilderness in path  | IMPLEMENTED | `requiresDestinationSitePathIncludes` filters `extraMHMoveDestinations` |
  * | 5 | Declining leaves the company untapped and finishes normally      | IMPLEMENTED | `pass` at `character-tap-mh-offer` → `finalizeCompanyMH`        |
+ * | 6 | Declining keeps River's site-phase restriction at this site      | IMPLEMENTED | constraints swept only on `extra-mh-move`, not at the offer     |
  *
  * Playable: YES
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  buildTestState, resetMint, dispatch, reduce, makeMHState,
+  buildTestState, resetMint, dispatch, reduce, makeMHState, resolveChain,
   viableActions, viableFor,
   PLAYER_1, PLAYER_2,
   LEGOLAS, LORIEN,
   Phase,
 } from '../test-helpers.js';
 import { Alignment, CardStatus } from '../../index.js';
-import type { CardDefinitionId, GameState, MovementHazardPhaseState } from '../../index.js';
+import type { CardDefinitionId, CardInstanceId, GameState, MovementHazardPhaseState } from '../../index.js';
 import type { CharacterTapExtraMHPhaseAction, ExtraMHMoveAction } from '../../types/actions-movement-hazard.js';
 
 const CARAMBOR = 'le-5' as CardDefinitionId;
+const RIVER = 'tw-84' as CardDefinitionId;       // hazard-event: site-phase-do-nothing on arrival
+const ETTENMOORS = 'le-373' as CardDefinitionId; // R&L, nearestHaven Carn Dûm
 const CARN_DUM = 'le-359' as CardDefinitionId;   // minion haven (Carambor's homesite)
 const BAG_END = 'le-350' as CardDefinitionId;    // free-hold, nearestHaven Carn Dûm, sitePath includes wilderness
 const ZARAK_DUM = 'le-417' as CardDefinitionId;  // ruins-and-lairs, nearestHaven Carn Dûm, sitePath = [shadow] (no wilderness)
@@ -317,5 +320,63 @@ describe('Carambor (le-5)', () => {
     // but it is not listed as adjacent on Iron-deeps and must be excluded.
     expect(extraMoves.some(a => a.destinationSite === carnDumInst.instanceId)).toBe(true);
     expect(extraMoves.some(a => a.destinationSite === mountGramInst.instanceId)).toBe(false);
+  });
+
+  // Bug report (game mvccfsbr-un4qu4, stateSeq 912): River was played on the
+  // site Carambor's company moved to. Offering Carambor's extra M/H phase
+  // swept River's company-site-phase constraints up front, so when the player
+  // declined the tap the company entered the site and acted freely in its
+  // site phase. River only stops binding once the company actually moves on.
+  describe('with River played on the destination', () => {
+    function riverAtCarnDum(): { state: GameState; riverInst: CardInstanceId } {
+      const base = buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: ETTENMOORS, characters: [CARAMBOR], destinationSite: CARN_DUM }],
+            hand: [],
+            siteDeck: [BAG_END],
+            playDeck: [],
+          },
+          { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [RIVER], siteDeck: [], playDeck: [] },
+        ],
+      });
+      let state: GameState = { ...base, phaseState: makeMHState({ activeCompanyIndex: 0 }) };
+      const riverInst = state.players[1].hand[0].instanceId;
+      state = resolveChain(dispatch(state, {
+        type: 'play-hazard', player: PLAYER_2, cardInstanceId: riverInst, targetCompanyId: state.players[0].companies[0].id,
+      }));
+      return { state: passToAdvance(state), riverInst };
+    }
+
+    test('declining the tap keeps River binding the site phase', () => {
+      const { state: offered, riverInst } = riverAtCarnDum();
+      expect((offered.phaseState as MovementHazardPhaseState).step).toBe('character-tap-mh-offer');
+
+      const declined = dispatch(offered, { type: 'pass', player: PLAYER_1 });
+      expect(declined.phaseState.phase).toBe(Phase.Site);
+      const kinds = declined.activeConstraints.filter(c => c.source === riverInst).map(c => c.kind.type).sort();
+      expect(kinds).toEqual(['granted-action', 'site-phase-do-nothing']);
+    });
+
+    test('taking the extra move drops River\'s constraints for this site', () => {
+      const { state: offered, riverInst } = riverAtCarnDum();
+      const companyId = offered.players[0].companies[0].id;
+      const caramborId = offered.players[0].companies[0].characters[0];
+
+      const tapped = dispatch(offered, {
+        type: 'character-tap-extra-mh-phase', player: PLAYER_1, companyId, characterInstanceId: caramborId,
+      });
+      expect(tapped.activeConstraints.some(c => c.source === riverInst)).toBe(true);
+
+      const bagEndInst = tapped.players[0].siteDeck.find(s => s.definitionId === BAG_END)!;
+      const moved = dispatch(tapped, {
+        type: 'extra-mh-move', player: PLAYER_1, companyId, destinationSite: bagEndInst.instanceId,
+      });
+      expect(moved.activeConstraints.some(c => c.source === riverInst)).toBe(false);
+    });
   });
 });

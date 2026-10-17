@@ -2769,6 +2769,11 @@ function findCharacterTapExtraMHPhase(
  * Shadowfax tw-326, Carambor le-5, Gangways over the Fire, etc.) sends the
  * company onward without ever running that site phase, the constraint must
  * not survive to be misapplied at the next site's site phase instead.
+ *
+ * Called only once the extra move is actually taken (`extra-mh-move`,
+ * `gangways-extra-move`), never when the extra phase is merely offered: a
+ * player who declines the offer still has their site phase at this site,
+ * where River must keep binding.
  */
 function dropPendingSitePhaseConstraints(state: GameState, companyId: CompanyId): GameState {
   return sweepExpired(state, { kind: 'company-site-end', companyId });
@@ -2822,14 +2827,11 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
   if (currentCompany.extraMHPhasePending) {
     const underDeeps = currentCompany.extraMHPhasePending === 'under-deeps';
     logDetail(`Extra M/H phase: company ${currentCompany.id as string} may move to an additional ${underDeeps ? 'Under-deeps ' : ''}site → extra-mh-move-offer`);
-    const clearedState = dropPendingSitePhaseConstraints(
-      updatePlayer(state, activeIndex, p => ({
-        ...p,
-        companies: p.companies.map((c, idx) =>
-          idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
-      })),
-      currentCompany.id,
-    );
+    const clearedState = updatePlayer(state, activeIndex, p => ({
+      ...p,
+      companies: p.companies.map((c, idx) =>
+        idx !== mhState.activeCompanyIndex ? c : { ...c, extraMHPhasePending: false }),
+    }));
     return {
       state: {
         ...clearedState,
@@ -2853,7 +2855,7 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
     logDetail(`Extra M/H phase: "${extraPhase.sourceDefinitionId as string}" grants company ${currentCompany.id as string} a second movement/hazard phase → extra-mh-move-offer`);
     return {
       state: {
-        ...dropPendingSitePhaseConstraints(removeConstraint(state, extraPhase.id), currentCompany.id),
+        ...removeConstraint(state, extraPhase.id),
         phaseState: { ...mhState, step: 'extra-mh-move-offer' as const },
       },
     };
@@ -2867,7 +2869,7 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
     logDetail(`Ally-tap extra M/H phase: ${allyTapMatch.allyName} is untapped and company ${currentCompany.id as string}'s composition qualifies → ally-tap-mh-offer`);
     return {
       state: {
-        ...dropPendingSitePhaseConstraints(state, currentCompany.id),
+        ...state,
         phaseState: { ...mhState, step: 'ally-tap-mh-offer' as const },
       },
     };
@@ -2882,7 +2884,7 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
     logDetail(`Character-tap extra M/H phase: ${characterTapMatch.characterName} is untapped in company ${currentCompany.id as string} → character-tap-mh-offer`);
     return {
       state: {
-        ...dropPendingSitePhaseConstraints(state, currentCompany.id),
+        ...state,
         phaseState: { ...mhState, step: 'character-tap-mh-offer' as const },
       },
     };
@@ -2910,7 +2912,7 @@ export function advanceAfterCompanyMH(state: GameState, mhState: MovementHazardP
       logDetail(`Gangways over the Fire: company ${cid} completed M/H phase #${phaseCounts[cid]} and may take another Under-deeps movement (${dests.length} destination(s), roll penalty -${phaseCounts[cid]}) → gangways-offer`);
       return {
         state: {
-          ...dropPendingSitePhaseConstraints(state, currentCompany.id),
+          ...state,
           phaseState: { ...trackedMhState, step: 'gangways-offer' as const },
         },
       };
@@ -3223,7 +3225,7 @@ export function handleGangwaysOffer(
 
   return {
     state: {
-      ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
+      ...dropPendingSitePhaseConstraints(updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })), company.id),
       phaseState: { ...resetCompanyMHFields(mhState), step: 'reveal-new-site' as const, siteRevealed: true },
     },
   };
@@ -3468,7 +3470,7 @@ export function handleExtraMHMoveOffer(
 
   return {
     state: {
-      ...updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })),
+      ...dropPendingSitePhaseConstraints(updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })), company.id),
       phaseState: {
         ...resetCompanyMHFields(mhState),
         step: 'reveal-new-site' as const,
