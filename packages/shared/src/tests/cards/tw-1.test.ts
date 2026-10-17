@@ -37,6 +37,7 @@ import { Phase, RegionType, SiteType } from '../../index.js';
 import type { CardDefinitionId } from '../../index.js';
 
 const ABDUCTOR = 'tw-1' as CardDefinitionId;
+const SARUMAN_FW = 'wh-9' as CardDefinitionId;
 
 const BORDER_HOLD_KEYING = { method: 'site-type' as const, value: 'border-hold' };
 const BORDER_KEYING = { method: 'region-type' as const, value: 'border' };
@@ -222,5 +223,21 @@ describe('Abductor (tw-1)', () => {
     expect(s.players[RESOURCE_PLAYER].characters[gandalfId]).toBeDefined();
     expect(s.players[RESOURCE_PLAYER].discardPile.find(c => c.instanceId === gandalfId)).toBeUndefined();
     expect(s.players[RESOURCE_PLAYER].outOfPlayPile.find(c => c.instanceId === gandalfId)).toBeUndefined();
+  });
+
+  test('Fallen-wizard avatar wounded by Abductor is NOT discarded (g.wiz.F1)', () => {
+    // Regression: Saruman (wh-9, race fallen-wizard) was discarded because the
+    // non-Wizard check compared the raw race. Per g.wiz.F1 card text referring
+    // to a "Wizard" covers a Fallen-wizard player's avatar.
+    const afterChain = setupAbductorCombat([SARUMAN_FW]);
+    const sarumanId = findCharInstanceId(afterChain, RESOURCE_PLAYER, SARUMAN_FW);
+
+    let s = dispatch(afterChain, { type: 'assign-strike', player: PLAYER_1, characterId: sarumanId });
+    s = executeAction(s, PLAYER_1, 'resolve-strike', 2); // Saruman wounded
+    s = executeAction(s, PLAYER_2, 'body-check-roll', 5); // survives wounded
+
+    expect(s.combat).toBeNull();
+    expect(s.players[RESOURCE_PLAYER].characters[sarumanId]).toBeDefined();
+    expect(s.players[RESOURCE_PLAYER].discardPile.find(c => c.instanceId === sarumanId)).toBeUndefined();
   });
 });
