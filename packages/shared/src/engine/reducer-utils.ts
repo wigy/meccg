@@ -3995,6 +3995,39 @@ export function fetchZoneItemInstanceIds(
 }
 
 /**
+ * True when at least one card in the given fetch zones matches `filter` and
+ * is playable at `siteDefId` — the same candidate test the resulting
+ * `fetch-from-pile` window applies to a `playableAtSite` fetch. Lets the
+ * grant-action scanners withhold a "search for a card playable at this
+ * site" ability (Mistress Lobelia dm-178, Strider ba-1) that would only tap
+ * its source for nothing — e.g. Lobelia at Bag End, where no item, ally or
+ * faction is ever playable.
+ */
+export function hasSitePlayableFetchCandidate(
+  state: GameState,
+  player: PlayerState,
+  zones: readonly ('discard-pile' | 'deck' | 'hand' | 'sideboard')[],
+  filter: Condition | undefined,
+  siteDefId: CardDefinitionId,
+): boolean {
+  const siteDef = defById(state, siteDefId);
+  if (!isSiteCard(siteDef)) return false;
+  for (const zone of zones) {
+    const pile = zone === 'discard-pile' ? player.discardPile
+      : zone === 'sideboard' ? player.sideboard
+        : zone === 'deck' ? player.playDeck
+          : player.hand;
+    for (const c of pile) {
+      const cdef = defById(state, c.definitionId);
+      if (!cdef) continue;
+      if (filter && !matchesDefinitionAcrossAlignment(cdef, filter, player.alignment)) continue;
+      if (isCardPlayableAtSiteDef(cdef, siteDef, state)) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Counts how many cards with the given name are currently in any player's
  * `cardsInPlay`. Used when checking `duplication-limit` constraints with
  * `scope: "game"` to prevent more than the allowed number of copies being
