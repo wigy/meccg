@@ -251,12 +251,18 @@ describe('dm-145 — Into Dark Tunnels', () => {
     expect(mhRoll.step).toBe('under-deeps-roll');
     expect(mhRoll.underDeepsAttempts?.[companyId as string]).toContain(THE_IRON_DEEPS);
 
-    // Successful roll → the second phase proceeds through card draws (both
-    // decks are empty for the resource player, so both players just pass) to
+    // Successful roll → the second phase proceeds through card draws to
     // play-hazards, and then to finalizing the company at The Iron-deeps.
+    // The resource player's play deck is empty with the spent Into Dark
+    // Tunnels in their discard pile, so rule 2.4 has them exhaust (reshuffle,
+    // declining the sideboard exchange) before taking their single draw; the
+    // hazard player has nothing to draw and simply passes.
     let rolled = dispatch({ ...rolling, cheatRollTotal: 12 }, { type: 'under-deeps-roll', player: PLAYER_1 });
     expect((rolled.phaseState as MovementHazardPhaseState).step).toBe('draw-cards');
+    rolled = dispatch(rolled, { type: 'deck-exhaust', player: PLAYER_1 });
     rolled = dispatch(rolled, { type: 'pass', player: PLAYER_1 });
+    expect(rolled.players[0].playDeck.length).toBe(1);
+    rolled = dispatch(rolled, { type: 'draw-cards', player: PLAYER_1, count: 1 });
     rolled = dispatch(rolled, { type: 'pass', player: PLAYER_2 });
     expect((rolled.phaseState as MovementHazardPhaseState).step).toBe('play-hazards');
 

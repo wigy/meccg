@@ -1970,14 +1970,6 @@ export function handleDrawCards(
 }
 
 /**
- * Mark a player as done drawing and advance to play-hazards if both are done.
- */
-
-
-/**
- * Mark a player as done drawing and advance to play-hazards if both are done.
- */
-/**
  * Whether the player other than the acting one is finished with the
  * draw-cards step. Reaching the draw max is not enough: a player whose
  * last draw emptied their play deck must still run (or is in the middle
@@ -2001,6 +1993,14 @@ function otherPlayerDoneDrawing(
   return !(other.playDeck.length === 0 && other.discardPile.length > 0);
 }
 
+/**
+ * Mark a player as done drawing and advance to play-hazards if both are done.
+ */
+
+
+/**
+ * Mark a player as done drawing and advance to play-hazards if both are done.
+ */
 export function advanceDrawCards(
   state: GameState,
   mhState: MovementHazardPhaseState,
