@@ -2189,11 +2189,11 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   // determining whether the game could be called"), so it is folded into the
   // running misc tally here rather than being applied only at final scoring.
   // Keeping it in the derived total means it is reflected in the live MP display
-  // and read consistently by the end-game scorer. It is safe against the
-  // tournament doubling step (CoE 10.3.iii), which ignores misc and never
-  // doubles a negative source.
+  // and read consistently by the end-game scorer. The penalty is also recorded
+  // separately as `avatarPenalty` so tournament scoring can ignore it while
+  // totaling and halving (CoE 10.3.ii/iv) and re-apply it last (10.3.vi).
   if (hasEliminatedAvatar(state, getPlayerIndex(state, player.id))) {
-    mp = { ...mp, misc: mp.misc - 5 };
+    mp = { ...mp, misc: mp.misc - 5, avatarPenalty: -5 };
   }
 
   // MEAS §6e: callable totals = full tally minus Under-deeps company-held MPs.

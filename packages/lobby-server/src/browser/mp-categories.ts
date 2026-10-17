@@ -14,12 +14,12 @@
  * labels are a client concern.
  */
 
-import type { MarshallingPointTotals } from '@meccg/shared';
+import type { MarshallingPointSource, MarshallingPointTotals } from '@meccg/shared';
 import { MP_SOURCES, computeTournamentScore } from '@meccg/shared';
 
 /** One MP source paired with the label to show for it. */
 export interface MpCategory {
-  readonly key: keyof MarshallingPointTotals;
+  readonly key: MarshallingPointSource;
   readonly label: string;
 }
 
@@ -27,7 +27,7 @@ export interface MpCategory {
  * Display labels per source. `short` fits the narrow tooltip column;
  * `long` is used where there is room for the full word.
  */
-const MP_LABELS: Readonly<Record<keyof MarshallingPointTotals, { short: string; long: string }>> = {
+const MP_LABELS: Readonly<Record<MarshallingPointSource, { short: string; long: string }>> = {
   character: { short: 'Chars', long: 'Characters' },
   item: { short: 'Items', long: 'Items' },
   faction: { short: 'Factions', long: 'Factions' },
@@ -47,7 +47,7 @@ function mpRow(label: string, self: string, opponent: string): string {
 }
 
 /** `12 (8)` when tournament adjustment changed the raw value, else `8`. */
-function mpCell(raw: MarshallingPointTotals, adjusted: MarshallingPointTotals, key: keyof MarshallingPointTotals): string {
+function mpCell(raw: MarshallingPointTotals, adjusted: MarshallingPointTotals, key: MarshallingPointSource): string {
   return adjusted[key] !== raw[key] ? `${adjusted[key]} (${raw[key]})` : `${raw[key]}`;
 }
 

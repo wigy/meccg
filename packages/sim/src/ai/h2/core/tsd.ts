@@ -18,12 +18,12 @@
  */
 
 import { computeTournamentScore, MP_SOURCES } from '@meccg/shared';
-import type { MarshallingPointTotals } from '@meccg/shared';
+import type { MarshallingPointSource, MarshallingPointTotals } from '@meccg/shared';
 import type { Outcome } from './types.js';
 import type { Tunables } from './tunables.js';
 
 /** One of the six marshalling-point sources. */
-export type MpSource = keyof MarshallingPointTotals;
+export type MpSource = MarshallingPointSource;
 
 /**
  * All six MP sources, in the order the tournament rules list them.
