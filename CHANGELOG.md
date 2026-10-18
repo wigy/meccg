@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.208.0 — 2026-10-18
+
+Exhausted Decks Keep Their Window, Replays Return to the Game
+
+### Game Engine
+
+- The movement/hazard draw-cards step now stays open while the other player's play-deck exhaust is pending, so the passing resource player no longer skips the hazard player's sideboard exchange window (#3348)
+- Mistress Lobelia's (and Strider's) fetch ability is now offered only when a matching card is actually playable at the bearer's site, instead of tapping her for an empty search at Bag End (#3347)
+
+### Web Client
+
+- Exiting a replay opened from a live game now rejoins the running game (or relaunches it from the autosave) instead of dropping to the scoreboard (#3349)
+- Storing The Windlord Found Me at a Haven now renders the wizard-search buttons (one per offered Wizard plus skip), fixing an apparently frozen game (#3350)
+
+### Tests
+
+- Into Dark Tunnels (dm-145) card test now drives its second draw-cards step with the deck exhaust the engine requires; new rule 2.08 deck-exhaustion and replay-exit tests
+
 ## 0.207.0 — 2026-10-17
 
 River Holds, Auto-attacks Get a Button
