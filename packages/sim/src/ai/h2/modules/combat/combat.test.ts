@@ -543,3 +543,27 @@ describe('weakening an attack before it is assigned', () => {
     expect(combatModule.evaluate(modify, computed)).toBeNull();
   });
 });
+
+describe('cancelling a strike with a card the target carries', () => {
+  // `cancel-strike` had no owner, so the decision was only partly covered and
+  // the defence faced a 12-prowess Barrow-wight untapped at prowess 6 instead
+  // of tapping the Troll-chief's Shadow-cloak (game mvdparjz-nnjb3o, turn 4).
+  const SCENARIO = 'combat/shadow-cloak-cancels-barrow-wight';
+  const isCancel = (action: GameAction): boolean => action.type === 'cancel-strike';
+
+  test('covers the whole decision', () => {
+    const context = contextFor(SCENARIO);
+    expect(context.legalActions.some(isCancel)).toBe(true);
+    expect(evaluateDecision([combatModule], context).complete).toBe(true);
+  });
+
+  test('is priced at the tap alone', () => {
+    const cancel = find(rank(SCENARIO), isCancel);
+    expect(cancel).toBeDefined();
+    expect(cancel!.expectedTsd).toBeCloseTo(-DEFAULT_TUNABLES.tapTempoCost);
+  });
+
+  test('is the best thing to do against the Barrow-wight', () => {
+    expect(isCancel(rank(SCENARIO)[0].action)).toBe(true);
+  });
+});
