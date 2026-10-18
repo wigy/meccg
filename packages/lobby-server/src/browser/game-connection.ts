@@ -428,9 +428,38 @@ function isRollAction(t: string): boolean {
  */
 export function getAutoPassAction(legalActions: readonly EvaluatedAction[]): GameAction | null {
   const viable = legalActions.filter(a => a.viable && !isMetaAction(a.action.type));
-  if (viable.length === 1 && !isRollAction(viable[0].action.type)) return viable[0].action;
-  return null;
+  if (viable.length !== 1) return null;
+  const type = viable[0].action.type;
+  if (isRollAction(type) || VOLUNTARY_ACTION_TYPES.has(type)) return null;
+  return viable[0].action;
 }
+
+/**
+ * Optional card plays / ability uses that auto-pass must never fire, even
+ * when one is the player's lone viable action. Such a play is never forced:
+ * when it is offered without a `pass` alongside, the game is waiting on the
+ * opponent (e.g. the attacker assigning strikes while the defender may still
+ * tap Lore of the Ages for +1 prowess), not on this player. Firing it would
+ * spend the card on the player's behalf (bug report ed2f27e91cfb36a1).
+ */
+const VOLUNTARY_ACTION_TYPES: ReadonlySet<string> = new Set([
+  'tap-ally-combat-boost',
+  'modify-attack',
+  'play-short-event',
+  'play-strike-event',
+  'play-hazard',
+  'play-permanent-event',
+  'play-long-event',
+  'play-hero-resource',
+  'play-character',
+  'play-minor-item',
+  'cancel-attack',
+  'cancel-strike',
+  'cancel-by-tap',
+  'dodge-strike',
+  'halve-strikes',
+  'activate-granted-action',
+]);
 
 /**
  * Render a full state message onto the board: toasts and log lines for the
