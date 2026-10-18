@@ -1135,6 +1135,8 @@ Two independent pieces:
 
 Used by *Carrion Birds* (td-7).
 
+*Gothmog* (td-28) reuses it as an **alternate** keying beside its base `{d}{D}` entry, with both a region and a site type (either matches): "May also be played following an Orc or Troll attack in a Shadow-land [{s}] or Shadow-hold [{S}]" → `keyedTo: [{ regionTypes: ["dark"], siteTypes: ["dark-hold"] }, { followsAttackKeyedTo: { races: ["orc", "troll"], regionTypes: ["shadow"], siteTypes: ["shadow-hold"] } }]`. No engine change.
+
 ### `play-target` target `"stored-permanent-event"` + `discard-stored-permanent-event` (Which Might Be Lies dm-100)
 
 Which Might Be Lies (dm-100): "Playable on a stored resource permanent-event that required an information site to be played. Discard event." — **fully implemented**, the short-event sibling of dm-73's `stored-item` targeting.
