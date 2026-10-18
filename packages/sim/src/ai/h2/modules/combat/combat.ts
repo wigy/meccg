@@ -11,7 +11,8 @@
  * is the property H1's weights can never have.
  *
  * It owns the defender's decisions inside one strike: tap to fight or stay
- * untapped, tap a companion to support, and play a strike event from hand. Our
+ * untapped, tap a companion to support, tap a card to cancel the strike, and
+ * play a strike event from hand. Our
  * own hand cards are in scope from the start (plan §3.3) — they are the main
  * lever a defender has over a bad attack, and H1's blindness to them is why it
  * loses characters it did not have to lose. A card is only spent when the TSD
@@ -64,6 +65,7 @@ const OWNED_ACTION_TYPES = [
   'resolve-strike',
   'play-strike-event',
   'support-strike',
+  'cancel-strike',
   // The attack window, before any strike is resolved.
   'assign-strike',
   'choose-strike-order',
@@ -1003,6 +1005,40 @@ function attackModification(context: StrikeContext, action: GameAction): AttackM
   };
 }
 
+/** What paying a `cancel-strike` costs, and the name of the card that pays it. */
+interface StrikeCanceller {
+  readonly name: string;
+  readonly cost: number;
+  readonly costReason: string;
+}
+
+/**
+ * Read the card a `cancel-strike` taps: an item or ally protecting its own
+ * bearer (Shadow-cloak, Enruned Shield) or a company-mate tapping for another
+ * (Fatty Bolger). A cancel paid with a corruption check instead of a tap (The
+ * One Ring) is declined rather than priced as a tap.
+ */
+function strikeCancellerOf(context: StrikeContext, action: GameAction): StrikeCanceller | null {
+  const cancellerId = (action as unknown as { cancellerInstanceId?: CardInstanceId }).cancellerInstanceId;
+  if (!cancellerId) return null;
+  const { view, cardPool, tunables } = context;
+  const asCharacter = view.self.characters[cancellerId];
+  const carried = asCharacter ? undefined : Object.values(view.self.characters)
+    .flatMap(host => [...host.items, ...host.allies])
+    .find(card => card.instanceId === cancellerId);
+  const definitionId = asCharacter?.definitionId ?? carried?.definitionId;
+  if (!definitionId) return null;
+  const def = cardPool[definitionId] as unknown as { name?: string; effects?: readonly { type?: string; cost?: { tap?: string } }[] } | undefined;
+  const effect = def?.effects?.find(e => e.type === 'cancel-strike');
+  if (effect?.cost?.tap !== 'self') return null;
+  const name = def?.name ?? definitionId;
+  if (asCharacter) {
+    const tap = context.characterValue.tapCost(cancellerId);
+    return { name, cost: tap.tsd, costReason: `${name} taps — ${tap.reason}` };
+  }
+  return { name, cost: tunables.tapTempoCost, costReason: 'the card taps until its bearer untaps' };
+}
+
 /** Strikes the attack would be left with after a `halve-strikes` card. */
 function reducedStrikeCount(context: StrikeContext, action: GameAction): number | null {
   const cardInstanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
@@ -1133,6 +1169,27 @@ export const combatModule: H2Module = {
           ],
           ['the supported strike is then faced by tapping to fight'],
         );
+      }
+
+      case 'cancel-strike': {
+        const canceller = strikeCancellerOf(ctx, action);
+        if (!canceller) return null;
+        // The strike simply does not resolve: the bearer is neither tapped nor
+        // wounded, so the only cost is the tap that pays for it. Facing the
+        // strike instead carries its whole distribution, which is what makes
+        // the two comparable — before this the type had no owner, and the
+        // defence faced a 12-prowess Barrow-wight untapped rather than tap the
+        // Shadow-cloak its bearer carried (game mvdparjz-nnjb3o, turn 4).
+        const forfeited = ctx.killMp > 0 && ctx.stillDefeatable;
+        return evaluationFrom(ctx, action, `tap ${canceller.name} to cancel the strike`,
+          [{ p: 1, label: 'the strike is cancelled', dtsd: -canceller.cost }],
+          [
+            leaf('tap cost', canceller.cost, { unit: 'tsd', note: canceller.costReason }),
+            ...(forfeited
+              ? [leaf('kill MP forfeited', ctx.killTsd, { unit: 'tsd', note: 'a cancelled strike is never defeated, so the attack cannot be beaten' })]
+              : []),
+          ],
+          ASSUMPTIONS);
       }
 
       case 'pass':
