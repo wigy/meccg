@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.209.0 — 2026-10-18
+
+Auto-pass Keeps Its Hands Off Optional Cards
+
+### Web Client
+
+- Auto-pass no longer fires voluntary card plays or ability uses as the lone viable action, so it stops tapping Lore of the Ages (and similar optional combat boosts) on the defender's behalf while the attacker assigns strikes (#3351)
+
+### Tests
+
+- New lobby-server browser test covering auto-pass exclusion of voluntary card plays; Mistress Lobelia (dm-178) test count refreshed in the card test matrix
+
 ## 0.208.0 — 2026-10-18
 
 Exhausted Decks Keep Their Window, Replays Return to the Game

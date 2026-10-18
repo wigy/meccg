@@ -406,7 +406,7 @@
 | dm-175 | Noldo-lantern | — | 11 | ☑ |
 | dm-176 | Phial of Galadriel | — | 19 | ☑ |
 | dm-177 | Lindion the Oronín | — | 8 | ☑ |
-| dm-178 | Mistress Lobelia | — | 16 | ☑ |
+| dm-178 | Mistress Lobelia | — | 17 | ☑ |
 | dm-179 | Noble Hound | — | 13 | ☑ |
 | dm-180 | Folco Boffin | — | 11 | ☑ |
 | dm-181 | Baugúr | — | 11 | ☑ |
