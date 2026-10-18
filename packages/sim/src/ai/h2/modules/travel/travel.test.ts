@@ -422,3 +422,29 @@ describe('a haven-to-haven move', () => {
     expect(evaluation.expectedTsd).toBeLessThan(0);
   });
 });
+
+describe('leaving a site the company could play at', () => {
+  // Game mvdparjz-nnjb3o, turn 4: Troll-chief stood untapped at Barad-dûr
+  // holding Orcs of Gorgoroth and Orcs of the Red Eye, both playable there.
+  // Mount Doom offered only Blasting Fire, yet it outscored staying — staying
+  // was priced at 0 as though nothing could be played by not moving — and the
+  // company walked away from both factions.
+  const LEAVING = 'travel/leaving-a-site-with-plays';
+  const toMountDoom = {
+    type: 'plan-movement', player: 'p2', companyId: 'company-p2-1', destinationSite: 'p2-81',
+  } as unknown as GameAction;
+
+  test('charges the plays staying would have banked', () => {
+    const { context } = position(LEAVING);
+    const evaluation = travelModule.evaluate(toMountDoom, context)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('plays given up here');
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+  });
+
+  test('so staying at Barad-dûr outranks walking to Mount Doom', () => {
+    const { context } = position(LEAVING);
+    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
+    const leave = travelModule.evaluate(toMountDoom, context)!;
+    expect(stay.utility).toBeGreaterThan(leave.utility);
+  });
+});
