@@ -19,7 +19,7 @@ import type { GameAction, PlayerView } from '@meccg/shared';
 import { describeAction } from '@meccg/shared';
 import { apiGet } from './api.js';
 import { appState, cardPool } from './app-state.js';
-import { renderStateMessage, setLoadingCover, setReplayExit } from './game-connection.js';
+import { rejoinGame, renderStateMessage, setLoadingCover, setReplayExit } from './game-connection.js';
 import { renderLog, showNotification, clearGameMessageLog } from './render.js';
 import { escapeHtml } from './html-utils.js';
 import {
@@ -78,6 +78,12 @@ interface ReplaySession {
   speedMs: number;
   /** Guard against a seek landing while an earlier one is still fetching. */
   renderToken: number;
+  /**
+   * Opponent of the live game the replay was opened from (the in-game
+   * Replay button), or null when opened from the Scores / My Games pages.
+   * Exiting returns to that game instead of the scoreboard.
+   */
+  readonly returnToOpponent: string | null;
 }
 
 let session: ReplaySession | null = null;
@@ -345,9 +351,13 @@ function onKeyDown(event: KeyboardEvent): void {
 /**
  * Open the replay viewer for a finished game. `seatName` picks the starting
  * perspective when it matches one of the two seats — the scoreboard passes the
- * player whose game list the replay was opened from.
+ * player whose game list the replay was opened from. `returnToOpponent` names
+ * the opponent of the live game the replay was opened from, so exiting the
+ * replay rejoins that game rather than stranding the player on the scoreboard.
  */
-export async function startReplay(gameId: string, seatName: string | null): Promise<void> {
+export async function startReplay(
+  gameId: string, seatName: string | null, returnToOpponent: string | null = null,
+): Promise<void> {
   const ns = window.__meccg;
   // Show the game shell behind the loading cover while the index downloads.
   ns?.showScreen?.('auth-screen');
@@ -357,6 +367,11 @@ export async function startReplay(gameId: string, seatName: string | null): Prom
 
   const r = await apiGet<ReplayIndex>(`/api/replay/${encodeURIComponent(gameId)}`);
   if (!r.ok || r.data.frames.length === 0 || r.data.seats.length === 0) {
+    if (returnToOpponent) {
+      showNotification(r.ok ? 'This game has no replayable recording' : (r.error ?? 'Failed to load the replay'));
+      rejoinGame(returnToOpponent);
+      return;
+    }
     document.getElementById('game')!.classList.add('hidden');
     ns?.showScreen?.('scoreboard-screen');
     showNotification(r.ok ? 'This game has no replayable recording' : (r.error ?? 'Failed to load the replay'));
@@ -373,6 +388,7 @@ export async function startReplay(gameId: string, seatName: string | null): Prom
     timer: null,
     speedMs: SPEEDS[1].ms,
     renderToken: 0,
+    returnToOpponent,
   };
 
   // Read-only board: spectator mode suppresses the hand's play affordances
@@ -396,10 +412,14 @@ export async function startReplay(gameId: string, seatName: string | null): Prom
   setLoadingCover(false);
 }
 
-/** Tear the replay down and return to the scoreboard. */
+/**
+ * Tear the replay down and return to the live game it was opened from, or to
+ * the scoreboard when it was opened from a game list.
+ */
 export function exitReplay(): void {
   if (!session) return;
   pause();
+  const { returnToOpponent } = session;
   session = null;
   document.removeEventListener('keydown', onKeyDown, true);
   document.getElementById('replay-bar')?.remove();
@@ -419,6 +439,14 @@ export function exitReplay(): void {
   clearGameMessageLog();
   // Re-arm the cover so the next game (or replay) never flashes this board.
   setLoadingCover(true);
+  if (returnToOpponent) {
+    // Keep the game shell up behind the cover: the rejoin connects straight
+    // back into the board. Going through the lobby matters — the game server
+    // exits a minute after its last human leaves, and the lobby relaunches it
+    // from the autosave.
+    rejoinGame(returnToOpponent);
+    return;
+  }
   document.getElementById('game')!.classList.add('hidden');
   window.__meccg?.showScreen?.('scoreboard-screen');
 }
