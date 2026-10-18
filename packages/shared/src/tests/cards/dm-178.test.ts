@@ -285,10 +285,24 @@ describe('Mistress Lobelia (dm-178)', () => {
 
   test('the tap ability is offered during the site phase, at the ally\'s own current site (CoE 2.1.1 / 9.1.3: resource/character actions on cards in play are available during any phase)', () => {
     const state = buildSitePhaseState({
-      characters: [ARAGORN], site: BAG_END, discardPile: [RANGERS_OF_THE_NORTH],
+      characters: [ARAGORN], site: BREE, discardPile: [RANGERS_OF_THE_NORTH],
     });
     const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, ARAGORN, MISTRESS_LOBELIA);
     expect(fetchActionsOf(withAlly)).toHaveLength(1);
+  });
+
+  test('the tap ability is NOT offered when no card in discard or deck is playable at her site (bug report: tapped at Bag End for nothing)', () => {
+    // Bag End lists no playable resources, so no item/ally/faction can ever
+    // be fetched there — Rangers of the North (Bree) in the discard and
+    // Wood-elves in the deck do not qualify. Tapping her would be wasted.
+    const state = buildSitePhaseState({
+      characters: [ARAGORN], site: BAG_END, discardPile: [RANGERS_OF_THE_NORTH],
+    });
+    const withAlly = attachAllyToChar(state, RESOURCE_PLAYER, ARAGORN, MISTRESS_LOBELIA);
+    expect(fetchActionsOf(withAlly)).toHaveLength(0);
+
+    const atBree = tapFixture({ discard: [WOOD_ELVES], deck: [WOOD_ELVES, ...makePlayDeck()] });
+    expect(fetchActionsOf(atBree)).toHaveLength(0);
   });
 
   test('the ability can search the play deck: a playable card is drawn to hand and the deck reshuffled', () => {
