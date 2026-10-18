@@ -232,6 +232,67 @@ describe('Rule 2.08 — Play Deck Exhaustion', () => {
     expect((afterComplete.phaseState as { step: string }).step).toBe('play-hazards');
   });
 
+  test('Movement/Hazard draw-cards: the other player passing does not close an open exhaust exchange window', () => {
+    // Regression test (bug report: game mvci0b82-0jt0df turn 20 M/H phase —
+    // the hazard player's single draw emptied their play deck and they
+    // started the exhaust. The resource player then passed their remaining
+    // draws, which advanced the step to play-hazards while the hazard
+    // player's exhaust was still pending; the sideboard exchange is only
+    // offered in draw-cards, so they never got to exchange cards.)
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          hand: [],
+          siteDeck: [MORIA],
+          playDeck: [DAGGER_OF_WESTERNESSE, SUN],
+          companies: [{ site: RIVENDELL, characters: [GANDALF] }],
+        },
+        {
+          id: PLAYER_2,
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+          playDeck: [CAVE_DRAKE],
+          discardPile: [ORC_PATROL, BARROW_WIGHT],
+          sideboard: [CAVE_DRAKE],
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+        },
+      ],
+    });
+
+    const drawState = {
+      ...state,
+      phaseState: makeMHState({
+        step: 'draw-cards',
+        resourceDrawMax: 2,
+        resourceDrawCount: 1,
+        hazardDrawMax: 1,
+        siteRevealed: true,
+      }),
+    };
+
+    // Hazard player draws their last card and starts the exhaust.
+    const afterDraw = dispatch(drawState, { type: 'draw-cards', player: PLAYER_2, count: 1 });
+    const afterExhaust = dispatch(afterDraw, { type: 'deck-exhaust', player: PLAYER_2 });
+    expect(afterExhaust.players[1].deckExhaustPending).toBe(true);
+
+    // Resource player stops drawing early.
+    const afterPass = dispatch(afterExhaust, { type: 'pass', player: PLAYER_1 });
+    expect((afterPass.phaseState as { step: string }).step).toBe('draw-cards');
+
+    // The hazard player can still exchange with their sideboard.
+    const p2Actions = computeLegalActions(afterPass, PLAYER_2).filter(a => a.viable);
+    expect(p2Actions.some(a => a.action.type === 'exchange-sideboard')).toBe(true);
+
+    // Completing the exhaust then advances to play-hazards.
+    const afterComplete = dispatch(afterPass, { type: 'pass', player: PLAYER_2 });
+    expect(afterComplete.players[1].deckExhaustPending).toBe(false);
+    expect(afterComplete.players[1].deckExhaustionCount).toBe(1);
+    expect((afterComplete.phaseState as { step: string }).step).toBe('play-hazards');
+  });
+
   test('a card entering the play deck during the exhaust exchange window survives the reshuffle', () => {
     // Regression (card-disappears invariant): completeDeckExhaust built the
     // new play deck from the discard pile alone. The play deck is normally
