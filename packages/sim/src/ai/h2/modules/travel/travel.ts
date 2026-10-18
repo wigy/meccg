@@ -573,19 +573,32 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // mostly between havens.
   const originDef = standingOn === undefined ? undefined
     : context.cardPool[standingOn] as unknown as { siteType?: string } | undefined;
-  const unlockedHere = new Set(standingOn === undefined ? []
-    : playableAt(context, standingOn, companyId as string | undefined).map(c => c.name));
+  const playableHere = standingOn === undefined ? []
+    : playableAt(context, standingOn, companyId as string | undefined);
+  const unlockedHere = new Set(playableHere.map(c => c.name));
   const havenToHaven = originDef?.siteType === 'haven' && site.siteType === 'haven'
     && playable.every(c => unlockedHere.has(c.name));
   const credited = havenToHaven
     ? { healing: 0, draws: 0, deckReachGain }
     : { healing, draws, deckReachGain };
 
+  // What leaving gives up. A company that stays put still has a site phase at
+  // the site it stands on, so the cards in hand playable *there* are banked by
+  // not moving at all — and every move is measured against staying, scored 0.
+  // Left out, a destination that played one card outranked an origin that
+  // played a better one: a Troll-chief at Barad-dûr holding Orcs of Gorgoroth
+  // and Orcs of the Red Eye walked off to Mount Doom to play Blasting Fire
+  // (game mvdparjz-nnjb3o, turn 4). Bounded by the same taps as the
+  // destination's plays, and nothing once the site is tapped.
+  const forgone = company?.currentSite?.status === CardStatus.Untapped
+    ? playableHere.slice(0, Math.max(0, destination.tapsAvailable)).reduce((sum, c) => sum + c.tsd, 0)
+    : 0;
+
   const dtsd = netTsdDelta(
     {
       realized: realized + credited.healing,
       potential: potential + credited.draws + credited.deckReachGain,
-      tempo: tempo + revisit + attackHarm + allyLossHarm,
+      tempo: tempo + revisit + attackHarm + allyLossHarm + forgone,
     },
     tunables,
   );
@@ -638,6 +651,13 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         tunable: 'eliminationTempoCost',
         note: `${discardedAllies.map(a => context.cardPool[a.definitionId]?.name ?? a.definitionId).join(', ')} `
           + `would be discarded — ${arrivingRegion ?? '?'} is outside the region(s) they may travel to`,
+      })]
+      : []),
+    ...(forgone > 0
+      ? [leaf('plays given up here', forgone, {
+        unit: 'tsd',
+        note: `${playableHere.slice(0, Math.max(0, destination.tapsAvailable)).map(c => c.name).join(', ')} `
+          + 'playable where the company stands — staying banks them',
       })]
       : []),
     ...(havenToHaven ? [] : [leaf('resource draws', draws, {
