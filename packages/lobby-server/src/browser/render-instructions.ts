@@ -356,7 +356,36 @@ export function renderPassButton(view: PlayerView, onAction: (action: GameAction
       return;
     }
 
-    // Tutorial enter-or-skip: the script demands entering the site, so the
+    // The Windlord Found Me (dm-164) wizard-search-on-store: storing the card
+    // at a Haven lets the player search their play deck or discard pile for a
+    // Wizard (`play-wizard-from-search`) or decline (`skip-wizard-search`).
+    // Neither type is in the pass-like whitelist, so without this branch the
+    // panel hid entirely while these actions were viable. Bug report
+    // f0ce310d1b10f47f (game mvckr9fe-clofvk, seq 393): "stored this card at
+    // rivendel during organization phase and the game froze".
+    const wizardSearchEvals = view.legalActions.filter(ea => ea.viable
+      && (ea.action.type === 'play-wizard-from-search' || ea.action.type === 'skip-wizard-search'));
+    if (wizardSearchEvals.length > 0) {
+      btn.classList.add('hidden');
+      waitingEl?.classList.add('hidden');
+      for (const ea of wizardSearchEvals) {
+        const searchAction = ea.action;
+        const searchBtn = document.createElement('button');
+        searchBtn.className = 'enter-site-btn wizard-search-choice-btn';
+        if (searchAction.type === 'play-wizard-from-search') {
+          const wizardName = cardPool[searchAction.wizardDefinitionId as string]?.name ?? searchAction.wizardDefinitionId as string;
+          const pile = searchAction.source === 'play-deck' ? 'Play Deck' : 'Discard Pile';
+          searchBtn.textContent = `Play ${wizardName} from ${pile}`;
+        } else {
+          searchBtn.textContent = 'Skip Wizard Search';
+        }
+        searchBtn.onclick = () => onAction(searchAction);
+        inPhaseTier?.appendChild(searchBtn);
+      }
+      return;
+    }
+
+    // Tutorial enter-or-skip:the script demands entering the site, so the
     // gate demoted the normal Skip (pass) to non-viable — which would hide
     // the whole button pair. Show the familiar Enter/Skip controls anyway:
     // Enter live, Skip disabled with the tutorial reason as its tooltip.
