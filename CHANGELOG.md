@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.210.0 — 2026-10-18
+
+Modular AI Hides Under Its Cloak and Counts What It Leaves Behind
+
+### AI
+
+- The modular AI now taps a cancel-strike item such as Shadow-cloak to cancel a strike instead of facing it in combat (#3352)
+- The modular AI now charges the plays it gives up by leaving a site when deciding whether to travel, so it no longer walks away from resources it could still play where it stands (#3353)
+
+### Tests
+
+- New modular-AI combat and travel tests with recorded fixtures (Shadow-cloak cancelling a Barrow-wight strike; leaving a site with playable cards)
+
 ## 0.209.0 — 2026-10-18
 
 Auto-pass Keeps Its Hands Off Optional Cards
