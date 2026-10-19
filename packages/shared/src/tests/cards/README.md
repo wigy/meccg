@@ -6,17 +6,17 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1401 | 1401 | 0 | 100.0% |
+| 1404 | 1404 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 129 | 129 | 100.0% |
+| AS | 130 | 130 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 157 | 157 | 100.0% |
-| LE | 336 | 336 | 100.0% |
-| TD | 147 | 147 | 100.0% |
+| LE | 337 | 337 | 100.0% |
+| TD | 148 | 148 | 100.0% |
 | TW | 429 | 429 | 100.0% |
 | WH | 102 | 102 | 100.0% |
 
@@ -43,6 +43,7 @@
 | as-18 | Radagast the Tamer | — | 20 | ☑ |
 | as-19 | Saruman the Wise | — | 18 | ☑ |
 | as-21 | Stout Men of Gondor | — | 5 | ☑ |
+| as-22 | Trolls from the Mountains | — | 4 | ☑ |
 | as-23 | A Lie in Your Eyes | — | 7 | ☑ |
 | as-24 | Alone and Unadvised | — | 18 | ☑ |
 | as-27 | Enchanted Stream | — | 13 | ☑ |
@@ -523,6 +524,7 @@
 | le-117 | Long Winter | — | 9 | ☑ |
 | le-122 | Lure of Expedience | — | 13 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
+| le-125 | Minions Stir | — | 3 | ☑ |
 | le-126 | Muster Disperses | — | 6 | ☑ |
 | le-127 | News of Doom | — | 6 | ☑ |
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
@@ -764,6 +766,7 @@
 | td-21 | Eärcaraxë Ahunt | — | 11 | ☑ |
 | td-25 | Foolish Words | — | 8 | ☑ |
 | td-27 | From the Pits of Angband | — | 15 | ☑ |
+| td-28 | Gothmog | — | 8 | ☑ |
 | td-30 | Hobgoblins  | — | 4 | ☑ |
 | td-31 | Host of Bats | — | 15 | ☑ |
 | td-32 | Ice-drake | — | 2 | ☑ |

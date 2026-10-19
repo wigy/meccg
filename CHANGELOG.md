@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.211.0 — 2026-10-19
+
+Gothmog Leads the Trolls as Minions Stir
+
+### Cards
+
+- Certified Gothmog (td-28), with its alternate keying: may also be played following an Orc or Troll attack in a Shadow-land or Shadow-hold (#3354)
+- Certified Trolls from the Mountains (as-22), a 3-strike Troll attack keyed to three Wildernesses (#3355)
+- Certified Minions Stir (le-125): +1 strikes and +1 prowess for all Orc and Troll attacks, plus a further +1/+1 for Orc attacks while Doors of Night is in play (#3356)
+
+### Tests
+
+- New card tests for td-28, as-22 and le-125
+- New `viableHazardPlays` test query helper for asserting which keyings a creature can use
+
+### Documentation
+
+- Card effects DSL and certification engine-support notes describe Gothmog's alternate `followsAttackKeyedTo` keying
+- README project status refreshed (1457 of 1683 cards certified)
+
 ## 0.210.0 — 2026-10-18
 
 Modular AI Hides Under Its Cloak and Counts What It Leaves Behind
