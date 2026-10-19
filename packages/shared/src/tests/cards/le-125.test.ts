@@ -20,6 +20,7 @@
  *   - Ettenmoors (tw-395): Trolls auto-attack — 1 strike, 9 prowess.
  *   - Gladden Fields (tw-396): Undead auto-attack — 1 strike, 8 prowess.
  *   - Orc-patrol (tw-074): hazard creature — Orcs, 3 strikes, 6 prowess.
+ *   - Bûthrakaur the Green (dm-105): unique hazard creature — Troll, 1 strike, 15 prowess.
  *
  * | # | Effect                                    | Status      | Notes                              |
  * |---|-------------------------------------------|-------------|------------------------------------|
@@ -47,13 +48,16 @@ import {
   handCardId, companyIdAt, dispatch, resolveChain,
   DOORS_OF_NIGHT,
   RESOURCE_PLAYER, HAZARD_PLAYER,
+  playCreatureHazardAndResolve,
 } from '../test-helpers.js';
+import { SiteType } from '../../index.js';
 import type { CardInPlay, CardInstanceId, CardDefinitionId } from '../../index.js';
 
 const MINIONS_STIR = 'le-125' as CardDefinitionId;
 const ETTENMOORS = 'tw-395' as CardDefinitionId;
 const GLADDEN_FIELDS = 'tw-396' as CardDefinitionId;
 const ORC_PATROL = 'tw-074' as CardDefinitionId;
+const BUTHRAKAUR = 'dm-105' as CardDefinitionId;
 
 const stirInPlay: CardInPlay = {
   instanceId: 'stir-1' as CardInstanceId,
@@ -116,6 +120,37 @@ describe('Minions Stir (le-125)', () => {
     expect(after.combat).toBeDefined();
     expect(after.combat!.strikesTotal).toBe(strikes);
     expect(after.combat!.strikeProwess).toBe(prowess);
+  });
+
+  test('Troll hazard creature +1/+1 (Bûthrakaur the Green 1/15 → 2/16)', () => {
+    // Regression (game mvewpqq1-o519rz): Bûthrakaur keyed to a Shadow-hold
+    // attacked at its printed 1/15 while Minions Stir was in play.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [] }], hand: [BUTHRAKAUR], siteDeck: [], cardsInPlay: [stirInPlay] },
+      ],
+    });
+    const state = {
+      ...base,
+      phaseState: makeMHState({
+        resolvedSitePath: [],
+        resolvedSitePathNames: [],
+        destinationSiteType: SiteType.ShadowHold,
+        destinationSiteName: 'Dol Guldur',
+      }),
+    };
+    const after = playCreatureHazardAndResolve(
+      state, PLAYER_2, handCardId(state, HAZARD_PLAYER), companyIdAt(state, RESOURCE_PLAYER),
+      { method: 'site-type' as const, value: SiteType.ShadowHold },
+    );
+    expect(after.combat).toBeDefined();
+    expect(after.combat!.creatureRace).toBe('troll');
+    expect(after.combat!.strikesTotal).toBe(2);
+    expect(after.combat!.strikeProwess).toBe(16);
   });
 
   test('can be played as a hazard when no copy is in play', () => {
