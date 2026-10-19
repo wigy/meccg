@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.212.0 — 2026-10-19
+
+Ready to His Will Leaves the Hand
+
+### Web Client
+
+- Ready to His Will (le-220) can now be played from the hand against a qualifying creature attack; the hand renderer had no handler for the convert-creature-to-ally action, so the card stayed dimmed (#3359)
+
+### AI
+
+- The modular AI no longer counts tapping an already-tapped character as denial, so in a detainment attack it stops piling excess strikes onto tapped characters where they do nothing (#3357)
+
+### Tests
+
+- New card test for Minions Stir (le-125) boosting a Troll hazard creature attack (#3358)
+- New modular-AI denial pricing tests for characters already tapped or wounded
+
+### Documentation
+
+- Card tests README refreshed
+
 ## 0.211.0 — 2026-10-19
 
 Gothmog Leads the Trolls as Minions Stir

@@ -524,7 +524,7 @@
 | le-117 | Long Winter | — | 9 | ☑ |
 | le-122 | Lure of Expedience | — | 13 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
-| le-125 | Minions Stir | — | 3 | ☑ |
+| le-125 | Minions Stir | — | 4 | ☑ |
 | le-126 | Muster Disperses | — | 6 | ☑ |
 | le-127 | News of Doom | — | 6 | ☑ |
 | le-128 | Nothing to Eat or Drink | — | 10 | ☑ |
