@@ -14204,6 +14204,11 @@ the printed "keyed to wilderness" *is* this clause, since a company's resolved
 M/H path cannot change mid-sub-phase — if the earlier attack was keyed to
 wilderness, wilderness is in the path now too.
 
+*Gothmog* (td-28) — "May also be played following an Orc or Troll attack in a
+Shadow-land [{s}] or Shadow-hold [{S}]" — adds `{ "followsAttackKeyedTo": {
+"races": ["orc", "troll"], "regionTypes": ["shadow"], "siteTypes":
+["shadow-hold"] } }` as an alternative entry beside its base `{d}{D}` keying.
+
 ### `movingBetweenSiteNames`
 
 ```json

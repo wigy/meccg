@@ -460,9 +460,17 @@
         "siteTypes": [
           "dark-hold"
         ]
+      },
+      {
+        "followsAttackKeyedTo": {
+          "races": ["orc", "troll"],
+          "regionTypes": ["shadow"],
+          "siteTypes": ["shadow-hold"]
+        }
       }
     ],
     "effects": [],
+    "certified": "2026-10-18",
     "text": "Unique. Troll. One strike. May also be played following an Orc or Troll attack in a Shadow-land [{s}] or Shadow-hold [{S}]."
   },
   {

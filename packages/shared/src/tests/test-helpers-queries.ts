@@ -16,7 +16,7 @@
 
 import { expect } from 'vitest';
 import { computeLegalActions, computePlayerFacingActions } from '../index.js';
-import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, CharacterCard, ActivateGrantedAction, ActiveConstraint, CompanyId, OnGuardCard, MetaActionOptions, WithdrawSupportAction, ResolveStrikeAction, CorruptionCheckAction } from '../index.js';
+import type { PlayerId, GameState, CardDefinitionId, CardInstanceId, CardInstance, GameAction, PlayCharacterAction, CharacterCard, ActivateGrantedAction, ActiveConstraint, CompanyId, OnGuardCard, MetaActionOptions, WithdrawSupportAction, ResolveStrikeAction, CorruptionCheckAction, PlayHazardAction } from '../index.js';
 import type { EvaluatedAction } from '../rules/types.js';
 import { pool } from './test-helpers-constants.js';
 import type { PileKey } from './test-helpers-constants.js';
@@ -114,6 +114,17 @@ export function moveToInfluenceEntries(
     if (characterId !== undefined && ea.action.characterInstanceId !== characterId) return false;
     return controlledBy === undefined || ea.action.controlledBy === controlledBy;
   });
+}
+
+/**
+ * Viable `play-hazard` actions offered to `playerId` for the hand card
+ * `cardInstanceId` — one per keying the engine accepts. Lets creature card
+ * tests assert on exactly which `keyedBy` methods a creature can use.
+ */
+export function viableHazardPlays(state: GameState, playerId: PlayerId, cardInstanceId: CardInstanceId): PlayHazardAction[] {
+  return viableActions(state, playerId, 'play-hazard')
+    .map(ea => ea.action as PlayHazardAction)
+    .filter(a => a.cardInstanceId === cardInstanceId);
 }
 
 /** All viable actions (of any type) for a player. */
