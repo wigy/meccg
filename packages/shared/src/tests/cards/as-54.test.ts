@@ -22,6 +22,9 @@
  *    end-of-turn phase too (discard and signal-end steps), since the card's
  *    text grants the window "during the end-of-turn phase" generally, not
  *    only during one's own organization phase.
+ * 6. play-flag allow-store-eot: the window is not limited to the card's
+ *    owner — "Hero characters may store" applies to the opponent's hero
+ *    characters too.
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -364,5 +367,28 @@ describe('Safe from the Shadow (as-54)', () => {
     const legolasEntry = Object.values(afterPass.players[HAZARD_PLAYER].characters)
       .find(c => c.definitionId === LEGOLAS);
     expect(legolasEntry!.items.some(i => i.definitionId === RED_BOOK_OF_WESTMARCH)).toBe(true);
+  });
+  test('opponent\'s Safe from the Shadow lets the active player\'s hero characters store at EOT signal-end', () => {
+    // Bug report: Safe from the Shadow was in the opponent's cardsInPlay, yet
+    // the active player could not store Vein of Arda at their Haven during
+    // their own end-of-turn phase. The card grants the window to all "Hero
+    // characters", not only to the characters of the player who played it.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.EndOfTurn,
+      players: [
+        { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MORIA] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const withSignalEnd = {
+      ...base,
+      phaseState: { ...(base.phaseState as EndOfTurnPhaseState), step: 'signal-end' as const, discardDone: [true, true] as [boolean, boolean], resetHandDone: [true, true] as [boolean, boolean] } as EndOfTurnPhaseState,
+    };
+    const withItem = attachItemToChar(withSignalEnd, RESOURCE_PLAYER, ARAGORN, RED_BOOK_OF_WESTMARCH);
+    const withEvent = addCardInPlay(withItem, HAZARD_PLAYER, SAFE_FROM_THE_SHADOW);
+
+    const storeActions = viableActions(withEvent, PLAYER_1, 'store-item');
+    expect(storeActions.length).toBeGreaterThan(0);
   });
 });

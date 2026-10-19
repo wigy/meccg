@@ -399,14 +399,23 @@ function runHomeActions(state: GameState, playerId: PlayerId): GameAction[] {
 }
 
 /**
- * Returns true if the active player has a permanent event with the
- * `allow-store-eot` play-flag in their `cardsInPlay`.
+ * Returns true if the given player's characters may store during the
+ * end-of-turn phase because a permanent event with the `allow-store-eot`
+ * play-flag is in play.
+ *
+ * The card's effect is not limited to its owner: Safe from the Shadow reads
+ * "Hero characters may store…" and Tokens to Show "Minion characters may
+ * store…", so a copy in either player's `cardsInPlay` opens the window for
+ * every player whose alignment matches the card's. The owner always
+ * benefits.
  */
 function allowStoreEot(state: GameState, playerIndex: number): boolean {
-  return state.players[playerIndex].cardsInPlay.some(card => {
-    const def = state.cardPool[card.definitionId] as { readonly effects?: readonly import('../../types/effects.js').CardEffect[] } | undefined;
-    return hasPlayFlag(def, 'allow-store-eot');
-  });
+  const player = state.players[playerIndex];
+  return state.players.some((owner, ownerIndex) => owner.cardsInPlay.some(card => {
+    const def = state.cardPool[card.definitionId] as { readonly alignment?: string; readonly effects?: readonly CardEffect[] } | undefined;
+    if (!hasPlayFlag(def, 'allow-store-eot')) return false;
+    return ownerIndex === playerIndex || def?.alignment === player.alignment;
+  }));
 }
 
 /**
