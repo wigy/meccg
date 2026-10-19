@@ -66,7 +66,7 @@
 | as-49 | Glamour of Surpassing Excellance | — | 9 | ☑ |
 | as-50 | Mount Slain | — | 10 | ☑ |
 | as-51 | No Strangers at this Time | — | 17 | ☑ |
-| as-54 | Safe from the Shadow | — | 13 | ☑ |
+| as-54 | Safe from the Shadow | — | 14 | ☑ |
 | as-56 | The Sun Unveiled | — | 8 | ☑ |
 | as-57 | Tower Raided | — | 15 | ☑ |
 | as-58 | Angmarim | — | 5 | ☑ |

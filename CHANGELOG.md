@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.213.0 — 2026-10-19
+
+Safe from the Shadow Shelters Both Sides
+
+### Game Engine
+
+- Safe from the Shadow (as-54) now opens the end-of-turn storing window for every hero player's characters, not only the card owner's, so the opponent's hero characters can also store items at end of turn (#3360)
+
+### Tests
+
+- New card test for Safe from the Shadow letting the opponent's hero characters store at end of turn (#3360)
+
+### Documentation
+
+- Card tests README refreshed
+
 ## 0.212.0 — 2026-10-19
 
 Ready to His Will Leaves the Hand
