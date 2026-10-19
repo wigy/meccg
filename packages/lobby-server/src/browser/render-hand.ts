@@ -7,7 +7,7 @@
  * tooltips for short-events and hazard keying, and resource/item target menus.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction, DeclareBurglaryAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction, DeclareBurglaryAction, ConvertCreatureToAllyAction } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup, describeArrivalMode } from '@meccg/shared';
 import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
@@ -418,6 +418,22 @@ export function findDragonAmbushOfferAction(
 ): GameAction | null {
   if (!instanceId) return null;
   return actionsOfTypeFor(legalActions, 'play-dragon-ambush-creature', instanceId)[0] ?? null;
+}
+
+/**
+ * Find all convert-creature-to-ally actions for a given hand instance (Ready
+ * to His Will le-220, Memories of Old Torture ba-67) — one per character in
+ * the attacked company that may take control of the converted creature.
+ * Without this finder the card had no click handler and rendered as
+ * unplayable during the creature's attack, even though the engine offered it
+ * (bug report 6c1c53a1fdfde272: Ready to His Will against "Tom" (Tûma)).
+ */
+export function findConvertCreatureToAllyActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): ConvertCreatureToAllyAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'convert-creature-to-ally', instanceId);
 }
 
 /**
@@ -1311,6 +1327,8 @@ export function renderHand(
     const isDragonAmbushOffer = dragonAmbushOfferAction !== null;
     const siteAutoAttackAction = findSiteAutoAttackAction(cardInstanceId, viable);
     const isSiteAutoAttack = siteAutoAttackAction !== null;
+    const convertCreatureToAllyActions = findConvertCreatureToAllyActions(cardInstanceId, viable);
+    const isConvertCreatureToAlly = convertCreatureToAllyActions.length > 0;
     const sacrificeOfFormAction = findSacrificeOfFormAction(cardInstanceId, viable);
     const isSacrificeOfForm = sacrificeOfFormAction !== null;
     const revealedCardPlayActions = findRevealedCardPlayActions(cardInstanceId, viable);
@@ -1326,7 +1344,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isSiteAutoAttack && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1631,6 +1649,26 @@ export function renderHand(
       if (onAction) {
         const autoAttackAction = siteAutoAttackAction;
         img.addEventListener('click', () => onAction(autoAttackAction));
+      }
+    } else if (isConvertCreatureToAlly) {
+      // Ready to His Will (le-220): the creature is fixed by the live attack;
+      // only the controlling character varies. A single candidate plays
+      // directly, several show a menu naming each character.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        if (convertCreatureToAllyActions.length === 1) {
+          const convertAction = convertCreatureToAllyActions[0];
+          img.addEventListener('click', () => onAction(convertAction));
+        } else {
+          img.addEventListener('click', (e) => {
+            const items: TooltipMenuItem[] = convertCreatureToAllyActions.map(a => {
+              const charDefId = cachedInstanceLookup(a.controllingCharacterId);
+              const charName = (charDefId ? cardPool[charDefId as string]?.name : undefined) ?? 'character';
+              return { label: charName, onClick: () => onAction(a) };
+            });
+            showCursorTooltipMenu(e, items);
+          });
+        }
       }
     } else if (isSacrificeOfForm) {
       // Sacrifice of Form (tw-321): the Wizard being sacrificed is fixed by
