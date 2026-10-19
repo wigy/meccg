@@ -458,6 +458,7 @@ const VOLUNTARY_ACTION_TYPES: ReadonlySet<string> = new Set([
   'cancel-by-tap',
   'dodge-strike',
   'halve-strikes',
+  'convert-creature-to-ally',
   'activate-granted-action',
 ]);
 
