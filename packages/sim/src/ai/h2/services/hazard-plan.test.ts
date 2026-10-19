@@ -114,13 +114,16 @@ describe('the order the attacks are played in', () => {
     // reverse, and the `hazards` module's own bundle search says so too. The
     // plan used to inherit the order it happened to pick cards in. (Against
     // two characters the Spiders are assigned two strikes and carry the other
-    // two as −2 on the second, CoE 3.iii; the order still holds.)
-    const { orderOf } = planAt('hazards/order-two-defenders');
+    // two as −2 on the second, CoE 3.iii; the order still holds.) Which
+    // attack follows is not the point: since a parry against a character
+    // Wargs already tapped stopped being credited as a second tap, Cave Worm
+    // is the better follow-up, and it too comes behind Wargs.
+    const { plan, orderOf } = planAt('hazards/order-two-defenders');
     const wargs = orderOf('Wargs');
-    const spiders = orderOf('Lesser Spiders');
     expect(wargs?.targetCompanyId).not.toBeNull();
-    expect(spiders?.targetCompanyId).toBe(wargs?.targetCompanyId);
-    expect(wargs!.order).toBeLessThan(spiders!.order);
+    const behind = plan.assignments.filter(a => a !== wargs && a.targetCompanyId === wargs?.targetCompanyId);
+    expect(behind.length).toBeGreaterThan(0);
+    for (const follow of behind) expect(wargs!.order).toBeLessThan(follow.order);
   });
 
   test('does not waste a many-strike attack on a lone wounded defender', () => {

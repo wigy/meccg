@@ -20,6 +20,7 @@ import type { DenialContext } from './denial.js';
 import { combatAbilitiesOf, NO_ABILITIES } from './strike/ability.js';
 import type { StrikeTarget } from './strike/prowess.js';
 import { resolveAttacks } from './strike/sequence.js';
+import { strikeOutcomes } from './strike/strike-model.js';
 import type { AttackProfile } from './strike/sequence.js';
 import { DEFAULT_TUNABLES } from '../core/tunables.js';
 import type { Standing } from './standing.js';
@@ -122,5 +123,27 @@ describe('who an attacker-chooses attack actually strikes', () => {
       { maxStates: 192 },
     );
     expect(result.opening[0].target.name).toBe('plain');
+  });
+});
+
+describe('a detainment strike on a character who is already tapped', () => {
+  // Game mveu64mu-vtco5g: the AI piled every excess strike of a detainment
+  // Orc-warband on the tapped character, where tapping him again does nothing
+  // (CoE 3.II: "an untapped target is tapped instead of being wounded").
+  const price = denialPricer(POOL, STANDING, DEFAULT_TUNABLES, CONTEXT);
+  const outcomes = strikeOutcomes(
+    { need: 7, tapMode: 'always', bestOfTwo: false, bodyPenalty: 0 },
+    { creatureBody: null, detainment: true, characterBody: 9, alreadyWounded: false, bodyCheckModifier: 0 },
+  );
+  const expected = (t: StrikeTarget): number =>
+    outcomes.reduce((sum, o) => sum + o.p * price(o, t, { untappedBefore: 1 }), 0);
+
+  test('denies them nothing', () => {
+    expect(expected({ ...target('tapped', true), status: CardStatus.Tapped })).toBe(0);
+  });
+
+  test('so an untapped character is the better target', () => {
+    const tapped = { ...target('tapped', false), status: CardStatus.Tapped };
+    expect(expected(target('untapped', false))).toBeGreaterThan(expected(tapped));
   });
 });

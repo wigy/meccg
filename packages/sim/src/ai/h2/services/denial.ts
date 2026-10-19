@@ -117,6 +117,16 @@ export function characterMp(
 }
 
 /**
+ * Whether a strike outcome leaves the character no worse off than before it:
+ * tapped when already tapped, or tapped/wounded when already wounded.
+ */
+function alreadyIn(target: StrikeTarget, fate: StrikeOutcome['character']): boolean {
+  if (target.status === CardStatus.Tapped) return fate === 'tapped';
+  if (target.status === CardStatus.Inverted) return fate === 'tapped' || fate === 'wounded';
+  return false;
+}
+
+/**
  * The pricer handed to the strike enumeration, from the attacking seat.
  *
  * Signs are the mirror of `combat`'s: every outcome that costs the defender
@@ -164,6 +174,11 @@ export function denialPricer(
   };
 
   return (outcome: StrikeOutcome, target: StrikeTarget, strike: StrikeContext): number => {
+    // A fate the character is already in costs them nothing more. Tapping a
+    // tapped character — a parry, or a detainment strike getting through
+    // (CoE 3.II: "an untapped target is tapped") — denies no play and no
+    // ability, so aiming a detainment strike at him is wasted.
+    if (alreadyIn(target, outcome.character)) return 0;
     // Allies cannot be tapped to play resources, so removing one denies nothing
     // but the tempo of it.
     const denied = target.isAlly ? 0 : playsDenied(strike.untappedBefore) * context.fullPlay;
