@@ -30,6 +30,7 @@ import type {
   FaceStrikeOnTapAction,
   TapAllyCombatBoostAction,
   SalvageItemAction,
+  DiscardItemFromCompanyAction,
   TakeTrophyAction,
   EvaluatedAction,
   CardEffect,
@@ -56,6 +57,7 @@ import { openFullMap } from './map-fullscreen.js';
 import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
 import { getFocusedCompanyId, setSavedFocusedCompanyId, setFocusedCompanyId } from './company-view-state.js';
 import { onGuardModifyAttackActions, inPlayPermanentModifyAttackActions } from './on-guard-modify-attack.js';
+import { renderDiscardItemPanel } from './combat-discard-item-panel.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -156,6 +158,7 @@ export function renderCombatView(
   const tapCombatBoostActions = viable.filter((a): a is TapAllyCombatBoostAction => a.type === 'tap-ally-combat-boost');
   const salvageActions = viable.filter((a): a is SalvageItemAction => a.type === 'salvage-item');
   const takeTrophyActions = viable.filter((a): a is TakeTrophyAction => a.type === 'take-trophy');
+  const discardItemActions = viable.filter((a): a is DiscardItemFromCompanyAction => a.type === 'discard-item-from-company');
 
   // Modify-attack actions sourced from an unrevealed on-guard card on the
   // defending company (e.g. Unabated in Malice ba-26 placed on-guard during
@@ -220,6 +223,13 @@ export function renderCombatView(
   // Salvage items panel — rendered between the two rows during item-salvage phase
   if (combat.phase === 'item-salvage' && iAmDefender && salvageActions.length > 0) {
     arena.appendChild(renderSalvagePanel(combat, view, cardPool, salvageActions, onAction));
+  }
+
+  // Forced item discard panel (Thief tw-102, An Article Missing dm-43) —
+  // the company view is hidden behind the arena, so without this the
+  // engine-legal discard had no click target (bug report c7b46bf01b2a5a64).
+  if (combat.phase === 'discard-item-from-company' && iAmDefender && discardItemActions.length > 0) {
+    arena.appendChild(renderDiscardItemPanel(combat, cardPool, discardItemActions, onAction));
   }
 
   // On-guard modify-attack panel — rendered between the two rows during the
@@ -418,6 +428,8 @@ function renderPhaseBanner(
   } else if (combat.phase === 'item-salvage') {
     const itemCount = combat.salvageItems?.length ?? 0;
     phaseText = `Salvage Items \u2014 ${itemCount} item${itemCount !== 1 ? 's' : ''} available`;
+  } else if (combat.phase === 'discard-item-from-company') {
+    phaseText = `${racePrefix}Strike succeeded \u2014 ${iAmDefender ? 'choose an item to discard' : 'defender discards an item'}`;
   } else if (combat.phase === 'trophy-offer') {
     phaseText = trophyOfferBannerText(racePrefix, combat.trophyEligibleCharacters?.length ?? 0);
   } else if (combat.phase === 'creature-storage-offer') {
