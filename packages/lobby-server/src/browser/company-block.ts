@@ -130,6 +130,38 @@ export function findHazardVariants(
 }
 
 /**
+ * All viable `play-permanent-event` actions for the given hand card targeting
+ * the given character. A card with an `opposed-roll` against a chosen
+ * company member (No More Nonsense le-210) yields one action per opposed
+ * character; the click handler must let the player choose among them rather
+ * than silently firing the first one.
+ */
+export function findPermanentEventVariants(
+  viable: readonly GameAction[],
+  cardInstanceId: CardInstanceId,
+  charInstanceId: CardInstanceId,
+): PlayPermanentEventAction[] {
+  return viable.filter(
+    (a): a is PlayPermanentEventAction =>
+      a.type === 'play-permanent-event'
+      && a.cardInstanceId === cardInstanceId
+      && a.targetCharacterId === charInstanceId,
+  );
+}
+
+/**
+ * Menu label for a play-permanent-event variant: names the opposed character
+ * when the variants differ by who the target rolls against.
+ */
+export function permanentEventVariantLabel(
+  action: PlayPermanentEventAction,
+  nameOf: (id: CardInstanceId) => string,
+): string {
+  if (!action.opposedCharacterId) return 'Play';
+  return `Roll against ${nameOf(action.opposedCharacterId)}`;
+}
+
+/**
  * Human-readable label for a play-hazard variant, used when the UI must
  * disambiguate multiple `play-option` effects on the same target.
  */
@@ -224,8 +256,12 @@ interface CharacterTargetingMode {
   readonly selected: () => CardInstanceId | null;
   readonly clear: () => void;
   readonly find: (viable: readonly GameAction[], selected: CardInstanceId, charInstId: CardInstanceId) => readonly GameAction[];
-  /** Menu label when several actions match (only faction influence has variants). */
-  readonly label?: (action: GameAction) => string;
+  /**
+   * Menu label when several actions match. `nameOf` resolves a character
+   * instance to its card name (for variants that differ by a second
+   * character, e.g. No More Nonsense's opposed character).
+   */
+  readonly label?: (action: GameAction, nameOf: (id: CardInstanceId) => string) => string;
 }
 
 /** The first viable action matching `pred`, as a 0- or 1-element list. */
@@ -271,10 +307,10 @@ const CHARACTER_TARGETING_MODES: readonly CharacterTargetingMode[] = [
   {
     selected: getSelectedPermanentEventForPlay,
     clear: clearPermanentEventPlaySelection,
-    find: (viable, selected, charInstId) => firstMatch(viable,
-      a => a.type === 'play-permanent-event' && a.cardInstanceId === selected
-        && 'targetCharacterId' in a && a.targetCharacterId === charInstId,
-    ),
+    // A card that rolls against "another character in the company" (No More
+    // Nonsense le-210) yields one variant per opposed character → menu.
+    find: findPermanentEventVariants,
+    label: (a, nameOf) => permanentEventVariantLabel(a as PlayPermanentEventAction, nameOf),
   },
   // Tap-alt-permanent-event character targeting: after clicking an in-play
   // creature-permanent-event (e.g. Adûnaphel tw-2), click any eligible
@@ -572,6 +608,12 @@ export function renderCompanyBlock(
     };
   };
 
+  /** Card name of a character instance in this block, for menu labels. */
+  const characterName = (id: CardInstanceId): string => {
+    const char = charMap[id as string];
+    return (char && cardPool[char.definitionId as string]?.name) ?? (id as string);
+  };
+
   /**
    * A selected hand/in-play card looking for a target takes priority over
    * everything else: `instId` — a top-level character, a follower, or an
@@ -604,7 +646,7 @@ export function renderCompanyBlock(
           showTooltipMenu(
             e.target as HTMLElement,
             matches.map(action => ({
-              label: mode.label?.(action) ?? action.type,
+              label: mode.label?.(action, characterName) ?? action.type,
               onClick: () => {
                 mode.clear();
                 options?.onAction?.(action);
