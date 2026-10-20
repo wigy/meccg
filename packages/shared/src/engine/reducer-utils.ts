@@ -1699,6 +1699,62 @@ export function influenceModificationsNullified(state: GameState): boolean {
 }
 
 /**
+ * Product of the `factor`s of every `multiply-standard-modifications` effect
+ * on a bare in-play event in **either** player's `cardsInPlay` — Old
+ * Prejudice (le-214): "Triple all standard modifications for influence checks
+ * against factions." Returns 1 when no such card is in play. Mirrors
+ * {@link influenceModificationsNullified}'s "either player, bare card" scan.
+ */
+export function standardModificationMultiplier(state: GameState): number {
+  let factor = 1;
+  for (const pl of state.players) {
+    for (const cip of pl.cardsInPlay) {
+      if (cip.attachedTo !== undefined || cip.attachedToItem !== undefined
+        || cip.attachedToSite !== undefined || cip.attachedToAgentId !== undefined
+        || cip.companyId !== undefined || cip.setAsideHost !== undefined
+        || cip.pendingTriggerAttack) continue;
+      const def = defById(state, cip.definitionId);
+      if (!def) continue;
+      for (const effect of getCardEffects(def)) {
+        if (effect.type !== 'multiply-standard-modifications') continue;
+        logDetail(`Standard modifications multiplied by ${effect.factor} by "${def.name}" (${cip.definitionId as string})`);
+        factor *= effect.factor;
+      }
+    }
+  }
+  return factor;
+}
+
+/**
+ * Collects the effects printed on a faction card that apply to an influence
+ * attempt against it (gated by each effect's `when` against `ctx`). The
+ * faction's influence `check-modifier`s — its "Standard Modifications" — are
+ * scaled by {@link standardModificationMultiplier} (Old Prejudice le-214).
+ * Shared by the three faction-influence computations (display, paused roll,
+ * roll resolver) so they always agree on the need.
+ */
+export function collectFactionCardEffects(
+  state: GameState,
+  factionDef: CardDefinition,
+  ctx: import('./effects/resolver.js').ResolverContext,
+  sourceInstance: CardInstanceId,
+): import('./effects/resolver.js').CollectedEffect[] {
+  const factor = standardModificationMultiplier(state);
+  const collected: import('./effects/resolver.js').CollectedEffect[] = [];
+  for (const effect of getCardEffects(factionDef)) {
+    if (effect.when && !matchesContext(effect.when, ctx)) continue;
+    const scaled = factor !== 1 && effect.type === 'check-modifier'
+      ? {
+        ...effect,
+        value: typeof effect.value === 'number' ? effect.value * factor : `(${effect.value}) * ${factor}`,
+      }
+      : effect;
+    collected.push({ effect: scaled, sourceDef: factionDef, sourceInstance });
+  }
+  return collected;
+}
+
+/**
  * True while a bare in-play event in **either** player's `cardsInPlay` carries
  * a `hand-discard-recycle-option` effect — Enduring Tales (dm-125): "When any
  * player discards a card from his hand, he may discard it to the top of his
