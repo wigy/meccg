@@ -1425,11 +1425,34 @@
     "unique": true,
     "marshallingPoints": 1,
     "marshallingCategory": "faction",
-    "influenceNumber": 0,
+    "influenceNumber": 11,
+    "inPlayInfluenceNumber": 0,
     "race": "man",
-    "playableAt": [],
-    "effects": [],
-    "text": "Unique. Playable at Carn Dûm  if the influence check is greater than 10. Once in play, the number required to influence this faction is 0.Standard Modifications: Easterlings (+2), Hillmen (+2)."
+    "playableAt": [
+      {
+        "site": "Carn Dûm"
+      }
+    ],
+    "effects": [
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Easterlings"
+        }
+      },
+      {
+        "type": "check-modifier",
+        "check": "influence",
+        "value": 2,
+        "when": {
+          "controller.inPlay": "Hillmen"
+        }
+      }
+    ],
+    "text": "Unique. Playable at Carn Dûm  if the influence check is greater than 10. Once in play, the number required to influence this faction is 0.Standard Modifications: Easterlings (+2), Hillmen (+2).",
+    "certified": "2026-10-20"
   },
   {
     "cardType": "hero-resource-faction",
