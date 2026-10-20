@@ -625,7 +625,11 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
       // under rule 2.1.1 it is playable during any phase as long as the
       // sage is still untapped and the site is still tapped from an
       // earlier site phase — evaluated directly here, mirroring Return of
-      // the King above.
+      // the King above. Like Return of the King, "at a tapped Border-hold"
+      // excludes a company that is en route (CRF 22 Annotation 25, see
+      // `isCompanyAtSite`): once a moving company's new site is revealed it
+      // is not at any site — neither its stale origin nor its destination —
+      // for the rest of the movement/hazard phase.
       const rollUntapSiteEffect = def.effects?.find(e => e.type === 'roll-untap-site');
       if (!orgPhaseSiteTiming && rollUntapSiteEffect) {
         const charPlayTarget = def.effects?.find(
@@ -633,6 +637,10 @@ export function playPermanentEventActions(state: GameState, playerId: PlayerId):
         );
         let anyPlayable = false;
         for (const { company, currentSite, siteDefId, siteDef } of companiesAtMatchingSite(state, player, def, sitePlayTarget)) {
+          if (!isCompanyAtSite(state, player, company)) {
+            logDetail(`Permanent event ${def.name}: company ${company.id as string} is en route and not at any site (CRF 22 Annotation 25)`);
+            continue;
+          }
           if (hasPlayFlag(def, 'tapped-site-only') && currentSite.status !== CardStatus.Tapped) {
             logDetail(`Permanent event ${def.name}: site ${siteDef.name} is not tapped`);
             continue;

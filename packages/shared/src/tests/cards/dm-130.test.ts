@@ -36,7 +36,7 @@ import {
   findCharInstanceId, findHandCardId, addP1CardsInPlay,
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   BILBO, GANDALF, GIMLI, BREE, EDORAS, MORIA,
-  AND_FORTH_HE_HASTENED,
+  AND_FORTH_HE_HASTENED, makeMHState,
 } from '../test-helpers.js';
 import type { CardDefinitionId, CardInstanceId, GameState, PlayShortEventAction, SitePhaseState } from '../../index.js';
 import { computeLegalActions } from '../../engine/legal-actions/index.js';
@@ -249,6 +249,27 @@ describe('Fireworks (dm-130)', () => {
     const site = fireworksState({ site: EDORAS, chars: [BILBO], siteStatus: CardStatus.Untapped });
     const state = toEndOfTurnSignalEnd(site);
     expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  // ── Timing: an en-route company is not at any site (bug a9536332c66e8eed) ──
+
+  test('NOT offered on the moving company\'s origin site during its own M/H phase (CRF 22 Annotation 25)', () => {
+    // Reported in bug a9536332c66e8eed (game mvgi54fo-0t48je, seq 921): a
+    // company moving from a tapped Iron Hill Dwarf-hold to The Lonely
+    // Mountain played Fireworks during its movement/hazard phase, and the
+    // engine untapped the stale origin site Iron Hill. Once the new site is
+    // revealed the company is en route and not at any site, so Fireworks
+    // must not be playable on its origin (nor its destination) until the
+    // company reaches its site phase.
+    const site = fireworksState({ site: BREE, chars: [BILBO], siteStatus: CardStatus.Tapped });
+    const moving: GameState = { ...site, phaseState: makeMHState({ siteRevealed: true }) };
+    expect(viableActions(moving, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
+  test('still offered during M/H for a company that is not moving', () => {
+    const site = fireworksState({ site: BREE, chars: [BILBO], siteStatus: CardStatus.Tapped });
+    const staying: GameState = { ...site, phaseState: makeMHState({ siteRevealed: false }) };
+    expect(viableActions(staying, PLAYER_1, 'play-permanent-event')).toHaveLength(1);
   });
 
   // ── On play: taps the sage, enqueues the roll, installs the delayed skip ─────
