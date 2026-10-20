@@ -9,6 +9,7 @@
     "prowess": 10,
     "body": null,
     "killMarshallingPoints": 1,
+    "starredKillMarshallingPoints": true,
     "race": "animal",
     "additionalRaces": ["man", "bear"],
     "keyedTo": [
