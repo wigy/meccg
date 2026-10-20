@@ -9349,6 +9349,24 @@ export interface NullifyInfluenceModificationsEffect extends EffectBase {
 }
 
 /**
+ * Old Prejudice (le-214): "Triple all standard modifications for influence
+ * checks against factions." A game-wide environment effect carried by a bare
+ * in-play event in **either** player's `cardsInPlay`. While present, every
+ * influence `check-modifier` printed on the faction card being influenced (its
+ * "Standard Modifications") is multiplied by `factor` in each faction-influence
+ * computation — the displayed need (`legal-actions/site.ts`), the paused roll
+ * (`legal-actions/pending.ts`) and the roll resolver (`reducer-site.ts`).
+ * Multiple copies stack multiplicatively. Paid `influence-modification`
+ * options (discard an item for +N) are not standard modifications and are
+ * left untouched.
+ */
+export interface MultiplyStandardModificationsEffect extends EffectBase {
+  readonly type: 'multiply-standard-modifications';
+  /** Multiplier applied to each of the faction's printed modifications. */
+  readonly factor: number;
+}
+
+/**
  * Prone to Violence (ba-42): a minion permanent-event that grants an *extra*
  * Company-vs-Company-combat attack permission beyond the default alignment
  * matrix ({@link import('../engine/reducer-utils.js').canAttackAlignment}, CoE
@@ -11017,6 +11035,7 @@ export type CardEffect =
   | FactionInfluenceRestrictionEffect
   | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
+  | MultiplyStandardModificationsEffect
   | TapDiscardInPlayEffect
   | TapTakeItemEffect
   | RemovalProtectionEffect

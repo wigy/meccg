@@ -4319,11 +4319,17 @@
     "id": "le-214",
     "name": "Old Prejudice",
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/le/OldPrejudice.jpg",
+    "certified": "2026-10-20",
     "unique": false,
     "eventType": "long",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "effects": [
+      {
+        "type": "multiply-standard-modifications",
+        "factor": 3
+      }
+    ],
     "text": "Triple all standard modifications for influence checks against factions."
   },
   {

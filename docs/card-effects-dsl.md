@@ -736,6 +736,24 @@ attempt).
 { "type": "nullify-influence-modifications" }
 ```
 
+### `multiply-standard-modifications` — scale a faction's printed modifications
+
+`{ "type": "multiply-standard-modifications", "factor": 3 }` is a game-wide
+environment effect on a bare in-play event (either player's `cardsInPlay`).
+While present, every influence `check-modifier` printed on the faction being
+influenced — its "Standard Modifications" — is multiplied by `factor`
+(copies stack multiplicatively). The influencer's DI, his own card-text
+bonuses and modifiers from other cards are untouched, as are paid
+`influence-modification` options. Applied through
+`collectFactionCardEffects` (`reducer-utils.ts`), which all three
+faction-influence computations (display, paused roll, roll resolver) share.
+Used by Old Prejudice (le-214): "Triple all standard modifications for
+influence checks against factions."
+
+```json
+{ "type": "multiply-standard-modifications", "factor": 3 }
+```
+
 ### `auto-influence-faction` — no-check influence of a named faction
 
 `{ "type": "auto-influence-faction", "faction": "<Faction Name>" }` grants the
