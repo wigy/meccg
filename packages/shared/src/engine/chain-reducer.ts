@@ -28,6 +28,7 @@ import { CardStatus, cardStatusFromName, SiteType, Race, RegionType } from '../t
 import { resolveInstanceId } from '../types/state.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
+import { recordAttackChanges } from './attack-log.js';
 import { characterCardsStoredValue } from './auto-store.js';
 import { applyMove, moveToFetchToDeckPayload } from './reducer-move.js';
 import { availableDI } from './legal-actions/organization.js';
@@ -5920,7 +5921,11 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
         current = {
           ...current,
           chain: { ...current.chain!, entries: newEntries },
-          combat: { ...current.combat, strikeProwess: current.combat.strikeProwess + bonus },
+          combat: recordAttackChanges(current.combat, { ...current.combat, strikeProwess: current.combat.strikeProwess + bonus }, {
+            ...(entry.card ? { sourceInstanceId: entry.card.instanceId, sourceDefinitionId: entry.card.definitionId } : {}),
+            playedBy: entry.declaredBy,
+            note: 'cancel countered',
+          }),
         };
       }
       // Falls through to the generic "mark entry as resolved" step below

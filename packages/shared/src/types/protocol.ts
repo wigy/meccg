@@ -392,6 +392,40 @@ export interface DraftRevealMessage {
 // ---- Visual effects ----
 
 /**
+ * One labelled addend of a roll breakdown — e.g. `{ label: "base", value: 7 }`
+ * or `{ label: "Horn of Anor", value: 1, sourceDefinitionId: "tw-..." }`.
+ */
+export interface RollTerm {
+  /** Short human-readable label for the term. */
+  readonly label: string;
+  /** Signed contribution of the term. */
+  readonly value: number;
+  /** Card responsible for the term, when one is (for card-hover previews). */
+  readonly sourceDefinitionId?: CardDefinitionId;
+}
+
+/**
+ * How a strike roll or body check was computed, attached to the
+ * {@link DiceRollEffect} so clients can show every modifier that applied.
+ *
+ * - Strike roll: `character` holds the defender's prowess terms (the roll
+ *   total is `die1 + die2 + sum(character)`), `opponent` the strike's
+ *   prowess terms; `need` is the smallest roll that defeats the strike.
+ * - Body check: `character` holds the roll modifiers, `opponent` the body
+ *   terms; the target is eliminated/defeated when the total exceeds the body.
+ */
+export interface RollBreakdown {
+  /** Terms added to the dice (character prowess, roll modifiers). */
+  readonly character: readonly RollTerm[];
+  /** Terms making up the value the roll is compared against. */
+  readonly opponent: readonly RollTerm[];
+  /** Smallest 2d6 result that wins, when meaningful. */
+  readonly need?: number;
+  /** Outcome of the roll. */
+  readonly outcome?: 'success' | 'wounded' | 'eliminated' | 'tie' | 'failed';
+}
+
+/**
  * A dice roll result for visual feedback.
  */
 export interface DiceRollEffect {
@@ -424,6 +458,12 @@ export interface DiceRollEffect {
    * clients can show both pairs and make clear which one was used.
    */
   readonly alternateRoll?: { readonly die1: DieRoll; readonly die2: DieRoll };
+  /**
+   * Term-by-term explanation of a strike roll or body check (character
+   * prowess sources, creature prowess modifiers, body modifiers). Optional —
+   * absent for rolls that have no modifiers to explain.
+   */
+  readonly breakdown?: RollBreakdown;
 }
 
 /**

@@ -22,7 +22,9 @@
  * (or the original state plus an error string if the action was illegal).
  */
 
-import type { GameState, GameAction } from '../index.js';
+import type { GameState, GameAction, GameEffect, PlayerId } from '../index.js';
+import { describeAttackLogEntry } from '../format-attack.js';
+import { baseAttackEntry, newAttackLogEntries } from './attack-log.js';
 import { Phase } from '../types/state-phases.js';
 import { logHeading, logDetail } from './legal-actions/log.js';
 import { recomputeDerived } from './recompute-derived.js';
@@ -173,7 +175,44 @@ export function reduce(state: GameState, action: GameAction): ReducerResult {
   const result = reduceAction(state, action);
   if (result.error) return result;
   const next = updateWithdrawableSupport(state, recordCardPlayed(state, result.state, action), action);
-  return { ...result, state: next };
+  return annotateAttackLog(state, { ...result, state: next });
+}
+
+/**
+ * Attack-log bookkeeping run after every successful action (see
+ * `attack-log.ts`):
+ *
+ * 1. When this action started a new attack (no combat before, or a combat
+ *    with a different `attackSource`), give it a fresh log holding only the
+ *    `'base'` snapshot — dropping any log inherited from a previous attack
+ *    whose combat object was spread into the new one.
+ * 2. Announce every entry appended by this action as a text notification,
+ *    so chain-less attack changes (halve strikes, modify-attack, cancel by
+ *    tap …) reach both players' game logs instead of only the server log.
+ */
+function annotateAttackLog(prev: GameState, result: ReducerResult): ReducerResult {
+  const combat = result.state.combat;
+  if (!combat) return result;
+  // Structural comparison: some paths rebuild `attackSource` for the same attack.
+  const isNewAttack = !prev.combat
+    || (prev.combat.attackSource !== combat.attackSource
+      && JSON.stringify(prev.combat.attackSource) !== JSON.stringify(combat.attackSource));
+  const inheritedLog = isNewAttack && prev.combat?.attackLog !== undefined
+    && combat.attackLog?.[0] === prev.combat.attackLog[0];
+  let next = result.state;
+  if (isNewAttack && (!combat.attackLog || inheritedLog)) {
+    logDetail(`Attack log: new attack (${combat.attackSource.type}) — ${combat.strikesTotal} strikes, ${combat.strikeProwess} prowess, body ${combat.creatureBody ?? 'n/a'}`);
+    next = { ...next, combat: { ...combat, attackLog: [baseAttackEntry(combat)] } };
+  }
+  const fresh = newAttackLogEntries(prev.combat, next.combat);
+  if (fresh.length === 0) return next === result.state ? result : { ...result, state: next };
+  const nameOf = (id: PlayerId): string | undefined => next.players.find(p => p.id === id)?.name;
+  const notes: GameEffect[] = fresh.map(entry => ({
+    effect: 'text-notification',
+    message: describeAttackLogEntry(entry, next.cardPool, nameOf),
+  }));
+  for (const note of notes) logDetail(`Attack log: ${(note as { message: string }).message}`);
+  return { ...result, state: next, effects: [...(result.effects ?? []), ...notes] };
 }
 
 /** Dispatches `action` to the handler for the current sub-state or phase. */

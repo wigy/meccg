@@ -25,21 +25,22 @@ import type { RegionType } from '../../types/common.js';
 import { getEffectiveRegionType } from '../effective.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
-import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames, buildFactionPlayableRegions } from '../recompute-derived.js';
+import { computeStayUntappedPenalty, buildInPlayNames, buildFactionPlayableRegions } from '../recompute-derived.js';
 import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/index.js';
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, excessStrikePenalty, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
 import { holdableAttackCreatureInstanceId } from '../held-creature.js';
 import { countConstraintsFromDefinition, constraintsOnCompany, multiStrikeAllowance } from '../pending.js';
-import { allyEffectiveProwess, allyEffectiveBody } from '../ally-stats.js';
+import { allyEffectiveBody } from '../ally-stats.js';
 import { Phase } from '../../types/state-phases.js';
 import { hazardLimitStatus } from '../hazard-limit.js';
 import { cvccSides } from '../cvcc-sides.js';
 import { pickActiveItemsForCharacter } from '../item-slots.js';
 import { noBetterUseAlreadyUsed } from '../no-better-use.js';
 import { combatJoinCharacterActions } from './combat-join-character.js';
+import { strikeProwessTerms } from '../strike-prowess.js';
 
 /**
  * Find all allies in a company by iterating over each character's allies array.
@@ -1586,46 +1587,21 @@ function resolveStrikeActions(
   // then -1 if tapped, -2 if wounded, -N for excess strikes (CoE 3.iv.7.3)
   const charDef = defById(state, targetDefId);
   const charName = charDef?.name ?? (currentStrike.characterId as string);
-  // Recompute prowess with combat context when creature race is known,
-  // so combat-conditional weapon effects (e.g. Glamdring vs Orcs) apply.
-  // The tap and untap options are computed with their own `strikeMode` so a
-  // "when tapping to face a strike" modifier (Stabbing Tongue of Fire ba-81,
-  // Whip of Many Thongs ba-82) is reflected in the tap need but not the
-  // stay-untapped need.
-  let baseProwessTap: number;
-  let baseProwessUntap: number;
-  if (combat.defenderProwessFromMind && !allyMatch && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
-    // Neeker-breekers: use the character's mind attribute as base prowess.
-    // Must match the reducer's calculation in combat-strike.ts.
-    baseProwessTap = baseProwessUntap = charDef.mind;
-  } else if (allyMatch) {
-    // Allies use prowess from their instance override (e.g. a creature
-    // converted by Ready to His Will) or their card definition.
-    baseProwessTap = baseProwessUntap = allyEffectiveProwess(state, allyMatch.ally);
-  } else if (combat.creatureRace && charDef && isCharacterCard(charDef) && charData) {
-    baseProwessTap = computeCombatProwess(state, charData, charDef, combat.creatureRace, 'tap');
-    baseProwessUntap = computeCombatProwess(state, charData, charDef, combat.creatureRace, 'untap');
-  } else {
-    baseProwessTap = baseProwessUntap = charData?.effectiveStats?.prowess ?? 0;
-  }
-  // For agent attacks, use the agent's rolled total (2d6 + modified prowess) as
-  // the effective prowess the character must beat (rule 3.iv.6.1).
-  const strikeProwess = combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
-    ? combat.agentRollTotal
-    : combat.strikeProwess;
-  let statusPenalty = 0;
-  if (targetStatus === CardStatus.Tapped) statusPenalty = 1;
-  if (targetStatus === CardStatus.Inverted) statusPenalty = 2; // Wounded
-  const excessPenalty = excessStrikePenalty(combat, currentStrike.excessStrikes);
-
-  // Tap: full prowess; Untap: -3 prowess penalty.
-  // Add +1 per character/ally that has tapped to support this strike
-  // (CoE rule 3.iv.4) so the displayed "need" updates as the defender
-  // taps supporters.
-  const supportBonus = currentStrike.supportCount ?? 0;
-  const strikeBonus = currentStrike.strikeProwessBonus ?? 0;
-  const tapProwess = baseProwessTap - statusPenalty - excessPenalty + supportBonus + strikeBonus;
-  const untapProwess = baseProwessUntap - computeStayUntappedPenalty(state, charData, charDef) - statusPenalty - excessPenalty + supportBonus + strikeBonus;
+  // Prowess on both sides comes from the same helper the reducer uses
+  // (strike-prowess.ts), so the displayed "need" always matches the
+  // threshold the roll is actually compared against — including passive
+  // modify-attack items, a creature's per-defender bonus, weapons-ineffective
+  // strikes and supporters tapped so far (CoE rule 3.iv.4). The tap and
+  // untap options are computed with their own strike mode so a "when tapping
+  // to face a strike" modifier (Stabbing Tongue of Fire ba-81, Whip of Many
+  // Thongs ba-82) is reflected in the tap need but not the stay-untapped need.
+  const tapTerms = strikeProwessTerms(state, combat, currentStrike, 'tap', false);
+  const untapTerms = strikeProwessTerms(state, combat, currentStrike, 'untap', true);
+  if (!tapTerms || !untapTerms) return actions;
+  // For agent attacks this is the agent's rolled total (rule 3.iv.6.1).
+  const strikeProwess = tapTerms.opponentProwess;
+  const tapProwess = tapTerms.characterProwess;
+  const untapProwess = untapTerms.characterProwess;
 
   const tapNeed = Math.max(2, strikeProwess - tapProwess + 1);
   const tapExplanation = combat.attackSource.type === 'agent'

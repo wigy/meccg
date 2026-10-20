@@ -30,6 +30,7 @@ import type {
   PlayerId,
   RingwraithModeEffect,
   FallenWizardCharacterAllyMpEffect,
+  RollTerm,
 } from '../index.js';
 import { isCharacterCard, isItemCard, isFactionCard, isSiteCard } from '../types/cards.js';
 import { Alignment, MarshallingCategory, Race } from '../types/common.js';
@@ -48,7 +49,7 @@ import {
 import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
 import type { InPlayItemModifier } from '../item-corruption.js';
-import type { ResolverContext } from './effects/index.js';
+import type { CollectedEffect, ResolverContext } from './effects/index.js';
 import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, permanentEventSiteResourceSubtypes, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState, companyAllyRingwraithMode } from './reducer-utils.js';
 import type { Condition, AgentHomeSiteFactionLockEffect, RestoredItemStatsEffect, CreatureStorageEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
@@ -2300,6 +2301,65 @@ export function computeCombatProwess(
   strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
   weaponsIneffective?: boolean,
 ): number {
+  const parts = combatProwessParts(state, char, charDef, creatureRace, strikeMode, weaponsIneffective);
+  return parts.resolved + parts.structuralBonus;
+}
+
+/**
+ * Splits a character's combat prowess (as {@link computeCombatProwess}
+ * computes it) into labelled terms: the printed base prowess, one term per
+ * card whose stat modifiers change it, and the structural item bonus. Each
+ * card's term is its marginal contribution (total with vs. without that
+ * card's modifiers); any remainder caused by non-additive modifiers (caps
+ * like Glamdring's "max 9") is folded into a final `"other"` term so the
+ * terms always sum to the {@link computeCombatProwess} result. Used for the
+ * strike-roll breakdown clients display.
+ */
+export function computeCombatProwessBreakdown(
+  state: GameState,
+  char: CharacterInPlay,
+  charDef: CharacterCard,
+  creatureRace: Race | undefined,
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
+  weaponsIneffective?: boolean,
+): RollTerm[] {
+  const parts = combatProwessParts(state, char, charDef, creatureRace, strikeMode, weaponsIneffective);
+  const terms: RollTerm[] = [{ label: 'base', value: charDef.prowess }];
+  const prowessEffects = parts.collected.filter(e => e.effect.type === 'stat-modifier' && e.effect.stat === 'prowess');
+  const sources = [...new Set(prowessEffects.map(e => e.sourceInstance))];
+  let accounted = charDef.prowess;
+  for (const source of sources) {
+    const without = parts.collected.filter(e => e.sourceInstance !== source);
+    const withoutValue = without.length > 0
+      ? resolveStatModifiers(without, 'prowess', charDef.prowess, parts.context)
+      : charDef.prowess;
+    const delta = parts.resolved - withoutValue;
+    if (delta === 0) continue;
+    const def = prowessEffects.find(e => e.sourceInstance === source)!.sourceDef;
+    terms.push({ label: def.name, value: delta, sourceDefinitionId: def.id });
+    accounted += delta;
+  }
+  if (parts.structuralBonus !== 0) {
+    terms.push({ label: 'items', value: parts.structuralBonus });
+  }
+  const remainder = parts.resolved - accounted;
+  if (remainder !== 0) terms.push({ label: 'other', value: remainder });
+  return terms;
+}
+
+/**
+ * Shared core of {@link computeCombatProwess} and
+ * {@link computeCombatProwessBreakdown}: the collected effects and resolver
+ * context, the DSL-resolved prowess, and the legacy structural item bonus.
+ */
+function combatProwessParts(
+  state: GameState,
+  char: CharacterInPlay,
+  charDef: CharacterCard,
+  creatureRace: Race | undefined,
+  strikeMode?: 'tap' | 'untap' | 'dodge' | 'reroll',
+  weaponsIneffective?: boolean,
+): { readonly collected: readonly CollectedEffect[]; readonly context: ResolverContext; readonly resolved: number; readonly structuralBonus: number } {
   const inPlayNames = buildInPlayNames(state);
   const charInfo = buildBearerContext(charDef);
   // The player whose `characters` dict holds this character. Needed twice: to
@@ -2373,7 +2433,7 @@ export function computeCombatProwess(
     ce => ce.effect.type === 'play-flag' && ce.effect.flag === 'bearer-cannot-use-items',
   );
   const structuralBonus = structuralItemProwessBonus(state, char, charDef, ownerPlayer?.alignment, bearerCannotUseItems, weaponsIneffective);
-  return base + structuralBonus;
+  return { collected, context, resolved: base, structuralBonus };
 }
 
 /**

@@ -5882,6 +5882,26 @@ body.all-companies-mode:has(#debug-view.hidden) {
   gap: 2rem;
 }
 
+/* Strike-roll / body-check explanation under the landed dice: every prowess,
+   body and roll modifier, the total and the outcome. Hidden while the dice
+   tumble, revealed when they land. */
+.dice-roll-caption {
+  max-width: 36rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(20, 15, 10, 0.85);
+  border: 1px solid rgba(200, 150, 80, 0.5);
+  color: rgba(255, 230, 180, 0.95);
+  font-size: 0.95rem;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+.dice-roll-caption--shown {
+  opacity: 1;
+}
+
 .dice-position-red {
   transform: translateY(-100px);
 }
@@ -7424,6 +7444,38 @@ body.all-companies-mode:has(#debug-view.hidden) {
   margin-top: -2rem;
   position: relative;
   z-index: var(--z-panel);
+}
+
+/* Combat "Attack" panel (attack-panel.ts): base stats, every card that changed
+   the attack, current totals. Docked top-left of the arena for the whole
+   attack so chain-less modifications stay visible. */
+.attack-log-panel {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  max-width: 22rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(40, 30, 20, 0.85);
+  border: 1px solid rgba(200, 150, 80, 0.5);
+  color: rgba(230, 215, 180, 0.95);
+  font-size: 0.85rem;
+  z-index: var(--z-panel);
+}
+
+.attack-log-title {
+  font-weight: bold;
+  color: rgba(255, 220, 160, 0.95);
+  margin-bottom: 2px;
+}
+
+.attack-log-row--base {
+  color: rgba(200, 190, 160, 0.85);
+}
+
+.attack-log-totals {
+  margin-top: 4px;
+  font-weight: bold;
 }
 
 /* Inner pill: shrinks to content; never wraps. */

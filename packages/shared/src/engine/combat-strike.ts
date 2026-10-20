@@ -16,7 +16,7 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, GameAction, GameEffect, CardInstanceId, CardDefinition, TwoDiceSix } from '../index.js';
+import type { GameState, CombatState, GameAction, GameEffect, CardInstanceId, TwoDiceSix } from '../index.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CharacterInPlay, ItemInPlay } from '../types/state-cards.js';
 import type { ReducerResult } from './reducer-utils.js';
@@ -25,17 +25,15 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isItemCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
-import { matchesContext } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
+import { recordAttackChanges } from './attack-log.js';
 import { findAllyInCompany } from './legal-actions/combat.js';
-import { allyEffectiveProwess } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import { applyBearerWoundedDiscards, clonePlayers, companyById, defById, diceRollEffect, excessStrikePenalty, getCardEffects, getOnEventEffects, isSelfDiscardMove, partitionLeavingAllies, ringwraithReclaimMark, roll2d6, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
-import { defenderAlignmentLabel } from './detainment.js';
-import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames } from './recompute-derived.js';
-import { enemyRaceContext } from './effects/index.js';
+import { computeStayUntappedPenalty } from './recompute-derived.js';
 import { findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite, applyTakePrisonerAtAgentHome } from './combat-hazard-play.js';
 import { finalizeCombat } from './combat-finalize.js';
+import { passiveModifyAttackProwessBonus, strikeProwessTerms } from './strike-prowess.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 
 /**
@@ -117,103 +115,6 @@ export function advanceStrikeOrFinalize(
     return effects ? { state: newState, effects } : { state: newState };
   }
   return finalizeCombat({ ...state, combat }, effects);
-}
-
-/**
- * Computes the per-strike prowess adjustment a creature gains against the
- * specific defending character based on its own `stat-modifier` self-effects
- * that are gated on the defender's race (e.g. Old Man Willow's "15 prowess
- * against Hobbits", encoded as `+2 when defender.race = hobbit`).
- *
- * Such modifiers cannot be folded into `combat.strikeProwess` at combat
- * initiation: the struck character — and therefore its race — is not known
- * until strike assignment. The defending company's *alignment* IS known at
- * initiation, so alignment-gated self-modifiers (e.g. Elf-lord Revealed in
- * Wrath's "+4 vs Ringwraith") are already baked into `strikeProwess`. To avoid
- * double-counting them, a modifier contributes here only when it matches the
- * struck character's race context but did NOT already match the race-less
- * (initiation-equivalent) context.
- *
- * Returns the extra prowess for this strike (0 when the source is not a
- * creature hazard, or no defender-race-gated modifier matches).
- */
-export function creatureDefenderProwessDelta(
-  state: GameState,
-  combat: CombatState,
-  charDef: CardDefinition | undefined,
-): number {
-  if (combat.attackSource.type !== 'creature') return 0;
-  if (!charDef || !isCharacterCard(charDef)) return 0;
-  const creatureDefId = resolveInstanceId(state, combat.attackSource.instanceId);
-  const creatureDef = creatureDefId ? defById(state, creatureDefId) : undefined;
-  if (!creatureDef) return 0;
-  const effects = getCardEffects(creatureDef);
-  if (!effects.length) return 0;
-
-  const defPlayerIndex = getPlayerIndex(state, combat.defendingPlayerId);
-  const defenderAlignment = defenderAlignmentLabel(state.players[defPlayerIndex].alignment);
-  const enemy = { ...enemyRaceContext(combat), name: creatureDef.name ?? '', prowess: combat.strikeProwess, body: combat.creatureBody };
-  // Race-less context mirrors what was available at combat initiation: the
-  // defending company's alignment is known, an individual character's race is not.
-  const baseCtx = {
-    reason: 'combat' as const,
-    inPlay: buildInPlayNames(state),
-    enemy,
-    defender: { alignment: defenderAlignment },
-  };
-  // Context augmented with the struck character's race.
-  const raceCtx = { ...baseCtx, defender: { alignment: defenderAlignment, race: charDef.race } };
-
-  let delta = 0;
-  for (const effect of effects) {
-    if (effect.type !== 'stat-modifier' || effect.stat !== 'prowess') continue;
-    if (effect.target) continue; // company/all-* scoped modifiers are not the creature's own strike bonus
-    if (!effect.when) continue; // unconditional modifiers are already in strikeProwess
-    if (typeof effect.value !== 'number') continue;
-    if (matchesContext(effect.when, raceCtx) && !matchesContext(effect.when, baseCtx)) {
-      delta += effect.value;
-      logDetail(`Creature "${creatureDef.name}" prowess ${formatSignedNumber(effect.value)} against ${charDef.race}${charDef.name ? ` (${charDef.name})` : ''}`);
-    }
-  }
-  return delta;
-}
-
-/**
- * Sums the `prowessModifier` of every passive `modify-attack` (`scope:
- * "current-strike"`, `passive: true`) effect carried by items attached to
- * the struck character. Unlike the activated `current-strike` path (which
- * requires a `tap-item-for-strike` action), a passive modifier applies to
- * every strike against its bearer automatically, with no cost and no
- * consumption. Added directly to the defender's own effective prowess for
- * the strike — mathematically identical to reducing the attack's prowess,
- * since the strike is decided by comparing the two. Used by Morgul-blade
- * (le-205): "Each strike against the Ringwraith receives ... -1 prowess."
- * Returns 0 when the character bears no such item.
- *
- * `weaponsIneffective` (Rock Fall, Earth-tremors dm-53; also Lava Flows,
- * Trap) skips any contributing item carrying the `weapon` keyword — "weapons
- * do not modify prowess against these strikes" excludes a weapon's own
- * passive prowess effect on itself just as it excludes an ordinary printed
- * weapon prowess bonus (see {@link computeCombatProwess}).
- */
-function passiveModifyAttackProwessBonus(
-  state: GameState,
-  charData: CharacterInPlay,
-  weaponsIneffective?: boolean,
-): number {
-  let total = 0;
-  for (const item of charData.items) {
-    const itemDef = defById(state, item.definitionId);
-    if (!itemDef) continue;
-    if (weaponsIneffective && (itemDef as { keywords?: readonly string[] }).keywords?.includes('weapon')) continue;
-    for (const effect of getCardEffects(itemDef)) {
-      if (effect.type !== 'modify-attack' || effect.scope !== 'current-strike' || !effect.passive) continue;
-      if (typeof effect.prowessModifier !== 'number') continue;
-      logDetail(`Passive modify-attack prowess bonus ${formatSignedNumber(effect.prowessModifier)} from ${(itemDef as { name?: string }).name ?? (item.definitionId as string)}`);
-      total += effect.prowessModifier;
-    }
-  }
-  return total;
 }
 
 /**
@@ -327,41 +228,12 @@ export function resolveStrikeCore(
   const targetStatus = charData?.status ?? allyMatch!.ally.status;
   const charDef = defById(state, targetDefId);
 
-  // Compute effective prowess
-  let prowess: number;
-  if (combat.defenderProwessFromMind && !allyMatch && charDef && isCharacterCard(charDef) && charDef.mind !== null) {
-    // Neeker-breekers: use the character's mind attribute as base prowess
-    prowess = charDef.mind;
-    logDetail(`Defender prowess from mind: ${charDef.mind} (${charDef.name ?? targetDefId as string})`);
-  } else if (allyMatch) {
-    prowess = allyEffectiveProwess(state, allyMatch.ally);
-  } else if (combat.creatureRace && charDef && isCharacterCard(charDef)) {
-    // Thread the resolution mode so "when tapping to face a strike" prowess
-    // modifiers (Stabbing Tongue of Fire ba-81, Whip of Many Thongs ba-82)
-    // apply only in `tap` mode and not when the character stays untapped, and
-    // thread `weaponsIneffective` so "weapons do not modify prowess against
-    // these strikes" (Rock Fall, Earth-tremors dm-53) drops weapon-sourced
-    // prowess bonuses for this strike.
-    prowess = computeCombatProwess(state, charData, charDef, combat.creatureRace, mode, combat.weaponsIneffective);
-  } else {
-    prowess = charData.effectiveStats.prowess;
-  }
-  // Stay untapped penalty (MEBA: -1 for The Balrog; 0 with Thong of Fire as-132)
-  if (mode === 'untap' || (mode === 'reroll' && rerollStayUntapped)) prowess -= computeStayUntappedPenalty(state, charData, charDef);
-  if (targetStatus === CardStatus.Tapped) prowess -= 1;
-  if (targetStatus === CardStatus.Inverted) prowess -= 2; // Wounded
-  prowess -= excessStrikePenalty(combat, strike.excessStrikes);
-  const supportBonus = strike.supportCount ?? 0;
-  prowess += supportBonus; // CoE rule 3.iv.4: +1 per supporting character/ally
-  const modifyStrikeBonus = strike.strikeProwessBonus ?? 0;
-  if (modifyStrikeBonus !== 0) {
-    logDetail(`Strike event prowess modifier: ${formatSignedNumber(modifyStrikeBonus)}`);
-    prowess += modifyStrikeBonus;
-  }
-  if (charData && !allyMatch) {
-    const passiveBonus = passiveModifyAttackProwessBonus(state, charData, combat.weaponsIneffective);
-    if (passiveBonus !== 0) prowess += passiveBonus;
-  }
+  // Compute effective prowess on both sides — shared with the legal-action
+  // "need N+" preview so the two always agree (see strike-prowess.ts).
+  const stayUntapped = mode === 'untap' || (mode === 'reroll' && rerollStayUntapped);
+  const terms = strikeProwessTerms(state, combat, strike, mode, stayUntapped, defPlayer);
+  if (!terms) return { state, error: 'Character not found' };
+  const prowess = terms.characterProwess;
 
   // Whether the combatant taps on a non-wounded outcome (CoE rule 3.iv.7:
   // tapped on both fail and tie "unless a -3 modification was applied in
@@ -414,14 +286,9 @@ export function resolveStrikeCore(
 
   const rollTotal = roll.die1 + roll.die2;
   const characterTotal = rollTotal + prowess;
-  // For agent attacks, compare against the agent's rolled total (rule 3.iv.6.1).
-  // A creature may gain prowess against the specific character it strikes
-  // (e.g. Old Man Willow's "15 prowess against Hobbits"). This depends on the
-  // defender's race, unknown until now, so it is applied per strike here.
-  const defenderProwessDelta = combat.attackSource.type === 'agent' ? 0 : creatureDefenderProwessDelta(state, combat, charDef);
-  const effectiveProwess = (combat.attackSource.type === 'agent' && combat.agentRollTotal !== undefined
-    ? combat.agentRollTotal
-    : combat.strikeProwess) + defenderProwessDelta;
+  // For agent attacks this is the agent's rolled total (rule 3.iv.6.1); a
+  // creature's per-defender bonus (Old Man Willow vs Hobbits) is included.
+  const effectiveProwess = terms.opponentProwess;
   logDetail(`${rollLabel} resolution: ${targetDefId as string} rolls ${roll.die1}+${roll.die2}=${rollTotal} + prowess ${prowess} = ${characterTotal} vs ${combat.attackSource.type === 'agent' ? `agent roll ${effectiveProwess}` : `creature prowess ${effectiveProwess}`}`);
 
   // Determine outcome
@@ -457,6 +324,20 @@ export function resolveStrikeCore(
     result = 'success';
     bodyCheckTarget = combat.creatureBody !== null ? 'creature' : null;
     logDetail(`Forced strike defeat (Liquid Fire) — strike automatically fails${bodyCheckTarget ? ', creature body check pending' : ''}`);
+  }
+
+  // Attach the term-by-term breakdown and total to the strike's dice-roll
+  // effect so both players can see every modifier that decided the roll.
+  const breakdownOutcome = combat.forcedStrikeDefeat || characterTotal > effectiveProwess
+    ? 'success' as const
+    : characterTotal < effectiveProwess ? 'wounded' as const : 'tie' as const;
+  const rollEffect = effects[0];
+  if (rollEffect?.effect === 'dice-roll') {
+    effects[0] = {
+      ...rollEffect,
+      total: characterTotal,
+      breakdown: { character: terms.characterTerms, opponent: terms.creatureTerms, need: terms.need, outcome: breakdownOutcome },
+    };
   }
 
   // Make both rolls of a reroll card and the choice between them explicit in
@@ -797,7 +678,7 @@ export function resolveStrikeCore(
       ? (() => {
           const reduced = Math.max(0, combat.creatureBody - faceStrikeReduction);
           logDetail(`Bow of Alatar: parried strike — attack body reduced ${combat.creatureBody} → ${reduced}`);
-          return { ...combat, creatureBody: reduced };
+          return recordAttackChanges(combat, { ...combat, creatureBody: reduced }, { note: 'strike parried' });
         })()
       : combat;
 

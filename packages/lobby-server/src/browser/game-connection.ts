@@ -25,7 +25,7 @@ import { snapshotPositions, animateFromSnapshot } from './flip-animate.js';
 import { setSpectators } from './spectators.js';
 import { handleAiExplanation, setAskAiSender, setObserver } from './ask-ai.js';
 import { queueEffectLog, flushEffectLog, clearEffectLog } from './effect-log-buffer.js';
-import { diceRollLogLine, diceRollNotification, isLegacyDiscardedRoll } from './dice-roll-log.js';
+import { diceRollCaption, diceRollLogLine, diceRollNotification, isLegacyDiscardedRoll } from './dice-roll-log.js';
 import { recordRollHistoryLine } from './roll-history.js';
 import { buildToolbarStatusText } from './render-toolbar-status.js';
 import { applyTapPreview } from './tap-preview.js';
@@ -822,7 +822,7 @@ export function connect(name: string): void {
             // A two-roll strike animates both pairs and marks the discarded
             // one; the discarded half of an old-format replay is log-only.
             if (!isLegacyDiscardedRoll(rollEffect)) {
-              rollDice(rollEffect.die1, rollEffect.die2, variant, rollEffect.alternateRoll);
+              rollDice(rollEffect.die1, rollEffect.die2, variant, rollEffect.alternateRoll, diceRollCaption(rollEffect));
             }
           }
         } else if (msg.effect.effect === 'text-notification') {

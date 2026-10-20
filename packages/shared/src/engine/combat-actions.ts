@@ -18,7 +18,8 @@
  * Pure relocation: the logic is unchanged from its previous home.
  */
 
-import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, Company } from '../index.js';
+import { recordAttackChanges } from './attack-log.js';
+import type { GameState, CombatState, StrikeAssignment, GameAction, GameEffect, CardInstanceId, CardDefinitionId, Company, DiceRollEffect, RollBreakdown, RollTerm } from '../index.js';
 import type { CardDefinition } from '../types/cards.js';
 import type { PlayerState } from '../types/state-player.js';
 import type { CardInstance, CharacterInPlay } from '../types/state-cards.js';
@@ -912,6 +913,29 @@ function discardCharacterAfterBodyCheck(
   return advanceStrikeOrFinalize(afterRemoval, combatWithDiscard, effects);
 }
 
+/** Drop zero-valued terms from a roll breakdown term list. */
+function nonZeroTerms(terms: readonly RollTerm[]): RollTerm[] {
+  return terms.filter(t => t.value !== 0);
+}
+
+/**
+ * Body side of a body-check breakdown: the base body plus, when the
+ * effective body differs, one `"modifiers"` term for the difference.
+ */
+function bodyTerms(baseBody: number, effectiveBody: number): RollTerm[] {
+  const terms: RollTerm[] = [{ label: 'body', value: baseBody }];
+  if (effectiveBody !== baseBody) terms.push({ label: 'modifiers', value: effectiveBody - baseBody });
+  return terms;
+}
+
+/**
+ * Return `rollEffect` extended with the modified roll `total` and its
+ * term-by-term `breakdown`, so clients can show which modifiers applied.
+ */
+function withRollBreakdown(rollEffect: DiceRollEffect, total: number, breakdown: RollBreakdown): DiceRollEffect {
+  return { ...rollEffect, total, breakdown };
+}
+
 /**
  * Remove an agent whose (only) strike was defeated and whose body check
  * failed (CoE 3.v — Agent Hazard Attacks). The agent card leaves the board:
@@ -998,6 +1022,15 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     const effectiveRoll = rollTotal + woundedBonus + bearerMod + forcedMod;
     const entityLabel = isAgent ? 'agent' : 'creature';
     logDetail(`Body check vs ${entityLabel}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${forcedMod ? `${formatSignedNumber(forcedMod)}(Liquid Fire)` : ''} = ${effectiveRoll} vs body ${body}`);
+    effects[0] = withRollBreakdown(rollEffect, effectiveRoll, {
+      character: nonZeroTerms([
+        { label: 'wounded', value: woundedBonus },
+        { label: 'bearer', value: bearerMod },
+        { label: 'forced defeat', value: forcedMod },
+      ]),
+      opponent: bodyTerms(combat.creatureBody ?? body, body),
+      outcome: effectiveRoll > body ? 'eliminated' : 'failed',
+    });
     // CoE 3.iv.7: the strike is defeated only if the body check FAILS (roll >
     // body). If the body check passes, the strike was not defeated and the
     // creature/agent survives. Record 'survived' (vs the parry's 'success') so
@@ -1150,6 +1183,19 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
     const effectiveRoll = rollTotal + woundedBonus + attackBodyCheckModifier + itemBodyMod + globalBodyMod + bearerMod + additionalCheckMod + forcedCheckMod;
 
     logDetail(`Body check vs ${allyMatch ? 'ally' : 'character'}: roll ${rollTotal}${woundedBonus ? '+1(wounded)' : ''}${attackBodyCheckModifier ? ` ${formatSignedNumber(attackBodyCheckModifier)}(attack)` : ''}${itemBodyMod ? `${formatSignedNumber(itemBodyMod)}(item)` : ''}${globalBodyMod ? `${formatSignedNumber(globalBodyMod)}(global)` : ''}${bearerMod ? `${formatSignedNumber(bearerMod)}(bearer)` : ''}${additionalCheckMod ? `${formatSignedNumber(additionalCheckMod)}(additional check)` : ''}${forcedCheckMod ? `${formatSignedNumber(forcedCheckMod)}(Dragon's Blood)` : ''} = ${effectiveRoll} vs body ${body}`);
+    effects[0] = withRollBreakdown(rollEffect, effectiveRoll, {
+      character: nonZeroTerms([
+        { label: 'already wounded', value: woundedBonus },
+        { label: 'attack', value: attackBodyCheckModifier },
+        { label: 'items', value: itemBodyMod },
+        { label: 'in play', value: globalBodyMod },
+        { label: 'bearer', value: bearerMod },
+        { label: 'additional check', value: additionalCheckMod },
+        { label: 'forced check', value: forcedCheckMod },
+      ]),
+      opponent: bodyTerms(printedBody, body),
+      outcome: effectiveRoll > body ? 'eliminated' : 'wounded',
+    });
 
     // MELE §8.R1: if the *unmodified* roll is exactly 7 or 8 and the target is a
     // Ringwraith avatar, the Ringwraith returns to hand instead of being eliminated.
@@ -1639,7 +1685,12 @@ export function handleHalveStrikes(state: GameState, action: GameAction, combat:
   return {
     state: {
       ...updatePlayer(state, defPlayerIndex, p => ({ ...p, hand: newHand, discardPile: newDiscard })),
-      combat: { ...combat, strikesTotal: newStrikes },
+      combat: recordAttackChanges(combat, { ...combat, strikesTotal: newStrikes }, {
+        sourceInstanceId: discardedCard.instanceId,
+        sourceDefinitionId: discardedCard.definitionId,
+        playedBy: action.player,
+        note: op === 'subtract' ? 'reduced' : 'halved',
+      }),
     },
   };
 }
@@ -2567,32 +2618,37 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       logDetail(`${cardLabel}: body-check modifier ${combat.bodyCheckModifier ?? 0} → ${newBodyCheckModifier}`);
     }
 
+    const modifiedCombat: CombatState = {
+      ...combat,
+      strikeProwess: newStrikeProwess,
+      creatureBody: newCreatureBody,
+      strikesTotal: newStrikesTotal,
+      detainment: newDetainment,
+      assignmentPhase: newAssignmentPhase,
+      ...(grantsAttackerChooses ? { attackerChoosesDefenders: true } : {}),
+      ...(newBodyCheckModifier !== undefined ? { bodyCheckModifier: newBodyCheckModifier } : {}),
+      ...(effect.firstExcessStrikePenalty !== undefined ? { firstExcessStrikePenalty: effect.firstExcessStrikePenalty } : {}),
+      ...(cancelProtection ? { cancelProtection } : {}),
+      ...(effect.postAttackMindRollSplit
+        ? { mindRollSplitPending: { threshold: effect.postAttackMindRollSplit.threshold } }
+        : {}),
+      ...(effect.attachCorruptionOnWound
+        ? {
+            pendingCorruptionAttach: {
+              sourceCardInstanceId: handCard.instanceId,
+              sourceCardDefinitionId: handCard.definitionId,
+              ownerPlayerIndex: playerIndex,
+            },
+          }
+        : {}),
+    };
     let newState: GameState = {
       ...baseState,
-      combat: {
-        ...combat,
-        strikeProwess: newStrikeProwess,
-        creatureBody: newCreatureBody,
-        strikesTotal: newStrikesTotal,
-        detainment: newDetainment,
-        assignmentPhase: newAssignmentPhase,
-        ...(grantsAttackerChooses ? { attackerChoosesDefenders: true } : {}),
-        ...(newBodyCheckModifier !== undefined ? { bodyCheckModifier: newBodyCheckModifier } : {}),
-        ...(effect.firstExcessStrikePenalty !== undefined ? { firstExcessStrikePenalty: effect.firstExcessStrikePenalty } : {}),
-        ...(cancelProtection ? { cancelProtection } : {}),
-        ...(effect.postAttackMindRollSplit
-          ? { mindRollSplitPending: { threshold: effect.postAttackMindRollSplit.threshold } }
-          : {}),
-        ...(effect.attachCorruptionOnWound
-          ? {
-              pendingCorruptionAttach: {
-                sourceCardInstanceId: handCard.instanceId,
-                sourceCardDefinitionId: handCard.definitionId,
-                ownerPlayerIndex: playerIndex,
-              },
-            }
-          : {}),
-      },
+      combat: recordAttackChanges(combat, modifiedCombat, {
+        sourceInstanceId: handCard.instanceId,
+        sourceDefinitionId: handCard.definitionId,
+        playedBy: action.player,
+      }),
     };
 
     const attackDupLimit = getCardEffects(cardDef).find(
@@ -2668,13 +2724,13 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       state: {
         ...state,
         players: allyPlayers,
-        combat: {
+        combat: recordAttackChanges(combat, {
           ...combat,
           strikeProwess: allyStrikeProwess,
           creatureBody: allyCreatureBody,
           assignmentPhase: newAssignmentPhase,
           ...(removeRule ? { attackerChoosesDefenders: undefined } : {}),
-        },
+        }, { sourceInstanceId: ally.instanceId, sourceDefinitionId: ally.definitionId, playedBy: action.player }),
       },
     };
   }
@@ -2762,7 +2818,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
   let resultState: GameState = {
     ...state,
     players: newPlayers,
-    combat: {
+    combat: recordAttackChanges(combat, {
       ...combat,
       strikeProwess: newStrikeProwess,
       creatureBody: newCreatureBody,
@@ -2770,7 +2826,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       assignmentPhase: newAssignmentPhase,
       ...(effect.grantsDefenderFreeStrikeAssignment ? { defenderFreeStrikeAssignment: true } : {}),
       ...(overridesAttackerChooses ? { attackerChoosesDefenders: undefined } : {}),
-    },
+    }, { sourceInstanceId: item.instanceId, sourceDefinitionId: item.definitionId, playedBy: action.player }),
   };
 
   if (effect.enqueueCorruptionCheck) {

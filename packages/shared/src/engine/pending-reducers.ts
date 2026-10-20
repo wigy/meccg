@@ -52,6 +52,7 @@ import { findDiscardSubstitutes, substituteCovers, discardCardsFromCompany, enqu
 import { isCharacterRemovalProtected } from './removal-protection.js';
 import { placeCardSetAside, removeItemFromSetAside, isSetAsideCard } from './set-aside.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
+import { recordAttackChanges } from './attack-log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import {
   resolveInfluenceAttemptRoll,
@@ -1540,7 +1541,11 @@ function applyDiceCheckBranch(
       state: {
         ...state,
         chain: { ...chain, entries: newEntries },
-        combat: { ...combat, strikeProwess: combat.strikeProwess + bonus },
+        combat: recordAttackChanges(combat, { ...combat, strikeProwess: combat.strikeProwess + bonus }, {
+          ...(ctx.source ? { sourceInstanceId: ctx.source } : {}),
+          playedBy: state.players[ctx.rollerIndex]?.id,
+          note: 'cancel countered',
+        }),
       },
     };
   }

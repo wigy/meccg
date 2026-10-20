@@ -31,6 +31,7 @@ import {
   buildCompanyNames,
   buildInstanceLookup,
   stripCardMarkers,
+  describeRollBreakdown,
   STATE_DIVIDER,
 } from '@meccg/shared';
 import { loadAiStrategy, pickBest } from '@meccg/sim';
@@ -241,6 +242,9 @@ function connect(): void {
             ? ` (other roll ${alternateRoll.die1} + ${alternateRoll.die2} = ${alternateRoll.die1 + alternateRoll.die2}, discarded)`
             : '';
           console.log(`  ${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${alt}`);
+          // Strike rolls and body checks: every modifier, the total, the outcome.
+          const breakdown = describeRollBreakdown(msg.effect);
+          if (breakdown) console.log(`    ${breakdown}`);
         } else if (msg.effect.effect === 'text-notification') {
           // Game events with no interactive action (e.g. body-check outcomes).
           console.log(`  ${msg.effect.message}`);
