@@ -40,6 +40,7 @@
           </label>
           <button type="button" id="login-btn" class="auth-submit">Enter Middle-Earth</button>
           <p class="auth-error hidden" id="login-error"></p>
+          <button type="button" id="forgot-password-link" class="auth-link">Forgot password?</button>
         </form>
 
         <form class="auth-form auth-form--register" id="register-form">
@@ -61,6 +62,32 @@
           </label>
           <button type="button" id="register-btn" class="auth-submit">Forge your Fellowship</button>
           <p class="auth-error hidden" id="register-error"></p>
+        </form>
+
+        <form class="auth-form auth-form--forgot" id="forgot-form">
+          <p class="auth-note">Enter your player name or email and we will send you a link to choose a new password.</p>
+          <label class="auth-label">
+            <span class="auth-label-text">Player name or email</span>
+            <input type="text" id="forgot-login" placeholder="e.g. wigy" autocomplete="username">
+          </label>
+          <button type="button" id="forgot-btn" class="auth-submit">Send reset link</button>
+          <p class="auth-error hidden" id="forgot-error"></p>
+          <p class="auth-note hidden" id="forgot-sent">If that account exists, a reset link is on its way. Check your email.</p>
+          <button type="button" id="forgot-back-link" class="auth-link">Back to login</button>
+        </form>
+
+        <form class="auth-form auth-form--reset" id="reset-form">
+          <p class="auth-note">Choose a new password for your account.</p>
+          <label class="auth-label">
+            <span class="auth-label-text">New password</span>
+            <input type="password" id="reset-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password">
+          </label>
+          <label class="auth-label">
+            <span class="auth-label-text">Repeat password</span>
+            <input type="password" id="reset-password-repeat" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="new-password">
+          </label>
+          <button type="button" id="reset-btn" class="auth-submit">Set password</button>
+          <p class="auth-error hidden" id="reset-error"></p>
         </form>
       </div>
     </div>

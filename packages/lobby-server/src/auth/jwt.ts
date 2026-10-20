@@ -7,7 +7,7 @@
  */
 
 import * as crypto from 'crypto';
-import { JWT_SECRET, LOBBY_TOKEN_EXPIRY, GAME_TOKEN_EXPIRY } from '../config.js';
+import { JWT_SECRET, LOBBY_TOKEN_EXPIRY, GAME_TOKEN_EXPIRY, PASSWORD_RESET_EXPIRY } from '../config.js';
 
 /** Lobby session token payload. */
 export interface LobbyTokenPayload {
@@ -20,6 +20,15 @@ export interface LobbyTokenPayload {
 export interface GameTokenPayload {
   readonly sub: string;  // player name
   readonly gid: string;  // game ID
+  readonly iat: number;
+  readonly exp: number;
+}
+
+/** Password-reset token payload. */
+export interface PasswordResetTokenPayload {
+  readonly sub: string;  // player name
+  readonly purpose: 'password-reset';
+  readonly pwd: string;  // fingerprint of the password hash the token was issued against
   readonly iat: number;
   readonly exp: number;
 }
@@ -91,7 +100,9 @@ export function signLobbyToken(playerName: string): string {
 
 /** Verify a lobby session token. Returns the payload or null. */
 export function verifyLobbyToken(token: string): LobbyTokenPayload | null {
-  return verify<LobbyTokenPayload>(token);
+  const payload = verify<LobbyTokenPayload & { purpose?: string }>(token);
+  // A password-reset link must never double as a session cookie.
+  return payload && payload.purpose === undefined ? payload : null;
 }
 
 /** Sign a short-lived game join token. */
@@ -103,4 +114,27 @@ export function signGameToken(playerName: string, gameId: string): string {
 /** Verify a game join token. Returns the payload or null. */
 export function verifyGameToken(token: string): GameTokenPayload | null {
   return verify<GameTokenPayload>(token);
+}
+
+/**
+ * Fingerprint of a stored password hash. Embedded in reset tokens so a token
+ * stops working once the password changes, making each link single-use.
+ */
+export function passwordFingerprint(passwordHash: string): string {
+  return crypto.createHash('sha256').update(passwordHash).digest('base64url').slice(0, 16);
+}
+
+/** Sign a password-reset token bound to the player's current password hash. */
+export function signPasswordResetToken(playerName: string, passwordHash: string): string {
+  const now = Math.floor(Date.now() / 1000);
+  return sign({ sub: playerName, purpose: 'password-reset', pwd: passwordFingerprint(passwordHash), iat: now, exp: now + parseDuration(PASSWORD_RESET_EXPIRY) });
+}
+
+/**
+ * Verify a password-reset token's signature, expiry and purpose. The caller
+ * must still compare `pwd` against the player's current password hash.
+ */
+export function verifyPasswordResetToken(token: string): PasswordResetTokenPayload | null {
+  const payload = verify<PasswordResetTokenPayload>(token);
+  return payload?.purpose === 'password-reset' ? payload : null;
 }

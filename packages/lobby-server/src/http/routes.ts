@@ -5,6 +5,8 @@
  * - POST /api/register — create a new player account
  * - POST /api/login — authenticate and set session cookie
  * - POST /api/logout — clear session cookie
+ * - POST /api/forgot-password — email a password-reset link to an account (by name or email)
+ * - POST /api/reset-password — set a new password with a reset-link token and log in
  * - GET /api/me — return current player name from session
  * - GET /api/decks — list all decks in the catalog
  * - GET /api/my-decks — list decks in the player's collection + current selection
@@ -59,7 +61,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { cardImageRawUrl, loadCardPool } from '@meccg/shared';
-import { DEV, MASTER_KEY, REVIEWER_PLAYERS, isAdminPlayer } from '../config.js';
+import { DEV, MASTER_KEY, PUBLIC_URL, REVIEWER_PLAYERS, isAdminPlayer } from '../config.js';
 import { broadcastNotification, broadcastForceReload, newestObserverTarget, getOwnActiveGame } from '../lobby/lobby.js';
 import { shutdownAllGames } from '../games/launcher.js';
 import { listModels } from '../games/models.js';
@@ -69,9 +71,10 @@ import { gameLogDir, loadReplayIndex, loadReplayFrame } from '../games/replay.js
 import { sendMail, isRecipientList, writeSentCopy, listInbox, listSent, listOpenRequests, peekMessage, readMessage, reviewFinalizeDisposition, deleteMessage, updateMessageStatus, countUnread, countUnreadAnnouncements, listUnhandledRequests } from '../mail/store.js';
 import type { MailSender, MailStatus, MailTopic } from '../mail/types.js';
 import { lobbyLog } from '../lobby-log.js';
-import { findPlayer, findPlayerByEmail, createPlayer, isValidPlayerName, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
+import { findPlayer, findPlayerByEmail, createPlayer, isValidPlayerName, listPlayerDecks, listCatalogDecks, findDeckById, savePlayerDeck, deletePlayerDeck, getCurrentDeck, setCurrentDeck, getDisplayName, setDisplayName, touchLastMailView, getCredits, setPasswordHash, readCreditHistory, updateCredits, listPlayers, getPlayerProfile, pendingTopUp, DEFAULT_CREDITS } from '../players/store.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
-import { signLobbyToken } from '../auth/jwt.js';
+import { signLobbyToken, signPasswordResetToken, verifyPasswordResetToken, passwordFingerprint } from '../auth/jwt.js';
+import { isEmailEnabled, sendEmail } from '../email/smtp.js';
 import { getSessionPlayer, setSessionCookie, clearSessionCookie } from '../auth/session.js';
 
 const IMAGE_CACHE_DIR = process.env.IMAGE_CACHE_DIR ?? path.join(os.homedir(), '.meccg', 'image-cache');
@@ -90,6 +93,19 @@ const LOBBY_VERSION: string = (() => {
 
 /** Names that cannot be registered by players. Checked case-insensitively. */
 const RESTRICTED_NAMES = new Set(['ai', 'server', 'admin']);
+
+/** Minimum time between two password-reset emails to the same account. */
+const RESET_EMAIL_COOLDOWN_MS = 60_000;
+
+/** When each account was last sent a password-reset email (epoch ms). */
+const lastResetEmailAt = new Map<string, number>();
+
+/** Base URL for links in outgoing email: PUBLIC_URL, else the request's own host. */
+function publicBaseUrl(req: http.IncomingMessage): string {
+  if (PUBLIC_URL) return PUBLIC_URL;
+  const proto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0] ?? 'http';
+  return `${proto}://${req.headers.host ?? 'localhost'}`;
+}
 
 /** Inboxes that hold AI work-queue requests, managed via /api/admin/requests. */
 const REQUEST_INBOXES = ['ai', 'admin'];
@@ -440,6 +456,78 @@ export async function handleRequest(req: http.IncomingMessage, res: http.ServerR
       setSessionCookie(res, token);
       sendJson(res, 200, { name: player.name, isReviewer: REVIEWER_PLAYERS.includes(player.name), isAdmin: isAdminPlayer(player.name), credits: getCredits(player.name) });
       lobbyLog.log('login', { name: player.name });
+    });
+    return;
+  }
+
+  if (urlPath === '/api/forgot-password' && method === 'POST') {
+    await tryRoute(res, 'forgot-password', 'Password reset failed', async () => {
+      const body = JSON.parse(await readBody(req)) as { login?: string };
+      const login = body.login?.trim();
+      if (!login) {
+        sendJson(res, 400, { error: 'Player name or email is required' });
+        return;
+      }
+      if (!isEmailEnabled()) {
+        sendJson(res, 503, { error: 'Email is not available on this server' });
+        return;
+      }
+      // Answer the same way whether or not the account exists, so the form
+      // cannot be used to probe for registered names or addresses.
+      sendJson(res, 200, { ok: true });
+
+      const player = findPlayer(login) ?? findPlayerByEmail(login);
+      if (!player?.passwordHash || !player.email || player.email.endsWith('@meccg.local')) return;
+      const now = Date.now();
+      if (now - (lastResetEmailAt.get(player.name) ?? 0) < RESET_EMAIL_COOLDOWN_MS) return;
+      lastResetEmailAt.set(player.name, now);
+
+      const link = `${publicBaseUrl(req)}/?reset=${signPasswordResetToken(player.name, player.passwordHash)}`;
+      sendEmail({
+        to: player.email,
+        subject: 'MECCG password reset',
+        text: [
+          `Hello ${player.name},`,
+          '',
+          'Someone asked to reset the password of your MECCG account. To choose a new password, open this link within one hour:',
+          '',
+          link,
+          '',
+          'If you did not ask for this, ignore this email and your password stays as it is.',
+        ].join('\n'),
+      }).then(
+        () => lobbyLog.log('password-reset-sent', { name: player.name }),
+        (err: unknown) => lobbyLog.log('error', { context: 'password-reset-email', name: player.name, error: String(err) }),
+      );
+    });
+    return;
+  }
+
+  if (urlPath === '/api/reset-password' && method === 'POST') {
+    await tryRoute(res, 'reset-password', 'Password reset failed', async () => {
+      const body = JSON.parse(await readBody(req)) as { token?: string; password?: string };
+      const { token, password } = body;
+      if (!token || !password) {
+        sendJson(res, 400, { error: 'Token and password are required' });
+        return;
+      }
+      if (password.length < 4) {
+        sendJson(res, 400, { error: 'Password must be at least 4 characters' });
+        return;
+      }
+      const payload = verifyPasswordResetToken(token);
+      const player = payload ? findPlayer(payload.sub) : null;
+      // The fingerprint no longer matches once the password has changed, so
+      // each link works once.
+      if (!payload || !player?.passwordHash || passwordFingerprint(player.passwordHash) !== payload.pwd) {
+        sendJson(res, 400, { error: 'This reset link is invalid or has expired' });
+        return;
+      }
+
+      setPasswordHash(player.name, await hashPassword(password));
+      setSessionCookie(res, signLobbyToken(player.name));
+      sendJson(res, 200, { name: player.name, isReviewer: REVIEWER_PLAYERS.includes(player.name), isAdmin: isAdminPlayer(player.name), credits: getCredits(player.name) });
+      lobbyLog.log('password-reset', { name: player.name });
     });
     return;
   }

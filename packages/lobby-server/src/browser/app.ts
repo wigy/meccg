@@ -33,7 +33,7 @@ import { showAlert, showConfirm } from './dialog.js';
 import { shownChallengeResolved } from './challenge-queue.js';
 import {
   showScreen, showAuthError, applyBackground, selectRandomBackground,
-  connectLobbyWs, initLobby, showAuthTab, selectRandomAuthHero,
+  connectLobbyWs, initLobby, showAuthTab, selectRandomAuthHero, pendingResetToken,
   findOwnGameOpponent,
 } from './lobby-screens.js';
 import { renderLog, showSystemNotification } from './render-log.js';
@@ -155,6 +155,50 @@ document.addEventListener('DOMContentLoaded', () => {
     // Enter key on register form
     for (const id of ['register-name', 'register-display-name', 'register-email', 'register-password']) {
       document.getElementById(id)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') registerBtn.click(); });
+    }
+
+    document.getElementById('forgot-password-link')!.addEventListener('click', () => {
+      const typed = (document.getElementById('login-name') as HTMLInputElement).value.trim();
+      (document.getElementById('forgot-login') as HTMLInputElement).value = typed;
+      document.getElementById('forgot-sent')!.classList.add('hidden');
+      document.getElementById('forgot-error')!.classList.add('hidden');
+      showAuthTab('forgot');
+    });
+    document.getElementById('forgot-back-link')!.addEventListener('click', () => showAuthTab('login'));
+
+    const forgotBtn = document.getElementById('forgot-btn') as HTMLButtonElement;
+    forgotBtn.addEventListener('click', () => { void (async () => {
+      const login = (document.getElementById('forgot-login') as HTMLInputElement).value.trim();
+      if (!login) { showAuthError('forgot-error', 'Player name or email is required'); return; }
+      forgotBtn.disabled = true;
+      const r = await apiSend('/api/forgot-password', 'POST', { login });
+      forgotBtn.disabled = false;
+      if (!r.ok) { showAuthError('forgot-error', r.error ?? 'Could not send reset link'); return; }
+      document.getElementById('forgot-error')!.classList.add('hidden');
+      document.getElementById('forgot-sent')!.classList.remove('hidden');
+    })(); });
+    document.getElementById('forgot-login')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); forgotBtn.click(); } });
+
+    const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
+    resetBtn.addEventListener('click', () => { void (async () => {
+      const password = (document.getElementById('reset-password') as HTMLInputElement).value;
+      const repeat = (document.getElementById('reset-password-repeat') as HTMLInputElement).value;
+      if (!password) { showAuthError('reset-error', 'Password is required'); return; }
+      if (password !== repeat) { showAuthError('reset-error', 'Passwords do not match'); return; }
+      const r = await apiSend<{ name?: string; isReviewer?: boolean; isAdmin?: boolean; credits?: number }>(
+        '/api/reset-password', 'POST', { token: pendingResetToken(), password });
+      if (!r.ok) { showAuthError('reset-error', r.error ?? 'Password reset failed'); return; }
+      // Drop the spent token from the address bar so a reload does not reopen the form.
+      history.replaceState(null, '', window.location.pathname);
+      appState.lobbyPlayerName = r.data.name!;
+      appState.lobbyPlayerIsReviewer = r.data.isReviewer ?? false;
+      appState.lobbyPlayerIsAdmin = r.data.isAdmin ?? false;
+      appState.lobbyPlayerCredits = r.data.credits ?? 0;
+      showScreen('lobby-screen');
+      connectLobbyWs();
+    })(); });
+    for (const id of ['reset-password', 'reset-password-repeat']) {
+      document.getElementById(id)?.addEventListener('keydown', (e) => { if (e.key === 'Enter') resetBtn.click(); });
     }
 
     const doLogout = () => { void (async () => {
