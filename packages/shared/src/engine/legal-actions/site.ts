@@ -2268,7 +2268,10 @@ export function playResourcesActions(
         // the site's own printed `playableResources` tier. E.g. Enruned Shield
         // (greater, hoard) isn't playable at Ovir Hollow, whose playableResources
         // is only minor/major, even though Ovir Hollow contains a hoard.
-        const hoardTierAllowed = !isHoardItem || playableTypes.has(itemDef.subtype);
+        // A "special" item has no tier for a site to list — its own
+        // item-play-site restriction is its whole playability (Necklace of
+        // Girion as-128: hoard item "Playable at The Lonely Mountain").
+        const hoardTierAllowed = !isHoardItem || itemDef.subtype === 'special' || playableTypes.has(itemDef.subtype);
         if ((!allowed || !hoardTierAllowed) && !(majorItemUnlocked && isHoardItem)) {
           const reason = siteRestriction.sites
             ? `only playable at ${siteRestriction.sites.join(', ')}`
