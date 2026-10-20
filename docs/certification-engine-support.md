@@ -1498,3 +1498,7 @@ Two primitives for a dual-mode spirit-magic short event. **(1)** A single-target
 ### `grant-skill` `recipient: "own-fallen-wizard"` (Spells Born of Discord wh-81)
 
 A general (unattached) permanent event in a player's `cardsInPlay` grants a skill to that player's Fallen-wizard (character of race `fallen-wizard` in the same player's `characters`). Folded into `getEffectiveSkills` (`effects/resolver.ts`, `getOwnFallenWizardGrantedSkills`), so every `target.skills` / `bearer.skills` consumer sees it; `getItemGrantedSkills` ignores recipient-scoped grants. Card: `stage-points 2` + three `grant-skill` (`sorcery`, `spirit-magic`, `shadow-magic`) + `duplication-limit scope: player`.
+
+### `on-event: untap-phase-end` `bearer.race` context (The Iron Crown le-314)
+
+The untap-phase-end bearer context (`reducer-untap.ts`) now also carries `bearer.race` (the host character's race), so a forced untap corruption check can be race-gated: "At the end of his untap phase, if the bearer is not a Ringwraith, he must make a corruption check" → `when: { "bearer.race": { "$ne": "ringwraith" } }`. The rest of the minion Iron Crown reuses existing primitives (capped `stat-modifier` body/DI, `cancel-attack` tap-self gated on `enemy.race`, `storable-at` Barad-dûr for 5 MP); a Ringwraith avatar bearer gets none of the item's bonuses per rule 9.20.
