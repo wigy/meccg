@@ -4771,6 +4771,16 @@ to a company character (e.g. The Warg-king), the character card
 itself (e.g. Adûnaphel the Ringwraith), or an item with
 `cost: { "tap": "self-and-bearer" }` (e.g. Torque of Hues).
 
+**Cancel from a stored card (`fromStored`).** A `cancel-attack` with
+`"fromStored": true` and `cost: { "discard": "self" }` is offered from a card
+stored in its owner's marshalling point pile (a `killPile` entry carrying
+`storedAtSite`) — not from hand or while still borne. Discarding moves the
+card to the discard pile (losing its marshalling points) and cancels the attack
+immediately, no chain entry (`handleCancelAttackByStoredCard`). The effect's
+`when` sees the usual cancel context, including `site.type`. Used by The Names
+Among Them (le-207): "Once stored, this card may be discarded to cancel an
+automatic-attack at a Free-hold or Border-hold."
+
 **Dual-faction cancel (`handModeRequiresCovert`).** A dual-alignment faction
 that cancels an attack has two sources:
 
@@ -10965,6 +10975,12 @@ since a company-vs-company attack can mix races. Computed by
 `hasFailedRingwraithStrike` in `engine/post-attack-play.ts`. Used by Mount
 Slain (as-50): "Playable … if a strike against one of your companies from a
 Ringwraith attack or Nazgûl creature fails."
+
+**Site-type gating (`site.type`).** The `after-attack` `when` context also
+exposes `site.type` — the defending company's current site type (e.g.
+`"free-hold"`), so a window can require "an automatic-attack at a Border-hold
+or Free-hold" (`attack.source: "automatic-attack"` ∧ `site.type $in
+[border-hold, free-hold]`). Used by The Names Among Them (le-207).
 
 **Target-less after-attack cards.** A resource permanent-event with an
 `after-attack` `play-window` and **no** `play-target: character` effect
