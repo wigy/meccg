@@ -7413,9 +7413,39 @@ export interface ModifyAttackEffect extends EffectBase {
    * Cost to activate. `{ tap: "self" }` taps the item (e.g. Black Arrow,
    * Shield of Iron-bound Ash); `{ tap: "bearer" }` taps only the item's
    * bearer without tapping the item itself (e.g. Star-glass).
-   * Absent when `fromHand` is true (hand cards are discarded, not tapped).
+   * On a `fromHand` effect this is only read together with
+   * {@link requiredSkill}: it is the cost the chosen caster pays (e.g.
+   * `{ check: "corruption", modifier: -4 }`), waived when the caster's race
+   * matches {@link costExemptRace}.
    */
   readonly cost?: ActionCost;
+  /**
+   * `fromHand` defender plays only. When set, the card is played *on* one
+   * character in the defending company whose printed skills include this
+   * skill ("Playable on a sorcery-using character facing an attack"). One
+   * legal action is offered per qualifying character, carrying it as
+   * {@link ModifyAttackAction.casterInstanceId}; that caster pays
+   * {@link cost} (if any). Used by Veils of Shadow (le-249).
+   */
+  readonly requiredSkill?: Skill;
+  /**
+   * With {@link requiredSkill} + {@link cost}: a caster of this race pays
+   * nothing ("Unless he is a Ringwraith, character makes a corruption
+   * check"). Same semantics as the `cancel-attack` / `company-combat-boost`
+   * field of the same name.
+   */
+  readonly costExemptRace?: Race;
+  /**
+   * `fromHand` path. When set, playing the card also installs a turn-scoped
+   * `auto-attack-strikes-set` constraint for the defending company's current
+   * site: every automatic-attack initiated at that site for the rest of the
+   * turn (any company, including race/duplicate copies) has its strike count
+   * reduced to this value (never increased). Pair with
+   * `setStrikesTo` to reduce the attack currently being faced too. Used by
+   * Veils of Shadow (le-249): "The number of strikes of all
+   * automatic-attacks at the site this turn are reduced to one."
+   */
+  readonly siteAutoAttacksStrikesTo?: number;
   /**
    * `"current-strike"` scope only. When true, the modifier applies
    * automatically to every strike whose target is the item's own bearer —

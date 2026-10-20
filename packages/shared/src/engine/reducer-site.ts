@@ -6,7 +6,7 @@
  * influence attempts, and site phase advancement.
  */
 
-import type { GameState, PlayerState, CardDefinition, CardInstanceId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack, TwoDiceSix } from '../index.js';
+import type { GameState, PlayerState, CardDefinition, CardInstanceId, CardDefinitionId, CompanyId, CharacterInPlay, CardInstance, SitePhaseState, CombatState, OnGuardCard, GameAction, GameEffect, PlayerId, Company, AutomaticAttack, TwoDiceSix } from '../index.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex, requirePhaseState } from '../state-utils.js';
@@ -1170,6 +1170,24 @@ function autoAttackAppliesToCompany(aa: AutomaticAttack, covert: boolean): boole
  * covert/overt status are skipped without initiating combat. When all
  * applicable auto-attacks are resolved, advances to 'declare-agent-attack'.
  */
+/**
+ * Veils of Shadow (le-249): "The number of strikes of all automatic-attacks
+ * at the site this turn are reduced to one." Caps `strikes` at the lowest
+ * turn-scoped `auto-attack-strikes-set` constraint bound to `siteDefId`
+ * (any company, any attack — printed or duplicated). Never increases.
+ */
+function capSiteAutoAttackStrikes(state: GameState, siteDefId: CardDefinitionId, strikes: number): number {
+  let capped = strikes;
+  for (const c of state.activeConstraints) {
+    if (c.kind.type !== 'auto-attack-strikes-set' || c.kind.siteDefinitionId !== siteDefId) continue;
+    if (c.kind.strikes < capped) {
+      logDetail(`Site: "${cardName(state, c.sourceDefinitionId, '?')}" reduces this automatic-attack's strikes: ${capped} → ${c.kind.strikes}`);
+      capped = c.kind.strikes;
+    }
+  }
+  return capped;
+}
+
 function handleSiteAutomaticAttacks(
   state: GameState,
   action: GameAction,
@@ -1409,7 +1427,7 @@ function handleSiteAutomaticAttacks(
         const inPlayNamesR = buildInPlayNames(state);
         const dupBoostCtxR = { companyId: company.id };
         const dupProwessR = resolveAttackProwess(state, aa.prowess, inPlayNamesR, dupRace, true, undefined, dupBoostCtxR, false, effectiveSiteType);
-        const dupStrikesR = resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR, effectiveSiteType);
+        const dupStrikesR = capSiteAutoAttackStrikes(state, company.currentSite!.definitionId, resolveAttackStrikes(state, aa.strikes, inPlayNamesR, dupRace, true, dupBoostCtxR, effectiveSiteType));
         const dupBodyR = resolveAttackBody(state, aa.body ?? null, inPlayNamesR, dupRace, dupBoostCtxR);
         logDetail(`Site: duplicating ${aa.creatureType} auto-attack (The Moon Is Dead): ${dupStrikesR} strikes, ${dupProwessR} prowess`);
         const dupDetainmentR = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
@@ -1465,7 +1483,7 @@ function handleSiteAutomaticAttacks(
       const creatureRace2 = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtx = { companyId: company.id };
       const dupProwess = resolveAttackProwess(state, aa.prowess, inPlayNames2, creatureRace2, true, undefined, dupBoostCtx, false, effectiveSiteType);
-      const dupStrikes = resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx, effectiveSiteType);
+      const dupStrikes = capSiteAutoAttackStrikes(state, company.currentSite!.definitionId, resolveAttackStrikes(state, aa.strikes, inPlayNames2, creatureRace2, true, dupBoostCtx, effectiveSiteType));
       const dupBody = resolveAttackBody(state, aa.body ?? null, inPlayNames2, creatureRace2, dupBoostCtx);
       const dupIsEachCharacter = aa.combatRules?.includes('each-character') ?? false;
       const dupEachCharacterCompany = siteState.soloAutoAttackCharacterId
@@ -1550,7 +1568,7 @@ function handleSiteAutomaticAttacks(
       const creatureRaceM = normalizeCreatureRace(aa.creatureType);
       const dupBoostCtxM = { companyId: company.id };
       const dupProwessM = resolveAttackProwess(state, aa.prowess, inPlayNamesM, creatureRaceM, true, undefined, dupBoostCtxM, false, effectiveSiteType);
-      const dupStrikesM = resolveAttackStrikes(state, aa.strikes, inPlayNamesM, creatureRaceM, true, dupBoostCtxM, effectiveSiteType);
+      const dupStrikesM = capSiteAutoAttackStrikes(state, company.currentSite!.definitionId, resolveAttackStrikes(state, aa.strikes, inPlayNamesM, creatureRaceM, true, dupBoostCtxM, effectiveSiteType));
       const dupBodyM = resolveAttackBody(state, aa.body ?? null, inPlayNamesM, creatureRaceM, dupBoostCtxM);
       logDetail(`Site: initiating minion-only additional automatic-attack (No Strangers at this Time): ${aa.creatureType} (${dupStrikesM} strikes, ${dupProwessM} prowess)`);
       const dupDetainmentM = (!forcesNormalAttacks && (forcedDetainment || aa.forceDetainment === true || aa.detainmentAgainstPlayer === state.activePlayer || (aa.detainmentAgainstOvert === true && !defendingCovert))) || isDetainmentAttack({
@@ -1719,6 +1737,7 @@ function handleSiteAutomaticAttacks(
     logDetail(`Site: "${cardName(state, halvedBy.sourceDefinitionId, '?')}" halves the strikes of this automatic-attack: ${finalStrikes} → ${halved}`);
     finalStrikes = halved;
   }
+  finalStrikes = capSiteAutoAttackStrikes(boostedState, company.currentSite!.definitionId, finalStrikes);
   const finalBody = pendingModifier.creatureBody;
 
   const isEachCharacter = aa.combatRules?.includes('each-character') ?? false;

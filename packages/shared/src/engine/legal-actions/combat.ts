@@ -4233,6 +4233,30 @@ function modifyAttackActions(
       }
     }
 
+    // Caster-gated play (Veils of Shadow le-249): "Playable on a
+    // sorcery-using character facing an attack" — one action per defending
+    // character with the required printed skill who can pay the cost
+    // (waived for `costExemptRace`).
+    if (effect.requiredSkill) {
+      const defender = playerById(state, combat.defendingPlayerId);
+      const defendingCompany = defender ? companyById(defender.companies, combat.companyId) : undefined;
+      for (const charId of defendingCompany?.characters ?? []) {
+        const charData = defender!.characters[charId];
+        if (!charData) continue;
+        const charDef = defById(state, charData.definitionId);
+        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (!charDef.skills.includes(effect.requiredSkill)) continue;
+        const exempt = effect.costExemptRace !== undefined && charDef.race === effect.costExemptRace;
+        if (effect.cost && !exempt && !canPayCost(effect.cost, charData)) continue;
+        logDetail(`Modify-attack (from hand) available: ${handCard.definitionId as string} played on ${charDef.name}${exempt ? ' (cost-exempt race)' : ''}`);
+        actions.push({
+          action: { type: 'modify-attack', player: playerId, cardInstanceId: handCard.instanceId, casterInstanceId: charId },
+          viable: true,
+        });
+      }
+      continue;
+    }
+
     logDetail(`Modify-attack (from hand) available: ${handCard.definitionId as string} (prowess ${effect.prowessModifierExpr ?? effect.prowessModifier ?? 0}, body ${effect.bodyModifier ?? 0})`);
     actions.push({
       action: { type: 'modify-attack', player: playerId, cardInstanceId: handCard.instanceId },

@@ -5774,6 +5774,20 @@ Darkness Wielded (ba-55): a defender-played `modify-attack` giving `-2` strike
 prowess, `-1` body, and `setStrikesTo: 1`, gated on
 `defender.companyContainsBalrog` + `defender.inPlay $includes "Great Shadow"`.
 
+**`requiredSkill` + `cost` + `costExemptRace` (played on a skilled
+character), `siteAutoAttacksStrikesTo` (rest-of-turn site cap).** A
+defender-played from-hand `modify-attack` with `"requiredSkill": "<skill>"` is
+played *on* one defending character whose printed skills include it — one
+legal action per qualifying character, carried as
+`ModifyAttackAction.casterInstanceId`. That caster pays `cost` (e.g.
+`{ "check": "corruption", "modifier": -4 }`) unless his race matches
+`costExemptRace`. `"siteAutoAttacksStrikesTo": N` additionally installs a
+turn-scoped `auto-attack-strikes-set` constraint for the defending company's
+site, capping every automatic-attack initiated there this turn at N strikes.
+Used by Veils of Shadow (le-249): `setStrikesTo: 1`,
+`siteAutoAttacksStrikesTo: 1`, `requiredSkill: "sorcery"`, corruption check
+-4, `costExemptRace: "ringwraith"`, `when: { "attack.automatic": true }`.
+
 **`removeDetainment` (make a detainment attack normal).** When
 `"removeDetainment": true`, applying the effect sets `CombatState.detainment`
 to `false`, so the attack's strikes wound (and can eliminate) normally instead

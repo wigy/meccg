@@ -2060,6 +2060,21 @@ export interface ActiveConstraint {
       }
     | {
         /**
+         * Veils of Shadow (le-249): "The number of strikes of all
+         * automatic-attacks at the site this turn are reduced to one."
+         * Turn-scoped and keyed on the site definition alone (the target is
+         * just the owning player) — every automatic-attack initiated at
+         * `siteDefinitionId` this turn, by any company, has its strikes
+         * capped at `strikes` by `reducer-site.ts`.
+         */
+        readonly type: 'auto-attack-strikes-set';
+        /** The site definition whose automatic-attacks are reduced. */
+        readonly siteDefinitionId: CardDefinitionId;
+        /** The strike count each automatic-attack is reduced to. */
+        readonly strikes: number;
+      }
+    | {
+        /**
          * Liquid Fire (wh-52): a single-use constraint on the target company
          * that causes all strikes of the next qualifying automatic-attack the
          * company faces to automatically be defeated (as if parried),
