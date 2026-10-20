@@ -791,12 +791,15 @@ function advanceToOrganization(state: GameState): ReducerResult {
     const siteType = charSiteType.get(charId) ?? null;
     const atHaven = charAtHaven.get(charId) ?? false;
     const companyCharCount = charCompanySize.get(charId) ?? 0;
-    const bearerCtx = { bearer: { siteType, atHaven } };
     // Host character (the bearer of the attached cards) identity, for
     // conditions gated on who controls an ally — Evil Things Lingering (ba-45):
     // "If this ally's controlling character is not The Balrog …".
     const hostDef = defById(state, char.definitionId);
     const hostName = hostDef && isCharacterCard(hostDef) ? hostDef.name : undefined;
+    const hostRace = hostDef && isCharacterCard(hostDef) ? hostDef.race : undefined;
+    // `bearer.race` gates race-conditional untap checks — The Iron Crown
+    // (le-314): "if the bearer is not a Ringwraith, he must make a corruption check".
+    const bearerCtx = { bearer: { siteType, atHaven, race: hostRace } };
     const hostMind = printedMind(hostDef);
     // Context for `organization-phase-start` self-discard conditions that also
     // care about company size, e.g. So You've Come Back (le-138): "Discard …
