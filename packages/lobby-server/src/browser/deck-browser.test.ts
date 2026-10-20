@@ -23,7 +23,7 @@ vi.mock('./api.js', () => ({ apiGet, apiSend }));
 
 // Vitest hoists the vi.mock call above the static imports below, so
 // deck-browser.ts picks up the mocked api.js.
-import { loadDecks, initialSites } from './deck-browser.js';
+import { loadDecks, initialSites, setDeckBrowserCallbacks } from './deck-browser.js';
 import { appState, type FullDeck } from './app-state.js';
 
 class StubEl {
@@ -188,6 +188,30 @@ describe('renaming an owned deck from the "My Decks" list', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(apiSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('editing an owned deck from the "My Decks" list', () => {
+  // Bug report: "I see no button to modify a deck". The edit button was only
+  // rendered on the deck currently selected for play, so a player whose
+  // decks were all unselected had no visible way to open the deck editor.
+  const editBtnOf = (): StubEl | undefined =>
+    myContainer.all().find(el => el.tagName === 'button' && el.title === 'Edit this deck');
+
+  test('offers an edit button that opens the editor on a deck not selected for play', async () => {
+    apiGet.mockImplementation((url: string) => {
+      if (url === '/api/decks') return Promise.resolve({ ok: true, data: [] });
+      return Promise.resolve({ ok: true, data: { decks: [myDeck], currentDeck: null, currentFullDeck: null } });
+    });
+    const openEditor = vi.fn().mockResolvedValue(undefined);
+    setDeckBrowserCallbacks(openEditor);
+
+    await loadDecks();
+
+    const editBtn = editBtnOf();
+    expect(editBtn).toBeDefined();
+    editBtn!.click();
+    expect(openEditor).toHaveBeenCalledWith(myDeck.id);
   });
 });
 
