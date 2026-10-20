@@ -6,19 +6,19 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1404 | 1404 | 0 | 100.0% |
+| 1412 | 1412 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 130 | 130 | 100.0% |
+| AS | 131 | 131 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 157 | 157 | 100.0% |
-| LE | 337 | 337 | 100.0% |
+| LE | 343 | 343 | 100.0% |
 | TD | 148 | 148 | 100.0% |
 | TW | 429 | 429 | 100.0% |
-| WH | 102 | 102 | 100.0% |
+| WH | 103 | 103 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -115,6 +115,7 @@
 | as-125 | Goblin Earth-plumb | — | 6 | ☑ |
 | as-126 | Helm of Fear | — | 15 | ☑ |
 | as-127 | Iron Shield of Old | — | 10 | ☑ |
+| as-128 | Necklace of Girion | — | 2 | ☑ |
 | as-130 | Records Unread | — | 12 | ☑ |
 | as-131 | Secret Book | — | 13 | ☑ |
 | as-132 | Thong of Fire | — | 15 | ☑ |
@@ -522,6 +523,7 @@
 | le-115 | Incite Defenders | — | 12 | ☑ |
 | le-116 | Incite Denizens | — | 10 | ☑ |
 | le-117 | Long Winter | — | 9 | ☑ |
+| le-118 | Lost in Border-lands | — | 7 | ☑ |
 | le-122 | Lure of Expedience | — | 13 | ☑ |
 | le-123 | Lure of Nature | — | 13 | ☑ |
 | le-125 | Minions Stir | — | 4 | ☑ |
@@ -581,14 +583,17 @@
 | le-193 | Hoarmûrath Unleashed | — | 10 | ☑ |
 | le-195 | I’ll Be At Your Heels | — | 15 | ☑ |
 | le-196 | I’ll Report You | — | 18 | ☑ |
+| le-197 | In the Name of Mordor | — | 10 | ☑ |
 | le-202 | Leg It Double Quick | — | 5 | ☑ |
 | le-203-the-lidless-eye | The Lidless Eye | — | 11 | ☑ |
 | le-204 | Messenger of Mordor | — | 8 | ☑ |
 | le-205 | Morgul-blade | — | 11 | ☑ |
+| le-207 | The Names Among Them | — | 11 | ☑ |
 | le-210 | No More Nonsense | — | 13 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
 | le-212 | Not Slay Needlessly | — | 13 | ☑ |
 | le-213 | Old Cache | — | 9 | ☑ |
+| le-214 | Old Prejudice | — | 9 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-217 | Orc Stealth | — | 5 | ☑ |
 | le-219 | Poisonous Despair | — | 9 | ☑ |
@@ -652,6 +657,7 @@
 | le-293 | Wargs of the Forochel | — | 11 | ☑ |
 | le-295 | Woodmen | — | 5 | ☑ |
 | le-296 | Woses of the Eryn Vorn | — | 3 | ☑ |
+| le-298 | Binding-ring | — | 6 | ☑ |
 | le-299 | Black Mace | — | 7 | ☑ |
 | le-300 | Black-hide Shield | — | 3 | ☑ |
 | le-302 | Blazon of the Eye | — | 4 | ☑ |
@@ -661,6 +667,7 @@
 | le-311 | Gleaming Gold Ring | — | 24 | ☑ |
 | le-312 | Gold Ring that Sauron Fancies | — | 21 | ☑ |
 | le-313 | High Helm | — | 11 | ☑ |
+| le-314 | The Iron Crown | — | 7 | ☑ |
 | le-315 | The Least of Gold Rings | — | 6 | ☑ |
 | le-324 | Minor Ring | — | 9 | ☑ |
 | le-325 | The Mithril-coat | — | 7 | ☑ |
@@ -1336,6 +1343,7 @@
 | wh-8 | Radagast | — | 12 | ☑ |
 | wh-9 | Saruman | — | 10 | ☑ |
 | wh-10 | Sly Southerner | — | 6 | ☑ |
+| wh-11 | Squint-eyed Brute | — | 6 | ☑ |
 | wh-12 | Uglúk | — | 9 | ☑ |
 | wh-13 | Goblin-faces | — | 8 | ☑ |
 | wh-14 | Blind to the West | — | 5 | ☑ |

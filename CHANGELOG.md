@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.214.0 — 2026-10-20
+
+Forgotten Passwords Return by Mail
+
+### Game Engine
+
+- Fireworks (dm-130) can no longer be played by a moving company during its movement/hazard phase to untap its origin site; an en-route company is not at any site (CRF 22 Annotation 25) (#3365)
+- Special hoard items such as the minion Necklace of Girion (as-128) can now be played at their site; the hoard-tier gate rejected "special" items, and as-128 is now restricted to The Lonely Mountain (#3363)
+- Ruse (le-225) is no longer offered as a target-less short event in combat when neither of its modes applies; protect-from-strike-assignment now counts as a combat-only effect (#3362)
+- New multiply-standard-modifications effect for Old Prejudice (le-214); faction-influence display, paused roll and resolver now share one effect collection (#3367)
+- New stored-card cancel-attack source: a stored card in the marshalling point pile can be discarded to cancel a matching attack (The Names Among Them) (#3368)
+- Cancel-attack conditions can now see detainment and by-name region/site keying of the attack (In the Name of Mordor) (#3366)
+- Untap-phase-end triggers expose the bearer's race (The Iron Crown) (#3371)
+- Certified le-118 Lost in Border-lands (#3372), le-197 In the Name of Mordor (#3366), le-207 The Names Among Them (#3368), le-214 Old Prejudice (#3367), le-298 Binding-ring (#3369), le-314 The Iron Crown (#3371) and wh-11 Squint-eyed Brute (#3370)
+
+### Web Client
+
+- Thief's (tw-102) forced item discard is now clickable in the combat arena, with a discard panel and phase banner, so the defender is no longer stuck (#3361)
+
+### Lobby Server
+
+- Email sending over SMTP (nodemailer) and a "Forgot password?" flow: the login screen emails a one-time, hour-long, HMAC-signed reset link that opens a new-password form and logs the player in; requests are rate-limited and answer identically whether or not the account exists (#3364)
+
+### AI
+
+- The modular AI no longer discards its own hazard events with The Cock Crows; removing our own free-standing hazard is now valued at zero (#3373)
+
+### Tests
+
+- New card tests for le-118, le-197, le-207, le-214, le-298, le-314, wh-11 and as-128 Necklace of Girion
+- Regression tests for Fireworks en route, Ruse with no applicable mode, the combat-arena item discard panel, password-reset tokens and the modular AI's own-hazard removal
+
+### Documentation
+
+- README project status and card tests README refreshed
+
 ## 0.213.0 — 2026-10-19
 
 Safe from the Shadow Shelters Both Sides
