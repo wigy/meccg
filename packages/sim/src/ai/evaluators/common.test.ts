@@ -99,6 +99,25 @@ describe('resourcePlayableAt', () => {
     });
   });
 
+  // The engine counts the Deep Mines as an Under-deeps site whether or not
+  // its definition prints the keyword (legal-actions/site.ts). Missing that,
+  // the AI saw nothing to play there with two Dwarven Light-stones in hand —
+  // game mu34au5g-b2jri3, where the winning human entered and played both.
+  describe('item-play-site filters read the site as the engine does', () => {
+    const pool = loadCardPool();
+    const lightStone = pool['dm-168']; // Dwarven Light-stone: "Playable at any Under-deeps site"
+    const deepMines = pool['wh-55'] as AnySiteCard;
+    const weathertop = pool['as-169'] as AnySiteCard;
+
+    test('the Deep Mines counts as an Under-deeps site', () => {
+      expect(resourcePlayableAt(lightStone, deepMines)).toBe(true);
+    });
+
+    test('an ordinary Ruins & Lairs does not', () => {
+      expect(resourcePlayableAt(lightStone, weathertop)).toBe(false);
+    });
+  });
+
   describe('playableAt `when` gates (allies)', () => {
     const pool = loadCardPool();
     const warWolf = pool['le-157']; // Ruins & Lairs with a Wolf attack, or Shadow-hold with an Orc attack

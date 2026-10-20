@@ -11,7 +11,7 @@
 
 import type { PlayerView, CardDefinition, CharacterCard, HeroItemCard, MinionItemCard, CreatureCard, HazardEventCard, HeroSiteCard, MinionSiteCard, FallenWizardSiteCard, BalrogSiteCard, CardInstanceId, RegionType, CharacterInPlay, Company, ItemPlaySiteEffect, PlayTargetEffect, StrikeModifierEffect, GameAction, Condition } from '@meccg/shared';
 import { Alignment } from '@meccg/shared';
-import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition, hasPlayFlag, siteMatchesEntry } from '@meccg/shared';
+import { CardStatus, isCharacterCard, isItemCard, isFactionCard, isAllyCard, matchesCondition, hasPlayFlag, siteMatchesEntry, isDeepMinesSite, normalizeCreatureRace } from '@meccg/shared';
 
 /** Union of all site card types — handy for movement scoring. */
 export type AnySiteCard = HeroSiteCard | MinionSiteCard | FallenWizardSiteCard | BalrogSiteCard;
@@ -374,6 +374,23 @@ function siteRecord(site: AnySiteCard): Record<string, unknown> {
 }
 
 /**
+ * A site as an `item-play-site` filter sees it, mirroring the engine's gate
+ * (legal-actions/site.ts): the races of its automatic-attacks (Blasting Fire
+ * "at a site with a Dwarf automatic-attack"), and the Deep Mines counted as an
+ * Under-deeps site whether or not its definition prints the keyword. Without
+ * them the AI read "nothing to play" at the Deep Mines with two Dwarven
+ * Light-stones in hand, where the winning human played both.
+ */
+function itemSiteContext(site: AnySiteCard): Record<string, unknown> {
+  const autoAttackRaces = (site.automaticAttacks ?? []).map(a => normalizeCreatureRace(a.creatureType));
+  const printed = site.keywords;
+  const keywords = isDeepMinesSite(site) && !printed?.includes('under-deeps')
+    ? [...(printed ?? []), 'under-deeps']
+    : printed;
+  return { site: { ...(site as unknown as Record<string, unknown>), autoAttackRaces, keywords } };
+}
+
+/**
  * Whether a hand resource card can be played at the given site.
  *
  * `playerAlignment` enables the MEWH §10 cross-alignment site-tap gate
@@ -418,10 +435,7 @@ export function resourcePlayableAt(
     );
     if (itemDenyPlaySite) {
       if (itemDenyPlaySite.sites?.includes(site.name)) return false;
-      if (itemDenyPlaySite.filter && matchesCondition(
-        itemDenyPlaySite.filter,
-        { site: site as unknown as Record<string, unknown> },
-      )) return false;
+      if (itemDenyPlaySite.filter && matchesCondition(itemDenyPlaySite.filter, itemSiteContext(site))) return false;
     }
     // An item that carries its own (non-deny) `item-play-site` effect defines
     // exactly where it may be played (gold rings, Shadow/Dark-hold-restricted
@@ -432,10 +446,7 @@ export function resourcePlayableAt(
     if (itemPlaySite) {
       if (itemPlaySite.sites?.includes(site.name)) return true;
       if (itemPlaySite.filter) {
-        return matchesCondition(
-          itemPlaySite.filter,
-          { site: site as unknown as Record<string, unknown> },
-        );
+        return matchesCondition(itemPlaySite.filter, itemSiteContext(site));
       }
       return false;
     }
