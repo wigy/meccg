@@ -29,17 +29,40 @@ interface CardWrapOptions {
   /**
    * Whether the card has attachments that fade its lower half. Main characters
    * count items + allies + hazards + followers; followers count only their own
-   * items + allies + hazards.
+   * items + allies + hazards. See {@link applyCharacterStatusClasses}.
    */
   hasAttachments: boolean;
-  /**
-   * When tapped with attachments, also mark the wrap with
-   * `character-card-wrap--has-attachments`. Only main characters do this;
-   * followers never mark their wrap.
-   */
-  markTappedWithAttachments: boolean;
   /** Influence-move highlight and click handler for the card image, if any. */
   influenceClick?: CardClick | undefined;
+}
+
+/**
+ * Apply the tapped/wounded styling to a character card's wrap, rotating inner
+ * wrapper and image. Shared by the company view and the combat arena.
+ *
+ * A tapped card with attachments also marks its wrap with
+ * `character-card-wrap--has-attachments`, which collapses only the empty space
+ * below the sideways card so the attachment row never covers the prowess/body
+ * badge. Untapped and wounded cards with attachments fade the part the
+ * attachment row overlaps instead.
+ */
+export function applyCharacterStatusClasses(
+  status: CardStatus,
+  hasAttachments: boolean,
+  wrap: HTMLElement,
+  inner: HTMLElement,
+  img: HTMLElement,
+): void {
+  if (status === CardStatus.Tapped) {
+    inner.classList.add('character-card-inner--tapped');
+    wrap.classList.add('character-card-wrap--tapped');
+    if (hasAttachments) wrap.classList.add('character-card-wrap--has-attachments');
+  } else if (status === CardStatus.Inverted) {
+    inner.classList.add('character-card-inner--wounded');
+    if (hasAttachments) img.classList.add('company-card--faded-top');
+  } else {
+    if (hasAttachments) img.classList.add('company-card--faded');
+  }
 }
 
 /**
@@ -61,16 +84,7 @@ function buildCharacterCardWrap(
   // Inner wrapper rotates both card image and badges together
   const inner = document.createElement('div');
   inner.className = 'character-card-inner';
-  if (ch.status === CardStatus.Tapped) {
-    inner.classList.add('character-card-inner--tapped');
-    wrap.classList.add('character-card-wrap--tapped');
-    if (opts.markTappedWithAttachments && opts.hasAttachments) wrap.classList.add('character-card-wrap--has-attachments');
-  } else if (ch.status === CardStatus.Inverted) {
-    inner.classList.add('character-card-inner--wounded');
-    if (opts.hasAttachments) img.classList.add('company-card--faded-top');
-  } else {
-    if (opts.hasAttachments) img.classList.add('company-card--faded');
-  }
+  applyCharacterStatusClasses(ch.status, opts.hasAttachments, wrap, inner, img);
 
   // Influence move highlight and click handler
   if (opts.influenceClick) {
@@ -248,7 +262,6 @@ export function renderCharacterColumn(
   col.appendChild(buildCharacterCardWrap(char, def, imgPath, {
     cardClass: 'company-card',
     hasAttachments,
-    markTappedWithAttachments: true,
     influenceClick,
   }));
 
@@ -276,7 +289,6 @@ export function renderCharacterColumn(
         followerCol.appendChild(buildCharacterCardWrap(follower, fDef, fImg, {
           cardClass: 'company-card company-card--follower',
           hasAttachments: followerHasItems,
-          markTappedWithAttachments: false,
           influenceClick: influenceClickBuilder?.(followerId),
         }));
 
