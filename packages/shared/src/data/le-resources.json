@@ -4092,8 +4092,51 @@
     "eventType": "permanent",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an untapped scout immediately after facing an automatic-attack at a Border-hold [{B}] or Free-hold [{F}]. Tap the scout. No marshalling points are received until this card is stored at a Darkhaven [{DH}] during his organization phase. Once stored, this card may be discarded to cancel an automatic-attack at a Free-hold [{F}] or Border-hold [{B}]."
+    "keywords": [
+      "stolen-knowledge"
+    ],
+    "effects": [
+      {
+        "type": "play-window",
+        "phase": "combat",
+        "step": "after-attack",
+        "when": {
+          "$and": [
+            { "attack.source": "automatic-attack" },
+            { "site.type": { "$in": ["border-hold", "free-hold"] } }
+          ]
+        }
+      },
+      {
+        "type": "play-target",
+        "target": "character",
+        "filter": {
+          "$and": [
+            { "target.skills": { "$includes": "scout" } },
+            { "target.status": "untapped" }
+          ]
+        },
+        "cost": { "tap": "character" }
+      },
+      {
+        "type": "storable-at",
+        "siteTypes": ["haven"],
+        "marshallingPoints": 1
+      },
+      {
+        "type": "cancel-attack",
+        "fromStored": true,
+        "cost": { "discard": "self" },
+        "when": {
+          "$and": [
+            { "attack.source": "automatic-attack" },
+            { "site.type": { "$in": ["free-hold", "border-hold"] } }
+          ]
+        }
+      }
+    ],
+    "text": "Playable on an untapped scout immediately after facing an automatic-attack at a Border-hold [{B}] or Free-hold [{F}]. Tap the scout. No marshalling points are received until this card is stored at a Darkhaven [{DH}] during his organization phase. Once stored, this card may be discarded to cancel an automatic-attack at a Free-hold [{F}] or Border-hold [{B}].",
+    "certified": "2026-10-20"
   },
   {
     "cardType": "minion-resource-event",

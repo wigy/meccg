@@ -3103,6 +3103,27 @@ function cancelAttackActions(
       viable: true,
     });
   }
+  // Stored cards discarded from the marshalling point pile to cancel (The
+  // Names Among Them le-207: "Once stored, this card may be discarded to
+  // cancel an automatic-attack at a Free-hold or Border-hold").
+  for (const stored of player.killPile) {
+    if (!stored.storedAtSite) continue;
+    const def = defById(state, stored.definitionId);
+    const cancelEffect = getCardEffects(def).find(
+      (e): e is CancelAttackEffect => e.type === 'cancel-attack' && e.fromStored === true,
+    );
+    if (!cancelEffect || cancelEffect.cost?.discard !== 'self') continue;
+    const label = (def as { name?: string })?.name ?? stored.definitionId as string;
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${label}: when condition not met (stored card, source ${combat.attackSource.type}, site ${siteType ?? 'none'})`);
+      continue;
+    }
+    logDetail(`Cancel-attack available: discard stored ${label}`);
+    actions.push({
+      action: { type: 'cancel-attack', player: playerId, cardInstanceId: stored.instanceId },
+      viable: true,
+    });
+  }
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
     const cancelEffect = getCardEffects(def).find(

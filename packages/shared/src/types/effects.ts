@@ -6817,6 +6817,16 @@ export interface CancelAttackEffect extends EffectBase {
    */
   readonly handModeRequiresCovert?: true;
   /**
+   * When true, the cancel is offered from a card **stored** in its owner's
+   * marshalling point pile (`killPile` entry with `storedAtSite`) rather than
+   * from hand or play. Paired with `cost: { discard: "self" }`: the stored card
+   * moves to the discard pile (forfeiting its marshalling points) and the
+   * attack is canceled immediately, no chain entry. Used by The Names Among
+   * Them (le-207): "Once stored, this card may be discarded to cancel an
+   * automatic-attack at a Free-hold or Border-hold."
+   */
+  readonly fromStored?: true;
+  /**
    * When true, cancelling this attack additionally grants the defending player
    * a one-shot *deferred* free cancellation of a **later** attack this turn
    * against a company containing The Balrog ("cancel this attack and a latter
