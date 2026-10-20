@@ -83,3 +83,29 @@ export const ADMIN_PLAYERS: readonly string[] = ['admin'];
 export function isAdminPlayer(name: string): boolean {
   return ADMIN_PLAYERS.includes(name.toLowerCase());
 }
+
+// ---- Outgoing email (SMTP) ----
+
+/**
+ * SMTP settings for outgoing email (password resets). Mirrors the nodemailer
+ * options Ghost takes on the same host: either a well-known `MAIL_SERVICE`
+ * (e.g. `Mailgun`) or an explicit `MAIL_HOST`/`MAIL_PORT`, plus credentials.
+ * Email is disabled when neither a service nor a host is configured.
+ */
+export const MAIL_CONFIG = {
+  from: process.env.MAIL_FROM ?? 'MECCG <noreply@ai-meccg.com>',
+  service: process.env.MAIL_SERVICE,
+  host: process.env.MAIL_HOST,
+  port: process.env.MAIL_PORT ? parseInt(process.env.MAIL_PORT, 10) : undefined,
+  user: process.env.MAIL_USER,
+  pass: process.env.MAIL_PASS,
+} as const;
+
+/**
+ * Public base URL of the lobby, used for links in outgoing email. Falls back
+ * to the request's Host header when unset.
+ */
+export const PUBLIC_URL = process.env.PUBLIC_URL?.replace(/\/+$/, '');
+
+/** Lifetime of a password-reset link. */
+export const PASSWORD_RESET_EXPIRY = '1h';

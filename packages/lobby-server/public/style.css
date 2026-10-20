@@ -281,8 +281,33 @@ h2 {
 }
 
 .auth-screen--login .auth-form--login,
-.auth-screen--register .auth-form--register {
+.auth-screen--register .auth-form--register,
+.auth-screen--forgot .auth-form--forgot,
+.auth-screen--reset .auth-form--reset {
   display: flex;
+}
+
+.auth-note {
+  color: #a89f86;
+  font-size: 0.85rem;
+  margin: 0;
+  text-align: center;
+}
+
+.auth-link {
+  align-self: center;
+  padding: 0.2rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  background: transparent;
+  color: #8a7d5a;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.auth-link:hover {
+  color: #d4b36a;
 }
 
 .auth-label {

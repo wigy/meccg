@@ -152,6 +152,15 @@ function updatePlayer(name: string, record: PlayerRecord): void {
   writeJson(infoPath(name), record);
 }
 
+// ---- Password ----
+
+/** Replace the player's password hash. */
+export function setPasswordHash(name: string, passwordHash: string): void {
+  const player = findPlayer(name);
+  if (!player) return;
+  updatePlayer(name, { ...player, passwordHash });
+}
+
 // ---- Display name ----
 
 /** Get the player's display name, falling back to their account name. */
