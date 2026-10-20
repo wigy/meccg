@@ -457,6 +457,9 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/SquinteyedBrute.jpg",
     "unique": false,
     "race": "orc",
+    "keywords": [
+      "half-orc"
+    ],
     "skills": [
       "warrior"
     ],
@@ -468,8 +471,12 @@
     "marshallingCategory": "character",
     "corruptionModifier": 0,
     "homesite": "Any Dark-hold",
+    "discardBodyCheck": [
+      9
+    ],
     "effects": [],
-    "text": "Half-orc. Discard on a body check result of 9."
+    "text": "Half-orc. Discard on a body check result of 9.",
+    "certified": "2026-10-20"
   },
   {
     "cardType": "minion-character",
