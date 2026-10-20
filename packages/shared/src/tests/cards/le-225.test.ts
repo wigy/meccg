@@ -303,6 +303,26 @@ describe('Ruse (le-225) — Mode A: diplomat cancel-attack', () => {
     expect(viableActions(state, PLAYER_1, 'cancel-attack')).toHaveLength(0);
   });
 
+  test('overt company without a scout: Ruse is not offered as a bare short-event play', () => {
+    // Regression (game mvg2kie8-i6qzgw): the generic short-event path did not
+    // treat protect-from-strike-assignment as combat-only, so Ruse was offered
+    // as a target-less play-short-event that resolved with no effect.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA_MINION, characters: [LAGDUF, ASTERNAK] }], hand: [RUSE], siteDeck: [DOL_GULDUR] },
+        { id: PLAYER_2, companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }], hand: [], siteDeck: [DOL_GULDUR] },
+      ],
+    });
+    const state = makeCancelWindowCombat(base);
+    const ruseId = handCardId(state, RESOURCE_PLAYER);
+    const ruseActions = viableActions(state, PLAYER_1, 'play-short-event')
+      .filter(ea => 'cardInstanceId' in ea.action && ea.action.cardInstanceId === ruseId);
+    expect(ruseActions).toHaveLength(0);
+  });
+
   test('Mode A: NOT offered when the diplomat is tapped', () => {
     const base = buildTestState({
       activePlayer: PLAYER_1,
