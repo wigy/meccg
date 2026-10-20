@@ -526,11 +526,24 @@
     "marshallingPoints": 0,
     "marshallingCategory": "item",
     "corruptionPoints": 2,
-    "prowessModifier": 0,
+    "prowessModifier": 1,
     "bodyModifier": 0,
     "playableAt": [],
-    "effects": [],
-    "text": "Mind Ring. -1 to mind to a minimum of 1, +1 to prowess. Cannot be duplicated on a given character."
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "mind",
+        "value": -1,
+        "min": 1
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "character",
+        "max": 1
+      }
+    ],
+    "text": "Mind Ring. -1 to mind to a minimum of 1, +1 to prowess. Cannot be duplicated on a given character.",
+    "certified": "2026-10-20"
   },
   {
     "cardType": "minion-resource-item",
