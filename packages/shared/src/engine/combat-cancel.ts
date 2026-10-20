@@ -527,6 +527,45 @@ export function handleCancelWeaponEffects(
   };
 }
 
+/**
+ * Handle cancel-attack sourced from a card **stored** in the defending
+ * player's marshalling point pile whose `cancel-attack` effect carries
+ * `fromStored` and `cost: { discard: "self" }`. The stored card moves from the
+ * kill pile to the discard pile (its marshalling points are lost) and the
+ * attack is canceled immediately, like other in-play cancel abilities. Used by
+ * The Names Among Them (le-207): "Once stored, this card may be discarded to
+ * cancel an automatic-attack at a Free-hold or Border-hold."
+ */
+export function handleCancelAttackByStoredCard(
+  state: GameState,
+  action: GameAction,
+  combat: CombatState,
+): ReducerResult {
+  if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
+
+  const defPlayerIndex = getPlayerIndex(state, action.player);
+  const defPlayer = state.players[defPlayerIndex];
+  const stored = findById(defPlayer.killPile, action.cardInstanceId);
+  if (!stored?.storedAtSite) return { state, error: 'Cancel-attack source is not a stored card' };
+
+  const storedDef = defById(state, stored.definitionId);
+  const cancelEffect = getCardEffects(storedDef).find(
+    (e): e is import('../types/effects.js').CancelAttackEffect =>
+      e.type === 'cancel-attack' && e.fromStored === true,
+  );
+  if (cancelEffect?.cost?.discard !== 'self') {
+    return { state, error: `${cardName(state, stored.definitionId)} cannot be discarded from storage to cancel an attack` };
+  }
+
+  logDetail(`Cancel-attack declared: discarding stored ${cardName(state, stored.definitionId)} to cancel ${combat.attackSource.type} against ${combat.companyId as string}`);
+  const discarded = updatePlayer(state, defPlayerIndex, p => ({
+    ...p,
+    killPile: removeById(p.killPile, stored.instanceId),
+    discardPile: [...p.discardPile, toCardInstance(stored)],
+  }));
+  return { state: resolveCancelAttackEntry(discarded) };
+}
+
 export function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
   if (action.type !== 'cancel-attack') return wrongActionType(state, action, 'cancel-attack');
 
@@ -588,6 +627,11 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
         return handleCancelAttackBySiteSwap(state, action, combat);
       }
       return handleCancelAttackByInPlayFaction(state, action, combat);
+    }
+    // A stored card discarded from the marshalling point pile (The Names
+    // Among Them le-207).
+    if (defPlayer.killPile.some(c => c.instanceId === action.cardInstanceId)) {
+      return handleCancelAttackByStoredCard(state, action, combat);
     }
     // Check items before falling through to ally handler.
     const defCompany = companyById(defPlayer.companies, combat.companyId);

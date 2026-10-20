@@ -6817,6 +6817,16 @@ export interface CancelAttackEffect extends EffectBase {
    */
   readonly handModeRequiresCovert?: true;
   /**
+   * When true, the cancel is offered from a card **stored** in its owner's
+   * marshalling point pile (`killPile` entry with `storedAtSite`) rather than
+   * from hand or play. Paired with `cost: { discard: "self" }`: the stored card
+   * moves to the discard pile (forfeiting its marshalling points) and the
+   * attack is canceled immediately, no chain entry. Used by The Names Among
+   * Them (le-207): "Once stored, this card may be discarded to cancel an
+   * automatic-attack at a Free-hold or Border-hold."
+   */
+  readonly fromStored?: true;
+  /**
    * When true, cancelling this attack additionally grants the defending player
    * a one-shot *deferred* free cancellation of a **later** attack this turn
    * against a company containing The Balrog ("cancel this attack and a latter
@@ -9349,6 +9359,24 @@ export interface NullifyInfluenceModificationsEffect extends EffectBase {
 }
 
 /**
+ * Old Prejudice (le-214): "Triple all standard modifications for influence
+ * checks against factions." A game-wide environment effect carried by a bare
+ * in-play event in **either** player's `cardsInPlay`. While present, every
+ * influence `check-modifier` printed on the faction card being influenced (its
+ * "Standard Modifications") is multiplied by `factor` in each faction-influence
+ * computation — the displayed need (`legal-actions/site.ts`), the paused roll
+ * (`legal-actions/pending.ts`) and the roll resolver (`reducer-site.ts`).
+ * Multiple copies stack multiplicatively. Paid `influence-modification`
+ * options (discard an item for +N) are not standard modifications and are
+ * left untouched.
+ */
+export interface MultiplyStandardModificationsEffect extends EffectBase {
+  readonly type: 'multiply-standard-modifications';
+  /** Multiplier applied to each of the faction's printed modifications. */
+  readonly factor: number;
+}
+
+/**
  * Prone to Violence (ba-42): a minion permanent-event that grants an *extra*
  * Company-vs-Company-combat attack permission beyond the default alignment
  * matrix ({@link import('../engine/reducer-utils.js').canAttackAlignment}, CoE
@@ -11017,6 +11045,7 @@ export type CardEffect =
   | FactionInfluenceRestrictionEffect
   | FactionSelfInfluenceBoostBlockEffect
   | NullifyInfluenceModificationsEffect
+  | MultiplyStandardModificationsEffect
   | TapDiscardInPlayEffect
   | TapTakeItemEffect
   | RemovalProtectionEffect

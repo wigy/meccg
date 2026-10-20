@@ -4473,6 +4473,17 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
   // the defender has an explicit opt-in before strike assignment begins.
   const havenJumpOffers = collectHavenJumpOffers(state, resourcePlayer, company.id);
   const defendingSiteDef = resolveDefendingSiteDef(state, company);
+  // The defending site's type when the attack is keyed to it *by name* (the
+  // declared `site-name` match, or — with no declared match — a `siteNames`
+  // entry naming it). Backs "keyed to (by name or type) a Shadow-hold" (In
+  // the Name of Mordor le-197).
+  const defendingSiteType = (defendingSiteDef as { siteType?: SiteType } | undefined)?.siteType;
+  const keyedSiteNames: readonly string[] = declaredKeyedBy
+    ? (declaredKeyedBy.method === 'site-name' ? [declaredKeyedBy.value] : [])
+    : creatureDef.keyedTo.flatMap(k => k.siteNames ?? []);
+  const attackNameKeyedSiteTypes = defendingSiteType && defendingSiteDef?.name && keyedSiteNames.includes(defendingSiteDef.name)
+    ? [defendingSiteType]
+    : [];
   // Scan for on-event: creature-attack-begins → force-check-all-company
   // corruption (Corpse-candle). Also forces a cancel-window: the check is
   // conditioned on "if this attack is not canceled," so it must wait for the
@@ -4494,6 +4505,7 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
     attackKeying: attackKeying.length > 0 ? attackKeying : undefined,
     attackSiteKeyingTypes: attackSiteKeyingTypes.length > 0 ? attackSiteKeyingTypes : undefined,
     attackKeyingRegionNames: attackKeyingRegionNames.length > 0 ? attackKeyingRegionNames : undefined,
+    attackNameKeyedSiteTypes: attackNameKeyedSiteTypes.length > 0 ? attackNameKeyedSiteTypes : undefined,
     assignmentPhase: (effectiveAttackerChooses || havenJumpOffers.length > 0 || attackBeginsCorruption) ? 'cancel-window' : 'defender',
     havenJumpOffers: havenJumpOffers.length > 0 ? havenJumpOffers : undefined,
     pendingAttackBeginsCorruption: attackBeginsCorruption ? {

@@ -21,7 +21,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { raceForCardTextFilter, hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, companyKeywordDiscardCandidates, keywordDiscardCandidates, companyItemDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
+import { collectFactionCardEffects, raceForCardTextFilter, hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, companyKeywordDiscardCandidates, keywordDiscardCandidates, companyItemDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -2268,7 +2268,10 @@ export function playResourcesActions(
         // the site's own printed `playableResources` tier. E.g. Enruned Shield
         // (greater, hoard) isn't playable at Ovir Hollow, whose playableResources
         // is only minor/major, even though Ovir Hollow contains a hoard.
-        const hoardTierAllowed = !isHoardItem || playableTypes.has(itemDef.subtype);
+        // A "special" item has no tier for a site to list — its own
+        // item-play-site restriction is its whole playability (Necklace of
+        // Girion as-128: hoard item "Playable at The Lonely Mountain").
+        const hoardTierAllowed = !isHoardItem || itemDef.subtype === 'special' || playableTypes.has(itemDef.subtype);
         if ((!allowed || !hoardTierAllowed) && !(majorItemUnlocked && isHoardItem)) {
           const reason = siteRestriction.sites
             ? `only playable at ${siteRestriction.sites.join(', ')}`
@@ -2959,12 +2962,7 @@ export function playResourcesActions(
           // Player-scoped ongoing influence bonuses from bare in-play
           // permanent-events (Great Army of the North ba-38).
           charEffects.push(...collectPlayerInPlayInfluenceEffects(state, playerId, resolverCtx));
-          if (factionDef.effects) {
-            for (const effect of factionDef.effects) {
-              if (effect.when && !matchesContext(effect.when, resolverCtx)) continue;
-              charEffects.push({ effect, sourceDef: factionDef, sourceInstance: cardInstanceId });
-            }
-          }
+          charEffects.push(...collectFactionCardEffects(state, factionDef, resolverCtx, cardInstanceId));
           // Under nullification only the influencer's OWN card text survives;
           // items, attached hazards, allies, other in-play events and the
           // faction's own printed modifications all contribute zero.

@@ -21,6 +21,8 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { formatSignedNumber } from '../../format-helpers.js';
 import { isCharacterCard, isSiteCard, isResourceEventCard, isAvatarCharacter, isItemCard, isFactionCard, isAllyCard } from '../../types/cards.js';
 import { CardStatus, SiteType, Alignment, Race, Skill } from '../../types/common.js';
+import type { RegionType } from '../../types/common.js';
+import { getEffectiveRegionType } from '../effective.js';
 import { isBalrogAvatarDef, companyContainsBalrogAvatar } from '../../state-utils.js';
 import { logHeading, logDetail } from './log.js';
 import { computeCombatProwess, computeStayUntappedPenalty, buildInPlayNames, buildFactionPlayableRegions } from '../recompute-derived.js';
@@ -2855,7 +2857,24 @@ function cancelAttackActions(
     // of the Wood wh-38) via `attack.keyingRegionNames $includes <name>`.
     if (combat.attackKeyingRegionNames && combat.attackKeyingRegionNames.length > 0) {
       attackCtx['keyingRegionNames'] = combat.attackKeyingRegionNames;
+      // The (effective) region types of those named regions, so a card can
+      // gate on "keyed by name to a Shadow-land" (In the Name of Mordor le-197).
+      const nameKeyedRegionTypes: string[] = [];
+      for (const regionName of combat.attackKeyingRegionNames) {
+        const regionDef = Object.values(state.cardPool).find(
+          d => (d as { cardType?: string }).cardType === 'region' && (d as { name?: string }).name === regionName,
+        ) as { regionType?: RegionType } | undefined;
+        if (regionDef?.regionType) nameKeyedRegionTypes.push(getEffectiveRegionType(state, regionName, regionDef.regionType));
+      }
+      if (nameKeyedRegionTypes.length > 0) attackCtx['nameKeyedRegionTypes'] = nameKeyedRegionTypes;
     }
+    // The site type of a site the attack is keyed to by name (le-197).
+    if (combat.attackNameKeyedSiteTypes && combat.attackNameKeyedSiteTypes.length > 0) {
+      attackCtx['nameKeyedSiteTypes'] = combat.attackNameKeyedSiteTypes;
+    }
+    // Whether this is a detainment attack — "facing a detainment attack"
+    // (In the Name of Mordor le-197).
+    attackCtx['detainment'] = combat.detainment;
     // "Keyed to a site" means no *regional* keying of either kind: a creature
     // keyed by region type OR by region name (a roaming dragon such as Smaug)
     // is not site-keyed. A declared site-name keying (Bairanax at Ovir Hollow)
@@ -3100,6 +3119,27 @@ function cancelAttackActions(
     logDetail(`Cancel-attack available: ${tapCost ? 'tap' : 'discard'} ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string} (in-play faction)`);
     actions.push({
       action: { type: 'cancel-attack', player: playerId, cardInstanceId: inPlayCard.instanceId },
+      viable: true,
+    });
+  }
+  // Stored cards discarded from the marshalling point pile to cancel (The
+  // Names Among Them le-207: "Once stored, this card may be discarded to
+  // cancel an automatic-attack at a Free-hold or Border-hold").
+  for (const stored of player.killPile) {
+    if (!stored.storedAtSite) continue;
+    const def = defById(state, stored.definitionId);
+    const cancelEffect = getCardEffects(def).find(
+      (e): e is CancelAttackEffect => e.type === 'cancel-attack' && e.fromStored === true,
+    );
+    if (!cancelEffect || cancelEffect.cost?.discard !== 'self') continue;
+    const label = (def as { name?: string })?.name ?? stored.definitionId as string;
+    if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
+      logDetail(`Cancel-attack ${label}: when condition not met (stored card, source ${combat.attackSource.type}, site ${siteType ?? 'none'})`);
+      continue;
+    }
+    logDetail(`Cancel-attack available: discard stored ${label}`);
+    actions.push({
+      action: { type: 'cancel-attack', player: playerId, cardInstanceId: stored.instanceId },
       viable: true,
     });
   }

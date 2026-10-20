@@ -31,7 +31,7 @@
 import type { GameState, PlayerState, Company, CombatState, CardInstanceId } from '../index.js';
 import type { CardDefinition } from '../types/cards.js';
 import type { PlayTargetEffect, PlayWindowEffect } from '../types/effects.js';
-import { isCharacterCard } from '../types/cards.js';
+import { isCharacterCard, isSiteCard } from '../types/cards.js';
 import { CardStatus, Race } from '../types/common.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { logDetail } from './legal-actions/log.js';
@@ -93,13 +93,18 @@ export function hasAfterAttackWindow(def: CardDefinition | undefined): boolean {
  * against: the same attack discriminators a `cancel-attack` `when` sees, so a
  * card gates its play window and its granted ability with the same expression.
  */
-function attackContext(state: GameState, combat: CombatState): Record<string, unknown> {
+function attackContext(state: GameState, combat: CombatState, company: Company): Record<string, unknown> {
+  // `site.type` — the defending company's site, so a window can require "an
+  // automatic-attack at a Border-hold or Free-hold" (The Names Among Them le-207).
+  const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
+  const siteType = siteDef && isSiteCard(siteDef) ? siteDef.siteType : null;
   return {
     enemy: { race: combat.creatureRace ?? null },
     attack: {
       source: combat.attackSource.type,
       ringwraithStrikeFailed: hasFailedRingwraithStrike(state, combat),
     },
+    site: { type: siteType },
   };
 }
 
@@ -153,7 +158,7 @@ function matchingHandCards(
   company: Company,
   combat: CombatState,
 ): CardInstanceId[] {
-  const ctx = attackContext(state, combat);
+  const ctx = attackContext(state, combat, company);
   const out: CardInstanceId[] = [];
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
@@ -162,7 +167,7 @@ function matchingHandCards(
 
     const window = playWindowOf(def);
     if (window?.when && !matchesCondition(window.when, ctx)) {
-      logDetail(`After-attack window "${cardLabel}": ended attack does not match (race ${combat.creatureRace ?? 'none'}, source ${combat.attackSource.type})`);
+      logDetail(`After-attack window "${cardLabel}": ended attack does not match (race ${combat.creatureRace ?? 'none'}, source ${combat.attackSource.type}, site ${(ctx.site as { type: string | null }).type ?? 'none'})`);
       continue;
     }
     // "Cannot be duplicated in a given company" — a copy already borne by a

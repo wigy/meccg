@@ -736,6 +736,24 @@ attempt).
 { "type": "nullify-influence-modifications" }
 ```
 
+### `multiply-standard-modifications` — scale a faction's printed modifications
+
+`{ "type": "multiply-standard-modifications", "factor": 3 }` is a game-wide
+environment effect on a bare in-play event (either player's `cardsInPlay`).
+While present, every influence `check-modifier` printed on the faction being
+influenced — its "Standard Modifications" — is multiplied by `factor`
+(copies stack multiplicatively). The influencer's DI, his own card-text
+bonuses and modifiers from other cards are untouched, as are paid
+`influence-modification` options. Applied through
+`collectFactionCardEffects` (`reducer-utils.ts`), which all three
+faction-influence computations (display, paused roll, roll resolver) share.
+Used by Old Prejudice (le-214): "Triple all standard modifications for
+influence checks against factions."
+
+```json
+{ "type": "multiply-standard-modifications", "factor": 3 }
+```
+
 ### `auto-influence-faction` — no-check influence of a named faction
 
 `{ "type": "auto-influence-faction", "faction": "<Faction Name>" }` grants the
@@ -4653,6 +4671,14 @@ combat context that includes:
   <one of these regions>" — e.g. *Beasts of the Wood* wh-38, matched with
   a `$or` of `{ "attack.keyingRegionNames": { "$includes": "<name>" } }`
   clauses (one per region).
+- `attack.nameKeyedRegionTypes` — the (effective) region types of the
+  regions in `attack.keyingRegionNames`; `attack.nameKeyedSiteTypes` — the
+  site type of the defending site when the creature is keyed to it by
+  name (`CombatState.attackNameKeyedSiteTypes`). Together with
+  `attack.keying` / `attack.siteKeyingTypes` they express "keyed to (by
+  name or type) a Shadow-land/Shadow-hold/…".
+- `attack.detainment` — `true` when the attack is a detainment attack.
+  Used by *In the Name of Mordor* (le-197).
 - `site.type` — the defending company's current site type (e.g.
   `"ruins-and-lairs"`, `"haven"`). Lets a card gate on "an
   automatic-attack at a Ruins & Lairs".
@@ -4744,6 +4770,16 @@ The effect may be declared on in-play sources too: an ally attached
 to a company character (e.g. The Warg-king), the character card
 itself (e.g. Adûnaphel the Ringwraith), or an item with
 `cost: { "tap": "self-and-bearer" }` (e.g. Torque of Hues).
+
+**Cancel from a stored card (`fromStored`).** A `cancel-attack` with
+`"fromStored": true` and `cost: { "discard": "self" }` is offered from a card
+stored in its owner's marshalling point pile (a `killPile` entry carrying
+`storedAtSite`) — not from hand or while still borne. Discarding moves the
+card to the discard pile (losing its marshalling points) and cancels the attack
+immediately, no chain entry (`handleCancelAttackByStoredCard`). The effect's
+`when` sees the usual cancel context, including `site.type`. Used by The Names
+Among Them (le-207): "Once stored, this card may be discarded to cancel an
+automatic-attack at a Free-hold or Border-hold."
 
 **Dual-faction cancel (`handModeRequiresCovert`).** A dual-alignment faction
 that cancels an attack has two sources:
@@ -10939,6 +10975,12 @@ since a company-vs-company attack can mix races. Computed by
 `hasFailedRingwraithStrike` in `engine/post-attack-play.ts`. Used by Mount
 Slain (as-50): "Playable … if a strike against one of your companies from a
 Ringwraith attack or Nazgûl creature fails."
+
+**Site-type gating (`site.type`).** The `after-attack` `when` context also
+exposes `site.type` — the defending company's current site type (e.g.
+`"free-hold"`), so a window can require "an automatic-attack at a Border-hold
+or Free-hold" (`attack.source: "automatic-attack"` ∧ `site.type $in
+[border-hold, free-hold]`). Used by The Names Among Them (le-207).
 
 **Target-less after-attack cards.** A resource permanent-event with an
 `after-attack` `play-window` and **no** `play-target: character` effect

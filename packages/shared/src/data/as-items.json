@@ -19,11 +19,9 @@
     "effects": [
       {
         "type": "item-play-site",
-        "filter": {
-          "site.keywords": {
-            "$includes": "hoard"
-          }
-        }
+        "sites": [
+          "The Lonely Mountain"
+        ]
       }
     ],
     "text": "Unique. Playable at The Lonely Mountain. Bearer receives +3 direct influence against Men and Man factions. If bearer is at a Border-hold [{B}] during the site phase, he can make a corruption check, and, if successful, discard this item to play up to 3 non-unique minor and/or major items with his company. Characters need not tap to receive these items."

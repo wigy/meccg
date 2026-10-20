@@ -38,23 +38,40 @@ export function selectRandomAuthHero(): void {
   document.documentElement.style.setProperty('--auth-hero-bg', `url('${bg}')`);
 }
 
+/** Forms the auth screen can show. */
+type AuthTab = 'login' | 'register' | 'forgot' | 'reset';
+
+/** First input of each auth form, focused when the form is shown. */
+const AUTH_FIRST_INPUT: Record<AuthTab, string> = {
+  login: 'login-name',
+  register: 'register-name',
+  forgot: 'forgot-login',
+  reset: 'reset-password',
+};
+
 /**
- * Switch the auth screen between Login and Register tabs.
- * Toggles the `auth-screen--login` / `auth-screen--register` class on the
- * container; CSS handles which form is visible.
+ * Switch the auth screen between its forms: the Login and Register tabs,
+ * plus the forgot-password and reset-password forms (no tab highlighted).
+ * Toggles the `auth-screen--<tab>` class on the container; CSS handles
+ * which form is visible.
  */
-export function showAuthTab(tab: 'login' | 'register'): void {
+export function showAuthTab(tab: AuthTab): void {
   const screen = document.getElementById('auth-screen');
   if (!screen) return;
-  screen.classList.toggle('auth-screen--login', tab === 'login');
-  screen.classList.toggle('auth-screen--register', tab === 'register');
+  for (const t of Object.keys(AUTH_FIRST_INPUT) as AuthTab[]) {
+    screen.classList.toggle(`auth-screen--${t}`, tab === t);
+  }
   document.getElementById('auth-tab-login')?.classList.toggle('auth-tab--active', tab === 'login');
   document.getElementById('auth-tab-register')?.classList.toggle('auth-tab--active', tab === 'register');
   document.getElementById('auth-tab-login')?.setAttribute('aria-selected', String(tab === 'login'));
   document.getElementById('auth-tab-register')?.setAttribute('aria-selected', String(tab === 'register'));
   // Focus the first input of the visible form for fast typing
-  const firstInputId = tab === 'login' ? 'login-name' : 'register-name';
-  setTimeout(() => document.getElementById(firstInputId)?.focus(), 0);
+  setTimeout(() => document.getElementById(AUTH_FIRST_INPUT[tab])?.focus(), 0);
+}
+
+/** The password-reset token from an emailed `?reset=` link, if the page was opened from one. */
+export function pendingResetToken(): string | null {
+  return new URLSearchParams(window.location.search).get('reset');
 }
 
 /** Screens that should show the persistent nav bar. */
@@ -465,6 +482,14 @@ export async function initLobby(): Promise<void> {
   window.__meccg!.showScreen = showScreen;
   window.__meccg!.connectLobbyWs = connectLobbyWs;
   window.__meccg!.renderOnlineList = renderOnlineList;
+
+  // Opened from a password-reset email: ask for the new password first.
+  if (pendingResetToken()) {
+    selectRandomAuthHero();
+    showAuthTab('reset');
+    showScreen('auth-screen');
+    return;
+  }
 
   try {
     const resp = await fetch('/api/me');
