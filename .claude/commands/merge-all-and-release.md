@@ -136,7 +136,7 @@ Do not release on a red master. Local full-suite runs on this machine are unreli
 
 ### 7. Release
 
-If `git log v<current-version>..master --oneline` is empty, there is nothing to release: skip to the report and say so; do **not** deploy.
+If `git log v<current-version>..master --oneline` is empty, there is nothing to release: skip the release and go straight to step 8 — "no new release" does **not** mean the live server is current.
 
 Otherwise read `.claude/commands/release.md`, substitute its `$ARGUMENTS` with the title argument above (or nothing), and hand it to the **Agent tool** as the prompt (not the Skill tool — a Skill call ends this flow). The release must run from `master` in the main checkout. It bumps the minor version in the four package.json files, writes the CHANGELOG, commits `Release vX.Y.Z`, tags, pushes and runs `bin/build-and-publish latest` and `bin/build-and-publish vX.Y.Z`. When the agent returns, confirm the tag exists on the remote:
 
@@ -146,11 +146,22 @@ git fetch --tags && git tag --points-at origin/master
 
 ### 8. Deploy
 
-Only after a new tag was pushed and published:
+**Always** check which version the live server runs, whether or not step 7 released anything:
+
+```sh
+git fetch --tags && git describe --tags --abbrev=0 origin/master                          # latest release
+ssh ai-meccg.com "docker exec meccg-dev grep version packages/lobby-server/package.json"   # live version
+```
+
+If the live version is older than the latest release tag (a new tag from step 7, or an earlier release that was never deployed), deploy:
 
 ```sh
 bin/update-dev
 ```
+
+Only skip the deploy when the live server already reports the latest release, and say so in the report with both versions.
+
+If the container still reports the old version after `bin/update-dev`, the `latest` image on Docker Hub is stale: an earlier release was tagged but never published. Build that tag from a clean detached worktree (`git worktree add --detach <dir> v<latest>`), run `bin/build-and-publish latest` and `bin/build-and-publish v<latest>` there, then run `bin/update-dev` again and check the version once more.
 
 It SSHes to `ai-meccg.com`, pulls `dataplug/meccg-dev:latest`, restarts the stack and toasts every player online before and after. Verify the deploy — there is no `/api/version` endpoint:
 
@@ -169,6 +180,6 @@ Then report, in this order:
 1. a table of PRs: number, title, outcome (`merged` / `skipped: <reason>` / `failed: <reason>`), and for fixed ones what was fixed;
 2. anything that had to land on master as a separate PR (red-master fix, post-merge test reconciliation);
 3. the released version, its title, and the tag;
-4. the deploy verification output (HTTP status and the version the container reports).
+4. the live version before the deploy, the latest release tag, and the deploy verification output (HTTP status and the version the container reports) — or, if no deploy was needed, both versions showing they match.
 
 If a step failed hard (release aborted, deploy unreachable), say exactly which step, what the error was, and what was already done — merges are not reversible, so a reader must know the repository's state.
