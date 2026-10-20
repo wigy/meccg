@@ -4653,6 +4653,14 @@ combat context that includes:
   <one of these regions>" — e.g. *Beasts of the Wood* wh-38, matched with
   a `$or` of `{ "attack.keyingRegionNames": { "$includes": "<name>" } }`
   clauses (one per region).
+- `attack.nameKeyedRegionTypes` — the (effective) region types of the
+  regions in `attack.keyingRegionNames`; `attack.nameKeyedSiteTypes` — the
+  site type of the defending site when the creature is keyed to it by
+  name (`CombatState.attackNameKeyedSiteTypes`). Together with
+  `attack.keying` / `attack.siteKeyingTypes` they express "keyed to (by
+  name or type) a Shadow-land/Shadow-hold/…".
+- `attack.detainment` — `true` when the attack is a detainment attack.
+  Used by *In the Name of Mordor* (le-197).
 - `site.type` — the defending company's current site type (e.g.
   `"ruins-and-lairs"`, `"haven"`). Lets a card gate on "an
   automatic-attack at a Ruins & Lairs".

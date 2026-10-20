@@ -509,6 +509,15 @@ export interface CombatState {
    * automatic attacks leave this absent.
    */
   readonly attackKeyingRegionNames?: readonly string[];
+  /**
+   * The site type of the site this attack is keyed to *by name* (e.g. a
+   * creature keyed by name to "Dol Guldur" attacking a company there yields
+   * `["shadow-hold"]`). Same declared-match precedence as
+   * {@link attackKeying}. Lets a cancel-attack condition match "keyed to (by
+   * name or type) a Shadow-hold" — In the Name of Mordor (le-197). Only
+   * populated for creature hazards; automatic attacks leave this absent.
+   */
+  readonly attackNameKeyedSiteTypes?: readonly SiteType[];
   /** The assignment of each strike to a defending character, with resolution status. */
   readonly strikeAssignments: readonly StrikeAssignment[];
   /** Index into strikeAssignments for the strike currently being resolved. */

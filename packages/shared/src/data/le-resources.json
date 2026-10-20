@@ -3802,8 +3802,38 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
-    "text": "Playable on an untapped character whose company is facing a detainment attack keyed to (by name or type) a Dark-hold [{D}], Dark-domain [{d}], Shadow-hold [{S}], or Shadow-land [{s}]. Tap the character and cancel the attack. Alternatively, this card cancels and discards one Nazgûl hazard event."
+    "effects": [
+      {
+        "type": "cancel-attack",
+        "cost": { "tap": "character" },
+        "when": {
+          "$and": [
+            { "attack.detainment": true },
+            {
+              "$or": [
+                { "attack.keying": "shadow" },
+                { "attack.keying": "dark" },
+                { "attack.siteKeyingTypes": "shadow-hold" },
+                { "attack.siteKeyingTypes": "dark-hold" },
+                { "attack.nameKeyedRegionTypes": "shadow" },
+                { "attack.nameKeyedRegionTypes": "dark" },
+                { "attack.nameKeyedSiteTypes": "shadow-hold" },
+                { "attack.nameKeyedSiteTypes": "dark-hold" }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "move",
+        "select": "target",
+        "from": "in-play",
+        "to": "discard",
+        "filter": { "keywords": { "$includes": "Nazgûl" } }
+      }
+    ],
+    "text": "Playable on an untapped character whose company is facing a detainment attack keyed to (by name or type) a Dark-hold [{D}], Dark-domain [{d}], Shadow-hold [{S}], or Shadow-land [{s}]. Tap the character and cancel the attack. Alternatively, this card cancels and discards one Nazgûl hazard event.",
+    "certified": "2026-10-20"
   },
   {
     "cardType": "minion-resource-event",
