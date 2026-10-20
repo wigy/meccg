@@ -417,7 +417,7 @@ describe('discarding something that was making every attack worse', () => {
    * event on the board — the only shape in which a removal has anything this
    * module can price.
    */
-  function removalPosition(inPlay?: string) {
+  function removalPosition(inPlay?: string, owner?: 'self' | 'opponent') {
     const scenario = loadScenario('organization/replanned-movement');
     const view = scenarioView(scenario);
     const cardPool = loadCardPool();
@@ -428,14 +428,20 @@ describe('discarding something that was making every attack worse', () => {
       { instanceId: 'shown-2', definitionId: definitionOf('Orc-guard') },
       { instanceId: 'shown-3', definitionId: definitionOf('Orc-watch') },
     ];
+    // Instance IDs carry their owner as a prefix (`ownerOf`), whichever zone
+    // the engine files the card under.
+    const instanceId = owner === undefined
+      ? 'staged'
+      : `${(owner === 'self' ? view.self.id : view.opponent.id) as string}-99`;
     (view.opponent as unknown as { cardsInPlay: unknown[] }).cardsInPlay = inPlay
-      ? [{ instanceId: 'staged', definitionId: definitionOf(inPlay) }]
+      ? [{ instanceId, definitionId: definitionOf(inPlay) }]
       : [];
     (view.self.hand as unknown as { definitionId: string }[])[0].definitionId =
       definitionOf('Marvels Told');
     const standing = computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES);
     return {
       held: view.self.hand[0],
+      instanceId,
       context: {
         view, cardPool, legalActions: [], tunables: DEFAULT_TUNABLES, standing,
       } as ModuleContext,
@@ -452,6 +458,21 @@ describe('discarding something that was making every attack worse', () => {
     const text = JSON.stringify(evaluation.rationale);
     expect(text).toContain('Minions Stir');
     expect(text).toContain('back to their printed numbers');
+  });
+
+  test('but not when the hazard is one we played ourselves', () => {
+    // Regression (game muh6o722-9rz4vc): The Cock Crows was offered against the
+    // player's own Full of Froth and Rage, and the relief to our companies read
+    // as pure gain at every priority window. We put the hazard there to hurt
+    // the opponent; discarding it is not a gift to us.
+    const ours = removalPosition('Minions Stir', 'self');
+    const own = eventsModule.evaluate(playDiscarding(ours.held.instanceId, ours.instanceId), ours.context)!;
+    expect(own.expectedTsd).toBeLessThan(0);
+    expect(JSON.stringify(own.rationale)).toContain('our own hazard');
+
+    const theirs = removalPosition('Minions Stir', 'opponent');
+    const relief = eventsModule.evaluate(playDiscarding(theirs.held.instanceId, theirs.instanceId), theirs.context)!;
+    expect(JSON.stringify(relief.rationale)).toContain('back to their printed numbers');
   });
 
   test('and says the play achieves nothing when the filter reaches nothing', () => {

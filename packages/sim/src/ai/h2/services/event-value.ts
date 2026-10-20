@@ -26,7 +26,7 @@
  * nothing in the output would explain.
  */
 
-import { Phase } from '@meccg/shared';
+import { Phase, ownerOf } from '@meccg/shared';
 import type { CardDefinition, CardInstanceId, GameAction } from '@meccg/shared';
 import type { Evaluation, ModuleContext, Outcome, Rationale } from '../core/types.js';
 import type { MpSource } from '../core/tsd.js';
@@ -419,6 +419,18 @@ function reliefFromRemoval(
     if (located?.attached && !located.ours) {
       return { tsd: 0, reason: 'attached to a character we do not control — discarding it relieves the '
         + 'opponent, not us' };
+    }
+    // A free-standing hazard we played ourselves. Its modifier reaches attacks
+    // on our companies too, but we put it there to make *our* creatures worse
+    // for the opponent, and what it does to them is not priced here — so the
+    // relief alone would read as pure gain. The Cock Crows was offered against
+    // the player's own Full of Froth and Rage at every priority window of a
+    // recorded game (102 decisions) and the AI wanted it at every one; the
+    // winning human never played it so.
+    if (located && !located.attached && ownerOf(target) === view.self.id
+      && (cardPool[located.definitionId] as unknown as { cardType?: string } | undefined)?.cardType === 'hazard-event') {
+      return { tsd: 0, reason: 'our own hazard — discarding it gives up what it does to the opponent\'s '
+        + 'companies' };
     }
     const relief = reliefFrom(target as string);
     if (relief <= 0) return null;
