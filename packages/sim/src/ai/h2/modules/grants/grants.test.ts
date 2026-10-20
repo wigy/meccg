@@ -157,3 +157,23 @@ describe('discarding a card to untap its bearer', () => {
     expect(agentChoice('grants/cram-unlocks-a-play')).toMatchObject({ actionId: 'untap-bearer' });
   });
 });
+
+/**
+ * Healing Herbs untaps a tapped companion, named on `targetCardId`. The gain
+ * used to be the *activator's* own tap cost, credited straight back to him,
+ * so the card looked nearly free in every window — the modular AI spent it at
+ * strikes where winning humans simply tapped to fight.
+ */
+describe('untapping a companion', () => {
+  test('is priced for him, not for the one who taps to do it', () => {
+    const { context, legalActions } = position('grants/healing-herbs-mid-strike');
+    const herbs = legalActions.filter(a => a.type === 'activate-granted-action'
+      && (a as unknown as { actionId?: string }).actionId === 'untap-company-character');
+    expect(herbs.length).toBeGreaterThan(0);
+    for (const action of herbs) {
+      const text = JSON.stringify(grantsModule.evaluate(action, context)!.rationale);
+      expect(text).toContain('no play needs him standing yet');
+    }
+    expect(agentChoice('grants/healing-herbs-mid-strike').type).toBe('resolve-strike');
+  });
+});

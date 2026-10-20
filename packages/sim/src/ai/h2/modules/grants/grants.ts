@@ -216,6 +216,7 @@ function gainOf(
   characterId: CardInstanceId,
   characterValue: CharacterValue,
   corruption: number,
+  target?: CardInstanceId,
 ): { tsd: number; reason: string } | null {
   if (!apply) return null;
   const { tunables } = context;
@@ -223,7 +224,7 @@ function gainOf(
   // A roll gate wraps the real effect; the odds are handled by the caller from
   // the threshold the engine publishes on the action.
   if (apply.type === 'roll-then-apply') {
-    return gainOf(apply.onSuccess, context, characterId, characterValue, corruption);
+    return gainOf(apply.onSuccess, context, characterId, characterValue, corruption, target);
   }
 
   // The card takes itself out of play. Worth what it was doing to the bearer,
@@ -248,9 +249,13 @@ function gainOf(
   if (apply.type === 'set-character-status' && apply.status === 'untapped' && apply.target === 'bearer') {
     return untapGainOf(context, characterId);
   }
+  // Untapping someone else in the company (Healing Herbs): the engine names
+  // him on `targetCardId`. Pricing it as the *activator's* tap cost credited
+  // the bearer's own tap back to him, so the card looked free at every
+  // window and was spent mid-strike, where nothing needed the target standing.
   if (apply.type === 'set-character-status' && apply.status === 'untapped') {
-    const tap = characterValue.tapCost(characterId);
-    return { tsd: tap.tsd, reason: `untaps him — worth what tapping him forfeits (${tap.reason})` };
+    if (!target) return null;
+    return untapGainOf(context, target);
   }
 
   return null;
@@ -292,7 +297,8 @@ export const grantsModule: H2Module = {
       ? standing.tsd - standing.tsdAfter({ [printed.marshallingCategory ?? 'misc']: -points })
       : 0;
 
-    const gain = gainOf(grant.apply, context, characterId, characterValue, corruption);
+    const target = (action as unknown as { targetCardId?: CardInstanceId }).targetCardId;
+    const gain = gainOf(grant.apply, context, characterId, characterValue, corruption, target);
     // Nothing here can say what an extra region of movement or a company buff
     // is worth. Declining says so; inventing a number would not.
     if (!gain) return null;
