@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { loadCardPool } from '@meccg/shared';
+import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
@@ -27,6 +27,7 @@ import { computeStanding } from '../../services/standing.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { eventsModule } from './events.js';
+import { ALL_MODULES, evaluateDecision } from '../../core/registry.js';
 
 /** A recovery event: brings a card back from the discard pile. */
 const RECOVERY = 'ev-recovery';
@@ -482,5 +483,33 @@ describe('discarding something that was making every attack worse', () => {
     const { held, context } = removalPosition('Doors of Night');
     const evaluation = eventsModule.evaluate(play(held.instanceId), context)!;
     expect(evaluation.expectedTsd).toBeLessThan(0);
+  });
+});
+
+describe('a bonus to a corruption check already pending', () => {
+  test('is priced, so the check decision is fully covered', () => {
+    // Regression (game mv741tp6-ai5cnz): A Friend or Three's corruption option
+    // was a family the module could not read, so the event was declined and
+    // the decision fell back while the winning human played the card on
+    // Glóin's pending check — and twice more, once at the Free Council.
+    const scenario = loadScenario('events/friend-or-three-corruption-boost');
+    const view = scenarioView(scenario);
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const boost = legalActions.find(a => a.type === 'play-short-event'
+      && (a as unknown as { optionId?: string }).optionId === 'corruption-check-boost')!;
+    expect(boost).toBeDefined();
+    const evaluation = eventsModule.evaluate(boost, context)!;
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation.rationale)).toContain('on a check needing 3');
+    expect(evaluateDecision(ALL_MODULES, context).uncovered).not.toContain('play-short-event');
   });
 });
