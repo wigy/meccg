@@ -43,6 +43,7 @@ import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { enqueueCorruptionCheck, addConstraint, sweepExpired, countConstraintsFromDefinition } from './pending.js';
 import { initiateOrPushChain } from './chain-reducer.js';
+import { applyCost } from './cost-evaluator.js';
 import { getAttackSourceCard, findTakePrisonerHazard, applyTakePrisoner, applyTakePrisonerAtSite, applyTakePrisonerAtAgentHome } from './combat-hazard-play.js';
 import { applyRule8_22AfterTrophyDecision, recordHazardEncountered, completeCombat, creatureKillMpMatchesAlignment } from './combat-finalize.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
@@ -2487,6 +2488,25 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
       return { state, error: `Only ${effect.player === 'attacker' ? 'attacking' : 'defending'} player can play this card` };
     }
 
+    // Caster-gated play (Veils of Shadow le-249): the card is played on one
+    // defending character bearing `requiredSkill`, chosen by the legal-action
+    // layer as `casterInstanceId`.
+    let caster: { id: CardInstanceId; exempt: boolean } | undefined;
+    if (effect.requiredSkill) {
+      const casterId = action.casterInstanceId;
+      const defendingCompany = companyById(player.companies, combat.companyId);
+      const casterData = casterId ? player.characters[casterId] : undefined;
+      const casterDef = casterData ? defById(state, casterData.definitionId) : undefined;
+      if (!casterId || !casterData || !casterDef || !isCharacterCard(casterDef) || !defendingCompany?.characters.includes(casterId)) {
+        return { state, error: 'modify-attack: card must be played on a character in the defending company' };
+      }
+      if (!casterDef.skills.includes(effect.requiredSkill)) {
+        return { state, error: `modify-attack: ${casterDef.name} lacks the ${effect.requiredSkill} skill` };
+      }
+      caster = { id: casterId, exempt: effect.costExemptRace !== undefined && casterDef.race === effect.costExemptRace };
+      logDetail(`Modify-attack: ${cardDef.name} played on ${casterDef.name}${caster.exempt ? ' (cost-exempt race — no cost)' : ''}`);
+    }
+
     // CoE rule 8.12: a plain from-hand modify-attack played by the attacker
     // counts against the company's hazard limit unless the card bypasses it
     // (`play-flag: no-hazard-limit`), mirroring the fromAltPermanentEvent
@@ -2581,11 +2601,12 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         discardPile: [...p.discardPile, discarded],
       }));
     } else {
-      baseState = updatePlayer(state, playerIndex, p => ({
-        ...p,
-        hand: removeById(p.hand, handCard.instanceId),
-        discardPile: [...p.discardPile, discarded],
-      }));
+      // A defender's magic short-event (Veils of Shadow le-249) goes through
+      // the magic-recycle seam (Akhôrahil le-51) instead of a bare discard.
+      const removed = updatePlayer(state, playerIndex, p => ({ ...p, hand: removeById(p.hand, handCard.instanceId) }));
+      baseState = effect.player === 'defender'
+        ? discardOrRecyclePlayedEvent(removed, playerIndex, discarded)
+        : updatePlayer(removed, playerIndex, p => ({ ...p, discardPile: [...p.discardPile, discarded] }));
       // CoE rule 8.12: charge the hazard limit for the attacker's own plain
       // from-hand play (mirroring the fromAltPermanentEvent charge above).
       if (effect.player === 'attacker' && baseState.phaseState.phase === Phase.MovementHazard
@@ -2650,6 +2671,38 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
         playedBy: action.player,
       }),
     };
+
+    // Veils of Shadow (le-249): "The number of strikes of all
+    // automatic-attacks at the site this turn are reduced to one." Every
+    // later automatic-attack initiated at the defending company's site this
+    // turn is capped by `reducer-site.ts`.
+    if (effect.siteAutoAttacksStrikesTo !== undefined) {
+      const siteDefId = companyById(player.companies, combat.companyId)?.currentSite?.definitionId;
+      if (siteDefId) {
+        newState = addConstraint(newState, {
+          source: handCard.instanceId,
+          sourceDefinitionId: handCard.definitionId,
+          scope: { kind: 'turn' },
+          target: { kind: 'player', playerId: action.player },
+          kind: { type: 'auto-attack-strikes-set', siteDefinitionId: siteDefId, strikes: effect.siteAutoAttacksStrikesTo },
+        });
+        logDetail(`${cardLabel}: all automatic-attacks at ${cardName(state, siteDefId, '?')} reduced to ${effect.siteAutoAttacksStrikesTo} strike(s) for the rest of the turn`);
+      }
+    }
+
+    // Caster cost ("Unless he is a Ringwraith, character makes a corruption
+    // check modified by -4").
+    if (caster && effect.cost && !caster.exempt) {
+      const costResult = applyCost(newState, effect.cost, caster.id, {
+        playerIndex,
+        sourceCardId: handCard.instanceId,
+        companyId: combat.companyId,
+        checkScopeKind: newState.phaseState.phase === Phase.MovementHazard ? 'company-mh-subphase' : 'company-site-subphase',
+        label: cardLabel,
+      });
+      if ('error' in costResult) return { state, error: costResult.error };
+      newState = costResult.state;
+    }
 
     const attackDupLimit = getCardEffects(cardDef).find(
       (e): e is import('../types/effects.js').DuplicationLimitEffect =>

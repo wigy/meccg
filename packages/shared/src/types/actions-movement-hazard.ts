@@ -555,6 +555,12 @@ export interface ModifyAttackAction {
    * Absent when the card is played from hand (`fromHand` effect flag).
    */
   readonly characterInstanceId?: CardInstanceId;
+  /**
+   * From-hand play of a card whose effect carries `requiredSkill`: the
+   * defending character the card is played on, who pays the effect's cost
+   * (e.g. Veils of Shadow le-249's sorcery-user).
+   */
+  readonly casterInstanceId?: CardInstanceId;
 }
 
 /**

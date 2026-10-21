@@ -4938,7 +4938,23 @@
     "eventType": "short",
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
-    "effects": [],
+    "keywords": [
+      "sorcery"
+    ],
+    "effects": [
+      {
+        "type": "modify-attack",
+        "fromHand": true,
+        "player": "defender",
+        "setStrikesTo": 1,
+        "siteAutoAttacksStrikesTo": 1,
+        "requiredSkill": "sorcery",
+        "cost": { "check": "corruption", "modifier": -4 },
+        "costExemptRace": "ringwraith",
+        "when": { "attack.automatic": true }
+      }
+    ],
+    "certified": "2026-10-20",
     "text": "Magic. Sorcery. Playable on a sorcery-using character facing an automatic-attack. The number of strikes of all automatic-attacks at the site this turn are reduced to one. Unless he is a Ringwraith, character makes a corruption check modified by -4."
   },
   {
