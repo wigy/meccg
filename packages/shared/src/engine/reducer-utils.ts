@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment, OnGuardCard } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect, TapTakeItemEffect } from '../types/effects.js';
+import type { CardEffect, CreatureAltEventEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect, TapTakeItemEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -823,7 +823,7 @@ export function companyEffectiveSizeOf(state: GameState, charInstIds: readonly C
  * Variant of {@link companyEffectiveSizeOf} that exempts up to
  * `exemptLeaderCount` Leader-keyword characters from the count before
  * applying CoE rule 3.24's half-character rounding (used by *Orders from the
- * Great Demon*, ba-70, whose `extra-leader-slot` effect exempts one Leader
+ * Great Demon*, ba-70, whose `extra-leader-slot` effect with `exemptFromSizeCap` exempts one Leader
  * per copy in play from the company-size maximum).
  */
 export function companyEffectiveSizeExemptingLeaders(
@@ -1391,6 +1391,50 @@ export function effectiveInPlayDef(def: CardDefinition): CardDefinition {
   );
   if (!isAltPermanentEvent) return def;
   return { ...def, cardType: 'hazard-event', eventType: 'permanent' } as unknown as CardDefinition;
+}
+
+/**
+ * One untapped dual-mode creature permanent-event in a player's `cardsInPlay`,
+ * as yielded by {@link untappedAltPermanentEvents}.
+ */
+export interface UntappedAltPermanentEvent {
+  readonly card: CardInPlay;
+  readonly def: CardDefinition;
+  /** All effects of `def` (from {@link getCardEffects}). */
+  readonly effects: readonly CardEffect[];
+  /** The card's `creature-alt-event` effect (always mode `permanent-event`). */
+  readonly altEvent: CreatureAltEventEffect;
+  /**
+   * True when the card carries the `no-hazard-limit` play flag, so its
+   * conversion is offered even once the company's hazard limit is reached.
+   */
+  readonly bypassesLimit: boolean;
+}
+
+/**
+ * Every untapped card in `player.cardsInPlay` that is a dual-mode creature
+ * played as a permanent-event (`creature-alt-event` mode `permanent-event`).
+ * Shared scan behind the hazard player's voluntary conversions of such cards
+ * — tap to a short-event (tw-2 / tw-107 / tw-46 / tw-4 / tw-44), attack as
+ * itself (tw-86), return to hand (dm-110) — each of which then applies its own
+ * mode-specific filter (`persistent`, `attacksAsCreature`, …) and the
+ * hazard-limit gate via `bypassesLimit`.
+ */
+export function untappedAltPermanentEvents(
+  state: GameState,
+  player: PlayerState,
+): UntappedAltPermanentEvent[] {
+  const result: UntappedAltPermanentEvent[] = [];
+  for (const card of player.cardsInPlay) {
+    if (card.status !== CardStatus.Untapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effects = getCardEffects(def);
+    const altEvent = effects.find((e): e is CreatureAltEventEffect => e.type === 'creature-alt-event');
+    if (altEvent?.mode !== 'permanent-event') continue;
+    result.push({ card, def, effects, altEvent, bypassesLimit: 'effects' in def && hasPlayFlag(def, 'no-hazard-limit') });
+  }
+  return result;
 }
 
 /**
@@ -3265,40 +3309,26 @@ export function cardPlayerDeckSize(state: GameState, playerId: PlayerId): number
 }
 
 /**
- * The site name whose rescues Pass the Doors of Dol Guldur (dm-154) keys on.
- * Matched by name so that any printing of the site counts.
- */
-const DOL_GULDUR_SITE_NAME = 'Dol Guldur';
-
-/**
  * Records on the current {@link SitePhaseState} that `company` has, this site
- * phase, successfully freed characters taken prisoner **while standing at Dol
- * Guldur** (CoE 8.36 rescue, or a kept Rescue Prisoners tw-315 played there).
+ * phase, successfully freed characters taken prisoner (CoE 8.36 rescue, or a
+ * kept Rescue Prisoners tw-315). Exposed to `when` clauses as
+ * `company.prisonersRescuedThisSitePhase`; any site restriction belongs in the
+ * card's own condition — e.g. Pass the Doors of Dol Guldur (dm-154) pairs it
+ * with `site.name: "Dol Guldur"`.
  *
- * Pass the Doors of Dol Guldur (dm-154) may only be tapped "during the same
- * site phase the company successfully plays Rescue Prisoners at Dol Guldur (or
- * rescues characters taken prisoner if the rescue site is Dol Guldur)", so
- * every successful-rescue path calls this and the flag lives on the per-company
- * site-phase state that is rebuilt for each company's site phase.
- *
- * A no-op outside the site phase, or when the company is not at Dol Guldur —
- * so callers can invoke it unconditionally on any rescue path.
+ * The flag lives on the per-company site-phase state that is rebuilt for each
+ * company's site phase. A no-op outside the site phase, so callers can invoke
+ * it unconditionally on any rescue path.
  */
-export function markPrisonersRescuedAtDolGuldur(
+export function markPrisonersRescued(
   state: GameState,
   company: Company | undefined,
 ): GameState {
   if (state.phaseState.phase !== Phase.Site) return state;
-  const siteDefId = company?.currentSite?.definitionId;
-  const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
-  if (siteDef?.name !== DOL_GULDUR_SITE_NAME) {
-    logDetail(`Rescue: not at ${DOL_GULDUR_SITE_NAME} (at ${siteDef?.name ?? 'no site'}) — Pass the Doors of Dol Guldur tap window not opened`);
-    return state;
-  }
-  logDetail(`Rescue: company ${company?.id as string ?? '?'} freed prisoners at ${DOL_GULDUR_SITE_NAME} — Pass the Doors of Dol Guldur may be tapped this site phase`);
+  logDetail(`Rescue: company ${company?.id as string ?? '?'} freed prisoners this site phase`);
   return {
     ...state,
-    phaseState: { ...state.phaseState, prisonersRescuedAtDolGuldurThisSitePhase: true },
+    phaseState: { ...state.phaseState, prisonersRescuedThisSitePhase: true },
   };
 }
 

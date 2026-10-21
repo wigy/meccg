@@ -16,7 +16,7 @@
  * Effects:
  *   1. play-target: company
  *   2. starting-company-placement: eligible for item-draft setup placement
- *   3. extra-troll-leader-slot: company may hold one Troll leader + one other leader
+ *   3. extra-leader-slot (leaderFilter troll, stacks false): company may hold one Troll leader + one other leader
  *   4. duplication-limit: scope "company", max 1
  *   5. company-modifier: +1 corruption check when company.hasTrollLeader
  *   6. on-event: organization-phase-start discard-self when player.avatarId === "le-56"
@@ -27,7 +27,7 @@
  * |---|-----------------------------------------------------|-------------|-------------------------------------------------------|
  * | 1 | Playable on a company                               | IMPLEMENTED | play-target: company                                  |
  * | 2 | May be played with a starting company in lieu of item| IMPLEMENTED| starting-company-placement effect + item-draft action |
- * | 3 | Company may contain Troll leader + another leader   | IMPLEMENTED | extra-troll-leader-slot effect                        |
+ * | 3 | Company may contain Troll leader + another leader   | IMPLEMENTED | extra-leader-slot effect (Troll leaderFilter)         |
  * | 4 | +1 CC when company has a Troll leader               | IMPLEMENTED | company-modifier check:corruption when.hasTrollLeader |
  * | 5 | Discard if Ren is your Ringwraith                   | IMPLEMENTED | on-event:organization-phase-start when player.avatarId|
  * | 6 | Discard when a leader leaves the company            | IMPLEMENTED | on-event:leader-leaves-company discard-self           |

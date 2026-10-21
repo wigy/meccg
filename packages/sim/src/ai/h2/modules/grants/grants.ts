@@ -104,6 +104,44 @@ function attachedCorruption(def: CardDefinition | undefined): number {
 }
 
 /**
+ * The corruption checks an attached card would still force on its bearer, by
+ * the items in hand — Lure of Expedience (tw-57): "makes a corruption check
+ * each time a character in his company gains an item".
+ *
+ * Shedding such a card is worth more than the points it carries: every item
+ * the company plays while it stays is one more check at the bearer's current
+ * corruption. Only the items already in hand are counted, each as one check,
+ * and each is assumed played in the bearer's company — the card says nothing
+ * about the rest of the deck, and the hand is what the next site will spend.
+ * Left out, the shed was priced as one future check against 2 points and lost
+ * to moving, while the winning human (game mv6u14rg-vjyt2o) rolled to shed it
+ * at five organization phases running.
+ */
+function triggeredCheckRelief(
+  def: CardDefinition | undefined,
+  context: ModuleContext,
+  characterId: CardInstanceId,
+  characterValue: CharacterValue,
+): { tsd: number; reason: string } | null {
+  const effects = (def as unknown as {
+    effects?: readonly { type?: string; event?: string; apply?: { type?: string; check?: string } }[];
+  } | undefined)?.effects ?? [];
+  const forces = effects.some(e => e.type === 'on-event' && e.event === 'character-gains-item'
+    && e.apply?.type === 'force-check' && e.apply.check === 'corruption');
+  if (!forces) return null;
+  const items = context.view.self.hand.filter(card => {
+    const cardType = (context.cardPool[card.definitionId] as unknown as { cardType?: string } | undefined)?.cardType;
+    return cardType?.endsWith('-resource-item') === true;
+  }).length;
+  if (items === 0) return null;
+  const check = characterValue.checkRisk(characterId);
+  return {
+    tsd: items * check.tsd,
+    reason: `${items} item(s) in hand, each forcing a check while it stays — ${check.reason}`,
+  };
+}
+
+/**
  * What activating costs, priced from the cost the grant declares.
  *
  * A grant may declare both halves — Healing Herbs, Athelas and Dragon-lore tap
@@ -217,6 +255,7 @@ function gainOf(
   characterValue: CharacterValue,
   corruption: number,
   target?: CardInstanceId,
+  source?: CardDefinition,
 ): { tsd: number; reason: string } | null {
   if (!apply) return null;
   const { tunables } = context;
@@ -224,15 +263,30 @@ function gainOf(
   // A roll gate wraps the real effect; the odds are handled by the caller from
   // the threshold the engine publishes on the action.
   if (apply.type === 'roll-then-apply') {
-    return gainOf(apply.onSuccess, context, characterId, characterValue, corruption, target);
+    return gainOf(apply.onSuccess, context, characterId, characterValue, corruption, target, source);
   }
 
   // The card takes itself out of play. Worth what it was doing to the bearer,
   // which this module can price when that is corruption and not otherwise.
   if (apply.type === 'move' && apply.to === 'discard' && apply.target !== 'bearer') {
-    if (corruption <= 0) return null;
+    // A hazard that carries no corruption (Shut Yer Mouth: -2 direct
+    // influence; Foolish Words: -4 to influence attempts) is still a hazard
+    // the opponent put on him, and shaking it off never hurts. Nothing here
+    // prices what it was doing, so it is credited the flat tap tempo — a
+    // floor, enough to take a free roll (Shut Yer Mouth costs nothing) over
+    // passing and too little to tap a character for. Declined, the free roll
+    // was never scored, and the winning humans of batch 19 took it at every
+    // organization phase it was offered.
+    if (corruption <= 0) {
+      return {
+        tsd: tunables.tapTempoCost,
+        reason: 'rid of a hazard on him — what it does is not priced, so only the flat tempo is credited, a floor',
+      };
+    }
     const relief = characterValue.corruptionRelief(characterId, corruption);
-    return { tsd: relief.tsd, reason: relief.reason };
+    const checks = triggeredCheckRelief(source, context, characterId, characterValue);
+    if (!checks) return { tsd: relief.tsd, reason: relief.reason };
+    return { tsd: relief.tsd + checks.tsd, reason: `${relief.reason}; ${checks.reason}` };
   }
 
   // A card comes back to hand — a tutor, so at least what a draw is worth.
@@ -298,7 +352,7 @@ export const grantsModule: H2Module = {
       : 0;
 
     const target = (action as unknown as { targetCardId?: CardInstanceId }).targetCardId;
-    const gain = gainOf(grant.apply, context, characterId, characterValue, corruption, target);
+    const gain = gainOf(grant.apply, context, characterId, characterValue, corruption, target, def);
     // Nothing here can say what an extra region of movement or a company buff
     // is worth. Declining says so; inventing a number would not.
     if (!gain) return null;

@@ -23,8 +23,8 @@
  * | 3 | … if the company discards a Stolen Knowledge card it controls   | play-condition discard-keyword-card, cardKeyword "stolen-knowledge",              |
  * |   |                                                                 | sources ["character-items", "cards-in-play"] — one play action per candidate      |
  * | 4 | "(for no effect)"                                               | the play-cost payer moves the card straight to the discard pile, running nothing  |
- * | 5 | Tap during the same site phase the company rescues at Dol Guldur | grant-action "tap-pass-the-doors", cost { tap: "self" }, when                     |
- * |   |                                                                 | `company.prisonersRescuedAtDolGuldurThisSitePhase` (set by every rescue path)     |
+ * | 5 | Tap during the same site phase the company rescues at Dol Guldur | grant-action "tap-pass-the-doors", cost { tap: "self" }, when `site.name`         |
+ * |   |                                                                 | "Dol Guldur" AND `company.prisonersRescuedThisSitePhase` (set by every rescue)    |
  * | 6 | This card never untaps                                          | play-flag no-auto-untap                                                          |
  * | 7 | If tapped, storable at a Haven — only then does it score        | storable-at { siteTypes: ["haven"], requiresTapped: true, marshallingPoints: 4 }  |
  * | 8 | If stored, D/S automatic-attacks: -1 prowess, -1 strike, min 1   | two stat-modifiers, target all-automatic-attacks, activeWhileStored, min 1,       |
@@ -263,7 +263,7 @@ describe('Pass the Doors of Dol Guldur (dm-154)', () => {
     const cardId = withCard.players[RESOURCE_PLAYER].cardsInPlay[0].instanceId;
     const ready: GameState = {
       ...withCard,
-      phaseState: { ...(withCard.phaseState as SitePhaseState), prisonersRescuedAtDolGuldurThisSitePhase: true },
+      phaseState: { ...(withCard.phaseState as SitePhaseState), prisonersRescuedThisSitePhase: true },
     };
 
     const offered = viableActions(ready, PLAYER_1, 'activate-granted-action')
@@ -280,7 +280,7 @@ describe('Pass the Doors of Dol Guldur (dm-154)', () => {
       characters: [ARAGORN, GIMLI, LEGOLAS],
     });
     const state = addCardInPlay(base, RESOURCE_PLAYER, PASS_THE_DOORS, companyIdAt(base, RESOURCE_PLAYER));
-    expect((state.phaseState as SitePhaseState).prisonersRescuedAtDolGuldurThisSitePhase).toBeFalsy();
+    expect((state.phaseState as SitePhaseState).prisonersRescuedThisSitePhase).toBeFalsy();
 
     const rescueCardId = findHandCardId(state, RESOURCE_PLAYER, RESCUE_PRISONERS);
     const afterPlay = playPermanentEventAndResolve(state, PLAYER_1, rescueCardId);
@@ -294,7 +294,7 @@ describe('Pass the Doors of Dol Guldur (dm-154)', () => {
       .find(ea => (ea.action as SelectCardBearerAction).characterId === legolasId)!;
     const afterKeep = dispatch(afterCombat, bearerAction.action);
 
-    expect((afterKeep.phaseState as SitePhaseState).prisonersRescuedAtDolGuldurThisSitePhase).toBe(true);
+    expect((afterKeep.phaseState as SitePhaseState).prisonersRescuedThisSitePhase).toBe(true);
     const offered = viableActions(afterKeep, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === TAP_ACTION);
     expect(offered).toHaveLength(1);
@@ -320,7 +320,8 @@ describe('Pass the Doors of Dol Guldur (dm-154)', () => {
       .find(ea => (ea.action as SelectCardBearerAction).characterId === legolasId)!;
     const afterKeep = dispatch(afterCombat, bearerAction.action);
 
-    expect((afterKeep.phaseState as SitePhaseState).prisonersRescuedAtDolGuldurThisSitePhase).toBeFalsy();
+    // The rescue itself is recorded, but the card's `when` requires Dol Guldur.
+    expect((afterKeep.phaseState as SitePhaseState).prisonersRescuedThisSitePhase).toBe(true);
     expect(viableActions(afterKeep, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === TAP_ACTION)).toHaveLength(0);
   });
@@ -332,7 +333,7 @@ describe('Pass the Doors of Dol Guldur (dm-154)', () => {
     const cardId = withCard.players[RESOURCE_PLAYER].cardsInPlay[0].instanceId;
     const ready: GameState = {
       ...withCard,
-      phaseState: { ...(withCard.phaseState as SitePhaseState), prisonersRescuedAtDolGuldurThisSitePhase: true },
+      phaseState: { ...(withCard.phaseState as SitePhaseState), prisonersRescuedThisSitePhase: true },
     };
     const tapAction = viableActions(ready, PLAYER_1, 'activate-granted-action')
       .find(ea => (ea.action as ActivateGrantedAction).actionId === TAP_ACTION)!;
@@ -548,7 +549,7 @@ describe('Pass the Doors of Dol Guldur (dm-154)', () => {
     expect(cardIds).toHaveLength(2);
     const ready: GameState = {
       ...twoCopies,
-      phaseState: { ...(twoCopies.phaseState as SitePhaseState), prisonersRescuedAtDolGuldurThisSitePhase: true },
+      phaseState: { ...(twoCopies.phaseState as SitePhaseState), prisonersRescuedThisSitePhase: true },
     };
     // Both copies are offered while the lock is unclaimed.
     expect(viableActions(ready, PLAYER_1, 'activate-granted-action')
@@ -584,7 +585,7 @@ describe('Pass the Doors of Dol Guldur (dm-154)', () => {
     const cardIds = twoCopies.players[RESOURCE_PLAYER].cardsInPlay.map(c => c.instanceId);
     const ready: GameState = {
       ...twoCopies,
-      phaseState: { ...(twoCopies.phaseState as SitePhaseState), prisonersRescuedAtDolGuldurThisSitePhase: true },
+      phaseState: { ...(twoCopies.phaseState as SitePhaseState), prisonersRescuedThisSitePhase: true },
     };
     const firstAction = viableActions(ready, PLAYER_1, 'activate-granted-action')
       .find(ea => (ea.action as ActivateGrantedAction).sourceCardId === cardIds[0])!.action;

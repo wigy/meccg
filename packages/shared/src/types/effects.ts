@@ -11004,7 +11004,6 @@ export type CardEffect =
   | AbsorbWoundEffect
   | GrantKeywordEffect
   | ProtectFromBodyCheckEffect
-  | ExtraTrollLeaderSlotEffect
   | ExtraLeaderSlotEffect
   | StartingCompanyPlacementEffect
   | SummonsFromLongSleepEffect
@@ -13215,43 +13214,38 @@ export interface ProtectFromBodyCheckEffect extends EffectBase {
 }
 
 /**
- * Declares that the company this permanent event is bound to may contain one
- * Troll-race Leader-keyword character in addition to the one leader already
- * permitted by CoE rule 3.26 (one-leader-per-company). Without this effect a
- * company may have at most one character with the Leader keyword; with this
- * effect it may have exactly two leaders provided one of them is a Troll.
+ * Declares that the company this permanent event is bound to may contain an
+ * additional Leader-keyword character beyond the single leader permitted by
+ * CoE rule 2.II.3.1.3 (one-leader-per-company).
  *
- * The engine reads this effect when checking whether adding a character to a
- * company would violate the leader restriction (see
- * `organization-companies.ts` `wouldViolateLeaderRestriction`).
- *
- * Used by *Orders from Lugbúrz* (as-94).
- */
-export interface ExtraTrollLeaderSlotEffect extends EffectBase {
-  readonly type: 'extra-troll-leader-slot';
-}
-
-/**
- * Declares that the company this permanent event is bound to may contain one
- * additional Leader-keyword character beyond the single leader already
- * permitted by CoE rule 2.II.3.1.3 (one-leader-per-company), with no race
- * restriction on either leader. Additionally, one Leader-keyword character in
- * the company is exempted from the company-size maximum of CoE rule 2.II.3.1
- * (max size 7 outside a haven) — i.e. it does not count toward that headcount.
- *
- * Each copy of the carrying card in play on a company grants one such slot;
- * two copies permit two additional leaders and exempt two leaders from the
- * size count.
+ * Options:
+ * - `leaderFilter` — a {@link Condition} matched against each leader's
+ *   per-character context (`character.race`, `.name`, …; see
+ *   `CompanyCharacterContext`). When present, every leader beyond the first
+ *   must match it (e.g. `{ "character.race": "troll" }`: two leaders, at least
+ *   one a Troll). Absent, leaders of any kind qualify.
+ * - `stacks` — when `false`, any number of copies on one company grant a
+ *   single extra slot. Default: each copy grants one slot.
+ * - `exemptFromSizeCap` — when `true`, one Leader-keyword character per copy
+ *   is also exempted from the company-size maximum of CoE rule 2.II.3.1 (max
+ *   size 7 outside a haven). The exemption ignores `leaderFilter`.
  *
  * The engine reads this effect in `organization-companies.ts`
  * `wouldViolateLeaderRestriction` (leader-count exemption) and in
  * `moveToCompanyActions`/`mergeCompaniesActions` (size-cap exemption, via
  * `companyEffectiveSizeExemptingLeaders`).
  *
- * Used by *Orders from the Great Demon* (ba-70).
+ * Used by *Orders from Lugbúrz* (as-94, Troll filter, non-stacking) and
+ * *Orders from the Great Demon* (ba-70, stacking, size-cap exempt).
  */
 export interface ExtraLeaderSlotEffect extends EffectBase {
   readonly type: 'extra-leader-slot';
+  /** Condition every leader beyond the first must satisfy. */
+  readonly leaderFilter?: Condition;
+  /** `false` = copies do not stack (one slot total). Default `true`. */
+  readonly stacks?: boolean;
+  /** Each copy also exempts one leader from the company-size maximum. */
+  readonly exemptFromSizeCap?: boolean;
 }
 
 /**

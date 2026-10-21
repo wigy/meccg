@@ -11,7 +11,7 @@
  *
  * Effects:
  *   1. play-target: company
- *   2. extra-leader-slot: the bound company may contain one additional
+ *   2. extra-leader-slot (exemptFromSizeCap): the bound company may contain one additional
  *      Leader-keyword character (any race) beyond the single leader normally
  *      permitted by CoE rule 2.II.3.1.3, and one Leader in the company is
  *      exempt from the company-size maximum of CoE rule 2.II.3.1 (max size 7
