@@ -3388,30 +3388,12 @@ function playHazardsActionsForCompany(
           // Mode B — arrival-override modes. Offer a single untargeted action
           // when the active company is moving and at least one on-event
           // company-arrives-at-site mode's `when` condition currently matches.
-          const arrivalModes = getCardEffects(def).filter(
-            (e): e is import('../../types/effects.js').OnEventEffect =>
-              e.type === 'on-event' && e.event === 'company-arrives-at-site',
-          );
-          if (arrivalModes.length > 0 && targetCompany.destinationSite) {
-            const inPlayNames = buildInPlayNames(state);
-            const arrivalCompany: Record<string, unknown> = {};
-            if (mhState.destinationSiteType) arrivalCompany.destinationSiteType = mhState.destinationSiteType;
-            if (mhState.destinationSiteName) arrivalCompany.destinationSiteName = mhState.destinationSiteName;
-            if (mhState.resolvedSitePath.length > 0) {
-              arrivalCompany.destinationRegionType = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
+          if (targetCompany.destinationSite && applicableArrivalModeIndices(state, def).length > 0) {
+            logDetail(`Hazard short-event "${def.name}": Mode B — arrival-override available`);
+            for (const variant of arrivalModeVariants(state, def, action, targetCompany)) {
+              actions.push({ action: variant, viable: true });
             }
-            const arrivalCtx: Record<string, unknown> = {
-              company: arrivalCompany,
-              inPlay: inPlayNames,
-              environment: { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') },
-            };
-            if (arrivalModes.some(m => !m.when || matchesCondition(m.when, arrivalCtx))) {
-              logDetail(`Hazard short-event "${def.name}": Mode B — arrival-override available`);
-              for (const variant of arrivalModeVariants(state, def, action, targetCompany)) {
-                actions.push({ action: variant, viable: true });
-              }
-              offeredAny = true;
-            }
+            offeredAny = true;
           }
           if (!offeredAny) {
             logDetail(`Hazard short-event "${def.name}": no eligible target (no Elf to tap, no region/site to reinterpret)`);
@@ -4034,30 +4016,10 @@ function playHazardsActionsForCompany(
           // tap-character branch offers for the same shape (New Moon tw-68),
           // so the two modes stay mutually exclusive via
           // `applyShortEventArrivalTrigger`'s targetCharacterId check.
-          {
-            const arrivalModes = getCardEffects(def).filter(
-              (e): e is import('../../types/effects.js').OnEventEffect =>
-                e.type === 'on-event' && e.event === 'company-arrives-at-site',
-            );
-            if (arrivalModes.length > 0 && targetCompany.destinationSite) {
-              const inPlayNames = buildInPlayNames(state);
-              const arrivalCompany: Record<string, unknown> = {};
-              if (mhState.destinationSiteType) arrivalCompany.destinationSiteType = mhState.destinationSiteType;
-              if (mhState.destinationSiteName) arrivalCompany.destinationSiteName = mhState.destinationSiteName;
-              if (mhState.resolvedSitePath.length > 0) {
-                arrivalCompany.destinationRegionType = mhState.resolvedSitePath[mhState.resolvedSitePath.length - 1];
-              }
-              const arrivalCtx: Record<string, unknown> = {
-                company: arrivalCompany,
-                inPlay: inPlayNames,
-                environment: { doorsOfNightInPlay: inPlayNames.includes('Doors of Night') },
-              };
-              if (arrivalModes.some(m => !m.when || matchesCondition(m.when, arrivalCtx))) {
-                logDetail(`Hazard short-event "${def.name}": arrival-override mode available`);
-                for (const variant of arrivalModeVariants(state, def, action, targetCompany)) {
-                  actions.push({ action: variant, viable: true });
-                }
-              }
+          if (targetCompany.destinationSite && applicableArrivalModeIndices(state, def).length > 0) {
+            logDetail(`Hazard short-event "${def.name}": arrival-override mode available`);
+            for (const variant of arrivalModeVariants(state, def, action, targetCompany)) {
+              actions.push({ action: variant, viable: true });
             }
           }
           continue;
