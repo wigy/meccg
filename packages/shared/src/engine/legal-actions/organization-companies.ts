@@ -24,13 +24,16 @@ import type {
 import { hasFollowerGrantPermission, hasPlayFlag } from '../../effects/play-flags.js';
 import { buildMovementMap, getReachableSites, withExtraRegionAdjacency } from '../../movement-map.js';
 import { BASE_MAX_REGION_DISTANCE } from '../../rules/definitions/movement.js';
+import type { CharacterCard } from '../../types/cards.js';
+import type { ExtraLeaderSlotEffect } from '../../types/effects.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../../types/cards.js';
+import { matchesCondition } from '../../effects/condition-matcher.js';
 import { SiteType, Race, RegionType } from '../../types/common.js';
 import { resolveInstanceId } from '../../types/state.js';
 import { logDetail } from './log.js';
 import { playerById, defById, getCardEffects, companyEffectiveSizeExemptingLeaders, companyHasImmobileCharacter, isHavenForPlayer, generalInfluenceControlLimit, isSiteProtectedForPlayer, inPlayNamesForPlayerDeep, siteDeniesCompanyMove, siteForbidsStorage, fwSiteVersionForbidden, fwSiteUsageForbidden, wouldViolateRingwraithComposition, isDarkhavenSiteDef, companyAllyRingwraithMode } from '../reducer-utils.js';
 import { siteHasOpponentCompany } from '../evil-hour.js';
-import { companyHasUnlimitedSize } from '../company-composition.js';
+import { companyHasUnlimitedSize, buildCompanyCharacterContext } from '../company-composition.js';
 import { companyStoresAsDarkhaven } from '../pending.js';
 import { resolveDef } from '../effects/index.js';
 import { applyRegionMovementReduction } from '../recompute-derived.js';
@@ -1692,7 +1695,7 @@ export function moveToCompanyActions(state: GameState, playerId: PlayerId): Eval
 
         // Rules 3.24–3.26 apply only at non-haven sites.
         if (!atHaven) {
-          const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot');
+          const extraLeaderSlots = countSizeCapExemptLeaderSlots(state, targetCompany.id);
           const resultingSize = companyEffectiveSizeExemptingLeaders(state, resultingCharIds, extraLeaderSlots);
           // An Unexpected Party (dm-114) on the *target* company: no size limit.
           if (resultingSize > 7 && !companyHasUnlimitedSize(state, targetCompany.id)) {
@@ -1804,41 +1807,48 @@ function wouldViolateRaceMixing(state: GameState, charInstIds: readonly CardInst
 }
 
 /**
- * Count how many company-bound permanent events in play on `companyId`
- * carry the given effect type. Used for stacking marker effects such as
- * `extra-troll-leader-slot` and `extra-leader-slot`, where each copy in play
- * grants one slot.
+ * The `extra-leader-slot` effects of the company-bound permanent events in
+ * play on `companyId`, one entry per card copy (a copy grants one slot).
  */
-function countCompanyCardEffect(state: GameState, companyId: CompanyId, effectType: CardEffect['type']): number {
-  let count = 0;
+function companyExtraLeaderSlots(state: GameState, companyId: CompanyId): ExtraLeaderSlotEffect[] {
+  const found: ExtraLeaderSlotEffect[] = [];
   for (const p of state.players) {
     for (const card of p.cardsInPlay) {
       if ((card.companyId as string | undefined) !== (companyId as string)) continue;
       const def = state.cardPool[card.definitionId];
-      if (getCardEffects(def).some(e => e.type === effectType)) count++;
+      const effect = getCardEffects(def).find((e): e is ExtraLeaderSlotEffect => e.type === 'extra-leader-slot');
+      if (effect) found.push(effect);
     }
   }
-  return count;
+  return found;
+}
+
+/**
+ * Number of Leader-keyword characters exempted from the company-size maximum
+ * on `companyId`: one per `extra-leader-slot` copy with `exemptFromSizeCap`.
+ */
+function countSizeCapExemptLeaderSlots(state: GameState, companyId: CompanyId): number {
+  return companyExtraLeaderSlots(state, companyId).filter(e => e.exemptFromSizeCap === true).length;
 }
 
 /**
  * Check if the given characters would violate the leader restriction
  * (CoE rule 3.26): a company may only contain one Leader-keyword character.
  *
- * When `companyId` is provided, checks whether the target company has a
- * company-bound permanent event with `extra-troll-leader-slot` (e.g. *Orders
- * from Lugbúrz*), which allows one Troll Leader in addition to one other
- * leader (total of two leaders, one of which must be a Troll), or with
- * `extra-leader-slot` (e.g. *Orders from the Great Demon*, ba-70), which
- * allows one additional Leader of any race per copy in play.
+ * When `companyId` is provided, the target company's `extra-leader-slot`
+ * permanent events may permit more leaders. Identical effects are grouped;
+ * a group grants one slot per copy (or one in total when `stacks: false`),
+ * and with a `leaderFilter` every leader beyond the first must match it —
+ * e.g. *Orders from Lugbúrz* (as-94) allows a Troll leader alongside one
+ * other leader, *Orders from the Great Demon* (ba-70) allows one additional
+ * leader of any race per copy in play.
  */
 export function wouldViolateLeaderRestriction(
   state: GameState,
   charInstIds: readonly CardInstanceId[],
   companyId?: CompanyId,
 ): boolean {
-  let leaderCount = 0;
-  let trollLeaderCount = 0;
+  const leaders: CharacterCard[] = [];
   for (const id of charInstIds) {
     const defId = resolveInstanceId(state, id);
     const def = defId ? defById(state, defId) : undefined;
@@ -1860,32 +1870,34 @@ export function wouldViolateLeaderRestriction(
         break;
       }
     }
-    if (isLeader) {
-      leaderCount++;
-      if (def.race === Race.Troll) trollLeaderCount++;
-    }
+    if (isLeader) leaders.push(def);
   }
+  const leaderCount = leaders.length;
 
   if (leaderCount <= 1) return false;
 
   if (companyId) {
-    // When the company has an extra-troll-leader-slot permanent event, one
-    // Troll leader is permitted alongside one other leader (total two).
-    if (leaderCount === 2 && trollLeaderCount >= 1 && countCompanyCardEffect(state, companyId, 'extra-troll-leader-slot') > 0) {
-      logDetail(`wouldViolateLeaderRestriction: extra-troll-leader-slot active on company ${companyId as string} — allowing Troll leader alongside other leader`);
-      return false;
+    const groups = new Map<string, { effect: ExtraLeaderSlotEffect; copies: number }>();
+    for (const effect of companyExtraLeaderSlots(state, companyId)) {
+      const key = JSON.stringify([effect.leaderFilter ?? null, effect.stacks !== false]);
+      const group = groups.get(key);
+      if (group) group.copies++;
+      else groups.set(key, { effect, copies: 1 });
     }
-
-    // Each extra-leader-slot permanent event in play permits one additional
-    // Leader of any race (e.g. Orders from the Great Demon, ba-70).
-    const extraLeaderSlots = countCompanyCardEffect(state, companyId, 'extra-leader-slot');
-    if (extraLeaderSlots > 0 && leaderCount <= 1 + extraLeaderSlots) {
-      logDetail(`wouldViolateLeaderRestriction: ${extraLeaderSlots} extra-leader-slot(s) active on company ${companyId as string} — allowing ${leaderCount} leaders`);
+    for (const { effect, copies } of groups.values()) {
+      const slots = effect.stacks === false ? 1 : copies;
+      if (leaderCount > 1 + slots) continue;
+      const filter = effect.leaderFilter;
+      const matching = filter
+        ? leaders.filter(l => matchesCondition(filter, buildCompanyCharacterContext(l) as unknown as Record<string, unknown>)).length
+        : leaderCount;
+      if (matching < leaderCount - 1) continue;
+      logDetail(`wouldViolateLeaderRestriction: ${slots} extra-leader-slot(s) active on company ${companyId as string} — allowing ${leaderCount} leaders`);
       return false;
     }
   }
 
-  return leaderCount > 1;
+  return true;
 }
 
 export function mergeCompaniesActions(state: GameState, playerId: PlayerId): EvaluatedAction[] {
@@ -1921,8 +1933,8 @@ export function mergeCompaniesActions(state: GameState, playerId: PlayerId): Eva
 
       // Rules 3.24–3.26 apply only at non-haven sites.
       if (!atHaven) {
-        const extraLeaderSlots = countCompanyCardEffect(state, targetCompany.id, 'extra-leader-slot')
-          + countCompanyCardEffect(state, company.id, 'extra-leader-slot');
+        const extraLeaderSlots = countSizeCapExemptLeaderSlots(state, targetCompany.id)
+          + countSizeCapExemptLeaderSlots(state, company.id);
         const mergedSize = companyEffectiveSizeExemptingLeaders(state, mergedCharIds, extraLeaderSlots);
         // An Unexpected Party (dm-114): the surviving company is the *target*,
         // so only its `company-size-unlimited` marker can lift the cap.

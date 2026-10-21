@@ -7545,24 +7545,41 @@ Radagast's Black Bird also carries a `cancel-strike` (`cost: { tap: self }`,
 no `when`), reusing the self-tap cancel-strike primitive (§11) so it cancels any
 strike directed against it (creature or automatic-attack), tapping afterwards.
 
-### 15a. `extra-troll-leader-slot`
+### 15a. `extra-leader-slot`
 
-Marker effect on a company-bound permanent event. While this event is in play,
-the company it is attached to may contain one Troll-race Leader-keyword character
-*in addition to* the single leader normally permitted by CoE rule 3.26. The
-exception allows exactly two leaders total, of which at least one must be a Troll.
+Effect on a company-bound permanent event. While this event is in play, the
+company it is attached to may contain an additional Leader-keyword character
+*in addition to* the single leader normally permitted by CoE rule 2.II.3.1.3.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `leaderFilter` | Condition (optional) | Matched against each leader's per-character context (`character.race` / `.name` / `.mind` / `.unique` / `.isAvatar` / `.keywords`, as in the company-composition family). Every leader beyond the first must match it. Absent: any leader qualifies. |
+| `stacks` | boolean (optional) | `false`: any number of copies on one company grant a single extra slot. Default: each copy grants one slot. |
+| `exemptFromSizeCap` | boolean (optional) | `true`: each copy also exempts one Leader-keyword character from the company-size maximum of CoE rule 2.II.3.1 (max size 7 outside a haven). The exemption ignores `leaderFilter`. |
 
 The engine reads this effect in `organization-companies.ts`
 `wouldViolateLeaderRestriction` when evaluating `move-to-company` and
-`merge-companies` actions.
+`merge-companies` actions. Identical effects on one company are grouped; each
+group is checked on its own (slots = copies, or 1 when `stacks: false`), and
+the restriction is lifted when any group permits the resulting leader count.
+The size exemption is read in `moveToCompanyActions`/`mergeCompaniesActions`
+via `companyEffectiveSizeExemptingLeaders` in `reducer-utils.ts`. It applies
+only to the rule-3.24 headcount cap enforced at those two call sites — it does
+not affect the hazard limit or any `maxCompanySize` play-eligibility gate.
 
-No fields beyond `type` are required.
+*Orders from Lugbúrz* (as-94) — one Troll leader alongside one other leader,
+not stacking:
 
 ```json
-{ "type": "extra-troll-leader-slot" }
+{ "type": "extra-leader-slot", "leaderFilter": { "character.race": "troll" }, "stacks": false }
 ```
 
-Used by *Orders from Lugbúrz* (as-94).
+*Orders from the Great Demon* (ba-70) — one additional leader of any race per
+copy, who does not count against the company size maximum:
+
+```json
+{ "type": "extra-leader-slot", "exemptFromSizeCap": true }
+```
 
 ### 15b. `starting-company-placement`
 
@@ -7584,36 +7601,6 @@ actions, and the corresponding reducer handles placement in `reducer-setup.ts`.
 ```
 
 Used by *Orders from Lugbúrz* (as-94).
-
-### 15c. `extra-leader-slot`
-
-Marker effect on a company-bound permanent event. While this event is in play,
-the company it is attached to may contain one additional Leader-keyword
-character *in addition to* the single leader normally permitted by CoE rule
-2.II.3.1.3, with no race restriction on either leader (contrast
-`extra-troll-leader-slot`, which requires one of the two leaders to be a
-Troll). Additionally, one Leader-keyword character in the company is exempted
-from the company-size maximum of CoE rule 2.II.3.1 (max size 7 outside a
-haven) — it does not count toward that headcount. Each copy of the carrying
-card in play on a company stacks: two copies permit two additional leaders and
-exempt two leaders from the size count.
-
-The engine reads this effect in `organization-companies.ts`
-`wouldViolateLeaderRestriction` (leader-count exemption, via
-`countCompanyCardEffect`) and in `moveToCompanyActions`/`mergeCompaniesActions`
-(size-cap exemption, via `companyEffectiveSizeExemptingLeaders` in
-`reducer-utils.ts`). The size exemption applies only to the rule-3.24 headcount
-cap enforced at those two call sites — it does not affect the hazard limit or
-any `maxCompanySize` play-eligibility gate, which are separate mechanics the
-card's text does not reference.
-
-No fields beyond `type` are required.
-
-```json
-{ "type": "extra-leader-slot" }
-```
-
-Used by *Orders from the Great Demon* (ba-70).
 
 ### 16. `play-target`
 

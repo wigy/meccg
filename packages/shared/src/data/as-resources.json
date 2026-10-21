@@ -888,7 +888,11 @@
         "target": "company"
       },
       {
-        "type": "extra-troll-leader-slot"
+        "type": "extra-leader-slot",
+        "leaderFilter": {
+          "character.race": "troll"
+        },
+        "stacks": false
       },
       {
         "type": "duplication-limit",
