@@ -59,6 +59,7 @@ describe('passButtonLabel — action-type specific branches (phase-independent)'
     ['gold-ring-test-roll', 'Roll'],
     ['stay-her-appetite-roll', 'Roll'],
     ['burglary-attempt', 'Roll'],
+    ['opposed-roll', 'Roll'],
     ['pass-chain-priority', 'Pass Priority'],
   ])('%s -> %s', (type, expected) => {
     const action = { type, player: 'p1' } as unknown as GameAction;

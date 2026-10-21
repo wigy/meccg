@@ -48,6 +48,7 @@ export function passButtonLabel(passAction: GameAction, view: PlayerView): strin
   if (passAction.type === 'gold-ring-test-roll') return 'Roll';
   if (passAction.type === 'stay-her-appetite-roll') return 'Roll';
   if (passAction.type === 'burglary-attempt') return 'Roll';
+  if (passAction.type === 'opposed-roll') return 'Roll';
   if (passAction.type === 'pass-chain-priority') return 'Pass Priority';
 
   // Rule 9.21's ring-play-offer: the plain `pass` here declines playing the

@@ -21,10 +21,12 @@ import type {
   CardDefinition,
   CompanyId,
   CorruptionCheckAction,
+  OpposedRollAction,
 } from '@meccg/shared';
 import { Phase, viableActions, buildInstanceLookup, isCharacterCard } from '@meccg/shared';
 import { $ } from './render-utils.js';
 import { corruptionCheckBannerText } from './corruption-check-banner.js';
+import { opposedRollBannerText } from './opposed-roll-banner.js';
 import { setTargetingInstruction } from './render.js';
 import { renderCombatView, clearCombatButtons } from './combat-view.js';
 import {
@@ -103,6 +105,32 @@ function renderCorruptionCheckBanner(
     const def = defId ? cardPool[defId as string] : undefined;
     return def && isCharacterCard(def) ? def.name : '?';
   });
+  if (!text) return;
+
+  const row = document.createElement('div');
+  row.className = 'situation-banner-row';
+
+  const banner = document.createElement('div');
+  banner.className = 'situation-banner';
+  banner.textContent = text.title;
+
+  const detail = document.createElement('div');
+  detail.className = 'situation-banner-detail';
+  detail.textContent = text.detail;
+  banner.appendChild(detail);
+
+  row.appendChild(banner);
+  board.appendChild(row);
+}
+
+/**
+ * Render a situation banner when an opposed roll is pending (e.g. No More
+ * Nonsense le-210), naming the source card and the contest breakdown (see
+ * {@link opposedRollBannerText}).
+ */
+function renderOpposedRollBanner(board: HTMLElement, view: PlayerView): void {
+  const text = opposedRollBannerText(viableActions(view.legalActions)
+    .filter((a): a is OpposedRollAction => a.type === 'opposed-roll'));
   if (!text) return;
 
   const row = document.createElement('div');
@@ -534,6 +562,9 @@ export function renderCompanyViews(
 
   // Pending corruption check banner (transfer / wound / Lure during Organization)
   renderCorruptionCheckBanner(board, view, cardPool);
+
+  // Pending opposed roll banner (No More Nonsense and similar contests)
+  renderOpposedRollBanner(board, view);
 
   // Pending faction influence roll banner (chain paused awaiting the roll)
   renderFactionInfluenceRollBanner(board, view, cardPool);
