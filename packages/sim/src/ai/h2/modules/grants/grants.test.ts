@@ -177,3 +177,18 @@ describe('untapping a companion', () => {
     expect(agentChoice('grants/healing-herbs-mid-strike').type).toBe('resolve-strike');
   });
 });
+
+describe('shedding a hazard that carries no corruption', () => {
+  test('a free roll is taken, and is not charged a tap it never spends', () => {
+    // Regression (game mv0tlvor-icokvs): Shut Yer Mouth's roll costs nothing
+    // and leaves the bearer standing, but the shed was declined for carrying
+    // no corruption, and the plan layer read "names Troll-chief" as "taps
+    // Troll-chief" — the last untapped carrier of a committed plan.
+    const { context, legalActions } = position('grants/shed-shut-yer-mouth');
+    const shed = legalActions.find(a => a.type === 'activate-granted-action'
+      && (a as unknown as { sourceCardDefinitionId?: string }).sourceCardDefinitionId === 'le-137')!;
+    expect(shed).toBeDefined();
+    expect(JSON.stringify(grantsModule.evaluate(shed, context)!.rationale)).toContain('rid of a hazard on him');
+    expect(agentChoice('grants/shed-shut-yer-mouth')).toEqual(shed);
+  });
+});
