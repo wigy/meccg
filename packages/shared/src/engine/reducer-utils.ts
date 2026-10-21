@@ -3219,40 +3219,26 @@ export function cardPlayerDeckSize(state: GameState, playerId: PlayerId): number
 }
 
 /**
- * The site name whose rescues Pass the Doors of Dol Guldur (dm-154) keys on.
- * Matched by name so that any printing of the site counts.
- */
-const DOL_GULDUR_SITE_NAME = 'Dol Guldur';
-
-/**
  * Records on the current {@link SitePhaseState} that `company` has, this site
- * phase, successfully freed characters taken prisoner **while standing at Dol
- * Guldur** (CoE 8.36 rescue, or a kept Rescue Prisoners tw-315 played there).
+ * phase, successfully freed characters taken prisoner (CoE 8.36 rescue, or a
+ * kept Rescue Prisoners tw-315). Exposed to `when` clauses as
+ * `company.prisonersRescuedThisSitePhase`; any site restriction belongs in the
+ * card's own condition — e.g. Pass the Doors of Dol Guldur (dm-154) pairs it
+ * with `site.name: "Dol Guldur"`.
  *
- * Pass the Doors of Dol Guldur (dm-154) may only be tapped "during the same
- * site phase the company successfully plays Rescue Prisoners at Dol Guldur (or
- * rescues characters taken prisoner if the rescue site is Dol Guldur)", so
- * every successful-rescue path calls this and the flag lives on the per-company
- * site-phase state that is rebuilt for each company's site phase.
- *
- * A no-op outside the site phase, or when the company is not at Dol Guldur —
- * so callers can invoke it unconditionally on any rescue path.
+ * The flag lives on the per-company site-phase state that is rebuilt for each
+ * company's site phase. A no-op outside the site phase, so callers can invoke
+ * it unconditionally on any rescue path.
  */
-export function markPrisonersRescuedAtDolGuldur(
+export function markPrisonersRescued(
   state: GameState,
   company: Company | undefined,
 ): GameState {
   if (state.phaseState.phase !== Phase.Site) return state;
-  const siteDefId = company?.currentSite?.definitionId;
-  const siteDef = siteDefId ? defById(state, siteDefId) : undefined;
-  if (siteDef?.name !== DOL_GULDUR_SITE_NAME) {
-    logDetail(`Rescue: not at ${DOL_GULDUR_SITE_NAME} (at ${siteDef?.name ?? 'no site'}) — Pass the Doors of Dol Guldur tap window not opened`);
-    return state;
-  }
-  logDetail(`Rescue: company ${company?.id as string ?? '?'} freed prisoners at ${DOL_GULDUR_SITE_NAME} — Pass the Doors of Dol Guldur may be tapped this site phase`);
+  logDetail(`Rescue: company ${company?.id as string ?? '?'} freed prisoners this site phase`);
   return {
     ...state,
-    phaseState: { ...state.phaseState, prisonersRescuedAtDolGuldurThisSitePhase: true },
+    phaseState: { ...state.phaseState, prisonersRescuedThisSitePhase: true },
   };
 }
 
