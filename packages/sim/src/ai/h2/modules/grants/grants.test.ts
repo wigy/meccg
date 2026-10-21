@@ -68,6 +68,20 @@ describe('shedding an attached card', () => {
     const text = JSON.stringify(grantsModule.evaluate(shed, context)!.rationale);
     expect(text).toContain('taps bearer');
   });
+
+  test('a card that forces a check per item gained is worth the checks the hand would trigger', () => {
+    // Regression (game mv6u14rg-vjyt2o): Lure of Expedience makes its bearer
+    // check each time his company gains an item, and the shed was priced only
+    // for its 2 corruption points — against three items in hand.
+    const { context, legalActions } = position('grants/shed-lure-of-expedience');
+    const sheds = legalActions.filter(a => a.type === 'activate-granted-action'
+      && (a as unknown as { actionId?: string }).actionId === 'remove-self-on-roll');
+    expect(sheds.length).toBeGreaterThan(0);
+    for (const shed of sheds) {
+      const text = JSON.stringify(grantsModule.evaluate(shed, context)!.rationale);
+      expect(text).toContain('3 item(s) in hand, each forcing a check while it stays');
+    }
+  });
 });
 
 describe('what it will not price', () => {
