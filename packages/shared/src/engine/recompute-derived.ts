@@ -1412,6 +1412,24 @@ function playerStagePoints(state: GameState, player: PlayerState): number {
     countedSiteInstances.add(site.instanceId as string);
     stagePoints += siteOccupancyStagePointsOfCard(defById(state, site.definitionId));
   }
+  // Stage points gated on the running total itself (In the Grip of Ambition
+  // wh-22: "If he has more than 7 stage points, he receives an additional stage
+  // point"). The first pass above built the bearer context without
+  // `stagePoints`, so such conditions never matched; re-evaluate every
+  // attachment against the base total and add only the extra points. Judging
+  // against the base total (not one that already includes the extra) keeps the
+  // condition free of self-reference.
+  const baseStagePoints = stagePoints;
+  for (const char of Object.values(player.characters)) {
+    const charDef = resolveDef(state, char.instanceId);
+    if (!isCharacterCard(charDef)) continue;
+    const bearer = buildBearerContext(charDef);
+    for (const attachment of [...char.items, ...char.hazards]) {
+      const def = resolveDef(state, attachment.instanceId);
+      stagePoints += stagePointsOfCard(def, { bearer: { ...bearer, stagePoints: baseStagePoints } })
+        - stagePointsOfCard(def, { bearer });
+    }
+  }
   // Turn-scoped stage-point reductions placed on the Fallen-wizard (Poison of
   // his Voice wh-48: "-6 to his stage points (to a minimum of 3) for the rest
   // of the turn"). The floor caps how far the modifier may reduce the total;
