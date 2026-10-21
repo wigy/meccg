@@ -598,6 +598,16 @@ export function buildShortEventTargetChoices(
     playChoices.push({ label, action });
   }
 
+  // "Permanent-event/Short-event" cards (Great Army of the North ba-38) offer
+  // both a `play-permanent-event` and a `play-short-event` for the same card.
+  // List the permanent-event mode first and name both modes, so the menu
+  // doesn't render two indistinguishable "Play" buttons (msg b0f0abbaaaffed68).
+  const hasPermanentMode = actions.some(a => a.type === 'play-permanent-event');
+  for (const action of actions) {
+    if (action.type !== 'play-permanent-event') continue;
+    playChoices.push({ label: 'Play as permanent-event', action });
+  }
+
   for (const action of actions) {
     if (action.type !== 'play-short-event') continue;
 
@@ -673,7 +683,7 @@ export function buildShortEventTargetChoices(
       }
     } else {
       // No specific target — simple play with no disambiguation needed
-      label = 'Play';
+      label = hasPermanentMode ? 'Play as short-event' : 'Play';
     }
 
     playChoices.push({ label, action });
@@ -1297,6 +1307,12 @@ export function renderHand(
     const isPlayChar = isPlayCharacterCard(cardDefId, viable, cachedInstanceLookup);
     const shortEventActions = findShortEventActions(cardInstanceId, viable);
     const isShortEvent = shortEventActions.length > 0;
+    // A "Permanent-event/Short-event" card (Great Army of the North ba-38) is
+    // offered as both a short-event and a permanent-event; the short-event
+    // branch below must not shadow the permanent-event mode.
+    const permanentModeActions = isShortEvent && cardInstanceId
+      ? viable.filter(a => a.type === 'play-permanent-event' && a.cardInstanceId === cardInstanceId)
+      : [];
     const hazardActions = findHazardActions(cardInstanceId, viable);
     const creatureFromDiscardActions = findCreatureFromDiscardActions(cardInstanceId, viable);
     const onGuardAction = cardInstanceId
@@ -1444,12 +1460,14 @@ export function renderHand(
       // Likewise when the same card can also cancel the live attack (Many
       // Turns and Doublings td-132), list the cancel alongside the
       // short-event targets rather than shadowing it.
-      if (discardAction || onGuardAction || reshuffleAction || isCancelAttack) {
+      // Likewise when the card can alternatively be played as a
+      // permanent-event (Great Army of the North ba-38).
+      if (discardAction || onGuardAction || reshuffleAction || isCancelAttack || permanentModeActions.length > 0) {
         img.className = 'hand-card hand-card-playable';
         if (onAction) {
           img.addEventListener('click', (e) => {
             showShortEventTargetMenu(
-              e, [...cancelAttackActions, ...shortEventActions], view, cardPool, onAction,
+              e, [...cancelAttackActions, ...permanentModeActions, ...shortEventActions], view, cardPool, onAction,
               discardAction, onGuardAction, reshuffleAction,
             );
           });
