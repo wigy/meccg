@@ -11,6 +11,7 @@ import { isAvatarCharacter } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { logDetail } from './legal-actions/log.js';
+import { recordAttackChanges } from './attack-log.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { companyById, playerById, toCardInstance, updatePlayer, updateCharacter, wrongActionType, defById, getCardEffects, companySubphaseScope } from './reducer-utils.js';
 import { enqueueCorruptionCheck, multiStrikeAllowance } from './pending.js';
@@ -378,7 +379,11 @@ function handleApplyAttackerAttackOption(state: GameState, action: GameAction, c
   return {
     state: {
       ...state,
-      combat: { ...combat, strikeProwess: newProwess, detainment: newDetainment, attackerAttackOptionApplied: true },
+      combat: recordAttackChanges(
+        combat,
+        { ...combat, strikeProwess: newProwess, detainment: newDetainment, attackerAttackOptionApplied: true },
+        { sourceInstanceId: card.instanceId, sourceDefinitionId: card.definitionId, playedBy: action.player },
+      ),
     },
   };
 }

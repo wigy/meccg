@@ -58,6 +58,7 @@ import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
 import { getFocusedCompanyId, setSavedFocusedCompanyId, setFocusedCompanyId } from './company-view-state.js';
 import { onGuardModifyAttackActions, inPlayPermanentModifyAttackActions } from './on-guard-modify-attack.js';
 import { renderDiscardItemPanel } from './combat-discard-item-panel.js';
+import { renderAttackPanel } from './attack-panel.js';
 
 /** Cached instance-to-definition lookup, updated each time the view changes. */
 let cachedInstanceLookup: ((id: CardInstanceId) => CardDefinitionId | undefined) = () => undefined;
@@ -141,6 +142,8 @@ export function renderCombatView(
 
   // Phase banner
   arena.appendChild(renderPhaseBanner(combat, iAmDefender, view, cardPool));
+  // Attack info panel: base stats, every card that changed the attack, totals.
+  arena.appendChild(renderAttackPanel(combat, view, cardPool));
 
   // Gather legal actions for click handlers
   const viable = viableActions(view.legalActions);
@@ -413,7 +416,8 @@ function renderPhaseBanner(
         return `${combat.multiAttackCount} attacks of ${strikesPerAttack} strike${strikesPerAttack !== 1 ? 's' : ''} each`;
       })()
       : `${combat.strikesTotal} strike${combat.strikesTotal !== 1 ? 's' : ''}`;
-    phaseText = `${racePrefix}Assign ${strikeLabel} at ${combat.strikeProwess} prowess \u2014 ${whose} \u2022 ${assigned} assigned, ${remaining} remaining`;
+    const bodyLabel = combat.creatureBody !== null ? `, ${combat.creatureBody} body` : '';
+    phaseText = `${racePrefix}Assign ${strikeLabel} at ${combat.strikeProwess} prowess${bodyLabel} \u2014 ${whose} \u2022 ${assigned} assigned, ${remaining} remaining`;
   } else if (combat.phase === 'choose-strike-order') {
     const resolved = combat.strikeAssignments.filter(sa => sa.resolved).length;
     phaseText = `${racePrefix}Choose next strike to resolve (${resolved} of ${combat.strikesTotal} resolved)`;

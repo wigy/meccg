@@ -22,3 +22,4 @@ export { formatSignedNumber, stripCardMarkers, CARD_TYPE_CSS, getCardCss } from 
 export { formatCardName, formatCardList, formatDefName } from './format-cards.js';
 export { buildInstanceLookup, formatGameState, formatPlayerView } from './format-state.js';
 export { describeAction, extractActionCardDefs, redactActionForAudience, getTitleCharacter, buildCompanyNames } from './format-actions.js';
+export { describeAttackLogEntry, describeAttackTotals, describeRollBreakdown, formatRollTerms } from './format-attack.js';

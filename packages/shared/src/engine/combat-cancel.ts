@@ -38,6 +38,9 @@ import { tapHuntBearerAfterwards } from './hunt.js';
 import { cvccSides } from './cvcc-sides.js';
 import { getActiveAutoAttacks } from './manifestations.js';
 import { buildSiteRepeatedAttackCombat } from './site-repeated-attack.js';
+import { recordAttackCancel, recordAttackChanges } from './attack-log.js';
+import type { AttackChangeSource } from './attack-log.js';
+import { resolveInstanceId } from '../types/state.js';
 
 /**
  * Handle cancel-attack sourced from an in-play ally (e.g. The Warg-king's
@@ -74,7 +77,7 @@ export function handleCancelAttackByInPlayAlly(
       ),
     })),
   );
-  return { state: resolveCancelAttackEntry(tappedState) };
+  return { state: resolveCancelAttackEntry(tappedState, cancelSourceOf(state, action)) };
 }
 
 /**
@@ -160,7 +163,7 @@ export function handleCancelAttackByInPlayFaction(
         c.instanceId === action.cardInstanceId ? { ...c, status: CardStatus.Tapped } : c,
       ),
     }));
-    return { state: resolveCancelAttackEntry(tappedState) };
+    return { state: resolveCancelAttackEntry(tappedState, cancelSourceOf(state, action)) };
   }
 
   logDetail(`Cancel-attack declared: discarding ${factionName} (in-play faction) to cancel ${combat.creatureRace ?? 'attack'}`);
@@ -170,7 +173,7 @@ export function handleCancelAttackByInPlayFaction(
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.cardInstanceId),
     discardPile: [...p.discardPile, toCardInstance(factionEntry)],
   }));
-  return { state: resolveCancelAttackEntry(discardedState) };
+  return { state: resolveCancelAttackEntry(discardedState, cancelSourceOf(state, action)) };
 }
 
 /**
@@ -310,7 +313,7 @@ export function handleCancelAttackBySiteSwap(
     };
   }
 
-  return { state: resolveCancelAttackEntry(resultState) };
+  return { state: resolveCancelAttackEntry(resultState, cancelSourceOf(state, action)) };
 }
 
 /**
@@ -353,7 +356,7 @@ export function handleCancelAttackByInPlayCharacter(
   const tappedState = updatePlayer(state, defPlayerIndex, p =>
     updateCharacter(p, action.cardInstanceId, c => ({ ...c, status: CardStatus.Tapped })),
   );
-  return { state: resolveCancelAttackEntry(tappedState) };
+  return { state: resolveCancelAttackEntry(tappedState, cancelSourceOf(state, action)) };
 }
 
 /**
@@ -423,7 +426,7 @@ export function handleCancelAttackByInPlayItem(
   );
 
   // Cancel the attack immediately (items, like allies, don't push a chain entry).
-  tappedState = resolveCancelAttackEntry(tappedState);
+  tappedState = resolveCancelAttackEntry(tappedState, cancelSourceOf(state, action));
 
   // Enqueue corruption check on bearer if effect declares it.
   if (cancelEffect?.enqueueCorruptionCheck) {
@@ -563,7 +566,7 @@ export function handleCancelAttackByStoredCard(
     killPile: removeById(p.killPile, stored.instanceId),
     discardPile: [...p.discardPile, toCardInstance(stored)],
   }));
-  return { state: resolveCancelAttackEntry(discarded) };
+  return { state: resolveCancelAttackEntry(discarded, cancelSourceOf(state, action)) };
 }
 
 export function handleCancelAttack(state: GameState, action: GameAction, combat: CombatState): ReducerResult {
@@ -607,7 +610,7 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
       hand: removeById(p.hand, handCard.instanceId),
       discardPile: [...p.discardPile, handCard],
     }));
-    return { state: resolveCancelAttackEntry(discarded) };
+    return { state: resolveCancelAttackEntry(discarded, cancelSourceOf(state, action)) };
   }
   if (!handCard) {
     // Source may be an in-play character tapping to cancel (e.g. Adûnaphel
@@ -736,7 +739,12 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
     const before = resultState.combat.strikeProwess;
     const after = before - cancelEffect.prowessPenalty;
     logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: reduce attack prowess ${before} → ${after} (-${cancelEffect.prowessPenalty})`);
-    return { state: { ...resultState, combat: { ...resultState.combat, strikeProwess: after } } };
+    const reducedCombat = recordAttackChanges(resultState.combat, { ...resultState.combat, strikeProwess: after }, {
+      sourceInstanceId: handCard.instanceId,
+      sourceDefinitionId: handCard.definitionId,
+      playedBy: action.player,
+    });
+    return { state: { ...resultState, combat: reducedCombat } };
   }
 
   // Push/initiate chain entry — opponent gets priority to respond. On
@@ -841,6 +849,20 @@ export function endAhuntAttackIfSourceLeftPlay(state: GameState): GameState {
 }
 
 /**
+ * Attack-log attribution for a cancel action: the card named by the action's
+ * `cardInstanceId` (when it has one) and the acting player.
+ */
+function cancelSourceOf(state: GameState, action: GameAction): AttackChangeSource {
+  const instanceId = 'cardInstanceId' in action ? action.cardInstanceId as CardInstanceId | undefined : undefined;
+  const definitionId = instanceId ? resolveInstanceId(state, instanceId) : undefined;
+  return {
+    ...(instanceId ? { sourceInstanceId: instanceId } : {}),
+    ...(definitionId ? { sourceDefinitionId: definitionId } : {}),
+    playedBy: action.player,
+  };
+}
+
+/**
  * Apply the cancel-attack effect when its chain entry resolves.
  *
  * Called from the chain resolver when a short-event entry with a
@@ -856,7 +878,7 @@ export function endAhuntAttackIfSourceLeftPlay(state: GameState): GameState {
  *
  * Returns the unchanged state if combat is no longer active (fizzle).
  */
-export function resolveCancelAttackEntry(state: GameState): GameState {
+export function resolveCancelAttackEntry(state: GameState, source: AttackChangeSource = {}): GameState {
   const combat = state.combat;
   if (!combat) {
     logDetail('Cancel-attack resolves: no active combat — fizzle');
@@ -879,14 +901,15 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
       `strikes ${combat.strikesTotal} → ${restoredStrikes}. Attack continues.`,
     );
     const { cancelProtection: _removed, ...restCombat } = combat;
+    const redirected: CombatState = {
+      ...restCombat,
+      strikeProwess: restoredProwess,
+      creatureBody: restoredBody,
+      strikesTotal: restoredStrikes,
+    };
     return {
       ...state,
-      combat: {
-        ...restCombat,
-        strikeProwess: restoredProwess,
-        creatureBody: restoredBody,
-        strikesTotal: restoredStrikes,
-      },
+      combat: recordAttackChanges(combat, recordAttackCancel(combat, redirected, { ...source, note: 'cancel redirected: protecting card\'s modifiers removed' }), source),
     };
   }
 
@@ -907,13 +930,13 @@ export function resolveCancelAttackEntry(state: GameState): GameState {
     return {
       ...state,
       players: newPlayers,
-      combat: {
+      combat: recordAttackCancel(combat, {
         ...combat,
         strikesTotal: newStrikesTotal,
         cancelByTapRemaining: newCancelByTap,
         multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
         anyAttackCanceled: true,
-      },
+      }, { ...source, note: `one attack canceled: strikes ${combat.strikesTotal} → ${newStrikesTotal}` }),
     };
   }
 
@@ -1150,13 +1173,13 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
       return { state: endCanceledCombat({ ...state, players: newPlayersW, combat: null }, state, combat) };
     }
 
-    let newCombatW: CombatState = {
+    let newCombatW: CombatState = recordAttackCancel(combat, {
       ...combat,
       strikeAssignments: newAssignmentsW,
       strikesTotal: newStrikesTotalW,
       cancelByTapRemaining: newCancelRemainingW > 0 ? newCancelRemainingW : undefined,
       anyAttackCanceled: true,
-    };
+    }, { ...cancelByTapSource(state, action.characterId, action.player), note: `strike canceled: strikes ${combat.strikesTotal} → ${newStrikesTotalW}` });
     // No untapped characters left to tap → proceed to strike resolution.
     if (newCancelRemainingW <= 0) {
       logDetail('No more untapped characters to cancel — proceeding to resolution');
@@ -1214,14 +1237,14 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
     return { state: endCanceledCombat({ ...state, players: newPlayers, combat: null }, state, combat) };
   }
 
-  const newCombat: CombatState = {
+  const newCombat: CombatState = recordAttackCancel(combat, {
     ...combat,
     strikeAssignments: newAssignments,
     strikesTotal: newStrikesTotal,
     cancelByTapRemaining: newCancelRemaining > 0 ? newCancelRemaining : undefined,
     multiAttackCount: combat.multiAttackCount !== undefined ? combat.multiAttackCount - 1 : undefined,
     anyAttackCanceled: true,
-  };
+  }, { ...cancelByTapSource(state, action.characterId, action.player), note: `one attack canceled: strikes ${combat.strikesTotal} → ${newStrikesTotal}` });
 
   // The canceled attack may have been the last unresolved one — e.g. it was
   // canceled after the reopened post-attack window (CRF 22: "cancel one of the
@@ -1244,3 +1267,8 @@ export function handleCancelByTap(state: GameState, action: GameAction, combat: 
   return { state: { ...state, players: newPlayers, combat: newCombat } };
 }
 
+/** Attack-log attribution for a cancel-by-tap: the tapping character or ally. */
+function cancelByTapSource(state: GameState, actorId: CardInstanceId, player: PlayerId): AttackChangeSource {
+  const definitionId = resolveInstanceId(state, actorId);
+  return { sourceInstanceId: actorId, ...(definitionId ? { sourceDefinitionId: definitionId } : {}), playedBy: player };
+}

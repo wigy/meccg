@@ -429,6 +429,38 @@ export interface StrikeAssignment {
 }
 
 /**
+ * One record in {@link CombatState.attackLog}: either the attack's starting
+ * statistics (`kind: 'base'`) or a later change to the attack made by a card
+ * (cancelled, strikes/prowess/body modified). Purely informational — the
+ * engine never reads it back for rules decisions; clients render it so both
+ * players can see which card did what to the attack.
+ */
+export interface AttackModifierEntry {
+  /** What changed: the starting stats, a cancellation, or one attack statistic. */
+  readonly kind: 'base' | 'cancel' | 'strikes' | 'prowess' | 'body' | 'other';
+  /** Instance of the card that caused the change, when known. */
+  readonly sourceInstanceId?: CardInstanceId;
+  /** Definition of the card that caused the change, when known. */
+  readonly sourceDefinitionId?: CardDefinitionId;
+  /** The player who played or activated the source card. */
+  readonly playedBy?: PlayerId;
+  /** Statistic value before the change (strikes/prowess/body entries). */
+  readonly before?: number;
+  /** Statistic value after the change (strikes/prowess/body entries). */
+  readonly after?: number;
+  /** Free-text qualifier, e.g. `"halved"` or `"one attack canceled"`. */
+  readonly note?: string;
+  /** Attack ordinal (0-based) within a multi-attack, when the change targets one attack. */
+  readonly attackIndex?: number;
+  /** Base entries only: the attack's number of strikes when combat began. */
+  readonly strikes?: number;
+  /** Base entries only: the attack's strike prowess when combat began. */
+  readonly prowess?: number;
+  /** Base entries only: the attack's body when combat began (null = none). */
+  readonly body?: number | null;
+}
+
+/**
  * The combat sub-state machine, stored as a top-level field on GameState.
  *
  * Combat is a self-contained sub-system that can be triggered from multiple
@@ -1168,6 +1200,14 @@ export interface CombatState {
    * `assign-strike`'s `extraSequence` flag. Cleared naturally when combat ends.
    */
   readonly multiStrikeSkill?: string;
+  /**
+   * Public record of this attack's statistics and every change cards made
+   * to it: the first entry is the `'base'` snapshot taken when combat began,
+   * followed by one entry per cancellation or strikes/prowess/body change in
+   * the order they happened. Optional so states saved before the field
+   * existed still load. Maintained by `engine/attack-log.ts`.
+   */
+  readonly attackLog?: readonly AttackModifierEntry[];
 }
 
 /**

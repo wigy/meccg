@@ -14,6 +14,7 @@ import { getPlayerIndex } from '../state-utils.js';
 import { CardStatus, cardStatusFromName, Race, type CardDefinitionId } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail, logHeading } from './legal-actions/log.js';
+import { recordAttackChanges } from './attack-log.js';
 import { oneRingWin } from './reducer-free-council.js';
 import { initiateOrPushChain } from './chain-reducer.js';
 import { resolveCancelAttackEntry } from './combat-cancel.js';
@@ -1452,7 +1453,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               const c = newState.combat;
               const newCreatureBody = c.creatureBody === null ? null : c.creatureBody + boostEffect.bodyModifier;
               logDetail(`${def.name}: attack body ${c.creatureBody ?? 'n/a'} → ${newCreatureBody ?? 'n/a'}`);
-              newState = { ...newState, combat: { ...c, creatureBody: newCreatureBody } };
+              newState = { ...newState, combat: recordAttackChanges(c, { ...c, creatureBody: newCreatureBody }, { sourceDefinitionId: def.id, playedBy: action.player }) };
             }
             // `boostScope: "company"` (Kindling of the Spirit tw-262) decouples
             // the payer from the recipients: the chosen character alone paid

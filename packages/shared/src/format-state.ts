@@ -20,6 +20,7 @@ import { GENERAL_INFLUENCE } from './constants.js';
 import { effectiveGeneralInfluence } from './engine/reducer-utils.js';
 import { stripCardMarkers } from './format-helpers.js';
 import type { CardLookup, InstanceLookup } from './format-helpers.js';
+import { describeAttackLogEntry } from './format-attack.js';
 import {
   formatInstanceName,
   formatGroupedInstances,
@@ -333,6 +334,13 @@ function formatCombat(combat: CombatState, defOf: CardLookup, instOf: InstanceLo
   }
   if (combat.detainment) {
     lines.push(`${indent}  DETAINMENT`);
+  }
+  // Attack log: base stats plus every card that modified the attack.
+  if (combat.attackLog && combat.attackLog.length > 1) {
+    lines.push(`${indent}  Attack log:`);
+    for (const entry of combat.attackLog) {
+      lines.push(`${indent}    ${describeAttackLogEntry(entry, defOf)}`);
+    }
   }
   const assigned = combat.strikeAssignments.length;
   const unassigned = combat.strikesTotal - assigned;

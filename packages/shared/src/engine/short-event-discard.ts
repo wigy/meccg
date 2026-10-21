@@ -28,6 +28,8 @@ import { applyMove, dropConstraintsSourcedBy, findMoveEffectByShape } from './re
 import type { ReducerResult } from './reducer-utils.js';
 import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInstance, updateAttachment, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
+import { recordAttackChanges } from './attack-log.js';
+import type { AttackChangeSource } from './attack-log.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
 import type { RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../types/effects.js';
 
@@ -82,11 +84,12 @@ function isCorruptionCheckExempt(
  *
  * @param before - State immediately before the discard was applied.
  * @param after - State immediately after the discard was applied.
+ * @param source - Attack-log attribution for the resulting change.
  * @returns `after`, with `combat.strikesTotal`/`strikeProwess` adjusted by
  *   the bonus lost (or gained) from the discarded card, or `after` unchanged
  *   when no combat is in its pre-assignment window.
  */
-function recomputeLiveAttackAfterDiscard(before: GameState, after: GameState): GameState {
+function recomputeLiveAttackAfterDiscard(before: GameState, after: GameState, source: AttackChangeSource): GameState {
   const combat = after.combat;
   if (!combat || combat.phase !== 'assign-strikes' || combat.strikeAssignments.length > 0) return after;
 
@@ -112,7 +115,7 @@ function recomputeLiveAttackAfterDiscard(before: GameState, after: GameState): G
   const newStrikesTotal = Math.max(1, combat.strikesTotal + strikesDelta);
   const newStrikeProwess = combat.strikeProwess + prowessDelta;
   logDetail(`Pre-assignment discard adjusted the live attack: strikes ${combat.strikesTotal} → ${newStrikesTotal}, prowess ${combat.strikeProwess} → ${newStrikeProwess}`);
-  return { ...after, combat: { ...combat, strikesTotal: newStrikesTotal, strikeProwess: newStrikeProwess } };
+  return { ...after, combat: recordAttackChanges(combat, { ...combat, strikesTotal: newStrikesTotal, strikeProwess: newStrikeProwess }, source) };
 }
 
 /**
@@ -205,7 +208,7 @@ export function applyShortEventDiscardInPlay(
   // If a live attack is still in its pre-assignment window, the discarded
   // card may have been supplying an `all-attacks` strikes/prowess bonus
   // (e.g. Wake of War) — re-resolve and adjust it (CoE 3.i).
-  newState = recomputeLiveAttackAfterDiscard(state, newState);
+  newState = recomputeLiveAttackAfterDiscard(state, newState, { sourceInstanceId, sourceDefinitionId: def.id, playedBy: actor, note: 'bonus card discarded' });
 
   if (discardInPlay.corruptionCheck && costTapCharacterId) {
     // Rule 7.4: allies, Ringwraiths, and Balrog avatars never make
@@ -282,7 +285,7 @@ export function applyShortEventDiscardAllInPlay(
   logDetail(`${def.name}: discarded ${discarded} matching card(s) from play`);
   // See recomputeLiveAttackAfterDiscard: a swept card may have been
   // supplying an `all-attacks` bonus to a live pre-assignment attack.
-  newState = recomputeLiveAttackAfterDiscard(state, newState);
+  newState = recomputeLiveAttackAfterDiscard(state, newState, { sourceInstanceId, sourceDefinitionId: def.id, playedBy: actor, note: 'bonus card discarded' });
 
   if (sweep.corruptionCheck && targetCharacterId) {
     newState = enqueueCorruptionCheck(newState, {
@@ -581,7 +584,7 @@ export function applyTapDiscardInPlay(state: GameState, action: GameAction): Red
   newState = dropConstraintsSourcedBy(newState, [target.instanceId]);
   // See recomputeLiveAttackAfterDiscard: the discarded card may have been
   // supplying an `all-attacks` bonus to a live pre-assignment attack.
-  newState = recomputeLiveAttackAfterDiscard(state, newState);
+  newState = recomputeLiveAttackAfterDiscard(state, newState, { sourceInstanceId: target.instanceId, sourceDefinitionId: target.definitionId, playedBy: action.player, note: 'discarded' });
   logDetail(`tap-discard-in-play: tapped ${action.characterId as string}, discarded ${cardName} — resolved outside the chain (no response window)`);
 
   return { state: newState };

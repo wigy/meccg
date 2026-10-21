@@ -10,6 +10,7 @@
  */
 
 import type { DiceRollEffect } from '@meccg/shared';
+import { describeRollBreakdown, stripCardMarkers } from '@meccg/shared';
 import type { NotificationOptions } from './render-log.js';
 
 /** A roll line destined for the per-game message panel. */
@@ -27,7 +28,20 @@ export function diceRollLogLine(effect: DiceRollEffect): string {
   const altStr = alternateRoll
     ? ` (other roll ${alternateRoll.die1} + ${alternateRoll.die2} = ${alternateRoll.die1 + alternateRoll.die2}, discarded)`
     : '';
-  return `${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${totalStr}${altStr}`;
+  const caption = diceRollCaption(effect);
+  const breakdownStr = caption ? ` — ${caption}` : '';
+  return `${label}: ${playerName} rolled ${die1} + ${die2} = ${die1 + die2}${totalStr}${altStr}${breakdownStr}`;
+}
+
+/**
+ * Plain-text explanation of a strike roll or body check — every prowess,
+ * body and roll modifier that applied, the total and the outcome — or
+ * `undefined` for rolls that carry no breakdown. Shown under the landed dice
+ * and in both players' message panels.
+ */
+export function diceRollCaption(effect: DiceRollEffect): string | undefined {
+  const text = describeRollBreakdown(effect);
+  return text ? stripCardMarkers(text) : undefined;
 }
 
 /**
@@ -61,6 +75,9 @@ function truncateName(name: string): string {
  * Roll line for the per-game message panel, or null when the roll needs no
  * entry there.
  *
+ * A strike roll or body check carrying a breakdown is logged with its full
+ * arithmetic for both players (see {@link diceRollCaption}).
+ *
  * A CvCC strike carries a prowess total, so it is formatted as
  * `prowess+d1+d2=total` for both players — the matching result line arrives
  * later with the state. A plain 2d6 roll is only logged for the opponent: the
@@ -78,6 +95,15 @@ export function diceRollNotification(
 ): RollNotification | null {
   const { playerName, die1, die2, label, total } = effect;
   if (effect.alternateRoll) return null;
+  // Strike rolls and body checks carry a breakdown: log the full arithmetic
+  // for both players, including the roller, so each modifier is visible.
+  const caption = diceRollCaption(effect);
+  if (caption) {
+    const message = `rolled ${die1} + ${die2} — ${caption}`;
+    return playerName === selfName
+      ? { message, opts: { self: selfName } }
+      : { message, opts: { opponent: opponentName ?? playerName } };
+  }
   if (total !== undefined) {
     const prowess = total - die1 - die2;
     const charName = truncateName(label.startsWith('CvCC Strike: ') ? label.slice('CvCC Strike: '.length) : label);

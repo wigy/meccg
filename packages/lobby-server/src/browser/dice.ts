@@ -119,6 +119,12 @@ function animateDie(scene: HTMLElement, target: number, delay: number): void {
 
 const overlays: Record<string, HTMLElement> = {};
 const lastRolls: Record<string, { die1: number; die2: number }> = {};
+/**
+ * Caption explaining the last roll of each variant (a strike roll's or body
+ * check's term-by-term breakdown). Shown under the dice once they land and
+ * kept as the dice tray's tooltip so it can be read after the animation.
+ */
+const lastCaptions: Record<string, string> = {};
 
 /**
  * In-flight dice animations, one promise per active rollDice() call.
@@ -157,6 +163,9 @@ export function clearDice(): void {
   dismissDiceOverlays();
   for (const key of Object.keys(lastRolls)) {
     delete lastRolls[key];
+  }
+  for (const key of Object.keys(lastCaptions)) {
+    delete lastCaptions[key];
   }
   animatingVariants.clear();
   inflightAnimations.clear();
@@ -230,14 +239,20 @@ function createDiceGroup(dieA: HTMLElement, dieB: HTMLElement, kind: 'kept' | 'd
  * @param die2 - Result for the second die (1–6) of the (kept) roll.
  * @param variant - Color variant for both dice ('red' or 'black').
  * @param alternate - The other, discarded roll of a two-roll strike.
+ * @param caption - Plain-text explanation of the roll (prowess and modifier
+ *   terms, outcome), shown under the dice once they land and kept as the
+ *   dice tray's tooltip afterwards.
  */
 export function rollDice(
   die1: number,
   die2: number,
   variant: 'red' | 'black' = 'red',
   alternate?: { die1: number; die2: number },
+  caption?: string,
 ): void {
   lastRolls[variant] = { die1, die2 };
+  if (caption) lastCaptions[variant] = caption;
+  else delete lastCaptions[variant];
 
   // Register this roll as an in-flight animation. The promise resolves
   // only when the tumble + slide-to-tray sequence below completes, so
@@ -315,6 +330,16 @@ export function rollDice(
     container.appendChild(diceRow);
   }
 
+  if (caption) {
+    // Revealed once the dice land (see .dice-roll-caption--shown) so the result
+    // and its explanation appear together during the hold below.
+    const captionEl = document.createElement('div');
+    captionEl.className = 'dice-roll-caption';
+    captionEl.textContent = caption;
+    container.appendChild(captionEl);
+    setTimeout(() => { if (!superseded()) captionEl.classList.add('dice-roll-caption--shown'); }, LANDED_MS);
+  }
+
   overlay.appendChild(container);
   document.body.appendChild(overlay);
 
@@ -342,6 +367,8 @@ export function rollDice(
       // (which would send the dice to the top-left corner).
       const trayWasEmpty = !tray.children.length;
       if (trayWasEmpty) tray.style.display = 'flex';
+      // The caption stays readable via the tray tooltip; only dice travel.
+      if (caption) container.querySelector('.dice-roll-caption')?.remove();
       const trayRect = tray.getBoundingClientRect();
       const contRect = slider.getBoundingClientRect();
       const startX = contRect.left + contRect.width / 2;
@@ -400,7 +427,10 @@ export function restoreDice(): void {
     if (!tray) continue;
 
     // Clear tray and skip if no roll
-    if (!roll) { tray.innerHTML = ''; tray.removeAttribute('data-roll'); continue; }
+    if (!roll) { tray.innerHTML = ''; tray.removeAttribute('data-roll'); tray.removeAttribute('title'); continue; }
+    const caption = lastCaptions[variant];
+    if (caption) tray.title = caption;
+    else tray.removeAttribute('title');
     // Skip the rebuild only when the tray already shows *this* roll. Testing
     // `children.length > 0` alone is not enough: the stored roll can change
     // while the tray is hidden. A dice-roll broadcast arriving while the debug

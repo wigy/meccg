@@ -47,7 +47,7 @@ vi.mock('./ask-ai.js', () => ({
 vi.mock('./effect-log-buffer.js', () => ({
   queueEffectLog: vi.fn(), flushEffectLog: vi.fn(), clearEffectLog: vi.fn(),
 }));
-vi.mock('./dice-roll-log.js', () => ({ diceRollLogLine: vi.fn(), diceRollNotification: vi.fn() }));
+vi.mock('./dice-roll-log.js', () => ({ diceRollLogLine: vi.fn(), diceRollNotification: vi.fn(), diceRollCaption: vi.fn() }));
 vi.mock('./render-toolbar-status.js', () => ({ buildToolbarStatusText: vi.fn(() => '') }));
 
 import type { PlayerId } from '@meccg/shared';
