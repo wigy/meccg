@@ -871,7 +871,11 @@ function evaluateHazardEvent(
     // not declined: "if in doubt, play it" (see `hazardCardPrice`).
     ?? { tsd: 0, reason: 'no effect this module prices — played for the card rotation' };
 
-  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: tunables.hazardCardPrice }, tunables);
+  // A play that cannot do anything (a corruption hazard on a Ringwraith) buys
+  // no rotation worth the card: kept, it waits for a target it can hurt.
+  const wasted = 'wasted' in gain && gain.wasted === true;
+  const cardPrice = wasted ? -tunables.hazardCardPrice : tunables.hazardCardPrice;
+  const dtsd = netTsdDelta({ realized: gain.tsd, tempo: cardPrice }, tunables);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${gain.reason}`, dtsd }];
 
   return scoredEvaluation({
@@ -884,10 +888,12 @@ function evaluateHazardEvent(
       node('the event', gain.tsd, [
         leaf('event', name),
         leaf('what it achieves', gain.tsd, { unit: 'tsd', note: gain.reason }),
-        leaf('the card traded at the hand reset', tunables.hazardCardPrice, {
+        leaf('the card traded at the hand reset', cardPrice, {
           unit: 'tsd',
           tunable: 'hazardCardPrice',
-          note: 'drawn back before our turn — negative is the rotation it buys',
+          note: wasted
+            ? 'thrown away on a target it cannot affect — kept, it waits for one it can'
+            : 'drawn back before our turn — negative is the rotation it buys',
         }),
       ], { unit: 'tsd' }),
     ],

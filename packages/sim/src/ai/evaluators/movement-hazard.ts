@@ -299,9 +299,16 @@ export const movementHazardEvaluator: ActionEvaluator = {
           // on a lone follower, Dâsakûn, instead of Théoden, who already
           // carried corruption points). Prefer the character closest to
           // being buried by corruption.
+          // Ringwraiths and Balrogs never make corruption checks (CoE 7.4),
+          // so a corruption hazard on one does nothing — score it below
+          // passing (bug report: Covetous Thoughts on Hoarmûrath).
           if (def.keywords?.includes('corruption') && action.targetCharacterId) {
             const target = view.opponent.characters[action.targetCharacterId];
-            if (target) return 5 + target.effectiveStats.corruptionPoints;
+            if (target) {
+              const race = (pool[target.definitionId as string] as { race?: string } | undefined)?.race;
+              if (race === 'ringwraith' || race === 'balrog') return 0;
+              return 5 + target.effectiveStats.corruptionPoints;
+            }
           }
           return 5;
         }

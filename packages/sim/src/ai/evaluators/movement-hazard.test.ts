@@ -125,7 +125,16 @@ const HAUBERK_OF_BRIGHT_MAIL: CardDefinition = {
   corruptionPoints: 1,
 } as unknown as CardDefinition;
 
+// Hoarmûrath the Ringwraith (le-53): never makes corruption checks (CoE 7.4).
+const HOARMURATH: CardDefinition = {
+  cardType: 'minion-character',
+  id: 'le-53',
+  name: 'Hoarmûrath the Ringwraith',
+  race: 'ringwraith',
+} as unknown as CardDefinition;
+
 const POOL: Record<string, CardDefinition> = {
+  'le-53': HOARMURATH,
   'tw-254': HAUBERK_OF_BRIGHT_MAIL,
   'as-30': FULL_OF_FROTH_AND_RAGE,
   'td-42': LESSER_SPIDERS,
@@ -235,6 +244,25 @@ describe('movementHazardEvaluator play-hazard corruption-keyword targeting', () 
     const dasakunScore = movementHazardEvaluator.score(playHazardOnCharacter('h0', 'dasakun'), context)!;
 
     expect(theodenScore).toBeGreaterThan(dasakunScore);
+  });
+
+  test('scores a Ringwraith target below passing, since he never makes corruption checks', () => {
+    // Bug report: the AI played Covetous Thoughts on Hoarmûrath the Ringwraith.
+    const context: AiContext = {
+      ...makeContext(['as-24']),
+      view: {
+        self: { hand: [{ instanceId: 'h0', definitionId: 'as-24' }] },
+        opponent: {
+          companies: [],
+          characters: {
+            hoarmurath: { definitionId: 'le-53', effectiveStats: { corruptionPoints: 0 } },
+          },
+        },
+      } as unknown as PlayerView,
+    };
+    const playScore = movementHazardEvaluator.score(playHazardOnCharacter('h0', 'hoarmurath'), context)!;
+    const passScore = movementHazardEvaluator.score({ type: 'pass', player: 'p2' } as GameAction, context)!;
+    expect(playScore).toBeLessThan(passScore);
   });
 
   test('falls back to the flat baseline without a resolvable target', () => {

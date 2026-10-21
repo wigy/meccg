@@ -876,6 +876,21 @@ describe('hazard events priced by family', () => {
     expect(JSON.stringify(evaluation.rationale)).toContain('check(s) forced this movement/hazard phase');
   });
 
+  test('a corruption hazard on a Ringwraith is not played, because he never makes corruption checks', () => {
+    // Game mvieuxd2-tctjg1: the modular AI put Covetous Thoughts on
+    // Hoarmûrath, the only target offered. CoE 7.4 — Ringwraiths never make
+    // corruption checks — so the card was thrown away for nothing.
+    const { context, legalActions } = contextFor('hazards/covetous-thoughts-on-ringwraith');
+    const play = legalActions.find(a => a.type === 'play-hazard' && named(context, a, 'Covetous Thoughts'))!;
+    expect(play).toBeDefined();
+    const { evaluations } = evaluateDecision([hazardsModule], context);
+    const evaluation = evaluations.find(e => e.action === play)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('never makes corruption checks');
+    const pass = evaluations.find(e => e.action.type === 'pass')!;
+    expect(evaluation.utility).toBeLessThan(pass.utility);
+    expect(evaluations[0].action).not.toBe(play);
+  });
+
   test('Tidings of Bold Spies is priced as the duplicated automatic-attacks', () => {
     const { context, legalActions } = contextFor('hazards/tidings-of-bold-spies');
     const tidings = legalActions.find(a => a.type === 'play-hazard' && named(context, a, 'Tidings of Bold Spies'))!;

@@ -33,6 +33,11 @@
  * `tap bearer`). Keeping it is the risk above; shedding it spends a tap the
  * company would otherwise use to play a resource or influence a faction. Either
  * way they pay, and the tap is the smaller of the two, so it is charged.
+ *
+ * **Bearers it cannot touch.** Ringwraiths and Balrogs never make corruption
+ * checks (CoE 7.4), so on one of them the card does nothing at all — no check
+ * fails, and he has no reason to tap to shed it. Such a play is marked
+ * `wasted`: the card is better kept for a bearer who does make checks.
  */
 
 import type { CardDefinition, CardInstanceId, OpponentCompanyView } from '@meccg/shared';
@@ -58,7 +63,12 @@ interface Effect {
 export interface CorruptionHazardGain {
   readonly tsd: number;
   readonly reason: string;
+  /** The bearer never makes corruption checks, so the play achieves nothing. */
+  readonly wasted?: boolean;
 }
+
+/** Races that are not affected by corruption and never make corruption checks (CoE 7.4). */
+const IMMUNE_TO_CORRUPTION: ReadonlySet<string> = new Set(['ringwraith', 'balrog']);
 
 /** Marshalling points leaving play with an opposing character, by source. */
 function lossDelta(context: ModuleContext, characterId: CardInstanceId): MpDelta {
@@ -101,6 +111,12 @@ export function corruptionHazardGain(
   const { view, standing, tunables } = context;
   const character = view.opponent.characters[characterId];
   if (!character) return null;
+  const printed = context.cardPool[character.definitionId as string] as unknown as
+    { name?: string; race?: string } | undefined;
+  const name = printed?.name ?? (characterId as string);
+  if (printed?.race && IMMUNE_TO_CORRUPTION.has(printed.race)) {
+    return { tsd: 0, wasted: true, reason: `${name} never makes corruption checks — the card does nothing on him` };
+  }
 
   // The card's own modifier to its bearer's checks (Alone and Unadvised:
   // +1 per character in his company).
@@ -139,8 +155,6 @@ export function corruptionHazardGain(
   const shedTap = effects.some(e => e.type === 'grant-action' && e.action === 'remove-self-on-roll'
     && e.cost?.tap === 'bearer') ? tunables.tapTempoCost : 0;
   const tsd = pLost * onFailure + shedTap;
-  const name = (context.cardPool[character.definitionId as string] as unknown as { name?: string } | undefined)?.name
-    ?? (characterId as string);
   return {
     tsd,
     reason: `${name}: corruption ${before} → ${after}${modifier ? ` (checks ${modifier > 0 ? '+' : ''}${modifier})` : ''}, `
