@@ -29,7 +29,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, untappedAltPermanentEvents, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies, isDarkhavenSiteDef } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -5007,9 +5007,9 @@ function playHazardsActionsForCompany(
   // Hazard player may tap an in-play dual-mode creature-permanent-event
   // (tw-2 / tw-107) to convert it to a short-event.
   if (!isResourcePlayer) {
-    actions.push(...tapAltPermanentEventActions(state, playerId, mhState));
-    actions.push(...attackFromAltPermanentEventActions(state, playerId, mhState));
-    actions.push(...returnAltPermanentEventActions(state, playerId, mhState));
+    actions.push(...tapAltPermanentEventActions(state, playerId, state.players[activeIdx], limitReached));
+    actions.push(...attackFromAltPermanentEventActions(state, playerId, targetCompanyId, limitReached));
+    actions.push(...returnAltPermanentEventActions(state, playerId, limitReached));
     // Sated Beast (td-149): "This card may also be played during opponent's
     // movement/hazard phase" — a hero-resource-event carrying `play-window`
     // `crossTurn: true` is offered to the non-active (hazard-side) player
@@ -5062,83 +5062,67 @@ const MIN_DECK_SIZE_FOR_NAZGUL_TO_DECK = 5;
 function tapAltPermanentEventActions(
   state: GameState,
   playerId: PlayerId,
-  mhState: MovementHazardPhaseState,
+  resourcePlayer: PlayerState,
+  limitReached: boolean,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   const player = playerById(state, playerId);
   if (!player) return actions;
 
-  const activeIdx = getPlayerIndex(state, state.activePlayer!);
-  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
-  const limitReached = activeCompany
-    ? mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id)
-    : false;
-
-  for (const card of player.cardsInPlay) {
-    if (card.status === CardStatus.Tapped) continue;
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
-    if (altEvent?.mode !== 'permanent-event') continue;
+  for (const { card, def, effects, altEvent, bypassesLimit } of untappedAltPermanentEvents(state, player)) {
     // Persistent permanent-events (Lady of the Golden Wood as-13) have no
     // tap-to-short-event conversion — they simply stay in play.
     if (altEvent.persistent) continue;
     // A conversion whose short-event modifies "any one attack" (Hoarmûrath of
     // Dír tw-44) needs a live attack to name, so it is offered in the combat
     // pre-assignment window instead (`modify-attack` / `fromAltPermanentEvent`).
-    if (getCardEffects(def).some(e => e.type === 'modify-attack' && e.fromAltPermanentEvent)) continue;
+    if (effects.some(e => e.type === 'modify-attack' && e.fromAltPermanentEvent)) continue;
     // A conversion that "attacks as itself" (Shelob tw-86, `attacksAsCreature`)
     // is offered as `attack-alt-permanent-event` instead — see
     // `attackFromAltPermanentEventActions` below.
     if (altEvent.attacksAsCreature) continue;
 
-    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
     if (limitReached && !bypassesLimit) {
       actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'Hazard limit reached' });
       continue;
     }
 
-    const tapCharEffect = getCardEffects(def).find(e => e.type === 'tap-character');
+    // Every on-tap effect below aims at a character. As the hazard player the
+    // short-event is a hazard directed at the opponent (CoE 2.1.2), so only the
+    // resource (active) player's characters are candidate targets — never the
+    // hazard player's own.
+    const characters = Object.entries(resourcePlayer.characters);
+
+    const tapCharEffect = effects.find(e => e.type === 'tap-character');
     if (tapCharEffect) {
-      let offered = false;
-      // CoE 2.1.2: as the hazard player, this effect is a hazard directed at the
-      // opponent — it may only tap the resource (active) player's characters, never
-      // the hazard player's own. Restrict targets to the resource player.
-      for (const [charId, ch] of Object.entries(state.players[activeIdx].characters)) {
+      const targets = characters.filter(([, ch]) => {
         // Only untapped characters may be tapped — a wounded (Inverted)
         // character is not a legal target, and resolving the tap would
         // overwrite the wound with Tapped.
-        if (ch.status !== CardStatus.Untapped) continue;
+        if (ch.status !== CardStatus.Untapped) return false;
         const charDef = defById(state, ch.definitionId);
-        if (!charDef || !isCharacterCard(charDef)) continue;
-        if (tapCharEffect.filter && !matchesDefinition(charDef, tapCharEffect.filter)) continue;
-        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
-        offered = true;
-      }
-      if (!offered) {
-        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to tap' });
-      }
+        if (!charDef || !isCharacterCard(charDef)) return false;
+        return !tapCharEffect.filter || matchesDefinition(charDef, tapCharEffect.filter);
+      });
+      actions.push(...tapAltPerTargetActions(playerId, card.instanceId, targets, 'No eligible character to tap'));
       continue;
     }
 
     // Indûr Dawndeath (tw-46): the on-tap short-event "makes any wounded
-    // character discard an item of his choice (but not a ring)". As a hazard
-    // (CoE 2.1.2) it may only aim at the resource (active) player's characters.
-    // A character is only a legal target when it matches the effect's
-    // `targetFilter` (wounded) AND bears at least one item the `itemFilter`
-    // allows — otherwise tapping would be a play without effect (CoE 9.6).
-    const discardItemEffect = getCardEffects(def).find(
+    // character discard an item of his choice (but not a ring)". A character
+    // is only a legal target when it matches the effect's `targetFilter`
+    // (wounded) AND bears at least one item the `itemFilter` allows —
+    // otherwise tapping would be a play without effect (CoE 9.6).
+    const discardItemEffect = effects.find(
       (e): e is ForceDiscardTargetItemEffect => e.type === 'force-discard-target-item',
     );
     if (discardItemEffect) {
-      const resourcePlayer = state.players[activeIdx];
-      let offered = false;
-      for (const [charId, ch] of Object.entries(resourcePlayer.characters)) {
+      const targets = characters.filter(([, ch]) => {
         const charDef = defById(state, ch.definitionId);
-        if (!charDef || !isCharacterCard(charDef)) continue;
+        if (!charDef || !isCharacterCard(charDef)) return false;
         if (discardItemEffect.targetFilter) {
           const ctx = buildPlayOptionContext(state, ch, resourcePlayer);
-          if (!matchesCondition(discardItemEffect.targetFilter, ctx)) continue;
+          if (!matchesCondition(discardItemEffect.targetFilter, ctx)) return false;
         }
         const hasDiscardableItem = ch.items.some(item => {
           const itemDef = defById(state, item.definitionId);
@@ -5147,47 +5131,54 @@ function tapAltPermanentEventActions(
         });
         if (!hasDiscardableItem) {
           logDetail(`${def.name}: ${cardName(state, ch.definitionId)} matches the target filter but bears no discardable item — not offered`);
-          continue;
         }
-        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
-        offered = true;
-      }
-      if (!offered) {
-        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character with a discardable item' });
-      }
+        return hasDiscardableItem;
+      });
+      actions.push(...tapAltPerTargetActions(playerId, card.instanceId, targets, 'No eligible character with a discardable item'));
       continue;
     }
 
     // Akhôrahil (tw-4): the on-tap short-event "modifies any one character's
-    // body by -1 for the rest of this turn". As a hazard (CoE 2.1.2) it may
-    // only aim at the resource (active) player's characters; one action is
-    // emitted per character passing the effect's optional `targetFilter`.
-    const statModEffect = getCardEffects(def).find(
+    // body by -1 for the rest of this turn"; one action is emitted per
+    // character passing the effect's optional `targetFilter`.
+    const statModEffect = effects.find(
       (e): e is TargetCharacterStatModifierEffect => e.type === 'target-character-stat-modifier',
     );
     if (statModEffect) {
-      const resourcePlayer = state.players[activeIdx];
-      let offered = false;
-      for (const [charId, ch] of Object.entries(resourcePlayer.characters)) {
+      const targets = characters.filter(([, ch]) => {
         const charDef = defById(state, ch.definitionId);
-        if (!charDef || !isCharacterCard(charDef)) continue;
-        if (statModEffect.targetFilter) {
-          const ctx = buildPlayOptionContext(state, ch, resourcePlayer);
-          if (!matchesCondition(statModEffect.targetFilter, ctx)) continue;
-        }
-        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCharacterId: charId as CardInstanceId }, viable: true });
-        offered = true;
-      }
-      if (!offered) {
-        logDetail(`${def.name}: no eligible character to modify — tap not offered`);
-        actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'No eligible character to modify' });
-      }
+        if (!charDef || !isCharacterCard(charDef)) return false;
+        return !statModEffect.targetFilter
+          || matchesCondition(statModEffect.targetFilter, buildPlayOptionContext(state, ch, resourcePlayer));
+      });
+      if (targets.length === 0) logDetail(`${def.name}: no eligible character to modify — tap not offered`);
+      actions.push(...tapAltPerTargetActions(playerId, card.instanceId, targets, 'No eligible character to modify'));
       continue;
     }
 
     actions.push({ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
   }
   return actions;
+}
+
+/**
+ * One viable `tap-alt-permanent-event` per eligible target character, or — when
+ * none is eligible — a single untargeted non-viable action carrying
+ * `noTargetReason`, so the card still shows up as present-but-unplayable.
+ */
+function tapAltPerTargetActions(
+  playerId: PlayerId,
+  cardInstanceId: CardInstanceId,
+  targets: readonly (readonly [string, unknown])[],
+  noTargetReason: string,
+): EvaluatedAction[] {
+  if (targets.length === 0) {
+    return [{ action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId }, viable: false, reason: noTargetReason }];
+  }
+  return targets.map(([charId]) => ({
+    action: { type: 'tap-alt-permanent-event', player: playerId, cardInstanceId, targetCharacterId: charId as CardInstanceId },
+    viable: true,
+  }));
 }
 
 /**
@@ -5201,31 +5192,20 @@ function tapAltPermanentEventActions(
 function returnAltPermanentEventActions(
   state: GameState,
   playerId: PlayerId,
-  mhState: MovementHazardPhaseState,
+  limitReached: boolean,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   const player = playerById(state, playerId);
   if (!player) return actions;
 
-  const activeIdx = getPlayerIndex(state, state.activePlayer!);
-  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
-  const limitReached = activeCompany
-    ? mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id)
-    : false;
-
-  for (const card of player.cardsInPlay) {
-    if (card.status === CardStatus.Tapped) continue;
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
-    if (altEvent?.mode !== 'permanent-event' || !altEvent.returnToHandOption) continue;
-
-    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  for (const { card, altEvent, bypassesLimit } of untappedAltPermanentEvents(state, player)) {
+    if (!altEvent.returnToHandOption) continue;
+    const action = { type: 'return-alt-permanent-event' as const, player: playerId, cardInstanceId: card.instanceId };
     if (limitReached && !bypassesLimit) {
-      actions.push({ action: { type: 'return-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: false, reason: 'Hazard limit reached' });
+      actions.push({ action, viable: false, reason: 'Hazard limit reached' });
       continue;
     }
-    actions.push({ action: { type: 'return-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId }, viable: true });
+    actions.push({ action, viable: true });
   }
   return actions;
 }
@@ -5243,32 +5223,23 @@ function returnAltPermanentEventActions(
 function attackFromAltPermanentEventActions(
   state: GameState,
   playerId: PlayerId,
-  mhState: MovementHazardPhaseState,
+  activeCompanyId: CompanyId,
+  limitReached: boolean,
 ): EvaluatedAction[] {
   const actions: EvaluatedAction[] = [];
   if (state.chain != null) return actions;
   const player = playerById(state, playerId);
   if (!player) return actions;
 
-  const activeIdx = getPlayerIndex(state, state.activePlayer!);
-  const activeCompany = state.players[activeIdx].companies[mhState.activeCompanyIndex];
-  if (!activeCompany) return actions;
-  const limitReached = mhState.hazardsPlayedThisCompany >= currentHazardLimit(state, mhState, activeCompany.id);
-
-  for (const card of player.cardsInPlay) {
-    if (card.status === CardStatus.Tapped) continue;
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    const altEvent = getCardEffects(def).find(e => e.type === 'creature-alt-event');
-    if (altEvent?.mode !== 'permanent-event' || !altEvent.attacksAsCreature) continue;
-
-    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
+  for (const { card, def, altEvent, bypassesLimit } of untappedAltPermanentEvents(state, player)) {
+    if (!altEvent.attacksAsCreature) continue;
+    const action = { type: 'attack-alt-permanent-event' as const, player: playerId, cardInstanceId: card.instanceId, targetCompanyId: activeCompanyId };
     if (limitReached && !bypassesLimit) {
-      actions.push({ action: { type: 'attack-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCompanyId: activeCompany.id }, viable: false, reason: 'Hazard limit reached' });
+      actions.push({ action, viable: false, reason: 'Hazard limit reached' });
       continue;
     }
-    logDetail(`Creature-permanent-event "${def.name}" may attack from its permanent-event state against company ${activeCompany.id as string}`);
-    actions.push({ action: { type: 'attack-alt-permanent-event', player: playerId, cardInstanceId: card.instanceId, targetCompanyId: activeCompany.id }, viable: true });
+    logDetail(`Creature-permanent-event "${def.name}" may attack from its permanent-event state against company ${activeCompanyId as string}`);
+    actions.push({ action, viable: true });
   }
   return actions;
 }
