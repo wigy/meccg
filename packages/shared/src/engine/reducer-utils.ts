@@ -823,7 +823,7 @@ export function companyEffectiveSizeOf(state: GameState, charInstIds: readonly C
  * Variant of {@link companyEffectiveSizeOf} that exempts up to
  * `exemptLeaderCount` Leader-keyword characters from the count before
  * applying CoE rule 3.24's half-character rounding (used by *Orders from the
- * Great Demon*, ba-70, whose `extra-leader-slot` effect exempts one Leader
+ * Great Demon*, ba-70, whose `extra-leader-slot` effect with `exemptFromSizeCap` exempts one Leader
  * per copy in play from the company-size maximum).
  */
 export function companyEffectiveSizeExemptingLeaders(
