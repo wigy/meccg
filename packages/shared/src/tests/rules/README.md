@@ -6,7 +6,7 @@
 
 | Total Rules | Implemented | Remaining | Progress |
 |:-----------:|:-----------:|:---------:|:--------:|
-| 351 | 304 | 47 | 86.6% |
+| 352 | 305 | 47 | 86.6% |
 
 ## Section Breakdown
 
@@ -20,7 +20,7 @@
 | 05 | [Movement/Hazard Phase](05-movement-hazard-phase/) | 34 | 26 | 76.5% |
 | 06 | [Site Phase](06-site-phase/) | 21 | 17 | 81.0% |
 | 07 | [End-of-Turn Phase](07-end-of-turn-phase/) | 3 | 3 | 100.0% |
-| 08 | [Combat](08-combat/) | 42 | 34 | 81.0% |
+| 08 | [Combat](08-combat/) | 43 | 35 | 81.4% |
 | 09 | [Agents, Events, Items & Rings](09-agents-events-items/) | 31 | 29 | 93.5% |
 | 10 | [Corruption, Influence, Actions/Timing & Ending the Game](10-corruption-influence-endgame/) | 53 | 32 | 60.4% |
 | — | Against the Shadow (MEAS) | 5 | 5 | 100.0% |
@@ -277,6 +277,7 @@
 | 8.40 | Combat | [Cvcc Initiation](08-combat/rule-8.40-cvcc-initiation.test.ts) | ☑ |
 | 8.41 | Combat | [Cvcc Alignment Restrictions](08-combat/rule-8.41-cvcc-alignment-restrictions.test.ts) | ☑ |
 | 8.42 | Combat | [Cvcc Hazard Restrictions](08-combat/rule-8.42-cvcc-hazard-restrictions.test.ts) | ☑ |
+| 8.43 | Combat | [Attack Log And Roll Breakdown](08-combat/rule-8.43-attack-log-and-roll-breakdown.test.ts) | ☑ |
 | 9.00 | Agents, Events, Items & Rings | [Agent State Model](09-agents-events-items/rule-9.00-agent-state-model.test.ts) | ☑ |
 | 9.01 | Agents, Events, Items & Rings | [Agent Actions](09-agents-events-items/rule-9.01-agent-actions.test.ts) | ☑ |
 | 9.02 | Agents, Events, Items & Rings | [Agent Action Options](09-agents-events-items/rule-9.02-agent-action-options.test.ts) | ☑ |

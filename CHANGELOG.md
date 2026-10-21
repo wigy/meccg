@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.215.0 — 2026-10-21
+
+Combat Rolls Explained to Both Players
+
+### Game Engine
+
+- Every change made to an attack (strikes halved or reduced, prowess or body modified, attack canceled) is now recorded in a public combat attack log with the responsible card and player, and every strike roll and body check carries a term-by-term breakdown; the legal-action "need N+" now uses the same strike-prowess calculation as the reducer, fixing its omission of passive modify-attack items and creature per-defender bonuses (#3375)
+- New caster-gated from-hand modify-attack mode (required skill, cost, cost-exempt race) and a rest-of-turn cap on automatic-attack strikes at a site, for Veils of Shadow (le-249) (#3384)
+- Angmar Arises now grants its named-region keying to creatures keyed to a mix of region types such as Barrow-wight; double Shadow-land creatures stay excluded (#3385)
+- Beorning Skin-changers' kill MP is now starred (1*), so a minion company that declines the trophy scores it instead of removing it from play (#3380)
+- Angmarim (as-62) card data fixed: influence number, Carn Dûm playability and Easterling/Hillmen standard modifications (#3382)
+- Certified as-62 Angmarim (#3382) and le-249 Veils of Shadow (#3384)
+
+### Web Client
+
+- Combat Attack panel, body in the assign banner, a caption under the landed dice and breakdown lines in the message log show attack modifiers and strike rolls to both players (#3375)
+- Pending opposed rolls (No More Nonsense) now show a Roll button and situation banner (#3379)
+- No More Nonsense lets the player choose the opposed character from a menu instead of always picking the first company member (#3387)
+- Clicking Great Army of the North now offers both its permanent-event and short-event modes (#3386)
+- The prowess/body badge stays visible on tapped characters carrying two or more attachments (#3376)
+
+### Text Client
+
+- Strike-roll breakdowns and the attack log are printed (#3375)
+
+### Lobby Server
+
+- The deck edit button is shown on every owned deck, not only the one selected for play (#3377)
+
+### AI
+
+- The modular AI now finds resources offered from the discard pile or sideboard (Glove of Radagast allies, War-forges items) instead of declining them (#3381)
+- Item-play-site filters are read against the site as the engine does, including automatic-attack races and the Deep Mines as an Under-deeps site (#3378)
+- Healing Herbs' untap is priced for the companion it untaps rather than crediting the activator's own tap back (#3374)
+
+### Infrastructure
+
+- merge-all-and-release always compares the live server version with the latest release tag and deploys when behind, republishing a stale Docker Hub `latest` image (#3383)
+
+### Tests
+
+- New card tests for as-62 and le-249 and rule test 8.43 for the attack log and roll breakdowns
+- Regression tests for Angmar Arises mixed keying, Beorning Skin-changers trophy scoring, the attack-log display, opposed-roll banner, No More Nonsense and Great Army mode menus, tapped-character badge, deck row actions and the modular AI's discard/sideboard plays, item-play-site reading and Healing Herbs pricing
+
+### Documentation
+
+- README project status, rules tests README and card tests README refreshed
+
 ## 0.214.0 — 2026-10-20
 
 Forgotten Passwords Return by Mail

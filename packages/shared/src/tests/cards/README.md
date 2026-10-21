@@ -6,16 +6,16 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1412 | 1412 | 0 | 100.0% |
+| 1414 | 1414 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 131 | 131 | 100.0% |
+| AS | 132 | 132 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 157 | 157 | 100.0% |
-| LE | 343 | 343 | 100.0% |
+| LE | 344 | 344 | 100.0% |
 | TD | 148 | 148 | 100.0% |
 | TW | 429 | 429 | 100.0% |
 | WH | 103 | 103 | 100.0% |
@@ -73,6 +73,7 @@
 | as-59 | Haradrim | — | 6 | ☑ |
 | as-60 | Wain-easterlings | — | 4 | ☑ |
 | as-61 | Petty-dwarves | — | 7 | ☑ |
+| as-62 | Angmarim | — | 10 | ☑ |
 | as-63 | Haradrim | — | 9 | ☑ |
 | as-64 | Nûrniags | — | 5 | ☑ |
 | as-65 | Petty-dwarves | — | 6 | ☑ |
@@ -164,7 +165,7 @@
 | ba-7 | Hill-troll | — | 3 | ☑ |
 | ba-8 | Mountain-maggot | — | 3 | ☑ |
 | ba-9 | Umagaur | — | 8 | ☑ |
-| ba-10 | Beorning Skin-changers | — | 8 | ☑ |
+| ba-10 | Beorning Skin-changers | — | 9 | ☑ |
 | ba-11 | Carrion Feeders | — | 9 | ☑ |
 | ba-12 | Olog Warlords | — | 5 | ☑ |
 | ba-13 | Shelob’s Brood | — | 7 | ☑ |
@@ -297,7 +298,7 @@
 | dm-41 | The Under-vaults | — | 14 | ☑ |
 | dm-42 | Urlurtsu Nurn | — | 7 | ☑ |
 | dm-43 | An Article Missing | — | 15 | ☑ |
-| dm-44 | Angmar Arises | — | 10 | ☑ |
+| dm-44 | Angmar Arises | — | 11 | ☑ |
 | dm-45 | An Unexpected Outpost | — | 14 | ☑ |
 | dm-46 | Aware of their Ways | — | 7 | ☑ |
 | dm-49 | Chance of Being Lost | — | 11 | ☑ |
@@ -372,7 +373,7 @@
 | dm-125 | Enduring Tales | — | 6 | ☑ |
 | dm-126 | Eyes of Mandos | — | 8 | ☑ |
 | dm-129 | Fifteen Birds in Five Firtrees | — | 15 | ☑ |
-| dm-130 | Fireworks | — | 20 | ☑ |
+| dm-130 | Fireworks | — | 22 | ☑ |
 | dm-131 | First of the Order | — | 5 | ☑ |
 | dm-132 | Forewarned Is Forearmed | — | 15 | ☑ |
 | dm-134 | Hall of Fire | — | 15 | ☑ |
@@ -600,7 +601,7 @@
 | le-220 | Ready to His Will | — | 11 | ☑ |
 | le-223 | The Ring Leaves Its Mark | — | 13 | ☑ |
 | le-224 | Rumor of the One | — | 8 | ☑ |
-| le-225 | Ruse | — | 10 | ☑ |
+| le-225 | Ruse | — | 11 | ☑ |
 | le-226 | Secrets of Their Forging | — | 21 | ☑ |
 | le-228 | Skies of Fire | — | 9 | ☑ |
 | le-230 | Smoke on the Wind | — | 11 | ☑ |
@@ -618,6 +619,7 @@
 | le-245 | Tidings of Death | — | 10 | ☑ |
 | le-246 | To Satisfy the Questioner | — | 13 | ☑ |
 | le-247 | Under His Blow | — | 5 | ☑ |
+| le-249 | Veils of Shadow | — | 6 | ☑ |
 | le-250 | Voices of Malice | — | 22 | ☑ |
 | le-252 | We Have Come to Kill | — | 17 | ☑ |
 | le-253 | Weigh All Things to a Nicety | — | 10 | ☑ |
