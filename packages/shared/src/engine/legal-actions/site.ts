@@ -1002,9 +1002,9 @@ function resolveAttacksActions(
  * site phase the company successfully plays Rescue Prisoners at Dol Guldur (or
  * rescues characters taken prisoner if the rescue site is Dol Guldur)." The
  * quoted window is the effect's `when` condition, evaluated against the
- * per-company site-phase context — currently
- * `company.prisonersRescuedAtDolGuldurThisSitePhase`, set by every successful
- * rescue path (see `markPrisonersRescuedAtDolGuldur`).
+ * per-company site-phase context — `site.name` plus
+ * `company.prisonersRescuedThisSitePhase`, set by every successful rescue
+ * path (see `markPrisonersRescued`).
  *
  * Three gates, all of which the reducer re-checks:
  *  - the card must be `Untapped` (the tap is its cost, and "this card never
@@ -1038,8 +1038,8 @@ function inPlayCompanyTapGrantActions(
   const siteDef = company.currentSite ? defById(state, company.currentSite.definitionId) : undefined;
   const context = {
     company: {
-      prisonersRescuedAtDolGuldurThisSitePhase:
-        siteState.prisonersRescuedAtDolGuldurThisSitePhase ?? false,
+      prisonersRescuedThisSitePhase:
+        siteState.prisonersRescuedThisSitePhase ?? false,
     },
     site: { name: siteDef?.name },
   };
@@ -1067,7 +1067,7 @@ function inPlayCompanyTapGrantActions(
         continue;
       }
       if (effect.when && !matchesCondition(effect.when, context)) {
-        logDetail(`Grant-action ${effect.action} on ${def.name}: timing condition not met (site ${siteDef?.name ?? '?'}, prisoners rescued at Dol Guldur this site phase: ${String(context.company.prisonersRescuedAtDolGuldurThisSitePhase)})`);
+        logDetail(`Grant-action ${effect.action} on ${def.name}: timing condition not met (site ${siteDef?.name ?? '?'}, prisoners rescued this site phase: ${String(context.company.prisonersRescuedThisSitePhase)})`);
         continue;
       }
       const discardKeyword = effect.cost.discardCompanyKeywordCard;

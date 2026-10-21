@@ -2869,7 +2869,9 @@ copy may leave `cardsInPlay` afterwards (dm-154 is subsequently *stored*).
 ```json
 { "type": "grant-action", "action": "tap-pass-the-doors",
   "cost": { "tap": "self" }, "singletonLock": true,
-  "when": { "company.prisonersRescuedAtDolGuldurThisSitePhase": true } }
+  "when": { "$and": [
+    { "site.name": "Dol Guldur" },
+    { "company.prisonersRescuedThisSitePhase": true } ] } }
 ```
 
 **Gating a grant-action to one phase via `when`.** `anyPhase: true` makes an
@@ -7391,19 +7393,20 @@ Used by Endless Whispers (dm-54).
 Marks a card whose successful play *is* a prisoner rescue — carried by Rescue
 Prisoners (tw-315). When such a card is **kept** (a bearer is assigned in the
 `select-card-bearer` resolution; the declined branch discards it and does not
-count), `markPrisonersRescuedAtDolGuldur` records the rescue on the current
+count), `markPrisonersRescued` records the rescue on the current
 `SitePhaseState`. The same helper is called from the generic CoE 8.36
 `rescue-prisoner` paths (immediate free, and after the rescue-attack is faced),
 so every route to "characters taken prisoner were freed" is covered by one
 marker.
 
-Today the marker is site-specific: it sets
-`SitePhaseState.prisonersRescuedAtDolGuldurThisSitePhase` only when the
-rescuing company stands at a site **named** "Dol Guldur" (any printing).
+The marker is site-agnostic: it sets
+`SitePhaseState.prisonersRescuedThisSitePhase` on any successful rescue, and
 `legal-actions/site.ts` exposes it to `when` clauses as
-`company.prisonersRescuedAtDolGuldurThisSitePhase`, which is how Pass the Doors
-of Dol Guldur (dm-154) gates its tap ability on "during the same site phase the
-company successfully plays Rescue Prisoners at Dol Guldur (or rescues
+`company.prisonersRescuedThisSitePhase` alongside `site.name`. Any site
+restriction is expressed by the card: Pass the Doors of Dol Guldur (dm-154)
+gates its tap ability on `{ "$and": [{ "site.name": "Dol Guldur" },
+{ "company.prisonersRescuedThisSitePhase": true }] }` — "during the same site
+phase the company successfully plays Rescue Prisoners at Dol Guldur (or rescues
 characters taken prisoner if the rescue site is Dol Guldur)". Because the flag
 lives on the per-company site-phase state (rebuilt for every company's site
 phase), it is company- *and* site-phase-scoped for free.
