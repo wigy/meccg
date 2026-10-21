@@ -1115,7 +1115,15 @@
     "keywords": [
       "agent"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "stat-modifier",
+        "stat": "direct-influence",
+        "value": 2,
+        "when": { "reason": "faction-influence-check", "faction.name": "Dunlendings" }
+      }
+    ],
+    "certified": "2026-10-21",
     "text": "Unique. Agent. +2 direct influence against Dunlendings."
   }
 ]
