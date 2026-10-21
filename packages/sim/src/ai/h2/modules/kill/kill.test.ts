@@ -8,12 +8,15 @@
  */
 
 import { describe, test, expect } from 'vitest';
+import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { killModule } from './kill.js';
+import { ALL_MODULES, evaluateDecision } from '../../core/registry.js';
+import { loadScenario, scenarioView } from '../../scenario-store.js';
 
 const CREATURE = 'tw-creature';
 const POOL = {
@@ -107,5 +110,31 @@ describe('what it claims', () => {
   test('declines an attack carrying no kill points', () => {
     const noPoints = { ...contextWith(BALANCED, BALANCED), cardPool: {} } as ModuleContext;
     expect(killModule.claims!(noPoints)).toBe(false);
+  });
+});
+
+describe('a trophy after a won fight', () => {
+  test('is taken rather than passed on', () => {
+    // Regression (game mv556rr7-1p305v): `take-trophy` had no owner, so the
+    // decision fell back and the modular AI passed on every trophy its Orc
+    // and Troll leaders won. The kill points are banked either way (CoE
+    // 3.IV.2); the trophy adds direct influence and prowess on top (3.IV.3).
+    const scenario = loadScenario('kill/trophy-orc-lieutenant');
+    const view = scenarioView(scenario);
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const decision = evaluateDecision(ALL_MODULES, context);
+    expect(decision.uncovered).not.toContain('take-trophy');
+    expect(decision.evaluations[0].action.type).toBe('take-trophy');
+    const trophy = legalActions.find(a => a.type === 'take-trophy')!;
+    expect(JSON.stringify(killModule.evaluate(trophy, context)!.rationale)).toContain('direct influence it adds');
   });
 });

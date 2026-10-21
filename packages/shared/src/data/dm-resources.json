@@ -1593,7 +1593,10 @@
         },
         "singletonLock": true,
         "when": {
-          "company.prisonersRescuedAtDolGuldurThisSitePhase": true
+          "$and": [
+            { "site.name": "Dol Guldur" },
+            { "company.prisonersRescuedThisSitePhase": true }
+          ]
         }
       },
       {

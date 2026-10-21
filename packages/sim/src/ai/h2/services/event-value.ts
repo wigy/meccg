@@ -51,6 +51,14 @@ export interface Effect {
   readonly constraint?: string;
   readonly cost?: { readonly tap?: string };
   readonly apply?: Effect;
+  readonly id?: string;
+  readonly check?: string;
+  readonly value?: number;
+  readonly valueExpr?: string;
+  readonly event?: string;
+  readonly when?: unknown;
+  readonly target?: string;
+  readonly modifier?: number;
 }
 
 /** A DSL filter, as far as this module reads one. */
@@ -237,6 +245,50 @@ function targetCompanyRoster(
   };
 }
 
+/**
+ * What a `check-modifier` on a pending corruption check is worth — A Friend or
+ * Three (tw-189)'s corruption option: "+1 for each character in his company".
+ *
+ * Undefined (`undefined`, not null) when the chosen play option is not this
+ * family, so the caller reads the card's other families as before. The check
+ * itself is on the table beside the play — a `corruption-check` naming the
+ * same character, or the Free Council's `pendingCheck` — and its published
+ * `need` is the whole input: the bonus is worth the mass it moves out of the
+ * failing band. Unpriced, the event was declined, and the modular AI rolled
+ * the check where the winning human (game mv741tp6-ai5cnz) played the card
+ * three times, once at the Free Council.
+ */
+function corruptionBoostGain(
+  effects: readonly Effect[],
+  context: ModuleContext,
+  action: GameAction,
+): { tsd: number; reason: string } | null | undefined {
+  const fields = action as unknown as { optionId?: string; targetCharacterId?: CardInstanceId };
+  const option = effects.find(e => e.type === 'play-option' && e.id === fields.optionId);
+  const apply = option?.apply;
+  if (!apply || apply.type !== 'add-constraint' || apply.constraint !== 'check-modifier'
+    || apply.check !== 'corruption') return undefined;
+  const characterId = fields.targetCharacterId;
+  if (!characterId) return null;
+
+  const { view } = context;
+  const company = view.self.companies.find(c => c.characters.includes(characterId));
+  const boost = apply.valueExpr === 'company.characterCount' ? company?.characters.length
+    : apply.valueExpr === undefined ? apply.value : undefined;
+  if (boost === undefined) return null;
+
+  const offered = context.legalActions.find(a => a.type === 'corruption-check'
+    && (a as unknown as { characterId?: CardInstanceId }).characterId === characterId) as unknown as
+    { need?: number } | undefined;
+  const pending = view.phaseState.phase === Phase.FreeCouncil ? view.phaseState.pendingCheck : undefined;
+  const need = offered?.need
+    ?? (pending?.characterId === characterId ? pending.need - pending.supportCount : undefined);
+  if (typeof need !== 'number') return null;
+
+  const value = computeCharacterValue(view, context.cardPool, context.standing, context.tunables);
+  return value.checkBoost(characterId, need, boost);
+}
+
 /** What an event is worth if it resolves, or null when the family is unknown. */
 export function gainOf(
   effects: readonly Effect[],
@@ -244,6 +296,9 @@ export function gainOf(
   action: GameAction,
 ): { tsd: number; reason: string } | null {
   const { tunables } = context;
+
+  const boost = corruptionBoostGain(effects, context, action);
+  if (boost !== undefined) return boost;
 
   // Shutting a company to creatures for the turn is worth the whole hazard plan
   // the opponent would otherwise aim at it — which is what `defence` computes,
@@ -599,6 +654,39 @@ function discardsWhenCompanyMoves(effects: readonly Effect[]): boolean {
   });
 }
 
+/**
+ * What the corruption check an event forces on the character it is played on
+ * costs (Vilya tw-358: "Elrond makes a corruption check modified by -3").
+ *
+ * The engine enqueues an `on-event self-enters-play → enqueue-corruption-check`
+ * on the event's target character (`reducer-events`, `chain-reducer`), so the
+ * check is ours to fail whatever the event achieves. Left unpriced, the
+ * modular AI played Vilya at every window of a recorded game for its three
+ * cards back to the deck — 25 decisions where the winning human (rated 1645)
+ * held it — and never counted that a failed check costs Elrond.
+ *
+ * A check with a `when` (Nenya picks -1 or -3 by Galadriel's site) or aimed at
+ * another company member (`apply.target`) is not read here and charges
+ * nothing, so such an event stays as over-valued as it was.
+ */
+function forcedCheckCost(
+  effects: readonly Effect[],
+  context: ModuleContext,
+  action: GameAction,
+): { tsd: number; reason: string } | null {
+  const checks = effects.filter(e => e.type === 'on-event' && e.event === 'self-enters-play'
+    && e.apply?.type === 'enqueue-corruption-check' && e.apply.target === undefined && e.when === undefined);
+  if (checks.length === 0) return null;
+  const characterId = (action as unknown as { targetCharacterId?: CardInstanceId }).targetCharacterId;
+  if (!characterId) return null;
+  const value = computeCharacterValue(context.view, context.cardPool, context.standing, context.tunables);
+  const prices = checks.map(e => value.checkRisk(characterId, e.apply?.modifier ?? 0));
+  return {
+    tsd: prices.reduce((sum, p) => sum + p.tsd, 0),
+    reason: prices.map(p => p.reason).join('; '),
+  };
+}
+
 /** What crediting a permanent event's printed points assumes. */
 const PERMANENT_ASSUMPTIONS: readonly string[] = [
   'a permanent event\'s printed points are scored as though the card simply stays in play; a '
@@ -683,12 +771,16 @@ export function declaredEventEvaluation(
   // against its own gain cancels — the whole reason moving `hazards` onto
   // the held price achieved nothing measurable. A shadow price is an
   // opportunity cost only when it prices the *next-best* use.
-  const spent = tunables.provisionalCardPrice;
+  // The Free Council is the last thing the game does, so a card spent there
+  // forgoes nothing — the same reading `corruption` makes of a support tap.
+  const spent = context.view.phaseState.phase === Phase.FreeCouncil ? 0 : tunables.provisionalCardPrice;
   const name = (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string);
+  const check = forcedCheckCost(effects, context, action);
+  const risk = check?.tsd ?? 0;
 
   const does = gain?.tsd ?? 0;
   const reason = gain?.reason ?? `${mp} ${source} MP, and an effect family this cannot read`;
-  const dtsd = netTsdDelta({ realized: does + points, potential, tempo: spent }, tunables);
+  const dtsd = netTsdDelta({ realized: does + points - risk, potential, tempo: spent }, tunables);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${reason}`, dtsd }];
 
   const detail: Rationale[] = [
@@ -711,10 +803,15 @@ export function declaredEventEvaluation(
         : `${mp} ${source} MP, kept only until the company next moves — potential, not banked`,
     }));
   }
+  if (check) {
+    detail.push(leaf('the corruption check it forces', risk, { unit: 'tsd', note: check.reason }));
+  }
   detail.push(leaf('the card it spends', spent, {
     unit: 'tsd',
     tunable: 'provisionalCardPrice',
-    note: 'the spending price — what it is worth to hold is a different question',
+    note: spent === 0
+      ? 'the Free Council ends the game — a card spent there forgoes nothing'
+      : 'the spending price — what it is worth to hold is a different question',
   }));
 
   return scoredEvaluation({
@@ -723,7 +820,7 @@ export function declaredEventEvaluation(
     outcomes,
     standing,
     headline: `play ${name}`,
-    detail: [node('the event', does + points - spent, detail, { unit: 'tsd' })],
+    detail: [node('the event', does + points - risk - spent, detail, { unit: 'tsd' })],
     assumptions: mp > 0 ? [...EVENT_ASSUMPTIONS, ...PERMANENT_ASSUMPTIONS] : EVENT_ASSUMPTIONS,
   });
 }

@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescuedAtDolGuldur, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescued, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -4264,12 +4264,12 @@ export function applySelectCardBearerResolution(
   }
 
   // A bearer was assigned, so the card was *kept* — the play succeeded. When the
-  // kept card frees prisoners (Rescue Prisoners tw-315) and the company stands
-  // at Dol Guldur, this opens the tap window for Pass the Doors of Dol Guldur
-  // (dm-154) for the rest of this site phase. The declined (`pass`) branch above
+  // kept card frees prisoners (Rescue Prisoners tw-315), record the rescue for
+  // the rest of this site phase (Pass the Doors of Dol Guldur dm-154 keys on it
+  // together with the site name). The declined (`pass`) branch above
   // discards the card instead and deliberately does not mark it.
   if (hasPlayFlag(cardDef as { effects?: readonly import('../types/effects.js').CardEffect[] } | undefined, 'rescues-prisoners')) {
-    s = markPrisonersRescuedAtDolGuldur(s, bearerCompany);
+    s = markPrisonersRescued(s, bearerCompany);
   }
 
   return { state: dequeueResolution(s, top.id) };

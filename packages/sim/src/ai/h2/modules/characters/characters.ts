@@ -389,6 +389,38 @@ function evaluateShape(context: ModuleContext, action: GameAction): Evaluation |
 }
 
 /** The characters module. No context gate: both actions are always its own. */
+/**
+ * Actions that name a character without tapping him: placing him under
+ * direct influence, rolling his corruption check, storing his item.
+ */
+const NON_TAPPING_ACTIONS: ReadonlySet<string> = new Set(['move-to-influence', 'corruption-check', 'store-item']);
+
+/**
+ * Whether an action that names a character spends his tap.
+ *
+ * The carrier step below charges a plan whenever an action spends the
+ * company's last untapped character, and it used to read "names him" as
+ * "taps him". For a granted ability that is wrong twice over: the no-tap
+ * variant of a corruption shed declines the tap (`noTap`), and some grants
+ * declare no tap at all — Shut Yer Mouth (le-137) offers its roll "once
+ * during each of his organization phases", and the engine leaves him
+ * standing. Charged a whole committed plan for a tap that never happens, the
+ * free roll ranked below passing in every recorded position the winning
+ * human (game mv0tlvor-icokvs, rated 1654) took it.
+ */
+function tapsNamedCharacter(action: GameAction, context: ModuleContext): boolean {
+  if (NON_TAPPING_ACTIONS.has(action.type)) return false;
+  if (action.type !== 'activate-granted-action') return true;
+  const fields = action as unknown as { noTap?: true; actionId?: string; sourceCardDefinitionId?: string };
+  if (fields.noTap === true) return false;
+  const effects = (context.cardPool[fields.sourceCardDefinitionId ?? ''] as unknown as {
+    effects?: readonly { type?: string; action?: string; cost?: { tap?: string } }[];
+  } | undefined)?.effects;
+  const grant = effects?.find(e => e.type === 'grant-action' && e.action === fields.actionId);
+  // An unread grant is assumed to tap, as every action did before.
+  return grant === undefined || grant.cost?.tap !== undefined;
+}
+
 export const charactersModule: H2Module = {
   name: 'characters',
   ownedActionTypes: OWNED_ACTION_TYPES,
@@ -454,6 +486,7 @@ export const charactersModule: H2Module = {
     // is there.
     const named = namedCharacter(action);
     if (!leaving && named === undefined) return null;
+    if (!leaving && !tapsNamedCharacter(action, context)) return null;
     if (!leaving && !untapped.some(c => c.instanceId === named)) return null;
 
     // Leaving takes the named character and their followers; tapping spends

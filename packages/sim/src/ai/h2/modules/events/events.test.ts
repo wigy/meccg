@@ -27,6 +27,7 @@ import { computeStanding } from '../../services/standing.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { eventsModule } from './events.js';
+import { ALL_MODULES, evaluateDecision } from '../../core/registry.js';
 
 /** A recovery event: brings a card back from the discard pile. */
 const RECOVERY = 'ev-recovery';
@@ -481,6 +482,68 @@ describe('discarding something that was making every attack worse', () => {
     // play achieves nothing rather than inventing a value for it.
     const { held, context } = removalPosition('Doors of Night');
     const evaluation = eventsModule.evaluate(play(held.instanceId), context)!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+  });
+});
+
+describe('a bonus to a corruption check already pending', () => {
+  test('is priced, so the check decision is fully covered', () => {
+    // Regression (game mv741tp6-ai5cnz): A Friend or Three's corruption option
+    // was a family the module could not read, so the event was declined and
+    // the decision fell back while the winning human played the card on
+    // Glóin's pending check — and twice more, once at the Free Council.
+    const scenario = loadScenario('events/friend-or-three-corruption-boost');
+    const view = scenarioView(scenario);
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const boost = legalActions.find(a => a.type === 'play-short-event'
+      && (a as unknown as { optionId?: string }).optionId === 'corruption-check-boost')!;
+    expect(boost).toBeDefined();
+    const evaluation = eventsModule.evaluate(boost, context)!;
+    expect(evaluation).not.toBeNull();
+    expect(JSON.stringify(evaluation.rationale)).toContain('on a check needing 3');
+    expect(evaluateDecision(ALL_MODULES, context).uncovered).not.toContain('play-short-event');
+  });
+});
+
+describe('an event that makes its target check for corruption', () => {
+  test('is charged for the check it forces', () => {
+    // Regression (game mv74l794-dn391b): Vilya's "Elrond makes a corruption
+    // check modified by -3" was not priced, so its three cards back to the deck
+    // read as pure gain and the modular AI played it at every window the
+    // winning human held it through. At corruption 2 the check fails on 2d6 ≤ 5,
+    // and failing costs Elrond.
+    const scenario = loadScenario('events/vilya-forced-check');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const vilya = legalActions.find(a => {
+      if (a.type !== 'play-short-event') return false;
+      const held = view.self.hand.find(c => c.instanceId === (a as unknown as { cardInstanceId: string }).cardInstanceId);
+      return (cardPool[held!.definitionId] as unknown as { name: string }).name === 'Vilya';
+    })!;
+    expect(vilya).toBeDefined();
+    const evaluation = eventsModule.evaluate(vilya, context)!;
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('the corruption check it forces');
+    expect(text).toContain('modified by -3');
     expect(evaluation.expectedTsd).toBeLessThan(0);
   });
 });

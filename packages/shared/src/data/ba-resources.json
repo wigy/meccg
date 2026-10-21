@@ -1755,7 +1755,8 @@
         "target": "company"
       },
       {
-        "type": "extra-leader-slot"
+        "type": "extra-leader-slot",
+        "exemptFromSizeCap": true
       },
       {
         "type": "starting-company-placement"
