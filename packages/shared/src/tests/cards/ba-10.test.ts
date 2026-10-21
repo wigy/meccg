@@ -48,13 +48,14 @@ import {
   playCreatureHazardAndResolve,
   handCardId, companyIdAt,
   viableActions, dispatch, resolveChain,
-  RESOURCE_PLAYER, HAZARD_PLAYER,
+  RESOURCE_PLAYER, HAZARD_PLAYER, mint,
 } from '../test-helpers.js';
 import {
-  Phase, Alignment, RegionType, SiteType, CardStatus,
+  Phase, Alignment, RegionType, SiteType, CardStatus, Race,
   computeLegalActions,
 } from '../../index.js';
-import type { CardDefinitionId, GameState } from '../../index.js';
+import type { CardDefinitionId, CombatState, GameState } from '../../index.js';
+import { applyRule8_22AfterTrophyDecision } from '../../engine/combat-finalize.js';
 
 const BEORN = 'tw-126' as CardDefinitionId; // hero warrior, prowess 7
 
@@ -385,5 +386,63 @@ describe('Beorning Skin-changers (ba-10)', () => {
       targetCompanyId: companyId, altEventMode: 'short-event',
     }));
     expect((afterChain.phaseState as { returnedToOrigin?: boolean }).returnedToOrigin).toBeFalsy();
+  });
+
+  // ─── Kill MP is 1* — worth MP to a minion defender (CoE 8.22) ─────────────
+
+  // Regression (game mvgxt6o8-uotpew): the card is printed "1*" but the data
+  // lacked starredKillMarshallingPoints, so when a minion company defeated it
+  // and declined the trophy, rule 8.22 moved it out of play instead of
+  // leaving it in the defender's marshalling point pile.
+  test('defeated by a minion company (trophy declined) → stays in the kill pile', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MORIA, characters: [MIONID] }],
+          hand: [],
+          siteDeck: [MINAS_TIRITH],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          siteDeck: [RIVENDELL],
+        },
+      ],
+    });
+    const creatureInstanceId = mint();
+    const withKill: GameState = {
+      ...base,
+      players: base.players.map((p, i) =>
+        i === RESOURCE_PLAYER
+          ? { ...p, killPile: [...p.killPile, { instanceId: creatureInstanceId, definitionId: BEORNING_SKINCHANGERS }] }
+          : p,
+      ) as unknown as GameState['players'],
+    };
+    const combat: CombatState = {
+      attackSource: { type: 'creature', instanceId: creatureInstanceId } as CombatState['attackSource'],
+      companyId: companyIdAt(base, RESOURCE_PLAYER),
+      defendingPlayerId: PLAYER_1,
+      attackingPlayerId: PLAYER_2,
+      strikesTotal: 2,
+      strikeProwess: 10,
+      creatureBody: null,
+      creatureRace: Race.Animal,
+      strikeAssignments: [],
+      currentStrikeIndex: 0,
+      phase: 'resolve-strike',
+      assignmentPhase: 'done',
+      bodyCheckTarget: null,
+      detainment: false,
+    };
+
+    const after = applyRule8_22AfterTrophyDecision(withKill, combat);
+    expect(after.players[RESOURCE_PLAYER].killPile.some(c => c.instanceId === creatureInstanceId)).toBe(true);
+    expect(after.players[RESOURCE_PLAYER].outOfPlayPile.some(c => c.instanceId === creatureInstanceId)).toBe(false);
   });
 });
