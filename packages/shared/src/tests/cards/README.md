@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1415 | 1415 | 0 | 100.0% |
+| 1416 | 1416 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -18,7 +18,7 @@
 | LE | 344 | 344 | 100.0% |
 | TD | 148 | 148 | 100.0% |
 | TW | 429 | 429 | 100.0% |
-| WH | 103 | 103 | 100.0% |
+| WH | 104 | 104 | 100.0% |
 
 ## Detailed Test Matrix
 
@@ -1356,6 +1356,7 @@
 | wh-18 | Flotsam and Jetsam | — | 15 | ☑ |
 | wh-19 | Fool’s Bane | — | 15 | ☑ |
 | wh-21 | Heart Grown Cold | — | 9 | ☑ |
+| wh-22 | In the Grip of Ambition | — | 3 | ☑ |
 | wh-23 | Inner Rot | — | 10 | ☑ |
 | wh-24 | Ire of the East | — | 5 | ☑ |
 | wh-25 | Longing for the West | — | 11 | ☑ |

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.217.0 — 2026-10-21
+
+Modular AI Learns to Price Corruption
+
+### Game Engine
+
+- In the Grip of Ambition (wh-22) now attaches to its Wizard/Fallen-wizard target (#3393)
+- Detainment-to-normal attack overrides consolidated into a single `normalAttackOverride` helper used by Hunt, Great Hunt, Long Dark Reach, site and repeated attacks (#3399)
+- The extra-troll-leader-slot effect is merged into a generic extra-leader-slot DSL primitive (#3402)
+- The prisoners-rescued site-phase flag is generic, with the Dol Guldur check moved into dm-154's card data (#3398)
+- Shared guards for bundled/combat-only permanent events and the untapped alt-permanent-event scan; movement/hazard legality reuses the arrival-mode helpers (#3397, #3400, #3401)
+
+### AI
+
+- The modular AI charges an event for the corruption check it forces on its target, and prices A Friend or Three's bonus to a pending corruption check (#3390, #3395)
+- Prices discarding a corruption card from its own character, and the checks Lure of Expedience forces when shedding it (#3392, #3395)
+- Takes the free roll to shed a hazard that carries no corruption (#3396)
+- Takes a trophy after a won fight instead of passing on it (#3394)
+
 ## 0.216.0 — 2026-10-21
 
 Choking Shadows Fixed, Wolf Certified
