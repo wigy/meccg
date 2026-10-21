@@ -35,6 +35,10 @@ export type { MetaActionOptions } from './engine/legal-actions/index.js';
 export { currentHazardLimit, effectiveHazardLimit } from './engine/hazard-limit.js';
 export { describeArrivalMode } from './engine/arrival-modes.js';
 export { isDetainmentAttack } from './engine/detainment.js';
+// The AI's playability mirror needs the engine's own reading of which sites
+// count as Under-deeps and of an automatic-attack's race.
+export { isDeepMinesSite } from './engine/legal-actions/organization-companies.js';
+export { normalizeCreatureRace } from './engine/effects/resolver.js';
 export type { DetainmentContext } from './engine/detainment.js';
 export { canonicalActionKey, stampActionIds } from './engine/action-id.js';
 export { startCapture, flushCapture, setEngineConsoleLog } from './engine/legal-actions/log.js';
