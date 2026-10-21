@@ -204,11 +204,11 @@ export function renderMyDeckItem(deck: FullDeck, isCurrent: boolean): HTMLElemen
     }, showInfo);
   }));
 
-  if (isCurrent) {
-    btns.appendChild(makeIconButton('\u{1F6E0}\u{FE0F}', 'Edit this deck', () => {
-      void openDeckEditorFn?.(deck.id);
-    }));
-  } else {
+  // Every owned deck is editable, not just the one selected for play.
+  btns.appendChild(makeIconButton('\u{1F6E0}\u{FE0F}', 'Edit this deck', () => {
+    void openDeckEditorFn?.(deck.id);
+  }));
+  if (!isCurrent) {
     btns.appendChild(makeIconButton('\u{1F4CC}', 'Select this deck for play', () => {
       void selectDeck(deck.id);
     }));
