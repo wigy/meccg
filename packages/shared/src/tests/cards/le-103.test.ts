@@ -32,7 +32,7 @@
  * |---|-------------------------------------------|-------------|------------------------------------------|
  * | 1 | duplication-limit (game, max 1)           | IMPLEMENTED | reducer.ts duplicate-check               |
  * | 2 | stat-modifier strikes ×2 (F/B auto-atks)  | IMPLEMENTED | site.type gate in resolveAttackStrikes   |
- * | 3 | auto-attacks-normal (F/B)                 | IMPLEMENTED | siteTypeForcesAutoAttacksNormal → detain |
+ * | 3 | auto-attacks-normal (F/B)                 | IMPLEMENTED | normalAttackOverride → detain           |
  *
  * Playable: YES
  * Certified: 2026-07-15

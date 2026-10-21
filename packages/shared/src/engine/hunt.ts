@@ -51,7 +51,7 @@ import { CardStatus } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import {
   defById, companyById, updatePlayer, updateCharacter, makeCombatState,
-  playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, isCovertCompany,
+  normalAttackOverride, isCovertCompany,
 } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody } from './effects/resolver.js';
@@ -183,10 +183,10 @@ export function buildHuntCombat(
       inPlayNames,
       defendingAlignment: working.players[controllerIndex].alignment,
       defendingCovert: isCovertCompany(company, working.players[controllerIndex], working),
-      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(working, working.players[controllerIndex]),
-      // The Hunt attack has no declared keying — the override falls back to
-      // the union of the creature's currently-valid keyedTo site types.
-      normalIfKeyedToSiteTypes: companyKeyedAttacksNormalSiteTypes(working, companyId),
+      // The Hunt attack has no declared keying — a keyed-attacks-normal
+      // override falls back to the union of the creature's currently-valid
+      // keyedTo site types.
+      ...normalAttackOverride(working, working.players[controllerIndex], { companyId }),
     }),
   });
   return { state: working, combat };

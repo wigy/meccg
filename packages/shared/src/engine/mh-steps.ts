@@ -31,7 +31,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, companyMovesUnderDeeps, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCardNameEffectCanceled, isCovertCompany, playerById, playerConvertsDetainmentToNormal, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect, attachedFactionDef, factionPlayableRegionsAndAdjacent } from './reducer-utils.js';
+import { makeCombatState, resolveAttackerChoosesDefenders, cardName, companyEffectiveSize, companyMovesUnderDeeps, clonePlayers, completeDeckExhaust, defById, getCardEffects, handleExchangeSideboard, hazardPlayer, isCardNameEffectCanceled, isCovertCompany, playerById, normalAttackOverride, regionTypeCounts, startDeckExhaust, toCardInstance, updateCharacter, updatePlayer, roll2d6, diceRollEffect, attachedFactionDef, factionPlayableRegionsAndAdjacent } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { resolveAdjacency, cavernsUnchokedAdjacencyRoll, breachTheHoldSurfaceRoll, balrogOutHeSprangRegionAllowance, dynamicUnderDeepsAdjacencyRoll, collectPassiveMovementBonus } from './legal-actions/organization-companies.js';
 import { buildInPlayNames, applyRegionMovementReduction } from './recompute-derived.js';
@@ -1455,6 +1455,7 @@ function buildAhuntCombat(
 
   logDetail(`Ahunt combat initiated: ${defName} (${effect.strikes} strikes${effectiveStrikes !== effect.strikes ? ` → ${effectiveStrikes}` : ''}, ${effect.prowess} prowess${effectiveProwess !== effect.prowess ? ` → ${effectiveProwess}` : ''}) vs company ${company.id as string}`);
 
+  const normalOverride = normalAttackOverride(state, state.players[activePlayerIndex]);
   return makeCombatState(state, {
     attackSource: { type: 'ahunt', longEventInstanceId: instanceId },
     companyId: company.id,
@@ -1476,14 +1477,14 @@ function buildAhuntCombat(
     ...(effect.combatRules?.includes('cannot-be-canceled') ? { uncancelable: true } : {}),
     ...(effect.combatRules?.includes('weapons-ineffective') ? { weaponsIneffective: true } : {}),
     detainment: effect.detainmentAgainstMinion
-      ? isMinionOrBalrog(state.players[activePlayerIndex]) && !playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+      ? isMinionOrBalrog(state.players[activePlayerIndex]) && !normalOverride.defenderForcesNormalAttacks
       : effect.detainmentMatchesAttachedFactionAlignment && attachedFaction && isFactionCard(attachedFaction)
         ? isMinionOrBalrog(state.players[activePlayerIndex]) === isMinionFactionAlignment(attachedFaction.alignment)
-          && !playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex])
+          && !normalOverride.defenderForcesNormalAttacks
         : isDetainmentAttack({
           attackRace: effectiveRace,
           defendingAlignment: state.players[activePlayerIndex].alignment,
-          defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
+          ...normalOverride,
         }),
   });
 }

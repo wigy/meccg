@@ -2029,7 +2029,7 @@ function applyOneConstraint(
       return base;
     case 'keyed-attacks-normal':
       // World Gnawed by the Nameless (as-110): consulted directly at
-      // hazard-creature combat initiation (`companyKeyedAttacksNormalSiteTypes`
+      // hazard-creature combat initiation (`normalAttackOverride`
       // → `isDetainmentAttack`) — no broad legal-action filtering here.
       return base;
     case 'no-creatures-keyed-to-site':

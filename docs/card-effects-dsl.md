@@ -1672,9 +1672,11 @@ a character carrying this effect is in play and the player's `stagePoints` total
 is strictly greater than `stagePointsAbove` (default 0), any attack the engine
 would otherwise treat as detainment — whether from a `combat-detainment` effect, a
 site-forced detainment rule, or the alignment-based §3.II keying rules — resolves
-as a normal attack instead. Computed per defending player via
-`playerConvertsDetainmentToNormal` (`reducer-utils.ts`) and threaded into
-`isDetainmentAttack` as `defenderForcesNormalAttacks`, which short-circuits the
+as a normal attack instead. Computed per defending player by
+`normalAttackOverride` (`reducer-utils.ts`, which collects all three
+detainment-to-normal sources — this one, `auto-attacks-normal` and
+`keyed-attacks-normal`) and spread into `isDetainmentAttack` as
+`defenderForcesNormalAttacks`, which short-circuits the
 whole detainment computation to `false` at every combat-initiation call site.
 
 Used by Alatar (wh-1): "If you have more than 7 stage points, all detainment
@@ -1693,9 +1695,10 @@ automatic-attack at a site whose effective `SiteType` is in `siteTypes` resolves
 a **normal** attack rather than a detainment attack — regardless of which company is
 defending. Unlike `detainment-attacks-normal` (carried by a *defending* character,
 scoped to that player's companies at any site), this keys on the *site type* of the
-attack, so it applies to whichever company enters a matching site. Computed via
-`siteTypeForcesAutoAttacksNormal` (`reducer-utils.ts`) and OR-ed with the per-player
-conversion into `isDetainmentAttack`'s `defenderForcesNormalAttacks` at every site
+attack, so it applies to whichever company enters a matching site. Collected by
+`normalAttackOverride` (`reducer-utils.ts`) when given the attacked site's
+`autoAttackSiteType`, and OR-ed with the per-player conversion into
+`isDetainmentAttack`'s `defenderForcesNormalAttacks` at every site
 automatic-attack call site.
 
 Pair it with a `stat-modifier` on `strikes` (`target: "all-automatic-attacks"`,
@@ -9742,7 +9745,7 @@ threaded onto the hazard `permanent-event` chain payload (`mh-hazard-play.ts`).
   (`isMinionOrBalrog`) equals the attached faction's own alignment side
   (`isMinionFactionAlignment`, `mh-steps.ts` — Ringwraith/Balrog factions vs.
   Wizard-aligned hero factions), still deferring to
-  `playerConvertsDetainmentToNormal` (Alatar wh-1).
+  `normalAttackOverride` (Alatar wh-1).
 
 ### 25a. `faction-influence-restriction`
 
@@ -16305,7 +16308,7 @@ constraint** is installed on that company.
 
 While the constraint is active, `isDetainmentAttack` (`engine/detainment.ts`)
 receives the union of the constraint's site types as `normalIfKeyedToSiteTypes`
-(collected by `companyKeyedAttacksNormalSiteTypes`, `reducer-utils.ts`) and
+(collected by `normalAttackOverride` given the `companyId`, `reducer-utils.ts`) and
 forces any attack **actually keyed** to one of them to resolve as a normal,
 non-detainment attack — overriding `combat-detainment` effects on the creature
 and the alignment-based §3.II keying rules alike. The attack's actual keying is

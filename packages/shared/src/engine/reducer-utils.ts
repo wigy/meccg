@@ -1971,7 +1971,7 @@ export function playerHasKillMpExemption(state: GameState, player: PlayerState):
  * would treat as detainment against the player's companies is resolved as a
  * normal attack instead (see {@link isDetainmentAttack} / its call sites).
  */
-export function playerConvertsDetainmentToNormal(state: GameState, player: PlayerState): boolean {
+function playerConvertsDetainmentToNormal(state: GameState, player: PlayerState): boolean {
   for (const char of Object.values(player.characters)) {
     const def = resolveDef(state, char.instanceId);
     for (const effect of getCardEffects(def)) {
@@ -1991,7 +1991,7 @@ export function playerConvertsDetainmentToNormal(state: GameState, player: Playe
  * {@link isDetainmentAttack} as `normalIfKeyedToSiteTypes` at hazard-creature
  * combat initiation. Empty array when no such constraint is active.
  */
-export function companyKeyedAttacksNormalSiteTypes(
+function companyKeyedAttacksNormalSiteTypes(
   state: GameState,
   companyId: CompanyId,
 ): readonly SiteType[] {
@@ -2020,7 +2020,7 @@ export function companyKeyedAttacksNormalSiteTypes(
  * {@link playerConvertsDetainmentToNormal}). Site-type-scoped and global, so it
  * applies to any company entering a matching site regardless of alignment.
  */
-export function siteTypeForcesAutoAttacksNormal(
+function siteTypeForcesAutoAttacksNormal(
   state: GameState,
   effectiveSiteType: SiteType,
 ): boolean {
@@ -2034,6 +2034,52 @@ export function siteTypeForcesAutoAttacksNormal(
     }
   }
   return false;
+}
+
+/**
+ * The detainment-to-normal overrides in force for an attack against
+ * `player`'s company — shaped to spread straight into an
+ * `isDetainmentAttack` context.
+ */
+export interface NormalAttackOverride {
+  /**
+   * Every detainment attack resolves normally: the defender converts all
+   * detainment attacks (Alatar wh-1), or — when `autoAttackSiteType` was
+   * given — a global effect makes automatic-attacks at that site type normal
+   * (Awaken Defenders le-103).
+   */
+  readonly defenderForcesNormalAttacks: boolean;
+  /**
+   * Site types whose keyed attacks against the company resolve normally
+   * (World Gnawed by the Nameless as-110). Empty when no `companyId` was given.
+   */
+  readonly normalIfKeyedToSiteTypes: readonly SiteType[];
+}
+
+/**
+ * Collects every source that turns a detainment attack against `player`'s
+ * company into a normal attack, in one place:
+ *
+ * - `detainment-attacks-normal` on one of the player's characters (Alatar
+ *   wh-1, stage-point gated) — always consulted;
+ * - `auto-attacks-normal` on an in-play long-event (Awaken Defenders le-103)
+ *   — only when `opts.autoAttackSiteType` is given, i.e. the attack is an
+ *   automatic-attack at a site of that effective type;
+ * - turn-scoped `keyed-attacks-normal` constraints on the company (World
+ *   Gnawed by the Nameless as-110) — only when `opts.companyId` is given.
+ */
+export function normalAttackOverride(
+  state: GameState,
+  player: PlayerState,
+  opts: { readonly companyId?: CompanyId; readonly autoAttackSiteType?: SiteType } = {},
+): NormalAttackOverride {
+  return {
+    defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, player)
+      || (opts.autoAttackSiteType !== undefined && siteTypeForcesAutoAttacksNormal(state, opts.autoAttackSiteType)),
+    normalIfKeyedToSiteTypes: opts.companyId !== undefined
+      ? companyKeyedAttacksNormalSiteTypes(state, opts.companyId)
+      : [],
+  };
 }
 
 /**
