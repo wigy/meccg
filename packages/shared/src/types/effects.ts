@@ -745,7 +745,7 @@ export interface DetainmentAttacksNormalEffect extends EffectBase {
  * of site — this is a site-type-scoped global carried by a long hazard-event and
  * applies to any company entering a matching site. It short-circuits the
  * detainment computation to `false` for that attack (see `isDetainmentAttack`'s
- * `defenderForcesNormalAttacks`, fed via `siteTypeForcesAutoAttacksNormal`).
+ * `defenderForcesNormalAttacks`, fed via `normalAttackOverride`).
  *
  * Used by Awaken Defenders (le-103): "each detainment automatic-attack at a
  * Free-hold or Border-hold becomes a normal automatic-attack" —

@@ -43,7 +43,7 @@ import { eligibleCompanyDiscardItems } from './legal-actions/pending.js';
 import { findCreatureKeyingMatches } from './legal-actions/movement-hazard.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, rollDiceForPlayer, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, isCovertCompany, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findDuplicationLimitEffect, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, rollDiceForPlayer, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, isCovertCompany, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findDuplicationLimitEffect, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, normalAttackOverride, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -4554,14 +4554,13 @@ function initiateCreatureCombat(state: GameState, entry: ChainEntry): GameState 
       defendingCovert: isCovertCompany(company, state.players[activePlayerIndex], state),
       defendingSiteEffects: defendingSiteDef?.effects,
       defendingSiteName: defendingSiteDef?.name,
-      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[activePlayerIndex]),
+      ...normalAttackOverride(state, state.players[activePlayerIndex], { companyId: company.id }),
       // Pass the actual site-type/region-type keying even when empty (e.g. a
       // declared region-name keying), so neither the override nor the
       // §3.II.2.R1/R2 detainment checks fall back to the union of everything
       // the creature *could* have keyed to.
       attackDeclaredSiteTypes: attackSiteKeyingTypes,
       attackDeclaredRegionTypes: attackKeying,
-      normalIfKeyedToSiteTypes: companyKeyedAttacksNormalSiteTypes(state, company.id),
     }),
     forceSingleTarget: rawMultiAttackCount > 1 ? true : undefined,
     multiAttackCount: rawMultiAttackCount > 1 ? multiAttackCount : undefined,
@@ -6400,7 +6399,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
               attackRace: race0 ?? null,
               defendingAlignment: current.players[activeIndex].alignment,
               defendingSiteEffects: destSiteDef.effects,
-              defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(current, current.players[activeIndex]),
+              ...normalAttackOverride(current, current.players[activeIndex]),
             }),
             ...(aaAttackerChooses0 ? { attackerChoosesDefenders: true } : {}),
             ...(tidingsMod.cancelProtection ? { cancelProtection: tidingsMod.cancelProtection } : {}),

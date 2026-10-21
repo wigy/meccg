@@ -109,8 +109,9 @@ export interface DetainmentContext {
    * effect, active above 7 stage points). Short-circuits the entire computation:
    * {@link isDetainmentAttack} returns `false` regardless of any
    * `combat-detainment` effect, site-forced detainment rule, or alignment-based
-   * §3.II keying. Call sites compute it via
-   * `playerConvertsDetainmentToNormal(state, defendingPlayer)`.
+   * §3.II keying. Call sites compute it via `normalAttackOverride` in
+   * `reducer-utils.ts` (which also folds in Awaken Defenders le-103 for
+   * automatic-attacks).
    */
   readonly defenderForcesNormalAttacks?: boolean;
   /**
@@ -144,7 +145,7 @@ export interface DetainmentContext {
    * company faces this turn keyed to Shadow-holds attack normally, not as
    * detainment"). Collected from the company's turn-scoped
    * `keyed-attacks-normal` active constraints
-   * (`companyKeyedAttacksNormalSiteTypes` in `reducer-utils.ts`). When the
+   * (`normalAttackOverride` in `reducer-utils.ts`). When the
    * attack's keying site types intersect this list, the attack is never
    * detainment — overriding `combat-detainment` effects and the §3.II
    * alignment-based rules alike.

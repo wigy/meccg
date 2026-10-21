@@ -52,7 +52,7 @@ import { getPlayerIndex } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import {
   defById, cardName, updatePlayer, companyById, getCardEffects,
-  playerConvertsDetainmentToNormal, companyKeyedAttacksNormalSiteTypes, makeCombatState,
+  normalAttackOverride, makeCombatState,
   resolveAttackerChoosesDefenders, isCovertCompany,
 } from './reducer-utils.js';
 import { isReduceAttacksToOneInPlay } from './manifestations.js';
@@ -243,10 +243,10 @@ export function buildGreatHuntCombat(
       inPlayNames,
       defendingAlignment: state.players[controllerIndex].alignment,
       defendingCovert: isCovertCompany(company, state.players[controllerIndex], state),
-      defenderForcesNormalAttacks: playerConvertsDetainmentToNormal(state, state.players[controllerIndex]),
-      // A Great Hunt attack has no declared keying, so the override falls back
-      // to the union of the creature's currently-valid keyedTo site types.
-      normalIfKeyedToSiteTypes: companyKeyedAttacksNormalSiteTypes(state, companyId),
+      // A Great Hunt attack has no declared keying, so a keyed-attacks-normal
+      // override falls back to the union of the creature's currently-valid
+      // keyedTo site types.
+      ...normalAttackOverride(state, state.players[controllerIndex], { companyId }),
     }),
     ...(forewarnedActive ? { isolated: true, uncancelable: true } : {}),
   });

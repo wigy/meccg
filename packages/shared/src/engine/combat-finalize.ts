@@ -39,7 +39,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, playerConvertsDetainmentToNormal, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, normalAttackOverride, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { partitionLeavingTrophies, creatureKillMpMatchesAlignment } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1616,7 +1616,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           attackRace: race ?? null,
           defendingAlignment: activeIdx2 >= 0 ? stateAfterCombat.players[activeIdx2].alignment : Alignment.Wizard,
           defendingSiteEffects: siteDef2?.effects,
-          defenderForcesNormalAttacks: activeIdx2 >= 0 && playerConvertsDetainmentToNormal(stateAfterCombat, stateAfterCombat.players[activeIdx2]),
+          ...(activeIdx2 >= 0 ? normalAttackOverride(stateAfterCombat, stateAfterCombat.players[activeIdx2]) : {}),
         }),
         ...(aaAttackerChooses2 ? { attackerChoosesDefenders: true } : {}),
       });
