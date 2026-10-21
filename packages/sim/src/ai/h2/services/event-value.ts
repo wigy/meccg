@@ -35,6 +35,7 @@ import { leaf, node } from '../core/rationale.js';
 import { scoredEvaluation } from '../core/evaluation.js';
 import { namedCharacter, namedDiscardTarget } from '../core/action-fields.js';
 import { computeBeliefs } from './beliefs.js';
+import { computeCharacterValue } from './character-value.js';
 import { computeDefence, hazardSlots } from './defence.js';
 import { computeDrawValue } from './draw-value.js';
 import { rosterOf } from './strike/prowess.js';
@@ -432,6 +433,13 @@ function reliefFromRemoval(
       return { tsd: 0, reason: 'our own hazard — discarding it gives up what it does to the opponent\'s '
         + 'companies' };
     }
+    // A corruption hazard on one of our own characters (Lure of Expedience,
+    // Alone and Unadvised): discarding it is worth the corruption it carried
+    // and the check it would still force on him.
+    if (located?.attached && located.ours) {
+      const own = reliefFromOwnCorruption(context, target, located.definitionId);
+      if (own) return own;
+    }
     const relief = reliefFrom(target as string);
     if (relief <= 0) return null;
     const def = located ? cardPool[located.definitionId] : undefined;
@@ -464,6 +472,54 @@ function reliefFromRemoval(
     tsd: best.relief,
     reason: `discarding ${best.name} takes ${best.relief.toFixed(1)} of harm off our companies — `
       + 'the attacks it was strengthening go back to their printed numbers',
+  };
+}
+
+/**
+ * What discarding a corruption hazard attached to one of our own characters
+ * is worth — Marvels Told, Voices of Malice or The Cock Crows played on our
+ * own Lure of Expedience or Alone and Unadvised.
+ *
+ * The card's corruption is read the way `grants` reads it when the bearer
+ * rolls to shed the same card (`stat-modifier corruption-points`), and the
+ * relief comes from `character-value`, so the two routes to one discard agree.
+ * A card that also forces checks of its own (`on-event … force-check
+ * corruption`) is credited one check at the bearer's current corruption per
+ * such trigger: the least it would still demand. Declined, these plays fell
+ * back, and the winning humans of eleven recorded decisions (batch 19) spent
+ * the event on their own corruption card where the modular AI passed.
+ *
+ * Null when the card carries no corruption, so its relief is left to
+ * `defence` as before.
+ */
+function reliefFromOwnCorruption(
+  context: ModuleContext,
+  target: CardInstanceId,
+  definitionId: string,
+): { tsd: number; reason: string } | null {
+  const { view, cardPool, standing, tunables } = context;
+  const bearer = Object.entries(view.self.characters)
+    .find(([, character]) => character.hazards.some(h => h.instanceId === target))?.[0] as CardInstanceId | undefined;
+  if (!bearer) return null;
+  const def = cardPool[definitionId] as unknown as {
+    name?: string;
+    effects?: readonly { type?: string; stat?: string; value?: number; apply?: { type?: string; check?: string } }[];
+  } | undefined;
+  const effects = def?.effects ?? [];
+  const corruption = effects
+    .filter(e => e.type === 'stat-modifier' && e.stat === 'corruption-points')
+    .reduce((sum, e) => sum + (e.value ?? 0), 0);
+  if (corruption <= 0) return null;
+  const value = computeCharacterValue(view, cardPool, standing, tunables);
+  const relief = value.corruptionRelief(bearer, corruption);
+  const triggers = effects.filter(e => e.type === 'on-event'
+    && e.apply?.type === 'force-check' && e.apply.check === 'corruption').length;
+  const check = triggers > 0 ? value.checkRisk(bearer) : { tsd: 0, reason: '' };
+  const name = def?.name ?? definitionId;
+  return {
+    tsd: relief.tsd + triggers * check.tsd,
+    reason: `discarding ${name} from our own character — ${relief.reason}`
+      + (triggers > 0 ? `; and ${triggers} check(s) it would still force — ${check.reason}` : ''),
   };
 }
 

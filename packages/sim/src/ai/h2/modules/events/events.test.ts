@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { loadCardPool } from '@meccg/shared';
+import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
@@ -482,5 +482,38 @@ describe('discarding something that was making every attack worse', () => {
     const { held, context } = removalPosition('Doors of Night');
     const evaluation = eventsModule.evaluate(play(held.instanceId), context)!;
     expect(evaluation.expectedTsd).toBeLessThan(0);
+  });
+});
+
+describe('discarding a corruption card from our own character', () => {
+  test('is priced by the corruption it relieves', () => {
+    // Regression (game mv58g9u2-4shp4p): Marvels Told named at Alone and
+    // Unadvised on our own Náin was declined — a removal's relief was read
+    // only off `defence` — so the play fell back while the winning human made
+    // it, as winning humans did in eleven recorded decisions.
+    const scenario = loadScenario('events/discard-own-corruption');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const ownHazards = new Set(Object.values(view.self.characters)
+      .flatMap(character => character.hazards.map(h => h.instanceId as string)));
+    const removals = legalActions.filter(a => a.type === 'play-short-event'
+      && ownHazards.has((a as unknown as { discardTargetInstanceId?: string }).discardTargetInstanceId ?? ''));
+    expect(removals.length).toBeGreaterThan(0);
+    for (const removal of removals) {
+      const evaluation = eventsModule.evaluate(removal, context)!;
+      expect(evaluation).not.toBeNull();
+      expect(JSON.stringify(evaluation.rationale)).toContain('from our own character');
+      expect(evaluation.expectedTsd).toBeGreaterThan(0);
+    }
   });
 });
