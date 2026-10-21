@@ -275,6 +275,38 @@ describe('Choking Shadows (tw-21)', () => {
     }
   });
 
+  test('bug regression: Mode A against a non-moving company at a R&L site still adds the +2 prowess boost', () => {
+    // The company stays at Moria this turn: it does not "arrive" anywhere,
+    // but it still faces Moria's automatic-attack in the site phase, and
+    // the +2 prowess mode does not require movement.
+    const state = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [], siteDeck: [RIVENDELL] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [CHOKING_SHADOWS], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const mh: MovementHazardPhaseState = makeMHState({
+      destinationSiteType: SiteType.RuinsAndLairs,
+      destinationSiteName: 'Moria',
+    });
+    const mhGameState: GameState = { ...state, phaseState: mh };
+
+    const csId = handCardId(mhGameState, HAZARD_PLAYER);
+    const afterPlay = playHazardAndResolve(mhGameState, PLAYER_2, csId, P1_COMPANY);
+
+    const boost = afterPlay.activeConstraints.find(c =>
+      c.kind.type === 'attribute-modifier' && c.kind.attribute === 'auto-attack.prowess',
+    );
+    expect(boost).toBeDefined();
+    if (boost!.kind.type === 'attribute-modifier') {
+      expect(boost!.kind.value).toBe(2);
+      expect(boost!.kind.filter).toEqual({ 'site.type': SiteType.RuinsAndLairs });
+    }
+  });
+
   test('Mode A — non-R&L destination with no Doors of Night, not playable (play-condition)', () => {
     // Rule 5.1.2: cannot play if no effect can trigger. At a non-R&L site
     // without Doors of Night, none of the three Choking Shadows modes apply.
