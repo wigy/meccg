@@ -429,7 +429,14 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/wh/IntheGripofAmbition.jpg",
     "unique": false,
     "eventType": "permanent",
-    "effects": [],
+    "effects": [
+      { "type": "play-target", "target": "character", "filter": { "target.race": { "$in": ["wizard", "fallen-wizard"] } } },
+      { "type": "duplication-limit", "scope": "character", "max": 1 },
+      { "type": "stat-modifier", "stat": "corruption-points", "value": 1 },
+      { "type": "stage-points", "value": 2, "when": { "bearer.race": "fallen-wizard" } },
+      { "type": "stage-points", "value": 1, "when": { "$and": [{ "bearer.race": "fallen-wizard" }, { "bearer.stagePoints": { "$gt": 7 } }] } },
+      { "type": "grant-action", "action": "remove-self-on-roll", "cost": { "tap": "bearer" }, "apply": { "type": "roll-then-apply", "threshold": 9, "onSuccess": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } } }
+    ],
     "text": "Corruption. Playable on a Fallen-wizard or a Wizard. He receives 1 corruption point (CP). If he is a Fallen-wizard, he receives 2 stage points. If he has more than 7 stage points, he receives an additional stage point. Cannot be duplicated on a given character. During his organization phase, target may tap to attempt to remove this card. Make a roll—if this result is greater than 8, discard this card."
   },
   {
