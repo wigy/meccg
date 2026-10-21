@@ -78,8 +78,13 @@ export interface CharacterValue {
    * check on the bearer whether or not the action changed how many
    * corruption points they carry, so the whole failing band is chargeable,
    * not just a widening of it.
+   *
+   * `modifier` is the check's own modifier as the card declares it (Vilya
+   * tw-358: "Elrond makes a corruption check modified by -3"): a check fails
+   * on a roll that, *plus* the modifier, is at most the corruption total, so a
+   * negative modifier widens the failing band by its size.
    */
-  checkRisk(instanceId: CardInstanceId): CharacterPrice;
+  checkRisk(instanceId: CardInstanceId, modifier?: number): CharacterPrice;
   /**
    * What a +`boost` on a corruption check already pending against this
    * character is worth, when the engine publishes its 2d6 `need` (the roll
@@ -242,16 +247,17 @@ function buildComputeCharacterValue(
       };
     },
 
-    checkRisk(instanceId: CardInstanceId): CharacterPrice {
+    checkRisk(instanceId: CardInstanceId, modifier = 0): CharacterPrice {
       const character = view.self.characters[instanceId];
       if (!character) return { tsd: 0, reason: 'character not in play' };
       const corruption = character.effectiveStats.corruptionPoints;
-      const pFail = pAtMost(corruption);
+      const pFail = pAtMost(corruption - modifier);
       if (pFail <= 0) return { tsd: 0, reason: 'corruption is low enough that the check cannot fail' };
       const onFailure = onFailureOf(instanceId);
+      const at = modifier === 0 ? `${corruption}` : `${corruption}, modified by ${modifier},`;
       return {
         tsd: pFail * onFailure,
-        reason: `a check at corruption ${corruption} fails ${(pFail * 100).toFixed(1)}% of the time, `
+        reason: `a check at corruption ${at} fails ${(pFail * 100).toFixed(1)}% of the time, `
           + `against ${onFailure.toFixed(1)} tsd lost if it fails`,
       };
     },

@@ -30,7 +30,7 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, untappedAltPermanentEvents, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
 import { holdableAttackCreatureInstanceId } from '../held-creature.js';
 import { countConstraintsFromDefinition, constraintsOnCompany, multiStrikeAllowance } from '../pending.js';
 import { allyEffectiveBody } from '../ally-stats.js';
@@ -2314,13 +2314,8 @@ function altPermanentEventBodyModifierActions(
   const player = playerById(state, playerId);
   if (!player) return actions;
 
-  for (const card of player.cardsInPlay) {
-    if (card.status !== CardStatus.Untapped) continue;
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    const effects = getCardEffects(def);
-    const altEvent = effects.find(e => e.type === 'creature-alt-event');
-    if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) continue;
+  for (const { card, def, effects, altEvent, bypassesLimit } of untappedAltPermanentEvents(state, player)) {
+    if (altEvent.persistent) continue;
     const statMod = effects.find(
       (e): e is TargetCharacterStatModifierEffect => e.type === 'target-character-stat-modifier' && e.stat === 'body',
     );
@@ -2331,7 +2326,6 @@ function altPermanentEventBodyModifierActions(
     }
 
     const action = { type: 'tap-alt-permanent-event' as const, player: playerId, cardInstanceId: card.instanceId, targetCharacterId: strike.characterId };
-    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
     const hazardLimit = bypassesLimit ? undefined : hazardLimitStatus(state, combat.companyId);
     if (hazardLimit?.reached) {
       logDetail(`Body-check permanent-event tap ${def.name}: hazard limit reached (${hazardLimit.played}/${hazardLimit.limit})`);
@@ -4377,13 +4371,8 @@ function altPermanentEventModifyAttackActions(
   // Printed timing: "tapped during the opponent's movement/hazard phase".
   if (state.phaseState.phase !== Phase.MovementHazard) return actions;
 
-  for (const card of player.cardsInPlay) {
-    if (card.status !== CardStatus.Untapped) continue;
-    const def = defById(state, card.definitionId);
-    if (!def) continue;
-    const effects = getCardEffects(def);
-    const altEvent = effects.find(e => e.type === 'creature-alt-event');
-    if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) continue;
+  for (const { card, def, effects, altEvent, bypassesLimit } of untappedAltPermanentEvents(state, player)) {
+    if (altEvent.persistent) continue;
     const effect = effects.find(
       (e): e is ModifyAttackEffect => e.type === 'modify-attack' && !!e.fromAltPermanentEvent,
     );
@@ -4401,7 +4390,6 @@ function altPermanentEventModifyAttackActions(
 
     // The conversion is a hazard action and counts one against the company's
     // hazard limit (printed on the card, and CoE 8.12 for combat-window plays).
-    const bypassesLimit = 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
     const hazardLimit = bypassesLimit ? undefined : hazardLimitStatus(state, combat.companyId);
     if (hazardLimit?.reached) {
       logDetail(`Modify-attack (permanent-event tap) ${def.name}: hazard limit reached (${hazardLimit.played}/${hazardLimit.limit})`);

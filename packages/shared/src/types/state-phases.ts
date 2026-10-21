@@ -1139,21 +1139,20 @@ export interface SitePhaseState {
   readonly uniqueHeroFactionPlayedAtFreeHold?: boolean;
   /**
    * Whether the active company has, this site phase, **successfully freed
-   * characters taken prisoner while standing at Dol Guldur** — either by
-   * playing Rescue Prisoners (tw-315) there and keeping it (a bearer was
-   * assigned), or by resolving a generic CoE 8.36 `rescue-prisoner` action
-   * whose rescue site is Dol Guldur. Matched by site *name*, so any printing
-   * of Dol Guldur counts. Consulted by the `grant-action` `when` clause of
-   * Pass the Doors of Dol Guldur (dm-154) — "You can tap this card during the
-   * same site phase the company successfully plays Rescue Prisoners at Dol
-   * Guldur (or rescues characters taken prisoner if the rescue site is Dol
-   * Guldur)" — via the context key
-   * `company.prisonersRescuedAtDolGuldurThisSitePhase`. Absent (undefined →
+   * characters taken prisoner** — either by playing Rescue Prisoners (tw-315)
+   * and keeping it (a bearer was assigned), or by resolving a generic CoE 8.36
+   * `rescue-prisoner` action. Exposed to `when` clauses as
+   * `company.prisonersRescuedThisSitePhase`; site restrictions live in the
+   * card's condition — Pass the Doors of Dol Guldur (dm-154) pairs it with
+   * `site.name: "Dol Guldur"` ("You can tap this card during the same site
+   * phase the company successfully plays Rescue Prisoners at Dol Guldur (or
+   * rescues characters taken prisoner if the rescue site is Dol Guldur)").
+   * Absent (undefined →
    * false) until such a rescue happens; reset to absent when a new company's
    * site phase begins (a fresh {@link SitePhaseState} is built), which is what
    * makes it company-scoped as well as site-phase-scoped.
    */
-  readonly prisonersRescuedAtDolGuldurThisSitePhase?: boolean;
+  readonly prisonersRescuedThisSitePhase?: boolean;
   /**
    * Whether the active company has, this site phase, **successfully played an
    * ally or a faction at its current site**. Set when an ally is attached in

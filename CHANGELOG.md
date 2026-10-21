@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.216.0 — 2026-10-21
+
+Choking Shadows Fixed, Wolf Certified
+
+### Game Engine
+
+- Choking Shadows' +2 prowess to a site's automatic-attack now applies when played on a company staying at a Ruins & Lairs site; movement-dependent arrival modes still fizzle for non-moving companies (#3389)
+- Wolf (dm-183) gains +2 direct influence against Dunlendings and is certified (#3388)
+
 ## 0.215.0 — 2026-10-21
 
 Combat Rolls Explained to Both Players

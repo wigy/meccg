@@ -55,6 +55,10 @@ export interface Effect {
   readonly check?: string;
   readonly value?: number;
   readonly valueExpr?: string;
+  readonly event?: string;
+  readonly when?: unknown;
+  readonly target?: string;
+  readonly modifier?: number;
 }
 
 /** A DSL filter, as far as this module reads one. */
@@ -595,6 +599,39 @@ function discardsWhenCompanyMoves(effects: readonly Effect[]): boolean {
   });
 }
 
+/**
+ * What the corruption check an event forces on the character it is played on
+ * costs (Vilya tw-358: "Elrond makes a corruption check modified by -3").
+ *
+ * The engine enqueues an `on-event self-enters-play → enqueue-corruption-check`
+ * on the event's target character (`reducer-events`, `chain-reducer`), so the
+ * check is ours to fail whatever the event achieves. Left unpriced, the
+ * modular AI played Vilya at every window of a recorded game for its three
+ * cards back to the deck — 25 decisions where the winning human (rated 1645)
+ * held it — and never counted that a failed check costs Elrond.
+ *
+ * A check with a `when` (Nenya picks -1 or -3 by Galadriel's site) or aimed at
+ * another company member (`apply.target`) is not read here and charges
+ * nothing, so such an event stays as over-valued as it was.
+ */
+function forcedCheckCost(
+  effects: readonly Effect[],
+  context: ModuleContext,
+  action: GameAction,
+): { tsd: number; reason: string } | null {
+  const checks = effects.filter(e => e.type === 'on-event' && e.event === 'self-enters-play'
+    && e.apply?.type === 'enqueue-corruption-check' && e.apply.target === undefined && e.when === undefined);
+  if (checks.length === 0) return null;
+  const characterId = (action as unknown as { targetCharacterId?: CardInstanceId }).targetCharacterId;
+  if (!characterId) return null;
+  const value = computeCharacterValue(context.view, context.cardPool, context.standing, context.tunables);
+  const prices = checks.map(e => value.checkRisk(characterId, e.apply?.modifier ?? 0));
+  return {
+    tsd: prices.reduce((sum, p) => sum + p.tsd, 0),
+    reason: prices.map(p => p.reason).join('; '),
+  };
+}
+
 /** What crediting a permanent event's printed points assumes. */
 const PERMANENT_ASSUMPTIONS: readonly string[] = [
   'a permanent event\'s printed points are scored as though the card simply stays in play; a '
@@ -683,10 +720,12 @@ export function declaredEventEvaluation(
   // forgoes nothing — the same reading `corruption` makes of a support tap.
   const spent = context.view.phaseState.phase === Phase.FreeCouncil ? 0 : tunables.provisionalCardPrice;
   const name = (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string);
+  const check = forcedCheckCost(effects, context, action);
+  const risk = check?.tsd ?? 0;
 
   const does = gain?.tsd ?? 0;
   const reason = gain?.reason ?? `${mp} ${source} MP, and an effect family this cannot read`;
-  const dtsd = netTsdDelta({ realized: does + points, potential, tempo: spent }, tunables);
+  const dtsd = netTsdDelta({ realized: does + points - risk, potential, tempo: spent }, tunables);
   const outcomes: Outcome[] = [{ p: 1, label: `play ${name} — ${reason}`, dtsd }];
 
   const detail: Rationale[] = [
@@ -709,6 +748,9 @@ export function declaredEventEvaluation(
         : `${mp} ${source} MP, kept only until the company next moves — potential, not banked`,
     }));
   }
+  if (check) {
+    detail.push(leaf('the corruption check it forces', risk, { unit: 'tsd', note: check.reason }));
+  }
   detail.push(leaf('the card it spends', spent, {
     unit: 'tsd',
     tunable: 'provisionalCardPrice',
@@ -723,7 +765,7 @@ export function declaredEventEvaluation(
     outcomes,
     standing,
     headline: `play ${name}`,
-    detail: [node('the event', does + points - spent, detail, { unit: 'tsd' })],
+    detail: [node('the event', does + points - risk - spent, detail, { unit: 'tsd' })],
     assumptions: mp > 0 ? [...EVENT_ASSUMPTIONS, ...PERMANENT_ASSUMPTIONS] : EVENT_ASSUMPTIONS,
   });
 }

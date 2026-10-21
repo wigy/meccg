@@ -1043,6 +1043,25 @@ function addDeclaredConstraint(
 }
 
 /**
+ * Constraint kinds an arrival mode may install against a non-moving
+ * company: they modify the site's automatic-attacks rather than describe
+ * the company arriving, so they apply to the stationary company's current
+ * site just as well.
+ */
+const STATIONARY_ARRIVAL_CONSTRAINTS: ReadonlySet<string> = new Set(['auto-attack-prowess-boost']);
+
+/**
+ * Whether every constraint an arrival-mode effect installs is valid for a
+ * company that is staying at its current site this turn.
+ */
+function isStationaryArrivalMode(onEvent: OnEventEffect): boolean {
+  const applies = onEvent.apply.type === 'sequence' ? (onEvent.apply.apps ?? []) : [onEvent.apply];
+  return applies.length > 0 && applies.every(
+    a => a.type === 'add-constraint' && !!a.constraint && STATIONARY_ARRIVAL_CONSTRAINTS.has(a.constraint),
+  );
+}
+
+/**
  * Fire any `on-event company-arrives-at-site → add-constraint` effect
  * carried by a resolving short-event. The target company is the active
  * M/H company (the only company the hazard can be played against), so
@@ -1100,8 +1119,13 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   // actually moving. A non-moving company (no declared destination)
   // never "arrives" at its current site for rules purposes, so cards
   // like River — "A company moving to this site this turn must do
-  // nothing…" — have no target and fizzle.
-  if (!targetCompany.destinationSite) {
+  // nothing…" — have no target and fizzle. The exception is a mode that
+  // merely modifies the site's automatic-attacks (Choking Shadows' "+2
+  // prowess to one automatic-attack at a Ruins & Lairs site"): its text
+  // does not require movement, and a stationary company still faces its
+  // current site's automatic-attacks in the site phase.
+  const moving = targetCompany.destinationSite !== null;
+  if (!moving && !onEvents.some(e => isStationaryArrivalMode(e))) {
     logDetail(`Short-event "${def.name}" on-event company-arrives-at-site skipped — active company is not moving`);
     return state;
   }
@@ -1113,6 +1137,10 @@ function applyShortEventArrivalTrigger(state: GameState, entry: ChainEntry): Gam
   const chosenIndex = entry.payload.type === 'short-event' ? entry.payload.arrivalModeIndex : undefined;
   for (const [modeIndex, onEvent] of onEvents.entries()) {
     if (chosenIndex !== undefined && modeIndex !== chosenIndex) continue;
+    if (!moving && !isStationaryArrivalMode(onEvent)) {
+      logDetail(`Short-event "${def.name}": skipping on-event mode — requires a moving company`);
+      continue;
+    }
     if (onEvent.when && !matchesCondition(onEvent.when, ctx)) {
       logDetail(`Short-event "${def.name}": skipping on-event mode — condition not met`);
       continue;
