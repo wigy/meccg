@@ -5306,7 +5306,9 @@ function nazgulSideboardFetchActions(
  *
  * Players whose hand exceeds the base hand size must choose which cards
  * to discard. Each card in hand is offered as a `discard-card` action.
- * Players already at or below hand size get no actions.
+ * A player whose step-8 draw exhausted their play deck is offered the
+ * sideboard exchange sub-flow first. Players already at or below hand size
+ * get no actions.
  */
 function resetHandActions(
   state: GameState,
@@ -5316,12 +5318,19 @@ function resetHandActions(
   const player = state.players[playerIndex];
   const handSize = resolveHandSize(state, playerIndex);
 
+  // Deck exhaust exchange sub-flow (step-8 draw took the last card): only
+  // sideboard exchanges and the pass that completes the reshuffle.
+  if (player.deckExhaustPending) {
+    logDetail(`Reset-hand: player ${player.name} exhausted their play deck — offering sideboard exchange`);
+    return deckExhaustExchangeActions(state, player, playerId).map(action => ({ action, viable: true }));
+  }
+
   if (player.hand.length <= handSize) {
     // The step can be entered with every player already at hand size (e.g.
     // a hand-size modifier changed after the draw). Nothing auto-advances
     // it, so the active player must be able to pass to move on.
     const everyoneAtHandSize = state.players.every(
-      (p, i) => p.hand.length <= resolveHandSize(state, i),
+      (p, i) => !p.deckExhaustPending && p.hand.length <= resolveHandSize(state, i),
     );
     if (everyoneAtHandSize && state.activePlayer === playerId) {
       logDetail(`Reset-hand: all players at hand size — active player may pass to advance`);

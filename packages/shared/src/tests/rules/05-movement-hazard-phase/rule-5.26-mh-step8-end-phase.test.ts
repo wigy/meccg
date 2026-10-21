@@ -23,6 +23,7 @@ import {
 } from '../../test-helpers.js';
 import { CardStatus } from '../../../index.js';
 import type { GameState } from '../../../index.js';
+import { computeLegalActions } from '../../../engine/legal-actions/index.js';
 
 describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
   beforeEach(() => resetMint());
@@ -74,9 +75,10 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
   test('Step 8 draw that empties the play deck exhausts it mid-draw and resumes from the reshuffled deck (CoE 2.4)', () => {
     // P1 has 0 cards in hand, 2 in the play deck and 3 in the discard pile.
     // Drawing up to hand size (8) runs the deck dry after 2 cards: rule 2.4
-    // says the deck is exhausted immediately, the discard pile is reshuffled
-    // into a new play deck, and the draw resumes — so P1 ends up with all 5
-    // cards in hand and one exhaustion recorded.
+    // says the deck is exhausted immediately — P1 may exchange with the
+    // sideboard, then the discard pile is reshuffled into a new play deck and
+    // the draw resumes — so P1 ends up with all 5 cards in hand and one
+    // exhaustion recorded.
     const built = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.MovementHazard,
@@ -111,15 +113,81 @@ describe('Rule 5.26 — Step 8: End the Company M/H Phase', () => {
     const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
     const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
 
-    const p1 = afterBothPass.players[RESOURCE_PLAYER];
+    // The exhaust sub-flow is open: the 2 deck cards are drawn, the
+    // reshuffle waits for P1's sideboard exchange.
+    const pending = afterBothPass.players[RESOURCE_PLAYER];
+    expect(pending.deckExhaustPending).toBe(true);
+    expect(pending.hand).toHaveLength(2);
+    expect(pending.deckExhaustionCount).toBe(0);
+
+    const afterExchange = dispatch(afterBothPass, { type: 'pass', player: PLAYER_1 });
+    const p1 = afterExchange.players[RESOURCE_PLAYER];
     expect(p1.deckExhaustionCount).toBe(1);
     expect(p1.hand).toHaveLength(5);
     expect(p1.playDeck).toHaveLength(0);
     expect(p1.discardPile).toHaveLength(0);
     expect(p1.deckExhaustPending).toBe(false);
     // P2's deck did not run dry — no exhaustion for them.
-    expect(afterBothPass.players[HAZARD_PLAYER].deckExhaustionCount).toBe(0);
-    expect(afterBothPass.players[HAZARD_PLAYER].hand).toHaveLength(2);
+    expect(afterExchange.players[HAZARD_PLAYER].deckExhaustionCount).toBe(0);
+    expect(afterExchange.players[HAZARD_PLAYER].hand).toHaveLength(2);
+  });
+
+  test('Step 8 draw that exhausts the play deck offers the sideboard exchange before reshuffling (CoE 2.4)', () => {
+    // Bug report: a player's deck ran out during the automatic step-8 draw
+    // to hand size and was reshuffled with no sideboard-exchange window.
+    const built = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: MINAS_TIRITH, characters: [ARAGORN] }],
+          hand: [DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE, DAGGER_OF_WESTERNESSE],
+          playDeck: [DAGGER_OF_WESTERNESSE],
+          discardPile: [ORC_PATROL, ORC_PATROL, ORC_PATROL],
+          sideboard: [CAVE_DRAKE],
+          siteDeck: [],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+          hand: [],
+          playDeck: [ORC_PATROL, CAVE_DRAKE],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const state: GameState = {
+      ...built,
+      phaseState: makeMHState({
+        activeCompanyIndex: 0,
+        resourcePlayerPassed: false,
+        hazardPlayerPassed: false,
+      }),
+    };
+
+    const afterResourcePass = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    const afterBothPass = dispatch(afterResourcePass, { type: 'pass', player: PLAYER_2 });
+
+    const p1 = afterBothPass.players[RESOURCE_PLAYER];
+    expect(p1.hand).toHaveLength(8);
+    expect(p1.deckExhaustPending).toBe(true);
+    expect(afterBothPass.phaseState).toMatchObject({ phase: Phase.MovementHazard, step: 'reset-hand' });
+
+    const actions = computeLegalActions(afterBothPass, PLAYER_1).filter(a => a.viable).map(a => a.action);
+    const exchange = actions.find(a => a.type === 'exchange-sideboard');
+    expect(exchange).toBeDefined();
+    expect(actions.every(a => a.type === 'exchange-sideboard' || a.type === 'pass')).toBe(true);
+
+    const afterSwap = dispatch(afterBothPass, exchange!);
+    const afterDone = dispatch(afterSwap, { type: 'pass', player: PLAYER_1 });
+    const done = afterDone.players[RESOURCE_PLAYER];
+    expect(done.deckExhaustPending).toBe(false);
+    expect(done.deckExhaustionCount).toBe(1);
+    expect(done.playDeck.map(c => c.definitionId)).toContain(CAVE_DRAKE);
+    expect(done.sideboard.map(c => c.definitionId)).toContain(ORC_PATROL);
+    expect(afterDone.phaseState).not.toMatchObject({ phase: Phase.MovementHazard, step: 'reset-hand' });
   });
 
   test('tapped non-haven site of origin goes to site discard pile, not back to site deck', () => {

@@ -41,7 +41,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, characterHasCannotUntapConstraint, isSelfDiscardMove, matchesDefinition, moveSideboardCard, drawCardsExhausting, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, characterHasCannotUntapConstraint, isSelfDiscardMove, matchesDefinition, moveSideboardCard, startDeckExhaust, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -2191,10 +2191,12 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
 
   // --- Step 8b: Draw up to hand size (automatic) ---
   // Use intermediate state for hand size resolution so updated companies are
-  // visible. The draw goes through `drawCardsExhausting` so a play deck that
-  // runs dry mid-draw is exhausted and reshuffled immediately and the draw
-  // resumes from the new deck (CoE 2.4) — a plain slice of the remaining deck
-  // silently left the player short of cards and never recorded the exhaustion.
+  // visible. A draw that takes the last card of the play deck exhausts it
+  // (CoE 2.4): the player enters the exhaust sub-flow (`deckExhaustPending`)
+  // so they may exchange up to five cards with their sideboard before the
+  // reshuffle. The reset-hand step offers that exchange and, once the player
+  // passes, completes the reshuffle and resumes the draw from the new deck —
+  // reshuffling straight away here silently skipped the sideboard exchange.
   let intermediateState: GameState = { ...workingState, players: newPlayers };
   for (const i of [0, 1] as const) {
     const p = intermediateState.players[i];
@@ -2207,22 +2209,27 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     // would retroactively exhaust and sweep the cards discarded moments
     // earlier in steps 8a-2/8a-3 out of the discard pile and into a new deck.
     if (p.hand.length < handSize && p.playDeck.length > 0) {
-      const wanted = handSize - p.hand.length;
-      const { state: drawnState, drawnCards } = drawCardsExhausting(intermediateState, i, wanted);
-      if (drawnCards.length > 0) {
-        logDetail(`Step 8: player ${p.name} draws ${drawnCards.length} card(s) to reach hand size ${handSize}`);
-        intermediateState = updatePlayer(drawnState, i, pl => ({ ...pl, hand: [...pl.hand, ...drawnCards] }));
+      const take = Math.min(handSize - p.hand.length, p.playDeck.length);
+      logDetail(`Step 8: player ${p.name} draws ${take} card(s) toward hand size ${handSize}`);
+      intermediateState = updatePlayer(intermediateState, i, pl => ({
+        ...pl,
+        hand: [...pl.hand, ...pl.playDeck.slice(0, take)],
+        playDeck: pl.playDeck.slice(take),
+      }));
+      const drawn = intermediateState.players[i];
+      if (drawn.playDeck.length === 0 && drawn.discardPile.length > 0) {
+        logDetail(`Step 8: player ${p.name}'s last card drawn — play deck exhausted, opening sideboard exchange`);
+        intermediateState = startDeckExhaust(intermediateState, i);
       }
     }
   }
   newPlayers[0] = intermediateState.players[0];
   newPlayers[1] = intermediateState.players[1];
 
-  // --- Step 8c: If anyone needs to discard, go to reset-hand step ---
-  const needsDiscard = newPlayers.some((p, i) => p.hand.length > resolveHandSize(intermediateState, i));
-  // Carry `intermediateState` forward (not just its players): an exhaustion
-  // reshuffle above also advanced the rng and may have discarded cards that
-  // leave play when a deck is exhausted.
+  // --- Step 8c: If anyone needs to discard or is exhausting, go to reset-hand step ---
+  const needsDiscard = newPlayers.some((p, i) => p.hand.length > resolveHandSize(intermediateState, i))
+    || newPlayers.some(p => p.deckExhaustPending);
+  // Carry `intermediateState` forward (not just its players).
   let updatedState: GameState = intermediateState;
 
   // Fire the company-arrives-at-site event hook (River, etc.) on the
@@ -2255,7 +2262,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
   updatedState = fireCharacterCorruptionAtSiteTriggers(updatedState, mhStateLocal);
 
   if (needsDiscard) {
-    logDetail(`Step 8: player(s) over hand size — entering reset-hand for discard`);
+    logDetail(`Step 8: player(s) over hand size or exhausting — entering reset-hand`);
     return {
       state: {
         ...updatedState,
