@@ -41,10 +41,23 @@ function cardOf(
   context: ModuleContext,
   action: GameAction,
 ): { name: string; source: MpSource; marshallingPoints: number; corruption: number; def: CardDefinition } | null {
-  const record = action as unknown as { cardInstanceId?: CardInstanceId; itemInstanceId?: CardInstanceId };
+  const record = action as unknown as {
+    cardInstanceId?: CardInstanceId;
+    itemInstanceId?: CardInstanceId;
+    fromDiscard?: boolean;
+    fromSideboard?: boolean;
+  };
   const instanceId = record.cardInstanceId ?? record.itemInstanceId;
   if (!instanceId) return null;
-  const card = context.view.self.hand.find(c => c.instanceId === instanceId);
+  // Glove of Radagast plays a granted ally from the discard pile, and
+  // War-forges a minor item from the discard pile or sideboard. Reading only
+  // the hand declined those plays, which left the whole site phase unscored —
+  // and the modular AI passed where the winning human (marric1976, 1699)
+  // played four allies in a row (game mtklpkaq-x2k5kd).
+  const zone = record.fromDiscard
+    ? context.view.self.discardPile
+    : record.fromSideboard ? context.view.self.sideboard : context.view.self.hand;
+  const card = zone.find(c => c.instanceId === instanceId);
   const def: CardDefinition | undefined = card ? context.cardPool[card.definitionId] : undefined;
   if (!def) return null;
   const fields = def as unknown as {

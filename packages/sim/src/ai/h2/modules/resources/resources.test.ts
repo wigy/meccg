@@ -8,7 +8,7 @@
  */
 
 import { describe, test, expect } from 'vitest';
-import { CardStatus } from '@meccg/shared';
+import { CardStatus, computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { CardDefinition, GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
@@ -16,6 +16,8 @@ import { collectTunables } from '../../core/rationale.js';
 import { computeStanding } from '../../services/standing.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { resourcesModule } from './resources.js';
+import { loadScenario, scenarioView } from '../../scenario-store.js';
+import { ALL_MODULES, evaluateDecision } from '../../core/registry.js';
 
 const HERO = 'tw-hero';
 const ITEM = 'tw-item';
@@ -176,5 +178,36 @@ describe('a card worth more stored than printed', () => {
       DEFAULT_TUNABLES.potentialDiscount * worth - DEFAULT_TUNABLES.tapTempoCost, 9,
     );
     expect(JSON.stringify(orchard.rationale)).toContain('worth once stored');
+  });
+});
+
+/**
+ * Glove of Radagast plays a granted ally from the discard pile, and the engine
+ * marks the action `fromDiscard`. Looking for the card in hand only declined
+ * every such play, which left the site phase unscored and the agent passing.
+ */
+describe('a resource played from the discard pile', () => {
+  test('is priced, so the site phase stays covered', () => {
+    const scenario = loadScenario('site/allies-from-discard');
+    const view = scenarioView(scenario);
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool: loadCardPool(),
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const fromDiscard = legalActions.filter(a => a.type === 'play-hero-resource'
+      && (a as unknown as { fromDiscard?: boolean }).fromDiscard === true);
+    expect(fromDiscard.length).toBeGreaterThan(0);
+    for (const action of fromDiscard) {
+      expect(resourcesModule.evaluate(action, context)).not.toBeNull();
+    }
+    const decision = evaluateDecision(ALL_MODULES, context);
+    expect(decision.uncovered).not.toContain('play-hero-resource');
+    expect(decision.evaluations[0].action.type).toBe('play-hero-resource');
   });
 });
