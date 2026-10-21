@@ -27,7 +27,7 @@ import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { availableDI, conditionalDISpentOnFollowers, normalUnusedDI, grantedActionActivations, bareCardGrantActions, playResourceShortEventActions, playerStateGateMet, buildActiveCompanyContext } from './organization.js';
-import { playPermanentEventActions } from './organization-events.js';
+import { playPermanentEventActions, bundledOrCombatOnlyPermanentEventReason } from './organization-events.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 import { manifestationSwapActions } from './manifestation-swap.js';
@@ -1371,63 +1371,9 @@ export function playResourcesActions(
           continue;
         }
 
-        // A `convert-creature-to-ally` effect (Ready to His Will le-220, Memories
-        // of Old Torture ba-67) is a combat-only mechanism: it is playable solely
-        // during the defending player's assign-strikes window against an eligible
-        // creature attack, and is offered exclusively by
-        // `legal-actions/combat.ts`'s `convertCreatureToAllyActions`. It must
-        // never reach the generic site-phase fallback below (which would offer
-        // it as an unconditionally playable permanent event with no target).
-        const convertCreatureToAlly = getCardEffects(eventDef).find(
-          (e): e is import('../../types/effects.js').ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
-        );
-        if (convertCreatureToAlly) {
-          logDetail(`Permanent event ${eventDef.name}: convert-creature-to-ally is combat-only — not offered during the site phase`);
-          continue;
-        }
-
-        // A `sacrifice-of-form` effect (Sacrifice of Form tw-321) has its own
-        // narrow combat-only play window — "played after strikes are assigned"
-        // (CRF 22), before any strike of that attack resolves, and never in
-        // company-vs-company combat — enforced by `sacrificeOfFormActions`
-        // (legal-actions/combat.ts). Rule 2.1.1's "any phase" allowance for
-        // resource permanent-events is exactly the kind of "unless a rule or
-        // effect restricts them" case that provision itself carves out, so this
-        // card must never reach the generic fallback below (which would offer
-        // it unconditionally during the site phase, even with no attack in
-        // progress and no Wizard in the company).
-        const sacrificeOfForm = getCardEffects(eventDef).find(
-          (e): e is import('../../types/effects.js').SacrificeOfFormEffect => e.type === 'sacrifice-of-form',
-        );
-        if (sacrificeOfForm) {
-          logDetail(`Permanent event ${eventDef.name}: sacrifice-of-form — combat-only window, not offered during the site phase`);
-          continue;
-        }
-
-        // A `combat-join-character` effect (Helm of Her Secrecy td-122) is only
-        // playable bundled with its character while the company faces an attack,
-        // via `combatJoinCharacterActions` (legal-actions/combat-join-character.ts).
-        if (getCardEffects(eventDef).some(e => e.type === 'combat-join-character')) {
-          logDetail(`Permanent event ${eventDef.name}: combat-join-character — combat-only, not offered during the site phase`);
-          continue;
-        }
-
-        // A `recruitment-vehicle` effect (Thrall of the Voice wh-82, Open to the
-        // Summons wh-46) is never playable as a bare permanent event — its card
-        // text is explicit: "Instead of a normal character... bring into play
-        // one character... Place this card with the character." The card's only
-        // play mode is bundled with a character recruit via `play-character`'s
-        // `viaRecruitmentInstanceId` (see `recruitmentVehiclesInHand` in
-        // organization-characters.ts). Mirrors the equivalent guard in
-        // organization-events.ts — without it, the generic untargeted fallback
-        // below would let the card enter play loose in `cardsInPlay` here during
-        // the site phase (rule 2.1.1's "any phase" allowance), permanently spent
-        // with no character ever attached.
-        const recruitmentVehicle = getCardEffects(eventDef).find(
-          (e): e is import('../../types/effects.js').RecruitmentVehicleEffect => e.type === 'recruitment-vehicle',
-        );
-        if (recruitmentVehicle) {
-          logDetail(`Permanent event ${eventDef.name}: recruitment-vehicle — only playable bundled with a character recruit, not offered during the site phase`);
+        const bundledReason = bundledOrCombatOnlyPermanentEventReason(eventDef);
+        if (bundledReason) {
+          logDetail(`Permanent event ${eventDef.name}: ${bundledReason} during the site phase`);
           continue;
         }
 
