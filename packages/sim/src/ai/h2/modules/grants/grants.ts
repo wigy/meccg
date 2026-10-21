@@ -269,7 +269,20 @@ function gainOf(
   // The card takes itself out of play. Worth what it was doing to the bearer,
   // which this module can price when that is corruption and not otherwise.
   if (apply.type === 'move' && apply.to === 'discard' && apply.target !== 'bearer') {
-    if (corruption <= 0) return null;
+    // A hazard that carries no corruption (Shut Yer Mouth: -2 direct
+    // influence; Foolish Words: -4 to influence attempts) is still a hazard
+    // the opponent put on him, and shaking it off never hurts. Nothing here
+    // prices what it was doing, so it is credited the flat tap tempo — a
+    // floor, enough to take a free roll (Shut Yer Mouth costs nothing) over
+    // passing and too little to tap a character for. Declined, the free roll
+    // was never scored, and the winning humans of batch 19 took it at every
+    // organization phase it was offered.
+    if (corruption <= 0) {
+      return {
+        tsd: tunables.tapTempoCost,
+        reason: 'rid of a hazard on him — what it does is not priced, so only the flat tempo is credited, a floor',
+      };
+    }
     const relief = characterValue.corruptionRelief(characterId, corruption);
     const checks = triggeredCheckRelief(source, context, characterId, characterValue);
     if (!checks) return { tsd: relief.tsd, reason: relief.reason };
