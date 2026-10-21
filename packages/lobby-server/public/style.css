@@ -6374,11 +6374,14 @@ body.all-companies-mode:has(#debug-view.hidden) {
   margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.35);
 }
 
-/* When a tapped character has attachments, use less collapse so the
-   prowess/body badge (which rotates to the bottom-left) stays visible
-   above the attachment row. */
+/* When a tapped character has attachments, collapse only the empty space
+   below the sideways card.  With the 420/587 card aspect the rotated card
+   is ≈0.72 × card height tall, centred in a 1.0 × card height box, so its
+   bottom edge sits at ≈0.86 and the prowess/body badge (rotated to the
+   bottom-left) sits right on that edge.  Collapsing by less than the ≈14%
+   gap keeps the attachment row below the badge, however wide the row is. */
 .character-card-wrap--tapped.character-card-wrap--has-attachments {
-  margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.2);
+  margin-bottom: calc(var(--card-table-height) * var(--company-scale, 1) * -0.12);
 }
 
 /* Card sizing */

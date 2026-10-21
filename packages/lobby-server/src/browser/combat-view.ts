@@ -56,6 +56,7 @@ import { createRadar } from './map-radar.js';
 import { openFullMap } from './map-fullscreen.js';
 import { loadCoordinates, areCoordinatesLoaded } from './map-coordinates.js';
 import { getFocusedCompanyId, setSavedFocusedCompanyId, setFocusedCompanyId } from './company-view-state.js';
+import { applyCharacterStatusClasses } from './company-character.js';
 import { onGuardModifyAttackActions, inPlayPermanentModifyAttackActions } from './on-guard-modify-attack.js';
 import { renderDiscardItemPanel } from './combat-discard-item-panel.js';
 import { renderAttackPanel } from './attack-panel.js';
@@ -1192,15 +1193,7 @@ function buildCombatCharacterColumn(
 
   const inner = document.createElement('div');
   inner.className = 'character-card-inner';
-  if (char.status === CardStatus.Tapped) {
-    inner.classList.add('character-card-inner--tapped');
-    wrap.classList.add('character-card-wrap--tapped');
-  } else if (char.status === CardStatus.Inverted) {
-    inner.classList.add('character-card-inner--wounded');
-    if (hasAttachments) img.classList.add('company-card--faded-top');
-  } else {
-    if (hasAttachments) img.classList.add('company-card--faded');
-  }
+  applyCharacterStatusClasses(char.status, hasAttachments, wrap, inner, img);
 
   return { col, parts: { wrap, inner, img, charIdStr } };
 }
