@@ -381,4 +381,54 @@ describe('le-185 — Forced March', () => {
     riverConstraints = state.activeConstraints.filter(c => c.source === riverInst);
     expect(riverConstraints).toHaveLength(0);
   });
+
+  // Bug report (game mvii5eif-6c7i7q): an on-guard card placed on the
+  // Darkhaven travelled with the company to the additional site. On-guard
+  // cards sit on the site, which leaves play when the company moves on, so
+  // they return to the hazard player's hand (CoE 2.IV.vii.4.2).
+  test('an on-guard card placed on the Darkhaven returns to hand when the company makes the extra move', () => {
+    let state: GameState = {
+      ...buildTestState({
+        activePlayer: PLAYER_1,
+        phase: Phase.MovementHazard,
+        players: [
+          {
+            id: PLAYER_1,
+            alignment: Alignment.Ringwraith,
+            companies: [{ site: ETTENMOORS, characters: [GORBAG], destinationSite: CARN_DUM }],
+            hand: [FORCED_MARCH],
+            siteDeck: [WHITE_TOWERS],
+            playDeck: [],
+          },
+          {
+            id: PLAYER_2,
+            companies: [{ site: LORIEN, characters: [LEGOLAS] }],
+            hand: [RIVER_LE],
+            siteDeck: [],
+            playDeck: [],
+          },
+        ],
+      }),
+      phaseState: makeMHState({ activeCompanyIndex: 0 }),
+    };
+
+    const companyId = state.players[0].companies[0].id;
+    const ogInst = state.players[1].hand.find(c => c.definitionId === RIVER_LE)!.instanceId;
+    state = dispatch(state, { type: 'place-on-guard', player: PLAYER_2, cardInstanceId: ogInst });
+    expect(state.players[0].companies[0].onGuardCards.map(c => c.instanceId)).toEqual([ogInst]);
+
+    const fmInst = state.players[0].hand.find(c => c.definitionId === FORCED_MARCH)!.instanceId;
+    state = resolveChain(dispatch(state, { type: 'play-short-event', player: PLAYER_1, cardInstanceId: fmInst }));
+    state = dispatch(state, { type: 'pass', player: PLAYER_1 });
+    state = dispatch(state, { type: 'pass', player: PLAYER_2 });
+    expect((state.phaseState as MovementHazardPhaseState).step).toBe('extra-mh-move-offer');
+
+    const whiteTowersInst = state.players[0].siteDeck.find(s => s.definitionId === WHITE_TOWERS)!;
+    state = dispatch(state, {
+      type: 'extra-mh-move', player: PLAYER_1, companyId, destinationSite: whiteTowersInst.instanceId,
+    });
+
+    expect(state.players[0].companies[0].onGuardCards).toHaveLength(0);
+    expect(state.players[1].hand.map(c => c.instanceId)).toContain(ogInst);
+  });
 });

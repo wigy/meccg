@@ -3463,14 +3463,25 @@ export function handleExtraMHMoveOffer(
     ...company,
     destinationSite: { ...toCardInstance(dest), status: CardStatus.Untapped },
     movementPath: [],
+    onGuardCards: [],
   };
   const siteDeck = removeById(player.siteDeck, dest.instanceId);
   const destName = cardNameLocal(state, dest.definitionId);
   logDetail(`Extra M/H phase: company ${action.companyId as string} sets ${underDeeps ? 'Under-deeps ' : ''}destination ${destName} → re-entering reveal-new-site (extra M/H phase)`);
 
+  // On-guard cards were placed on the site the company is now leaving, not
+  // on the company itself. That site leaves play before any site phase, so
+  // they return to the hazard player's hand (CoE 2.IV.vii.4.2, CRF "If the
+  // site an on-guard card is played upon leaves play before the site phase").
+  let moved = updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck }));
+  if (company.onGuardCards.length > 0) {
+    logDetail(`Extra M/H phase: returning ${company.onGuardCards.length} on-guard card(s) left at the abandoned site to the hazard player's hand`);
+    moved = updatePlayer(moved, 1 - activeIndex, p => ({ ...p, hand: [...p.hand, ...company.onGuardCards.map(toCardInstance)] }));
+  }
+
   return {
     state: {
-      ...dropPendingSitePhaseConstraints(updatePlayer(state, activeIndex, p => ({ ...p, companies, siteDeck })), company.id),
+      ...dropPendingSitePhaseConstraints(moved, company.id),
       phaseState: {
         ...resetCompanyMHFields(mhState),
         step: 'reveal-new-site' as const,
