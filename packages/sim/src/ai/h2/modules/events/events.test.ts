@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
-import { loadCardPool } from '@meccg/shared';
+import { computeLegalActions, loadCardPool } from '@meccg/shared';
 import type { GameAction, PlayerView } from '@meccg/shared';
 import type { ModuleContext } from '../../core/types.js';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
@@ -481,6 +481,40 @@ describe('discarding something that was making every attack worse', () => {
     // play achieves nothing rather than inventing a value for it.
     const { held, context } = removalPosition('Doors of Night');
     const evaluation = eventsModule.evaluate(play(held.instanceId), context)!;
+    expect(evaluation.expectedTsd).toBeLessThan(0);
+  });
+});
+
+describe('an event that makes its target check for corruption', () => {
+  test('is charged for the check it forces', () => {
+    // Regression (game mv74l794-dn391b): Vilya's "Elrond makes a corruption
+    // check modified by -3" was not priced, so its three cards back to the deck
+    // read as pure gain and the modular AI played it at every window the
+    // winning human held it through. At corruption 2 the check fails on 2d6 ≤ 5,
+    // and failing costs Elrond.
+    const scenario = loadScenario('events/vilya-forced-check');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const context: ModuleContext = {
+      view,
+      cardPool,
+      legalActions,
+      tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const vilya = legalActions.find(a => {
+      if (a.type !== 'play-short-event') return false;
+      const held = view.self.hand.find(c => c.instanceId === (a as unknown as { cardInstanceId: string }).cardInstanceId);
+      return (cardPool[held!.definitionId] as unknown as { name: string }).name === 'Vilya';
+    })!;
+    expect(vilya).toBeDefined();
+    const evaluation = eventsModule.evaluate(vilya, context)!;
+    const text = JSON.stringify(evaluation.rationale);
+    expect(text).toContain('the corruption check it forces');
+    expect(text).toContain('modified by -3');
     expect(evaluation.expectedTsd).toBeLessThan(0);
   });
 });
