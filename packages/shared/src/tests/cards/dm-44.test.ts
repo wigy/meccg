@@ -69,6 +69,9 @@ const ANGMAR_ARISES = 'dm-44' as CardDefinitionId;
 const ELF_LORD = 'le-69' as CardDefinitionId;
 // Gothmog (td-28): keyedTo [{regionTypes:[dark], siteTypes:[dark-hold]}] — single Dark-domain.
 const GOTHMOG = 'td-28' as CardDefinitionId;
+// Barrow-wight (le-61): keyedTo [{regionTypes:[shadow,dark], siteTypes:[shadow-hold,dark-hold]}] —
+// single Shadow-land OR single Dark-domain, so both grants apply.
+const BARROW_WIGHT = 'le-61' as CardDefinitionId;
 // Wild Fell Beast (td-81): keyedTo [{regionTypes:[shadow,shadow]}] — DOUBLE Shadow-land, excluded.
 const WILD_FELL_BEAST = 'td-81' as CardDefinitionId;
 
@@ -160,6 +163,21 @@ describe('Angmar Arises (dm-44)', () => {
     }) };
     state = addCardInPlay(state, HAZARD_PLAYER, ANGMAR_ARISES);
     expect(playHazardActionsFor(state, GOTHMOG)).toHaveLength(0);
+  });
+
+  // ─── Mixed region-type keying: single Shadow-land alongside other types ───
+
+  test('with Angmar Arises in play, Barrow-wight (keyed to {s} or {d}) becomes playable keyed by name to "Arthedain"', () => {
+    let state: GameState = { ...baseState([BARROW_WIGHT]), phaseState: makeMHState({
+      resolvedSitePath: [RegionType.Wilderness, RegionType.Wilderness], resolvedSitePathNames: ['Cardolan', 'Arthedain'],
+      destinationSiteType: SiteType.Haven, destinationSiteName: 'Rivendell',
+    }) };
+    expect(playHazardActionsFor(state, BARROW_WIGHT)).toHaveLength(0);
+    state = addCardInPlay(state, HAZARD_PLAYER, ANGMAR_ARISES);
+    const actions = playHazardActionsFor(state, BARROW_WIGHT);
+    expect(actions.length).toBeGreaterThan(0);
+    const keyed = (actions[0].action as { keyedBy?: { method: string; value: string } }).keyedBy;
+    expect(keyed).toEqual({ method: 'region-name', value: 'Arthedain' });
   });
 
   // ─── Double Shadow-land creatures are excluded from the grant (CRF ruling) ─

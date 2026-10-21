@@ -288,19 +288,28 @@ export function collectRegionNameKeyingGrants(state: GameState): RegionNameKeyin
   return grants;
 }
 
-/** Exact multiset equality — order-independent, but counts must match. */
-function regionTypeMultisetEquals(a: readonly RegionType[], b: readonly RegionType[]): boolean {
-  if (a.length !== b.length) return false;
-  const sortedA = [...a].sort();
-  const sortedB = [...b].sort();
-  return sortedA.every((v, i) => v === sortedB[i]);
+/**
+ * Whether a creature's printed `regionTypes` keying offers the grant's
+ * `ifRegionTypes` as one of its alternatives. A `regionTypes` array is an OR
+ * over distinct types, with repeated entries raising that type's required
+ * count (see `satisfiedRegionTypes`), so Barrow-wight's `["shadow", "dark"]`
+ * means "one Shadow-land OR one Dark-domain" and matches a `["shadow"]`
+ * grant. Every type in the grant must appear on the creature with exactly the
+ * grant's count — Wild Fell Beast's `["shadow", "shadow"]` (double
+ * Shadow-land) does not match `["shadow"]`.
+ */
+function regionTypesOfferGrant(keyTypes: readonly RegionType[], grantTypes: readonly RegionType[]): boolean {
+  const countOf = (types: readonly RegionType[], rt: RegionType) => types.filter(t => t === rt).length;
+  return grantTypes.length > 0 && grantTypes.every(rt => countOf(keyTypes, rt) === countOf(grantTypes, rt));
 }
 
 /**
  * Build synthetic `regionNames`-only {@link CreatureKeyRestriction} entries
  * for a creature's own printed `keyedTo`, one per active grant whose
- * `ifRegionTypes` exactly matches a `regionTypes` entry on the creature (a
- * creature keyed to a *single* Shadow-land matches `["shadow"]`; one keyed to
+ * `ifRegionTypes` is one of the creature's `regionTypes` alternatives with the
+ * same count (a creature keyed to a *single* Shadow-land — alone or alongside
+ * other types, e.g. Barrow-wight's `["shadow", "dark"]` — matches
+ * `["shadow"]`; one keyed to
  * *double* Shadow-lands, `["shadow", "shadow"]`, does not — CRF: "May not be
  * used to play creatures keyed to double Shadow-lands"). An entry gated by its
  * own `when` clause (e.g. Elf-lord Revealed in Wrath le-69's Shadow-land
@@ -323,7 +332,7 @@ export function extraKeyedToFromRegionNameGrants(
     if (!key.regionTypes || key.regionTypes.length === 0) continue;
     if (key.when && !matchesCondition(key.when, whenContext)) continue;
     for (const grant of grants) {
-      if (regionTypeMultisetEquals(key.regionTypes, grant.ifRegionTypes)) {
+      if (regionTypesOfferGrant(key.regionTypes, grant.ifRegionTypes)) {
         extra.push({ regionNames: grant.regionNames });
       }
     }
