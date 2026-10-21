@@ -35,7 +35,7 @@
 
 import type { CardDefinition, CardInstanceId, CompanyId, PlayerView } from '@meccg/shared';
 import { memoizeOnFirst } from '../core/memo.js';
-import { pAtMost } from '../core/dice.js';
+import { pAtLeast, pAtMost } from '../core/dice.js';
 import type { MpDelta, MpSource } from '../core/tsd.js';
 import type { Tunables } from '../core/tunables.js';
 import type { Standing } from './standing.js';
@@ -85,6 +85,14 @@ export interface CharacterValue {
    * negative modifier widens the failing band by its size.
    */
   checkRisk(instanceId: CardInstanceId, modifier?: number): CharacterPrice;
+  /**
+   * What a +`boost` on a corruption check already pending against this
+   * character is worth, when the engine publishes its 2d6 `need` (the roll
+   * must be at least that): the mass the bonus moves out of the failing band,
+   * times what failing costs. The support tap and A Friend or Three (tw-189)
+   * are both this question.
+   */
+  checkBoost(instanceId: CardInstanceId, need: number, boost: number): CharacterPrice;
 }
 
 /** The company a character belongs to, if any. */
@@ -250,6 +258,18 @@ function buildComputeCharacterValue(
       return {
         tsd: pFail * onFailure,
         reason: `a check at corruption ${at} fails ${(pFail * 100).toFixed(1)}% of the time, `
+          + `against ${onFailure.toFixed(1)} tsd lost if it fails`,
+      };
+    },
+
+    checkBoost(instanceId: CardInstanceId, need: number, boost: number): CharacterPrice {
+      if (!view.self.characters[instanceId]) return { tsd: 0, reason: 'character not in play' };
+      const averted = pAtLeast(need - boost) - pAtLeast(need);
+      if (averted <= 0) return { tsd: 0, reason: `a check needing ${need} cannot be helped by +${boost}` };
+      const onFailure = onFailureOf(instanceId);
+      return {
+        tsd: averted * onFailure,
+        reason: `+${boost} on a check needing ${need} saves ${(averted * 100).toFixed(1)}% of the time, `
           + `against ${onFailure.toFixed(1)} tsd lost if it fails`,
       };
     },

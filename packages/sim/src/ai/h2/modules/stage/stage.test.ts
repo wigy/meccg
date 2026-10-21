@@ -99,6 +99,10 @@ function context(): ModuleContext {
       outOfPlayPile: [],
     },
     turnNumber: 8,
+    // Organization: where a permanent event is played from hand, and what
+    // `event-value` reads to tell a card spent mid-game from one spent at the
+    // Free Council, where the game ends and the card forgoes nothing.
+    phaseState: { phase: 'organization' },
   } as unknown as PlayerView;
   return {
     view,
