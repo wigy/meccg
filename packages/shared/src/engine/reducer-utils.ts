@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment, OnGuardCard } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
-import type { CardEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect, TapTakeItemEffect } from '../types/effects.js';
+import type { CardEffect, CreatureAltEventEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect, TapTakeItemEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -1391,6 +1391,50 @@ export function effectiveInPlayDef(def: CardDefinition): CardDefinition {
   );
   if (!isAltPermanentEvent) return def;
   return { ...def, cardType: 'hazard-event', eventType: 'permanent' } as unknown as CardDefinition;
+}
+
+/**
+ * One untapped dual-mode creature permanent-event in a player's `cardsInPlay`,
+ * as yielded by {@link untappedAltPermanentEvents}.
+ */
+export interface UntappedAltPermanentEvent {
+  readonly card: CardInPlay;
+  readonly def: CardDefinition;
+  /** All effects of `def` (from {@link getCardEffects}). */
+  readonly effects: readonly CardEffect[];
+  /** The card's `creature-alt-event` effect (always mode `permanent-event`). */
+  readonly altEvent: CreatureAltEventEffect;
+  /**
+   * True when the card carries the `no-hazard-limit` play flag, so its
+   * conversion is offered even once the company's hazard limit is reached.
+   */
+  readonly bypassesLimit: boolean;
+}
+
+/**
+ * Every untapped card in `player.cardsInPlay` that is a dual-mode creature
+ * played as a permanent-event (`creature-alt-event` mode `permanent-event`).
+ * Shared scan behind the hazard player's voluntary conversions of such cards
+ * — tap to a short-event (tw-2 / tw-107 / tw-46 / tw-4 / tw-44), attack as
+ * itself (tw-86), return to hand (dm-110) — each of which then applies its own
+ * mode-specific filter (`persistent`, `attacksAsCreature`, …) and the
+ * hazard-limit gate via `bypassesLimit`.
+ */
+export function untappedAltPermanentEvents(
+  state: GameState,
+  player: PlayerState,
+): UntappedAltPermanentEvent[] {
+  const result: UntappedAltPermanentEvent[] = [];
+  for (const card of player.cardsInPlay) {
+    if (card.status !== CardStatus.Untapped) continue;
+    const def = defById(state, card.definitionId);
+    if (!def) continue;
+    const effects = getCardEffects(def);
+    const altEvent = effects.find((e): e is CreatureAltEventEffect => e.type === 'creature-alt-event');
+    if (altEvent?.mode !== 'permanent-event') continue;
+    result.push({ card, def, effects, altEvent, bypassesLimit: 'effects' in def && hasPlayFlag(def, 'no-hazard-limit') });
+  }
+  return result;
 }
 
 /**
