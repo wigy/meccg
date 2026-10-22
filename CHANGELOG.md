@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.220.0 — 2026-10-22
+
+Sudden Call Playable in Untap Phase
+
+### Game Engine
+
+- Sudden Call (le-235) can now be played by the resource player during their own untap phase, per CoE rule 2.1.1, with the same end-of-game gate as the organization and long-event phases (#3409)
+
 ## 0.219.0 — 2026-10-22
 
 Swarm of Bats, Healing Herbs and Old Cache Fixed

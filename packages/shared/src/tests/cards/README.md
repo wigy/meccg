@@ -609,7 +609,7 @@
 | le-231 | Sneakin’ | — | 8 | ☑ |
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
 | le-233 | Spying out the Land | — | 8 | ☑ |
-| le-235 | Sudden Call | — | 11 | ☑ |
+| le-235 | Sudden Call | — | 12 | ☑ |
 | le-237 | Swarm of Bats | — | 16 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 13 | ☑ |
