@@ -12,7 +12,7 @@ import { Phase } from '../types/state-phases.js';
 import { resolveHandSize } from './effects/index.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { findById, removeById, updatePlayer, wrongActionType, playerById, defById } from './reducer-utils.js';
+import { findById, removeById, updatePlayer, wrongActionType, playerById, defById, completeDeckExhaust, drawCardsExhausting, handleExchangeSideboard } from './reducer-utils.js';
 import { isResourceEventCard } from '../types/cards.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, dispatchShortEventByCardType, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayHazards, advanceAfterCompanyMH, handleGangwaysOffer, handleExtraMHMoveOffer, handleAllyTapExtraMHOffer, handleCharacterTapExtraMHOffer } from './mh-hazard-play.js';
@@ -153,9 +153,20 @@ function handleRegionShortcutAttackStep(state: GameState, action: GameAction, mh
 }
 
 /**
+ * Whether every player has finished the reset-hand step: at or below hand
+ * size and not in the middle of a deck-exhaust sideboard exchange.
+ */
+function resetHandComplete(state: GameState): boolean {
+  return state.players.every((p, i) => !p.deckExhaustPending && p.hand.length <= resolveHandSize(state, i));
+}
+
+/**
  * Handle the reset-hand step: players with hand > HAND_SIZE must discard.
- * Each discard-card action removes one card. Once both players are at or
- * below hand size, advance to the next company or Site phase.
+ * Each discard-card action removes one card. A player whose step-8 draw
+ * exhausted their play deck first runs the exhaust sub-flow (CoE 2.4):
+ * `exchange-sideboard` swaps cards, and `pass` completes the reshuffle and
+ * resumes the draw up to hand size. Once both players are done, advance to
+ * the next company or Site phase.
  */
 function handleResetHand(
   state: GameState,
@@ -186,10 +197,34 @@ function handleResetHand(
       : handlePlayShortEvent(state, action);
   }
 
+  if (action.type === 'exchange-sideboard') {
+    return handleExchangeSideboard(state, action);
+  }
+
+  // Pass during the deck-exhaust exchange sub-flow: complete the reshuffle
+  // and resume the step-8 draw from the new play deck.
+  if (action.type === 'pass' && playerById(state, action.player)?.deckExhaustPending) {
+    const playerIndex = getPlayerIndex(state, action.player);
+    logDetail(`Reset-hand: player ${state.players[playerIndex].name} completed deck exhaust exchange`);
+    let exhausted = completeDeckExhaust(state, playerIndex);
+    const p = exhausted.players[playerIndex];
+    const wanted = resolveHandSize(exhausted, playerIndex) - p.hand.length;
+    if (wanted > 0) {
+      const { state: afterDraw, drawnCards } = drawCardsExhausting(exhausted, playerIndex, wanted);
+      logDetail(`Reset-hand: player ${p.name} resumes drawing ${drawnCards.length} card(s) from the reshuffled deck`);
+      exhausted = updatePlayer(afterDraw, playerIndex, pl => ({ ...pl, hand: [...pl.hand, ...drawnCards] }));
+    }
+    if (resetHandComplete(exhausted)) {
+      logDetail('Reset-hand: all players done after exhaust → advancing');
+      return advanceAfterCompanyMH(exhausted, mhState);
+    }
+    return { state: exhausted };
+  }
+
   // Pass is legal only when every player is already at hand size (the step
   // was entered with nothing to discard) — it simply advances.
   if (action.type === 'pass') {
-    if (state.players.every((p, i) => p.hand.length <= resolveHandSize(state, i))) {
+    if (resetHandComplete(state)) {
       logDetail('Reset-hand: all players at hand size — advancing');
       return advanceAfterCompanyMH(state, mhState);
     }
@@ -213,7 +248,7 @@ function handleResetHand(
   logDetail(`Reset-hand: player ${player.name} discards 1 card (hand now ${newHand.length})`);
 
   // Check if both players are now at hand size
-  if (updatedState.players.every((p, i) => p.hand.length <= resolveHandSize(updatedState, i))) {
+  if (resetHandComplete(updatedState)) {
     logDetail(`Reset-hand: all players at hand size → advancing`);
     return advanceAfterCompanyMH(updatedState, mhState);
   }
