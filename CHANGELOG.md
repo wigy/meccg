@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.219.0 — 2026-10-22
+
+Swarm of Bats, Healing Herbs and Old Cache Fixed
+
+### Game Engine
+
+- Swarm of Bats (le-237) is discarded only when a character leaves the company, not when another company joins it; a new `character-leaves-company` on-event fires from every path that removes a character (#3408)
+- Healing Herbs (tw-255) can no longer untap a character locked by a bearer-cannot-untap constraint, such as one carrying an unstored Vein of Arda (#3407)
+- Short events playable only at a tapped site, such as Old Cache (le-213), are no longer offered in combat windows before the site is tapped (#3406)
+
 ## 0.218.0 — 2026-10-22
 
 Sideboard Exchange Restored at Movement End

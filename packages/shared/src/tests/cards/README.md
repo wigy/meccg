@@ -594,7 +594,7 @@
 | le-210 | No More Nonsense | — | 13 | ☑ |
 | le-211 | No News of Our Riding | — | 17 | ☑ |
 | le-212 | Not Slay Needlessly | — | 13 | ☑ |
-| le-213 | Old Cache | — | 9 | ☑ |
+| le-213 | Old Cache | — | 10 | ☑ |
 | le-214 | Old Prejudice | — | 9 | ☑ |
 | le-216 | Orc Quarrels | — | 11 | ☑ |
 | le-217 | Orc Stealth | — | 5 | ☑ |
@@ -610,7 +610,7 @@
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
 | le-233 | Spying out the Land | — | 8 | ☑ |
 | le-235 | Sudden Call | — | 11 | ☑ |
-| le-237 | Swarm of Bats | — | 14 | ☑ |
+| le-237 | Swarm of Bats | — | 16 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 13 | ☑ |
 | le-240 | That Ain’t No Secret | — | 15 | ☑ |
@@ -1153,7 +1153,7 @@
 | tw-252 | Halfling Stealth | — | 4 | ☑ |
 | tw-253 | Halfling Strength | — | 15 | ☑ |
 | tw-254 | Hauberk of Bright Mail | — | 7 | ☑ |
-| tw-255 | Healing Herbs | — | 13 | ☑ |
+| tw-255 | Healing Herbs | — | 14 | ☑ |
 | tw-256 | Hiding | — | 9 | ☑ |
 | tw-257 | Hillmen | — | 2 | ☑ |
 | tw-258 | Hobbits | — | 2 | ☑ |
