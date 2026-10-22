@@ -215,9 +215,19 @@ function runGrantApply(
     if (!targetChar) {
       return { error: `set-character-status target-character: target ${targetCardId as string} not found` };
     }
-    const statusEnum = cardStatusFromName(apply.status);
+    let statusEnum = cardStatusFromName(apply.status);
     const targetDef = defById(state, targetChar.definitionId);
     const targetName = targetDef?.name ?? '?';
+    // bearer-cannot-untap (Vein of Arda dm-162 etc.): Healing Herbs' untap
+    // cannot bypass the lock; a heal still makes the character well but
+    // leaves him tapped.
+    if (statusEnum === CardStatus.Untapped && characterHasCannotUntapConstraint(state, targetCardId)) {
+      if (targetChar.status !== CardStatus.Inverted) {
+        return { error: `${targetName} cannot untap while a bearer-cannot-untap constraint is active` };
+      }
+      logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} is locked by bearer-cannot-untap — healed to tapped`);
+      statusEnum = CardStatus.Tapped;
+    }
     logDetail(`Grant-action ${ctx.action.actionId}: ${targetName} → status ${apply.status}`);
     const isHeal = targetChar.status === CardStatus.Inverted && statusEnum !== CardStatus.Inverted;
     newPlayers[ctx.playerIndex] = {
