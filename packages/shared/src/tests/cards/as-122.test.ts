@@ -427,4 +427,48 @@ describe('Ancient Black Axe (as-122)', () => {
     // The autoPass constraint is consumed.
     expect(passedOutcome.activeConstraints.some(c => c.kind.type === 'check-modifier' && c.kind.check === 'corruption')).toBe(false);
   });
+  test('offered while a corruption check is pending on a company mate, and makes that check pass (Iron Crown untap-phase check)', () => {
+    // Bug report mvj4blbj-kkinem seq 2526: Radbug bearing The Iron Crown had
+    // to make the untap-phase-end corruption check, and an untapped Ancient
+    // Black Axe on a company mate was not offered to make it pass.
+    const IRON_CROWN = 'le-314' as CardDefinitionId;
+    const base = recomputeDerived(attachItemToChar(buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: UNDER_GATES, characters: [{ defId: ORC_CAPTAIN, items: [ANCIENT_BLACK_AXE] }, LUITPRAND] }],
+          hand: [],
+          siteDeck: [],
+        },
+        { id: PLAYER_2, alignment: Alignment.Wizard, companies: [{ site: MINAS_TIRITH, characters: [] }], hand: [], siteDeck: [] },
+      ],
+    }), RESOURCE_PLAYER, LUITPRAND, IRON_CROWN));
+    const luitprandId = findCharInstanceId(base, RESOURCE_PLAYER, LUITPRAND);
+    const orcCaptainId = findCharInstanceId(base, RESOURCE_PLAYER, ORC_CAPTAIN);
+    const withCheck = { ...enqueueCorruptionCheck(base, PLAYER_1, luitprandId), cheatRollTotal: 2 };
+
+    const axeAction = viableActions(withCheck, PLAYER_1, 'activate-granted-action')
+      .map(ea => ea.action as ActivateGrantedAction)
+      .find(a => a.actionId === 'auto-pass-corruption-check' && a.targetCardId === luitprandId);
+    expect(axeAction).toBeDefined();
+
+    const afterTap = dispatch(withCheck, axeAction!);
+    expect(axeOnChar(afterTap, RESOURCE_PLAYER, ORC_CAPTAIN)!.status).toBe(CardStatus.Tapped);
+
+    // Luitprand's pending check still resolves first; the low roll auto-passes.
+    const rollAction = computeLegalActions(afterTap, PLAYER_1)
+      .find(ea => ea.viable && ea.action.type === 'corruption-check')!.action as CorruptionCheckAction;
+    expect(rollAction.characterId).toBe(luitprandId);
+    const afterRoll = dispatch(afterTap, rollAction);
+    expect(afterRoll.players[RESOURCE_PLAYER].companies.some(co => co.characters.includes(luitprandId))).toBe(true);
+
+    // The Axe's bearer then makes his own corruption check.
+    const next = afterRoll.pendingResolutions[0];
+    expect(next?.kind.type).toBe('corruption-check');
+    if (next?.kind.type === 'corruption-check') expect(next.kind.characterId).toBe(orcCaptainId);
+  });
 });

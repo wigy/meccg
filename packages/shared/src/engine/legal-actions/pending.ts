@@ -42,7 +42,7 @@ import type { OpponentInfluenceAttempt } from '../../types/pending.js';
 import { characterPossessions, constraintFromCard, scopesMatch } from '../pending.js';
 import { buildBearerContext, resolveDef, collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveStatModifiers, resolveAutoInfluenceFaction, getEffectiveSkills } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
-import { buildPlayOptionContext, availableDI, conditionalDISpentOnFollowers, normalUnusedDI, modifyCorruptionCheckGrantActions } from './organization.js';
+import { buildPlayOptionContext, availableDI, conditionalDISpentOnFollowers, normalUnusedDI, modifyCorruptionCheckGrantActions, autoPassCorruptionCheckGrantActions } from './organization.js';
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
@@ -1764,6 +1764,11 @@ function corruptionCheckEntryActions(
   // in the bearer's company (When I Know Anything td-166) are activatable
   // here, before the roll, just like reactive short-event plays.
   const modifierGrants = modifyCorruptionCheckGrantActions(state, playerId, characterId);
+  // In-play items that make a character at the same site automatically
+  // pass a corruption check (Ancient Black Axe as-122) are likewise usable
+  // against the pending check — tap before the roll; the resolver honours
+  // the resulting auto-pass constraint.
+  const autoPassGrants = autoPassCorruptionCheckGrantActions(state, playerId, characterId);
 
   // Tap-in-support (`allowSupport`, CoE 7.1.1): each untapped company mate
   // of the checking character may tap for +1 to the roll before it is
@@ -1813,7 +1818,7 @@ function corruptionCheckEntryActions(
     });
   }
 
-  return [rollAction, ...reactivePlays, ...modifierGrants, ...supportActions];
+  return [rollAction, ...reactivePlays, ...modifierGrants, ...autoPassGrants, ...supportActions];
 }
 
 /**

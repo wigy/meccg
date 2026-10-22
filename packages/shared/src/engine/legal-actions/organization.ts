@@ -3024,6 +3024,28 @@ export function modifyCorruptionCheckGrantActions(
 }
 
 /**
+ * `auto-pass-corruption-check` activations (Ancient Black Axe as-122: "tap
+ * this item to make a character at the same site automatically pass a
+ * corruption check") that target the character whose corruption check is
+ * currently pending. Reuses the generic grant-action scanner (with the
+ * `anyPhase` filter, which the Axe carries) so item status, bearer and
+ * same-site eligibility are decided in one place, then keeps only the
+ * activations aimed at the resolving character.
+ */
+export function autoPassCorruptionCheckGrantActions(
+  state: GameState,
+  playerId: PlayerId,
+  resolvingCharacterId: CardInstanceId,
+): EvaluatedAction[] {
+  return grantedActionActivations(state, playerId, 'anyPhase').filter(ea =>
+    ea.viable
+    && ea.action.type === 'activate-granted-action'
+    && ea.action.actionId === 'auto-pass-corruption-check'
+    && ea.action.targetCardId === resolvingCharacterId,
+  );
+}
+
+/**
  * Result of an end-of-org play eligibility check. When `eligible` is
  * false, `reason` carries a UI-friendly explanation of why the card
  * cannot currently be played. When `eligible` is true and the card has
