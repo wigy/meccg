@@ -37,8 +37,10 @@ import {
   CardStatus, makeMHState, makeSitePhase,
 } from '../test-helpers.js';
 import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
+import { addConstraint } from '../../engine/pending.js';
 
 const HEALING_HERBS = 'tw-255' as CardDefinitionId;
+const VEIN_OF_ARDA = 'dm-162' as CardDefinitionId;
 
 describe('Healing Herbs (tw-255)', () => {
   beforeEach(() => resetMint());
@@ -299,6 +301,40 @@ describe('Healing Herbs (tw-255)', () => {
     expectInDiscardPile(next, RESOURCE_PLAYER, HEALING_HERBS);
     // Bilbo (the bearer) paid the tap cost.
     expectCharStatus(next, RESOURCE_PLAYER, BILBO, CardStatus.Tapped);
+  });
+
+  // Bug report (game mvj6fman-f77xpi): Healing Herbs untapped Círdan while he
+  // bore an unstored Vein of Arda ("may not untap until Vein of Arda is stored
+  // at a Haven"). A bearer-cannot-untap lock must withhold the untap target.
+  test('untap-company-character NOT offered on a character locked by bearer-cannot-untap (Vein of Arda)', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: RIVENDELL, characters: [
+            { defId: BILBO, items: [HEALING_HERBS] },
+            { defId: ARAGORN, status: CardStatus.Tapped, items: [VEIN_OF_ARDA] },
+          ] }],
+          hand: [], siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const aragornId = findCharInstanceId(base, RESOURCE_PLAYER, ARAGORN);
+    const vein = base.players[RESOURCE_PLAYER].characters[aragornId].items.find(i => i.definitionId === VEIN_OF_ARDA)!;
+    const state = addConstraint(base, {
+      source: vein.instanceId,
+      sourceDefinitionId: VEIN_OF_ARDA,
+      scope: { kind: 'until-cleared' },
+      target: { kind: 'character', characterId: aragornId },
+      kind: { type: 'bearer-cannot-untap', cardInstanceId: vein.instanceId },
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'untap-company-character');
+    expect(actions).toHaveLength(0);
   });
 
   // ── Cost gating: bearer must be untapped to activate either mode ─────────

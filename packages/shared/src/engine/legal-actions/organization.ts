@@ -43,7 +43,7 @@ import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js'
 import { controlCostOf } from '../control-cost.js';
 import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
-import { fetchZoneItemInstanceIds, hasSitePlayableFetchCandidate, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates } from '../reducer-utils.js';
+import { fetchZoneItemInstanceIds, hasSitePlayableFetchCandidate, isUniqueCharacterInPlay, siteMatchesEntry, siteHasDragonAtHomeVictory, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates, characterHasCannotUntapConstraint } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
 import { findMoveEffectByShape, moveToFetchToDeckPayload } from '../reducer-move.js';
 import type { ResolverContext } from '../effects/index.js';
@@ -1838,7 +1838,9 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
         // definition, not-Inverted/not-wounded) candidate, carrying the chosen
         // target on `targetCardId`. If no one is tapped, the ability is not
         // offered. Used by Healing Herbs (tw-255): "untap a character in his
-        // company that is not wounded."
+        // company that is not wounded." A character locked by a
+        // bearer-cannot-untap constraint (Vein of Arda dm-162 until stored) is
+        // not a legal target.
         if (effect.action === 'untap-company-character') {
           if (!company) {
             logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: bearer not in any company`);
@@ -1847,7 +1849,12 @@ export function grantedActionActivations(state: GameState, playerId: PlayerId, p
           const tapped: import('../../index.js').CharacterInPlay[] = [];
           for (const compCharId of company.characters) {
             const compChar = player.characters[compCharId];
-            if (compChar && compChar.status === CardStatus.Tapped) tapped.push(compChar);
+            if (!compChar || compChar.status !== CardStatus.Tapped) continue;
+            if (characterHasCannotUntapConstraint(state, compChar.instanceId)) {
+              logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: ${defById(state, compChar.definitionId)?.name ?? '?'} is locked by bearer-cannot-untap — not a target`);
+              continue;
+            }
+            tapped.push(compChar);
           }
           if (tapped.length === 0) {
             logDetail(`Grant-action ${effect.action} on ${def?.name ?? '?'}: no tapped, non-wounded character in ${charDef?.name ?? '?'}'s company`);
