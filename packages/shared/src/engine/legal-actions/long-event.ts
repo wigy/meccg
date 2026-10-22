@@ -19,6 +19,7 @@
 import type { GameState, PlayerId, EvaluatedAction, PlayTargetEffect, CardInstanceId, PlayerState, SitePhaseState, Company } from '../../index.js';
 import type { PlayOptionEffect, RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../../types/effects.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
+import { hasPlayFlag } from '../../effects/play-flags.js';
 import { isResourceEventCard, isSiteCard } from '../../types/cards.js';
 import { CardStatus, type RegionType } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
@@ -305,6 +306,23 @@ export function heroResourceShortEventActions(
           actions.push(notPlayable(playerId, cardInstanceId, `${def.name} can only be played at ${playWindow.siteTypes.join(' or ')}`));
           continue;
         }
+      }
+    }
+
+    // play-flag: "tapped-site-only" (Old Cache le-213, Swag le-236): only
+    // playable on a company at an already-tapped site. Mirrors the gate in
+    // the organization/site short-event path; without it, the combat
+    // pre-assignment and between-strikes windows (which reuse this function)
+    // offered the card during an automatic attack at a still-untapped site.
+    if (hasPlayFlag(def, 'tapped-site-only')) {
+      const siteState = currentPhase === 'site' ? state.phaseState as SitePhaseState : null;
+      const company = siteState && siteState.step !== 'select-company'
+        ? player.companies[siteState.activeCompanyIndex]
+        : undefined;
+      if (company?.currentSite?.status !== CardStatus.Tapped) {
+        logDetail(`${def.name}: requires a company at a tapped site`);
+        actions.push(notPlayable(playerId, cardInstanceId, `${def.name}: site must be tapped`));
+        continue;
       }
     }
 

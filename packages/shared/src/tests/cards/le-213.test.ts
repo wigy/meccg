@@ -32,7 +32,7 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   HAZARD_PLAYER,
   LORIEN, MINAS_TIRITH, LEGOLAS,
-  buildSitePhaseState, buildTestState, resetMint,
+  buildSitePhaseState, buildTestState, resetMint, attachSiteAutomaticAttackCombat,
   viableActions, dispatch, findCharInstanceId, expectInDiscardPile,
   CardStatus, Phase,
 } from '../test-helpers.js';
@@ -87,6 +87,18 @@ describe('Old Cache (le-213)', () => {
       alignment: Alignment.Ringwraith, site: MOUNT_GRAM,
       characters: [LAGDUF], hand: [OLD_CACHE], sideboard: [BLACK_HIDE_SHIELD],
     });
+    expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(0);
+  });
+
+  test('NOT playable during an automatic attack while the site is still untapped', () => {
+    // Bug report (game mvj4blbj-kkinem): Old Cache was offered in the combat
+    // pre-assignment window of Weathertop's automatic attack, before the site
+    // was tapped, and resolved to nothing.
+    const state = attachSiteAutomaticAttackCombat(buildSitePhaseState({
+      alignment: Alignment.Ringwraith, site: BANDIT_LAIR,
+      characters: [LAGDUF], hand: [OLD_CACHE], sideboard: [BLACK_HIDE_SHIELD],
+    }));
+    expect(state.combat).not.toBeNull();
     expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(0);
   });
 
