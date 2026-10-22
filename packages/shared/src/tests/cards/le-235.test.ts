@@ -205,6 +205,40 @@ describe('Sudden Call (le-235)', () => {
     expect(next.players[RESOURCE_PLAYER].hand.some(c => c.definitionId === SUDDEN_CALL)).toBe(false);
   });
 
+  test('resource-side: playable during the caller\'s untap phase and resolves there (rule 2.1.1)', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Untap,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [LAGDUF] }],
+          hand: [SUDDEN_CALL],
+          siteDeck: [MINAS_MORGUL],
+          marshallingPoints: { character: 25 },
+          deckExhaustionCount: 1,
+        },
+        {
+          id: PLAYER_2,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [OSTISEN] }],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+      ],
+    });
+    const cardId = handCardId(state, RESOURCE_PLAYER);
+    const plays = viableActions(state, PLAYER_1, 'play-short-event');
+    expect(plays.map(p => (p.action as PlayShortEventAction).cardInstanceId)).toEqual([cardId]);
+
+    const next = dispatch(state, plays[0].action);
+    expect(next.players[RESOURCE_PLAYER].freeCouncilCalled).toBe(true);
+    expect(next.lastTurnFor).toBe(PLAYER_2);
+    expect(next.phaseState.phase).toBe(Phase.Untap);
+    expect(next.players[RESOURCE_PLAYER].discardPile.map(c => c.definitionId)).toContain(SUDDEN_CALL);
+  });
+
   // ─── Hazard-side ─────────────────────────────────────────────────────────
 
   test('hazard-side: Minion hazard player with Minion opponent at threshold — viable', () => {

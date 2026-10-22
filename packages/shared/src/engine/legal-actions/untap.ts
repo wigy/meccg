@@ -13,7 +13,9 @@
  * Ordinary hand cards cannot be played during the untap phase, but a
  * card whose own text grants "any phase the company is at a site" timing
  * (A Chance Meeting tw-188, We Have Come to Kill le-252) is an exception —
- * see {@link recruitViaEventActions}.
+ * see {@link recruitViaEventActions}. Sudden Call (le-235) is another: its
+ * resource-side play is offered here per CoE rule 2.1.1 — see
+ * {@link resourceCallCouncilActions}.
  */
 
 import type { GameState, PlayerId, EvaluatedAction, UntapPhaseState, PlayerState, CardDefinition, CardInstanceId } from '../../index.js';
@@ -22,7 +24,9 @@ import { Phase } from '../../types/state-phases.js';
 import { logDetail } from './log.js';
 import { notPlayable } from './action-builders.js';
 import { sideboardFetchSubflowActions } from './sideboard-subflow.js';
-import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState } from '../reducer-utils.js';
+import { findPlayerAvatar, filterSideboardByDef, playerById, activePlayerState, defById } from '../reducer-utils.js';
+import { isResourceEventCard } from '../../types/cards.js';
+import { canCallEndgameNow } from '../../state-utils.js';
 import { grantedActionActivations } from './organization.js';
 import { recruitViaEventActions } from './recruit-via-event.js';
 
@@ -143,12 +147,55 @@ export function untapActions(state: GameState, playerId: PlayerId): EvaluatedAct
     if (a.viaEventInstanceId) recruitViaEventInstances.add(a.viaEventInstanceId as string);
   }
 
+  // Rule 2.1.1: resource short-events may be played during any phase of the
+  // resource player's turn — Sudden Call's resource-side council call
+  // (le-235, rule 10.2.R1 "on a player's own turn") included.
+  const callCouncilEvaluated = resourceCallCouncilActions(state, player);
+  actions.push(...callCouncilEvaluated);
+  const handledInstances = new Set(recruitViaEventInstances);
+  for (const ea of callCouncilEvaluated) {
+    const a = ea.action as { cardInstanceId?: CardInstanceId };
+    if (a.cardInstanceId) handledInstances.add(a.cardInstanceId as string);
+  }
+
   for (const handCard of player.hand) {
-    if (recruitViaEventInstances.has(handCard.instanceId as string)) continue;
+    if (handledInstances.has(handCard.instanceId as string)) continue;
     actions.push(notPlayable(playerId, handCard.instanceId, 'Cards cannot be played during the untap phase'));
   }
-  logDetail(`Untap phase: ${player.hand.length - recruitViaEventInstances.size} hand card(s) marked not playable`);
+  logDetail(`Untap phase: ${player.hand.length - handledInstances.size} hand card(s) marked not playable`);
 
+  return actions;
+}
+
+/**
+ * Resource-side `call-council` short-events (Sudden Call, le-235) in the
+ * resource player's hand. Applies the same gate as the organization and
+ * long-event phases: the caller must meet the end-of-game conditions
+ * (CoE rule 10.2) and the endgame must not already have been called.
+ */
+function resourceCallCouncilActions(state: GameState, player: PlayerState): EvaluatedAction[] {
+  const actions: EvaluatedAction[] = [];
+  for (const handCard of player.hand) {
+    const def = defById(state, handCard.definitionId);
+    if (!isResourceEventCard(def) || def.eventType !== 'short') continue;
+    const callsCouncil = def.effects?.some(e => e.type === 'call-council' && e.lastTurnFor === 'opponent');
+    if (!callsCouncil) continue;
+    if (!canCallEndgameNow(player, state.gameLength ?? 'short')) {
+      logDetail(`${def.name}: caller has not met end-of-game conditions`);
+      actions.push(notPlayable(player.id, handCard.instanceId, `${def.name}: end-of-game conditions not met`));
+      continue;
+    }
+    if (player.freeCouncilCalled || state.lastTurnFor !== null) {
+      logDetail(`${def.name}: endgame already called`);
+      actions.push(notPlayable(player.id, handCard.instanceId, `${def.name}: endgame already called`));
+      continue;
+    }
+    logDetail(`Untap phase: resource short-event "${def.name}" playable — caller meets end-of-game conditions`);
+    actions.push({
+      action: { type: 'play-short-event', player: player.id, cardInstanceId: handCard.instanceId },
+      viable: true,
+    });
+  }
   return actions;
 }
 
