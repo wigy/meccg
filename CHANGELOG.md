@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.218.0 — 2026-10-22
+
+Sideboard Exchange Restored at Movement End
+
+### Game Engine
+
+- The movement/hazard step-8 draw to hand size now stops when the play deck runs out and offers the CoE 2.4 sideboard exchange before reshuffling, instead of reshuffling the discard pile immediately (#3405)
+- On-guard cards return to the hazard player's hand when Forced March or another extra-M/H effect moves the company on to another site, so they can no longer be revealed at the new site (#3404)
+
+### AI
+
+- The modular AI no longer plays corruption hazards such as Covetous Thoughts on Ringwraiths or Balrogs, which never make corruption checks (#3403)
+
 ## 0.217.0 — 2026-10-21
 
 Modular AI Learns to Price Corruption
