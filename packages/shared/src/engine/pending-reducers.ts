@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescued, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescued, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -918,6 +918,7 @@ export function applyCorruptionCheckResolution(
   // discarded when company membership changes (CoE — card text).
   if (traitorCompanyId) {
     cleanedState = sweepCompanyMembershipChangedEvents(cleanedState, [traitorCompanyId]);
+    cleanedState = sweepCharacterLeavesCompanyEvents(cleanedState, [traitorCompanyId]);
   }
 
   const failedState = dequeueResolution(cleanedState, top.id);
@@ -2588,6 +2589,7 @@ export function returnCharacterToHand(
   let result: GameState = { ...state, players: newPlayers };
   result = cleanupEmptyCompanies(result);
   result = sweepCompanyMembershipChangedEvents(result, affectedCompanies);
+  result = sweepCharacterLeavesCompanyEvents(result, affectedCompanies);
   if (removedIsLeader) {
     logDetail(`return-character-to-hand: removed character is a Leader — sweeping leader-leaves-company events`);
     result = sweepLeaderLeavesCompanyEvents(result, affectedCompanies);
@@ -2737,6 +2739,7 @@ function discardCharacter(
   if (elimHost) result = consumeEliminateInsteadOfDiscardHost(result, elimHost);
   result = cleanupEmptyCompanies(result);
   result = sweepCompanyMembershipChangedEvents(result, affectedCompanies);
+  result = sweepCharacterLeavesCompanyEvents(result, affectedCompanies);
   if (removedIsLeader) {
     logDetail(`discardCharacter: removed character is a Leader — sweeping leader-leaves-company events`);
     result = sweepLeaderLeavesCompanyEvents(result, affectedCompanies);

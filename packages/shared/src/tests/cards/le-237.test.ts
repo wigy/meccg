@@ -18,8 +18,8 @@
  * |   |                      |        | orcCount≥2 — organization-events.ts                     |
  * | 2 | stat-modifier prowess| OK     | -1 to all-attacks, company-scoped — resolver.ts         |
  * | 3 | stat-modifier body   | OK     | -1 to all-attacks, company-scoped — resolver.ts         |
- * | 4 | on-event:company-    | OK     | sweepCompanyMembershipChangedEvents — reducer-utils.ts  |
- * |   | membership-changes   |        |                                                          |
+ * | 4 | on-event:character-  | OK     | sweepCharacterLeavesCompanyEvents — reducer-utils.ts    |
+ * |   | leaves-company       |        | (a character joining does NOT discard it)                |
  * | 5 | duplication-limit    | OK     | scope=company, max=1 — organization-events.ts           |
  *
  * Fixtures:
@@ -31,6 +31,7 @@
  *   - MORIA_MINION (le-392): siteType=shadow-hold; auto-attack Orcs 4s/7p
  *   - BARAD_DUR (le-352): siteType=dark-hold
  *   - BAG_END_MINION (le-350): siteType=free-hold (not valid for Swarm)
+ *   - MOUNT_GUNDABAD (le-395): siteType=shadow-hold
  *
  * Playable: YES
  */
@@ -46,6 +47,8 @@ import {
   playPermanentEventAndResolve,
   handCardId,
   addP1CardsInPlay,
+  dispatch, findCharInstanceId,
+  autoMergeNonHavenCompanies,
   setupAutoAttackStep,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
@@ -66,6 +69,7 @@ const DOL_GULDUR = 'le-367' as CardDefinitionId;    // haven (darkhaven)
 const MORIA_MINION = 'le-392' as CardDefinitionId;  // shadow-hold; auto-attack Orcs 4s/7p
 const BARAD_DUR = 'le-352' as CardDefinitionId;     // dark-hold
 const BAG_END_MINION = 'le-350' as CardDefinitionId; // free-hold (not valid)
+const MOUNT_GUNDABAD = 'le-395' as CardDefinitionId; // shadow-hold
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
@@ -411,6 +415,107 @@ describe('Swarm of Bats (le-237)', () => {
     expect(
       afterSplit.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === SWARM_OF_BATS),
     ).toBe(true);
+  });
+
+  test('stays in play when another company auto-joins it at a non-haven site (rule 2.IV.6)', () => {
+    // Bug report (game mvj4blbj-kkinem, stateSeq 1267): a lone character's
+    // company at Mount Gundabad auto-joined the Swarm's company there at the
+    // end of the site phase and the Swarm was discarded, although no
+    // character left the company — the card only discards on a departure.
+    const built = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [
+            { site: MOUNT_GUNDABAD, characters: [GORBAG, ORC_CAPTAIN] },
+            { site: MOUNT_GUNDABAD, characters: [WULUAG] },
+          ],
+          hand: [],
+          siteDeck: [DOL_GULDUR],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: BARAD_DUR, characters: [ASTERNAK] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    const targetCompanyId = companyIdAt(built, RESOURCE_PLAYER, 0);
+    const swarm: CardInPlay = {
+      instanceId: mint(),
+      definitionId: SWARM_OF_BATS,
+      status: CardStatus.Untapped,
+      companyId: targetCompanyId,
+    };
+    const sharedSite = built.players[RESOURCE_PLAYER].companies[0].currentSite!;
+    const state = {
+      ...built,
+      players: [
+        {
+          ...built.players[RESOURCE_PLAYER],
+          companies: built.players[RESOURCE_PLAYER].companies.map((c, i) =>
+            i === 1 ? { ...c, currentSite: sharedSite, siteCardOwned: false } : c,
+          ),
+          cardsInPlay: [swarm],
+        },
+        built.players[HAZARD_PLAYER],
+      ] as typeof built.players,
+    };
+
+    const merged = autoMergeNonHavenCompanies(state, RESOURCE_PLAYER);
+
+    expect(merged.players[RESOURCE_PLAYER].companies).toHaveLength(1);
+    expect(merged.players[RESOURCE_PLAYER].companies[0].characters).toHaveLength(3);
+    expect(merged.players[RESOURCE_PLAYER].cardsInPlay.map(c => c.instanceId)).toContain(swarm.instanceId);
+    expect(merged.players[RESOURCE_PLAYER].discardPile.some(c => c.definitionId === SWARM_OF_BATS)).toBe(false);
+  });
+
+  test('stays in play when a character joins via merge-companies', () => {
+    const base = buildTestState({
+      phase: Phase.Organization,
+      activePlayer: PLAYER_1,
+      players: [
+        {
+          id: PLAYER_1,
+          alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [GORBAG, ORC_CAPTAIN, WULUAG] }],
+          hand: [],
+          siteDeck: [MORIA_MINION],
+        },
+        {
+          id: PLAYER_2,
+          companies: [{ site: BARAD_DUR, characters: [ASTERNAK] }],
+          hand: [],
+          siteDeck: [],
+        },
+      ],
+    });
+
+    // Split Wuluag off first, then bind the Swarm to the remaining Orc company.
+    const companyId = companyIdAt(base, RESOURCE_PLAYER, 0);
+    const split = dispatch(base, {
+      type: 'split-company',
+      player: PLAYER_1,
+      sourceCompanyId: companyId,
+      characterId: findCharInstanceId(base, RESOURCE_PLAYER, WULUAG),
+    });
+    const withSwarm = addSwarmToP1Company(split);
+    const swarmId = withSwarm.players[RESOURCE_PLAYER].cardsInPlay[0].instanceId;
+
+    const after = dispatch(withSwarm, {
+      type: 'merge-companies',
+      player: PLAYER_1,
+      sourceCompanyId: companyIdAt(withSwarm, RESOURCE_PLAYER, 1),
+      targetCompanyId: companyId,
+    });
+
+    expect(after.players[RESOURCE_PLAYER].companies).toHaveLength(1);
+    expect(after.players[RESOURCE_PLAYER].cardsInPlay.map(c => c.instanceId)).toContain(swarmId);
   });
 
   // ─── Duplication limit: one per company ──────────────────────────────────

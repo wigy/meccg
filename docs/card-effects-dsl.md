@@ -3798,6 +3798,13 @@ Events:
     "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
   ```
 
+- `character-leaves-company` -- fires whenever a *character* departs the bound company, for any reason: `split-company` and `move-to-company` (source company), discarding a character, corruption-check failure, return to hand, combat elimination, Black Rider/Fell Rider-style follower purges, and a successful opponent influence attempt on a character. Unlike `company-membership-changes`, a character or ally *joining* the company — including another company merging or auto-joining into it — does not fire it, nor does an ally leaving. `sweepCharacterLeavesCompanyEvents(state, sourceCompanyIds)` (`reducer-utils.ts`) is called with the IDs of the companies the character left. Only supports a self-discard `move` apply; no `when` condition is evaluated. Used by *Swarm of Bats* (le-237): "Discard this card if a character leaves the company for any reason."
+
+  ```json
+  { "type": "on-event", "event": "character-leaves-company",
+    "apply": { "type": "move", "select": "self", "from": "self-location", "to": "discard" } }
+  ```
+
   Used by *Palm to Palm* (dm-153): "Discard ... [when] any character in the company splits off into another company."
 
 - `attack-not-defeated` -- fires after combat finalization when the creature's attack was not fully defeated (i.e. not all strikes were won by the defenders). The reducer (`reducer-combat.ts`) checks the creature card for this event and applies its constraint. Used by *Little Snuffler*.

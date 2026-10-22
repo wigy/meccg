@@ -22,7 +22,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, retargetMergedCompanyConstraints, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCharacterSplitsOffCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies } from './reducer-utils.js';
+import { clearPlannedMovement, retargetMergedCompanyConstraints, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCharacterLeavesCompanyEvents, sweepCharacterSplitsOffCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies } from './reducer-utils.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -2291,6 +2291,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
     phaseState: { ...orgState, splitLineage },
   }, [sourceCompany.id]);
   result = sweepCharacterSplitsOffCompanyEvents(result, [sourceCompany.id]);
+  result = sweepCharacterLeavesCompanyEvents(result, [sourceCompany.id]);
 
   if (splittingIsLeader) {
     logDetail(`Split company: splitting character is a Leader — sweeping leader-leaves-company events on ${sourceCompany.id as string}`);
@@ -2394,6 +2395,7 @@ function handleMoveToCompany(state: GameState, action: GameAction): ReducerResul
     reverseActions: [...state.reverseActions, reverseAction],
   })), [action.sourceCompanyId, action.targetCompanyId]);
   moveResult = sweepCharacterSplitsOffCompanyEvents(moveResult, [action.sourceCompanyId]);
+  moveResult = sweepCharacterLeavesCompanyEvents(moveResult, [action.sourceCompanyId]);
 
   if (movingIsLeader) {
     logDetail(`Move to company: moving character is a Leader — sweeping leader-leaves-company events on ${action.sourceCompanyId as string}`);
@@ -2527,10 +2529,10 @@ function handleDiscardCharacter(state: GameState, action: GameAction): ReducerRe
   // instead of just vanishing along with the dissolved company.
   afterRemoval = cleanupEmptyCompanies(afterRemoval);
 
-  let result = sweepCompanyMembershipChangedEvents(
+  let result = sweepCharacterLeavesCompanyEvents(sweepCompanyMembershipChangedEvents(
     sweepAutoDiscardResourceEvents(sweepAutoDiscardHazards(afterRemoval)),
     [company.id],
-  );
+  ), [company.id]);
   if (isLeaderCharacter(charDef)) {
     logDetail(`Discard character: ${charDef.name} is a Leader — sweeping leader-leaves-company events on ${company.id as string}`);
     result = sweepLeaderLeavesCompanyEvents(result, [company.id]);

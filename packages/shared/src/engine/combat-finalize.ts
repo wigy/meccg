@@ -39,7 +39,7 @@ import { matchesCondition, matchesContext } from '../effects/condition-matcher.j
 import { logDetail } from './legal-actions/log.js';
 import { resolveInstanceId } from '../types/state.js';
 import { enqueueDiscardSubstituteOffer } from './discard-substitute.js';
-import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, normalAttackOverride, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { applyBearerWoundedDiscards, attackSourceCreatureInstanceId, makeCombatState, resolveAttackerChoosesDefenders, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companySubphaseScope, defById, findById, getCardEffects, getOnEventEffects, isSelfDiscardMove, matchesDefinition, partitionLeavingAllies, normalAttackOverride, raceForCardTextFilter, playerHasKillMpExemption, ringwraithReclaimMark, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, updateCharacter, updatePlayer } from './reducer-utils.js';
 import { partitionLeavingTrophies, creatureKillMpMatchesAlignment } from './trophy-dispersal.js';
 import { resolveAttackProwess, resolveAttackStrikes, resolveAttackBody, normalizeCreatureRace, resolveDef, enemyRaceContext } from './effects/index.js';
 import { isDetainmentAttack } from './detainment.js';
@@ -1748,6 +1748,19 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
   if (anyCombatantEliminated) {
     logDetail(`finalizeCombat: a combatant was eliminated — sweeping company-membership-changed events on company ${combat.companyId as string}`);
     stateWithRule8_22 = sweepCompanyMembershipChangedEvents(stateWithRule8_22, [combat.companyId]);
+  }
+
+  // Swarm of Bats (le-237)-style events discard only when a *character*
+  // leaves; an eliminated ally does not count.
+  const anyCharacterEliminated = combat.strikeAssignments.some(a => {
+    if (a.result !== 'eliminated') return false;
+    const defId = resolveInstanceId(stateWithRule8_22, a.characterId);
+    const def = defId ? defById(stateWithRule8_22, defId) : undefined;
+    return !!(def && isCharacterCard(def));
+  });
+  if (anyCharacterEliminated) {
+    logDetail(`finalizeCombat: a character was eliminated — sweeping character-leaves-company events on company ${combat.companyId as string}`);
+    stateWithRule8_22 = sweepCharacterLeavesCompanyEvents(stateWithRule8_22, [combat.companyId]);
   }
 
   // Sweep leader-leaves-company events for any eliminated leaders
