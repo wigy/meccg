@@ -6385,6 +6385,43 @@ export function sweepLeaderLeavesCompanyEvents(
 }
 
 /**
+ * Fires the `character-leaves-company` event against every company-targeted
+ * permanent event (cardsInPlay with a matching `companyId`) that carries an
+ * `on-event: character-leaves-company` + self-discard `move` apply. Unlike
+ * {@link sweepCompanyMembershipChangedEvents} (any join *or* leave), this
+ * fires only when a character departs the bound company — split-off, move to
+ * another company, discard, elimination, return to hand, or being influenced
+ * away. A character (or ally) *joining* the company, including another
+ * company merging into it, does not fire it. Used by *Swarm of Bats*
+ * (le-237): "Discard this card if a character leaves the company for any
+ * reason."
+ *
+ * Call after any action that removes a character from a company, passing the
+ * IDs of the companies the character left.
+ */
+export function sweepCharacterLeavesCompanyEvents(
+  state: GameState,
+  sourceCompanyIds: readonly CompanyId[],
+): GameState {
+  if (sourceCompanyIds.length === 0) return state;
+  const affected = new Set(sourceCompanyIds.map(id => id as string));
+  return discardCardsInPlayWhere(
+    state,
+    card => {
+      if (!affected.has(card.companyId as string)) return false;
+      const def = defById(state, card.definitionId);
+      return getOnEventEffects(def, 'character-leaves-company').some(
+        e => isSelfDiscardMove(e.apply),
+      );
+    },
+    card => {
+      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      logDetail(`character-leaves-company: discarding "${def?.name}" (company ${card.companyId as string})`);
+    },
+  ).state;
+}
+
+/**
  * Fires the `character-splits-off-company` event against every
  * company-targeted permanent event (cardsInPlay with a matching `companyId`)
  * that carries an `on-event: character-splits-off-company` + self-discard
@@ -7999,7 +8036,8 @@ function purgeCompany(
   ) as unknown as readonly [PlayerState, PlayerState];
 
   const result: GameState = { ...state, players: updatedPlayers };
-  return sweepCompanyMembershipChangedEvents(result, [companyId]);
+  const swept = sweepCompanyMembershipChangedEvents(result, [companyId]);
+  return followerSet.size > 0 ? sweepCharacterLeavesCompanyEvents(swept, [companyId]) : swept;
 }
 
 export function discardEventCard(state: GameState, cardInstanceId: CardInstanceId, playerIndex: number): GameState {

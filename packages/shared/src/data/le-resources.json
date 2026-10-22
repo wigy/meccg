@@ -2047,7 +2047,7 @@
       },
       {
         "type": "on-event",
-        "event": "company-membership-changes",
+        "event": "character-leaves-company",
         "apply": {
           "type": "move",
           "select": "self",
