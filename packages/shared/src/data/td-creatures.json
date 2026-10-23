@@ -544,8 +544,13 @@
         ]
       }
     ],
-    "effects": [],
-    "text": "Drake. One strike. Attacker chooses defending characters."
+    "effects": [
+      {
+        "type": "combat-attacker-chooses-defenders"
+      }
+    ],
+    "text": "Drake. One strike. Attacker chooses defending characters.",
+    "certified": "2026-10-23"
   },
   {
     "cardType": "hazard-creature",
