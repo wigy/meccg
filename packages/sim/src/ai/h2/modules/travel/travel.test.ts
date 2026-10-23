@@ -18,7 +18,7 @@ import type { ModuleContext } from '../../core/types.js';
 import { computeStanding } from '../../services/standing.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testWinProbModel } from '../../test-support.js';
-import { travelModule } from './travel.js';
+import { travelModule, untappedAfterAttacks } from './travel.js';
 
 /** An organization phase with companies, destinations and cards to play. */
 const SCENARIO = 'organization/turn14-company-planning';
@@ -446,5 +446,54 @@ describe('leaving a site the company could play at', () => {
     const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
     const leave = travelModule.evaluate(toMountDoom, context)!;
     expect(stay.utility).toBeGreaterThan(leave.utility);
+  });
+});
+
+describe('plays behind a site\'s automatic attacks', () => {
+  // Bug report (Damian O_Dea, game mvj4blbj-kkinem, stateSeq 3286): Boromir II
+  // entered The Lonely Mountain alone to play a hoard item. The Dragon's one
+  // strike at 14 prowess had to be faced first, and the only character who
+  // could tap for Enruned Shield had to tap to face it — so entering was all
+  // risk and no reward, yet both the trip and the entry were priced as if the
+  // item were playable.
+  const ENTER_ALONE = 'travel/lone-character-behind-dragon';
+  const PLAN_TO_LAIR = 'travel/lone-tap-to-dragon-lair';
+
+  test('a strike that would beat a character fighting untapped costs his tap', () => {
+    const boromir = { prowess: 6, status: 'untapped', isAlly: false } as never;
+    const dragon = { strikeProwess: 14, strikes: 1 } as never;
+    expect(untappedAfterAttacks([boromir], [dragon])).toBe(0);
+  });
+
+  test('a character strong enough to fight untapped keeps his tap', () => {
+    const warrior = { prowess: 9, status: 'untapped', isAlly: false } as never;
+    const scout = { prowess: 2, status: 'untapped', isAlly: false } as never;
+    const orcs = { strikeProwess: 7, strikes: 1 } as never;
+    expect(untappedAfterAttacks([warrior, scout], [orcs])).toBe(2);
+  });
+
+  test('a lone character does not enter a Dragon\'s lair for an item he cannot tap to play', () => {
+    const { context, actions } = position(ENTER_ALONE);
+    const enter = actions.find(a => a.type === 'enter-site'
+      && (a as unknown as { companyId: string }).companyId === 'company-p2-4')!;
+    expect(enter).toBeDefined();
+    const entering = travelModule.evaluate(enter, context)!;
+    const stay = travelModule.evaluate({ type: 'pass' } as unknown as GameAction, context)!;
+    expect(JSON.stringify(entering.rationale)).toContain('"label":"taps available","value":0');
+    expect(entering.expectedTsd).toBeLessThan(stay.expectedTsd);
+  });
+
+  test('the trip to the lair does not bank the item either', () => {
+    const { context, actions } = position(PLAN_TO_LAIR);
+    const plan = actions.find(a => {
+      if (a.type !== 'plan-movement') return false;
+      const { companyId, destinationSite } = a as unknown as { companyId: string; destinationSite: string };
+      const site = context.view.self.siteDeck.find(c => (c.instanceId as string) === destinationSite);
+      return companyId === 'company-p2-4' && site?.definitionId === 'tw-428';
+    });
+    expect(plan).toBeDefined();
+    const text = JSON.stringify(travelModule.evaluate(plan!, context)!.rationale);
+    expect(text).toContain('"label":"taps available","value":0');
+    expect(text).toContain('tapped facing the automatic attacks');
   });
 });

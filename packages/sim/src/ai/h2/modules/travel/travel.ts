@@ -58,6 +58,8 @@ import { computeBeliefs } from '../../services/beliefs.js';
 import type { Beliefs } from '../../services/beliefs.js';
 import { automaticAttacksOf, computeDefence } from '../../services/defence.js';
 import { rosterOf } from '../../services/strike/prowess.js';
+import type { StrikeTarget } from '../../services/strike/prowess.js';
+import type { AttackProfile } from '../../services/strike/sequence.js';
 import { computeReach } from '../../services/reach.js';
 import { computeDrawValue } from '../../services/draw-value.js';
 import type { SiteExposure } from '../../services/exposure.js';
@@ -121,6 +123,41 @@ function allyDiscardedByArrivingIn(ally: CardDefinition | undefined, region: str
   return effects.some(e => e.type === 'on-event' && e.event === 'company-arrives-at-site'
     && e.apply?.type === 'move' && e.apply.select === 'self' && e.apply.to === 'discard'
     && (!e.when || matchesCondition(e.when, { site: { region } })));
+}
+
+/**
+ * How many of a company's untapped characters are still untapped once a
+ * site's automatic attacks have been faced — the taps left to play what the
+ * site unlocks.
+ *
+ * A character who faces a strike taps to fight it unless he can afford the −3
+ * for staying untapped (CoE 3.iv), and the attacker assigns whatever strikes
+ * the defender leaves over, so every strike lands on an untapped character
+ * while one remains. Without this, a lone Boromir II at The Lonely Mountain
+ * priced his Enruned Shield as playable behind the Dragon's single strike —
+ * but the only character who could tap for it had to tap to face the Dragon
+ * first, so entering was all risk and no reward (game mvj4blbj-kkinem,
+ * turn 64).
+ *
+ * The defender puts his strongest characters up first, and one of them keeps
+ * his tap only if even the lowest roll (2) at −3 prowess cannot lose the
+ * strike. Each attack is a fresh assignment (one strike per character per
+ * attack), but a character tapped by an earlier attack stays tapped.
+ */
+export function untappedAfterAttacks(
+  roster: readonly StrikeTarget[],
+  attacks: readonly AttackProfile[],
+): number {
+  let untapped = roster
+    .filter(t => !t.isAlly && t.status === CardStatus.Untapped)
+    .map(t => t.prowess)
+    .sort((a, b) => b - a);
+  for (const attack of attacks) {
+    const facing = untapped.slice(0, attack.strikes);
+    const keepsTap = facing.filter(prowess => prowess - 3 + 2 >= attack.strikeProwess);
+    untapped = [...keepsTap, ...untapped.slice(attack.strikes)].sort((a, b) => b - a);
+  }
+  return untapped.length;
 }
 
 /**
@@ -403,11 +440,23 @@ function routed(
 function destinationValue(context: ModuleContext, destination: Destination): DestinationValue {
   const { tunables, standing } = context;
   const { site, playable } = destination;
+  const companyId = (destination.action as unknown as { companyId?: string }).companyId ?? '';
+  const arriving = destination.arrivingDefinitionId;
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  const automatic = automaticAttacksOf(context.cardPool, arriving);
 
   // Cards that can actually be played are bounded by taps available: a company
   // standing on a pile of playable cards with everyone tapped scores none of
-  // them. `budget` supplies the constraint rather than the module guessing it.
-  const playableNow = playable.slice(0, Math.max(0, destination.tapsAvailable));
+  // them. `budget` supplies the constraint rather than the module guessing it,
+  // less the characters the site's own automatic attacks will tap — see
+  // `untappedAfterAttacks`.
+  const tapsAvailable = company !== undefined && automatic.length > 0
+    ? Math.min(
+      destination.tapsAvailable,
+      untappedAfterAttacks(rosterOf(company, context.view.self.characters, context.cardPool), automatic),
+    )
+    : destination.tapsAvailable;
+  const playableNow = playable.slice(0, Math.max(0, tapsAvailable));
   const realized = playableNow.reduce((sum, c) => sum + c.tsd, 0);
   const beyondTaps = playable.length - playableNow.length;
   // Cards that fit the site but not this turn's taps are unlocked, not banked.
@@ -438,8 +487,6 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // returns to the site deck rather than to a discard pile, so a worked site is
   // offered again exactly like one never seen. The agent remembers instead —
   // see `ModuleContext.visited`.
-  const companyId = (destination.action as unknown as { companyId?: string }).companyId ?? '';
-  const arriving = destination.arrivingDefinitionId;
   // A haven is the one site a company is *meant* to come back to, and charging
   // the return was a mistake this module made against itself: healing happens
   // at havens, and nowhere else a company can reach on its own.
@@ -494,7 +541,6 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // it showed: offered a haven on 100% of the moves it made with a wounded
   // character aboard, H2 went there 10.5% of the time against Heuristics 1's
   // 54.3%.
-  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
   const woundedHere = site.siteType === 'haven'
     ? (company?.characters ?? [])
       .map(id => context.view.self.characters[id])
@@ -515,7 +561,6 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
   // all one already carrying wounded characters, who price *worse* against
   // them through `character-value` — is the company least able to afford a
   // destination that dangles a card behind them.
-  const automatic = automaticAttacksOf(context.cardPool, arriving);
   const attackHarm = company !== undefined && automatic.length > 0
     ? computeDefence(context.view, context.cardPool, context.standing, tunables)
       .harmFrom(rosterOf(company, context.view.self.characters, context.cardPool), automatic)
@@ -618,7 +663,11 @@ function destinationValue(context: ModuleContext, destination: Destination): Des
         + `opponent holds a creature (${(beliefs.confidence * 100).toFixed(0)}% confidence, `
         + `${beliefs.observed} cards seen)`,
     }),
-    leaf('taps available', destination.tapsAvailable),
+    leaf('taps available', tapsAvailable, {
+      note: tapsAvailable < destination.tapsAvailable
+        ? `${destination.tapsAvailable} untapped now, the rest tapped facing the automatic attacks`
+        : 'untapped characters to play with',
+    }),
     ...(havenToHaven
       ? [leaf('haven to haven', 0, {
         note: 'pointless for its own sake: no draws or healing credited — only reach toward scoring sites and new plays',
@@ -746,15 +795,17 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
   if (!site) return null;
 
   // What entering unlocks: the cards that become playable, capped by taps.
+  // Capped by the taps left once the automatic attacks have been faced: a
+  // character who tapped to fight cannot then tap to play.
+  const roster = rosterOf(company, view.self.characters, cardPool);
+  const automatic = automaticAttacksOf(cardPool, siteDefinitionId);
   const playable = playableAt(context, siteDefinitionId, company.id);
-  const taps = budget.untappedIn(company.id).length;
+  const taps = Math.min(budget.untappedIn(company.id).length, untappedAfterAttacks(roster, automatic));
   const playableNow = playable.slice(0, Math.max(0, taps));
   const realized = playableNow.reduce((sum, c) => sum + c.tsd, 0);
 
   // What entering costs: the site's own attacks, priced against this roster.
   const defence = computeDefence(view, cardPool, standing, tunables);
-  const roster = rosterOf(company, view.self.characters, cardPool);
-  const automatic = automaticAttacksOf(cardPool, siteDefinitionId);
   const attackHarm = defence.harmFrom(roster, automatic);
 
   // And the on-guard cards, which are face down: only the chance each is a
@@ -787,7 +838,7 @@ function evaluateEnterSite(context: ModuleContext, action: GameAction): Evaluati
         ? `each a ${(creatureShare * 100).toFixed(0)}% chance of being a creature`
         : 'nothing was placed',
     }),
-    leaf('taps available', taps),
+    leaf('taps available', taps, { note: 'untapped once the automatic attacks have been faced' }),
   ];
   for (const card of playableNow) {
     detail.push(leaf(card.name, card.tsd, {
