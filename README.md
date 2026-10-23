@@ -27,7 +27,7 @@ For player information, see the [Player Guide](docs/player-guide.md).
 | Card tests | 1417 | 1417 | 100.0% |
 | Cards created | 1683 | 1683 | 100.0% |
 | Cards certified | 1467 | 1683 | 87.2% |
-| **Total** | **4872** | **5136** | **94.9%** |
+| **Total** | **4872** | **5135** | **94.9%** |
 
 ### Deck Catalog
 

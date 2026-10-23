@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.222.0 — 2026-10-23
+
+Hand Stays Visible Without Companies
+
+### Web Client
+
+- The hand now stays visible when the player has no companies (for example after every character has died), so they can still play a character at a haven to get back into the game; previously the all-companies overview hid the hand (#3414)
+
+### Infrastructure
+
+- README Project Status total corrected to match the sum of the metric rows
+
 ## 0.221.0 — 2026-10-23
 
 Swag Takes Items, Black Axe Saves Checks
