@@ -331,6 +331,7 @@ export const STORAGE_KEY = 'meccg-player-name';
 export const VIEW_KEY = 'meccg-view-mode';
 export const DEV_MODE_KEY = 'meccg-dev-mode';
 export const AUTO_PASS_KEY = 'meccg-auto-pass';
+export const LARGE_PREVIEW_KEY = 'meccg-large-card-preview';
 export const BG_KEY = 'meccg-bg';
 export const EDITING_DECK_KEY = 'meccg-editing-deck';
 export const VIEWING_INBOX_KEY = 'meccg-viewing-inbox';

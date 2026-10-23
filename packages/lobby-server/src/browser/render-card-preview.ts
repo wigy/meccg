@@ -368,3 +368,12 @@ export function installLogCardPreview(
     preview.innerHTML = '';
   });
 }
+
+/**
+ * Turn the "Large card preview" setting on or off by toggling the
+ * `large-card-preview` class on the given root (normally `document.body`);
+ * the stylesheet then enlarges the in-game `#card-preview` panel.
+ */
+export function applyLargeCardPreview(root: Pick<HTMLElement, 'classList'>, enabled: boolean): void {
+  root.classList.toggle('large-card-preview', enabled);
+}
