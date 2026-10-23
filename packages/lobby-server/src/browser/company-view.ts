@@ -56,6 +56,7 @@ import {
   shouldRestoreOverrideAfterCombat,
   isCombatBlockedByPendingCorruptionCheck,
   handStaysVisibleDuringOverview,
+  handStaysVisibleWithoutCompanies,
 } from './company-view-state.js';
 import { renderCardsInPlayRow } from './company-block.js';
 import { renderSingleView, renderAllCompaniesView, renderViewToggle } from './company-views.js';
@@ -334,7 +335,7 @@ export function resetCompanyViews(): void {
   resetState();
   dismissTooltip();
   setTargetingInstruction(null);
-  document.body.classList.remove('all-companies-mode');
+  document.body.classList.remove('all-companies-mode', 'no-companies-mode');
 }
 
 /**
@@ -597,6 +598,10 @@ export function renderCompanyViews(
   // card. free-council-mode carves out that one exception in CSS.
   document.body.classList.toggle('all-companies-mode', !showingSingle);
   document.body.classList.toggle('free-council-mode', handStaysVisibleDuringOverview(view.phaseState.phase));
+  // A player with no companies has no single-company view to switch to, so
+  // the overview is their only board — keep the hand visible there too, or
+  // they cannot play a character to get back into the game.
+  document.body.classList.toggle('no-companies-mode', handStaysVisibleWithoutCompanies(view.self.companies.length));
 
   if (showingSingle) {
     renderSingleView(board, view, cardPool);
