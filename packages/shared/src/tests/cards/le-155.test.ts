@@ -45,6 +45,8 @@ const ASTERNAK = 'le-1' as CardDefinitionId;
 
 // A Ruins & Lairs site with a Troll automatic-attack (the bug-report site).
 const BUHR_WIDU = 'le-357' as CardDefinitionId;
+// A Ruins & Lairs site with two automatic-attacks, the first Troll.
+const ETTENMOORS = 'le-373' as CardDefinitionId;
 // A Ruins & Lairs site with a Wolf (not Troll) automatic-attack (control).
 const OST_IN_EDHIL = 'le-397' as CardDefinitionId;
 
@@ -71,6 +73,20 @@ describe('"Two-headed" Troll (le-155)', () => {
       site: BUHR_WIDU,
       hand: [TWO_HEADED_TROLL],
       siteStatus: CardStatus.Tapped,
+    });
+    const allyInst = state.players[0].hand[0].instanceId;
+    const playActions = computeLegalActions(state, PLAYER_1)
+      .filter(a => a.viable && a.action.type === 'play-hero-resource')
+      .map(a => a.action as PlayHeroResourceAction)
+      .filter(a => a.cardInstanceId === allyInst);
+    expect(playActions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('IS playable at an untapped Ettenmoors (Troll automatic-attack, then Wolves)', () => {
+    const state = buildSitePhaseState({
+      characters: [ASTERNAK],
+      site: ETTENMOORS,
+      hand: [TWO_HEADED_TROLL],
     });
     const allyInst = state.players[0].hand[0].instanceId;
     const playActions = computeLegalActions(state, PLAYER_1)
