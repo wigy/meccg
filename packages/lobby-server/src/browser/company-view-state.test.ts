@@ -9,6 +9,7 @@ import {
   shouldRestoreOverrideAfterCombat,
   isCombatBlockedByPendingCorruptionCheck,
   handStaysVisibleDuringOverview,
+  handStaysVisibleWithoutCompanies,
 } from './company-view-state.js';
 
 /**
@@ -283,5 +284,24 @@ describe('handStaysVisibleDuringOverview', () => {
 
   it('does NOT keep the hand-arc visible during the opponent-turn overview outside Free Council', () => {
     expect(handStaysVisibleDuringOverview(Phase.MovementHazard)).toBe(false);
+  });
+});
+
+/**
+ * Regression test for bug report e2f0151cb2f92b90 (game mvkllfms-4bswm3,
+ * turn 13): "Cant play my character, i cant see my cards." All of the
+ * player's characters had died, so on their own turn they had no company to
+ * focus and the board was held in the all-companies overview — where
+ * public/style.css hides `#hand-arc`. The engine offered Thorin II's
+ * play-character actions at every haven, but the hand was never rendered, so
+ * the player had to pass the organization phase without playing anyone.
+ */
+describe('handStaysVisibleWithoutCompanies', () => {
+  it('keeps the hand-arc visible when the player has no companies, so a character can be played (CoE 2.II)', () => {
+    expect(handStaysVisibleWithoutCompanies(0)).toBe(true);
+  });
+
+  it('does NOT keep the hand-arc visible in the overview when the player has a company to focus', () => {
+    expect(handStaysVisibleWithoutCompanies(1)).toBe(false);
   });
 });

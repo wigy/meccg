@@ -286,6 +286,23 @@ export function handStaysVisibleDuringOverview(phase: PlayerView['phaseState']['
   return phase === Phase.FreeCouncil;
 }
 
+/**
+ * Decide whether the hand-arc must stay visible in the all-companies overview
+ * because the player has no companies of their own. With zero companies there
+ * is no own company to focus, so on the player's own turn the board is stuck
+ * in the overview — and the CSS that hides `#hand-arc` whenever
+ * `all-companies-mode` is set (see public/style.css) left the hand completely
+ * unreachable. A player whose last character died could therefore never play
+ * a new character at a haven or home site (CoE 2.II), the only way back into
+ * the game (bug report e2f0151cb2f92b90).
+ *
+ * @param selfCompanyCount - Number of companies the viewing player controls.
+ * @returns True if the hand-arc must stay visible (no own companies).
+ */
+export function handStaysVisibleWithoutCompanies(selfCompanyCount: number): boolean {
+  return selfCompanyCount === 0;
+}
+
 /** Track the last active player so we can reset view state on turn change. */
 let lastActivePlayer: string | null = null;
 
