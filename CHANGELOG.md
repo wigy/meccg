@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.221.0 — 2026-10-23
+
+Swag Takes Items, Black Axe Saves Checks
+
+### Game Engine
+
+- Swag (le-236) now has its effects: playable only during the site phase at a tapped Ruins & Lairs, Border-hold or Free-hold, letting characters tap to take up to two minor weapon, armor, shield or helmet items, like Old Cache (#3410, #3411)
+- Ancient Black Axe (as-122) can now be tapped to pass a corruption check that is queued as a pending resolution, such as The Iron Crown's end-of-untap-phase check (#3412)
+
+### AI
+
+- The modular AI counts how many untapped characters will be left after a site's automatic attacks, both when entering a site and when planning movement to it, so a lone character no longer walks into a Dragon lair only to be tapped before playing its hoard item; new travel scenarios cover the regression (#3413)
+
 ## 0.220.0 — 2026-10-22
 
 Sudden Call Playable in Untap Phase

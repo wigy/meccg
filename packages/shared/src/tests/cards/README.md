@@ -6,7 +6,7 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1416 | 1416 | 0 | 100.0% |
+| 1417 | 1417 | 0 | 100.0% |
 
 ## Category Breakdown
 
@@ -15,7 +15,7 @@
 | AS | 132 | 132 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 158 | 158 | 100.0% |
-| LE | 344 | 344 | 100.0% |
+| LE | 345 | 345 | 100.0% |
 | TD | 148 | 148 | 100.0% |
 | TW | 429 | 429 | 100.0% |
 | WH | 104 | 104 | 100.0% |
@@ -110,7 +110,7 @@
 | as-119 | Morgul-orcs | — | 12 | ☑ |
 | as-120 | Nûriags | — | 8 | ☑ |
 | as-121 | Orcs of Dol Guldur | — | 12 | ☑ |
-| as-122 | Ancient Black Axe | — | 15 | ☑ |
+| as-122 | Ancient Black Axe | — | 16 | ☑ |
 | as-123 | Dwarven Ring of Thélor’s Tribe | — | 16 | ☑ |
 | as-124 | Dwarven Ring of Thrár’s Tribe | — | 14 | ☑ |
 | as-125 | Goblin Earth-plumb | — | 6 | ☑ |
@@ -610,6 +610,7 @@
 | le-232 | Some Secret Art of Flame | — | 5 | ☑ |
 | le-233 | Spying out the Land | — | 8 | ☑ |
 | le-235 | Sudden Call | — | 12 | ☑ |
+| le-236 | Swag | — | 5 | ☑ |
 | le-237 | Swarm of Bats | — | 16 | ☑ |
 | le-238 | Swift Strokes | — | 7 | ☑ |
 | le-239 | Test of Fire | — | 13 | ☑ |
