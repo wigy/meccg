@@ -26,10 +26,11 @@
 
 import { describe, test, expect, beforeEach } from 'vitest';
 import {
-  PLAYER_1, RESOURCE_PLAYER,
-  buildSitePhaseState, resetMint,
+  PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
+  LORIEN, MINAS_TIRITH, LEGOLAS,
+  buildSitePhaseState, buildTestState, resetMint,
   viableActions, dispatch, findCharInstanceId, expectInDiscardPile,
-  CardStatus,
+  CardStatus, Phase,
 } from '../test-helpers.js';
 import { Alignment } from '../../index.js';
 import type { CardDefinitionId, TapTakeItemAction } from '../../index.js';
@@ -41,11 +42,13 @@ const LAGDUF = 'le-18' as CardDefinitionId;
 const MUZGASH = 'le-25' as CardDefinitionId;
 const GRISHNAKH = 'le-12' as CardDefinitionId;
 
-/** Ruins & Lairs (le-417 Zarak Dûm), Border-hold (le-363 Dale), Free-hold (le-372 Edoras), Dark-hold (le-352 Barad-dûr). */
+/** Ruins & Lairs (le-417 Zarak Dûm), Border-hold (le-363 Dale), Free-hold (le-372 Edoras), Dark-hold (le-352 Barad-dûr), Darkhaven (le-359 Carn Dûm), Shadow-hold (le-394 Mount Gram). */
 const ZARAK_DUM = 'le-417' as CardDefinitionId;
 const DALE = 'le-363' as CardDefinitionId;
 const EDORAS = 'le-372' as CardDefinitionId;
 const BARAD_DUR = 'le-352' as CardDefinitionId;
+const CARN_DUM = 'le-359' as CardDefinitionId;
+const MOUNT_GRAM = 'le-394' as CardDefinitionId;
 
 /** Qualifying items: non-unique, non-hoard minor shield (le-300) / weapon (le-342). */
 const BLACK_HIDE_SHIELD = 'le-300' as CardDefinitionId;
@@ -122,5 +125,43 @@ describe('Swag (le-236)', () => {
     expect(afterSecond.pendingEffects).toHaveLength(0);
     expect(afterSecond.players[0].characters[grishId].status).toBe(CardStatus.Untapped);
     expectInDiscardPile(afterSecond, RESOURCE_PLAYER, SWAG);
+  });
+
+  test('NOT playable during the organization phase at a Darkhaven and an untapped Ruins & Lairs', () => {
+    // Bug report (game mvj4blbj-kkinem, seq 1939): with companies at Carn Dûm
+    // and an untapped Ruins & Lairs, Swag was offered as a viable no-op
+    // short-event in the organization phase because its card data had no effects.
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        {
+          id: PLAYER_1, alignment: Alignment.Ringwraith,
+          companies: [{ site: CARN_DUM, characters: [LAGDUF] }, { site: ZARAK_DUM, characters: [MUZGASH] }],
+          hand: [SWAG], siteDeck: [MOUNT_GRAM], sideboard: [BLACK_HIDE_SHIELD],
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    expect(viableActions(state, PLAYER_1, 'play-short-event')).toHaveLength(0);
+  });
+
+  test('a character taps to take a matching item from the sideboard; after passing the card is discarded', () => {
+    const base = buildSitePhaseState({
+      alignment: Alignment.Ringwraith, site: DALE, siteStatus: CardStatus.Tapped,
+      characters: [LAGDUF], hand: [SWAG], sideboard: [BLACK_HIDE_SHIELD],
+    });
+    const declared = dispatch(base, viableActions(base, PLAYER_1, 'play-short-event')[0].action);
+    const lagdufId = findCharInstanceId(declared, RESOURCE_PLAYER, LAGDUF);
+    const pick = viableActions(declared, PLAYER_1, 'tap-take-item')
+      .map(a => a.action as TapTakeItemAction)
+      .find(a => a.characterId === lagdufId && a.source === 'sideboard')!;
+    expect(pick).toBeDefined();
+    const after = dispatch(declared, pick);
+    expect(after.players[0].characters[lagdufId].status).toBe(CardStatus.Tapped);
+    expect(after.players[0].characters[lagdufId].items.map(i => i.definitionId)).toEqual([BLACK_HIDE_SHIELD]);
+    const done = dispatch(after, { type: 'pass', player: PLAYER_1 });
+    expect(done.pendingEffects).toHaveLength(0);
+    expectInDiscardPile(done, RESOURCE_PLAYER, SWAG);
   });
 });
