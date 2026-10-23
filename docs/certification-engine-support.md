@@ -1509,3 +1509,7 @@ The hand/in-play `cancel-attack` `when` context (`cancelAttackActions` `whenCont
 ### `on-event: untap-phase-end` `bearer.race` context (The Iron Crown le-314)
 
 The untap-phase-end bearer context (`reducer-untap.ts`) now also carries `bearer.race` (the host character's race), so a forced untap corruption check can be race-gated: "At the end of his untap phase, if the bearer is not a Ringwraith, he must make a corruption check" → `when: { "bearer.race": { "$ne": "ringwraith" } }`. The rest of the minion Iron Crown reuses existing primitives (capped `stat-modifier` body/DI, `cancel-attack` tap-self gated on `enemy.race`, `storable-at` Barad-dûr for 5 MP); a Ringwraith avatar bearer gets none of the item's bonuses per rule 9.20.
+
+### Troll-keyed R&L ally: `company-overt` + race-gated tap-cancel + company `duplication-limit` (“Two-headed” Troll le-155)
+
+No new engine work. War-warg (le-156) `playableAt` shape with `site.autoAttack.race: "troll"` + `play-flag playable-at-tapped-site`; Regiment of Black Crows (as-76) `company-overt` and `duplication-limit` `scope: "company"`; The Warg-king (le-158) `cancel-attack` `cost: { tap: "self" }` gated on `enemy.race $in ["orc", "troll"]`.
