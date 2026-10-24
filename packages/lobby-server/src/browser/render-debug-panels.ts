@@ -7,7 +7,7 @@
  */
 
 import type { PlayerView, CardDefinition } from '@meccg/shared';
-import { formatPlayerView, formatCardList, formatCardName, buildInstanceLookup, Phase, isCardHidden, effectiveHazardLimit } from '@meccg/shared';
+import { formatPlayerView, formatCardList, formatCardName, buildInstanceLookup, Phase, isCardHidden, effectiveHazardLimit, facingAttackHazardLimitBonus } from '@meccg/shared';
 import type { CardDefinitionId, CardInstanceId } from '@meccg/shared';
 import { $ } from './render-utils.js';
 import {
@@ -129,7 +129,8 @@ export function renderMHInfo(
   // folds in any mid-phase `hazard-limit-modifier` constraint (e.g. a Daelomin
   // at Home td-11 discard granting +2), not just the at-reveal snapshot.
   const limit = activeCompany
-    ? effectiveHazardLimit(view.activeConstraints, mh.hazardLimitAtReveal, mh.preRevealHazardLimitConstraintIds, activeCompany.id, mh.resolvedSitePath)
+    ? effectiveHazardLimit(view.activeConstraints, mh.hazardLimitAtReveal, mh.preRevealHazardLimitConstraintIds, activeCompany.id, mh.resolvedSitePath,
+      facingAttackHazardLimitBonus([...view.self.cardsInPlay, ...view.opponent.cardsInPlay], cardPool, mh.hazardsEncountered, view.combat, activeCompany.id))
     : mh.hazardLimitAtReveal;
   const remaining = limit - mh.hazardsPlayedThisCompany;
   lines.push(`Hazard limit: ${mh.hazardsPlayedThisCompany}/${limit} played (${Math.max(0, remaining)} remaining)`);

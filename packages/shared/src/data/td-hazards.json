@@ -603,10 +603,16 @@
           "prowess": 15,
           "body": 7
         }
+      },
+      {
+        "type": "hazard-limit-facing-attack",
+        "race": "animal",
+        "value": 1
       }
     ],
     "text": "Unique. Unless Bairanax Ahunt is in play, Ovir Hollow has an additional automatic-attack: Dragon — 2 strikes at 15/7. In addition, the hazard limit against any company facing one or more animal hazard creature attacks is increased by one.",
-    "manifestId": "td-3"
+    "manifestId": "td-3",
+    "certified": "2026-10-24"
   },
   {
     "cardType": "hazard-event",
