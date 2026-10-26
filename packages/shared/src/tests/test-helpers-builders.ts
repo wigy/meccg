@@ -19,7 +19,7 @@ import { reduce } from '../engine/reducer.js';
 import type { ReducerResult } from '../engine/reducer.js';
 import { Phase, Alignment, RegionType, SiteType, computeLegalActions } from '../index.js';
 import { MovementType, Race } from '../types/common.js';
-import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind, FreeCouncilPhaseState } from '../index.js';
+import type { PlayerId, GameState, GameAction, CardDefinitionId, CardInstanceId, SitePhaseState, MovementHazardPhaseState, InfluenceAttemptAction, OpponentInfluenceAttemptAction, CreatureKeyingMatch, CombatState, ActiveConstraint, CheckKind, FreeCouncilPhaseState, PlayHazardAction } from '../index.js';
 import { addConstraint, enqueueCorruptionCheck as enqueueEngineCorruptionCheck } from '../engine/pending.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { CollectedEffect } from '../engine/effects/index.js';
@@ -712,6 +712,67 @@ export function buildHazardMovingState(
       ...(destinationSiteType ? { destinationSiteType } : {}),
     }),
   };
+}
+
+/**
+ * Build an M/H-phase state with PLAYER_1 (resource) holding one company at
+ * `site` — moving to `destination` when given — and PLAYER_2 (hazard) holding
+ * `hazardHand`, then install `phaseState` verbatim. Unlike
+ * {@link buildHazardMovingState} the caller controls the company's origin,
+ * whether it moves at all, its alignment, and the full resolved path, which
+ * region-keyed dual creatures need (Lord of the Haven as-15: "a company at a
+ * site in, or moving through, a Coastal Sea region").
+ */
+export function buildHazardCompanyMHState(opts: {
+  readonly site: CardDefinitionId;
+  readonly destination?: CardDefinitionId;
+  readonly characters: CharacterEntry[];
+  readonly hazardHand: CardDefinitionId[];
+  readonly phaseState: MovementHazardPhaseState;
+  readonly alignment?: Alignment;
+}): GameState {
+  const state = buildTestState({
+    activePlayer: PLAYER_1,
+    phase: Phase.MovementHazard,
+    recompute: true,
+    players: [
+      {
+        id: PLAYER_1,
+        ...(opts.alignment ? { alignment: opts.alignment } : {}),
+        companies: [{
+          site: opts.site,
+          characters: opts.characters,
+          ...(opts.destination ? { destinationSite: opts.destination } : {}),
+        }],
+        hand: [],
+        siteDeck: [MINAS_TIRITH],
+      },
+      { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: opts.hazardHand, siteDeck: [RIVENDELL] },
+    ],
+  });
+  return { ...state, phaseState: opts.phaseState };
+}
+
+/** The `keyedBy` creature keyings among `player`'s viable `play-hazard` actions. */
+export function viableHazardKeyings(state: GameState, player: PlayerId): { method: string; value: string }[] {
+  return viableActions(state, player, 'play-hazard')
+    .map(p => (p.action as PlayHazardAction).keyedBy)
+    .filter((k): k is CreatureKeyingMatch => k !== undefined)
+    .map(k => ({ method: k.method, value: String(k.value) }));
+}
+
+/** `player`'s viable `play-hazard` actions playing a dual creature in its short-event mode. */
+export function viableAltShortEventPlays(state: GameState, player: PlayerId): PlayHazardAction[] {
+  return viableActions(state, player, 'play-hazard')
+    .map(p => p.action as PlayHazardAction)
+    .filter(a => a.altEventMode === 'short-event');
+}
+
+/** Every character a `play-hazard` action targets (`targetCharacterId` + `additionalTargetCharacterIds`). */
+export function hazardTargetCharacters(action: PlayHazardAction): CardInstanceId[] {
+  return action.targetCharacterId
+    ? [action.targetCharacterId, ...(action.additionalTargetCharacterIds ?? [])]
+    : [];
 }
 
 /**

@@ -17242,6 +17242,26 @@ diplomat is in his company or at his current site or at his new site." — two
 `tap-character` effects, `filter: { "skills": { "$includes": "sage" } }` +
 `requiresCompanionSkill: "sage"`, and the diplomat equivalent.
 
+`tap-character` also takes an optional **`maxTargets: number`** for "tap up to
+N target characters in one company", offered through a dual creature's
+`creature-alt-event` **short-event** mode. The targets are drawn from the
+targeted (active M/H) company only: the alt-event branch of the hazard
+generator (`legal-actions/movement-hazard.ts`, `multiTapTargetSets`) emits one
+`play-hazard` action per non-empty set of at most `maxTargets` untapped,
+`filter`-matching characters, the first on `targetCharacterId` and the rest on
+the new `additionalTargetCharacterIds` (on both the action and the
+`short-event` chain payload). With no untapped character the mode is not
+offered. `applyTapCharacter` (`chain-reducer.ts`) taps every listed target,
+leaving any character wounded in the meantime as it is. The event-mode
+`targetCompany` condition context also gains **`company.regionTypes`** — the
+region types of the company's resolved movement path, or the region type of
+its current site when it is not moving. Used by *Lord of the Haven* (as-15):
+"As a short-event, tap up to two target characters in one company at a site in,
+or moving through, a Coastal Sea region" —
+`{ "type": "creature-alt-event", "mode": "short-event", "targetCompany": {
+"company.regionTypes": { "$includes": "coastal" } } }` +
+`{ "type": "tap-character", "maxTargets": 2 }`.
+
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 
 The permanent-event mode (§56c) additionally supports `persistent: true` for

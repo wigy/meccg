@@ -694,11 +694,67 @@
     "killMarshallingPoints": 3,
     "starredKillMarshallingPoints": true,
     "race": "elf",
-    "keyedTo": [],
+    "manifestId": "tw-137",
+    "certified": "2026-10-26",
+    "keyedTo": [
+      {
+        "regionNames": [
+          "Lindon"
+        ]
+      },
+      {
+        "regionTypes": [
+          "coastal"
+        ]
+      },
+      {
+        "siteInRegionNames": [
+          "Lindon",
+          "Andrast Coast",
+          "Bay of Belfalas",
+          "Elven Shores",
+          "Eriadoran Coast",
+          "Mouths of the Anduin"
+        ]
+      }
+    ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-as-event"
+      },
+      {
+        "type": "creature-alt-event",
+        "mode": "short-event",
+        "targetCompany": {
+          "company.regionTypes": {
+            "$includes": "coastal"
+          }
+        }
+      },
+      {
+        "type": "tap-character",
+        "maxTargets": 2
+      },
+      {
+        "type": "combat-detainment",
+        "when": {
+          "$or": [
+            {
+              "defender.alignment": "hero"
+            },
+            {
+              "$and": [
+                {
+                  "defender.alignment": "fallen-wizard"
+                },
+                {
+                  "defender.covert": true
+                }
+              ]
+            }
+          ]
+        }
       }
     ]
   },
