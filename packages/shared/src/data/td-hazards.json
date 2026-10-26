@@ -6,6 +6,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EarcaraxeAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 4,
     "effects": [
       {
         "type": "duplication-limit",
@@ -192,6 +193,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ItangastAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 6,
     "effects": [
       {
         "type": "duplication-limit",
@@ -234,6 +236,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/AgburanarAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 4,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -279,6 +282,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/BairanaxAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 3,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -327,6 +331,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DaelominAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 4,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -376,6 +381,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LeucaruthAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 4,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -421,6 +427,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScathaAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 5,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -466,6 +473,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScorbaAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 3,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -512,6 +520,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SmaugAhunt.jpg",
     "unique": true,
     "eventType": "long",
+    "killMarshallingPoints": 5,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -561,6 +570,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/AgburanaratHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 4,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -591,6 +601,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/BairanaxatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 3,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -615,6 +626,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/DaelominatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 4,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -644,6 +656,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/EarcaraxeatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 4,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -668,6 +681,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ItangastatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 6,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -698,6 +712,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/LeucaruthatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 4,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -733,6 +748,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScathaatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 5,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -764,6 +780,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/ScorbaatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 3,
     "keywords": [
       "dragon-manifestation"
     ],
@@ -796,6 +813,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/td/SmaugatHome.jpg",
     "unique": true,
     "eventType": "permanent",
+    "killMarshallingPoints": 5,
     "keywords": [
       "dragon-manifestation"
     ],
