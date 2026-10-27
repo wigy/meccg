@@ -38,6 +38,9 @@
  * cancelling gives up exactly what travelling would have gained;
  * `declare-path` prices the route to a destination already fixed, so it is the
  * travel cost alone; and `select-company` orders companies within a phase.
+ * `pay-movement-tax` (Enchanted Stream) buys the right to plan a movement at
+ * all, so it is priced as the best destination it unlocks — `destinationValue`
+ * again.
  * Sharing one `destinationValue` between the first two is deliberate — two
  * models of the same choice would eventually disagree about it, and nothing in
  * the output would say which was wrong.
@@ -71,6 +74,7 @@ import { computeDeckReach } from '../../services/deck-reach.js';
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
   'plan-movement', 'cancel-movement', 'declare-path', 'select-company', 'enter-site', 'pass',
+  'pay-movement-tax',
 ] as const;
 
 /** What a hand card would be worth if the company stood at a destination. */
@@ -987,6 +991,106 @@ function evaluateDeclarePath(context: ModuleContext, action: GameAction): Evalua
 }
 
 /**
+ * How many more characters a company must still tap toward an Enchanted
+ * Stream (as-27) `company-movement-tax` before it may move this organization
+ * phase — the engine's `isMovementTaxSatisfied` read from the view. The hazard
+ * is the opponent's card attached to our company, so both players' cards in
+ * play are scanned; the largest tax bound to the company wins.
+ */
+function movementTaxOwed(context: ModuleContext, companyId: string, untapped: number): number {
+  let tax = 0;
+  for (const card of [...context.view.self.cardsInPlay, ...context.view.opponent.cardsInPlay]) {
+    if ((card.companyId as unknown as string | undefined) !== companyId) continue;
+    const effects = (context.cardPool[card.definitionId] as unknown as {
+      readonly effects?: readonly { readonly type?: string; readonly taxTapCharacters?: number }[];
+    } | undefined)?.effects ?? [];
+    for (const effect of effects) {
+      if (effect.type === 'company-movement-tax') tax = Math.max(tax, effect.taxTapCharacters ?? 0);
+    }
+  }
+  const phaseState = context.view.phaseState as { readonly movementTaxPaid?: Readonly<Record<string, number>> };
+  const paid = phaseState.movementTaxPaid?.[companyId] ?? 0;
+  return Math.min(untapped, Math.max(0, tax - paid));
+}
+
+/**
+ * Score tapping one character toward a company's Enchanted Stream movement tax.
+ *
+ * While the tax is unpaid the engine offers no `plan-movement` for the
+ * company at all, so declining it is not "stay this turn" but "stay until the
+ * hazard is discarded" — which, away from a haven, is never. Passing used to
+ * be the only thing this module could say here (it did not own the action),
+ * and both of a company's tax payments went to the fallback, which passed:
+ * the AI's companies sat under the hazard for the rest of the game (game
+ * mvkp0egj-gbczgp, turns 14 and 16).
+ *
+ * Paying buys exactly the movement it unlocks, so it is priced as the best
+ * destination the company could then plan — the same `destinationValue`
+ * `plan-movement` uses — over its site deck within one movement of where it
+ * stands, with the taps the *whole* tax will take already removed: one
+ * payment of a two-character tax unlocks nothing alone, so each payment is
+ * credited with the journey the full payment buys. Nowhere worth going leaves
+ * it at or below the `pass` zero, and the company stays put.
+ */
+function evaluatePayMovementTax(context: ModuleContext, action: GameAction): Evaluation | null {
+  const companyId = (action as unknown as { companyId?: string }).companyId;
+  if (!companyId) return null;
+  const company = context.view.self.companies.find(c => (c.id as string) === companyId);
+  const originId = company?.currentSite?.definitionId;
+  if (!company || !originId) return null;
+
+  const budget = computeBudget(context.view, context.cardPool);
+  const exposure = computeExposure(context.view, context.cardPool);
+  const reach = computeReach(context.cardPool);
+  const untapped = budget.untappedIn(company.id).length;
+  const tapsAfterTax = untapped - movementTaxOwed(context, companyId, untapped);
+
+  // Another printing of the site the company already stands on (a Fallen-
+  // wizard's haven Isengard against the ruins it is at) is not a journey.
+  const originName = (context.cardPool[originId] as unknown as { name?: string } | undefined)?.name;
+  let best: { name: string; value: DestinationValue } | null = null;
+  for (const card of context.view.self.siteDeck) {
+    const definitionId = card.definitionId as string;
+    if (definitionId === (originId as string)) continue;
+    if ((context.cardPool[definitionId] as unknown as { name?: string } | undefined)?.name === originName) continue;
+    const distance = reach.between(originId as string, definitionId);
+    if (distance === null || distance > BASE_MAX_REGION_DISTANCE) continue;
+    const site = exposure.siteExposure(card.definitionId);
+    if (!site) continue;
+    const value = destinationValue(context, {
+      action,
+      site: routed(context, site, companyId, definitionId),
+      arrivingDefinitionId: definitionId,
+      playable: playableAt(context, definitionId, companyId),
+      tapsAvailable: tapsAfterTax,
+    });
+    if (!best || value.dtsd > best.value.dtsd) best = { name: site.name, value };
+  }
+  if (!best) return null;
+
+  return scoredEvaluation({
+    action,
+    module: 'travel',
+    outcomes: [{ p: 1, label: `free the company to travel to ${best.name}`, dtsd: best.value.dtsd }],
+    standing: context.standing,
+    headline: `pay the movement tax to reach ${best.name}`,
+    detail: [
+      node('best destination it unlocks', best.value.dtsd, [...best.value.detail], {
+        unit: 'tsd',
+        note: `${tapsAfterTax} untapped left after the tax — the taps the destination is priced with`,
+      }),
+    ],
+    assumptions: [
+      'the tax is priced as the movement it unlocks; the tapped characters\' weaker defence '
+      + 'against hazards on the way is not charged beyond what the destination already counts',
+      'destinations are the site deck within one movement of the current site, by the map rather '
+      + 'than by the engine\'s movement rules',
+      ...ASSUMPTIONS,
+    ],
+  });
+}
+
+/**
  * The travel module. Claims a decision only when every candidate is a movement
  * plan or the option to make none — which is the organization-phase movement
  * window and nothing else.
@@ -1004,6 +1108,7 @@ export const travelModule: H2Module = {
     // What it does gate on: a `pass` here means "decline to move", which is
     // only an opinion worth having when there is somewhere to go.
     return context.legalActions.some(a => a.type === 'plan-movement'
+      || a.type === 'pay-movement-tax'
       || a.type === 'cancel-movement'
       || a.type === 'declare-path'
       || a.type === 'enter-site'
@@ -1095,6 +1200,7 @@ export const travelModule: H2Module = {
     if (action.type === 'enter-site') return evaluateEnterSite(context, action);
     if (action.type === 'cancel-movement') return evaluateCancelMovement(context, action);
     if (action.type === 'declare-path') return evaluateDeclarePath(context, action);
+    if (action.type === 'pay-movement-tax') return evaluatePayMovementTax(context, action);
     const budget = computeBudget(context.view, context.cardPool);
     const exposure = computeExposure(context.view, context.cardPool);
 
