@@ -10969,6 +10969,7 @@ export type CardEffect =
   | FwSiteAlignmentRestrictionEffect
   | ProhibitCompanyEventsEffect
   | HazardLimitEnvironmentEffect
+  | HazardLimitFacingAttackEffect
   | HazardLimitRaceGrantEffect
   | WoundAdditionalBodyCheckEffect
   | CancelHazardEventPlayEffect
@@ -12193,6 +12194,26 @@ export interface HazardLimitEnvironmentEffect extends EffectBase {
    * all companies".
    */
   readonly appliesTo?: 'moving' | 'all';
+}
+
+/**
+ * Carried by an in-play permanent event: increases the hazard limit against
+ * any company facing one or more hazard creature attacks of {@link race} by
+ * {@link value} (once per carrying card, however many such attacks). Applied
+ * live by `facingAttackHazardLimitBonus` (`hazard-limit.ts`) — from the moment
+ * the matching attack is in combat against the company through the rest of
+ * that company's M/H sub-phase (via `hazardsEncountered`).
+ *
+ * Used by Bairanax at Home (td-5): "the hazard limit against any company
+ * facing one or more animal hazard creature attacks is increased by one." —
+ * `race: "animal", value: 1`.
+ */
+export interface HazardLimitFacingAttackEffect extends EffectBase {
+  readonly type: 'hazard-limit-facing-attack';
+  /** Creature race whose hazard-creature attack triggers the increase. */
+  readonly race: Race;
+  /** Amount added to the company's hazard limit. */
+  readonly value: number;
 }
 
 /**

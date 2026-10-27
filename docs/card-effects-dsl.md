@@ -16892,6 +16892,29 @@ and the named regions are matched against `company.regionNames`:
 }
 ```
 
+### 54a. `hazard-limit-facing-attack`
+
+Carried by an in-play permanent event; increases the hazard limit against any
+company facing one or more hazard creature attacks of `race` by `value` (once
+per carrying card, however many such attacks the company faces).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `race` | yes | Creature race whose hand-played hazard-creature attack triggers the increase. |
+| `value` | yes | Amount added to the company's hazard limit. |
+
+```json
+{ "type": "hazard-limit-facing-attack", "race": "animal", "value": 1 }
+```
+
+Behaviour (`hazard-limit.ts` `facingAttackHazardLimitBonus`): applied live in
+`currentHazardLimit`. The company is facing a matching attack once the
+creature's combat has begun against it (`state.combat`, creature attack
+source), and keeps the bonus for the rest of its M/H sub-phase via
+`hazardsEncountered`. A creature still on the chain does not yet count. Used by
+Bairanax at Home (td-5): "the hazard limit against any company facing one or
+more animal hazard creature attacks is increased by one."
+
 ### 54b. `cancel-hazard-event-play`
 
 Marker effect on an in-play permanent or long event: while the carrying card is
