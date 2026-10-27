@@ -6,7 +6,7 @@
  */
 
 import type { PlayerView, CardDefinition, CardDefinitionId, CharacterInPlay, CardInPlay, CardEffect } from '@meccg/shared';
-import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase, effectiveHazardLimit } from '@meccg/shared';
+import { GENERAL_INFLUENCE, isCharacterCard, computeTournamentScore, computeTournamentBreakdown, Phase, effectiveHazardLimit, facingAttackHazardLimitBonus } from '@meccg/shared';
 import { seedDiceFromState, restoreDice, clearDice } from './dice.js';
 import { hasRealCards } from './render-debug-panels.js';
 import { buildMPTooltip } from './mp-categories.js';
@@ -263,11 +263,13 @@ export function remainingGeneralInfluence(player: { generalInfluence: number; ge
  * company, not just the at-reveal snapshot: a Dragon "At Home" discard (e.g.
  * Daelomin at Home td-11) adds a mid-phase `hazard-limit-modifier` constraint
  * that {@link effectiveHazardLimit} folds in. Reading `hazardLimitAtReveal`
- * alone left the remaining count unchanged after such a boost.
+ * alone left the remaining count unchanged after such a boost. With
+ * `cardPool` it also folds in the live `hazard-limit-facing-attack` bonus
+ * (Bairanax at Home td-5: +1 once the company faces an animal attack).
  *
  * Exported for regression testing.
  */
-export function getHazardLimitLabel(view: PlayerView): string | null {
+export function getHazardLimitLabel(view: PlayerView, cardPool?: Readonly<Record<string, CardDefinition>>): string | null {
   if (view.phaseState.phase !== Phase.MovementHazard) return null;
   // The company's hazard limit is computed only in the set-hazard-limit
   // handler; until then `hazardLimitAtReveal` is 0 (or a previous company's
@@ -294,6 +296,15 @@ export function getHazardLimitLabel(view: PlayerView): string | null {
         view.phaseState.preRevealHazardLimitConstraintIds,
         activeCompany.id,
         view.phaseState.resolvedSitePath,
+        cardPool
+          ? facingAttackHazardLimitBonus(
+              [...view.self.cardsInPlay, ...view.opponent.cardsInPlay],
+              cardPool,
+              view.phaseState.hazardsEncountered,
+              view.combat,
+              activeCompany.id,
+            )
+          : 0,
       )
     : view.phaseState.hazardLimitAtReveal;
   const remaining = limit - view.phaseState.hazardsPlayedThisCompany;
@@ -368,7 +379,7 @@ export function renderPlayerNames(view: PlayerView, cardPool: Readonly<Record<st
 
   const oppScoreEl = document.getElementById('opponent-score');
   const oppHazardLimitEl = document.getElementById('opponent-hazard-limit');
-  const hazardLimit = getHazardLimitLabel(view);
+  const hazardLimit = getHazardLimitLabel(view, cardPool);
   const oppMpEl = document.getElementById('opponent-mp');
   if (oppMpEl) oppMpEl.innerHTML = `<span class="metric-label">MP</span>${oppScore}<span class="mp-tooltip mp-tooltip--below">${tooltip}</span>`;
   const oppGiEl = document.getElementById('opponent-gi');

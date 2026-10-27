@@ -297,6 +297,11 @@ export interface HazardEventCard {
    * one Dragon's chain carry the same value.
    */
   readonly manifestId?: ManifestId;
+  /**
+   * Printed kill marshalling points of a Dragon manifestation (Ahunt / At
+   * Home). Awarded to the player who defeats it (CoE g.man.3).
+   */
+  readonly killMarshallingPoints?: number;
   /** Declarative effects describing this event's abilities. */
   readonly effects?: readonly CardEffect[];
   /** Flavor/rules text describing the event's effect. */

@@ -14,8 +14,9 @@ import type { ClientMessage, PlayerId } from '@meccg/shared';
 import { Phase } from '@meccg/shared';
 import {
   appState, cardPool,
-  VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY,
+  VIEW_KEY, DEV_MODE_KEY, AUTO_PASS_KEY, LARGE_PREVIEW_KEY,
 } from './app-state.js';
+import { applyLargeCardPreview } from './render-card-preview.js';
 import { connect, disconnect, resetVisualBoard, setLobbyCallbacks, sendAction } from './game-connection.js';
 import { startReplay } from './replay.js';
 import { connectPseudoAi } from './pseudo-ai.js';
@@ -101,6 +102,7 @@ const settingsBackdrop = document.getElementById('settings-backdrop') as HTMLEle
 const settingsCloseBtn = document.getElementById('settings-close-btn') as HTMLButtonElement;
 const devModeToggle = document.getElementById('dev-mode-toggle') as HTMLInputElement;
 const autoPassToggle = document.getElementById('auto-pass-toggle') as HTMLInputElement;
+const largePreviewToggle = document.getElementById('large-preview-toggle') as HTMLInputElement;
 const SERVER_DEV = window.__MECCG_DEV === true;
 
 /**
@@ -385,4 +387,12 @@ autoPassToggle.addEventListener('change', () => {
     clearTimeout(appState.autoPassTimer);
     appState.autoPassTimer = null;
   }
+});
+
+largePreviewToggle.checked = localStorage.getItem(LARGE_PREVIEW_KEY) === 'true';
+applyLargeCardPreview(document.body, largePreviewToggle.checked);
+
+largePreviewToggle.addEventListener('change', () => {
+  localStorage.setItem(LARGE_PREVIEW_KEY, String(largePreviewToggle.checked));
+  applyLargeCardPreview(document.body, largePreviewToggle.checked);
 });

@@ -221,6 +221,19 @@ function findCreatureFromDiscardActions(
 }
 
 /**
+ * Find all attack-nazgul-permanent-event actions for a given card instance
+ * (Out of the Black Sky dm-77). One entry per (in-play Nazgûl permanent-event,
+ * keying match) — keyed like a hazard-creature play.
+ */
+function findNazgulPermanentEventAttackActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'attack-nazgul-permanent-event', instanceId);
+}
+
+/**
  * Find the CoE 1.8.2 trade actions for a given hand card — one per sideboard
  * card the banned card may be exchanged for against a Balrog opponent.
  */
@@ -399,6 +412,23 @@ export function findSacrificeOfFormAction(
 ): GameAction | null {
   if (!instanceId) return null;
   return actionsOfTypeFor(legalActions, 'play-sacrifice-of-form', instanceId)[0] ?? null;
+}
+
+/**
+ * Find the play-item-placement-offer / play-ally-placement-offer action for a
+ * given hand card instance. These resolve an `item-placement-offer` (Necklace
+ * of Girion dm-174) or `ally-placement-offer` (Here, There, or Yonder td-123)
+ * pending resolution whose bearer is already fixed, so clicking the card plays
+ * it directly — same one-click pattern as `findRingAfterTestAction`. Without
+ * this finder the offered card rendered as unplayable even though the engine
+ * offered it (bug report: could not play Wormsbane with Necklace of Girion).
+ */
+export function findPlacementOfferAction(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction | null {
+  if (!instanceId) return null;
+  return actionsOfTypeFor(legalActions, ['play-item-placement-offer', 'play-ally-placement-offer'], instanceId)[0] ?? null;
 }
 
 /**
@@ -760,6 +790,19 @@ function showHazardKeyingMenu(
     const label = action.keyedBy
       ? `Bring back ${creatureName} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`
       : `Bring back ${creatureName}`;
+    items.push({ label, onClick: () => onAction(action) });
+  }
+
+  // Nazgûl permanent-event attacks (Out of the Black Sky dm-77): name the
+  // in-play Nazgûl that attacks, since the card in hand is not the creature.
+  for (const action of actions) {
+    if (action.type !== 'attack-nazgul-permanent-event') continue;
+    const nazgulDefId = cachedInstanceLookup(action.targetNazgulInstanceId);
+    const nazgulDef = nazgulDefId && cardPool ? cardPool[nazgulDefId as string] : undefined;
+    const nazgulName = nazgulDef ? nazgulDef.name : action.targetNazgulInstanceId as string;
+    const label = action.keyedBy
+      ? `Attack with ${nazgulName} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`
+      : `Attack with ${nazgulName}`;
     items.push({ label, onClick: () => onAction(action) });
   }
 
@@ -1315,10 +1358,11 @@ export function renderHand(
       : [];
     const hazardActions = findHazardActions(cardInstanceId, viable);
     const creatureFromDiscardActions = findCreatureFromDiscardActions(cardInstanceId, viable);
+    const nazgulAttackActions = findNazgulPermanentEventAttackActions(cardInstanceId, viable);
     const onGuardAction = cardInstanceId
       ? viable.find(a => a.type === 'place-on-guard' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const isHazard = hazardActions.length > 0 || creatureFromDiscardActions.length > 0;
+    const isHazard = hazardActions.length > 0 || creatureFromDiscardActions.length > 0 || nazgulAttackActions.length > 0;
     const agentHazardAction = findAgentHazardAction(cardInstanceId, viable);
     const isAgentHazard = agentHazardAction !== null;
     const allyActions = findAllyPlayActions(cardInstanceId, viable, cardPool);
@@ -1339,6 +1383,8 @@ export function renderHand(
     const isStrikeEvent = strikeEventActions.length > 0;
     const ringAfterTestAction = findRingAfterTestAction(cardInstanceId, viable);
     const isRingAfterTest = ringAfterTestAction !== null;
+    const placementOfferAction = findPlacementOfferAction(cardInstanceId, viable);
+    const isPlacementOffer = placementOfferAction !== null;
     const dragonAmbushOfferAction = findDragonAmbushOfferAction(cardInstanceId, viable);
     const isDragonAmbushOffer = dragonAmbushOfferAction !== null;
     const siteAutoAttackAction = findSiteAutoAttackAction(cardInstanceId, viable);
@@ -1360,7 +1406,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isPlacementOffer && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1573,7 +1619,7 @@ export function renderHand(
       } else {
         // No character targets, or no on-guard: use original menu/direct play
         img.className = 'hand-card hand-card-playable';
-        const playActions = [...hazardActions, ...creatureFromDiscardActions];
+        const playActions = [...hazardActions, ...creatureFromDiscardActions, ...nazgulAttackActions];
         if (onAction) {
           if (playActions.length === 1 && !onGuardAction) {
             img.addEventListener('click', () => onAction(playActions[0]));
@@ -1649,6 +1695,15 @@ export function renderHand(
       if (onAction) {
         const ringAction = ringAfterTestAction;
         img.addEventListener('click', () => onAction(ringAction));
+      }
+    } else if (isPlacementOffer) {
+      // Item/ally placement offer (Necklace of Girion dm-174, Here, There, or
+      // Yonder td-123): the bearer is fixed by the pending resolution, so
+      // clicking the card plays it directly — no target step.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        const offerAction = placementOfferAction;
+        img.addEventListener('click', () => onAction(offerAction));
       }
     } else if (isDragonAmbushOffer) {
       // Dragon-ambush-offer (Rumor of Wealth td-58): the ambushed company is

@@ -89,6 +89,12 @@ describe('“Two-headed” Troll (le-155)', () => {
       .toBeGreaterThanOrEqual(1);
   });
 
+  test('IS playable at an untapped Buhr Widu (Troll automatic-attack)', () => {
+    const state = buildSitePhaseState({ characters: [ASTERNAK], site: BUHR_WIDU, hand: [TWO_HEADED_TROLL] });
+    expect(viableActionsForHandCard(state, PLAYER_1, 'play-hero-resource', RESOURCE_PLAYER, TWO_HEADED_TROLL).length)
+      .toBeGreaterThanOrEqual(1);
+  });
+
   test('IS playable at a TAPPED Ruins & Lairs with a Troll automatic-attack', () => {
     const state = buildSitePhaseState({
       characters: [ASTERNAK], site: BUHR_WIDU, hand: [TWO_HEADED_TROLL], siteStatus: CardStatus.Tapped,
