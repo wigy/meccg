@@ -9,6 +9,7 @@
 import type { CardDefinition } from './types/cards.js';
 import { isAvatarCharacter, isCharacterCard } from './types/cards.js';
 import type { Company, CharacterInPlay, GameState } from './types/state.js';
+import type { AgentInPlay, OpponentAgentView } from './types/state-agents.js';
 import type { GameAction } from './types/actions.js';
 import type { CardInstanceId, CardDefinitionId, CompanyId, PlayerId } from './types/common.js';
 import { UNKNOWN_CARD, UNKNOWN_SITE } from './card-ids.js';
@@ -96,6 +97,32 @@ export function buildCompanyNames(
     } else {
       names[company.id as string] = `company`;
     }
+  }
+  return names;
+}
+
+/**
+ * Build a display-name map for agents, keyed by agent id.
+ *
+ * Agents reuse {@link CompanyId} as their identity, so the result is meant to
+ * be merged into the company-name map passed to {@link describeAction}. Own
+ * agents are always named by their character card; opponent agents only when
+ * face-up — a face-down opponent agent stays anonymous so its identity is
+ * never leaked through action text.
+ */
+export function buildAgentNames(
+  ownAgents: readonly AgentInPlay[],
+  opponentAgents: readonly OpponentAgentView[],
+  cardPool: Readonly<Record<string, CardDefinition>>,
+): Readonly<Record<string, string>> {
+  const names: Record<string, string> = {};
+  for (const agent of ownAgents) {
+    const def = cardPool[agent.character.definitionId as string];
+    names[agent.id as string] = def ? def.name : 'agent';
+  }
+  for (const agent of opponentAgents) {
+    const def = agent.characterDefinitionId ? cardPool[agent.characterDefinitionId as string] : undefined;
+    names[agent.id as string] = def ? def.name : 'a face-down agent';
   }
   return names;
 }
@@ -271,6 +298,9 @@ export function describeAction(
     return 'a card';
   };
   const compName = (id: CompanyId) => companyNames?.[id as string] ?? `a company`;
+  // Agent ids share the CompanyId space; their names (see buildAgentNames)
+  // are merged into the same map. Never surface the raw "agent-…" id.
+  const agentName = (id: CompanyId) => companyNames?.[id as string] ?? `an agent`;
   // Resolve an internal player id (e.g. "p1") to a display name. Legal-action
   // and toast text must never surface raw player codes; fall back to a neutral
   // word rather than leaking the id when no name map is supplied.
@@ -352,7 +382,9 @@ export function describeAction(
       }
       const targetTag = action.targetCompanyId
         ? ` on ${compName(action.targetCompanyId)}`
-        : action.targetScoutInstanceId
+        : action.targetAgentId
+          ? ` on agent ${agentName(action.targetAgentId)}`
+          : action.targetScoutInstanceId
           ? ` on ${instName(action.targetScoutInstanceId)}`
           : '';
       const discardTag = action.discardTargetInstanceId
@@ -369,7 +401,9 @@ export function describeAction(
     case 'play-hazard': {
       const target = action.targetCharacterId
         ? `on ${[action.targetCharacterId, ...(action.additionalTargetCharacterIds ?? [])].map(instName).join(' and ')}`
-        : `against ${compName(action.targetCompanyId)}`;
+        : action.targetAgentId
+          ? `on agent ${agentName(action.targetAgentId)}`
+          : `against ${compName(action.targetCompanyId)}`;
       const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
       const raceTag = action.chosenCreatureRace ? ` (race: ${action.chosenCreatureRace})` : '';
       // Mutually-exclusive arrival modes (Choking Shadows tw-21) emit one
@@ -632,40 +666,40 @@ export function describeAction(
       return `Play agent ${instName(action.agentCardInstanceId)} as hazard (face-down)`;
     case 'reveal-agent':
       return action.homeSiteInstanceId
-        ? `Reveal agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)}`
-        : `Reveal agent ${action.agentId as string} (no home site — discarded at end of turn)`;
+        ? `Reveal agent ${agentName(action.agentId)} at ${instName(action.homeSiteInstanceId)}`
+        : `Reveal agent ${agentName(action.agentId)} (no home site — discarded at end of turn)`;
     case 'reveal-hazard-for-snake':
       return `${playerName(action.player)} reveals ${instName(action.cardInstanceId)} (Here Is a Snake!)`;
     case 'tap-reveal-agent-for-snake':
       return action.homeSiteInstanceId
-        ? `${playerName(action.player)} taps and reveals agent ${action.agentId as string} at ${instName(action.homeSiteInstanceId)} instead of revealing hazards (Here Is a Snake!)`
-        : `${playerName(action.player)} taps and reveals agent ${action.agentId as string} (no home site — discarded at end of turn) instead of revealing hazards (Here Is a Snake!)`;
+        ? `${playerName(action.player)} taps and reveals agent ${agentName(action.agentId)} at ${instName(action.homeSiteInstanceId)} instead of revealing hazards (Here Is a Snake!)`
+        : `${playerName(action.player)} taps and reveals agent ${agentName(action.agentId)} (no home site — discarded at end of turn) instead of revealing hazards (Here Is a Snake!)`;
     case 'select-return-to-hand-character':
       return `${playerName(action.player)} selects ${instName(action.characterInstanceId)} to return to hand (Unhappy Blows)`;
     case 'agent-move':
-      return `Agent ${action.agentId as string} moves to ${instName(action.destinationSiteInstanceId)}`;
+      return `Agent ${agentName(action.agentId)} moves to ${instName(action.destinationSiteInstanceId)}`;
     case 'agent-move-back':
-      return `Agent ${action.agentId as string} moves back`;
+      return `Agent ${agentName(action.agentId)} moves back`;
     case 'agent-return-home':
       return action.homeSiteInstanceId
-        ? `Agent ${action.agentId as string} returns home to ${instName(action.homeSiteInstanceId)}`
-        : `Agent ${action.agentId as string} returns home`;
+        ? `Agent ${agentName(action.agentId)} returns home to ${instName(action.homeSiteInstanceId)}`
+        : `Agent ${agentName(action.agentId)} returns home`;
     case 'agent-heal':
-      return `Agent ${action.agentId as string} heals`;
+      return `Agent ${agentName(action.agentId)} heals`;
     case 'agent-untap':
-      return `Agent ${action.agentId as string} untaps`;
+      return `Agent ${agentName(action.agentId)} untaps`;
     case 'agent-turn-face-down':
-      return `Agent ${action.agentId as string} turns face-down`;
+      return `Agent ${agentName(action.agentId)} turns face-down`;
     case 'agent-key-creatures':
-      return `Agent ${action.agentId as string} taps to key creatures`;
+      return `Agent ${agentName(action.agentId)} taps to key creatures`;
     case 'agent-influence-attempt':
-      return `Agent ${action.agentId as string} taps to influence ${action.targetKind} ${instName(action.targetInstanceId)}`;
+      return `Agent ${agentName(action.agentId)} taps to influence ${action.targetKind} ${instName(action.targetInstanceId)}`;
     case 'agent-tap-attack':
-      return `Agent ${action.agentId as string} taps to attack`;
+      return `Agent ${agentName(action.agentId)} taps to attack`;
     case 'agent-tap-grant-creature-keying':
-      return `Agent ${action.agentId as string} taps to unlock creature keying at its site`;
+      return `Agent ${agentName(action.agentId)} taps to unlock creature keying at its site`;
     case 'agent-discard-return-to-origin':
-      return `Agent ${action.agentId as string} is discarded to return company to its site of origin`;
+      return `Agent ${agentName(action.agentId)} is discarded to return company to its site of origin`;
     case 'agent-strike-roll':
       return `Agent rolls for strike`;
     case 'under-deeps-roll':

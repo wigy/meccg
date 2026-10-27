@@ -7,7 +7,7 @@
  * tooltips for short-events and hazard keying, and resource/item target menus.
  */
 
-import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, CancelAttackAction, DeclareBurglaryAction, ConvertCreatureToAllyAction } from '@meccg/shared';
+import type { PlayerView, CardDefinition, CardDefinitionId, CardInstanceId, GameAction, PlayHazardAction, CancelAttackAction, DeclareBurglaryAction, ConvertCreatureToAllyAction } from '@meccg/shared';
 import { cardImageProxyPath, viableActions, Phase, buildInstanceLookup, describeArrivalMode } from '@meccg/shared';
 import { appState } from './app-state.js';
 import { getCachedInstanceLookup, setCachedInstanceLookup, findNonViableReason } from './render-text-format.js';
@@ -758,6 +758,39 @@ function showShortEventTargetMenu(
 }
 
 /**
+ * Label one non-keyed `play-hazard` choice in the hazard play menu.
+ *
+ * Hazards offered once per target must name that target, or the menu shows
+ * several indistinguishable "Play hazard" buttons: a character-targeting
+ * hazard names the character, and an agent-targeting hazard (Never Seen Him
+ * dm-74, Inner Cunning dm-68) names the agent through `agentNames` — the
+ * agent-id → name map built by `buildAgentNames`.
+ */
+export function hazardPlayLabel(
+  action: PlayHazardAction,
+  instanceLookup: (id: CardInstanceId) => CardDefinitionId | undefined,
+  agentNames: Readonly<Record<string, string>>,
+  cardPool?: Readonly<Record<string, CardDefinition>>,
+): string {
+  let label = 'Play hazard';
+  if (action.targetCharacterId && cardPool) {
+    const charDefId = instanceLookup(action.targetCharacterId);
+    const charDef = charDefId ? cardPool[charDefId as string] : undefined;
+    label = charDef ? `Play on ${charDef.name}` : `Play on ${action.targetCharacterId as string}`;
+  } else if (action.targetAgentId) {
+    label = `Play on agent ${agentNames[action.targetAgentId as string] ?? 'agent'}`;
+  }
+  // Mutually-exclusive arrival modes (Choking Shadows tw-21): one action
+  // per mode, so name the mode the hazard player is choosing.
+  if (action.arrivalModeIndex !== undefined && cardPool) {
+    const cardDefId = instanceLookup(action.cardInstanceId);
+    const cardDef = cardDefId ? cardPool[cardDefId as string] : undefined;
+    if (cardDef) label = `${label}: ${describeArrivalMode(cardDef, action.arrivalModeIndex)}`;
+  }
+  return label;
+}
+
+/**
  * Show a disambiguation tooltip for creature hazards with multiple keying
  * methods. Each button describes a keying match; clicking it sends the action.
  */
@@ -809,19 +842,7 @@ function showHazardKeyingMenu(
   // Non-keyed hazard events (single play action without keying)
   for (const action of actions) {
     if (action.type !== 'play-hazard' || action.keyedBy) continue;
-    let label = 'Play hazard';
-    if (action.targetCharacterId && cardPool) {
-      const charDefId = cachedInstanceLookup(action.targetCharacterId);
-      const charDef = charDefId ? cardPool[charDefId as string] : undefined;
-      label = charDef ? `Play on ${charDef.name}` : `Play on ${action.targetCharacterId as string}`;
-    }
-    // Mutually-exclusive arrival modes (Choking Shadows tw-21): one action
-    // per mode, so name the mode the hazard player is choosing.
-    if (action.arrivalModeIndex !== undefined && cardPool) {
-      const cardDefId = cachedInstanceLookup(action.cardInstanceId);
-      const cardDef = cardDefId ? cardPool[cardDefId as string] : undefined;
-      if (cardDef) label = `${label}: ${describeArrivalMode(cardDef, action.arrivalModeIndex)}`;
-    }
+    const label = hazardPlayLabel(action, cachedInstanceLookup, appState.lastCompanyNames, cardPool);
     items.push({ label, onClick: () => onAction(action) });
   }
 
