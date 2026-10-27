@@ -73,6 +73,9 @@ const OWNED_ACTION_TYPES = [
   'cancel-by-tap',
   'halve-strikes',
   'modify-attack',
+  // Only the company-combat-boost short events `companyBoostOf` can read —
+  // see `claimsAction`; every other short event stays with `events`.
+  'play-short-event',
   'pass',
 ] as const;
 
@@ -830,6 +833,35 @@ function evaluateAttackWindow(action: GameAction, context: StrikeContext): Evalu
       );
     }
 
+    case 'play-short-event': {
+      // A company-combat-boost event (The Dwarves Are upon You!): the same
+      // attack, faced by a company whose matching characters fight at the
+      // boosted prowess for the whole of it. Unowned, the event made the
+      // assignment window uncovered and the decision fell back whole — the
+      // agent cancelled the attack or simply assigned where the winning human
+      // played the boost (game mvjum705-ua2jlu, six times across two games).
+      const boost = companyBoostOf(context, action);
+      if (!boost) return null;
+      const boosted: StrikeContext = { ...context, view: boostedView(context.view, boost) };
+      // `facing` closes over the unboosted context, so the sequence is resolved
+      // here against the boosted one.
+      const { outcomes, opening } = facingOutcomes(boosted, remaining, assignedTargets(boosted));
+      const cost = context.tunables.provisionalCardPrice;
+      return evaluationFrom(context, action, `play ${boost.name}`,
+        outcomes.map(o => ({ ...o, dtsd: o.dtsd - cost })),
+        [
+          leaf('prowess', boost.prowess, { note: `for ${boost.boosted.length} of the company: ${boost.boosted.join(', ')}` }),
+          ...opening.map((strike, i) => leaf(`strike ${i + 1} → ${strike.target.name}`, strike.need, {
+            note: 'projected need on 2d6 with the boost',
+          })),
+          leaf('card price', cost, { unit: 'tsd', tunable: 'provisionalCardPrice', note: 'the event is spent' }),
+        ],
+        [...ASSUMPTIONS, ...ATTACK_ASSUMPTIONS,
+          'a body modifier the event also gives the boosted characters is not modelled — the strike '
+          + 'model reads printed body — so a boost that costs body is valued slightly high'],
+      );
+    }
+
     case 'assign-strike': {
       // Scored on the whole attack, because the alternative on the table is
       // `pass` — which is the whole attack. Pricing one strike against two
@@ -1039,6 +1071,75 @@ function strikeCancellerOf(context: StrikeContext, action: GameAction): StrikeCa
   return { name, cost: tunables.tapTempoCost, costReason: 'the card taps until its bearer untaps' };
 }
 
+/** A company-combat-boost short event this module can price, read off the hand card. */
+interface CompanyBoost {
+  readonly name: string;
+  readonly prowess: number;
+  /** Names of the characters it boosts, for the rationale. */
+  readonly boosted: readonly string[];
+  readonly ids: readonly CardInstanceId[];
+}
+
+/**
+ * Read a `company-combat-boost` event in hand, or null when its shape is one
+ * this cannot price exactly. Only the plain form is read — a prowess bonus,
+ * optionally gated on the character's race (`filter: { target.race }`); a body
+ * modifier alongside it is tolerated and stated as unmodelled. Every variant
+ * with a cost, an item or skill requirement, an attack condition or a
+ * single-target scope is declined, so it stays exactly as unowned as before.
+ */
+function companyBoostOf(context: StrikeContext, action: GameAction): CompanyBoost | null {
+  const cardInstanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
+  const card = cardInstanceId ? context.view.self.hand.find(c => c.instanceId === cardInstanceId) : undefined;
+  const def = card ? context.cardPool[card.definitionId] as unknown as {
+    name?: string; effects?: readonly Record<string, unknown>[];
+  } | undefined : undefined;
+  const boosts = (def?.effects ?? []).filter(e => e.type === 'company-combat-boost');
+  if (boosts.length === 0) return null;
+  const PLAIN = new Set(['type', 'stat', 'value', 'filter']);
+  let prowess = 0;
+  let race: string | undefined;
+  for (const effect of boosts) {
+    if (Object.keys(effect).some(key => !PLAIN.has(key))) return null;
+    const filter = effect.filter as Record<string, unknown> | undefined;
+    if (filter !== undefined) {
+      const keys = Object.keys(filter);
+      if (keys.length !== 1 || keys[0] !== 'target.race' || typeof filter['target.race'] !== 'string') return null;
+      if (race !== undefined && race !== filter['target.race']) return null;
+      race = filter['target.race'];
+    }
+    if (effect.stat === 'prowess' && typeof effect.value === 'number') prowess += effect.value;
+    else if (effect.stat !== 'body') return null;
+  }
+  if (prowess <= 0) return null;
+  const { view, cardPool, combat } = context;
+  const company = view.self.companies.find(c => c.id === combat.companyId);
+  const ids = (company?.characters ?? []).filter(id => {
+    const character = view.self.characters[id];
+    const printed = cardPool[character?.definitionId as string] as unknown as { race?: string } | undefined;
+    return character !== undefined && (race === undefined || printed?.race === race);
+  });
+  return {
+    name: def?.name ?? (card?.definitionId as string),
+    prowess,
+    ids,
+    boosted: ids.map(id => nameOfInstance(context, id)),
+  };
+}
+
+/** The view with a boost's characters fighting at their boosted prowess. */
+function boostedView(view: PlayerView, boost: CompanyBoost): PlayerView {
+  const characters = { ...view.self.characters };
+  for (const id of boost.ids) {
+    const character = characters[id];
+    characters[id] = {
+      ...character,
+      effectiveStats: { ...character.effectiveStats, prowess: character.effectiveStats.prowess + boost.prowess },
+    };
+  }
+  return { ...view, self: { ...view.self, characters } };
+}
+
 /** Strikes the attack would be left with after a `halve-strikes` card. */
 function reducedStrikeCount(context: StrikeContext, action: GameAction): number | null {
   const cardInstanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
@@ -1077,6 +1178,15 @@ export const combatModule: H2Module = {
     // Claiming it and then declining left the decision looking, in `coverage`,
     // exactly like an action type nobody owns.
     return context.view.self.companies.some(company => company.id === combat.companyId);
+  },
+
+  claimsAction(action: GameAction, context: ModuleContext): boolean {
+    if (action.type !== 'play-short-event') return true;
+    // A boost is priced against the attack as a whole, so only in the window
+    // where the whole attack is still to come.
+    const ctx = buildContext(context);
+    if (!ctx || (ctx.combat.assignmentPhase === 'done' && ctx.hasCurrentStrike)) return false;
+    return companyBoostOf(ctx, action) !== null;
   },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {

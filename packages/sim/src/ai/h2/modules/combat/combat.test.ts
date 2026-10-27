@@ -567,3 +567,27 @@ describe('cancelling a strike with a card the target carries', () => {
     expect(isCancel(rank(SCENARIO)[0].action)).toBe(true);
   });
 });
+
+describe('a company-combat-boost event in the assignment window', () => {
+  // The Dwarves Are upon You! had no owner, so the assignment window fell back
+  // whole and the agent assigned where the human boosted every Dwarf first
+  // (game mvjum705-ua2jlu, seq 141: five strikes at prowess 7).
+  const SCENARIO = 'combat/dwarves-are-upon-you-boost';
+  const isBoost = (action: GameAction): boolean => action.type === 'play-short-event';
+
+  test('covers the whole decision', () => {
+    const context = contextFor(SCENARIO);
+    expect(context.legalActions.some(isBoost)).toBe(true);
+    expect(evaluateDecision([combatModule], context).complete).toBe(true);
+  });
+
+  test('beats assigning without it', () => {
+    expect(isBoost(rank(SCENARIO)[0].action)).toBe(true);
+  });
+
+  test('leaves short events it cannot read to their own module', () => {
+    const context = contextFor(SCENARIO);
+    const unreadable = { type: 'play-short-event', player: context.view.self.id, cardInstanceId: 'not-in-hand' } as unknown as GameAction;
+    expect(combatModule.claimsAction!(unreadable, context)).toBe(false);
+  });
+});

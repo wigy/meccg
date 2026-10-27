@@ -218,6 +218,16 @@ export interface H2Module {
    * Defaults to "every legal action's type is owned by this module".
    */
   claims?(context: ModuleContext): boolean;
+  /**
+   * Whether this module owns this particular action, for a type it shares.
+   *
+   * Ownership is first-match by type, so a module that wants one narrow kind
+   * of a broad type — `combat` and the short events that boost a company in
+   * the fight it is pricing — would otherwise take every action of that type
+   * away from the module listed after it. Defaults to owning every action of
+   * an owned type.
+   */
+  claimsAction?(action: GameAction, context: ModuleContext): boolean;
   /** Score one action. Returning `null` withdraws the module's claim. */
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null;
   /**

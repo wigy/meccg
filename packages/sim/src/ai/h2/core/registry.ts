@@ -96,6 +96,7 @@ export function ownerOf(
   for (const module of modules) {
     if (!module.ownedActionTypes.includes(action.type)) continue;
     if (module.claims && !module.claims(context)) continue;
+    if (module.claimsAction && !module.claimsAction(action, context)) continue;
     return module;
   }
   return null;
