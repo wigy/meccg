@@ -170,7 +170,14 @@ describe('Crown of Flowers (dm-121)', () => {
     expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
   });
 
-  test('offers and allows pairing a site-restricted ally once a company is at a qualifying site', () => {
+  // Regression (Bug Report: Crown of Flowers, game mvqdc16a-j4nsp8 seq 215):
+  // even with a company at Moria (a site Gollum is playable at), an ally may
+  // only be played during the company's site phase by tapping an untapped
+  // character at an untapped site, and enters play under that character's
+  // control (CoE 2.V.2). The organization-phase pairing dropped Gollum into
+  // the player's general cardsInPlay — out of phase, at a tapped site, with
+  // no controlling character — so allies must not be offered at all.
+  test('does not offer to pair an ally during organization even at a site it is playable at', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -184,14 +191,7 @@ describe('Crown of Flowers (dm-121)', () => {
     const afterPlay = dispatch(state, playActions[0].action);
     const resolved = resolveChain(afterPlay);
 
-    const pairActions = viableActions(resolved, PLAYER_1, 'pair-resource-with-cof');
-    expect(pairActions).toHaveLength(1);
-
-    const afterPair = dispatch(resolved, pairActions[0].action);
-    const gollumInPlay = afterPair.players[RESOURCE_PLAYER].cardsInPlay.find(
-      c => c.definitionId === GOLLUM,
-    ) as CardInPlay;
-    expect(gollumInPlay).toBeDefined();
+    expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
   });
 
   // Regression (Bug Report: Muster, game mth1ahu8-bqdcqv seq 412): Muster
