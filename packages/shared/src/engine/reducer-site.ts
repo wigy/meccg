@@ -57,6 +57,29 @@ import type { PendingEffect, StrikeAssignment } from '../types/state-combat.js';
 type SiteHandler = (state: GameState, action: GameAction, siteState: SitePhaseState) => ReducerResult;
 
 /**
+ * Company-scoped {@link SitePhaseState} flags that record what the *active
+ * company* did during its own site phase. A single SitePhaseState spans every
+ * company of the active player, so these must be cleared whenever the phase
+ * moves on to another company — otherwise one company's play leaks into the
+ * next (e.g. a unique faction played at Minas Tirith by one company opening
+ * To Fealty Sworn, ba-33, for a Hobbit in a different company).
+ */
+const COMPANY_SCOPED_SITE_FLAGS_RESET = {
+  firstItemNoTapAvailable: undefined,
+  hoardKeywordGranted: undefined,
+  technologyItemPlayed: undefined,
+  warForgesItemPlayed: undefined,
+  uniqueHeroFactionPlayedAtFreeHold: undefined,
+  prisonersRescuedThisSitePhase: undefined,
+  allyOrFactionPlayedAtSite: undefined,
+  factionPlayedAtSite: undefined,
+  stolenItemUnlocked: undefined,
+  stolenItemPlayed: undefined,
+  siteLockMinionAttackDone: undefined,
+  eddyTaxTapped: undefined,
+} as const satisfies Partial<SitePhaseState>;
+
+/**
  * Per-step dispatch for the Site phase. Pending wound corruption checks
  * (Barrow-downs et al.) are intercepted by the unified pending-resolution
  * dispatcher before this table is consulted. Opponent-influence-defend and
@@ -334,6 +357,7 @@ function handleSiteSelectCompany(
     ...state,
     phaseState: {
       ...siteState,
+      ...COMPANY_SCOPED_SITE_FLAGS_RESET,
       step: 'enter-or-skip' as const,
       activeCompanyIndex: companyIndex,
       automaticAttacksResolved: 0,
@@ -5957,6 +5981,7 @@ function finishDissolvedCompanySlot(state: GameState, siteState: SitePhaseState)
       ...state,
       phaseState: {
         ...siteState,
+        ...COMPANY_SCOPED_SITE_FLAGS_RESET,
         step: 'select-company' as const,
         automaticAttacksResolved: 0,
         autoAttacksSkipped: undefined,
@@ -6044,6 +6069,7 @@ function advanceSiteToNextCompany(
       ...sweptState,
       phaseState: {
         ...siteState,
+        ...COMPANY_SCOPED_SITE_FLAGS_RESET,
         step: 'select-company' as const,
         handledCompanyIds: updatedHandled,
         automaticAttacksResolved: 0,
