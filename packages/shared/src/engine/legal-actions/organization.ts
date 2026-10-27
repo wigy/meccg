@@ -759,6 +759,16 @@ export function cofPairResourceActions(state: GameState, playerId: PlayerId): Ev
       // long/permanent resource-events (which do sit in play) are offered.
       if (def.cardType === 'hero-resource-event' && def.eventType === 'short') continue;
 
+      // Items (CoE 2.V.1) can only be played during the site phase by an
+      // untapped character at an untapped site, and are borne by that
+      // character. This organization-phase pairing has no bearer and no site
+      // play — it would drop the item into general play with its marshalling
+      // points (e.g. Scroll of Isildur's 4 item MP) for free.
+      if (def.cardType === 'hero-resource-item') {
+        logDetail(`${cofDef.name}: ${def.name} not offered as pair — items are played on a character during the site phase`);
+        continue;
+      }
+
       // Crown of Flowers only re-interprets the resource's own text as though
       // Gates of Morning were in play and Doors of Night were not — it "does
       // not affect the interpretation of any card except the resource played
