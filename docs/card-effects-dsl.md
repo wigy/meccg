@@ -16915,6 +16915,45 @@ source), and keeps the bonus for the rest of its M/H sub-phase via
 Bairanax at Home (td-5): "the hazard limit against any company facing one or
 more animal hazard creature attacks is increased by one."
 
+### 54a-i. `hazard-limit-per-extra-draw`
+
+Carried by an in-play permanent event (either player's); increases the hazard
+limit for each company by `value` for every card over one that the company's
+player draws during its movement/hazard draw-cards step.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Amount added to the hazard limit per card drawn beyond the first. |
+
+```json
+{ "type": "hazard-limit-per-extra-draw", "value": 1 }
+```
+
+Behaviour (`hazard-limit.ts` `extraDrawHazardLimitBonus`): applied live in
+`currentHazardLimit` from `MovementHazardPhaseState.resourceCardsDrawn` — the
+number of cards actually drawn (an early `pass` does not inflate it, unlike
+`resourceDrawCount`). Used by Shadow of Mordor (td-68).
+
+### 54a-ii. `hazard-draw-per-extra-draw`
+
+Carried by an in-play permanent event (either player's); during each company's
+draw-cards step the hazard player may draw `value` additional card(s) for
+every card the moving player draws in excess of one. Optional `when` is
+matched against `{ inPlay }`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `value` | yes | Extra hazard draws per resource card drawn beyond the first. |
+
+```json
+{ "type": "hazard-draw-per-extra-draw", "value": 1, "when": { "inPlay": "Doors of Night" } }
+```
+
+Behaviour (`mh-steps.ts` `handleDrawCards`): each resource draw beyond the
+first raises `hazardDrawMax` by `value`. The extra draws are optional (`pass`
+stays available) and re-open drawing for a hazard player who had already
+finished. Used by Shadow of Mordor (td-68).
+
 ### 54b. `cancel-hazard-event-play`
 
 Marker effect on an in-play permanent or long event: while the carrying card is

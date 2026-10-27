@@ -601,6 +601,13 @@ export interface MovementHazardPhaseState {
   /** Number of cards the hazard player has drawn so far during step 5. */
   readonly hazardDrawCount: number;
   /**
+   * Number of cards the resource player has actually drawn during step 5.
+   * Unlike {@link resourceDrawCount} (forced to the max when the player
+   * passes), this is never inflated. Read by Shadow of Mordor (td-68)
+   * effects: `hazard-limit-per-extra-draw` and `hazard-draw-per-extra-draw`.
+   */
+  readonly resourceCardsDrawn?: number;
+  /**
    * Whether the resource player has declared done with actions.
    * Resets to false if the resource player takes a new action after passing.
    */

@@ -1590,7 +1590,25 @@
     "keywords": [
       "environment"
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "duplication-limit",
+        "scope": "game",
+        "max": 1
+      },
+      {
+        "type": "hazard-limit-per-extra-draw",
+        "value": 1
+      },
+      {
+        "type": "hazard-draw-per-extra-draw",
+        "value": 1,
+        "when": {
+          "inPlay": "Doors of Night"
+        }
+      }
+    ],
+    "certified": "2026-10-27",
     "text": "Environment. The hazard limit for each company is increased by one for every card over one drawn by that company during its movement/hazard phase.Additionally, if Doors of Night is in play, during each company’s movement/hazard phase, the hazard player may draw one additional card for every card in excess of one drawn by his opponent.Cannot be duplicated."
   },
   {

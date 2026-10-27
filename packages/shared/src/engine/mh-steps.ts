@@ -1827,6 +1827,7 @@ export function transitionToDrawCards(state: GameState, mhState: MovementHazardP
         hazardDrawMax,
         resourceDrawCount: 0,
         hazardDrawCount: 0,
+        resourceCardsDrawn: 0,
       },
     },
   };
@@ -1932,12 +1933,24 @@ export function handleDrawCards(
   const newDrawCount = drawnSoFar + 1;
   logDetail(`Movement/Hazard draw-cards: ${playerLabel} player drew card ${newDrawCount}/${drawMax}`);
 
-  const newMhState = {
+  let newMhState: MovementHazardPhaseState = {
     ...mhState,
     ...(isResourcePlayer
-      ? { resourceDrawCount: newDrawCount }
+      ? { resourceDrawCount: newDrawCount, resourceCardsDrawn: (mhState.resourceCardsDrawn ?? 0) + 1 }
       : { hazardDrawCount: newDrawCount }),
   };
+
+  // Shadow of Mordor (td-68) under Doors of Night: every resource card drawn
+  // beyond the first lets the hazard player draw additional card(s). The
+  // extra draws stay optional (`pass` is offered once a card has been drawn),
+  // and re-open the hazard player's drawing even if they already finished.
+  if (isResourcePlayer && (newMhState.resourceCardsDrawn ?? 0) > 1) {
+    const extraHazardDraws = extraDrawHazardDrawBonus(state);
+    if (extraHazardDraws > 0) {
+      logDetail(`hazard-draw-per-extra-draw: hazard draws ${newMhState.hazardDrawMax} → ${newMhState.hazardDrawMax + extraHazardDraws}`);
+      newMhState = { ...newMhState, hazardDrawMax: newMhState.hazardDrawMax + extraHazardDraws };
+    }
+  }
 
   // Rule 2.4: this draw may have emptied the play deck on the exact same
   // action that also reached drawMax. The exhaust/reshuffle must still run
@@ -1968,6 +1981,30 @@ export function handleDrawCards(
       phaseState: newMhState,
     },
   };
+}
+
+/**
+ * Extra hazard draws granted for one resource card drawn beyond the first, by
+ * every in-play `hazard-draw-per-extra-draw` effect (from either player's
+ * cards) whose `when` holds against the names of cards in play — Shadow of
+ * Mordor (td-68) gated on Doors of Night.
+ */
+function extraDrawHazardDrawBonus(state: GameState): number {
+  let bonus = 0;
+  let inPlayNames: readonly string[] | undefined;
+  for (const player of state.players) {
+    for (const card of player.cardsInPlay) {
+      for (const effect of getCardEffects(defById(state, card.definitionId))) {
+        if (effect.type !== 'hazard-draw-per-extra-draw') continue;
+        if (effect.when) {
+          inPlayNames ??= buildInPlayNames(state);
+          if (!matchesCondition(effect.when, { inPlay: inPlayNames } as Record<string, unknown>)) continue;
+        }
+        bonus += effect.value;
+      }
+    }
+  }
+  return bonus;
 }
 
 /**
