@@ -180,6 +180,29 @@ describe('Hoarmûrath of Dír (tw-44)', () => {
     expect(after.combat!.strikeProwess).toBe(15);
   });
 
+  test('played as a creature, it cannot tap itself to give its own attack +1 strike', () => {
+    const ready = { ...setup(), phaseState: makeMHState({
+      resolvedSitePath: [RegionType.Dark],
+      resolvedSitePathNames: ['Khand'],
+      destinationSiteType: SiteType.DarkHold,
+      destinationSiteName: 'Minas Morgul',
+    }) };
+    const hoarId = findHandCardId(ready, HAZARD_PLAYER, HOARMURATH);
+    const inCombat = playCreatureHazardAndResolve(
+      ready, PLAYER_2, hoarId, companyIdAt(ready, RESOURCE_PLAYER),
+      { method: 'site-type', value: 'dark-hold' },
+    );
+    expect(inCombat.combat!.strikesTotal).toBe(1);
+
+    // The attacking creature is not a permanent-event, so no tap is offered...
+    expect(computeLegalActions(inCombat, PLAYER_2)
+      .filter(a => a.action.type === 'modify-attack' && a.action.cardInstanceId === hoarId)).toHaveLength(0);
+    // ...and the reducer rejects it if requested directly.
+    const attempt = reduce(inCombat, { type: 'modify-attack', player: PLAYER_2, cardInstanceId: hoarId });
+    expect(attempt.error).toBeDefined();
+    expect(attempt.state.combat!.strikesTotal).toBe(1);
+  });
+
   // ─── Permanent-event mode ────────────────────────────────────────────────────
 
   test('offered as a permanent-event and enters play untapped (no combat)', () => {

@@ -1418,15 +1418,25 @@ export interface UntappedAltPermanentEvent {
  * — tap to a short-event (tw-2 / tw-107 / tw-46 / tw-4 / tw-44), attack as
  * itself (tw-86), return to hand (dm-110) — each of which then applies its own
  * mode-specific filter (`persistent`, `attacksAsCreature`, …) and the
- * hazard-limit gate via `bypassesLimit`.
+ * hazard-limit gate via `bypassesLimit`. The creature currently attacking
+ * (played as a creature, not as a permanent-event) is excluded.
  */
 export function untappedAltPermanentEvents(
   state: GameState,
   player: PlayerState,
 ): UntappedAltPermanentEvent[] {
   const result: UntappedAltPermanentEvent[] = [];
+  // A dual-mode creature played *as a creature* also sits in `cardsInPlay`
+  // while its attack is being fought. It is not a permanent-event, so it
+  // must never be offered as one (e.g. Hoarmûrath of Dír tapping itself to
+  // give its own attack +1 strike).
+  const attackingCreatureId = state.combat ? attackSourceCreatureInstanceId(state.combat) : null;
   for (const card of player.cardsInPlay) {
     if (card.status !== CardStatus.Untapped) continue;
+    if (card.instanceId === attackingCreatureId) {
+      logDetail(`${card.definitionId as string} (${card.instanceId as string}) is the attacking creature, not a permanent-event — skipped`);
+      continue;
+    }
     const def = defById(state, card.definitionId);
     if (!def) continue;
     const effects = getCardEffects(def);

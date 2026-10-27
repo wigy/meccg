@@ -16,8 +16,10 @@
 
 import type { GameState, MovementHazardPhaseState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
-import type { CompanyId, RegionType } from '../types/common.js';
+import type { CompanyId, RegionType, Race } from '../types/common.js';
 import type { ActiveConstraint } from '../types/pending.js';
+import type { CombatState } from '../types/state-combat.js';
+import type { CardEffect } from '../types/effects.js';
 
 /**
  * Compute the live hazard limit for `companyId` from its raw ingredients.
@@ -48,8 +50,9 @@ export function effectiveHazardLimit(
   preRevealHazardLimitConstraintIds: readonly string[],
   companyId: CompanyId,
   resolvedSitePath: readonly RegionType[] = [],
+  facingAttackBonus = 0,
 ): number {
-  let limit = hazardLimitAtReveal;
+  let limit = hazardLimitAtReveal + facingAttackBonus;
   for (const constraint of activeConstraints) {
     if (constraint.target.kind !== 'company') continue;
     if (constraint.target.companyId !== companyId) continue;
@@ -80,6 +83,59 @@ export function effectiveHazardLimit(
 }
 
 /**
+ * Live hazard-limit bonus from in-play `hazard-limit-facing-attack` effects
+ * (Bairanax at Home td-5: "the hazard limit against any company facing one or
+ * more animal hazard creature attacks is increased by one").
+ *
+ * The company counts as facing a matching attack once a hand-played hazard
+ * creature of the effect's `race` has attacked it this M/H sub-phase — either
+ * the attack currently in combat (`combat.attackSource.type === 'creature'`
+ * against `companyId`) or one already finalized and recorded by name in
+ * `hazardsEncountered`. Each matching in-play card adds its `value` once,
+ * however many such attacks the company faces.
+ *
+ * Takes structural pieces so the browser can compute the same bonus from a
+ * {@link PlayerView} (both players' `cardsInPlay`, the M/H `phaseState`, and
+ * `combat`) as the server does from `GameState`.
+ */
+export function facingAttackHazardLimitBonus(
+  cardsInPlay: readonly { readonly definitionId: string }[],
+  cardPool: Readonly<Record<string, unknown>>,
+  hazardsEncountered: readonly string[],
+  combat: CombatState | null,
+  companyId: CompanyId,
+): number {
+  const effects: { race: Race; value: number }[] = [];
+  for (const card of cardsInPlay) {
+    const def = cardPool[card.definitionId] as { effects?: readonly CardEffect[] } | undefined;
+    for (const eff of def?.effects ?? []) {
+      if (eff.type === 'hazard-limit-facing-attack') effects.push({ race: eff.race, value: eff.value });
+    }
+  }
+  if (effects.length === 0) return 0;
+
+  const faced = new Set<Race>();
+  if (combat && combat.companyId === companyId && combat.attackSource.type === 'creature') {
+    for (const r of combat.creatureRaces ?? (combat.creatureRace ? [combat.creatureRace] : [])) faced.add(r);
+  }
+  for (const name of hazardsEncountered) {
+    for (const def of Object.values(cardPool)) {
+      const d = def as { cardType?: string; name?: string; race?: Race; additionalRaces?: readonly Race[] };
+      if (d.cardType !== 'hazard-creature' || d.name !== name) continue;
+      if (d.race) faced.add(d.race);
+      for (const r of d.additionalRaces ?? []) faced.add(r);
+      break;
+    }
+  }
+
+  let bonus = 0;
+  for (const eff of effects) {
+    if (faced.has(eff.race)) bonus += eff.value;
+  }
+  return bonus;
+}
+
+/**
  * The live hazard limit for `companyId` in the current M/H phase.
  *
  * Thin server-side wrapper over {@link effectiveHazardLimit} that reads the
@@ -96,6 +152,13 @@ export function currentHazardLimit(
     mhState.preRevealHazardLimitConstraintIds,
     companyId,
     mhState.resolvedSitePath,
+    facingAttackHazardLimitBonus(
+      state.players.flatMap(p => p.cardsInPlay),
+      state.cardPool,
+      mhState.hazardsEncountered,
+      state.combat,
+      companyId,
+    ),
   );
 }
 

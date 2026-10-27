@@ -29,11 +29,11 @@ import {
   PLAYER_1, PLAYER_2, RESOURCE_PLAYER,
   buildSitePhaseState, buildTestState, makePlayDeck,
   resetMint, viableActions, attachItemToChar, findCharInstanceId,
-  getCharacter, pool,
+  getCharacter, pool, dispatch,
 } from '../test-helpers.js';
 import {
   FRODO, SAM_GAMGEE, ARAGORN, LEGOLAS,
-  MINAS_TIRITH, BAG_END, MORIA, LORIEN,
+  MINAS_TIRITH, BAG_END, MORIA, LORIEN, EDORAS,
 } from '../../card-ids.js';
 import type {
   CardDefinitionId, GameState, SitePhaseState,
@@ -157,6 +157,67 @@ describe('To Fealty Sworn (ba-33)', () => {
       { card: mtCard, declaredBy: PLAYER_1, payload: { type: 'influence-attempt', influencingCharacterId: findCharInstanceId(atMT, RESOURCE_PLAYER, FRODO) } },
     );
     expect((afterMT.state.phaseState as SitePhaseState).uniqueHeroFactionPlayedAtFreeHold).toBe(true);
+  });
+
+  // ── the faction window is scoped to the company that played the faction ──
+
+  test('NOT playable on a Hobbit in a different company from the one that played the faction (window does not leak to the next company)', () => {
+    // Game mvqrmvuc-hd8r6o: Glorfindel II's company played Men of Anórien at
+    // Minas Tirith; Sam Gamgee's company then failed to influence Riders of
+    // Rohan at Edoras, yet To Fealty Sworn was still offered on Sam.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [
+            { site: MINAS_TIRITH, characters: [ARAGORN] },
+            { site: EDORAS, characters: [SAM_GAMGEE] },
+          ],
+          hand: [TO_FEALTY_SWORN],
+          siteDeck: [MORIA],
+          playDeck: makePlayDeck(),
+        },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+    const [firstCompany, samCompany] = base.players[RESOURCE_PLAYER].companies;
+    const afterFirstCompany: GameState = {
+      ...base,
+      phaseState: {
+        phase: Phase.Site,
+        step: 'select-company',
+        activeCompanyIndex: 0,
+        handledCompanyIds: [firstCompany.id],
+        siteEntered: false,
+        resourcePlayed: false,
+        minorItemAvailable: false,
+        hoardBountyAvailable: false,
+        thoroughSearchAvailable: false,
+        declaredAgentAttack: null,
+        automaticAttacksResolved: 0,
+        awaitingOnGuardReveal: false,
+        pendingResourceAction: null,
+        opponentInteractionThisTurn: null,
+        pendingOpponentInfluence: null,
+        // Left over from the first company's successful faction play.
+        uniqueHeroFactionPlayedAtFreeHold: true,
+        factionPlayedAtSite: true,
+        allyOrFactionPlayedAtSite: true,
+      },
+    };
+
+    const selected = dispatch(afterFirstCompany, { type: 'select-company', player: PLAYER_1, companyId: samCompany.id });
+    const selectedSiteState = selected.phaseState as SitePhaseState;
+    expect(selectedSiteState.uniqueHeroFactionPlayedAtFreeHold).toBeFalsy();
+    expect(selectedSiteState.factionPlayedAtSite).toBeFalsy();
+    expect(selectedSiteState.allyOrFactionPlayedAtSite).toBeFalsy();
+
+    // Once Sam's company is playing resources at its site, To Fealty Sworn has no target.
+    const playing: GameState = { ...selected, phaseState: { ...selectedSiteState, step: 'play-resources', siteEntered: true } };
+    expect(viableActions(playing, PLAYER_1, 'play-permanent-event').length).toBe(0);
   });
 
   // ── stat-modifier: +2 prowess while attached ──

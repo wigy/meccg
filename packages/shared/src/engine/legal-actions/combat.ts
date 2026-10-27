@@ -1247,6 +1247,11 @@ function chooseStrikeOrderActions(state: GameState, playerId: PlayerId, combat: 
     const currentPhase = state.phaseState.phase as string;
     logDetail(`Between strike sequences: offering resource short-events for phase '${currentPhase}' (rule 3.iv)`);
     actions.push(...heroResourceShortEventActions(state, playerId, currentPhase));
+    // Any-phase grant-actions (e.g. Orc-draughts le-328 discarding for +1
+    // company prowess) are equally legal here — without this they were only
+    // reachable mid-strike or before assignment, never before choosing which
+    // strike to resolve next.
+    actions.push(...grantedActionActivations(state, playerId, 'anyPhase'));
   }
 
   return actions;

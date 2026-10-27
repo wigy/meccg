@@ -2019,15 +2019,22 @@ function applyTapCharacter(state: GameState, entry: ChainEntry): GameState {
   if (!targetCharId) return state;
   const def = defById(state, card.definitionId);
   if (!getCardEffects(def).some(e => e.type === 'tap-character')) return state;
-  for (let pi = 0; pi < 2; pi++) {
-    if (state.players[pi].characters[targetCharId]) {
-      logDetail(`${def?.name ?? 'card'}: taps character ${targetCharId as string}`);
-      const players: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
-      players[pi] = updateCharacter(players[pi], targetCharId, ch => ({ ...ch, status: CardStatus.Tapped }));
-      return { ...state, players };
+  // Multi-target taps (Lord of the Haven as-15) carry the further targets on
+  // `additionalTargetCharacterIds`.
+  const targets = [targetCharId, ...(entry.payload.additionalTargetCharacterIds ?? [])];
+  const players: [PlayerState, PlayerState] = [state.players[0], state.players[1]];
+  for (const id of targets) {
+    for (let pi = 0; pi < 2; pi++) {
+      const target = players[pi].characters[id];
+      if (!target) continue;
+      // A character wounded since declaration stays wounded.
+      if (target.status === CardStatus.Inverted) break;
+      logDetail(`${def?.name ?? 'card'}: taps character ${id as string}`);
+      players[pi] = updateCharacter(players[pi], id, ch => ({ ...ch, status: CardStatus.Tapped }));
+      break;
     }
   }
-  return state;
+  return { ...state, players };
 }
 
 /**

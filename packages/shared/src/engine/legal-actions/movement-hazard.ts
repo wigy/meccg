@@ -29,7 +29,7 @@ import { resolveInstanceId } from '../../types/state.js';
 import { getActiveAutoAttacks, manifestationOfEntityInPlay } from '../manifestations.js';
 import { normalizeCreatureRace } from '../effects/resolver.js';
 import { resolveHandSize, isWardedAgainst, resolveDef } from '../effects/index.js';
-import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, untappedAltPermanentEvents, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies, isDarkhavenSiteDef } from '../reducer-utils.js';
+import { cardName, matchesDefinition, playerById, isNazgulPermanentEvent, untappedAltPermanentEvents, getCardEffects, defById, countCopiesInPlay, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, countPermanentEventCopiesAtSite, defNamesOf, itemKeywordsOf, itemSubtypesOf, isCardNameInPlayOrCharacters, findDuplicationLimitEffect, findPlayConditionEffect, permanentEventSiteResourceSubtypes, activePlayerDeckSize, cardPlayerDeckSize, selectCompanyActions, parseHomesiteNames, filterSideboardByDef, buildTargetCompanyConditionContext, agentHomeSiteMatchesTypes, isAgentCharacter, siteRuleAllowsCreatureByRace, countSpawnCardsInPlay, stageCardsHeld, agentCurrentSiteName, agentMatchesFilter, regionTypeCounts, satisfiedRegionTypes, deriveFacedRaces, matchesFollowsAttackKeyedTo, raceForCardTextFilter, wouldViolateRingwraithComposition, countUnresolvedChainHazards, hazardPlayer, countFactionAttachedCopies, isDarkhavenSiteDef, siteRegionTypeOf } from '../reducer-utils.js';
 import { isCardPlayProhibited } from '../card-play-prohibition.js';
 import { constraintFromCard, countConstraintsFromDefinition, hasCancelReturnAndSiteTap, hasNazgulBoostBeenUsed } from '../pending.js';
 import { buildInPlayNames, sitePlayTargetContext } from '../recompute-derived.js';
@@ -2552,6 +2552,51 @@ function isCompanylessHazardPlay(state: GameState, action: PlayHazardAction): bo
   return effects.every(e => COMPANYLESS_SHORT_EVENT_EFFECTS.has(e.type));
 }
 
+/**
+ * Region types a company is "in or moving through" for an event-mode
+ * `targetCompany` condition (`company.regionTypes`): the resolved movement
+ * path of a moving company (which starts in the site of origin's region and
+ * ends in the destination's), else the region type of the company's current
+ * site. Lord of the Haven (as-15): "one company at a site in, or moving
+ * through, a Coastal Sea region".
+ */
+function companyRegionTypes(state: GameState, mhState: MovementHazardPhaseState, company: Company): readonly RegionType[] {
+  if (company.destinationSite && mhState.resolvedSitePath.length > 0) return mhState.resolvedSitePath;
+  const siteType = company.currentSite
+    ? siteRegionTypeOf(state, defById(state, company.currentSite.definitionId))
+    : undefined;
+  return siteType ? [siteType] : [];
+}
+
+/**
+ * Every non-empty set of at most `effect.maxTargets` untapped characters in
+ * `company` that match the effect's `filter`, in company order — the target
+ * choices of a "tap up to N target characters in one company" short-event.
+ */
+function multiTapTargetSets(
+  state: GameState,
+  owner: PlayerState,
+  company: Company,
+  effect: import('../../types/effects.js').TapCharacterEffect,
+): CardInstanceId[][] {
+  const eligible = company.characters.filter(id => {
+    const ch = owner.characters[id];
+    if (!ch || ch.status !== CardStatus.Untapped) return false;
+    const charDef = defById(state, ch.definitionId);
+    if (!charDef || !isCharacterCard(charDef)) return false;
+    return !effect.filter || matchesDefinition(charDef, effect.filter);
+  });
+  const max = Math.min(effect.maxTargets ?? 1, eligible.length);
+  const sets: CardInstanceId[][] = [];
+  const build = (start: number, current: CardInstanceId[]): void => {
+    if (current.length > 0) sets.push(current);
+    if (current.length === max) return;
+    for (let i = start; i < eligible.length; i++) build(i + 1, [...current, eligible[i]]);
+  };
+  build(0, []);
+  return sets;
+}
+
 function playHazardsActions(
   state: GameState,
   playerId: PlayerId,
@@ -2810,7 +2855,11 @@ function playHazardsActionsForCompany(
           const movingOk = !altEvent.requiresMovingCompany || targetCompany.destinationSite != null;
           let targetOk = movingOk;
           if (targetOk && altEvent.targetCompany) {
-            const ctx = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
+            const base = buildTargetCompanyConditionContext(state, resourcePlayer, targetCompany, defenderAlignmentLabel(resourcePlayer.alignment));
+            const ctx = {
+              ...base,
+              company: { ...(base.company as Record<string, unknown>), regionTypes: companyRegionTypes(state, mhState, targetCompany) },
+            };
             targetOk = matchesCondition(altEvent.targetCompany, ctx);
           }
           // Optional game-wide gate on the event mode's availability (Shelob
@@ -2819,7 +2868,31 @@ function playHazardsActionsForCompany(
           if (targetOk && altEvent.when) {
             targetOk = matchesCondition(altEvent.when, { inPlay: buildInPlayNames(state) });
           }
-          if (targetOk) {
+          // Multi-target tap short-event (Lord of the Haven as-15: "tap up to
+          // two target characters in one company"): one action per non-empty
+          // set of at most `maxTargets` untapped characters in the target
+          // company. With no untapped character the play would have no effect,
+          // so the mode is not offered.
+          const multiTap = altEvent.mode === 'short-event'
+            ? getCardEffects(def).find(
+              (e): e is import('../../types/effects.js').TapCharacterEffect => e.type === 'tap-character' && e.maxTargets !== undefined,
+            )
+            : undefined;
+          if (targetOk && multiTap) {
+            const sets = multiTapTargetSets(state, resourcePlayer, targetCompany, multiTap);
+            for (const [first, ...rest] of sets) {
+              actions.push({
+                action: {
+                  ...action,
+                  altEventMode: altEvent.mode,
+                  targetCharacterId: first,
+                  ...(rest.length > 0 ? { additionalTargetCharacterIds: rest } : {}),
+                },
+                viable: true,
+              });
+            }
+            logDetail(`Creature "${def.name}" short-event mode: ${sets.length} tap target set(s)`);
+          } else if (targetOk) {
             logDetail(`Creature "${def.name}" also offered as a ${altEvent.mode} (creature-alt-event)`);
             actions.push({
               action: { ...action, altEventMode: altEvent.mode },

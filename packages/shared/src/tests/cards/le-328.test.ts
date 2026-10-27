@@ -29,10 +29,10 @@ import {
   viableActions, dispatch,
   expectCharItemCount, expectInDiscardPile,
   findCharInstanceId, getCharacter,
-  RESOURCE_PLAYER, makeMHState, makeSitePhase,
+  RESOURCE_PLAYER, makeMHState, makeSitePhase, makeCancelWindowCombat,
 } from '../test-helpers.js';
 import { Alignment } from '../../index.js';
-import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
+import type { ActivateGrantedAction, CardDefinitionId, CombatState } from '../../index.js';
 
 const ORC_DRAUGHTS = 'le-328' as CardDefinitionId;
 const GORBAG = 'le-11' as CardDefinitionId;      // orc, prowess 6
@@ -230,6 +230,44 @@ describe('Orc-draughts (le-328)', () => {
     const actions = viableActions(ready, PLAYER_1, 'activate-granted-action')
       .filter(ea => (ea.action as ActivateGrantedAction).actionId === 'company-prowess-boost');
     expect(actions.length).toBe(1);
+  });
+
+  test('grant-action available between strike sequences (choose-strike-order)', () => {
+    // Regression (game mvl8q21p-l4prck, turn 12): with strikes assigned and
+    // the defender picking which strike to resolve next, the engine offered
+    // only choose-strike-order — Orc-draughts could not be used to boost the
+    // company before the next strike, despite CoE 3.iv allowing any action
+    // otherwise legal in the phase before/between strike sequences.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.MovementHazard,
+      players: [
+        { id: PLAYER_1, alignment: Alignment.Ringwraith, companies: [{ site: MINAS_MORGUL, characters: [{ defId: GORBAG, items: [ORC_DRAUGHTS] }, GRISHNAKH] }], hand: [], siteDeck: [MORIA_MINION] },
+        { id: PLAYER_2, companies: [{ site: BARAD_DUR, characters: [LUITPRAND] }], hand: [], siteDeck: [MORIA_MINION] },
+      ],
+    });
+    const withCombat = makeCancelWindowCombat(base, { strikesTotal: 2, strikeProwess: 10 });
+    const gorbagId = findCharInstanceId(withCombat, RESOURCE_PLAYER, GORBAG);
+    const grishnakhId = findCharInstanceId(withCombat, RESOURCE_PLAYER, GRISHNAKH);
+    const combat: CombatState = {
+      ...withCombat.combat!,
+      strikeAssignments: [
+        { characterId: gorbagId, excessStrikes: 0, resolved: false },
+        { characterId: grishnakhId, excessStrikes: 0, resolved: false },
+      ],
+      phase: 'choose-strike-order',
+      assignmentPhase: 'done',
+    };
+    const state = { ...withCombat, combat };
+
+    const action = viableActions(state, PLAYER_1, 'activate-granted-action')
+      .find(ea => (ea.action as ActivateGrantedAction).actionId === 'company-prowess-boost')?.action;
+    expect(action).toBeDefined();
+
+    const next = dispatch(state, action!);
+    expectCharItemCount(next, RESOURCE_PLAYER, GORBAG, 0);
+    expectInDiscardPile(next, RESOURCE_PLAYER, ORC_DRAUGHTS);
+    expect(next.combat?.phase).toBe('choose-strike-order');
   });
 
   test('grant-action available during site phase', () => {

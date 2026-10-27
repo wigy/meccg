@@ -3071,10 +3071,16 @@
     "marshallingCategory": "ally",
     "playableAt": [
       {
-        "site": "any tapped or untapped Ruins & Lairs [{R}] with a Troll automatic-attack"
+        "siteType": "ruins-and-lairs",
+        "when": { "site.autoAttack.race": "troll" }
       }
     ],
-    "effects": [],
+    "effects": [
+      {
+        "type": "play-flag",
+        "flag": "playable-at-tapped-site"
+      }
+    ],
     "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Troll automatic-attack. Its controlling character's company is overt. Tap to cancel an Orc or Troll attack against his company. Cannot be duplicated in a given company."
   },
   {

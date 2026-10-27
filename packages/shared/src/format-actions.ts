@@ -368,7 +368,7 @@ export function describeAction(
     }
     case 'play-hazard': {
       const target = action.targetCharacterId
-        ? `on ${instName(action.targetCharacterId)}`
+        ? `on ${[action.targetCharacterId, ...(action.additionalTargetCharacterIds ?? [])].map(instName).join(' and ')}`
         : `against ${compName(action.targetCompanyId)}`;
       const base = `Play hazard ${instName(action.cardInstanceId)} ${target}`;
       const raceTag = action.chosenCreatureRace ? ` (race: ${action.chosenCreatureRace})` : '';
