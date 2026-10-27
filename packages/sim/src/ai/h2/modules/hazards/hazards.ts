@@ -235,9 +235,12 @@ function candidatesFor(
   for (const action of context.legalActions) {
     if (action.type !== 'play-hazard') continue;
     const play = action as unknown as {
-      cardInstanceId: string; targetCompanyId: string; keyedBy?: CreatureKeyingMatch;
+      cardInstanceId: string; targetCompanyId: string; keyedBy?: CreatureKeyingMatch; altEventMode?: string;
     };
     if (play.targetCompanyId !== (company.id as string)) continue;
+    // A dual-mode creature played as its event (Mouth of Sauron tw-65 as a
+    // short-event) makes no attack, so it is no candidate for an attack plan.
+    if (play.altEventMode !== undefined) continue;
     if (seen.has(play.cardInstanceId)) continue;
     const card = view.self.hand.find(c => (c.instanceId as string) === play.cardInstanceId);
     if (!card) continue;
@@ -469,9 +472,16 @@ export const hazardsModule: H2Module = {
     if (action.type === 'pass') return passEvaluation(action, context);
 
     if (action.type === 'play-hazard') {
-      const play = action as unknown as { cardInstanceId: string; targetCompanyId: string };
+      const play = action as unknown as { cardInstanceId: string; targetCompanyId: string; altEventMode?: string };
       const company = context.view.opponent.companies.find(c => (c.id as string) === play.targetCompanyId);
       if (!company) return null;
+      // The bundle is looked up by card, and a dual-mode creature is the same
+      // card in both modes — so its event mode was priced as the 13-prowess
+      // attack it is not making. Off a dark region the event is Mouth of
+      // Sauron's only viable play, and the agent valued fetching one hazard
+      // back from the discard at +15% win probability, every hazard window,
+      // where the human who held it passed (game mvkp0egj-gbczgp).
+      if (play.altEventMode !== undefined) return evaluateHazardEvent(action, context, company);
       const plan = buildPlan(context.view, context, company);
       const bundle = bestBundleStartingWith(plan.search, play.cardInstanceId);
       // Not a creature: it may still be an event this module can price, and if
