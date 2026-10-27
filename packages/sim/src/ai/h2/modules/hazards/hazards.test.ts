@@ -1007,3 +1007,39 @@ describe('a boost played ahead of its creatures', () => {
     expect(JSON.stringify(evaluation.rationale)).toContain('cards left in the deck are creatures it boosts');
   });
 });
+
+describe('Doors of Night ahead of An Unexpected Outpost', () => {
+  // The Outpost's second fetch is conditioned on Doors of Night, and the
+  // condition was ignored: the Outpost was credited both fetches with no Doors
+  // of Night out and was played first, wasting the upgrade (game
+  // mvmfnslp-qbbfmh, seq 197, where Dain led with Doors of Night).
+  const setup = () => {
+    const scenario = loadScenario('movement/doors-of-night-before-unexpected-outpost');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = viableActions(scenario);
+    const named = (name: string): GameAction => legalActions.find(a => {
+      if (a.type !== 'play-hazard') return false;
+      const id = (a as unknown as { cardInstanceId: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === name;
+    })!;
+    const context = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    return { context, doors: named('Doors of Night'), outpost: named('An Unexpected Outpost') };
+  };
+
+  test('the Outpost alone fetches once', () => {
+    const { context, outpost } = setup();
+    expect(JSON.stringify(hazardsModule.evaluate(outpost, context)!.rationale)).toContain('1 card(s) back into the deck');
+  });
+
+  test('Doors of Night is credited the upgrade and ranks ahead of the Outpost', () => {
+    const { context, doors, outpost } = setup();
+    const doorsEvaluation = hazardsModule.evaluate(doors, context)!;
+    expect(JSON.stringify(doorsEvaluation.rationale)).toContain('upgrades An Unexpected Outpost');
+    expect(doorsEvaluation.utility).toBeGreaterThan(hazardsModule.evaluate(outpost, context)!.utility);
+  });
+});
