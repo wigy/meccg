@@ -6,7 +6,7 @@
   "expectation": "Tap the Shield for +1 before facing the strike, as the human (Galdor) did",
   "source": {
     "kind": "game",
-    "gameId": "/home/wigy/backup/ai-meccg.com/logs/games/mvo7l3ak-pot1ur.jsonl",
+    "gameId": "mvo7l3ak-pot1ur",
     "stateSeq": 894
   },
   "hash": "b3791d3cbb859dbc",
