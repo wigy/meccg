@@ -147,14 +147,23 @@ export function renderGameOverView(
 
   const tbody = document.createElement('tbody');
 
-  for (const { key, label } of mpCategories('long')) {
-    const raw1 = selfRaw[key];
-    const adj1 = selfAdj[key];
-    const raw2 = oppRaw[key];
-    const adj2 = oppAdj[key];
+  // CoE 2.2 / 10.3.vi: an eliminated avatar's -5 is folded into misc. Show it
+  // on its own row instead, so it cannot cancel out (and hide) the misc cards
+  // it is netted against — e.g. The White Tree's 5 MP minus the penalty is a
+  // misc total of 0, which would otherwise drop the Misc row entirely.
+  const selfPenalty = selfRaw.avatarPenalty ?? 0;
+  const oppPenalty = oppRaw.avatarPenalty ?? 0;
 
-    // Skip categories where both players have 0
-    if (raw1 === 0 && raw2 === 0) continue;
+  for (const { key, label } of mpCategories('long')) {
+    const selfShift = key === 'misc' ? selfPenalty : 0;
+    const oppShift = key === 'misc' ? oppPenalty : 0;
+    const raw1 = selfRaw[key] - selfShift;
+    const adj1 = selfAdj[key] - selfShift;
+    const raw2 = oppRaw[key] - oppShift;
+    const adj2 = oppAdj[key] - oppShift;
+
+    // Skip categories where both players have 0 and no contributing cards
+    if (raw1 === 0 && raw2 === 0 && selfCards[key].length === 0 && oppCards[key].length === 0) continue;
 
     const row = document.createElement('tr');
 
@@ -170,6 +179,17 @@ export function renderGameOverView(
     // Opponent cell
     row.appendChild(buildMPCell(adj2, raw2, oppCards[key], cardPool));
 
+    tbody.appendChild(row);
+  }
+
+  if (selfPenalty !== 0 || oppPenalty !== 0) {
+    const row = document.createElement('tr');
+    const catCell = document.createElement('td');
+    catCell.className = 'go-cat';
+    catCell.textContent = 'Eliminated avatar';
+    row.appendChild(catCell);
+    row.appendChild(buildMPCell(selfPenalty, selfPenalty, [], cardPool));
+    row.appendChild(buildMPCell(oppPenalty, oppPenalty, [], cardPool));
     tbody.appendChild(row);
   }
 
