@@ -740,6 +740,9 @@ export function handlePlayHazardCard(
       payload: {
         type: 'short-event',
         ...(action.targetCharacterId ? { targetCharacterId: action.targetCharacterId } : {}),
+        ...(action.additionalTargetCharacterIds?.length
+          ? { additionalTargetCharacterIds: action.additionalTargetCharacterIds }
+          : {}),
       },
     });
   }

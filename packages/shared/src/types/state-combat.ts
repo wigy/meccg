@@ -1285,6 +1285,8 @@ export type ChainEntryPayload =
        */
       readonly counterCancelTargetInstanceId?: CardInstanceId;
       readonly targetCharacterId?: CardInstanceId;
+      /** Further `tap-character` targets beyond {@link targetCharacterId} (`maxTargets`, as-15). */
+      readonly additionalTargetCharacterIds?: readonly CardInstanceId[];
       readonly targetFactionInstanceId?: CardInstanceId;
       /** For Stay Her Appetite (le-140): the ally being targeted. */
       readonly targetAllyId?: CardInstanceId;

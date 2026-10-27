@@ -11296,7 +11296,11 @@ export interface CreatureAltEventEffect extends EffectBase {
   /**
    * Optional targeting for the event mode, evaluated against the active
    * company (via the target-company condition context: `company.alignment`,
-   * `company.characterNames`, `company.maxUntappedWarriorProwess`, …). When
+   * `company.characterNames`, `company.maxUntappedWarriorProwess`, …, plus
+   * `company.regionTypes` — the region types of the company's resolved
+   * movement path, or of its current site's region when not moving: "a
+   * company at a site in, or moving through, a Coastal Sea region",
+   * Lord of the Haven as-15). When
    * absent, the event may be played against any company. Distinct from the
    * creature mode's own `play-condition: target-company` — the two modes of a
    * dual card can target different companies (e.g. Beorning Skin-changers
@@ -11509,6 +11513,17 @@ export interface TapCharacterEffect extends EffectBase {
    * satisfies any one mode.
    */
   readonly requiresCompanionSkill?: Skill;
+  /**
+   * "Tap up to N target characters in one company": when set, the targets
+   * are drawn from the targeted (active M/H) company only, and the hazard
+   * player picks between one and `maxTargets` of its untapped characters.
+   * The first target rides on `targetCharacterId`, the rest on
+   * `additionalTargetCharacterIds`. Offered for a dual-mode creature's
+   * `creature-alt-event` short-event mode (Lord of the Haven as-15: "tap up
+   * to two target characters in one company"); absent = the single
+   * any-company target of New Moon tw-68 / Adûnaphel tw-2.
+   */
+  readonly maxTargets?: number;
 }
 
 /**
