@@ -221,6 +221,19 @@ function findCreatureFromDiscardActions(
 }
 
 /**
+ * Find all attack-nazgul-permanent-event actions for a given card instance
+ * (Out of the Black Sky dm-77). One entry per (in-play Nazgûl permanent-event,
+ * keying match) — keyed like a hazard-creature play.
+ */
+function findNazgulPermanentEventAttackActions(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction[] {
+  if (!instanceId) return [];
+  return actionsOfTypeFor(legalActions, 'attack-nazgul-permanent-event', instanceId);
+}
+
+/**
  * Find the CoE 1.8.2 trade actions for a given hand card — one per sideboard
  * card the banned card may be exchanged for against a Balrog opponent.
  */
@@ -780,6 +793,19 @@ function showHazardKeyingMenu(
     items.push({ label, onClick: () => onAction(action) });
   }
 
+  // Nazgûl permanent-event attacks (Out of the Black Sky dm-77): name the
+  // in-play Nazgûl that attacks, since the card in hand is not the creature.
+  for (const action of actions) {
+    if (action.type !== 'attack-nazgul-permanent-event') continue;
+    const nazgulDefId = cachedInstanceLookup(action.targetNazgulInstanceId);
+    const nazgulDef = nazgulDefId && cardPool ? cardPool[nazgulDefId as string] : undefined;
+    const nazgulName = nazgulDef ? nazgulDef.name : action.targetNazgulInstanceId as string;
+    const label = action.keyedBy
+      ? `Attack with ${nazgulName} (keyed by ${action.keyedBy.method}: ${action.keyedBy.value})`
+      : `Attack with ${nazgulName}`;
+    items.push({ label, onClick: () => onAction(action) });
+  }
+
   // Non-keyed hazard events (single play action without keying)
   for (const action of actions) {
     if (action.type !== 'play-hazard' || action.keyedBy) continue;
@@ -1332,10 +1358,11 @@ export function renderHand(
       : [];
     const hazardActions = findHazardActions(cardInstanceId, viable);
     const creatureFromDiscardActions = findCreatureFromDiscardActions(cardInstanceId, viable);
+    const nazgulAttackActions = findNazgulPermanentEventAttackActions(cardInstanceId, viable);
     const onGuardAction = cardInstanceId
       ? viable.find(a => a.type === 'place-on-guard' && a.cardInstanceId === cardInstanceId)
       : undefined;
-    const isHazard = hazardActions.length > 0 || creatureFromDiscardActions.length > 0;
+    const isHazard = hazardActions.length > 0 || creatureFromDiscardActions.length > 0 || nazgulAttackActions.length > 0;
     const agentHazardAction = findAgentHazardAction(cardInstanceId, viable);
     const isAgentHazard = agentHazardAction !== null;
     const allyActions = findAllyPlayActions(cardInstanceId, viable, cardPool);
@@ -1592,7 +1619,7 @@ export function renderHand(
       } else {
         // No character targets, or no on-guard: use original menu/direct play
         img.className = 'hand-card hand-card-playable';
-        const playActions = [...hazardActions, ...creatureFromDiscardActions];
+        const playActions = [...hazardActions, ...creatureFromDiscardActions, ...nazgulAttackActions];
         if (onAction) {
           if (playActions.length === 1 && !onGuardAction) {
             img.addEventListener('click', () => onAction(playActions[0]));
