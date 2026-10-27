@@ -580,3 +580,39 @@ describe('discarding a corruption card from our own character', () => {
     }
   });
 });
+
+describe('an influence boost before the roll', () => {
+  // Muster and its kin were unpriced while an influence attempt waited on the
+  // chain, so the decision fell back to a pass where strong players boosted
+  // the roll (game mvj6fman-f77xpi, seq 840: Thranduil at need 7).
+  const setup = () => {
+    const scenario = loadScenario('site/muster-before-influence-roll');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(e => e.viable).map(e => e.action);
+    const context: ModuleContext = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const roll = view.legalActions.map(e => e.action).find(a => a.type === 'faction-influence-roll') as unknown as
+      { influencingCharacterId: string };
+    const boosts = legalActions.filter(a => (a as unknown as { optionId?: string }).optionId === 'influence-boost');
+    return { context, roll, boosts };
+  };
+  const target = (action: GameAction): string => (action as unknown as { targetCharacterId: string }).targetCharacterId;
+
+  test('the whole window is priced and the boost on the influencer comes first', () => {
+    const { context, roll } = setup();
+    const decision = evaluateDecision(ALL_MODULES, context);
+    expect(decision.complete).toBe(true);
+    expect(target(decision.evaluations[0].action)).toBe(roll.influencingCharacterId);
+  });
+
+  test('a boost on anyone else earns nothing', () => {
+    const { context, roll, boosts } = setup();
+    const elsewhere = boosts.find(a => target(a) !== roll.influencingCharacterId)!;
+    expect(JSON.stringify(eventsModule.evaluate(elsewhere, context)!.rationale))
+      .toContain('not making the influence check');
+  });
+});
