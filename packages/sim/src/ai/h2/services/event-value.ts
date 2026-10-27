@@ -289,6 +289,34 @@ function corruptionBoostGain(
   return value.checkBoost(characterId, need, boost);
 }
 
+/**
+ * The most valuable card a recovery could bring back from our own sideboard or
+ * discard pile, by its marshalling points at this standing.
+ *
+ * Deliberately not `card-price`'s `quote`: `card-price` reads held events
+ * through this module, so quoting from here could recurse through one
+ * recovery event fetching another. Points are the part of a card's worth that
+ * is certain to be on offer; a card with none is left to the draw floor.
+ */
+function bestRecoverable(recovery: Effect, context: ModuleContext): { name: string; tsd: number } | null {
+  const { view, cardPool, standing } = context;
+  const pools = [
+    ...(fromIncludes(recovery, 'sideboard') ? view.self.sideboard : []),
+    ...(fromIncludes(recovery, 'discard') ? view.self.discardPile : []),
+  ];
+  let best: { name: string; tsd: number } | null = null;
+  for (const card of pools) {
+    const def = cardPool[card.definitionId];
+    if (!def || !couldMatch(recovery.filter, def)) continue;
+    const printed = def as unknown as { name?: string; marshallingPoints?: number; marshallingCategory?: string };
+    const mp = printed.marshallingPoints ?? 0;
+    if (mp <= 0) continue;
+    const tsd = standing.tsdAfter({ [(printed.marshallingCategory ?? 'misc') as MpSource]: mp }) - standing.tsd;
+    if (best === null || tsd > best.tsd) best = { name: printed.name ?? (card.definitionId as string), tsd };
+  }
+  return best;
+}
+
 /** What an event is worth if it resolves, or null when the family is unknown. */
 export function gainOf(
   effects: readonly Effect[],
@@ -393,10 +421,21 @@ export function gainOf(
   const recovery = effects.find(e => e.type === 'move' && (e.to === 'hand' || e.to === 'deck'));
   if (recovery) {
     const cards = recovery.count ?? 1;
+    const chosen = bestRecoverable(recovery, context);
+    // The card is chosen rather than drawn, so the best one on offer is what
+    // comes back: its points at this standing, discounted as potential because
+    // it still has to be drawn (into the deck) and played. A draw is the floor.
+    // Smoke Rings fetching a 3-MP item from the sideboard came out at exactly
+    // the card it spends, tied with a pass, and the agent never played it
+    // where strong players played it 29 times in the recent rated corpus.
+    const each = Math.max(tunables.resourceDrawValue, tunables.potentialDiscount * (chosen?.tsd ?? 0));
     return {
-      tsd: cards * tunables.resourceDrawValue,
-      reason: `${cards} card(s) back to ${recovery.to}, at what a draw is worth — a floor, since `
-        + 'the card is chosen rather than drawn',
+      tsd: cards * each,
+      reason: chosen && each > tunables.resourceDrawValue
+        ? `${cards} card(s) back to ${recovery.to} — the best on offer is ${chosen.name}, `
+          + `${chosen.tsd.toFixed(1)} at this standing, discounted as potential`
+        : `${cards} card(s) back to ${recovery.to}, at what a draw is worth — a floor, since `
+          + 'the card is chosen rather than drawn',
     };
   }
 
