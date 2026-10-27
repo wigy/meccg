@@ -3072,16 +3072,41 @@
     "playableAt": [
       {
         "siteType": "ruins-and-lairs",
-        "when": { "site.autoAttack.race": "troll" }
+        "when": {
+          "site.autoAttack.race": "troll"
+        }
       }
     ],
     "effects": [
       {
         "type": "play-flag",
         "flag": "playable-at-tapped-site"
+      },
+      {
+        "type": "company-overt"
+      },
+      {
+        "type": "cancel-attack",
+        "cost": {
+          "tap": "self"
+        },
+        "when": {
+          "enemy.race": {
+            "$in": [
+              "orc",
+              "troll"
+            ]
+          }
+        }
+      },
+      {
+        "type": "duplication-limit",
+        "scope": "company",
+        "max": 1
       }
     ],
-    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Troll automatic-attack. Its controlling character's company is overt. Tap to cancel an Orc or Troll attack against his company. Cannot be duplicated in a given company."
+    "text": "Playable at any tapped or untapped Ruins & Lairs [{R}] with a Troll automatic-attack. Its controlling character's company is overt. Tap to cancel an Orc or Troll attack against his company. Cannot be duplicated in a given company.",
+    "certified": "2026-10-23"
   },
   {
     "cardType": "minion-resource-ally",
