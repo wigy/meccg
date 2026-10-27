@@ -424,16 +424,26 @@ export function gainOf(
     const chosen = bestRecoverable(recovery, context);
     // The card is chosen rather than drawn, so the best one on offer is what
     // comes back: its points at this standing, discounted as potential because
-    // it still has to be drawn (into the deck) and played. A draw is the floor.
+    // it still has to be played. A recovery to the *deck* shuffles it in
+    // rather than handing it over, so it has to be drawn before it can be
+    // played at all, and the discount applies once for each step. A draw is
+    // the floor.
     // Smoke Rings fetching a 3-MP item from the sideboard came out at exactly
     // the card it spends, tied with a pass, and the agent never played it
     // where strong players played it 29 times in the recent rated corpus.
-    const each = Math.max(tunables.resourceDrawValue, tunables.potentialDiscount * (chosen?.tsd ?? 0));
+    // One discount for both destinations overshot the other way: a 5-MP stage
+    // card shuffled into the deck outbid playing an ally for a point now, in
+    // the recorded position `site/allies-from-discard` where the winning human
+    // played the allies.
+    const steps = recovery.to === 'deck' ? 2 : 1;
+    const potential = tunables.potentialDiscount ** steps * (chosen?.tsd ?? 0);
+    const each = Math.max(tunables.resourceDrawValue, potential);
     return {
       tsd: cards * each,
       reason: chosen && each > tunables.resourceDrawValue
         ? `${cards} card(s) back to ${recovery.to} — the best on offer is ${chosen.name}, `
           + `${chosen.tsd.toFixed(1)} at this standing, discounted as potential`
+          + (steps === 2 ? ' twice, since it still has to be drawn' : '')
         : `${cards} card(s) back to ${recovery.to}, at what a draw is worth — a floor, since `
           + 'the card is chosen rather than drawn',
     };
