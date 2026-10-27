@@ -389,7 +389,7 @@ export function describeAction(
       return `${base}${raceTag}${modeTag}`;
     }
     case 'sideboard-with-nazgul':
-      return `Tap and discard Nazgûl ${instName(action.cardInstanceId)} to sideboard (${action.destination})`;
+      return `Tap and discard ${instName(action.cardInstanceId)} to fetch hazards from sideboard (${action.destination === 'deck' ? 'to play deck' : 'to discard pile'})`;
     case 'allocate-cvcc-excess':
       return 'Assign −1 excess strike to current defender';
     case 'assign-strike': {
