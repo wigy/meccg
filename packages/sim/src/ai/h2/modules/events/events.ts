@@ -64,6 +64,7 @@
 
 import type { GameAction } from '@meccg/shared';
 import type { Evaluation, H2Module, ModuleContext } from '../../core/types.js';
+import { plainCompanyBoostOf } from '../../services/company-boost.js';
 import { declaredEventEvaluation } from '../../services/event-value.js';
 
 /**
@@ -95,6 +96,24 @@ const OWNED_ACTION_TYPES = ['play-short-event', 'play-long-event'] as const;
 export const eventsModule: H2Module = {
   name: 'events',
   ownedActionTypes: OWNED_ACTION_TYPES,
+
+  /**
+   * One family of short event belongs to `combat` instead.
+   *
+   * `combat` shares `play-short-event` for the plain `company-combat-boost` —
+   * The Dwarves Are upon You! — because what that card is worth *is* the
+   * attack in front of it, which only the module holding the strike model can
+   * compute. Declining it here is what makes the split a statement in both
+   * modules rather than a consequence of `combat` happening to be listed
+   * first: `--modules events,combat` would otherwise hand every boost to this
+   * module, which cannot read the family at all. Nothing is given up — the
+   * reading in `event-value` has no `company-combat-boost` branch, so these
+   * cards were already declined per action, leaving them uncovered either way.
+   */
+  claimsAction(action: GameAction, context: ModuleContext): boolean {
+    if (action.type !== 'play-short-event') return true;
+    return plainCompanyBoostOf(context.view, context.cardPool, action) === null;
+  },
 
   evaluate(action: GameAction, context: ModuleContext): Evaluation | null {
     if (!OWNED_ACTION_TYPES.includes(action.type as typeof OWNED_ACTION_TYPES[number])) return null;

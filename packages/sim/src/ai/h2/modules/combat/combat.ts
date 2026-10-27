@@ -49,6 +49,7 @@ import { attackerChoiceAt, resolveSequentially } from '../../services/strike/seq
 import type { CharacterValue } from '../../services/character-value.js';
 import { computeCharacterValue } from '../../services/character-value.js';
 import { cancelAttackPrice } from '../../services/cancel-price.js';
+import { plainCompanyBoostOf } from '../../services/company-boost.js';
 
 /**
  * Action types this module scores.
@@ -1081,47 +1082,28 @@ interface CompanyBoost {
 }
 
 /**
- * Read a `company-combat-boost` event in hand, or null when its shape is one
- * this cannot price exactly. Only the plain form is read — a prowess bonus,
- * optionally gated on the character's race (`filter: { target.race }`); a body
- * modifier alongside it is tolerated and stated as unmodelled. Every variant
- * with a cost, an item or skill requirement, an attack condition or a
- * single-target scope is declined, so it stays exactly as unowned as before.
+ * Read a `company-combat-boost` event in hand against the company in this
+ * combat, or null when its shape is one this cannot price exactly.
+ *
+ * Which shapes those are is `services/company-boost`'s answer rather than this
+ * module's, because `events` has to decline exactly the same set — see the
+ * `claimsAction` gate on both modules. What is added here is the part that is
+ * combat's own: which characters of the company being attacked the boost
+ * reaches.
  */
 function companyBoostOf(context: StrikeContext, action: GameAction): CompanyBoost | null {
-  const cardInstanceId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
-  const card = cardInstanceId ? context.view.self.hand.find(c => c.instanceId === cardInstanceId) : undefined;
-  const def = card ? context.cardPool[card.definitionId] as unknown as {
-    name?: string; effects?: readonly Record<string, unknown>[];
-  } | undefined : undefined;
-  const boosts = (def?.effects ?? []).filter(e => e.type === 'company-combat-boost');
-  if (boosts.length === 0) return null;
-  const PLAIN = new Set(['type', 'stat', 'value', 'filter']);
-  let prowess = 0;
-  let race: string | undefined;
-  for (const effect of boosts) {
-    if (Object.keys(effect).some(key => !PLAIN.has(key))) return null;
-    const filter = effect.filter as Record<string, unknown> | undefined;
-    if (filter !== undefined) {
-      const keys = Object.keys(filter);
-      if (keys.length !== 1 || keys[0] !== 'target.race' || typeof filter['target.race'] !== 'string') return null;
-      if (race !== undefined && race !== filter['target.race']) return null;
-      race = filter['target.race'];
-    }
-    if (effect.stat === 'prowess' && typeof effect.value === 'number') prowess += effect.value;
-    else if (effect.stat !== 'body') return null;
-  }
-  if (prowess <= 0) return null;
   const { view, cardPool, combat } = context;
+  const plain = plainCompanyBoostOf(view, cardPool, action);
+  if (!plain) return null;
   const company = view.self.companies.find(c => c.id === combat.companyId);
   const ids = (company?.characters ?? []).filter(id => {
     const character = view.self.characters[id];
     const printed = cardPool[character?.definitionId as string] as unknown as { race?: string } | undefined;
-    return character !== undefined && (race === undefined || printed?.race === race);
+    return character !== undefined && (plain.race === undefined || printed?.race === plain.race);
   });
   return {
-    name: def?.name ?? (card?.definitionId as string),
-    prowess,
+    name: plain.name,
+    prowess: plain.prowess,
     ids,
     boosted: ids.map(id => nameOfInstance(context, id)),
   };
@@ -1182,8 +1164,11 @@ export const combatModule: H2Module = {
 
   claimsAction(action: GameAction, context: ModuleContext): boolean {
     if (action.type !== 'play-short-event') return true;
-    // A boost is priced against the attack as a whole, so only in the window
-    // where the whole attack is still to come.
+    // `play-short-event` is shared with `events`, which declines this family
+    // for the same reading (`services/company-boost`), so the split between
+    // the two modules does not depend on which of them the registry lists
+    // first. A boost is priced against the attack as a whole, so this module
+    // takes it only in the window where the whole attack is still to come.
     const ctx = buildContext(context);
     if (!ctx || (ctx.combat.assignmentPhase === 'done' && ctx.hasCurrentStrike)) return false;
     return companyBoostOf(ctx, action) !== null;

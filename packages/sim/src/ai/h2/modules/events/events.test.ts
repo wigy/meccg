@@ -55,6 +55,16 @@ const SHORT_REST = 'ev-short-rest';
 const DARK_TRYST = 'ev-dark-tryst';
 /** A site two wilderness regions out, drawing two cards on arrival. */
 const SITE = 'site-two-regions';
+/**
+ * The one short event `combat` shares this action type for: dm-124's shape, a
+ * plain company-wide prowess boost gated on race.
+ */
+const COMPANY_BOOST = 'ev-company-boost';
+/**
+ * The same family carrying a cost and a requirement — Wizard's Fire's shape.
+ * `combat` cannot price it either, so it stays with this module.
+ */
+const GATED_BOOST = 'ev-gated-boost';
 
 const POOL = {
   [SHORT_REST]: {
@@ -123,6 +133,22 @@ const POOL = {
       },
     ],
   },
+  [COMPANY_BOOST]: {
+    cardType: 'hero-resource-event',
+    name: 'The Dwarves Are upon You!',
+    effects: [
+      { type: 'company-combat-boost', stat: 'prowess', value: 2, filter: { 'target.race': 'dwarf' } },
+      { type: 'company-combat-boost', stat: 'body', value: -1, filter: { 'target.race': 'dwarf' } },
+      { type: 'duplication-limit', scope: 'company' },
+    ],
+  },
+  [GATED_BOOST]: {
+    cardType: 'hero-resource-event',
+    name: 'Wizard’s Fire',
+    effects: [
+      { type: 'company-combat-boost', stat: 'prowess', value: 5, requiredRace: 'wizard', cost: { corruptionCheck: 3 } },
+    ],
+  },
   [LONG_HAZARD]: { cardType: 'hazard-event', name: 'Minions Stir', eventType: 'long', effects: [] },
   [ATTACHED_HAZARD]: {
     cardType: 'hazard-creature',
@@ -150,6 +176,8 @@ function context(): ModuleContext {
         { instanceId: 'c-removal', definitionId: REMOVAL },
         { instanceId: 'c-short-rest', definitionId: SHORT_REST },
         { instanceId: 'c-dark-tryst', definitionId: DARK_TRYST },
+        { instanceId: 'c-company-boost', definitionId: COMPANY_BOOST },
+        { instanceId: 'c-gated-boost', definitionId: GATED_BOOST },
       ],
       playDeck: [],
       sideboard: [],
@@ -578,5 +606,35 @@ describe('discarding a corruption card from our own character', () => {
       expect(JSON.stringify(evaluation.rationale)).toContain('from our own character');
       expect(evaluation.expectedTsd).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('the one short-event family combat shares this type for', () => {
+  // `play-short-event` has two owners, and which of them gets a plain
+  // `company-combat-boost` must be stated in both rather than left to the
+  // order `ALL_MODULES` lists them in — `resolveModules` reorders that array
+  // for any `h2:<modules>` spec naming them the other way round, and this
+  // module cannot read the family at all.
+  test('a plain company-combat-boost is declined, so `combat` can price it against the attack', () => {
+    expect(eventsModule.claimsAction!(play('c-company-boost'), context())).toBe(false);
+  });
+
+  test('every other short event is still this module\'s', () => {
+    for (const instanceId of ['c-recovery', 'c-opaque', 'c-inert', 'c-removal']) {
+      expect(eventsModule.claimsAction!(play(instanceId), context())).toBe(true);
+    }
+  });
+
+  test('a boost carrying a cost or a requirement stays here: nothing can price it either', () => {
+    // Wizard's Fire's shape. `combat` declines it for the same reading, so the
+    // card is uncovered exactly as it was before the split existed — what must
+    // not happen is one module declining it on the assumption the other took
+    // it.
+    expect(eventsModule.claimsAction!(play('c-gated-boost'), context())).toBe(true);
+    expect(eventsModule.evaluate(play('c-gated-boost'), context())).toBeNull();
+  });
+
+  test('a long event is never claimed by combat, so the gate leaves them alone', () => {
+    expect(eventsModule.claimsAction!(playLong('c-short-rest'), context())).toBe(true);
   });
 });
