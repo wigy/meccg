@@ -6,18 +6,18 @@
 
 | Total Cards | Certified | Remaining | Progress |
 |:-----------:|:---------:|:---------:|:--------:|
-| 1417 | 1417 | 0 | 100.0% |
+| 1423 | 1423 | 0 | 100.0% |
 
 ## Category Breakdown
 
 | Category | Cards | Done | % |
 |:---------|:-----:|:----:|:-:|
-| AS | 132 | 132 | 100.0% |
+| AS | 133 | 133 | 100.0% |
 | BA | 101 | 101 | 100.0% |
 | DM | 158 | 158 | 100.0% |
-| LE | 345 | 345 | 100.0% |
-| TD | 148 | 148 | 100.0% |
-| TW | 429 | 429 | 100.0% |
+| LE | 346 | 346 | 100.0% |
+| TD | 151 | 151 | 100.0% |
+| TW | 430 | 430 | 100.0% |
 | WH | 104 | 104 | 100.0% |
 
 ## Detailed Test Matrix
@@ -38,6 +38,7 @@
 | as-12 | Knights of the Prince | — | 8 | ☑ |
 | as-13 | Lady of the Golden Wood | — | 14 | ☑ |
 | as-14 | Lord of the Carrock | — | 19 | ☑ |
+| as-15 | Lord of the Haven | — | 15 | ☑ |
 | as-16 | Master of the House | — | 18 | ☑ |
 | as-17 | Pallando the Soul-keeper | — | 18 | ☑ |
 | as-18 | Radagast the Tamer | — | 20 | ☑ |
@@ -554,6 +555,7 @@
 | le-152 | Blackbole | — | 6 | ☑ |
 | le-153 | Last Child of Ungoliant | — | 12 | ☑ |
 | le-154 | Stinker | — | 19 | ☑ |
+| le-155 | “Two-headed” Troll | — | 13 | ☑ |
 | le-156 | War-warg | — | 9 | ☑ |
 | le-157 | War-wolf | — | 8 | ☑ |
 | le-158 | The Warg-king | — | 12 | ☑ |
@@ -764,6 +766,7 @@
 | td-2 | Agburanar at Home | — | 11 | ☑ |
 | td-3 | Bairanax | — | 7 | ☑ |
 | td-4 | Bairanax Ahunt | — | 17 | ☑ |
+| td-5 | Bairanax at Home | — | 11 | ☑ |
 | td-7 | Carrion Birds | — | 6 | ☑ |
 | td-8 | Cave Worm | — | 3 | ☑ |
 | td-9 | Cruel Caradhras | — | 10 | ☑ |
@@ -786,10 +789,12 @@
 | td-36 | Itangast | — | 8 | ☑ |
 | td-37 | Itangast Ahunt | — | 13 | ☑ |
 | td-38 | Itangast at Home | — | 8 | ☑ |
+| td-40 | Land-drake | — | 6 | ☑ |
 | td-41 | Left Behind | — | 10 | ☑ |
 | td-42 | Lesser Spiders | — | 9 | ☑ |
 | td-43 | Leucaruth Ahunt | — | 11 | ☑ |
 | td-44 | Leucaruth at Home | — | 14 | ☑ |
+| td-45 | Light-drake | — | 5 | ☑ |
 | td-46 | Many Sorrows Befall | — | 8 | ☑ |
 | td-47 | Marsh-drake | — | 7 | ☑ |
 | td-49 | Morgul-rats | — | 8 | ☑ |
@@ -1182,6 +1187,7 @@
 | tw-281 | Men of Northern Rhovanion | — | 2 | ☑ |
 | tw-282 | Mirror of Galadriel | — | 14 | ☑ |
 | tw-283 | Miruvor | — | 12 | ☑ |
+| tw-284 | Misty Mountains | — | 14 | ☑ |
 | tw-285 | Moon | — | 10 | ☑ |
 | tw-288 | Muster | — | 11 | ☑ |
 | tw-289 | Narsil | — | 6 | ☑ |

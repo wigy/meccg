@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.223.0 — 2026-10-27
+
+Six More Cards Certified, Crown of Flowers Reined In
+
+### Cards
+
+- Certified Misty Mountains (tw-284), "Two-headed" Troll (le-155), Land-drake (td-40), Light-drake (td-45), Bairanax at Home (td-5) and Lord of the Haven (as-15) (#3415, #3419, #3420, #3421, #3423, #3427)
+
+### Game Engine
+
+- "Two-headed" Troll (le-155) is now playable at Ruins & Lairs sites that have a Troll automatic-attack, with an Ettenmoors regression test (#3417)
+- Orc-draughts (le-328) and other any-phase grant-actions are now offered in the choose-strike-order window between strike sequences (#3418)
+- Hoarmûrath played as a creature no longer adds +1 strike to its own attack (#3425)
+- Crown of Flowers (dm-121) now only pairs long/permanent resource events during the organization phase; items and allies (such as Gollum) can no longer be put into play out of phase through it (#3426, #3430)
+- Dragon Ahunt/At Home manifestations now give their printed kill MP (#3429)
+- Company-scoped site-phase flags (faction played at a Free-hold, Thing Stolen / War-forges / Technology unlocks, Enchanted Stream tax, etc.) are reset when the next company's site phase starts, so one company's faction no longer opens To Fealty Sworn for another (#3432)
+- Agent-targeting action descriptions name the agent instead of printing raw agent ids (#3431)
+
+### Web Client
+
+- New Large card preview setting for readable hover previews (#3416)
+- Placement-offer items and allies in hand are now clickable (#3424)
+- Out of the Black Sky's Nazgûl attack is offered from the hand UI (#3428)
+- Agent-targeting hazard choices (such as Never Seen Him with two agents in play) are labelled with the target agent's name; face-down opponent agents stay anonymous (#3431)
+- The Game Over table shows the eliminated-avatar penalty on its own row, so misc points such as The White Tree are no longer hidden when the penalty cancels them (#3433)
+
+### AI
+
+- The modular AI now pays Enchanted Stream's movement tax (#3422)
+
+### Infrastructure
+
+- README Project Status and card test coverage updated
+
 ## 0.222.0 — 2026-10-23
 
 Hand Stays Visible Without Companies
