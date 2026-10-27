@@ -402,6 +402,23 @@ export function findSacrificeOfFormAction(
 }
 
 /**
+ * Find the play-item-placement-offer / play-ally-placement-offer action for a
+ * given hand card instance. These resolve an `item-placement-offer` (Necklace
+ * of Girion dm-174) or `ally-placement-offer` (Here, There, or Yonder td-123)
+ * pending resolution whose bearer is already fixed, so clicking the card plays
+ * it directly — same one-click pattern as `findRingAfterTestAction`. Without
+ * this finder the offered card rendered as unplayable even though the engine
+ * offered it (bug report: could not play Wormsbane with Necklace of Girion).
+ */
+export function findPlacementOfferAction(
+  instanceId: CardInstanceId | null,
+  legalActions: readonly GameAction[],
+): GameAction | null {
+  if (!instanceId) return null;
+  return actionsOfTypeFor(legalActions, ['play-item-placement-offer', 'play-ally-placement-offer'], instanceId)[0] ?? null;
+}
+
+/**
  * Find the play-dragon-ambush-creature action for a given Dragon hazard-
  * creature card instance in hand (Rumor of Wealth td-58's `dragon-ambush-
  * offer` resolution): at most one action exists per hand instance and it
@@ -1339,6 +1356,8 @@ export function renderHand(
     const isStrikeEvent = strikeEventActions.length > 0;
     const ringAfterTestAction = findRingAfterTestAction(cardInstanceId, viable);
     const isRingAfterTest = ringAfterTestAction !== null;
+    const placementOfferAction = findPlacementOfferAction(cardInstanceId, viable);
+    const isPlacementOffer = placementOfferAction !== null;
     const dragonAmbushOfferAction = findDragonAmbushOfferAction(cardInstanceId, viable);
     const isDragonAmbushOffer = dragonAmbushOfferAction !== null;
     const siteAutoAttackAction = findSiteAutoAttackAction(cardInstanceId, viable);
@@ -1360,7 +1379,7 @@ export function renderHand(
     const balrogSwapActions = findBalrogSwapActions(cardInstanceId, viable);
     const startingCompanyEventActions = findStartingCompanyEventActions(cardDefId, viable);
     const isStartingCompanyEvent = startingCompanyEventActions.length > 0;
-    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
+    const nonViableReason = !action && !isItemDraft && !isPlayChar && !isShortEvent && !isHazard && !isAgentHazard && !isAlly && !isResource && !isPermanentEventWithCharTarget && !isPermanentEventWithLongEventTarget && !isInfluence && !isCancelAttack && !isModifyAttack && !isStrikeEvent && !isRingAfterTest && !isPlacementOffer && !isDragonAmbushOffer && !isSiteAutoAttack && !isConvertCreatureToAlly && !isSacrificeOfForm && !isRevealedCardPlay && !isDeclareBurglary && !discardAction && !onGuardAction && !isStartingCompanyEvent && !reshuffleAction
       ? findNonViableReason(cardDefId, view.legalActions, cachedInstanceLookup)
       : undefined;
     const selectedItemDefId = getSelectedItemDefId();
@@ -1649,6 +1668,15 @@ export function renderHand(
       if (onAction) {
         const ringAction = ringAfterTestAction;
         img.addEventListener('click', () => onAction(ringAction));
+      }
+    } else if (isPlacementOffer) {
+      // Item/ally placement offer (Necklace of Girion dm-174, Here, There, or
+      // Yonder td-123): the bearer is fixed by the pending resolution, so
+      // clicking the card plays it directly — no target step.
+      img.className = 'hand-card hand-card-playable';
+      if (onAction) {
+        const offerAction = placementOfferAction;
+        img.addEventListener('click', () => onAction(offerAction));
       }
     } else if (isDragonAmbushOffer) {
       // Dragon-ambush-offer (Rumor of Wealth td-58): the ambushed company is
