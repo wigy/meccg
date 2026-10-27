@@ -460,7 +460,7 @@ export function renderCompanyBlock(
       const resourceCompanies = isSelfTurn ? view.self.companies : view.opponent.companies;
       const activeCompany = resourceCompanies[view.phaseState.activeCompanyIndex];
       if (activeCompany && company.id === activeCompany.id) {
-        const hazardLimit = getHazardLimitLabel(view);
+        const hazardLimit = getHazardLimitLabel(view, cardPool);
         if (hazardLimit !== null) {
           const hazardLimitBadge = document.createElement('span');
           hazardLimitBadge.className = 'company-hazard-limit-badge';

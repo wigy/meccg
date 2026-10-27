@@ -28,7 +28,7 @@ import {
   buildTestState, resetMint, makeMHState,
   viableActions,
   dispatch,
-  addCardInPlay,
+  addCardInPlay, recomputeDerived,
   RESOURCE_PLAYER, HAZARD_PLAYER,
 } from '../test-helpers.js';
 import { getActiveAutoAttacks } from '../../engine/manifestations.js';
@@ -217,5 +217,20 @@ describe('Daelomin at Home (td-11)', () => {
 
     // Card is no longer in play → Dancing Spire reverts to its printed attack.
     expect(getActiveAutoAttacks(next, spire)).toHaveLength(1);
+  });
+
+  // ─── kill marshalling points ──────────────────────────────────────────────
+
+  test('a defeated Daelomin at Home in the opponent\'s kill pile scores its printed 4 kill MP (CoE g.man.3)', () => {
+    const state = buildMHState([DAELOMIN_AT_HOME]);
+    const defeated: GameState = {
+      ...state,
+      players: [
+        { ...state.players[RESOURCE_PLAYER], killPile: [{ instanceId: atHomeInstId(state), definitionId: DAELOMIN_AT_HOME }] },
+        { ...state.players[HAZARD_PLAYER], cardsInPlay: [] },
+      ] as typeof state.players,
+    };
+    const derived = recomputeDerived(defeated);
+    expect(derived.players[RESOURCE_PLAYER].marshallingPoints.kill).toBe(4);
   });
 });

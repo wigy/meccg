@@ -400,7 +400,7 @@ export function describeAction(
     }
     case 'play-hazard': {
       const target = action.targetCharacterId
-        ? `on ${instName(action.targetCharacterId)}`
+        ? `on ${[action.targetCharacterId, ...(action.additionalTargetCharacterIds ?? [])].map(instName).join(' and ')}`
         : action.targetAgentId
           ? `on agent ${agentName(action.targetAgentId)}`
           : `against ${compName(action.targetCompanyId)}`;
