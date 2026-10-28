@@ -99,6 +99,7 @@ import type { AttackBoost } from '../../services/attack-modifiers.js';
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
   'play-hazard', 'place-on-guard', 'assign-strike', 'pass', 'play-creature-from-discard',
+  'tap-hazard-card-for-limit', 'pay-hazard-limit-to-untap-card', 'discard-card-for-hazard-limit',
 ] as const;
 
 /** Assumptions every hazard evaluation rests on. */
@@ -485,9 +486,128 @@ export const hazardsModule: H2Module = {
 
     if (action.type === 'play-creature-from-discard') return evaluateCreatureFromDiscard(action, context);
 
+    if (action.type === 'tap-hazard-card-for-limit'
+      || action.type === 'pay-hazard-limit-to-untap-card'
+      || action.type === 'discard-card-for-hazard-limit') {
+      return evaluateLimitCard(action, context);
+    }
+
     return null;
   },
 };
+
+/**
+ * Change the hazard limit against the moving company with a card in play —
+ * tap Power Built by Waiting (as-34) for +1, spend two of the limit to untap
+ * it, or discard a Dragon "At Home" card for +N.
+ *
+ * None of the three had an owner, so every hazard window that offered one fell
+ * back whole: over the recent rated corpus strong players tapped Power Built by
+ * Waiting 8 times and untapped it 5 where the agent passed. A slot of the limit
+ * is worth exactly what the bundle search says it is, so the action is priced
+ * as the best plan the changed limit allows, read off the same search that
+ * prices the creatures re-run with the slots shifted. Against a `play-hazard`
+ * opening the unchanged plan, it wins exactly when the slots it adds carry
+ * more than the card held in reserve.
+ *
+ * The card's own state is the other side of the trade. An untapped Power Built
+ * by Waiting is one future slot held in reserve, priced as a tap
+ * (`tapTempoCost`): tapping spends it, untapping buys it back, so the agent
+ * taps when the extra slot carries a creature worth more than that and pays to
+ * untap when the two slots it gives up carry nothing. A discarded "At Home" is
+ * a card spent (`provisionalCardPrice`).
+ */
+function evaluateLimitCard(action: GameAction, context: ModuleContext): Evaluation | null {
+  const fields = action as unknown as { cardInstanceId?: string; targetCompanyId?: string };
+  const { view, cardPool, tunables } = context;
+  const company = view.opponent.companies.find(c => (c.id as string) === fields.targetCompanyId);
+  const card = view.self.cardsInPlay.find(c => (c.instanceId as string) === fields.cardInstanceId);
+  if (!company || !card) return null;
+  const def = cardPool[card.definitionId] as unknown as {
+    name?: string;
+    effects?: readonly { type?: string; tapValue?: number; untapCost?: number; value?: number }[];
+  } | undefined;
+  const name = def?.name ?? (card.definitionId as string);
+  const effect = def?.effects?.find(e => e.type === (action.type === 'discard-card-for-hazard-limit'
+    ? 'discard-for-hazard-limit' : 'hazard-limit-swap'));
+  if (!effect) return null;
+
+  let slotChange: number;
+  let cardTsd: number;
+  let headline: string;
+  let cardNote: string;
+  if (action.type === 'tap-hazard-card-for-limit') {
+    slotChange = effect.tapValue ?? 1;
+    cardTsd = -tunables.tapTempoCost;
+    headline = `tap ${name} for +${slotChange} hazard limit`;
+    cardNote = 'the slot it held in reserve is spent — it stays tapped until paid for';
+  } else if (action.type === 'pay-hazard-limit-to-untap-card') {
+    slotChange = -(effect.untapCost ?? 2);
+    cardTsd = tunables.tapTempoCost;
+    headline = `spend ${-slotChange} hazard limit to untap ${name}`;
+    cardNote = 'one slot held in reserve for a later company';
+  } else {
+    slotChange = effect.value ?? 0;
+    cardTsd = -tunables.provisionalCardPrice;
+    headline = `discard ${name} for +${slotChange} hazard limit`;
+    cardNote = 'the card leaves play';
+  }
+
+  const base = buildPlan(view, context, company);
+  // A raised limit opens plays the engine is refusing right now, and it lists
+  // them — non-viable, for the limit alone. Without them the plan at an
+  // exhausted limit had no creature to add and every tap priced at nothing,
+  // where the human tapped and then played the Nazgûl the slot let in.
+  const limitBlocked = slotChange > 0
+    ? view.legalActions
+      .filter(e => !e.viable && e.action.type === 'play-hazard' && e.reason?.startsWith('Hazard limit reached'))
+      .map(e => e.action)
+    : [];
+  const changed = planFor(
+    limitBlocked.length > 0 ? { ...context, legalActions: [...context.legalActions, ...limitBlocked] } : context,
+    company, null, -slotChange,
+  );
+  const best = (search: BundleSearch): Bundle | null => search.bundles.reduce<Bundle | null>(
+    (top, bundle) => (top === null || bundle.expectedTsd > top.expectedTsd ? bundle : top), null);
+  const before = best(base.search);
+  const after = best(changed.search);
+  const beforeTsd = Math.max(0, before?.expectedTsd ?? 0);
+  // Playing nothing is always open, so a plan is never worth less than zero.
+  const afterOutcomes: readonly Outcome[] = after && after.expectedTsd > 0
+    ? after.outcomes
+    : [{ p: 1, label: 'play nothing further into this company', dtsd: 0 }];
+  const outcomes = afterOutcomes.map(o => ({
+    ...o,
+    // Measured from here, like every candidate beside it: the plan that the
+    // changed limit opens, which a `play-hazard` opening the unchanged plan is
+    // then compared against — so the slot wins exactly when what it adds
+    // beats what the card was holding in reserve.
+    dtsd: netTsdDelta({ realized: o.dtsd, tempo: -cardTsd }, tunables),
+  }));
+
+  return scoredEvaluation({
+    action,
+    module: 'hazards',
+    outcomes,
+    standing: context.standing,
+    headline,
+    detail: [
+      ...base.detail,
+      leaf('hazard limit change', slotChange, { note: `${base.search.slots} slots → ${changed.search.slots}` }),
+      leaf('best plan now', beforeTsd, {
+        unit: 'tsd', note: before ? before.cards.map(c => c.name).join(' + ') : 'nothing to play',
+      }),
+      leaf('best plan after', Math.max(0, after?.expectedTsd ?? 0), {
+        unit: 'tsd', note: after && after.expectedTsd > 0 ? after.cards.map(c => c.name).join(' + ') : 'nothing to play',
+      }),
+      leaf(name, cardTsd, { unit: 'tsd', tunable: action.type === 'discard-card-for-hazard-limit' ? 'provisionalCardPrice' : 'tapTempoCost', note: cardNote }),
+    ],
+    assumptions: [
+      ...ASSUMPTIONS,
+      'a slot is valued by the creatures it lets the plan add; hazard events a slot could carry are not counted',
+    ],
+  });
+}
 
 /**
  * Bring a creature back from the discard pile to attack at once — In Great

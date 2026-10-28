@@ -591,3 +591,27 @@ describe('a company-combat-boost event in the assignment window', () => {
     expect(combatModule.claimsAction!(unreadable, context)).toBe(false);
   });
 });
+
+describe('boosting a strike with an item the target carries', () => {
+  // `tap-item-for-strike` had no owner, so the whole strike fell back and the
+  // agent faced it bare where the human tapped Shield of Iron-bound Ash for +1
+  // (game mvo7l3ak-pot1ur, seq 894: need 4 with the Shield, 5 without).
+  const SCENARIO = 'combat/shield-of-iron-bound-ash-boosts-strike';
+  const isShield = (action: GameAction): boolean => action.type === 'tap-item-for-strike';
+
+  test('covers the whole decision', () => {
+    const context = contextFor(SCENARIO);
+    expect(context.legalActions.some(isShield)).toBe(true);
+    expect(evaluateDecision([combatModule], context).complete).toBe(true);
+  });
+
+  test('charges the item tap', () => {
+    const shield = find(rank(SCENARIO), isShield);
+    expect(shield).toBeDefined();
+    expect(leavesOf(shield!).some(l => l.label === 'item spent' && l.value === DEFAULT_TUNABLES.tapTempoCost)).toBe(true);
+  });
+
+  test('is the best thing to do against the strike', () => {
+    expect(isShield(rank(SCENARIO)[0].action)).toBe(true);
+  });
+});
