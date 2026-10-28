@@ -801,7 +801,7 @@ describe('an event that enables another card rather than acting itself', () => {
     // effects declare no modifier. What is left is the play itself: a card
     // traded for the next one off the deck (`hazardCardPrice`) — and the
     // resource environment it discards on entering play, their Crown of
-    // Flowers, at the card they spent on it.
+    // Flowers, at the card they spent on it and what it enables in their hand.
     const scenario = loadScenario('movement/support-event-boost');
     const view = scenarioView(scenario);
     const cardPool = loadCardPool();
@@ -817,8 +817,8 @@ describe('an event that enables another card rather than acting itself', () => {
       cardInstanceId: view.self.hand[0].instanceId,
       targetCompanyId: view.opponent.companies[0].id,
     } as unknown as GameAction, context)!;
-    expect(evaluation.expectedTsd)
-      .toBeCloseTo(DEFAULT_TUNABLES.provisionalCardPrice - DEFAULT_TUNABLES.hazardCardPrice, 5);
+    expect(evaluation.expectedTsd).toBeCloseTo(
+      DEFAULT_TUNABLES.provisionalCardPrice + DEFAULT_TUNABLES.environmentCancelBonus - DEFAULT_TUNABLES.hazardCardPrice, 5);
     expect(JSON.stringify(evaluation.rationale)).toContain('card rotation');
     expect(JSON.stringify(evaluation.rationale)).toContain('takes their Crown of Flowers out of play');
   });

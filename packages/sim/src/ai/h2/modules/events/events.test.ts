@@ -753,8 +753,26 @@ describe('Twilight on an environment', () => {
     // What strong players do: Doors of Night against their movement, then
     // Twilight on it in their own turn (game mvjum705-ua2jlu, seq 165).
     const { twilight, context } = setup(true);
-    expect(JSON.stringify(eventsModule.evaluate(twilight, context)!.rationale))
-      .toMatch(/takes our own Doors of Night out of play — [0-9.]+ of harm off our companies/);
+    const evaluation = eventsModule.evaluate(twilight, context)!;
+    expect(JSON.stringify(evaluation.rationale))
+      .toMatch(/takes our own Doors of Night out of play before our movement — [0-9.]+ of harm off our companies/);
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('on our own Doors of Night in our own turn is played even when nothing we can see reads it', () => {
+    // Most of what Doors of Night does is in the opponent's hand; strong
+    // players cancel their own before moving whatever the board shows.
+    const { twilight, context } = setup(true);
+    const bare = {
+      ...context,
+      view: {
+        ...context.view,
+        self: { ...context.view.self, cardsInPlay: context.view.self.cardsInPlay.filter(c => c.definitionId !== 'tw-61') },
+      },
+    } as ModuleContext;
+    const evaluation = eventsModule.evaluate(twilight, { ...bare, standing: computeStanding(bare.view, testWinProbModel(), DEFAULT_TUNABLES) })!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('what it enables in their hand');
+    expect(evaluation.utility).toBeGreaterThan(0);
   });
 
   test('on our own Doors of Night in their turn is not played: it is working for our attacks', () => {
