@@ -96,6 +96,19 @@ export interface Tunables {
    */
   readonly provisionalCardPrice: number;
   /**
+   * What taking an environment that works against us out of play is worth
+   * beyond what can be read off the board, in TSD.
+   *
+   * Doors of Night does little by its own text; its weight is in the cards
+   * that read it — the Dragons' Ahunt reach, Sand-drake's extra keying, the
+   * events playable only while it is out — and the opponent's are in a hand
+   * we cannot see. Strong players spend Twilight on it freely, their own
+   * included before their own movement, and priced only by what is visible
+   * the play was a card for nothing. A nudge toward playing: one draw and a
+   * half for the cards it was enabling.
+   */
+  readonly environmentCancelBonus: number;
+  /**
    * What playing a hazard costs the hazard seat, in TSD, before what the play
    * achieves.
    *
@@ -687,6 +700,7 @@ export const DEFAULT_TUNABLES: Tunables = {
   woundTempoCost: 10,
   eliminationTempoCost: 30,
   provisionalCardPrice: 1,
+  environmentCancelBonus: 1.5,
   hazardCardPrice: -0.5,
   cyclingKeepBonus: 5,
   cyclingCombatCap: 0,

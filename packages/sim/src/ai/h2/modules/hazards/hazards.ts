@@ -65,7 +65,7 @@
  * than a guess.
  */
 
-import { CardStatus, Phase } from '@meccg/shared';
+import { CardStatus, Phase, ownerOf } from '@meccg/shared';
 import type {
   CardDefinition, CombatState, CreatureKeyingMatch, GameAction, OpponentCompanyView, PlayerView,
 } from '@meccg/shared';
@@ -95,6 +95,8 @@ import {
 } from '../../services/attack-modifiers.js';
 import { unseenDeckCards } from '../../services/deck-reach.js';
 import type { AttackBoost } from '../../services/attack-modifiers.js';
+import { couldMatch, environmentLoss } from '../../services/event-value.js';
+import type { Effect } from '../../services/event-value.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -1098,6 +1100,8 @@ function evaluateHazardEvent(
 
   const upgrade = handUpgradeGain(name, record.cardInstanceId, context);
   if (upgrade) gain = { tsd: gain.tsd + upgrade.tsd, reason: `${gain.reason}; ${upgrade.reason}` };
+  const sweep = environmentSweepGain(cardPool[card.definitionId], context);
+  if (sweep) gain = { tsd: gain.tsd + sweep.tsd, reason: `${gain.reason}; ${sweep.reason}` };
   const future = deckUpgradeGain(cardPool[card.definitionId], name, record.cardInstanceId, context, company);
   if (future) gain = { tsd: gain.tsd + future.tsd, reason: `${gain.reason}; ${future.reason}` };
 
@@ -1266,6 +1270,42 @@ function handUpgradeGain(
   }
   if (upgraded.length === 0) return null;
   return { tsd, reason: `upgrades ${upgraded.join(', ')} in hand, played after it` };
+}
+
+/**
+ * What a hazard environment's sweep on entering play is worth: Doors of Night
+ * discarding every resource environment of the opponent's, their Gates of
+ * Morning first among them. Priced card by card by `environmentLoss`, the same
+ * reading Twilight's cancel gets.
+ *
+ * Our own swept environments are not charged. Strong players play Doors of
+ * Night over their own Gates of Morning and Star of High Hope (games
+ * mvj6fman-f77xpi seq 444, mvjfm7kj-gi2ve3 seq 740); charged for them, the
+ * modular AI stopped agreeing at both and agreed nowhere new. What those
+ * players are buying is what Doors of Night does for their hazards beyond what
+ * this module reads (the Ahunt Dragons), so the charge would only stand in for
+ * a value still missing on the other side.
+ */
+function environmentSweepGain(
+  def: CardDefinition | undefined,
+  context: ModuleContext,
+): { tsd: number; reason: string } | null {
+  const effects = (def as unknown as {
+    effects?: readonly { type?: string; event?: string; apply?: Effect }[];
+  } | undefined)?.effects ?? [];
+  const sweeps = effects.flatMap(e => (e.type === 'on-event' && e.event === 'self-enters-play' && e.apply
+    && e.apply.type === 'move' && e.apply.to === 'discard' && e.apply.select === 'filter-all' ? [e.apply] : []));
+  if (sweeps.length === 0) return null;
+  const { view, cardPool } = context;
+  const losses = [...view.self.cardsInPlay, ...view.opponent.cardsInPlay]
+    .filter(card => ownerOf(card.instanceId) !== view.self.id)
+    .filter(card => sweeps.some(sweep => couldMatch(sweep.filter, cardPool[card.definitionId])))
+    .flatMap(card => {
+      const loss = environmentLoss(card.instanceId, context);
+      return loss ? [loss] : [];
+    });
+  if (losses.length === 0) return null;
+  return { tsd: losses.reduce((sum, l) => sum + l.tsd, 0), reason: losses.map(l => l.reason).join('; ') };
 }
 
 /**

@@ -796,10 +796,12 @@ describe('an event that enables another card rather than acting itself', () => {
     expect(JSON.stringify(evaluation.rationale)).toContain('+2 prowess');
   });
 
-  test('and is worth only the card rotation when nothing on the board names it', () => {
+  test('and when nothing on the board names it, is worth the card rotation and the environment it sweeps', () => {
     // No Minions Stir out, so nothing changes about any attack — and its own
     // effects declare no modifier. What is left is the play itself: a card
-    // traded for the next one off the deck (`hazardCardPrice`).
+    // traded for the next one off the deck (`hazardCardPrice`) — and the
+    // resource environment it discards on entering play, their Crown of
+    // Flowers, at the card they spent on it and what it enables in their hand.
     const scenario = loadScenario('movement/support-event-boost');
     const view = scenarioView(scenario);
     const cardPool = loadCardPool();
@@ -815,8 +817,10 @@ describe('an event that enables another card rather than acting itself', () => {
       cardInstanceId: view.self.hand[0].instanceId,
       targetCompanyId: view.opponent.companies[0].id,
     } as unknown as GameAction, context)!;
-    expect(evaluation.expectedTsd).toBeCloseTo(-DEFAULT_TUNABLES.hazardCardPrice, 5);
+    expect(evaluation.expectedTsd).toBeCloseTo(
+      DEFAULT_TUNABLES.provisionalCardPrice + DEFAULT_TUNABLES.environmentCancelBonus - DEFAULT_TUNABLES.hazardCardPrice, 5);
     expect(JSON.stringify(evaluation.rationale)).toContain('card rotation');
+    expect(JSON.stringify(evaluation.rationale)).toContain('takes their Crown of Flowers out of play');
   });
 });
 
@@ -1152,5 +1156,32 @@ describe('Power Built by Waiting against the hazard limit', () => {
     const ranked = decision.evaluations
       .filter(e => (e.action as unknown as { altEventMode?: string }).altEventMode === undefined);
     expect(ranked[0].action.type).toBe('pay-hazard-limit-to-untap-card');
+  });
+});
+
+describe('Doors of Night sweeping their Gates of Morning', () => {
+  test('is credited the resource environment it discards on entering play', () => {
+    const scenario = loadScenario('movement/doors-of-night-before-unexpected-outpost');
+    const base = scenarioView(scenario);
+    const view = {
+      ...base,
+      opponent: {
+        ...base.opponent,
+        cardsInPlay: [...base.opponent.cardsInPlay, { instanceId: `${base.opponent.id as string}-9001`, definitionId: 'tw-243' }],
+      },
+    } as unknown as PlayerView;
+    const cardPool = loadCardPool();
+    const legalActions = viableActions(scenario);
+    const doors = legalActions.find(a => {
+      if (a.type !== 'play-hazard') return false;
+      const id = (a as unknown as { cardInstanceId: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === 'Doors of Night';
+    })!;
+    const context = { view, cardPool, legalActions, tunables: DEFAULT_TUNABLES, standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES) };
+    const baseContext = { ...context, view: base, standing: computeStanding(base, testWinProbModel(), DEFAULT_TUNABLES) };
+    const evaluation = hazardsModule.evaluate(doors, context)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('takes their Gates of Morning out of play');
+    expect(evaluation.expectedTsd).toBeGreaterThan(hazardsModule.evaluate(doors, baseContext)!.expectedTsd);
   });
 });
