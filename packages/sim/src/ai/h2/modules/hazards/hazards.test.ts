@@ -1056,8 +1056,12 @@ describe('Power Built by Waiting against the hazard limit', () => {
     const context = contextOf('movement/power-built-by-waiting-untap');
     // Agents and Nazgûl abilities share this window and belong to other
     // modules, so only this module's own ranking is asserted.
+    // Beorning Skin-changers' short-event mode is priced as the event, for the
+    // card rotation, and outranks the untap; every other play does not.
     const decision = evaluateDecision([hazardsModule], context);
     expect(decision.uncovered).not.toContain('pay-hazard-limit-to-untap-card');
-    expect(decision.evaluations[0].action.type).toBe('pay-hazard-limit-to-untap-card');
+    const ranked = decision.evaluations
+      .filter(e => (e.action as unknown as { altEventMode?: string }).altEventMode === undefined);
+    expect(ranked[0].action.type).toBe('pay-hazard-limit-to-untap-card');
   });
 });
