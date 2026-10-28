@@ -32,6 +32,7 @@ import type { Evaluation, ModuleContext, Outcome, Rationale } from '../core/type
 import type { MpSource } from '../core/tsd.js';
 import { netTsdDelta } from '../core/tsd.js';
 import { leaf, node } from '../core/rationale.js';
+import { pAtLeast } from '../core/dice.js';
 import { scoredEvaluation } from '../core/evaluation.js';
 import { namedCharacter, namedDiscardTarget } from '../core/action-fields.js';
 import { computeBeliefs } from './beliefs.js';
@@ -289,6 +290,123 @@ function corruptionBoostGain(
   return value.checkBoost(characterId, need, boost);
 }
 
+/**
+ * The most valuable card a recovery could bring back from our own sideboard or
+ * discard pile, by its marshalling points at this standing.
+ *
+ * Deliberately not `card-price`'s `quote`: `card-price` reads held events
+ * through this module, so quoting from here could recurse through one
+ * recovery event fetching another. Points are the part of a card's worth that
+ * is certain to be on offer; a card with none is left to the draw floor.
+ */
+function bestRecoverable(recovery: Effect, context: ModuleContext): { name: string; tsd: number } | null {
+  const { view, cardPool, standing } = context;
+  const pools = [
+    ...(fromIncludes(recovery, 'sideboard') ? view.self.sideboard : []),
+    ...(fromIncludes(recovery, 'discard') ? view.self.discardPile : []),
+  ];
+  let best: { name: string; tsd: number } | null = null;
+  for (const card of pools) {
+    const def = cardPool[card.definitionId];
+    if (!def || !couldMatch(recovery.filter, def)) continue;
+    const printed = def as unknown as { name?: string; marshallingPoints?: number; marshallingCategory?: string };
+    const mp = printed.marshallingPoints ?? 0;
+    if (mp <= 0) continue;
+    const tsd = standing.tsdAfter({ [(printed.marshallingCategory ?? 'misc') as MpSource]: mp }) - standing.tsd;
+    if (best === null || tsd > best.tsd) best = { name: printed.name ?? (card.definitionId as string), tsd };
+  }
+  return best;
+}
+
+/** The influence bonus a `check-modifier` option grants, or undefined when it cannot be read. */
+function influenceBonusOf(
+  apply: Effect,
+  characterId: CardInstanceId,
+  context: ModuleContext,
+): number | undefined {
+  const { view, cardPool } = context;
+  if (apply.valueExpr === undefined) return apply.value;
+  if (apply.valueExpr === 'company.characterCount') {
+    return view.self.companies.find(c => c.characters.includes(characterId))?.characters.length;
+  }
+  // Muster (tw-288): the warrior's prowess, to a maximum of +5.
+  const capped = /^min\(target\.baseProwess, (\d+)\)$/.exec(apply.valueExpr);
+  if (capped) {
+    const character = view.self.characters[characterId];
+    const prowess = (cardPool[character?.definitionId as string] as unknown as { prowess?: number } | undefined)?.prowess;
+    return typeof prowess === 'number' ? Math.min(prowess, Number(capped[1])) : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * What a `check-modifier` on the influence attempt waiting on the chain is
+ * worth — Muster, A Friend or Three, New Friendship, Gifts as Given of Old.
+ *
+ * Undefined when the chosen option is not this family. The attempt is on the
+ * chain, and the engine previews its roll there (non-viable, so no agent can
+ * take it, but its `need` is the published target). The bonus is worth the
+ * probability it moves across that target, times what the attempt stakes: the
+ * faction's points at this standing, and the card a failed attempt discards.
+ * A boost already declared on the chain for the same character is not in the
+ * preview yet, so it is subtracted first — otherwise a second Muster would be
+ * priced against a check the first has already improved.
+ *
+ * Credited only when the target is the character making the attempt: the
+ * engine offers these on any eligible character, and on anyone else the bonus
+ * lands on a check nobody makes. Unpriced, the events were declined and the
+ * decision fell back to a pass: over the recent rated corpus, strong players
+ * played one before the roll 18 times where the modular AI passed.
+ */
+function influenceBoostGain(
+  effects: readonly Effect[],
+  context: ModuleContext,
+  action: GameAction,
+): { tsd: number; reason: string } | null | undefined {
+  const fields = action as unknown as { optionId?: string; targetCharacterId?: CardInstanceId };
+  const option = effects.find(e => e.type === 'play-option' && e.id === fields.optionId);
+  const apply = option?.apply;
+  if (!apply || apply.type !== 'add-constraint' || apply.constraint !== 'check-modifier'
+    || apply.check !== 'influence') return undefined;
+
+  const { view, cardPool, standing, tunables } = context;
+  const roll = view.legalActions.map(e => e.action).find(a => a.type === 'faction-influence-roll') as unknown as {
+    need?: number; influencingCharacterId?: CardInstanceId; factionInstanceId?: CardInstanceId;
+  } | undefined;
+  if (!roll || typeof roll.need !== 'number' || !roll.influencingCharacterId) return null;
+  const characterId = fields.targetCharacterId;
+  if (characterId !== roll.influencingCharacterId) {
+    return { tsd: 0, reason: 'the bonus would land on a character who is not making the influence check' };
+  }
+  const bonus = influenceBonusOf(apply, characterId, context);
+  if (bonus === undefined) return null;
+
+  // Boosts already declared for this character, still waiting on the chain.
+  let declared = 0;
+  for (const entry of view.chain?.entries ?? []) {
+    const payload = entry.payload as unknown as { type?: string; targetCharacterId?: CardInstanceId; optionId?: string };
+    if (entry.resolved || entry.negated || payload.type !== 'short-event' || payload.targetCharacterId !== characterId) continue;
+    const pending = ((cardPool[entry.card?.definitionId as string] as unknown as { effects?: readonly Effect[] } | undefined)
+      ?.effects ?? []).find(e => e.type === 'play-option' && e.id === payload.optionId)?.apply;
+    if (pending?.constraint !== 'check-modifier' || pending.check !== 'influence') continue;
+    declared += influenceBonusOf(pending, characterId, context) ?? 0;
+  }
+
+  const need = roll.need - declared;
+  const pWithout = need <= 2 ? 1 : pAtLeast(need);
+  const pWith = need - bonus <= 2 ? 1 : pAtLeast(need - bonus);
+  const factionCard = view.chain?.entries.find(e => e.card?.instanceId === roll.factionInstanceId)?.card;
+  const mp = (cardPool[factionCard?.definitionId as string] as unknown as { marshallingPoints?: number } | undefined)
+    ?.marshallingPoints ?? 0;
+  const stake = (mp > 0 ? standing.tsdAfter({ faction: mp }) - standing.tsd : 0) + tunables.provisionalCardPrice;
+  const tsd = (pWith - pWithout) * stake;
+  return {
+    tsd,
+    reason: `+${bonus} to the influence check (need ${need} → ${Math.max(2, need - bonus)}): `
+      + `${((pWith - pWithout) * 100).toFixed(1)}% more chance of ${mp} faction MP and of keeping the card`,
+  };
+}
+
 /** What an event is worth if it resolves, or null when the family is unknown. */
 export function gainOf(
   effects: readonly Effect[],
@@ -299,6 +417,8 @@ export function gainOf(
 
   const boost = corruptionBoostGain(effects, context, action);
   if (boost !== undefined) return boost;
+  const influence = influenceBoostGain(effects, context, action);
+  if (influence !== undefined) return influence;
 
   // Shutting a company to creatures for the turn is worth the whole hazard plan
   // the opponent would otherwise aim at it — which is what `defence` computes,
@@ -393,10 +513,31 @@ export function gainOf(
   const recovery = effects.find(e => e.type === 'move' && (e.to === 'hand' || e.to === 'deck'));
   if (recovery) {
     const cards = recovery.count ?? 1;
+    const chosen = bestRecoverable(recovery, context);
+    // The card is chosen rather than drawn, so the best one on offer is what
+    // comes back: its points at this standing, discounted as potential because
+    // it still has to be played. A recovery to the *deck* shuffles it in
+    // rather than handing it over, so it has to be drawn before it can be
+    // played at all, and the discount applies once for each step. A draw is
+    // the floor.
+    // Smoke Rings fetching a 3-MP item from the sideboard came out at exactly
+    // the card it spends, tied with a pass, and the agent never played it
+    // where strong players played it 29 times in the recent rated corpus.
+    // One discount for both destinations overshot the other way: a 5-MP stage
+    // card shuffled into the deck outbid playing an ally for a point now, in
+    // the recorded position `site/allies-from-discard` where the winning human
+    // played the allies.
+    const steps = recovery.to === 'deck' ? 2 : 1;
+    const potential = tunables.potentialDiscount ** steps * (chosen?.tsd ?? 0);
+    const each = Math.max(tunables.resourceDrawValue, potential);
     return {
-      tsd: cards * tunables.resourceDrawValue,
-      reason: `${cards} card(s) back to ${recovery.to}, at what a draw is worth — a floor, since `
-        + 'the card is chosen rather than drawn',
+      tsd: cards * each,
+      reason: chosen && each > tunables.resourceDrawValue
+        ? `${cards} card(s) back to ${recovery.to} — the best on offer is ${chosen.name}, `
+          + `${chosen.tsd.toFixed(1)} at this standing, discounted as potential`
+          + (steps === 2 ? ' twice, since it still has to be drawn' : '')
+        : `${cards} card(s) back to ${recovery.to}, at what a draw is worth — a floor, since `
+          + 'the card is chosen rather than drawn',
     };
   }
 
