@@ -80,10 +80,11 @@ function truncateName(name: string): string {
  *
  * A CvCC strike carries a prowess total, so it is formatted as
  * `prowess+d1+d2=total` for both players — the matching result line arrives
- * later with the state. A plain 2d6 roll is only logged for the opponent: the
- * player who rolled watched their own dice animate. A two-roll strike (one
- * carrying `alternateRoll`) gets no line here: the engine sends both players a
- * text notification quoting both rolls and the outcome.
+ * later with the state. A plain 2d6 roll (corruption check, resistance check,
+ * influence attempt, …) is logged as `d1 + d2 = sum (label)` for both players,
+ * including the roller, so every roll stays in the panel's history. A two-roll
+ * strike (one carrying `alternateRoll`) gets no line here: the engine sends
+ * both players a text notification quoting both rolls and the outcome.
  *
  * @param selfName - Name of the player using this client.
  * @param opponentName - Display name for the opponent, when known.
@@ -112,9 +113,11 @@ export function diceRollNotification(
       ? { message, opts: { self: selfName } }
       : { message, opts: { opponent: opponentName ?? playerName } };
   }
-  if (playerName === selfName) return null;
-  return {
-    message: `rolled ${die1} + ${die2} = ${die1 + die2} (${truncateName(label)})`,
-    opts: { opponent: playerName },
-  };
+  // Plain 2d6 rolls are logged for the roller too: the dice animation fades
+  // and leaves nothing to scroll back to, and with the dice view off the
+  // panel is the only place the roll shows up.
+  const message = `rolled ${die1} + ${die2} = ${die1 + die2} (${truncateName(label)})`;
+  return playerName === selfName
+    ? { message, opts: { self: selfName } }
+    : { message, opts: { opponent: opponentName ?? playerName } };
 }
