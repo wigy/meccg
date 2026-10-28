@@ -120,6 +120,12 @@ export interface PlayHazardAction {
   /** For corruption hazards, the specific character being targeted. */
   readonly targetCharacterId?: CardInstanceId;
   /**
+   * Further characters targeted alongside {@link targetCharacterId} by a
+   * multi-target `tap-character` (`maxTargets`, Lord of the Haven as-15:
+   * "tap up to two target characters in one company").
+   */
+  readonly additionalTargetCharacterIds?: readonly CardInstanceId[];
+  /**
    * For site-targeting hazards (e.g. *River*), the site definition ID
    * the hazard is bound to. The card enters play in `cardsInPlay` with
    * `attachedToSite` set to this value, so the engine can fire the

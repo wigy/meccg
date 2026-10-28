@@ -41,6 +41,7 @@ import { CROWN_OF_FLOWERS } from '../../card-ids.js';
 
 const GOLLUM = 'tw-246' as CardDefinitionId;
 const MUSTER = 'tw-288' as CardDefinitionId;
+const SCROLL_OF_ISILDUR = 'tw-323' as CardDefinitionId;
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -169,7 +170,14 @@ describe('Crown of Flowers (dm-121)', () => {
     expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
   });
 
-  test('offers and allows pairing a site-restricted ally once a company is at a qualifying site', () => {
+  // Regression (Bug Report: Crown of Flowers, game mvqdc16a-j4nsp8 seq 215):
+  // even with a company at Moria (a site Gollum is playable at), an ally may
+  // only be played during the company's site phase by tapping an untapped
+  // character at an untapped site, and enters play under that character's
+  // control (CoE 2.V.2). The organization-phase pairing dropped Gollum into
+  // the player's general cardsInPlay — out of phase, at a tapped site, with
+  // no controlling character — so allies must not be offered at all.
+  test('does not offer to pair an ally during organization even at a site it is playable at', () => {
     const state = buildTestState({
       activePlayer: PLAYER_1,
       phase: Phase.Organization,
@@ -183,14 +191,7 @@ describe('Crown of Flowers (dm-121)', () => {
     const afterPlay = dispatch(state, playActions[0].action);
     const resolved = resolveChain(afterPlay);
 
-    const pairActions = viableActions(resolved, PLAYER_1, 'pair-resource-with-cof');
-    expect(pairActions).toHaveLength(1);
-
-    const afterPair = dispatch(resolved, pairActions[0].action);
-    const gollumInPlay = afterPair.players[RESOURCE_PLAYER].cardsInPlay.find(
-      c => c.definitionId === GOLLUM,
-    ) as CardInPlay;
-    expect(gollumInPlay).toBeDefined();
+    expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
   });
 
   // Regression (Bug Report: Muster, game mth1ahu8-bqdcqv seq 412): Muster
@@ -207,6 +208,28 @@ describe('Crown of Flowers (dm-121)', () => {
       players: [
         { id: PLAYER_1, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, MUSTER], siteDeck: [MINAS_TIRITH] },
         { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [MORIA] },
+      ],
+    });
+
+    const playActions = viableActions(state, PLAYER_1, 'play-permanent-event');
+    const afterPlay = dispatch(state, playActions[0].action);
+    const resolved = resolveChain(afterPlay);
+
+    expect(viableActions(resolved, PLAYER_1, 'pair-resource-with-cof')).toHaveLength(0);
+  });
+
+  // Regression (Bug Report: Crown of Flowers / Scroll of Isildur, game
+  // mvoab2nj-9jan8n seq 674): items (CoE 2.V.1) can only be played during the
+  // site phase by an untapped character at an untapped site. Pairing Scroll
+  // of Isildur with Crown of Flowers in the organization phase dropped it into
+  // general play with no bearer, awarding its 4 item MP for free.
+  test('does not offer to pair an item (Scroll of Isildur) with CoF', () => {
+    const state = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Organization,
+      players: [
+        { id: PLAYER_1, companies: [{ site: MORIA, characters: [ARAGORN] }], hand: [CROWN_OF_FLOWERS, SCROLL_OF_ISILDUR], siteDeck: [MINAS_TIRITH] },
+        { id: PLAYER_2, companies: [{ site: LORIEN, characters: [LEGOLAS] }], hand: [], siteDeck: [RIVENDELL] },
       ],
     });
 

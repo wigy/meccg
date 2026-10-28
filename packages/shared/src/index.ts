@@ -1,7 +1,7 @@
 export * from './types/index.js';
 export * from './constants.js';
 export { loadCardPool, isSynthesizedActsAsSiteId } from './data/index.js';
-export { formatGameState, formatPlayerView, formatCardName, formatDefName, formatCardList, describeAction, extractActionCardDefs, redactActionForAudience, buildCompanyNames, getTitleCharacter, stripCardMarkers, formatSignedNumber, buildInstanceLookup, CARD_TYPE_CSS, getCardCss, describeAttackLogEntry, describeAttackTotals, describeRollBreakdown, formatRollTerms } from './format.js';
+export { formatGameState, formatPlayerView, formatCardName, formatDefName, formatCardList, describeAction, extractActionCardDefs, redactActionForAudience, buildCompanyNames, buildAgentNames, getTitleCharacter, stripCardMarkers, formatSignedNumber, buildInstanceLookup, CARD_TYPE_CSS, getCardCss, describeAttackLogEntry, describeAttackTotals, describeRollBreakdown, formatRollTerms } from './format.js';
 export { createRng, nextRng, nextInt, shuffle } from './rng.js';
 export * from './card-ids.js';
 export { cardImageProxyPath, cardImageRawUrl } from './card-images.js';
@@ -32,7 +32,7 @@ export { reduce } from './engine/reducer.js';
 export type { ReducerResult } from './engine/reducer.js';
 export { computeLegalActions, computePlayerFacingActions, withConcedeAction, withMetaActions, isMetaAction, META_ACTION_TYPES } from './engine/legal-actions/index.js';
 export type { MetaActionOptions } from './engine/legal-actions/index.js';
-export { currentHazardLimit, effectiveHazardLimit } from './engine/hazard-limit.js';
+export { currentHazardLimit, effectiveHazardLimit, facingAttackHazardLimitBonus } from './engine/hazard-limit.js';
 export { describeArrivalMode } from './engine/arrival-modes.js';
 export { isDetainmentAttack } from './engine/detainment.js';
 // The AI's playability mirror needs the engine's own reading of which sites

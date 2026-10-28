@@ -16892,6 +16892,29 @@ and the named regions are matched against `company.regionNames`:
 }
 ```
 
+### 54a. `hazard-limit-facing-attack`
+
+Carried by an in-play permanent event; increases the hazard limit against any
+company facing one or more hazard creature attacks of `race` by `value` (once
+per carrying card, however many such attacks the company faces).
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `race` | yes | Creature race whose hand-played hazard-creature attack triggers the increase. |
+| `value` | yes | Amount added to the company's hazard limit. |
+
+```json
+{ "type": "hazard-limit-facing-attack", "race": "animal", "value": 1 }
+```
+
+Behaviour (`hazard-limit.ts` `facingAttackHazardLimitBonus`): applied live in
+`currentHazardLimit`. The company is facing a matching attack once the
+creature's combat has begun against it (`state.combat`, creature attack
+source), and keeps the bonus for the rest of its M/H sub-phase via
+`hazardsEncountered`. A creature still on the chain does not yet count. Used by
+Bairanax at Home (td-5): "the hazard limit against any company facing one or
+more animal hazard creature attacks is increased by one."
+
 ### 54b. `cancel-hazard-event-play`
 
 Marker effect on an in-play permanent or long event: while the carrying card is
@@ -17241,6 +17264,26 @@ his current site or at his new site. Alternatively, tap a diplomat if another
 diplomat is in his company or at his current site or at his new site." — two
 `tap-character` effects, `filter: { "skills": { "$includes": "sage" } }` +
 `requiresCompanionSkill: "sage"`, and the diplomat equivalent.
+
+`tap-character` also takes an optional **`maxTargets: number`** for "tap up to
+N target characters in one company", offered through a dual creature's
+`creature-alt-event` **short-event** mode. The targets are drawn from the
+targeted (active M/H) company only: the alt-event branch of the hazard
+generator (`legal-actions/movement-hazard.ts`, `multiTapTargetSets`) emits one
+`play-hazard` action per non-empty set of at most `maxTargets` untapped,
+`filter`-matching characters, the first on `targetCharacterId` and the rest on
+the new `additionalTargetCharacterIds` (on both the action and the
+`short-event` chain payload). With no untapped character the mode is not
+offered. `applyTapCharacter` (`chain-reducer.ts`) taps every listed target,
+leaving any character wounded in the meantime as it is. The event-mode
+`targetCompany` condition context also gains **`company.regionTypes`** — the
+region types of the company's resolved movement path, or the region type of
+its current site when it is not moving. Used by *Lord of the Haven* (as-15):
+"As a short-event, tap up to two target characters in one company at a site in,
+or moving through, a Coastal Sea region" —
+`{ "type": "creature-alt-event", "mode": "short-event", "targetCompany": {
+"company.regionTypes": { "$includes": "coastal" } } }` +
+`{ "type": "tap-character", "maxTargets": 2 }`.
 
 ### 56d. Persistent permanent-event mode + `cancel-deck-search`
 
