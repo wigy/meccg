@@ -1290,7 +1290,7 @@ export function getCardEffects(
   def: CardDefinition | null | undefined,
 ): readonly CardEffect[] {
   if (!def || !('effects' in def)) return [];
-  return getCardEffects(def);
+  return (def as { readonly effects?: readonly CardEffect[] }).effects ?? [];
 }
 
 /**
