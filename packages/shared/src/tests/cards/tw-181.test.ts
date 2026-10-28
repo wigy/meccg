@@ -12,7 +12,8 @@
  * Tests:
  * 1. Palantír use: Saruman's text enables Palantír usage (detected by engine)
  * 2. Spell fetch: during end-of-turn discard step, Saruman can tap to take
- *    a spell card from discard pile to hand
+ *    a spell card from discard pile to hand (including permanent-event
+ *    spells such as Sacrifice of Form)
  */
 
 import { describe, test, expect, beforeEach } from 'vitest';
@@ -27,7 +28,9 @@ import {
   viableActions, dispatch, makePlayDeck,
   getCharacter, RESOURCE_PLAYER,
 } from '../test-helpers.js';
-import type { ActivateGrantedAction } from '../../index.js';
+import type { ActivateGrantedAction, CardDefinitionId } from '../../index.js';
+
+const SACRIFICE_OF_FORM = 'tw-321' as CardDefinitionId;
 
 describe('Saruman (tw-181)', () => {
   beforeEach(() => resetMint());
@@ -146,6 +149,34 @@ describe('Saruman (tw-181)', () => {
       ea => (ea.action as ActivateGrantedAction).actionId === 'saruman-fetch-spell',
     );
     expect(fetchActions.length).toBe(2);
+  });
+
+  test('spell fetch can take Sacrifice of Form (a permanent-event spell) from discard', () => {
+    const state = buildTestState({
+      phase: Phase.EndOfTurn,
+      activePlayer: PLAYER_1,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1,
+          companies: [{ site: LORIEN, characters: [SARUMAN] }],
+          hand: [],
+          discardPile: [SACRIFICE_OF_FORM],
+          siteDeck: [MORIA],
+        },
+        { id: PLAYER_2, companies: [{ site: RIVENDELL, characters: [ARAGORN] }], hand: [], siteDeck: [MINAS_TIRITH] },
+      ],
+    });
+
+    const actions = viableActions(state, PLAYER_1, 'activate-granted-action');
+    const fetchAction = actions.find(
+      ea => (ea.action as ActivateGrantedAction).actionId === 'saruman-fetch-spell',
+    );
+    expect(fetchAction).toBeDefined();
+
+    const newState = dispatch(state, fetchAction!.action);
+    expect(newState.players[0].hand.map(c => c.definitionId)).toEqual([SACRIFICE_OF_FORM]);
+    expect(newState.players[0].discardPile.length).toBe(0);
   });
 
   test('spell fetch not available when Saruman is tapped', () => {
