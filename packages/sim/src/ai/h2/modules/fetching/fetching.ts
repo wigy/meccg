@@ -243,7 +243,7 @@ function evaluateExchange(action: GameAction, context: ModuleContext): Evaluatio
   const givenUp = view.self.discardPile.find(c => c.instanceId === givenUpId);
   if (!gained || !givenUp) return null;
 
-  const prices = computeCardPrices(view, cardPool, standing, tunables);
+  const prices = computeCardPrices(view, cardPool, standing, tunables, context.ownDeck);
   const incoming = prices.quote(gained.definitionId);
   const outgoing = prices.quote(givenUp.definitionId);
   const dtsd = incoming.tsd - outgoing.tsd;
@@ -294,7 +294,7 @@ export const fetchingModule: H2Module = {
     if (!chosen) return null;
 
     const { standing, view, cardPool, tunables } = context;
-    const prices = computeCardPrices(view, cardPool, standing, tunables);
+    const prices = computeCardPrices(view, cardPool, standing, tunables, context.ownDeck);
     const quote = prices.quote(chosen.definitionId);
     const favourite = isFavouritePick(action, context) ? tunables.favouriteCharacterTsd : 0;
     // Only the starting draft is a mind knapsack; every other action here takes

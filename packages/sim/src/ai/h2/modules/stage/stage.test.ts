@@ -21,6 +21,7 @@ import { computeStanding } from '../../services/standing.js';
 import { loadScenario, scenarioView } from '../../scenario-store.js';
 import { testMarshallingPoints, testWinProbModel } from '../../test-support.js';
 import { stageModule } from './stage.js';
+import { heldGain } from '../../services/event-value.js';
 
 /** A bare stage resource: 1 stage point, no marshalling points. */
 const PLAIN_STAGE = 'st-plain';
@@ -266,6 +267,13 @@ describe('stage: Gates of Morning', () => {
     const evaluation = stageModule.evaluate(gates, withDeck)!;
     expect(JSON.stringify(evaluation.rationale)).toContain('Star of High Hope');
     expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('is worth keeping for the same cards, so the hand reset does not throw it first', () => {
+    const { moduleContext } = setup(scenarioView(loadScenario(SCENARIO)));
+    const held = heldGain('tw-243', moduleContext)!;
+    expect(held.reason).toContain('The Cock Crows do more with Gates of Morning in play');
+    expect(held.tsd).toBeGreaterThan(0);
   });
 
   test('discarding Doors of Night is worth the Minions Stir upgrade it takes with it', () => {

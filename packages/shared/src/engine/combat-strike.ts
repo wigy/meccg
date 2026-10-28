@@ -139,7 +139,7 @@ function dischargeBearerStrikeDefeatedItems(
   for (const item of charData.items) {
     const itemDef = defById(state, item.definitionId);
     if (getOnEventEffects(itemDef, 'bearer-strike-defeated').some(e => isSelfDiscardMove(e.apply))) {
-      const itemName = (itemDef as { name?: string } | undefined)?.name ?? (item.definitionId as string);
+      const itemName = itemDef?.name ?? (item.definitionId as string);
       logDetail(`bearer-strike-defeated: discarding "${itemName}" from ${charId as string} — a strike against him failed`);
       itemsToDiscard.push(item);
     }
@@ -976,7 +976,7 @@ export function resolveStrikeCvCC(
   const atkCharData = atkPlayer.characters[strike.attackingCharacterId];
   if (!atkCharData) return { state, error: `Attacking character ${strike.attackingCharacterId as string} not found` };
   const atkCharDef = defById(state, atkCharData.definitionId);
-  const atkCharName = (atkCharDef as { name?: string } | undefined)?.name ?? (strike.attackingCharacterId as string);
+  const atkCharName = atkCharDef?.name ?? (strike.attackingCharacterId as string);
 
   // Look up defender character
   const defPlayerIdx = getPlayerIndex(state, combat.defendingPlayerId);
@@ -984,7 +984,7 @@ export function resolveStrikeCvCC(
   const defCharData = defPlayer.characters[strike.characterId];
   if (!defCharData) return { state, error: `Defending character ${strike.characterId as string} not found` };
   const defCharDef = defById(state, defCharData.definitionId);
-  const defCharName = (defCharDef as { name?: string } | undefined)?.name ?? (strike.characterId as string);
+  const defCharName = defCharDef?.name ?? (strike.characterId as string);
 
   // Compute attacker prowess
   let atkProwess = atkCharData.effectiveStats.prowess;

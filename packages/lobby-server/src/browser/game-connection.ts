@@ -550,7 +550,7 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
     const instanceToName = (id: import('@meccg/shared').CardInstanceId): string => {
       const defId = appState.lastInstanceLookup(id);
       const def = defId ? cardPool[defId as string] : undefined;
-      return (def as { name?: string } | undefined)?.name ?? (id as string);
+      return def?.name ?? (id as string);
     };
     const rollLines = describeRollOutcome(msg.lastAction, msg.view, appState.prevSelfDice, appState.prevOpponentDice, appState.prevResolvedCount, appState.prevCombatAttackingPlayerId, instanceToName);
     for (const { line, isSelf } of rollLines) {
@@ -594,7 +594,7 @@ export async function renderStateMessage(msg: StateMessage): Promise<void> {
   renderWithdrawSupport(msg.view, (id) => {
     const defId = appState.lastInstanceLookup(id);
     const def = defId ? cardPool[defId as string] : undefined;
-    return (def as { name?: string } | undefined)?.name ?? (id as string);
+    return def?.name ?? (id as string);
   }, sendAction);
   // Animate cards from old positions to new positions
   animateFromSnapshot();

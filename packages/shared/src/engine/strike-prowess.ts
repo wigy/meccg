@@ -255,7 +255,7 @@ export function passiveModifyAttackProwessTerms(
     for (const effect of getCardEffects(itemDef)) {
       if (effect.type !== 'modify-attack' || effect.scope !== 'current-strike' || !effect.passive) continue;
       if (typeof effect.prowessModifier !== 'number') continue;
-      const name = (itemDef as { name?: string }).name ?? (item.definitionId as string);
+      const name = itemDef.name ?? (item.definitionId as string);
       logDetail(`Passive modify-attack prowess bonus ${formatSignedNumber(effect.prowessModifier)} from ${name}`);
       terms.push({ label: name, value: effect.prowessModifier, sourceDefinitionId: item.definitionId });
     }

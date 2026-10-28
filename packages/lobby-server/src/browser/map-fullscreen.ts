@@ -428,7 +428,7 @@ function createFullMapOpponentAgentDiamond(
   if (!home) return null;
 
   const [x, y] = home.coords;
-  const agentName = (agentDef as { name?: string }).name ?? 'Agent';
+  const agentName = agentDef?.name ?? 'Agent';
   const diamond = document.createElement('div');
   diamond.className = 'map-agent map-agent--opponent-revealed map-agent--full';
   diamond.style.left = `${x * 100}%`;

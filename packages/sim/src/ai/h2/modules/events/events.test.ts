@@ -700,3 +700,85 @@ describe('an influence boost before the roll', () => {
       .toContain('not making the influence check');
   });
 });
+
+describe('Twilight on an environment', () => {
+  // Twilight's cancel is the engine's, offered per environment in
+  // `targetInstanceId`; the DSL only says how it may be played, so it was
+  // priced at the card it spends. Position: game mvnhp11q-o23csi (seq 1070),
+  // the acting player's own movement, with environments added to the board.
+  const SCENARIO = 'movement/gates-of-morning-for-the-cock-crows';
+  const setup = (mine: boolean, theirTurn = false) => {
+    const scenario = loadScenario(SCENARIO);
+    const base = scenarioView(scenario);
+    const id = (side: 'self' | 'opponent', n: string) => `${base[side].id as string}-${n}`;
+    const side = mine ? 'self' : 'opponent';
+    const environment = [
+      { instanceId: id(side, '9001'), definitionId: 'tw-28' },
+      { instanceId: id(side, '9002'), definitionId: 'tw-61' },
+    ];
+    const view = {
+      ...base,
+      activePlayer: theirTurn ? base.opponent.id : base.self.id,
+      self: {
+        ...base.self,
+        hand: [...base.self.hand, { instanceId: id('self', '9003'), definitionId: 'tw-106' }],
+        cardsInPlay: mine ? [...base.self.cardsInPlay, ...environment] : base.self.cardsInPlay,
+      },
+      opponent: {
+        ...base.opponent,
+        cardsInPlay: mine ? base.opponent.cardsInPlay : [...base.opponent.cardsInPlay, ...environment],
+      },
+    } as unknown as PlayerView;
+    const twilight = {
+      type: 'play-short-event', player: base.self.id, cardInstanceId: id('self', '9003'),
+      targetInstanceId: id(side, '9001'),
+    } as unknown as GameAction;
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable).map(legal => legal.action);
+    const context: ModuleContext = {
+      view, cardPool: loadCardPool(), legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    return { twilight, context };
+  };
+
+  test('on their Doors of Night is worth the Minions Stir upgrade it takes off our companies, and the card', () => {
+    const { twilight, context } = setup(false);
+    const evaluation = eventsModule.evaluate(twilight, context)!;
+    expect(JSON.stringify(evaluation.rationale)).toMatch(/takes their Doors of Night out of play — [0-9.]+ of harm off our companies/);
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('on our own Doors of Night in our own turn is worth the harm it was doing to our companies', () => {
+    // What strong players do: Doors of Night against their movement, then
+    // Twilight on it in their own turn (game mvjum705-ua2jlu, seq 165).
+    const { twilight, context } = setup(true);
+    const evaluation = eventsModule.evaluate(twilight, context)!;
+    expect(JSON.stringify(evaluation.rationale))
+      .toMatch(/takes our own Doors of Night out of play before our movement — [0-9.]+ of harm off our companies/);
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('on our own Doors of Night in our own turn is played even when nothing we can see reads it', () => {
+    // Most of what Doors of Night does is in the opponent's hand; strong
+    // players cancel their own before moving whatever the board shows.
+    const { twilight, context } = setup(true);
+    const bare = {
+      ...context,
+      view: {
+        ...context.view,
+        self: { ...context.view.self, cardsInPlay: context.view.self.cardsInPlay.filter(c => c.definitionId !== 'tw-61') },
+      },
+    } as ModuleContext;
+    const evaluation = eventsModule.evaluate(twilight, { ...bare, standing: computeStanding(bare.view, testWinProbModel(), DEFAULT_TUNABLES) })!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('what it enables in their hand');
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('on our own Doors of Night in their turn is not played: it is working for our attacks', () => {
+    const { twilight, context } = setup(true, true);
+    const evaluation = eventsModule.evaluate(twilight, context)!;
+    expect(JSON.stringify(evaluation.rationale)).not.toContain('of harm off our companies');
+    expect(evaluation.utility).toBeLessThan(0);
+  });
+});

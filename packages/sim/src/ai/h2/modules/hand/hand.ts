@@ -157,7 +157,7 @@ function refillsAfterDiscard(context: ModuleContext): boolean {
  * view supports.
  */
 function expectedDrawWorth(context: ModuleContext): number {
-  const held = computeCardPrices(context.view, context.cardPool, context.standing, context.tunables).ranked();
+  const held = computeCardPrices(context.view, context.cardPool, context.standing, context.tunables, context.ownDeck).ranked();
   if (held.length === 0) return context.tunables.resourceDrawValue;
   const mean = held.reduce((sum, card) => sum + card.tsd, 0) / held.length;
   return Math.max(context.tunables.resourceDrawValue, mean);
@@ -209,7 +209,7 @@ export const handModule: H2Module = {
       const discarding = action.type === 'discard-card';
       // Priced only when discarding: a draw has nothing in particular to
       // value, and the creature valuation resolves whole attacks.
-      const prices = discarding ? computeCardPrices(view, context.cardPool, standing, tunables) : null;
+      const prices = discarding ? computeCardPrices(view, context.cardPool, standing, tunables, context.ownDeck) : null;
       const discardedId = (action as unknown as { cardInstanceId?: CardInstanceId }).cardInstanceId;
       const discarded = prices && discardedId ? prices.worth(discardedId) : null;
       // The strong players' keep rules (`services/cycling`): a card they would
@@ -287,7 +287,7 @@ export const handModule: H2Module = {
 
     const access = SIDEBOARD_ACCESS[action.type];
     if (!access) return null;
-    const prices = computeCardPrices(view, context.cardPool, standing, tunables);
+    const prices = computeCardPrices(view, context.cardPool, standing, tunables, context.ownDeck);
 
     // What the sideboard could actually supply, best first. The two seats reach
     // different halves of it: the untap access fetches hazards, the avatar tap

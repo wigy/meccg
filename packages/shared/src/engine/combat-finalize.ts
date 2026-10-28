@@ -256,7 +256,7 @@ function applyAgentAttackOutcome(state: GameState, combat: CombatState): GameSta
     const manifestName = outcome.manifestationCardName ?? '';
     const hasManifestation = defPlayer.hand.some(c => {
       const d = defById(state, c.definitionId);
-      return d !== undefined && (d as { name?: string }).name === manifestName;
+      return d !== undefined && d.name === manifestName;
     });
     const hasUntappedChar = company.characters.some(cid => defPlayer.characters[cid]?.status === CardStatus.Untapped);
     if (!hasManifestation || !hasUntappedChar) return state;
@@ -759,7 +759,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
     (state.phaseState.phase === Phase.Site || state.phaseState.phase === Phase.MovementHazard)
   ) {
     const sourceCard = getAttackSourceCard(state, combat);
-    const sourceName = (sourceCard as { name?: string } | undefined)?.name ?? 'Wound';
+    const sourceName = sourceCard?.name ?? 'Wound';
     const woundEvents = getOnEventEffects(sourceCard, 'character-wounded-by-self');
     for (const woundEvent of woundEvents) {
       const conditionContext = buildOnEventContext(state);
@@ -1296,7 +1296,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           if (eff.type !== 'permanent-event-auto-attack') continue;
           const peaEff = eff;
           if (peaEff.onDefeat !== 'remove-from-play') continue;
-          const sourceName = (sourceDef as { name?: string } | undefined)?.name ?? '?';
+          const sourceName = sourceDef?.name ?? '?';
           const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
           const ownerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
           const sourceCard = ownerIdx >= 0 ? stateAfterCombat.players[ownerIdx].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
@@ -1339,7 +1339,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         // (run once per reducer dispatch, see reducer.ts) then sweeps any
         // sister manifestations and strips the lair's future automatic-attack.
         if (isDragonAtHome) {
-          const atHomeName = (atHomeDef as { name?: string } | undefined)?.name ?? '?';
+          const atHomeName = atHomeDef?.name ?? '?';
           const defIdxAH = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
           const ownerIdxAH = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === sourceInstId));
           const atHomeCard = ownerIdxAH >= 0 ? stateAfterCombat.players[ownerIdxAH].cardsInPlay.find(c => c.instanceId === sourceInstId) : undefined;
@@ -1376,7 +1376,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
           const defIdx = getPlayerIndex(stateAfterCombat, combat.defendingPlayerId);
           const defCompany = companyById(stateAfterCombat.players[defIdx].companies, combat.companyId);
           if (defCompany && defCompany.characters.length > 0) {
-            const atHomeName = (atHomeDef as { name?: string } | undefined)?.name ?? '?';
+            const atHomeName = atHomeDef?.name ?? '?';
             logDetail(`King under the Mountain tracking: company ${combat.companyId as string} defeated at-home Dragon manifestation "${atHomeName}" at ${siteDef.name} — recording dragonAtHomeVictorySiteId=${siteDef.id as string} on ${defCompany.characters.length} character(s)`);
             stateAfterCombat = updatePlayer(stateAfterCombat, defIdx, p => {
               let characters = p.characters;
@@ -1411,7 +1411,7 @@ export function finalizeCombat(state: GameState, effects: GameEffect[] = []): Re
         for (const dauEff of dauEffects) {
           if (dauEff.type !== 'permanent-event-auto-attack') continue;
           if (!dauEff.discardAfterUse) continue;
-          const dauSourceName = (dauSourceDef as { name?: string } | undefined)?.name ?? '?';
+          const dauSourceName = dauSourceDef?.name ?? '?';
           const dauOwnerIdx = stateAfterCombat.players.findIndex(p => p.cardsInPlay.some(c => c.instanceId === dauSourceInstId));
           const dauSourceCard = dauOwnerIdx >= 0 ? stateAfterCombat.players[dauOwnerIdx].cardsInPlay.find(c => c.instanceId === dauSourceInstId) : undefined;
           if (dauSourceCard) {
@@ -2277,7 +2277,7 @@ export function recordHazardEncountered(
     : undefined;
   if (creatureInstanceId) {
     const creatureDefId = resolveInstanceId(originalState, creatureInstanceId);
-    const creatureDef = creatureDefId ? originalState.cardPool[creatureDefId] as { name?: string } | undefined : undefined;
+    const creatureDef = creatureDefId ? originalState.cardPool[creatureDefId] : undefined;
     const creatureName = creatureDef?.name;
     if (creatureName) {
       const defIdx = getPlayerIndex(s, combat.defendingPlayerId);
@@ -2300,7 +2300,7 @@ export function recordHazardEncountered(
   const creatureDefId = resolveInstanceId(originalState, combat.attackSource.instanceId);
   if (!creatureDefId) return s;
 
-  const creatureDef = originalState.cardPool[creatureDefId] as { name?: string } | undefined;
+  const creatureDef = originalState.cardPool[creatureDefId];
   const creatureName = creatureDef?.name;
   if (!creatureName) return s;
 

@@ -2040,7 +2040,7 @@ export function resolveHandSize(state: GameState, playerIndex: number): number {
       if (effect.type === 'hand-size-modifier') {
         const delta = typeof effect.value === 'number' ? effect.value : 0;
         if (delta !== 0) {
-          logDetail(`Hand-size: +${delta} from ${(def as { name?: string }).name ?? '?'} in play`);
+          logDetail(`Hand-size: +${delta} from ${def?.name ?? '?'} in play`);
           total += delta;
         }
       }

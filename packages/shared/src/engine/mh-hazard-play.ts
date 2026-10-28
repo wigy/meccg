@@ -2175,7 +2175,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     if (factionsToDiscard.length > 0) {
       const discardSet = new Set(factionsToDiscard.map(c => c.instanceId as string));
       for (const f of factionsToDiscard) {
-        const fDef = state.cardPool[f.definitionId] as { name?: string } | undefined;
+        const fDef = state.cardPool[f.definitionId];
         logDetail(`leader-control: discarding "${fDef?.name ?? f.definitionId}" — controlling leader moved`);
       }
       newPlayers[activeIndex] = {
@@ -4121,7 +4121,7 @@ export function handleTapHazardCardForLimit(
   const effect = findCardEffect(def, 'hazard-limit-swap');
   if (!effect) return { state, error: `tap-hazard-card-for-limit: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
-  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
+  const defName = def?.name ?? card.definitionId as string;
   logDetail(`Tap hazard card for limit: "${defName}" taps → +${effect.tapValue} hazard limit against company ${action.targetCompanyId as string}`);
 
   // Tap the card
@@ -4166,7 +4166,7 @@ export function handlePayHazardLimitToUntapCard(
   const effect = findCardEffect(def, 'hazard-limit-swap');
   if (!effect) return { state, error: `pay-hazard-limit-to-untap-card: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
-  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
+  const defName = def?.name ?? card.definitionId as string;
   const newHazardCount = mhState.hazardsPlayedThisCompany + effect.untapCost;
   logDetail(`Pay hazard limit to untap: "${defName}" costs ${effect.untapCost} hazard limit (${newHazardCount}/${currentHazardLimit(state, mhState, action.targetCompanyId)}) → card untaps`);
 
@@ -4211,7 +4211,7 @@ export function handleDiscardCardForHazardLimit(
   const effect = findCardEffect(def, 'discard-for-hazard-limit');
   if (!effect) return { state, error: `discard-card-for-hazard-limit: no discard-for-hazard-limit effect on ${card.definitionId as string}` };
 
-  const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
+  const defName = def?.name ?? card.definitionId as string;
   logDetail(`Discard for hazard limit: "${defName}" discarded from play → +${effect.value} hazard limit against company ${action.targetCompanyId as string}`);
 
   // Discard the card from play (routine discard — chain is not broken).
@@ -4415,8 +4415,8 @@ export function handlePlayCreatureFromDiscard(
     return { state, error: `play-creature-from-discard: hazard limit reached (${mhState.hazardsPlayedThisCompany}/${hazardLimit})` };
   }
 
-  const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
-  const eventName = (eventDef as { name?: string } | undefined)?.name ?? (eventCard.definitionId as string);
+  const creatureName = creatureDef.name ?? (creatureCard.definitionId as string);
+  const eventName = eventDef?.name ?? (eventCard.definitionId as string);
   const bodyModifier = effect.bodyModifier ?? 0;
   logDetail(
     `${eventName}: playing "${creatureName}" from discard pile (prowess ${effect.prowessModifier >= 0 ? '+' : ''}${effect.prowessModifier}`
@@ -4509,8 +4509,8 @@ export function handleAttackNazgulPermanentEvent(
     return { state, error: 'attack-nazgul-permanent-event: creatures must initiate a new chain' };
   }
 
-  const nazgulName = (nazgulDef as { name?: string } | undefined)?.name ?? (nazgulCard.definitionId as string);
-  const eventName = (eventDef as { name?: string } | undefined)?.name ?? (eventCard.definitionId as string);
+  const nazgulName = nazgulDef?.name ?? (nazgulCard.definitionId as string);
+  const eventName = eventDef?.name ?? (eventCard.definitionId as string);
   logDetail(
     `${eventName}: triggering "${nazgulName}" (owner ${action.targetNazgulOwnerId as string}) to attack from its permanent-event state `
     + `against company ${action.targetCompanyId as string} — does NOT count against hazard limit`,
@@ -4596,7 +4596,7 @@ export function handleSpawnReplayCreature(
   }
 
   // "This card must have already attacked the company this turn."
-  const creatureName = (creatureDef as { name?: string }).name ?? (creatureCard.definitionId as string);
+  const creatureName = creatureDef.name ?? (creatureCard.definitionId as string);
   if (!mhState.hazardsEncountered.includes(creatureName)) {
     return { state, error: `spawn-replay-creature: "${creatureName}" has not attacked this company this turn` };
   }
@@ -4706,7 +4706,7 @@ function findHazardLimitRaceGrant(state: GameState, def: CreatureCard): HazardLi
     if (encountered.length > 0) {
       const encounteredNames = new Set<string>(encountered);
       for (const poolDef of Object.values(state.cardPool)) {
-        const name = (poolDef as { name?: string }).name;
+        const name = poolDef.name;
         if (name === undefined || !encounteredNames.has(name)) continue;
         const grant = getCardEffects(poolDef).find((e): e is HazardLimitRaceGrantEffect => matches(e) && e.source === 'faced-this-turn');
         if (grant) return grant;

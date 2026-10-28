@@ -20,7 +20,7 @@ import type { CardDefinition } from '../index.js';
 const pool = loadCardPool();
 const defs = Object.values(pool);
 const idSet = new Set(defs.map(d => d.id as string));
-const nameSet = new Set(defs.map(d => (d as { name?: string }).name).filter((n): n is string => typeof n === 'string'));
+const nameSet = new Set(defs.map(d => d.name).filter((n): n is string => typeof n === 'string'));
 
 /** Keys that hold a card NAME reference inside an effect object. */
 const NAME_KEYS = new Set(['inPlay', 'inPlayAnywhere', 'cardName', 'requiresCardOnSameSite']);
@@ -54,7 +54,7 @@ describe('Card pool cross-reference integrity', () => {
     for (const def of defs) {
       const m = (def as { manifestId?: string }).manifestId;
       if (m !== undefined && !idSet.has(m)) {
-        dangling.push(`${def.id as string} (${(def as { name?: string }).name ?? '?'}): manifestId → ${m}`);
+        dangling.push(`${def.id as string} (${def.name ?? '?'}): manifestId → ${m}`);
       }
     }
     expect(dangling).toEqual([]);
@@ -65,7 +65,7 @@ describe('Card pool cross-reference integrity', () => {
     for (const def of defs) {
       for (const { where, name } of collectNameRefs(def)) {
         if (!nameSet.has(name)) {
-          dangling.push(`${def.id as string} (${(def as { name?: string }).name ?? '?'}) ${where}: "${name}"`);
+          dangling.push(`${def.id as string} (${def.name ?? '?'}) ${where}: "${name}"`);
         }
       }
     }

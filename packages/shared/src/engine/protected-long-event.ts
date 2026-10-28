@@ -48,7 +48,7 @@ export function discardOrphanedLongEventAttachedEvents(state: GameState): GameSt
     (card, player) => card.attachedToLongEvent !== undefined
       && !player.cardsInPlay.some(c => c.instanceId === card.attachedToLongEvent),
     card => {
-      const def = state.cardPool[card.definitionId] as { name?: string } | undefined;
+      const def = state.cardPool[card.definitionId];
       logDetail(`long-event-attached event: discarding "${def?.name ?? (card.definitionId as string)}" — target long-event ${card.attachedToLongEvent as string} left play`);
     },
   );
@@ -73,7 +73,7 @@ export function sweepProtectedLongEventCascade(prev: GameState, next: GameState)
       const targetIdx = result.players[pi].cardsInPlay.findIndex(c => c.instanceId === targetId);
       if (targetIdx < 0) continue; // target already gone (or never there)
       const targetCard = result.players[pi].cardsInPlay[targetIdx];
-      const def = result.cardPool[targetCard.definitionId] as { name?: string } | undefined;
+      const def = result.cardPool[targetCard.definitionId];
       logDetail(`long-event protection: discarding "${def?.name ?? (targetId as string)}" — protector ${card.instanceId as string} left play`);
       result = updatePlayer(result, pi, p => ({
         ...p,

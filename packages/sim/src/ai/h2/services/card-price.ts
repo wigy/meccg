@@ -56,6 +56,7 @@ import type { Standing } from './standing.js';
 import { computeBudget } from './budget.js';
 import { computeHazardPlan } from './hazard-plan.js';
 import { heldGain } from './event-value.js';
+import type { OwnDeckList } from '../../../types.js';
 
 /** What one card in hand is worth keeping. */
 export interface CardWorth {
@@ -162,6 +163,8 @@ function buildComputeCardPrices(
   cardPool: Readonly<Record<string, CardDefinition>>,
   standing: Standing,
   tunables: Tunables,
+  /** The owner's deck list, so a held enabler is credited the cards still to come that read it. */
+  ownDeck?: OwnDeckList,
 ): CardPrices {
   const floor = tunables.heldCardFloor;
   const budget = computeBudget(view, cardPool);
@@ -289,7 +292,7 @@ function buildComputeCardPrices(
     // event, resource event and corruption card in the hand priced identically,
     // so which one the agent threw was decided by array order. `event-value`
     // reads the same effects `events` reads when it decides to play one.
-    const event = heldGain(definitionId, { view, cardPool, standing, tunables, legalActions: [] });
+    const event = heldGain(definitionId, { view, cardPool, standing, tunables, legalActions: [], ownDeck });
     if (event !== null) {
       return {
         instanceId,

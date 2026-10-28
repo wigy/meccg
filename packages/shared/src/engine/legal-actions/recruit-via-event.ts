@@ -204,7 +204,7 @@ export function recruitViaEventActions(state: GameState, playerId: PlayerId): Ev
       events.push({
         instanceId: card.instanceId,
         effect: eff,
-        name: (def as { name?: string } | undefined)?.name ?? (card.definitionId as string),
+        name: def?.name ?? (card.definitionId as string),
       });
     }
   }

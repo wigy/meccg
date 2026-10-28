@@ -86,7 +86,7 @@ describe('Rule 3.37 — Declaring Movement', () => {
       const destDef = state2.cardPool[
         state2.players[0].siteDeck.find(s => s.instanceId === a.action.destinationSite)?.definitionId as CardDefinitionId ?? ('' as CardDefinitionId)
       ];
-      return destDef && (destDef as { name?: string }).name === 'Bree';
+      return destDef && destDef.name === 'Bree';
     });
     expect(hasBreePlan).toBe(false);
     void breeDef; // suppress unused-var

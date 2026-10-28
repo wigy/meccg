@@ -1424,9 +1424,9 @@ export class GameSession {
     let matchDefId: string | null = null;
     let matchName: string | null = null;
     for (const [defId, def] of Object.entries(this.cardPool)) {
-      if (normalize((def as { name?: string }).name ?? '') === needle) {
+      if (normalize(def.name ?? '') === needle) {
         matchDefId = defId;
-        matchName = (def as { name?: string }).name ?? defId;
+        matchName = def.name ?? defId;
         break;
       }
     }

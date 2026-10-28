@@ -141,7 +141,7 @@ export function governingControlRestrictionSourceName(
       if (e.type !== 'control-restriction') continue;
       const cost = e.cost ?? Infinity;
       if (bestName === undefined || cost < bestCost) {
-        bestName = (def as { name?: string }).name;
+        bestName = def?.name;
         bestCost = cost;
       }
     }

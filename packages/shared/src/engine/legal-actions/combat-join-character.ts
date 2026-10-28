@@ -60,7 +60,7 @@ export function combatJoinCharacterActions(
     const eventDef = defById(state, eventCard.definitionId);
     const effect = findCardEffect(eventDef, 'combat-join-character');
     if (!effect) continue;
-    const eventName = (eventDef as { name?: string }).name ?? (eventCard.definitionId as string);
+    const eventName = eventDef?.name ?? (eventCard.definitionId as string);
 
     if (effect.requiresCompanyHomesite) {
       const hasHomesite = company.characters.some(id => {
