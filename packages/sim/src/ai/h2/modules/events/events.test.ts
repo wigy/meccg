@@ -581,6 +581,32 @@ describe('discarding a corruption card from our own character', () => {
   });
 });
 
+describe('a recovery that chooses its card', () => {
+  // Smoke Rings was priced as one random draw against the card it spends — a
+  // tie with passing — though it brings back the best card in the sideboard
+  // (game mvjfm7kj-gi2ve3, seq 380, where Narishma played it).
+  test('is worth the best card on offer, and beats passing', () => {
+    const scenario = loadScenario('organization/smoke-rings-fetches-best-card');
+    const view = scenarioView(scenario);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(e => e.viable).map(e => e.action);
+    const context: ModuleContext = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    const smoke = legalActions.find(a => {
+      const id = (a as unknown as { cardInstanceId?: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return a.type === 'play-short-event'
+        && (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === 'Smoke Rings';
+    })!;
+    const evaluation = eventsModule.evaluate(smoke, context)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('the best on offer is');
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+});
+
 describe('an influence boost before the roll', () => {
   // Muster and its kin were unpriced while an influence attempt waited on the
   // chain, so the decision fell back to a pass where strong players boosted
