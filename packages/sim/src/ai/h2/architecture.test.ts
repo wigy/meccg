@@ -120,8 +120,16 @@ describe('module boundaries', () => {
     // different everywhere, and `cancel-attack` is a tactical question for
     // `combat` and a portfolio one for `kill`. What they may not do is rely on
     // registry order to tell them apart: every owner of a shared type must
-    // define a `claims()` gate, so the separation is stated in the module
-    // rather than implied by an array's ordering.
+    // define a gate, so the separation is stated in the module rather than
+    // implied by an array's ordering.
+    //
+    // Either gate counts. `claims()` is per decision, which is what tells
+    // combat's `pass` from travel's; `claimsAction()` is per action, which is
+    // what tells the one short event `combat` can price from every other one
+    // `events` holds. A module sharing a type with neither is gated by nothing
+    // but its index in the array above, and `resolveModules` will reorder that
+    // array for any `h2:<modules>` spec that names the modules in another
+    // order.
     const owners = new Map<string, string[]>();
     for (const module of ALL_MODULES) {
       for (const type of module.ownedActionTypes) {
@@ -133,7 +141,9 @@ describe('module boundaries', () => {
       if (names.length < 2) continue;
       for (const name of names) {
         const module = ALL_MODULES.find(m => m.name === name)!;
-        if (!module.claims) ungated.push(`${type}: ${name} shares it but has no claims() gate`);
+        if (!module.claims && !module.claimsAction) {
+          ungated.push(`${type}: ${name} shares it but has no claims() or claimsAction() gate`);
+        }
       }
     }
     expect(ungated).toEqual([]);
