@@ -65,7 +65,7 @@
  * than a guess.
  */
 
-import { CardStatus, Phase } from '@meccg/shared';
+import { CardStatus, Phase, ownerOf } from '@meccg/shared';
 import type {
   CardDefinition, CombatState, CreatureKeyingMatch, GameAction, OpponentCompanyView, PlayerView,
 } from '@meccg/shared';
@@ -1177,9 +1177,17 @@ function handUpgradeGain(
 
 /**
  * What a hazard environment's sweep on entering play is worth: Doors of Night
- * discarding every resource environment, the opponent's Gates of Morning
- * first among them. Priced card by card by `environmentLoss`, the same reading
- * Twilight's cancel gets, so our own swept environment counts against it.
+ * discarding every resource environment of the opponent's, their Gates of
+ * Morning first among them. Priced card by card by `environmentLoss`, the same
+ * reading Twilight's cancel gets.
+ *
+ * Our own swept environments are not charged. Strong players play Doors of
+ * Night over their own Gates of Morning and Star of High Hope (games
+ * mvj6fman-f77xpi seq 444, mvjfm7kj-gi2ve3 seq 740); charged for them, the
+ * modular AI stopped agreeing at both and agreed nowhere new. What those
+ * players are buying is what Doors of Night does for their hazards beyond what
+ * this module reads (the Ahunt Dragons), so the charge would only stand in for
+ * a value still missing on the other side.
  */
 function environmentSweepGain(
   def: CardDefinition | undefined,
@@ -1193,6 +1201,7 @@ function environmentSweepGain(
   if (sweeps.length === 0) return null;
   const { view, cardPool } = context;
   const losses = [...view.self.cardsInPlay, ...view.opponent.cardsInPlay]
+    .filter(card => ownerOf(card.instanceId) !== view.self.id)
     .filter(card => sweeps.some(sweep => couldMatch(sweep.filter, cardPool[card.definitionId])))
     .flatMap(card => {
       const loss = environmentLoss(card.instanceId, context);
