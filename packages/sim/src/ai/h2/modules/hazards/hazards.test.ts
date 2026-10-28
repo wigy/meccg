@@ -11,7 +11,7 @@
 
 import { describe, expect, test } from 'vitest';
 import { computeLegalActions, loadCardPool } from '@meccg/shared';
-import type { GameAction } from '@meccg/shared';
+import type { GameAction, PlayerView } from '@meccg/shared';
 import { DEFAULT_TUNABLES } from '../../core/tunables.js';
 import { computeStanding } from '../../services/standing.js';
 import { evaluateDecision } from '../../core/registry.js';
@@ -1053,6 +1053,47 @@ describe('Doors of Night ahead of An Unexpected Outpost', () => {
     const evaluation = hazardsModule.evaluate(doors, withDeck)!;
     expect(JSON.stringify(evaluation.rationale)).toContain('stays out for An Unexpected Outpost');
     expect(evaluation.expectedTsd).toBeGreaterThan(hazardsModule.evaluate(doors, context)!.expectedTsd);
+  });
+});
+
+describe('Doors of Night unlocking a creature in hand', () => {
+  // Sand-drake (td-59) "may also be played keyed to Ithilien, Nurn, and Horse
+  // Plains" with Doors of Night out. The engine does not offer that play while
+  // Doors of Night is still in hand, so it has to be read from the card.
+  const setup = (path: readonly string[]) => {
+    const scenario = loadScenario('movement/doors-of-night-before-unexpected-outpost');
+    const base = scenarioView(scenario);
+    const view = {
+      ...base,
+      self: { ...base.self, hand: [...base.self.hand, { instanceId: `${base.self.id as string}-9001`, definitionId: 'td-59' }] },
+      phaseState: { ...base.phaseState, resolvedSitePathNames: path },
+    } as unknown as PlayerView;
+    const cardPool = loadCardPool();
+    const legalActions = viableActions(scenario);
+    const doors = legalActions.find(a => {
+      if (a.type !== 'play-hazard') return false;
+      const id = (a as unknown as { cardInstanceId: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === 'Doors of Night';
+    })!;
+    const context = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    return { doors, context };
+  };
+
+  test('is credited the attack it lets the drake make on a company moving through Ithilien', () => {
+    const { doors, context } = setup(['Ithilien']);
+    const evaluation = hazardsModule.evaluate(doors, context)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('Sand-drake may be keyed to Ithilien');
+    const { doors: elsewhere, context: away } = setup(['Rhudaur']);
+    expect(evaluation.expectedTsd).toBeGreaterThan(hazardsModule.evaluate(elsewhere, away)!.expectedTsd);
+  });
+
+  test('and is not, on a path the drake cannot be keyed to', () => {
+    const { doors, context } = setup(['Rhudaur']);
+    expect(JSON.stringify(hazardsModule.evaluate(doors, context)!.rationale)).not.toContain('Sand-drake');
   });
 });
 
