@@ -95,6 +95,8 @@ import {
 } from '../../services/attack-modifiers.js';
 import { unseenDeckCards } from '../../services/deck-reach.js';
 import type { AttackBoost } from '../../services/attack-modifiers.js';
+import { couldMatch, environmentLoss } from '../../services/event-value.js';
+import type { Effect } from '../../services/event-value.js';
 
 /** Action types this module scores. */
 const OWNED_ACTION_TYPES = [
@@ -1003,6 +1005,8 @@ function evaluateHazardEvent(
 
   const upgrade = handUpgradeGain(name, record.cardInstanceId, context);
   if (upgrade) gain = { tsd: gain.tsd + upgrade.tsd, reason: `${gain.reason}; ${upgrade.reason}` };
+  const sweep = environmentSweepGain(cardPool[card.definitionId], context);
+  if (sweep) gain = { tsd: gain.tsd + sweep.tsd, reason: `${gain.reason}; ${sweep.reason}` };
 
   // A play that cannot do anything (a corruption hazard on a Ringwraith) buys
   // no rotation worth the card: kept, it waits for a target it can hurt.
@@ -1169,6 +1173,33 @@ function handUpgradeGain(
   }
   if (upgraded.length === 0) return null;
   return { tsd, reason: `upgrades ${upgraded.join(', ')} in hand, played after it` };
+}
+
+/**
+ * What a hazard environment's sweep on entering play is worth: Doors of Night
+ * discarding every resource environment, the opponent's Gates of Morning
+ * first among them. Priced card by card by `environmentLoss`, the same reading
+ * Twilight's cancel gets, so our own swept environment counts against it.
+ */
+function environmentSweepGain(
+  def: CardDefinition | undefined,
+  context: ModuleContext,
+): { tsd: number; reason: string } | null {
+  const effects = (def as unknown as {
+    effects?: readonly { type?: string; event?: string; apply?: Effect }[];
+  } | undefined)?.effects ?? [];
+  const sweeps = effects.flatMap(e => (e.type === 'on-event' && e.event === 'self-enters-play' && e.apply
+    && e.apply.type === 'move' && e.apply.to === 'discard' && e.apply.select === 'filter-all' ? [e.apply] : []));
+  if (sweeps.length === 0) return null;
+  const { view, cardPool } = context;
+  const losses = [...view.self.cardsInPlay, ...view.opponent.cardsInPlay]
+    .filter(card => sweeps.some(sweep => couldMatch(sweep.filter, cardPool[card.definitionId])))
+    .flatMap(card => {
+      const loss = environmentLoss(card.instanceId, context);
+      return loss ? [loss] : [];
+    });
+  if (losses.length === 0) return null;
+  return { tsd: losses.reduce((sum, l) => sum + l.tsd, 0), reason: losses.map(l => l.reason).join('; ') };
 }
 
 /**

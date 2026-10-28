@@ -39,7 +39,7 @@ import { computeBeliefs } from './beliefs.js';
 import { computeCharacterValue } from './character-value.js';
 import { computeDefence, hazardSlots } from './defence.js';
 import { computeDrawValue } from './draw-value.js';
-import { inPlayNamed } from './attack-modifiers.js';
+import { inPlayNamed, withoutInPlay } from './attack-modifiers.js';
 import { unseenDeckCards } from './deck-reach.js';
 import { rosterOf } from './strike/prowess.js';
 import type { StrikeTarget } from './strike/prowess.js';
@@ -121,7 +121,7 @@ function fromIncludes(effect: Effect, zone: string): boolean {
  * announce that a card does nothing on the strength of a filter it could not
  * read, which is exactly the mistake this replaced.
  */
-function couldMatch(filter: Filter | undefined, def: CardDefinition | undefined): boolean {
+export function couldMatch(filter: Filter | undefined, def: CardDefinition | undefined): boolean {
   if (!filter) return true;
   const card = def as unknown as {
     cardType?: string; eventType?: string; keywords?: readonly string[];
@@ -791,7 +791,13 @@ export function heldGain(
   const stand = biggest === undefined
     ? undefined
     : ({ companyId: biggest.id, characterInstanceId: biggest.characters[0] } as unknown as GameAction);
-  return stand === undefined ? null : gainOf(effects, context, stand);
+  const gain = stand === undefined ? null : gainOf(effects, context, stand);
+  // A held Gates of Morning is worth the cards that read it as much as a
+  // played one is; priced by its sweep alone it was the first card thrown away
+  // at the hand reset. Its own copies are not readers, so no instance is excluded.
+  const enabled = enablerGain(def, '', context);
+  if (!enabled) return gain;
+  return gain && gain.tsd !== 0 ? { tsd: gain.tsd + enabled.tsd, reason: `${gain.reason}; ${enabled.reason}` } : enabled;
 }
 
 
@@ -926,6 +932,102 @@ function enablerGain(
 }
 
 /**
+ * What taking one environment card out of play is worth to us, or null when
+ * it is not an environment in play or declared on the chain.
+ *
+ * Strong players spend Twilight on Doors of Night — the opponent's, and their
+ * own too: played against the opponent's movement, then cancelled in their own
+ * turn, because an environment is global and their own Doors of Night makes
+ * the opponent's attacks on them stronger too (game mvjum705-ua2jlu, seq 165). Both were priced
+ * at the card spent and nothing else. The parts:
+ *
+ * - **A hazard environment's grip on our companies**, whoever played it —
+ *   ours only in our own turn: Doors of Night turning Minions Stir's +1 into
+ *   +2, the harm `defence` stops, the same relief the removal family prices.
+ * - **The options its owner's cards had from it**: for the opponent, each of
+ *   their resource cards in play that names it in an `inPlay` condition, at a
+ *   draw each (their hand is not ours to read, so this is a floor); for us,
+ *   `enablerGain` as if it were back in hand. What our own hazard environment
+ *   did to their companies is not priced here.
+ * - **The card spent on it**, at `provisionalCardPrice`: theirs is a gain to
+ *   us, ours a loss.
+ *
+ * One still on the chain (Twilight answering the Doors of Night just
+ * declared) is priced as if it had resolved: cancelling it is keeping it out.
+ */
+export function environmentLoss(instanceId: CardInstanceId, context: ModuleContext): EventGain | null {
+  const { view, cardPool, standing, tunables } = context;
+  const located = findInPlay(view, instanceId);
+  const pending = located ? null : (view.chain?.entries ?? []).find(entry =>
+    !entry.resolved && !entry.negated && entry.card?.instanceId === instanceId)?.card ?? null;
+  if (located?.attached || (!located && !pending)) return null;
+  const definitionId = located?.definitionId ?? pending!.definitionId;
+  const def = cardPool[definitionId] as unknown as {
+    name?: string; cardType?: string; keywords?: readonly string[];
+  } | undefined;
+  if (!def?.keywords?.includes('environment')) return null;
+  const name = def.name ?? definitionId;
+  const ours = ownerOf(instanceId) === view.self.id;
+  // The board with it in play, so a pending card is priced as if it resolved.
+  const board = located ? view : ({
+    ...view,
+    self: ours ? { ...view.self, cardsInPlay: [...view.self.cardsInPlay, pending!] } : view.self,
+    opponent: ours ? view.opponent : { ...view.opponent, cardsInPlay: [...view.opponent.cardsInPlay, pending!] },
+  } as typeof view);
+
+  let relief = 0;
+  // Our own hazard environment is working for our attacks in the opponent's
+  // turn; it is only in ours, with our companies about to move, that its grip
+  // on them is the thing to be rid of — the order strong players use it in:
+  // Doors of Night played against their movement, Twilight on it in our own.
+  const ourTurn = view.activePlayer === view.self.id;
+  if (def.cardType === 'hazard-event' && (!ours || ourTurn)) {
+    const harm = (on: typeof view): number => {
+      const defence = computeDefence(on, cardPool, standing, tunables);
+      return on.self.companies.reduce((sum, company) => sum + defence.expectedHarm(
+        rosterOf(company, on.self.characters, cardPool), hazardSlots(company.characters.length)), 0);
+    };
+    relief = harm(board) - harm(withoutInPlay(board, instanceId as string));
+  }
+  const card = tunables.provisionalCardPrice;
+  const parts = relief !== 0 ? [`${relief.toFixed(1)} of harm off our companies`] : [];
+  if (ours) {
+    const options = def.cardType?.includes('hazard') ? null : enablerGain(
+      cardPool[definitionId], instanceId as string, { ...context, view: withoutInPlay(board, instanceId as string) },
+    );
+    parts.push(`our own card lost, ${card.toFixed(1)}`);
+    if (options) parts.push(options.reason);
+    return {
+      tsd: relief - card - (options?.tsd ?? 0),
+      reason: `takes our own ${name} out of play — ${parts.join('; ')}`,
+    };
+  }
+  const readers = board.opponent.cardsInPlay.filter(c => JSON.stringify(
+    (cardPool[c.definitionId] as unknown as { effects?: unknown } | undefined)?.effects ?? [],
+  ).includes(`"inPlay":"${name}"`)).length;
+  if (readers > 0) parts.push(`${readers} of their card(s) in play lose what it gave them`);
+  parts.push(`the card they spent on it, ${card.toFixed(1)}`);
+  return {
+    tsd: relief + readers * tunables.resourceDrawValue + card,
+    reason: `takes their ${name} out of play — ${parts.join('; ')}`,
+  };
+}
+
+/**
+ * Whether a card is an environment cancel the DSL does not spell out: a hazard
+ * short-event playable as a resource with no other effect — Twilight, whose
+ * cancel the engine offers per environment in `targetInstanceId`.
+ */
+function isEnvironmentCancel(def: CardDefinition | undefined, action: GameAction): boolean {
+  const card = def as unknown as { cardType?: string; eventType?: string; effects?: readonly Effect[] } | undefined;
+  if (card?.cardType !== 'hazard-event' || card.eventType !== 'short') return false;
+  const effects = card.effects ?? [];
+  if (!effects.some(e => e.type === 'play-flag' && (e as { flag?: string }).flag === 'playable-as-resource')) return false;
+  if (!effects.every(e => e.type === 'play-flag')) return false;
+  return (action as unknown as { targetInstanceId?: string }).targetInstanceId !== undefined;
+}
+
+/**
  * Score playing one event from hand, by what its declared effects achieve.
  *
  * The whole of what `events` does with a card, made callable, because a second
@@ -959,12 +1061,15 @@ export function declaredEventEvaluation(
   // that happens when it resolves, does nothing when it resolves. That is a
   // reading of the DSL rather than a judgement about the card, and it is the
   // one case where charging for the card is an opinion rather than a guess.
-  let gain = declaresAnEffect(effects)
+  const cancel = isEnvironmentCancel(def, action)
+    ? environmentLoss((action as unknown as { targetInstanceId: CardInstanceId }).targetInstanceId, context)
+    : null;
+  let gain = cancel ?? (declaresAnEffect(effects)
     ? gainOf(effects, context, action)
     : {
       tsd: 0,
       reason: 'the card declares no effect this engine will execute — only how it may be played',
-    };
+    });
   const enabled = enablerGain(def, instanceId as string, context);
   if (enabled) {
     gain = gain && gain.tsd !== 0
@@ -1011,7 +1116,14 @@ export function declaredEventEvaluation(
   // opportunity cost only when it prices the *next-best* use.
   // The Free Council is the last thing the game does, so a card spent there
   // forgoes nothing — the same reading `corruption` makes of a support tap.
-  const spent = context.view.phaseState.phase === Phase.FreeCouncil ? 0 : tunables.provisionalCardPrice;
+  // A hazard played in the opponent's turn is the hazard side's card, and a
+  // hazard spent there is the rotation `hazards` credits (`hazardCardPrice`),
+  // not a resource given up — once the cancel has been read; an unread one is
+  // still charged the card, or the rotation alone would make it worth playing.
+  const asHazard = cancel !== null && context.view.activePlayer !== context.view.self.id
+    && String((def as unknown as { cardType?: string } | undefined)?.cardType ?? '').startsWith('hazard');
+  const spent = context.view.phaseState.phase === Phase.FreeCouncil ? 0
+    : asHazard ? tunables.hazardCardPrice : tunables.provisionalCardPrice;
   const name = (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string);
   const check = forcedCheckCost(effects, context, action);
   const risk = check?.tsd ?? 0;
