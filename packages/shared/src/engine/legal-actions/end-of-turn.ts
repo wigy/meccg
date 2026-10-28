@@ -15,7 +15,7 @@ import { getPlayerIndex, canCallEndgameNow, isMinionOrBalrog, requirePhaseState 
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import type { CardEffect, TriggeredAction, Condition } from '../../types/effects.js';
-import { matchesDefinition, characterEntries, playerById, getCardEffects, defById, findCharacterCompany } from '../reducer-utils.js';
+import { matchesDefinition, characterEntries, playerById, getCardEffects, defById, findCharacterCompany, findCardEffect } from '../reducer-utils.js';
 import { isCharacterCard, isSiteCard } from '../../types/cards.js';
 import { getEffectiveSiteType } from '../effective.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -384,7 +384,7 @@ function runHomeActions(state: GameState, playerId: PlayerId): GameAction[] {
       if (!char) continue;
       for (const ally of char.allies) {
         const allyDef = defById(state, ally.definitionId);
-        const effect = getCardEffects(allyDef).find(e => e.type === 'run-home-to-haven');
+        const effect = findCardEffect(allyDef, 'run-home-to-haven');
         if (!effect || effect.type !== 'run-home-to-haven') continue;
         if (size > effect.maxCompanySize) {
           logDetail(`run-home: ${allyDef?.name ?? ally.definitionId as string} — company size ${size} exceeds max ${effect.maxCompanySize}`);

@@ -17,7 +17,7 @@
  */
 
 import type { GameState, MovementHazardPhaseState, Company, CreatureCard, GameAction, CharacterInPlay, AgentInPlay, SiteCard, CardDefinition, PlayerState } from '../index.js';
-import type { AgentInfluenceBoostEffect, AgentTapFactionInfluenceEffect, AgentTapMultiInfluenceEffect, AgentTapOpponentInfluenceEffect, AgentTapReturnCharacterEffect, AllyTapExtraMHPhaseEffect, CallCouncilEffect, CardEffect, CharacterTapExtraMHPhaseEffect, Condition, CreatureAltEventEffect, HazardLimitRaceGrantEffect, HazardLimitSwapEffect, PlayDiscardCostEffect, RegionKeyingBoostEffect, SwapNewSiteEffect, TapAgentEffect } from '../types/effects.js';
+import type { AgentInfluenceBoostEffect, AgentTapFactionInfluenceEffect, AgentTapMultiInfluenceEffect, AgentTapOpponentInfluenceEffect, AgentTapReturnCharacterEffect, CallCouncilEffect, CardEffect, CharacterTapExtraMHPhaseEffect, Condition, CreatureAltEventEffect, HazardLimitRaceGrantEffect, PlayDiscardCostEffect, RegionKeyingBoostEffect, SwapNewSiteEffect, TapAgentEffect } from '../types/effects.js';
 import type { CardInstance, ChainEntryPayload, PlayHazardAction } from '../index.js';
 import { revealInstances } from './visibility.js';
 import type { TapHazardCardForLimitAction, PayHazardLimitToUntapCardAction, TapAllyDiscardHazardAction } from '../types/actions-movement-hazard.js';
@@ -41,7 +41,7 @@ import { currentHazardLimit, chargeHazardLimit } from './hazard-limit.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
 import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, characterHasCannotUntapConstraint, isSelfDiscardMove, matchesDefinition, moveSideboardCard, startDeckExhaust, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf } from './reducer-utils.js';
+import { autoMergeNonHavenCompanies, companyHasRingwraith, cardKeepsBoundSitePermanent, companyMovesUnderDeeps, isNazgulPermanentEvent, cleanupEmptyCompanies, clonePlayers, companyById, companySiteDef, defById, deriveFacedRaces, matchesFollowsAttackKeyedTo, findById, getCardEffects, getOnEventEffects, hasSiteFlag, isDarkhavenSiteDef, isHavenForPlayer, characterHasCannotUntapConstraint, isSelfDiscardMove, matchesDefinition, moveSideboardCard, startDeckExhaust, playerById, playerHasExtraUnderDeepsMH, regionTypeCounts, regionTypesMatch, removeById, siteNeverUntapsForOwner, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, hazardPlayer as hazardPlayerOf, hasCardEffect, findCardEffect } from './reducer-utils.js';
 import { buildCompanyCompositionContext } from './company-composition.js';
 import { handlePlayShortEvent, handlePlayResourceShortEvent, handlePlayPermanentEvent } from './reducer-events.js';
 import { handlePlayCharacter, handleManifestationSwap, handleDiscardToRecruit } from './reducer-organization.js';
@@ -775,7 +775,7 @@ export function handlePlayHazardCard(
   if (def.cardType === 'hazard-event'
       && action.type === 'play-hazard'
       && action.altEventMode === 'short-event'
-      && getCardEffects(def).some(e => e.type === 'fetch-agent-to-hand')) {
+      && hasCardEffect(def, 'fetch-agent-to-hand')) {
     return playHazardInAltMode(state, mhState, action, hazardIndex, handCard, def, {
       description: `"${def.name}" as a short-event tutor`,
       discardOnPlay: true,
@@ -986,9 +986,7 @@ export function handlePlayHazardCard(
     // a matching card the player chose from hand. The chosen card is validated
     // against the effect's filter; when the effect declares "show opponent"
     // (revealToOpponent), its identity is revealed to the opponent.
-    const discardCostEffect = getCardEffects(def).find(
-      (e): e is PlayDiscardCostEffect => e.type === 'play-discard-cost',
-    );
+    const discardCostEffect = findCardEffect(def, 'play-discard-cost');
     let costDiscardCard: CardInstance | undefined;
     if (discardCostEffect && action.type === 'play-hazard' && action.costDiscardInstanceId) {
       const chosen = findById(hazardPlayer.hand, action.costDiscardInstanceId);
@@ -1744,7 +1742,7 @@ export function handleAgentDiscardReturnToOrigin(
   const agentDef = defById(state, agent.character.definitionId);
   if (!agentDef || !isCharacterCard(agentDef)) return { state, error: 'Agent definition not found' };
 
-  const hasEffect = getCardEffects(agentDef).some(e => e.type === 'agent-discard-return-to-origin');
+  const hasEffect = hasCardEffect(agentDef, 'agent-discard-return-to-origin');
   if (!hasEffect) return { state, error: 'Agent does not have agent-discard-return-to-origin effect' };
 
   const resourceIndex = getPlayerIndex(state, state.activePlayer!);
@@ -1849,9 +1847,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     // synthesized site definition itself carries no `region`. Cleared
     // (implicitly, by omission) on any other arrival.
     const destActsAsSiteDef = defById(state, company.destinationSite.definitionId);
-    const destActsAsSite = destActsAsSiteDef && getCardEffects(destActsAsSiteDef).find(
-      (e): e is import('../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
-    );
+    const destActsAsSite = destActsAsSiteDef && findCardEffect(destActsAsSiteDef, 'acts-as-site');
     const arrivalVirtualSiteRegionName = destActsAsSite
       ? mhStateLocal.resolvedSitePathNames[mhStateLocal.resolvedSitePathNames.length - 1]
       : undefined;
@@ -1886,9 +1882,7 @@ export function endCompanyMH(state: GameState, mhState: MovementHazardPhaseState
     // instance (shared with `originSite.instanceId` — see
     // `ActsAsSiteEffect`) from `cardsInPlay`.
     const originDefForTeardown = originSite ? defById(state, originSite.definitionId) : undefined;
-    const originActsAsSiteForTeardown = originDefForTeardown && getCardEffects(originDefForTeardown).find(
-      (e): e is import('../types/effects.js').ActsAsSiteEffect => e.type === 'acts-as-site',
-    );
+    const originActsAsSiteForTeardown = originDefForTeardown && findCardEffect(originDefForTeardown, 'acts-as-site');
     if (originSite && originActsAsSiteForTeardown?.discardOnLeaveSite) {
       const leftBehindCard = resourcePlayer.cardsInPlay.find(c => c.instanceId === originSite.instanceId);
       if (leftBehindCard) {
@@ -2732,9 +2726,7 @@ function findAllyTapExtraMHPhase(
     for (const ally of char.allies) {
       if (ally.status !== CardStatus.Untapped) continue;
       const def = defById(state, ally.definitionId);
-      const effect = def && getCardEffects(def).find(
-        (e): e is AllyTapExtraMHPhaseEffect => e.type === 'ally-tap-extra-mh-phase',
-      );
+      const effect = def && findCardEffect(def, 'ally-tap-extra-mh-phase');
       if (!effect) continue;
       const ctx = buildCompanyCompositionContext(state, player, company, effect.counts ?? []);
       if (!matchesCondition(effect.condition, ctx)) continue;
@@ -2759,9 +2751,7 @@ function findCharacterTapExtraMHPhase(
     const char = player.characters[charId];
     if (!char || char.status !== CardStatus.Untapped) continue;
     const def = defById(state, char.definitionId);
-    const effect = def && getCardEffects(def).find(
-      (e): e is CharacterTapExtraMHPhaseEffect => e.type === 'character-tap-extra-mh-phase',
-    );
+    const effect = def && findCardEffect(def, 'character-tap-extra-mh-phase');
     if (!effect) continue;
     return { characterInstanceId: char.instanceId, characterName: def && 'name' in def ? (def as { name: string }).name : (char.definitionId as string), effect };
   }
@@ -3909,9 +3899,7 @@ function resolveAltPermanentEventPlay(
   if (!card) return { error: `${actionName}: card not found in cardsInPlay` };
   if (card.status === CardStatus.Tapped) return { error: `${actionName}: card is already tapped` };
   const def = defById(state, card.definitionId);
-  const altEvent = getCardEffects(def).find(
-    (e): e is CreatureAltEventEffect => e.type === 'creature-alt-event',
-  );
+  const altEvent = findCardEffect(def, 'creature-alt-event');
   const resourceIndex = getPlayerIndex(state, state.activePlayer!);
   const activeCompany = state.players[resourceIndex].companies[mhState.activeCompanyIndex];
   const bypassesLimit = !!def && 'effects' in def && hasPlayFlag(def, 'no-hazard-limit');
@@ -3972,9 +3960,7 @@ function handleTapAltPermanentEvent(
   // declaration, so we count matching in-play cards NOW — while this card is
   // still in play, so "including this one" falls out naturally — and thread the
   // result to the chain resolution via the payload.
-  const forceDiscard = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').ForceOpponentDiscardEffect => e.type === 'force-opponent-discard',
-  );
+  const forceDiscard = findCardEffect(def, 'force-opponent-discard');
   let forcedDiscardCount: number | undefined;
   if (forceDiscard?.count?.countCardsInPlay) {
     const keyword = forceDiscard.count.countCardsInPlay.keyword;
@@ -4132,7 +4118,7 @@ export function handleTapHazardCardForLimit(
   if (card.status !== CardStatus.Untapped) return { state, error: `tap-hazard-card-for-limit: card ${action.cardInstanceId as string} is already tapped` };
 
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+  const effect = findCardEffect(def, 'hazard-limit-swap');
   if (!effect) return { state, error: `tap-hazard-card-for-limit: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
   const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
@@ -4177,7 +4163,7 @@ export function handlePayHazardLimitToUntapCard(
   if (card.status !== CardStatus.Tapped) return { state, error: `pay-hazard-limit-to-untap-card: card ${action.cardInstanceId as string} is not tapped` };
 
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find((e): e is HazardLimitSwapEffect => e.type === 'hazard-limit-swap');
+  const effect = findCardEffect(def, 'hazard-limit-swap');
   if (!effect) return { state, error: `pay-hazard-limit-to-untap-card: no hazard-limit-swap effect on ${card.definitionId as string}` };
 
   const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
@@ -4222,7 +4208,7 @@ export function handleDiscardCardForHazardLimit(
   if (!card) return { state, error: `discard-card-for-hazard-limit: card ${action.cardInstanceId as string} not found in cardsInPlay` };
 
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find((e): e is import('../types/effects.js').DiscardForHazardLimitEffect => e.type === 'discard-for-hazard-limit');
+  const effect = findCardEffect(def, 'discard-for-hazard-limit');
   if (!effect) return { state, error: `discard-card-for-hazard-limit: no discard-for-hazard-limit effect on ${card.definitionId as string}` };
 
   const defName = (def as { name?: string } | undefined)?.name ?? card.definitionId as string;
@@ -4399,10 +4385,7 @@ export function handlePlayCreatureFromDiscard(
   }
   const eventDef = defById(state, eventCard.definitionId);
   const effect = eventDef
-    ? getCardEffects(eventDef).find(
-        (e): e is import('../index.js').PlayCreatureFromDiscardEffect =>
-          e.type === 'play-creature-from-discard',
-      )
+    ? findCardEffect(eventDef, 'play-creature-from-discard')
     : undefined;
   if (!effect) {
     return { state, error: `play-creature-from-discard: ${eventCard.definitionId as string} has no play-creature-from-discard effect` };
@@ -4504,7 +4487,7 @@ export function handleAttackNazgulPermanentEvent(
   }
   const eventDef = defById(state, eventCard.definitionId);
   const hasEffect = eventDef
-    ? getCardEffects(eventDef).some(e => e.type === 'nazgul-permanent-event-attack')
+    ? hasCardEffect(eventDef, 'nazgul-permanent-event-attack')
     : false;
   if (!hasEffect) {
     return { state, error: `attack-nazgul-permanent-event: ${eventCard.definitionId as string} has no nazgul-permanent-event-attack effect` };
@@ -4587,10 +4570,7 @@ export function handleSpawnReplayCreature(
   }
   const sourceDef = defById(state, sourceCard.definitionId);
   const effect = sourceDef
-    ? getCardEffects(sourceDef).find(
-        (e): e is import('../index.js').GrantReplayAttackedCreatureEffect =>
-          e.type === 'grant-replay-attacked-creature',
-      )
+    ? findCardEffect(sourceDef, 'grant-replay-attacked-creature')
     : undefined;
   if (!effect) {
     return { state, error: `spawn-replay-creature: ${sourceCard.definitionId as string} has no grant-replay-attacked-creature effect` };

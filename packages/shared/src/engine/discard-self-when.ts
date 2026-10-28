@@ -28,7 +28,7 @@ import type { GameState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
 import { matchesCondition } from '../effects/index.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, getCardEffects, discardCardsInPlayWhere, removeAttachment, toCardInstance, updatePlayer } from './reducer-utils.js';
+import { defById, discardCardsInPlayWhere, removeAttachment, toCardInstance, updatePlayer, findCardEffect } from './reducer-utils.js';
 import { buildPlayerStateContext } from './legal-actions/organization.js';
 
 /**
@@ -45,7 +45,7 @@ export function sweepDiscardSelfWhen(state: GameState): GameState {
     state,
     (card, player) => {
       const def = defById(state, card.definitionId);
-      const effect = getCardEffects(def).find(e => e.type === 'discard-self-when');
+      const effect = findCardEffect(def, 'discard-self-when');
       if (!effect || effect.type !== 'discard-self-when') return false;
       const ctx = buildPlayerStateContext(state, player, player.id);
       return matchesCondition(effect.condition, ctx);
@@ -67,7 +67,7 @@ function sweepDiscardSelfWhenItems(state: GameState): GameState {
     for (const ch of Object.values(player.characters)) {
       for (const item of [...ch.items]) {
         const def = defById(working, item.definitionId);
-        const effect = getCardEffects(def).find(e => e.type === 'discard-self-when');
+        const effect = findCardEffect(def, 'discard-self-when');
         if (!effect || effect.type !== 'discard-self-when') continue;
         const ctx = buildPlayerStateContext(working, player, player.id);
         if (!matchesCondition(effect.condition, ctx)) continue;

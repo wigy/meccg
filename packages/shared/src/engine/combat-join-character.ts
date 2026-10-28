@@ -15,7 +15,6 @@
  */
 
 import type { GameState, GameAction, CombatState, CharacterInPlay, CardInstanceId } from '../index.js';
-import type { CombatJoinCharacterEffect } from '../types/effects.js';
 import { ZERO_EFFECTIVE_STATS } from '../types/state-cards.js';
 import { CardStatus } from '../types/common.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
@@ -25,11 +24,11 @@ import {
   type ReducerResult,
   defById,
   findById,
-  getCardEffects,
   removeById,
   sweepCompanyMembershipChangedEvents,
   updatePlayer,
   wrongActionType,
+  findCardEffect,
 } from './reducer-utils.js';
 import { getPlayerIndex } from '../state-utils.js';
 
@@ -53,9 +52,7 @@ export function handleCombatJoinCharacter(state: GameState, action: GameAction, 
   const eventCard = findById(player.hand, eventId)!;
   const charCard = findById(player.hand, action.characterInstanceId)!;
   const eventDef = defById(state, eventCard.definitionId);
-  const effect = getCardEffects(eventDef).find(
-    (e): e is CombatJoinCharacterEffect => e.type === 'combat-join-character',
-  )!;
+  const effect = findCardEffect(eventDef, 'combat-join-character')!;
   const eventName = (eventDef as { name?: string }).name ?? (eventCard.definitionId as string);
 
   const charId = charCard.instanceId;

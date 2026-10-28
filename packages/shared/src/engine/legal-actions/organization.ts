@@ -41,7 +41,7 @@ import { buildBearerContext, resolveDef, collectCharacterEffects, checkCondition
 import { buildInPlayNames, buildControllerInPlayNames, buildPlayerItemNamesInPlay } from '../recompute-derived.js';
 import { buildSiteFilterContext, getEffectiveRegionType } from '../effective.js';
 import { controlCostOf } from '../control-cost.js';
-import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment } from '../reducer-utils.js';
+import { activePlayerState, companyMHPhaseOptionSpent, cardName, characterEntries, companyAttemptSupportBonus, companyEffectiveSize, companyEffectiveSizeOf, companySiteName, defById, defNamesOf, effectiveInPlayDef, findCharacterCompany, findPlayerAvatar, findFallenWizardAvatarName, getCardEffects, isCorruptionCardDef, itemKeywordsOf, itemsMatchingFilter, matchesDefinition, playerById, stagePointsOfCard, toCardInstance, findDuplicationLimitEffect, findPlayConditionEffect, playerHasProtectedWizardhaven, protectedWizardhavenCount, parseHomesiteNames, siteRegionTypeOf, isCardNameInPlayForPlayer, altShortEventReshuffleEffect, playerHasReshuffleMatch, playerPlaysAsSauron, findAttachment, findCardEffect } from '../reducer-utils.js';
 import { constraintFromCard, countConstraintsFromDefinition } from '../pending.js';
 import { fetchZoneItemInstanceIds, hasSitePlayableFetchCandidate, isUniqueCharacterInPlay, hasSiteFlag, isUnderDeepsSiteRef, getOnEventEffects, collectTapTakeItemCandidates, characterHasCannotUntapConstraint } from '../reducer-utils.js';
 import { manifestationOfEntityInPlay, charactersInPlayNames } from '../manifestations.js';
@@ -556,7 +556,7 @@ export function voluntaryDiscardInPlayActions(state: GameState, playerId: Player
   const actions: EvaluatedAction[] = [];
   for (const card of player.cardsInPlay) {
     const def = defById(state, card.definitionId);
-    const eff = getCardEffects(def).find(e => e.type === 'voluntary-discard');
+    const eff = findCardEffect(def, 'voluntary-discard');
     if (!eff || (eff as { phase?: string }).phase !== 'organization') continue;
     logDetail(`Voluntary-discard: ${cardName(state, card.definitionId)} can be discarded during the organization phase`);
     actions.push({
@@ -612,7 +612,7 @@ export function evilHourGrantMovementActions(state: GameState, playerId: PlayerI
   for (const card of player.cardsInPlay) {
     if (card.status !== CardStatus.Tapped) continue;
     const def = defById(state, card.definitionId);
-    const eff = getCardEffects(def).find(e => e.type === 'evil-hour-grant-movement');
+    const eff = findCardEffect(def, 'evil-hour-grant-movement');
     if (!eff) continue;
     for (const company of player.companies) {
       if (company.characters.length === 0) continue;
@@ -695,7 +695,7 @@ export function itemCacheHandStoreActions(state: GameState, playerId: PlayerId):
   const actions: EvaluatedAction[] = [];
   for (const host of player.cardsInPlay) {
     const hostDef = defById(state, host.definitionId);
-    const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-hand-store');
+    const cacheEffect = findCardEffect(hostDef, 'item-cache-hand-store');
     if (!cacheEffect || cacheEffect.type !== 'item-cache-hand-store') continue;
     for (const card of player.hand) {
       const itemDef = defById(state, card.definitionId);
@@ -4501,9 +4501,7 @@ export function playResourceShortEventActions(
           // card carries this effect, cross-multiply each eligible company with
           // each candidate so the player picks which card to sacrifice. Mirrors
           // the hazard-side company-target handling in movement-hazard.ts.
-          const companyDiscardCostEffect = getCardEffects(def).find(
-            (e): e is import('../../index.js').PlayDiscardCostEffect => e.type === 'play-discard-cost',
-          );
+          const companyDiscardCostEffect = findCardEffect(def, 'play-discard-cost');
           const companyDiscardCostCards = companyDiscardCostEffect
             ? player.hand.filter(c => {
                 if (c.instanceId === handCard.instanceId) return false;

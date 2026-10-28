@@ -15,10 +15,9 @@
 
 import type { GameState, CardInstanceId, CardInstance } from '../index.js';
 import type { CharacterInPlay } from '../types/state-cards.js';
-import type { StorableAtEffect } from '../types/effects.js';
 import { isItemCard } from '../types/cards.js';
 import { hasPlayFlag } from '../effects/index.js';
-import { defById, findCharacterCompany, getCardEffects, updatePlayer } from './reducer-utils.js';
+import { defById, findCharacterCompany, updatePlayer, findCardEffect, hasCardEffect } from './reducer-utils.js';
 import { removeConstraint } from './pending.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -32,7 +31,7 @@ export function characterCardsStoredValue(state: GameState, char: CharacterInPla
   for (const card of char.items) {
     const def = defById(state, card.definitionId);
     if (!def) continue;
-    const storable = getCardEffects(def).find((e): e is StorableAtEffect => e.type === 'storable-at');
+    const storable = findCardEffect(def, 'storable-at');
     const printedMp = 'marshallingPoints' in def && typeof def.marshallingPoints === 'number' ? def.marshallingPoints : 0;
     const mp = storable?.marshallingPoints ?? printedMp;
     const cp = 'corruptionPoints' in def && typeof def.corruptionPoints === 'number' ? def.corruptionPoints : 0;
@@ -50,7 +49,7 @@ function isAutoStorable(state: GameState, definitionId: CardInstance['definition
   const def = defById(state, definitionId);
   if (!def) return false;
   if (isItemCard(def)) return !hasPlayFlag(def, 'no-store');
-  return getCardEffects(def).some(e => e.type === 'storable-at');
+  return hasCardEffect(def, 'storable-at');
 }
 
 /**

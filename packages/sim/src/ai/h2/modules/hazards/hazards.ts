@@ -801,24 +801,33 @@ function boostGain(
     boostInPlay(context.view, context.cardPool, { hypothetical: name }),
     attackBoostOf(def, context.view, context.cardPool, name),
   );
+  // Creatures in hand that only become playable here with this card out —
+  // Sand-drake keyed to Ithilien once Doors of Night is in play.
+  const unlocked = unlockedPlays(name, context, company);
   // Nothing about the attacks changes, so this is not the family. Saying so
   // lets the removal and recovery families have their turn.
-  if (sameBoost(current, hypothetical)) return null;
+  if (sameBoost(current, hypothetical) && unlocked.length === 0) return null;
 
   const before = buildPlan(context.view, context, company).search.bundles[0]?.expectedTsd ?? 0;
   // The counterfactual arm reserves the slot this card would spend. Without
   // that it priced the boosted bundle as if the event were free, which is worst
   // exactly where it matters most: with one slot left, "play the boost" was
   // credited with the attack the boost would have had no room for.
-  const after = planFor(context, company, hypothetical, 1).search.bundles[0]?.expectedTsd ?? 0;
+  const withUnlocked = unlocked.length === 0
+    ? context
+    : { ...context, legalActions: [...context.legalActions, ...unlocked.map(u => u.action)] };
+  const after = planFor(withUnlocked, company, hypothetical, 1).search.bundles[0]?.expectedTsd ?? 0;
   const describe = (boost: AttackBoost | null): string => [...(boost?.entries() ?? [])]
     .map(([race, added]) => `${race === ALL_RACES ? 'every' : race} attack `
       + `${added.prowess >= 0 ? '+' : ''}${added.prowess} prowess, `
       + `${added.strikes >= 0 ? '+' : ''}${added.strikes} strike(s)`)
     .join('; ') || 'no modifier at all';
-  const shift = current === null
-    ? describe(hypothetical)
-    : `${describe(current)} becomes ${describe(hypothetical)}`;
+  const shift = [
+    ...(sameBoost(current, hypothetical) ? [] : [current === null
+      ? describe(hypothetical)
+      : `${describe(current)} becomes ${describe(hypothetical)}`]),
+    ...unlocked.map(u => `${u.name} may be keyed to ${u.keyedTo}`),
+  ].join('; ');
   const future = futureBoostGain(def, hypothetical, context, company);
   const now = after - before > 0 ? after : 0;
   if (future) {
@@ -851,6 +860,92 @@ function boostGain(
         + `${after.toFixed(1)}`
       : `${shift} — but the plan has no attack left it would improve`,
   };
+}
+
+/**
+ * The creature plays in hand that this card's coming into play would unlock
+ * against this company.
+ *
+ * Many creatures print a second keying for when Doors of Night is out —
+ * Sand-drake "may also be played keyed to Ithilien, Nurn, and Horse Plains",
+ * the Dragons to the sites of their lair regions. The engine offers a play
+ * only under the keying that holds now, so with Doors of Night still in hand
+ * those plays are simply absent from the legal actions, and the plan priced
+ * the enabler as if they did not exist. This reads the gated alternatives
+ * (`when: { inPlay: <this card> }`) against the company's resolved path the
+ * way the engine's offer does — region names, region types with their counts,
+ * and the destination site's region — and returns a play for each creature it
+ * newly keys, as the engine would list it once the card is out.
+ *
+ * Read from the printed path: a path rewritten by environments (Choking
+ * Shadows, Fell Winter) and the site-keyword alternatives are not followed, so
+ * an unlock depending on those is missed rather than invented.
+ */
+function unlockedPlays(
+  name: string,
+  context: ModuleContext,
+  company: OpponentCompanyView,
+): { action: GameAction; name: string; keyedTo: string }[] {
+  const { view, cardPool } = context;
+  if (inPlayNamed(view, cardPool, name)) return [];
+  const mh = view.phaseState as unknown as {
+    phase?: string; resolvedSitePath?: readonly string[]; resolvedSitePathNames?: readonly string[];
+    destinationSiteName?: string | null;
+  };
+  if (mh.phase !== Phase.MovementHazard || !mh.resolvedSitePath || !mh.resolvedSitePathNames) return [];
+  const pathCounts = new Map<string, number>();
+  for (const type of mh.resolvedSitePath) pathCounts.set(type, (pathCounts.get(type) ?? 0) + 1);
+  const destinationRegion = mh.destinationSiteName
+    ? (Object.values(cardPool).find(def => (def as unknown as { name?: string; region?: string }).name
+      === mh.destinationSiteName && (def as unknown as { region?: string }).region !== undefined) as unknown as
+      { region?: string } | undefined)?.region
+    : undefined;
+  const offered = new Set(context.legalActions
+    .filter(a => a.type === 'play-hazard'
+      && (a as unknown as { targetCompanyId?: string }).targetCompanyId === (company.id as string))
+    .map(a => (a as unknown as { cardInstanceId: string }).cardInstanceId));
+  const unlocked: { action: GameAction; name: string; keyedTo: string }[] = [];
+  for (const card of view.self.hand) {
+    if (offered.has(card.instanceId as string)) continue;
+    const def = cardPool[card.definitionId] as unknown as {
+      cardType?: string; name?: string;
+      keyedTo?: readonly {
+        regionTypes?: readonly string[]; regionNames?: readonly string[]; siteInRegionNames?: readonly string[];
+        when?: Readonly<Record<string, unknown>>;
+      }[];
+    } | undefined;
+    if (def?.cardType !== 'hazard-creature') continue;
+    let keyedBy: CreatureKeyingMatch | null = null;
+    for (const key of def.keyedTo ?? []) {
+      if (keyedBy) break;
+      const when = key.when;
+      if (!when || Object.keys(when).length !== 1 || when.inPlay !== name) continue;
+      const region = key.regionNames?.find(n => mh.resolvedSitePathNames!.includes(n));
+      if (region) { keyedBy = { method: 'region-name', value: region }; break; }
+      if (key.regionTypes && key.regionTypes.length > 0) {
+        const needed = new Map<string, number>();
+        for (const type of key.regionTypes) needed.set(type, (needed.get(type) ?? 0) + 1);
+        const met = [...needed].find(([type, count]) => (pathCounts.get(type) ?? 0) >= count);
+        if (met) { keyedBy = { method: 'region-type', value: met[0] }; break; }
+      }
+      if (destinationRegion && key.siteInRegionNames?.includes(destinationRegion)) {
+        keyedBy = { method: 'site-in-region', value: destinationRegion };
+      }
+    }
+    if (!keyedBy) continue;
+    unlocked.push({
+      action: {
+        type: 'play-hazard',
+        player: view.self.id,
+        cardInstanceId: card.instanceId,
+        targetCompanyId: company.id,
+        keyedBy,
+      } as unknown as GameAction,
+      name: def.name ?? (card.definitionId as string),
+      keyedTo: keyedBy.value,
+    });
+  }
+  return unlocked;
 }
 
 /**
@@ -1007,6 +1102,8 @@ function evaluateHazardEvent(
   if (upgrade) gain = { tsd: gain.tsd + upgrade.tsd, reason: `${gain.reason}; ${upgrade.reason}` };
   const sweep = environmentSweepGain(cardPool[card.definitionId], context);
   if (sweep) gain = { tsd: gain.tsd + sweep.tsd, reason: `${gain.reason}; ${sweep.reason}` };
+  const future = deckUpgradeGain(cardPool[card.definitionId], name, record.cardInstanceId, context, company);
+  if (future) gain = { tsd: gain.tsd + future.tsd, reason: `${gain.reason}; ${future.reason}` };
 
   // A play that cannot do anything (a corruption hazard on a Ringwraith) buys
   // no rotation worth the card: kept, it waits for a target it can hurt.
@@ -1209,6 +1306,87 @@ function environmentSweepGain(
     });
   if (losses.length === 0) return null;
   return { tsd: losses.reduce((sum, l) => sum + l.tsd, 0), reason: losses.map(l => l.reason).join('; ') };
+}
+
+/**
+ * What a permanent event is worth to the cards it upgrades that are still to come.
+ *
+ * Strong players open with Doors of Night when nothing in hand reads it yet,
+ * because the deck is built around the cards that do: a Minions Stir whose
+ * +1 becomes +2, an Unexpected Outpost whose second fetch it unlocks. Priced
+ * only against the board and the hand, it was worth nothing until those cards
+ * turned up, so it was played last or not at all and the upgrades were lost
+ * for every turn it waited.
+ *
+ * A permanent event stays out, so each such card is credited with what it
+ * gains by finding the enabler already in play — the *difference*, not the
+ * whole card, because the card would be played without it too:
+ *
+ * - **An attack boost** (in hand or in the deck): the boost it declares with
+ *   the card in play minus without, priced by `futureBoostGain` against the
+ *   creatures left in the deck, as for any boost.
+ * - **A recovery** still in the deck (one in hand is `handUpgradeGain`'s):
+ *   the recovery with the card in play minus without.
+ *
+ * A deck card counts by the chance it is drawn over `planHorizonTurns` — two
+ * draws a turn, the same rate `futureBoostGain` uses — and the recovery is
+ * discounted as potential (a boost's `futureBoostGain` already is).
+ */
+function deckUpgradeGain(
+  def: CardDefinition | undefined,
+  name: string,
+  instanceId: string,
+  context: ModuleContext,
+  company: OpponentCompanyView,
+): { tsd: number; reason: string } | null {
+  const { view, cardPool, tunables, ownDeck } = context;
+  if ((def as unknown as { eventType?: string } | undefined)?.eventType !== 'permanent') return null;
+  if (inPlayNamed(view, cardPool, name)) return null;
+  const unseen = ownDeck ? unseenDeckCards(view, ownDeck) : [];
+  const copies = new Map<string, { hand: boolean; deck: number }>();
+  for (const card of view.self.hand) {
+    if ((card.instanceId as string) === instanceId) continue;
+    copies.set(card.definitionId as string, { hand: true, deck: 0 });
+  }
+  for (const id of unseen) {
+    const entry = copies.get(id) ?? { hand: false, deck: 0 };
+    copies.set(id, { ...entry, deck: entry.deck + 1 });
+  }
+  const draws = 2 * tunables.planHorizonTurns;
+  let tsd = 0;
+  const upgraded: string[] = [];
+  for (const [id, { hand, deck }] of copies) {
+    const card = cardPool[id];
+    if ((card as unknown as { cardType?: string } | undefined)?.cardType !== 'hazard-event') continue;
+    const drawn = deck > 0 ? Math.min(1, deck * draws / unseen.length) : 0;
+    let gain = 0;
+    const without = attackBoostOf(card, view, cardPool);
+    const withIt = attackBoostOf(card, view, cardPool, name);
+    if (!sameBoost(without, withIt)) {
+      const delta = new Map<string, { prowess: number; strikes: number }>();
+      for (const race of new Set([...(without?.keys() ?? []), ...(withIt?.keys() ?? [])])) {
+        const before = without?.get(race) ?? { prowess: 0, strikes: 0 };
+        const after = withIt?.get(race) ?? { prowess: 0, strikes: 0 };
+        delta.set(race, { prowess: after.prowess - before.prowess, strikes: after.strikes - before.strikes });
+      }
+      // One boost of a kind is out at a time, so a copy in hand is the one that counts.
+      gain += (hand ? 1 : drawn) * (futureBoostGain(card, delta, context, company)?.tsd ?? 0);
+    }
+    // A recovery copy in hand is `handUpgradeGain`'s; the deck's copies are this one's.
+    if (drawn > 0) {
+      const effects = (card as unknown as {
+        effects?: readonly { type?: string; to?: string; count?: number; when?: Readonly<Record<string, unknown>> }[];
+      } | undefined)?.effects ?? [];
+      const recovery = (recoveryGain(effects, context, name)?.tsd ?? 0) - (recoveryGain(effects, context)?.tsd ?? 0);
+      gain += drawn * Math.max(0, recovery) * tunables.potentialDiscount;
+    }
+    if (gain <= 0) continue;
+    tsd += gain;
+    upgraded.push(`${nameOfDefinition(card, id)} (${[hand ? 'in hand' : '', drawn > 0 ? `${(100 * drawn).toFixed(0)}% to draw` : '']
+      .filter(Boolean).join(', ')})`);
+  }
+  if (upgraded.length === 0) return null;
+  return { tsd, reason: `stays out for ${upgraded.join(', ')}, better with it in play` };
 }
 
 /**

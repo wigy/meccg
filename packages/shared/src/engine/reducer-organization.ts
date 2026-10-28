@@ -22,7 +22,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { findEliminateInsteadOfDiscardHost, consumeEliminateInsteadOfDiscardHost } from './eliminate-instead-of-discard.js';
-import { clearPlannedMovement, retargetMergedCompanyConstraints, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCharacterLeavesCompanyEvents, sweepCharacterSplitsOffCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies } from './reducer-utils.js';
+import { clearPlannedMovement, retargetMergedCompanyConstraints, cleanupEmptyCompanies, gateDeckSearchFetch, clonePlayers, companyHasImmobileCharacter, companyHasRingwraith, moveSideboardCard, nextCompanyId, handleFetchFromPile, sweepAutoDiscardHazards, sweepAutoDiscardResourceEvents, sweepCharacterLeavesCompanyEvents, sweepCharacterSplitsOffCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, removeAttachment, removeById, stagePointsOfCard, toCardInstance, updatePlayer, updateCharacter, wrongActionType, findCharacterCompany, findById, playerById, getCardEffects, getOnEventEffects, isSelfStoreMove, itemKeywordsOf, companyById, companySiteDef, defById, discardCardsInPlayWhere, selfSideboardToDeckMove, siteDeniesCompanyMove, siteForbidsStorage, siteMovementRolls, matchesDefinition, isUniqueCharacterInPlay, partitionLeavingAllies, findCardEffect, hasCardEffect } from './reducer-utils.js';
 import { partitionLeavingTrophies } from './trophy-dispersal.js';
 import { manifestationOfEntityInPlay } from './manifestations.js';
 import { handlePlayPermanentEvent, handlePlayShortEvent, handlePlayResourceShortEvent } from './reducer-events.js';
@@ -432,7 +432,7 @@ function handleVoluntaryDiscardInPlay(state: GameState, action: GameAction): Red
   const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
   if (!card) return { state, error: 'Voluntary-discard target not found in play' };
   const def = defById(state, card.definitionId);
-  const eff = def ? getCardEffects(def).find(e => e.type === 'voluntary-discard') : undefined;
+  const eff = def ? findCardEffect(def, 'voluntary-discard') : undefined;
   if (!eff || eff.type !== 'voluntary-discard' || eff.phase !== 'organization') {
     return { state, error: 'Target does not allow voluntary discard during the organization phase' };
   }
@@ -532,7 +532,7 @@ function handleDiscardForEvilHourMovement(state: GameState, action: GameAction):
   if (!card) return { state, error: 'A More Evil Hour not found in play' };
   if (card.status !== CardStatus.Tapped) return { state, error: 'A More Evil Hour must be tapped to grant movement' };
   const def = defById(state, card.definitionId);
-  const eff = def ? getCardEffects(def).find(e => e.type === 'evil-hour-grant-movement') : undefined;
+  const eff = def ? findCardEffect(def, 'evil-hour-grant-movement') : undefined;
   if (!eff || eff.type !== 'evil-hour-grant-movement') {
     return { state, error: 'Card does not grant the A More Evil Hour movement bonus' };
   }
@@ -563,7 +563,7 @@ function handleActivateOrgFetch(state: GameState, action: GameAction): ReducerRe
   const card = player.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
   if (!card) return { state, error: 'Org-phase-fetch source not found in play' };
   const def = defById(state, card.definitionId);
-  const fetchEffect = def ? getCardEffects(def).find(e => e.type === 'org-phase-fetch') : undefined;
+  const fetchEffect = def ? findCardEffect(def, 'org-phase-fetch') : undefined;
   if (!fetchEffect || fetchEffect.type !== 'org-phase-fetch') {
     return { state, error: 'Target does not grant an organization-phase fetch' };
   }
@@ -1202,9 +1202,7 @@ export function handleManifestationSwap(state: GameState, action: GameAction): R
   if (!oldChar) return { state, error: 'manifestation-swap: character not in play' };
   const oldDef = defById(state, oldChar.definitionId);
   if (!oldDef || !isCharacterCard(oldDef)) return { state, error: 'manifestation-swap: source is not a character' };
-  const swap = getCardEffects(oldDef).find(
-    (e): e is import('../types/effects.js').ManifestationSwapEffect => e.type === 'manifestation-swap',
-  );
+  const swap = findCardEffect(oldDef, 'manifestation-swap');
   if (!swap) return { state, error: `manifestation-swap: ${oldDef.name} has no manifestation-swap effect` };
 
   const handCard = findById(player.hand, action.cardInstanceId);
@@ -1258,9 +1256,7 @@ export function handleDiscardToRecruit(state: GameState, action: GameAction): Re
   if (!oldChar) return { state, error: 'discard-to-recruit: character not in play' };
   const oldDef = defById(state, oldChar.definitionId);
   if (!oldDef || !isCharacterCard(oldDef)) return { state, error: 'discard-to-recruit: source is not a character' };
-  const recruit = getCardEffects(oldDef).find(
-    (e): e is import('../types/effects.js').DiscardToRecruitEffect => e.type === 'discard-to-recruit',
-  );
+  const recruit = findCardEffect(oldDef, 'discard-to-recruit');
   if (!recruit) return { state, error: `discard-to-recruit: ${oldDef.name} has no discard-to-recruit effect` };
 
   const company = findCharacterCompany(player.companies, oldId);
@@ -1615,9 +1611,7 @@ function storeCompanyBoundCard(
   if (card.companyId !== companyId) return { state, error: 'Card is not bound to that company' };
 
   const cardDef = defById(state, card.definitionId);
-  const storable = getCardEffects(cardDef).find(
-    (e): e is import('../types/effects.js').StorableAtEffect => e.type === 'storable-at',
-  );
+  const storable = findCardEffect(cardDef, 'storable-at');
   if (!storable) return { state, error: `${cardDef?.name ?? '?'} cannot be stored` };
   if (storable.requiresTapped && card.status !== CardStatus.Tapped) {
     logDetail(`Store rejected: ${cardDef?.name ?? '?'} must be tapped before it can be stored`);
@@ -1918,7 +1912,7 @@ export function handleStoreItemInCache(state: GameState, action: GameAction): Re
   const host = player.cardsInPlay.find(c => c.instanceId === action.hostInstanceId);
   if (!host) return { state, error: 'Cache host not found in play' };
   const hostDef = defById(state, host.definitionId);
-  const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-hand-store');
+  const cacheEffect = findCardEffect(hostDef, 'item-cache-hand-store');
   if (!cacheEffect || cacheEffect.type !== 'item-cache-hand-store') {
     return { state, error: `${hostDef?.name ?? 'This card'} does not accept items placed under it from hand` };
   }
@@ -2254,7 +2248,7 @@ function handleSplitCompany(state: GameState, action: GameAction): ReducerResult
   const cardsInPlay = player.cardsInPlay.map(card => {
     if (card.companyId !== sourceCompany.id || !newCompanyHasRingwraith) return card;
     const cardDef = defById(state, card.definitionId);
-    if (!cardDef || !getCardEffects(cardDef).some(e => e.type === 'ringwraith-mode')) return card;
+    if (!cardDef || !hasCardEffect(cardDef, 'ringwraith-mode')) return card;
     logDetail(`Split company: moving Ringwraith-mode card ${cardDef.name} to ${newCompany.id as string} (Ringwraith split off)`);
     return { ...card, companyId: newCompany.id };
   });

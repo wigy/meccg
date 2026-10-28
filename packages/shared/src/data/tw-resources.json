@@ -4187,6 +4187,7 @@
     "image": "https://raw.githubusercontent.com/council-of-rivendell/meccg-remaster/master/en-remaster/tw/SacrificeofForm.jpg",
     "unique": false,
     "eventType": "permanent",
+    "keywords": ["spell"],
     "marshallingPoints": 0,
     "marshallingCategory": "misc",
     "effects": [

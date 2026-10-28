@@ -36,7 +36,7 @@ import type { GameState, CombatState, CardInstance, CardInstanceId, CardInPlay, 
 import { getPlayerIndex } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import { logDetail } from './legal-actions/log.js';
-import { cardName, defById, getCardEffects, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { cardName, defById, updateCharacter, updatePlayer, hasCardEffect } from './reducer-utils.js';
 
 /**
  * The attack's creature card, when the attack is a hazard-creature attack
@@ -207,7 +207,7 @@ export function nextHeldCreatureAttack(
     if (!ch) continue;
     for (const h of ch.hazards) {
       if (!h.heldCreature || faced.has(h.instanceId as string)) continue;
-      if (!getCardEffects(defById(state, h.definitionId)).some(e => e.type === 'held-creature-attack')) continue;
+      if (!hasCardEffect(defById(state, h.definitionId), 'held-creature-attack')) continue;
       return { characterId: charId, host: h, creature: h.heldCreature };
     }
   }

@@ -30,7 +30,7 @@ import type { GameState, PlayerId } from '../index.js';
 import type { Company, PlayerState, CardInstanceId } from '../index.js';
 import type { SiteCard } from '../types/cards.js';
 import { CardStatus } from '../types/common.js';
-import { defById, getCardEffects } from './reducer-utils.js';
+import { defById, hasCardEffect, findCardEffect } from './reducer-utils.js';
 import { logDetail } from './legal-actions/log.js';
 
 /**
@@ -98,7 +98,7 @@ export function applyEvilHourTaps(prev: GameState, next: GameState): GameState {
   // Nothing to do unless some card with the trigger is in play and untapped.
   const anyTrigger = next.players.some(p => p.cardsInPlay.some(cip => {
     if (cip.status !== CardStatus.Untapped) return false;
-    return getCardEffects(defById(next, cip.definitionId)).some(e => e.type === 'evil-hour-tap-trigger');
+    return hasCardEffect(defById(next, cip.definitionId), 'evil-hour-tap-trigger');
   }));
   if (!anyTrigger) return next;
 
@@ -107,7 +107,7 @@ export function applyEvilHourTaps(prev: GameState, next: GameState): GameState {
     const controller = players[controllerIdx];
     const triggers = controller.cardsInPlay.filter(cip =>
       cip.status === CardStatus.Untapped &&
-      getCardEffects(defById(next, cip.definitionId)).some(e => e.type === 'evil-hour-tap-trigger'));
+      hasCardEffect(defById(next, cip.definitionId), 'evil-hour-tap-trigger'));
     if (triggers.length === 0) continue;
 
     const opponentIdx = 1 - controllerIdx;
@@ -121,7 +121,7 @@ export function applyEvilHourTaps(prev: GameState, next: GameState): GameState {
       if (beforeIds.has(id)) continue;
       // A card newly in the opponent's in-play scoring zones — i.e. just played.
       for (const trigger of triggers) {
-        const eff = getCardEffects(defById(next, trigger.definitionId)).find(e => e.type === 'evil-hour-tap-trigger');
+        const eff = findCardEffect(defById(next, trigger.definitionId), 'evil-hour-tap-trigger');
         if (eff?.type !== 'evil-hour-tap-trigger') continue;
         const mp = printedMarshallingPoints(next, id as CardInstanceId, opponent);
         if (mp >= eff.mpThreshold) { opponentScored = true; scoredMax = Math.max(scoredMax, mp); }
@@ -132,7 +132,7 @@ export function applyEvilHourTaps(prev: GameState, next: GameState): GameState {
     logDetail(`A More Evil Hour: ${opponent.name} played a card worth ${scoredMax}+ marshalling points → tapping ${controller.name}'s A More Evil Hour`);
     const newCardsInPlay = controller.cardsInPlay.map(cip => {
       if (cip.status !== CardStatus.Untapped) return cip;
-      const hasTrigger = getCardEffects(defById(next, cip.definitionId)).some(e => e.type === 'evil-hour-tap-trigger');
+      const hasTrigger = hasCardEffect(defById(next, cip.definitionId), 'evil-hour-tap-trigger');
       return hasTrigger ? { ...cip, status: CardStatus.Tapped } : cip;
     });
     players = players.map((p, i) => i === controllerIdx ? { ...p, cardsInPlay: newCardsInPlay } : p) as unknown as typeof players;
