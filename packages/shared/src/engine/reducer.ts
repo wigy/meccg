@@ -237,49 +237,34 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
     logDetail(`${action.player as string} concedes — ending the game immediately`);
     const opponent = state.players.find(p => p.id !== action.player);
     if (!opponent) return { state, error: 'Cannot concede: no opponent found' };
-    const finalState = endGame(state, { kind: 'concession', concededBy: action.player }, opponent.id);
-    const recomputed = postReduce(finalState, state);
-    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+    return commit(state, { state: endGame(state, { kind: 'concession', concededBy: action.player }, opponent.id) });
   }
 
   // Agreed early Free Council handshake — like concede, a human-only
   // meta-action handled ahead of chain/combat/pending dispatch so the
   // opponent can answer a proposal from any sub-state without disturbing it.
   if (action.type === 'propose-early-council' || action.type === 'accept-early-council' || action.type === 'decline-early-council') {
-    const result = handleEarlyCouncilAction(state, action);
-    if (result.error) return result;
-    const recomputed = postReduce(result.state, state);
-    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+    return commit(state, handleEarlyCouncilAction(state, action));
   }
 
   // Taking back a support tap (see withdraw-support.ts) — a human-only
   // meta-action valid in whatever sub-state the support was given in, so it
   // is handled ahead of chain/combat/pending dispatch like concede.
   if (action.type === 'withdraw-support') {
-    const result = handleWithdrawSupport(state, action);
-    if (result.error) return result;
-    const recomputed = postReduce(result.state, state);
-    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+    return commit(state, handleWithdrawSupport(state, action));
   }
 
   // Chain of effects: dispatch chain-specific actions when a chain is active
   if (state.chain != null && (action.type === 'pass-chain-priority' || action.type === 'order-passives' || action.type === 'reveal-on-guard' || action.type === 'cancel-return-to-origin' || action.type === 'cancel-hazard-event' || action.type === 'counter-cancel-roll' || action.type === 'counter-cancel-attack')) {
     logDetail(`Chain active — dispatching '${action.type}' to chain reducer`);
     const chainResult = handleChainAction(state, action);
-    if (!chainResult.error) {
-      // A hazard long-event (e.g. Bairanax Ahunt td-4) may have just resolved
-      // into play mid-movement, matching the active company's declared
-      // region path — trigger its ahunt combat immediately rather than
-      // waiting for some future company's order-effects step. No-op unless
-      // a fresh, unresolved match was just introduced.
-      const finalState = triggerAhuntOnLongEventPlay(chainResult.state);
-      const recomputed = postReduce(finalState, state);
-      return {
-        state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
-        effects: chainResult.effects,
-      };
-    }
-    return chainResult;
+    if (chainResult.error) return chainResult;
+    // A hazard long-event (e.g. Bairanax Ahunt td-4) may have just resolved
+    // into play mid-movement, matching the active company's declared
+    // region path — trigger its ahunt combat immediately rather than
+    // waiting for some future company's order-effects step. No-op unless
+    // a fresh, unresolved match was just introduced.
+    return commit(state, { ...chainResult, state: triggerAhuntOnLongEventPlay(chainResult.state) });
   }
 
   // Combat: dispatch combat-specific actions when combat is active.
@@ -325,11 +310,7 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
           }
         }
       }
-      const recomputed = postReduce(finalState, state);
-      return {
-        state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
-        effects: finalEffects,
-      };
+      return commit(state, { state: finalState, effects: finalEffects });
     }
     return combatResult;
   }
@@ -348,23 +329,9 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
   const pendingEffectActor = !chainDeclaring && state.pendingEffects.length > 0
     ? (state.pendingEffects[0].actor ?? state.activePlayer)
     : null;
-  if (pendingEffectActor === action.player && (action.type === 'fetch-from-pile' || action.type === 'tap-discard-in-play' || action.type === 'tap-take-item' || action.type === 'pass')) {
-    logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
-    let effectResult: ReducerResult;
-    if (action.type === 'fetch-from-pile') {
-      effectResult = handleFetchFromPile(state, action);
-    } else if (action.type === 'tap-discard-in-play') {
-      effectResult = applyTapDiscardInPlay(state, action);
-    } else if (action.type === 'tap-take-item') {
-      effectResult = applyTapTakeItem(state, action);
-    } else {
-      effectResult = resolvePendingEffect(state);
-    }
-    if (!effectResult.error) {
-      const recomputed = postReduce(effectResult.state, state);
-      return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: effectResult.effects };
-    }
-    return effectResult;
+  if (pendingEffectActor === action.player) {
+    const effectResult = dispatchPendingEffect(state, action);
+    if (effectResult) return effectResult;
   }
 
   // Pending resolutions: dispatch through the unified resolver before
@@ -375,16 +342,7 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
   if (topResolution !== null) {
     logDetail(`Pending resolution active (${topResolution.kind.type}) — dispatching to applyResolution`);
     const resolutionResult = applyResolution(state, action, topResolution);
-    if (resolutionResult !== null) {
-      if (!resolutionResult.error) {
-        const recomputed = postReduce(resolutionResult.state, state);
-        return {
-          state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 },
-          effects: resolutionResult.effects,
-        };
-      }
-      return resolutionResult;
-    }
+    if (resolutionResult !== null) return commit(state, resolutionResult);
     // Stub returned null — fall through to legacy phase reducer.
   }
 
@@ -393,10 +351,7 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
   // resolution), so it is dispatched here directly. Its legality is gated by
   // `cofPairResourceActions` in `legal-actions/organization.ts`.
   if (action.type === 'pair-resource-with-cof') {
-    const pairResult = applyPairResourceWithCof(state, action);
-    if (pairResult.error) return pairResult;
-    const recomputed = postReduce(pairResult.state, state);
-    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: pairResult.effects };
+    return commit(state, applyPairResourceWithCof(state, action));
   }
 
   // Cross-phase `reshuffle-card-from-hand` (e.g. Sudden Call, le-235):
@@ -406,41 +361,23 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
     if (newState === null) {
       return { state, error: `Card ${action.cardInstanceId as string} not found in ${action.player as string}'s hand` };
     }
-    const recomputed = postReduce(newState, state);
-    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+    return commit(state, { state: newState });
   }
 
   // Cross-phase `swap-banned-vs-balrog` (CoE 1.8.2 / rule 1.36): the rule
   // grants the trade "at any time", so like the reshuffle above it is
   // dispatched ahead of the phase handlers.
   if (action.type === 'swap-banned-vs-balrog') {
-    const swapResult = applyBannedVsBalrogSwap(state, action.player, action.cardInstanceId, action.sideboardCardInstanceId);
-    if (swapResult.error) return swapResult;
-    const recomputed = postReduce(swapResult.state, state);
-    return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 } };
+    return commit(state, applyBannedVsBalrogSwap(state, action.player, action.cardInstanceId, action.sideboardCardInstanceId));
   }
 
   // Pending effects whose actor is the opponent of the acting player were
   // handled above; any remaining fetch-from-pile/pass for a queued effect
   // still routes to the effect handler (legacy path for effects without an
   // explicit actor when the active player differs).
-  if (state.pendingEffects.length > 0 && (action.type === 'fetch-from-pile' || action.type === 'tap-discard-in-play' || action.type === 'tap-take-item' || action.type === 'pass')) {
-    logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
-    let effectResult: ReducerResult;
-    if (action.type === 'fetch-from-pile') {
-      effectResult = handleFetchFromPile(state, action);
-    } else if (action.type === 'tap-discard-in-play') {
-      effectResult = applyTapDiscardInPlay(state, action);
-    } else if (action.type === 'tap-take-item') {
-      effectResult = applyTapTakeItem(state, action);
-    } else {
-      effectResult = resolvePendingEffect(state);
-    }
-    if (!effectResult.error) {
-      const recomputed = postReduce(effectResult.state, state);
-      return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: effectResult.effects };
-    }
-    return effectResult;
+  if (state.pendingEffects.length > 0) {
+    const effectResult = dispatchPendingEffect(state, action);
+    if (effectResult) return effectResult;
   }
 
   // Dispatch to phase handler
@@ -495,18 +432,37 @@ function reduceAction(state: GameState, action: GameAction): ReducerResult {
   // Recompute derived values (MPs, general influence) from ground truth
   // and increment the state sequence number for log tracking.
   // Clear reverseActions whenever the phase changes.
-  if (!result.error) {
-    const recomputed = postReduce(result.state, state);
-    const phaseChanged = recomputed.phaseState.phase !== state.phaseState.phase;
-    result = {
-      state: {
-        ...recomputed,
-        stateSeq: recomputed.stateSeq + 1,
-        ...(phaseChanged ? { reverseActions: [] } : {}),
-      },
-      effects: result.effects,
-    };
+  result = commit(state, result);
+  if (!result.error && result.state.phaseState.phase !== state.phaseState.phase) {
+    result = { ...result, state: { ...result.state, reverseActions: [] } };
   }
-
   return result;
+}
+
+/**
+ * Finishes a successful sub-handler step: runs {@link postReduce}
+ * housekeeping against the pre-action state and bumps `stateSeq` for log
+ * tracking. Errors pass through untouched.
+ */
+function commit(prev: GameState, result: ReducerResult): ReducerResult {
+  if (result.error) return result;
+  const recomputed = postReduce(result.state, prev);
+  return { state: { ...recomputed, stateSeq: recomputed.stateSeq + 1 }, effects: result.effects };
+}
+
+/**
+ * Routes an action answering the queued pending card effect (fetch from a
+ * pile, tap-discard, tap-take, or pass) to its handler and commits the
+ * result. Returns `null` for any other action type so the caller keeps
+ * dispatching.
+ */
+function dispatchPendingEffect(state: GameState, action: GameAction): ReducerResult | null {
+  if (action.type !== 'fetch-from-pile' && action.type !== 'tap-discard-in-play' && action.type !== 'tap-take-item' && action.type !== 'pass') return null;
+  logDetail(`Pending effect active — dispatching '${action.type}' to effect handler`);
+  switch (action.type) {
+    case 'fetch-from-pile': return commit(state, handleFetchFromPile(state, action));
+    case 'tap-discard-in-play': return commit(state, applyTapDiscardInPlay(state, action));
+    case 'tap-take-item': return commit(state, applyTapTakeItem(state, action));
+    case 'pass': return commit(state, resolvePendingEffect(state));
+  }
 }
