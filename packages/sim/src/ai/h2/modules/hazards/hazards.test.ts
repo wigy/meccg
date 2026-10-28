@@ -1042,6 +1042,18 @@ describe('Doors of Night ahead of An Unexpected Outpost', () => {
     expect(JSON.stringify(doorsEvaluation.rationale)).toContain('upgrades An Unexpected Outpost');
     expect(doorsEvaluation.utility).toBeGreaterThan(hazardsModule.evaluate(outpost, context)!.utility);
   });
+
+  test('and is credited the Outposts still in the deck, which it upgrades for as long as it stays out', () => {
+    // Strong players lead with Doors of Night before the cards it upgrades are
+    // drawn; it is permanent, so the deck's Outposts find it already in play.
+    const { context, doors } = setup();
+    const pool = loadCardPool();
+    const outpostId = Object.keys(pool).find(id => (pool[id] as unknown as { name?: string }).name === 'An Unexpected Outpost')!;
+    const withDeck = { ...context, ownDeck: { playDeck: [outpostId, outpostId, outpostId], draftPool: [] } };
+    const evaluation = hazardsModule.evaluate(doors, withDeck)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('stays out for An Unexpected Outpost');
+    expect(evaluation.expectedTsd).toBeGreaterThan(hazardsModule.evaluate(doors, context)!.expectedTsd);
+  });
 });
 
 describe('a dual-mode creature played as its event', () => {

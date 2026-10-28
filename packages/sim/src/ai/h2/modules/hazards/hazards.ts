@@ -1003,6 +1003,8 @@ function evaluateHazardEvent(
 
   const upgrade = handUpgradeGain(name, record.cardInstanceId, context);
   if (upgrade) gain = { tsd: gain.tsd + upgrade.tsd, reason: `${gain.reason}; ${upgrade.reason}` };
+  const future = deckUpgradeGain(cardPool[card.definitionId], name, record.cardInstanceId, context, company);
+  if (future) gain = { tsd: gain.tsd + future.tsd, reason: `${gain.reason}; ${future.reason}` };
 
   // A play that cannot do anything (a corruption hazard on a Ringwraith) buys
   // no rotation worth the card: kept, it waits for a target it can hurt.
@@ -1169,6 +1171,87 @@ function handUpgradeGain(
   }
   if (upgraded.length === 0) return null;
   return { tsd, reason: `upgrades ${upgraded.join(', ')} in hand, played after it` };
+}
+
+/**
+ * What a permanent event is worth to the cards it upgrades that are still to come.
+ *
+ * Strong players open with Doors of Night when nothing in hand reads it yet,
+ * because the deck is built around the cards that do: a Minions Stir whose
+ * +1 becomes +2, an Unexpected Outpost whose second fetch it unlocks. Priced
+ * only against the board and the hand, it was worth nothing until those cards
+ * turned up, so it was played last or not at all and the upgrades were lost
+ * for every turn it waited.
+ *
+ * A permanent event stays out, so each such card is credited with what it
+ * gains by finding the enabler already in play — the *difference*, not the
+ * whole card, because the card would be played without it too:
+ *
+ * - **An attack boost** (in hand or in the deck): the boost it declares with
+ *   the card in play minus without, priced by `futureBoostGain` against the
+ *   creatures left in the deck, as for any boost.
+ * - **A recovery** still in the deck (one in hand is `handUpgradeGain`'s):
+ *   the recovery with the card in play minus without.
+ *
+ * A deck card counts by the chance it is drawn over `planHorizonTurns` — two
+ * draws a turn, the same rate `futureBoostGain` uses — and the recovery is
+ * discounted as potential (a boost's `futureBoostGain` already is).
+ */
+function deckUpgradeGain(
+  def: CardDefinition | undefined,
+  name: string,
+  instanceId: string,
+  context: ModuleContext,
+  company: OpponentCompanyView,
+): { tsd: number; reason: string } | null {
+  const { view, cardPool, tunables, ownDeck } = context;
+  if ((def as unknown as { eventType?: string } | undefined)?.eventType !== 'permanent') return null;
+  if (inPlayNamed(view, cardPool, name)) return null;
+  const unseen = ownDeck ? unseenDeckCards(view, ownDeck) : [];
+  const copies = new Map<string, { hand: boolean; deck: number }>();
+  for (const card of view.self.hand) {
+    if ((card.instanceId as string) === instanceId) continue;
+    copies.set(card.definitionId as string, { hand: true, deck: 0 });
+  }
+  for (const id of unseen) {
+    const entry = copies.get(id) ?? { hand: false, deck: 0 };
+    copies.set(id, { ...entry, deck: entry.deck + 1 });
+  }
+  const draws = 2 * tunables.planHorizonTurns;
+  let tsd = 0;
+  const upgraded: string[] = [];
+  for (const [id, { hand, deck }] of copies) {
+    const card = cardPool[id];
+    if ((card as unknown as { cardType?: string } | undefined)?.cardType !== 'hazard-event') continue;
+    const drawn = deck > 0 ? Math.min(1, deck * draws / unseen.length) : 0;
+    let gain = 0;
+    const without = attackBoostOf(card, view, cardPool);
+    const withIt = attackBoostOf(card, view, cardPool, name);
+    if (!sameBoost(without, withIt)) {
+      const delta = new Map<string, { prowess: number; strikes: number }>();
+      for (const race of new Set([...(without?.keys() ?? []), ...(withIt?.keys() ?? [])])) {
+        const before = without?.get(race) ?? { prowess: 0, strikes: 0 };
+        const after = withIt?.get(race) ?? { prowess: 0, strikes: 0 };
+        delta.set(race, { prowess: after.prowess - before.prowess, strikes: after.strikes - before.strikes });
+      }
+      // One boost of a kind is out at a time, so a copy in hand is the one that counts.
+      gain += (hand ? 1 : drawn) * (futureBoostGain(card, delta, context, company)?.tsd ?? 0);
+    }
+    // A recovery copy in hand is `handUpgradeGain`'s; the deck's copies are this one's.
+    if (drawn > 0) {
+      const effects = (card as unknown as {
+        effects?: readonly { type?: string; to?: string; count?: number; when?: Readonly<Record<string, unknown>> }[];
+      } | undefined)?.effects ?? [];
+      const recovery = (recoveryGain(effects, context, name)?.tsd ?? 0) - (recoveryGain(effects, context)?.tsd ?? 0);
+      gain += drawn * Math.max(0, recovery) * tunables.potentialDiscount;
+    }
+    if (gain <= 0) continue;
+    tsd += gain;
+    upgraded.push(`${nameOfDefinition(card, id)} (${[hand ? 'in hand' : '', drawn > 0 ? `${(100 * drawn).toFixed(0)}% to draw` : '']
+      .filter(Boolean).join(', ')})`);
+  }
+  if (upgraded.length === 0) return null;
+  return { tsd, reason: `stays out for ${upgraded.join(', ')}, better with it in play` };
 }
 
 /**
