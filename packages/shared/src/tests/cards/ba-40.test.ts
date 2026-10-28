@@ -184,6 +184,61 @@ describe('Long Grievous Siege (ba-40)', () => {
     expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
   });
 
+  test('site phase: offered only with a faction target and a besieged Border-hold', () => {
+    // Regression (game mvry8ilh-e14ten): played during the site phase right
+    // after influencing a faction, the siege was offered — and resolved —
+    // with neither a target faction nor a Border-hold set aside.
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1, alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [CIRYAHER] }],
+          hand: [LONG_GRIEVOUS_SIEGE],
+          siteDeck: [RAIDER_HOLD, BREE_MINION],
+          cardsInPlay: [factionInPlay('p1-901', EASTERLINGS)],
+        },
+        {
+          id: PLAYER_2, alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }],
+          hand: [], siteDeck: [MINAS_MORGUL],
+        },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+    const actions = viableActions(state, PLAYER_1, 'play-permanent-event')
+      .map(a => a.action as PlayPermanentEventAction);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].targetFactionInstanceId).toBe('p1-901');
+    expect(actions[0].besiegedSiteInstanceId).toBe(siteDeckInstId(state, 0, RAIDER_HOLD));
+  });
+
+  test('site phase: NOT playable without an eligible Border-hold', () => {
+    const base = buildTestState({
+      activePlayer: PLAYER_1,
+      phase: Phase.Site,
+      recompute: true,
+      players: [
+        {
+          id: PLAYER_1, alignment: Alignment.Ringwraith,
+          companies: [{ site: DOL_GULDUR, characters: [CIRYAHER] }],
+          hand: [LONG_GRIEVOUS_SIEGE],
+          siteDeck: [BREE_MINION],
+          cardsInPlay: [factionInPlay('p1-901', EASTERLINGS)],
+        },
+        {
+          id: PLAYER_2, alignment: Alignment.Ringwraith,
+          companies: [{ site: MINAS_MORGUL, characters: [LAGDUF] }],
+          hand: [], siteDeck: [MINAS_MORGUL],
+        },
+      ],
+    });
+    const state = { ...base, phaseState: makeSitePhase() };
+    expect(viableActions(state, PLAYER_1, 'play-permanent-event')).toHaveLength(0);
+  });
+
   // ─── Rule 8: cannot be duplicated on your faction ──────────────────────────
 
   test('a second copy cannot be played on a faction already under siege', () => {
