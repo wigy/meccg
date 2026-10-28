@@ -24,19 +24,12 @@
  * scanned every step.
  */
 
-import type { GameState, PlayerState, CardInstanceId } from '../index.js';
+import type { GameState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
 import { handDiscardRecycleOptionInPlay } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { logDetail } from './legal-actions/log.js';
-
-function handInstanceIds(player: PlayerState): Set<string> {
-  return new Set(player.hand.map(c => c.instanceId as string));
-}
-
-function discardInstanceIds(player: PlayerState): Set<string> {
-  return new Set(player.discardPile.map(c => c.instanceId as string));
-}
+import { cardsDiscardedFromHand } from './hand-discard-trigger.js';
 
 /**
  * `prev`/`next` are the pre- and post-action states. Enqueues one
@@ -52,10 +45,7 @@ export function applyHandDiscardRecycleOffers(prev: GameState, next: GameState):
   let state = next;
   for (let pi = 0; pi < next.players.length; pi++) {
     const player = next.players[pi];
-    const before = handInstanceIds(prev.players[pi]);
-    const after = handInstanceIds(player);
-    const nowInDiscard = discardInstanceIds(player);
-    const discardedFromHand = [...before].filter(id => !after.has(id) && nowInDiscard.has(id));
+    const discardedFromHand = cardsDiscardedFromHand(prev.players[pi], player);
     if (discardedFromHand.length === 0) continue;
 
     for (const instanceId of discardedFromHand) {
@@ -66,7 +56,7 @@ export function applyHandDiscardRecycleOffers(prev: GameState, next: GameState):
         scope: { kind: 'phase', phase: state.phaseState.phase },
         kind: {
           type: 'hand-discard-recycle-offer',
-          instanceId: instanceId as CardInstanceId,
+          instanceId,
           sourceName: marker.sourceName,
         },
       });

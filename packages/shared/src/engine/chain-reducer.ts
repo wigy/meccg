@@ -16,7 +16,7 @@ import type { GameState, GameAction, PlayerId, PlayerState, CardInstance, CardIn
 import type { HavenJumpOffer, PostAttackEffect, StrikeAssignment } from '../types/state-combat.js';
 import { nextStrikePhase } from './combat-strike.js';
 import { applyShortEventRollPlayAlly } from './roll-play-ally.js';
-import type { OnEventEffect, PlayTargetEffect, TriggerAttackOnPlayEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect, ActsAsSiteEffect } from '../types/effects.js';
+import type { OnEventEffect, PlayTargetEffect, ForceCheckAllCompanyTopEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, TapSitesInPlayEffect, CombatBodyPerDefenderSkillEffect, CombatStrikeEffectEffect } from '../types/effects.js';
 import { ACTS_AS_SITE_ID_SUFFIX } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
@@ -43,7 +43,7 @@ import { eligibleCompanyDiscardItems } from './legal-actions/pending.js';
 import { findCreatureKeyingMatches } from './legal-actions/movement-hazard.js';
 import { Phase } from '../types/state-phases.js';
 import { currentHazardLimit } from './hazard-limit.js';
-import { roll2d6, diceRollEffect, rollDiceForPlayer, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, isCovertCompany, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findDuplicationLimitEffect, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, normalAttackOverride, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany } from './reducer-utils.js';
+import { roll2d6, diceRollEffect, rollDiceForPlayer, makeCombatState, resolveAttackerChoosesDefenders, resolveDefenderFreeStrikeAssignment, characterIds, isCovertCompany, companyById, companySubphaseScope, countSpawnCardsInPlay, defById, discardCardsInPlayWhere, drawCardsExhausting, findById, findCharacterCompany, findDuplicationLimitEffect, findPlayerAvatar, gateDeckSearchFetch, getCardEffects, getOnEventEffects, hazardPlayer, isCardNameEffectCanceled, isCardNameInPlayOrCharacters, isCardPlayableAtSiteDef, isHavenForPlayer, matchesDefinition, playerById, normalAttackOverride, purgeCompanyAlliesAndFollowers, regionTypeCounts, removeAttachment, removeById, removeSpentEventFromGame, sweepAutoDiscardResourceEvents, toCardInstance, updateCharacter, updatePlayer, wrongActionType, effectiveGeneralInfluence, buildTargetCompanyConditionContext, stageCardsHeld, deriveFacedRaces, applyTapSiteOnPlayFlag, raceForCardTextFilter, extendHealingToCompany, hasCardEffect, findCardEffect } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { applyEffect, buildChainApplyContext, shouldFireOnChainResolution } from './apply-dispatcher.js';
 import { buildConstraintKind, parseConstraintScope } from './constraint-kind.js';
@@ -486,7 +486,7 @@ function handleCancelHazardEvent(
   const sourceCard = findById(player.cardsInPlay, action.cardInstanceId);
   if (!sourceCard) return { state, error: 'cancel-hazard-event: source card not in play' };
   const sourceDef = defById(state, sourceCard.definitionId);
-  if (!getCardEffects(sourceDef).some(e => e.type === 'cancel-hazard-event-play')) {
+  if (!hasCardEffect(sourceDef, 'cancel-hazard-event-play')) {
     return { state, error: 'cancel-hazard-event: source card has no cancel-hazard-event-play effect' };
   }
   const sourceName = sourceDef?.name ?? (sourceCard.definitionId as string);
@@ -602,9 +602,7 @@ function handleCounterCancelRoll(
   if (!handCard) return { state, error: 'counter-cancel-roll: card not in hand or on-guard' };
 
   const cardDef = defById(state, handCard.definitionId);
-  const rollEffect = getCardEffects(cardDef).find(
-    (e): e is import('../types/effects.js').CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
-  );
+  const rollEffect = findCardEffect(cardDef, 'counter-cancel-attack-roll');
   if (!rollEffect) return { state, error: 'counter-cancel-roll: card has no counter-cancel-attack-roll effect' };
 
   // The attack being defended must be of a race this card can counter.
@@ -627,7 +625,7 @@ function handleCounterCancelRoll(
     return { state, error: 'counter-cancel-roll: cannot target your own chain entry' };
   }
   const targetDef = defById(state, targetEntry.card!.definitionId);
-  if (!getCardEffects(targetDef).some(e => e.type === 'cancel-attack')) {
+  if (!hasCardEffect(targetDef, 'cancel-attack')) {
     return { state, error: 'counter-cancel-roll: target does not cancel an attack' };
   }
 
@@ -717,7 +715,7 @@ function handleCounterCancelAttack(
   const handCard = findById(player.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'counter-cancel-attack: card not in hand' };
   const cardDef = defById(state, handCard.definitionId);
-  const hasMarker = getCardEffects(cardDef).some(e => e.type === 'cancel-chain-attack-cancel');
+  const hasMarker = hasCardEffect(cardDef, 'cancel-chain-attack-cancel');
   if (!hasMarker) return { state, error: 'counter-cancel-attack: card has no cancel-chain-attack-cancel effect' };
 
   // The target must be an unresolved, un-negated chain entry declared by the
@@ -731,7 +729,7 @@ function handleCounterCancelAttack(
     return { state, error: 'counter-cancel-attack: cannot target your own chain entry' };
   }
   const targetDef = defById(state, targetEntry.card!.definitionId);
-  const targetCancels = getCardEffects(targetDef).some(e => e.type === 'cancel-attack');
+  const targetCancels = hasCardEffect(targetDef, 'cancel-attack');
   if (!targetCancels) {
     return { state, error: 'counter-cancel-attack: target does not cancel an attack' };
   }
@@ -1388,10 +1386,7 @@ function applyItemPlayCorruptionCheckConstraint(
   if (!card) return state;
   const def = defById(state, card.definitionId);
   if (!def) return state;
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').ItemPlayCorruptionCheckEffect =>
-      e.type === 'item-play-corruption-check',
-  );
+  const effect = findCardEffect(def, 'item-play-corruption-check');
   if (!effect) return state;
   // The player whose characters make the checks is the active/resource player
   // (the item-player during the upcoming site phase), i.e. the hazard's opponent.
@@ -1428,9 +1423,7 @@ function applyAgentAttackBoostConstraint(
   if (!card) return state;
   const def = defById(state, card.definitionId);
   if (!def) return state;
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').AgentAttackBoostEffect => e.type === 'agent-attack-boost',
-  );
+  const effect = findCardEffect(def, 'agent-attack-boost');
   if (!effect) return state;
   const targetPlayerId = state.activePlayer ?? entry.declaredBy;
   const siteName = defById(state, siteDefinitionId)?.name ?? (siteDefinitionId as string);
@@ -1556,7 +1549,7 @@ function applyDiscardAgentAtSite(state: GameState, entry: ChainEntry): GameState
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(e => e.type === 'discard-agent-at-site');
+  const effect = findCardEffect(def, 'discard-agent-at-site');
   if (!effect) return state;
 
   const agentInstanceId = entry.payload.type === 'short-event' ? entry.payload.agentInstanceId : undefined;
@@ -1593,7 +1586,7 @@ function applyCompanyReturnToOrigin(state: GameState, entry: ChainEntry): GameSt
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(e => e.type === 'company-return-to-origin');
+  const effect = findCardEffect(def, 'company-return-to-origin');
   if (!effect) return state;
 
   if (state.phaseState.phase !== Phase.MovementHazard) return state;
@@ -1646,9 +1639,7 @@ function applyCompanySitePhaseDoNothing(state: GameState, entry: ChainEntry): Ga
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').CompanySitePhaseDoNothingEffect => e.type === 'company-site-phase-do-nothing',
-  );
+  const effect = findCardEffect(def, 'company-site-phase-do-nothing');
   if (!effect) return state;
 
   if (state.phaseState.phase !== Phase.MovementHazard) return state;
@@ -1945,9 +1936,7 @@ function applyCompanyPlayOption(state: GameState, entry: ChainEntry): GameState 
   const card = entry.card;
   if (!card || entry.payload.type !== 'short-event' || !entry.payload.optionId) return state;
   const def = defById(state, card.definitionId);
-  const playTarget = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').PlayTargetEffect => e.type === 'play-target',
-  );
+  const playTarget = findCardEffect(def, 'play-target');
   if (playTarget?.target !== 'company') return state;
 
   const optionId = entry.payload.optionId;
@@ -1978,9 +1967,7 @@ function applySiteTypeRemap(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
   if (!card || entry.payload.type !== 'short-event') return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').SiteTypeRemapEffect => e.type === 'site-type-remap',
-  );
+  const effect = findCardEffect(def, 'site-type-remap');
   if (!effect) return state;
 
   const scope: import('../types/pending.js').ConstraintScope = effect.duration === 'long-event'
@@ -2018,7 +2005,7 @@ function applyTapCharacter(state: GameState, entry: ChainEntry): GameState {
   const targetCharId = entry.payload.targetCharacterId;
   if (!targetCharId) return state;
   const def = defById(state, card.definitionId);
-  if (!getCardEffects(def).some(e => e.type === 'tap-character')) return state;
+  if (!hasCardEffect(def, 'tap-character')) return state;
   // Multi-target taps (Lord of the Haven as-15) carry the further targets on
   // `additionalTargetCharacterIds`.
   const targets = [targetCharId, ...(entry.payload.additionalTargetCharacterIds ?? [])];
@@ -2056,9 +2043,7 @@ function applyForceCheckAllInPlay(state: GameState, entry: ChainEntry): GameStat
   const card = entry.card;
   if (!card || entry.payload.type !== 'short-event') return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').ForceCheckAllInPlayEffect => e.type === 'force-check-all-in-play',
-  );
+  const effect = findCardEffect(def, 'force-check-all-in-play');
   if (!effect || effect.check !== 'corruption') return state;
 
   const cardName = def?.name ?? (card.definitionId as string);
@@ -2123,9 +2108,7 @@ function applyForceDiscardTargetItem(state: GameState, entry: ChainEntry): GameS
   const targetCharId = entry.payload.targetCharacterId;
   if (!targetCharId) return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').ForceDiscardTargetItemEffect => e.type === 'force-discard-target-item',
-  );
+  const effect = findCardEffect(def, 'force-discard-target-item');
   if (!effect) return state;
   const cardLabel = def?.name ?? (card.definitionId as string);
 
@@ -2184,9 +2167,7 @@ function applyAttackRaceBoost(state: GameState, entry: ChainEntry): GameState {
   const card = entry.card;
   if (!card) return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').AttackRaceBoostEffect => e.type === 'attack-race-boost',
-  );
+  const effect = findCardEffect(def, 'attack-race-boost');
   if (!effect) return state;
   const cardLabel = def?.name ?? (card.definitionId as string);
 
@@ -2228,10 +2209,7 @@ function applyTargetCharacterStatModifier(state: GameState, entry: ChainEntry): 
   const targetCharId = entry.payload.targetCharacterId;
   if (!targetCharId) return state;
   const def = defById(state, card.definitionId);
-  const effect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').TargetCharacterStatModifierEffect =>
-      e.type === 'target-character-stat-modifier',
-  );
+  const effect = findCardEffect(def, 'target-character-stat-modifier');
   if (!effect) return state;
   const cardLabel = def?.name ?? (card.definitionId as string);
 
@@ -2582,12 +2560,8 @@ function resolveStoredComboEvent(state: GameState, entry: ChainEntry): GameState
   const playerIndex = getPlayerIndex(state, entry.declaredBy);
   const siteDefId = payload.targetSiteDefinitionId;
 
-  const playWithStored = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').PlayWithStoredCardEffect => e.type === 'play-with-stored-card',
-  );
-  const storageTransfer = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').StorageSiteTransferEffect => e.type === 'storage-site-transfer',
-  );
+  const playWithStored = findCardEffect(def, 'play-with-stored-card');
+  const storageTransfer = findCardEffect(def, 'storage-site-transfer');
 
   // Mode 1 — play-with-stored-card: bring the companion (e.g. The White Tree)
   // from hand into play linked to the resolving card, pin its MP, ignore its
@@ -2833,9 +2807,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // stored item. Rather than entering the hazard player's `cardsInPlay`, it
   // returns the targeted stored item to its owner's hand and places itself into
   // that owner's marshalling-point pile. Handle this entirely and return.
-  const displaceEffect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').DisplaceStoredItemEffect => e.type === 'displace-stored-item',
-  );
+  const displaceEffect = findCardEffect(def, 'displace-stored-item');
   const storedItemId = entry.payload.type === 'permanent-event'
     ? entry.payload.targetStoredItemInstanceId
     : undefined;
@@ -3016,7 +2988,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
     // is about to trigger. Mark the just-placed entry pending so
     // `collectGlobalEffects` ignores it until the bearer is chosen; the flag is
     // cleared on `move-to-mp-pile` keep, and the card is discarded otherwise.
-    const hasTriggerAttack = getCardEffects(def).some(e => e.type === 'trigger-attack-on-play');
+    const hasTriggerAttack = hasCardEffect(def, 'trigger-attack-on-play');
     if (hasTriggerAttack) {
       logDetail(`"${def?.name ?? card.definitionId}" trigger-attack-on-play: suppressing its ongoing effects until bearer selection`);
       working = updatePlayer(working, playerIndex, p => ({
@@ -3101,7 +3073,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // the company-context play-condition). The card attaches to the site
   // (targetSiteDefinitionId), so there is no targetCharId — the Balrog is a
   // play cost, not the attachment.
-  if (getCardEffects(def).some(e => e.type === 'eddy-lock')) {
+  if (hasCardEffect(def, 'eddy-lock')) {
     const ps = newState.phaseState as { activeCompanyIndex?: number };
     const activeCompanyIndex = ps.activeCompanyIndex ?? 0;
     const company = newState.players[playerIndex].companies[activeCompanyIndex];
@@ -3164,9 +3136,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // target character's company's current site. The roll surfaces as its own
   // `resolve-dice-check` action.
   if (targetCharId) {
-    const rollUntapEffect = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').RollUntapSiteEffect => e.type === 'roll-untap-site',
-    );
+    const rollUntapEffect = findCardEffect(def, 'roll-untap-site');
     if (rollUntapEffect) {
       let bearerPi = -1;
       for (let pi = 0; pi < 2; pi++) {
@@ -3203,9 +3173,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // contest between the play-target (challenger) and the second character
   // chosen at play time; the resolution surfaces one `opposed-roll` action per
   // roll and applies the effect's onWin/onLose outcomes after the second.
-  const opposedEffect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',
-  );
+  const opposedEffect = findCardEffect(def, 'opposed-roll');
   const opposedCharId = entry.payload.type === 'permanent-event' ? entry.payload.opposedCharacterId : undefined;
   if (opposedEffect) {
     if (targetCharId && opposedCharId && opposedCharId !== targetCharId) {
@@ -3234,7 +3202,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // Install the one-shot skip-next-untap constraint on the target character;
   // `performUntap` consumes it (holds him tapped once) and discards the source
   // card — which, for a resource permanent-event, sits in the character's items.
-  if (targetCharId && getCardEffects(def).some(e => e.type === 'skip-next-untap-on-play')) {
+  if (targetCharId && hasCardEffect(def, 'skip-next-untap-on-play')) {
     logDetail(`"${def?.name ?? '?'}" skip-next-untap-on-play: installing skip-next-untap on ${targetCharId as string}`);
     newState = addConstraint(newState, {
       source: card.instanceId,
@@ -3255,7 +3223,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   );
   const locksBearer = hasPlayFlag(def as { effects?: readonly import('../types/effects.js').CardEffect[] }, 'bearer-cannot-untap-until-stored');
   if (targetCharId && storableEffect && locksBearer) {
-    const hasTriggeredAttack = getCardEffects(def).some(e => e.type === 'trigger-attack-on-play');
+    const hasTriggeredAttack = hasCardEffect(def, 'trigger-attack-on-play');
     if (!hasTriggeredAttack) {
       logDetail(`"${def?.name ?? '?'}" storable-at direct attachment: adding bearer-cannot-untap on ${targetCharId as string}`);
       newState = addConstraint(newState, {
@@ -3314,7 +3282,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
         // `requiredLastRegionType`) is validated later at the company's own
         // M/H phase `declare-path` step (`handleRevealNewSite`) — mirrors
         // Master of Esgaroth's (td-135) deferred site-type check.
-        const actsAsSite = getCardEffects(def).find((e): e is ActsAsSiteEffect => e.type === 'acts-as-site');
+        const actsAsSite = findCardEffect(def, 'acts-as-site');
         const targetCompany = boundCompanyId
           ? newState.players[playerIndex].companies.find(c => c.id === boundCompanyId)
           : undefined;
@@ -3493,9 +3461,7 @@ function resolvePermanentEvent(state: GameState, entry: ChainEntry): GameState {
   // Trigger-auto-attack-on-play: initiate combat immediately after the card enters play.
   // Bearer selection happens post-attack via a select-card-bearer pending resolution.
   {
-    const triggerEffect = getCardEffects(def).find(
-      (e): e is TriggerAttackOnPlayEffect => e.type === 'trigger-attack-on-play',
-    );
+    const triggerEffect = findCardEffect(def, 'trigger-attack-on-play');
     if (triggerEffect) {
       // Find the active company — the declaring player's company currently being handled
       const ps = newState.phaseState as { activeCompanyIndex?: number };
@@ -4962,7 +4928,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card
     && entry.payload.targetStoredPermanentEventInstanceId
-    && getCardEffects(defById(current, entry.card.definitionId)).some(e => e.type === 'discard-stored-permanent-event')
+    && hasCardEffect(defById(current, entry.card.definitionId), 'discard-stored-permanent-event')
   ) {
     current = resolveDiscardStoredPermanentEvent(current, entry, entry.payload.targetStoredPermanentEventInstanceId);
   }
@@ -5085,9 +5051,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // pile is also empty (nothing left to shuffle in).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const drawEffect = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').DrawCardsEffect => e.type === 'draw-cards',
-    );
+    const drawEffect = findCardEffect(def, 'draw-cards');
     if (drawEffect) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
       const cardName = def?.name ?? (entry.card.definitionId as string);
@@ -5123,9 +5087,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // not a rule-1.31 deck exhaustion (deckExhaustionCount is untouched).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const newHandEffect = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').NewHandEffect => e.type === 'new-hand',
-    );
+    const newHandEffect = findCardEffect(def, 'new-hand');
     if (newHandEffect) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
       const player = current.players[declaringIndex];
@@ -5161,9 +5123,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const card = entry.card;
     const def = defById(current, card.definitionId);
-    const grantExtraMHPhase = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').GrantExtraMHPhaseEffect => e.type === 'grant-extra-mh-phase',
-    );
+    const grantExtraMHPhase = findCardEffect(def, 'grant-extra-mh-phase');
     const targetCompanyId = entry.payload.targetCompanyId;
     if (grantExtraMHPhase && targetCompanyId) {
       const declaringIndex = getPlayerIndex(current, entry.declaredBy);
@@ -5195,9 +5155,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       // Companion keyed-attacks-normal effect (as-110): "All hazard creatures
       // the company faces this turn keyed to Shadow-holds attack normally,
       // not as detainment" — a turn-scoped constraint on the target company.
-      const keyedNormal = getCardEffects(def).find(
-        (e): e is import('../types/effects.js').KeyedAttacksNormalEffect => e.type === 'keyed-attacks-normal',
-      );
+      const keyedNormal = findCardEffect(def, 'keyed-attacks-normal');
       if (keyedNormal) {
         logDetail(`${cardName}: attacks keyed to [${keyedNormal.siteTypes.join(', ')}] against company ${targetCompanyId as string} are normal (not detainment) this turn`);
         current = addConstraint(current, {
@@ -5329,7 +5287,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
       } else {
         const siteDefId = entry.payload.siteTransformDefinitionId!;
         const newType = entry.payload.siteTransformType!;
-        const transform = getCardEffects(def).find(e => e.type === 'site-transform');
+        const transform = findCardEffect(def, 'site-transform');
         logDetail(`${def.name}: site ${siteDefId as string} is treated as ${newType} (${transform?.duration === 'turn' ? 'until end of turn' : 'permanent'})`);
         current = addConstraint(current, {
           source: entry.card.instanceId,
@@ -5494,9 +5452,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // chain, like Brigands' discard-one-company-item).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const forceDiscard = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').ForceOpponentDiscardEffect => e.type === 'force-opponent-discard',
-    );
+    const forceDiscard = findCardEffect(def, 'force-opponent-discard');
     if (forceDiscard) {
       const cardName = def?.name ?? (entry.card.definitionId as string);
       const opponentId = opponent(current, entry.declaredBy);
@@ -5585,9 +5541,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // the player order them via an arrange-deck-top pending resolution.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const cycle = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').CycleHandEffect => e.type === 'cycle-hand',
-    );
+    const cycle = findCardEffect(def, 'cycle-hand');
     if (cycle) {
       current = applyCycleHand(current, entry, cycle);
     }
@@ -5604,10 +5558,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // is still marked resolved below).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const revealRemove = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').RevealRemoveFromDiscardEffect =>
-        e.type === 'reveal-remove-from-discard',
-    );
+    const revealRemove = findCardEffect(def, 'reveal-remove-from-discard');
     if (revealRemove) {
       const cardName = def?.name ?? (entry.card.definitionId as string);
       const opponentId = opponent(current, entry.declaredBy);
@@ -5677,10 +5628,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // event card is always removed from the game.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const penaltyEff = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').RevealDeckChoosePenaltyEffect =>
-        e.type === 'reveal-deck-choose-penalty',
-    );
+    const penaltyEff = findCardEffect(def, 'reveal-deck-choose-penalty');
     if (penaltyEff) {
       const cardName = def?.name ?? (entry.card.definitionId as string);
       const opponentId = opponent(current, entry.declaredBy);
@@ -5741,10 +5689,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // pending resolution — see `engine/long-dark-reach.ts`).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const attackerEff = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').RevealDeckChooseAttackerEffect =>
-        e.type === 'reveal-deck-choose-attacker',
-    );
+    const attackerEff = findCardEffect(def, 'reveal-deck-choose-attacker');
     if (attackerEff) {
       const cardName = def?.name ?? (entry.card.definitionId as string);
       const cardPlayerId = entry.declaredBy;
@@ -5792,9 +5737,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // already discarded at play time (short-event mode), so skipDiscard is set.
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const def = defById(current, entry.card.definitionId);
-    const fetchEff = getCardEffects(def).find(
-      (e): e is import('../types/effects.js').FetchAgentToHandEffect => e.type === 'fetch-agent-to-hand',
-    );
+    const fetchEff = findCardEffect(def, 'fetch-agent-to-hand');
     if (fetchEff) {
       // cancel-deck-search (as-13): a minion hazard player's play-deck tutor
       // is automatically canceled (the card stays discarded, nothing fetched).
@@ -5890,9 +5833,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.combat) {
     const cardDef = defById(current, entry.card.definitionId);
-    const goodwillEffect = getCardEffects(cardDef).find(
-      (e): e is import('../types/effects.js').GoodwillCancelAttackEffect => e.type === 'goodwill-cancel-attack',
-    );
+    const goodwillEffect = findCardEffect(cardDef, 'goodwill-cancel-attack');
     if (goodwillEffect) {
       const creatureRace = current.combat.creatureRace;
       const isAgentAttack = current.combat.attackSource.type === 'agent';
@@ -5932,9 +5873,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && current.combat) {
     const cardDef = defById(current, entry.card.definitionId);
     const cardLabel = cardDef?.name ?? (entry.card.definitionId as string);
-    const rollEffect = getCardEffects(cardDef).find(
-      (e): e is import('../types/effects.js').CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
-    );
+    const rollEffect = findCardEffect(cardDef, 'counter-cancel-attack-roll');
     const targetInstanceId = entry.payload.counterCancelTargetInstanceId;
     // Instant variant: no roll, unconditional negation (Prowess of Age Mode
     // A — "targets and cancels any effect... that would cancel an attack
@@ -6085,9 +6024,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // members" pattern).
   if (entry.payload.type === 'short-event' && !entry.negated && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const multiFactionEffect = getCardEffects(cardDef).find(
-      (e): e is import('../types/effects.js').MultiFactionCheckEffect => e.type === 'multi-faction-check',
-    );
+    const multiFactionEffect = findCardEffect(cardDef, 'multi-faction-check');
     if (multiFactionEffect) {
       const cardLabel = cardDef?.name ?? (entry.card.definitionId as string);
       const factions: { instanceId: CardInstanceId; ownerId: PlayerId; name: string }[] = [];
@@ -6141,9 +6078,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const cohEffect = getCardEffects(cardDef).find(
-      (e): e is import('../index.js').CallOfHomeCheckEffect => e.type === 'call-of-home-check',
-    );
+    const cohEffect = findCardEffect(cardDef, 'call-of-home-check');
     if (cohEffect) {
       const resourcePlayerId = current.activePlayer!;
       const cohCharDefId = resolveInstanceId(current, entry.payload.targetCharacterId);
@@ -6203,9 +6138,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const svrEffect = getCardEffects(cardDef).find(
-      (e): e is import('../types/effects.js').StoredValueRollEffect => e.type === 'stored-value-roll',
-    );
+    const svrEffect = findCardEffect(cardDef, 'stored-value-roll');
     if (svrEffect) {
       const targetCharId = entry.payload.targetCharacterId;
       const svrOwner = current.players.find(p => !!p.characters[targetCharId]);
@@ -6245,9 +6178,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const tapOrRollEffect = getCardEffects(cardDef).find(
-      (e): e is import('../types/effects.js').OpponentChooseTapOrRollEffect => e.type === 'opponent-choose-tap-or-roll',
-    );
+    const tapOrRollEffect = findCardEffect(cardDef, 'opponent-choose-tap-or-roll');
     if (tapOrRollEffect) {
       const targetCharId = entry.payload.targetCharacterId;
       const defenderIndex = current.players.findIndex(p => !!p.characters[targetCharId]);
@@ -6280,9 +6211,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && entry.payload.targetAllyId) {
     const cardDef = defById(current, entry.card.definitionId);
-    const shaEffect = getCardEffects(cardDef).find(
-      (e): e is import('../types/effects.js').StayHerAppetiteEffect => e.type === 'stay-her-appetite',
-    );
+    const shaEffect = findCardEffect(cardDef, 'stay-her-appetite');
     if (shaEffect) {
       const allyInstId = entry.payload.targetAllyId;
       const activeIdx = getPlayerIndex(current, current.activePlayer!);
@@ -6354,9 +6283,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const tadCardDef = defById(current, entry.card.definitionId);
-    const dupEffect = getCardEffects(tadCardDef).find(
-      (e): e is import('../index.js').DuplicateSiteAutoAttacksEffect => e.type === 'duplicate-site-auto-attacks',
-    );
+    const dupEffect = findCardEffect(tadCardDef, 'duplicate-site-auto-attacks');
     if (dupEffect) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = getPlayerIndex(current, activePlayerId);
@@ -6443,9 +6370,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const fffCardDef = defById(current, entry.card.definitionId);
-    const createEffect = getCardEffects(fffCardDef).find(
-      (e): e is import('../index.js').CreateSiteAutoAttackEffect => e.type === 'create-site-auto-attack',
-    );
+    const createEffect = findCardEffect(fffCardDef, 'create-site-auto-attack');
     if (createEffect) {
       const activeIndex = getPlayerIndex(current, current.activePlayer!);
       const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
@@ -6486,9 +6411,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const boostCardDef = defById(current, entry.card.definitionId);
-    const boostEffect = getCardEffects(boostCardDef).find(
-      (e): e is import('../index.js').AutoAttackBoostEffect => e.type === 'auto-attack-boost',
-    );
+    const boostEffect = findCardEffect(boostCardDef, 'auto-attack-boost');
     if (boostEffect) {
       const activeIndex = getPlayerIndex(current, current.activePlayer!);
       const company = current.players[activeIndex].companies[current.phaseState.activeCompanyIndex];
@@ -6642,9 +6565,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const csCardDef = defById(current, entry.card.definitionId);
-    const csEffect = getCardEffects(csCardDef).find(
-      (e): e is import('../index.js').CompanyStrikeEffect => e.type === 'company-strike',
-    );
+    const csEffect = findCardEffect(csCardDef, 'company-strike');
     if (csEffect) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = getPlayerIndex(current, activePlayerId);
@@ -6693,9 +6614,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const reekCardDef = defById(current, entry.card.definitionId);
-    const tapEffect = getCardEffects(reekCardDef).find(
-      (e): e is import('../index.js').CompanyTapCharactersEffect => e.type === 'company-tap-characters',
-    );
+    const tapEffect = findCardEffect(reekCardDef, 'company-tap-characters');
     if (tapEffect) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = getPlayerIndex(current, activePlayerId);
@@ -6743,9 +6662,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const revelryCardDef = defById(current, entry.card.definitionId);
-    const tapRollEffect = getCardEffects(revelryCardDef).find(
-      (e): e is import('../index.js').CompanyTapRollEffect => e.type === 'company-tap-roll',
-    );
+    const tapRollEffect = findCardEffect(revelryCardDef, 'company-tap-roll');
     if (tapRollEffect) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = getPlayerIndex(current, activePlayerId);
@@ -6803,9 +6720,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && entry.card
     && current.phaseState.phase === Phase.MovementHazard) {
     const ratsCardDef = defById(current, entry.card.definitionId);
-    const itemOrWoundEffect = getCardEffects(ratsCardDef).find(
-      (e): e is import('../index.js').DiscardItemOrWoundCharacterEffect => e.type === 'discard-item-or-wound-character',
-    );
+    const itemOrWoundEffect = findCardEffect(ratsCardDef, 'discard-item-or-wound-character');
     if (itemOrWoundEffect) {
       const activePlayerId = current.activePlayer!;
       const activeIndex = getPlayerIndex(current, activePlayerId);
@@ -6938,9 +6853,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
     && !entry.negated
     && entry.card) {
     const cardDef = defById(current, entry.card.definitionId);
-    const sbtEffect = getCardEffects(cardDef).find(
-      (e): e is import('../index.js').SeizedByTerrorCheckEffect => e.type === 'seized-by-terror-check',
-    );
+    const sbtEffect = findCardEffect(cardDef, 'seized-by-terror-check');
     if (sbtEffect) {
       const resourcePlayerId = current.activePlayer!;
       const activeIndex = getPlayerIndex(current, resourcePlayerId);
@@ -7324,10 +7237,7 @@ function resolveEntry(state: GameState, entryIndex: number): ResolveResult {
   // shuffled back immediately.
   if (entry.payload.type === 'permanent-event' && !entry.negated && entry.card) {
     const hostDef = defById(current, entry.card.definitionId);
-    const revealEff = getCardEffects(hostDef).find(
-      (e): e is import('../types/effects.js').RevealDeckChooseSetAsideEffect =>
-        e.type === 'reveal-deck-choose-set-aside',
-    );
+    const revealEff = findCardEffect(hostDef, 'reveal-deck-choose-set-aside');
     if (revealEff) {
       const hostName = hostDef?.name ?? (entry.card.definitionId as string);
       const deckOwnerId = current.activePlayer!;

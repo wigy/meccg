@@ -47,7 +47,7 @@ import type {
   PendingResolution,
 } from '../index.js';
 import type { DiscardSubstituteEffect } from '../types/effects.js';
-import { clonePlayers, defById, getCardEffects, companyById, matchesDefinition, toCardInstance } from './reducer-utils.js';
+import { clonePlayers, defById, companyById, matchesDefinition, toCardInstance, findCardEffect } from './reducer-utils.js';
 import { enqueueResolution } from './pending.js';
 import { logDetail } from './legal-actions/log.js';
 
@@ -84,8 +84,7 @@ export function findDiscardSubstitutes(
     for (const item of ch.items) {
       if (exclude.has(item.instanceId)) continue;
       const itemDef = defById(state, item.definitionId);
-      const effect = getCardEffects(itemDef)
-        .find((e): e is DiscardSubstituteEffect => e.type === 'discard-substitute');
+      const effect = findCardEffect(itemDef, 'discard-substitute');
       if (effect) {
         found.push({
           instanceId: item.instanceId,

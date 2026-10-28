@@ -19,7 +19,7 @@ import type { SiteInstanceTransformEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { isSiteCard } from '../types/cards.js';
 import { resolveInstanceId } from '../types/state.js';
-import { hasSiteFlag, getCardEffects, defById, siteRegionTypeOf, isSiteProtectedForPlayer, isWizardhavenConversionFor } from './reducer-utils.js';
+import { hasSiteFlag, defById, siteRegionTypeOf, isSiteProtectedForPlayer, isWizardhavenConversionFor, findCardEffect } from './reducer-utils.js';
 
 /**
  * The transform decision for a specific in-play site instance produced by a
@@ -57,9 +57,7 @@ export function resolveSiteInstanceTransform(
     for (const card of player.cardsInPlay) {
       if (card.pendingTriggerAttack) continue;
       if (card.attachedToSite === undefined) continue;
-      const effect = getCardEffects(defById(state, card.definitionId)).find(
-        (e): e is SiteInstanceTransformEffect => e.type === 'site-instance-transform',
-      );
+      const effect = findCardEffect(defById(state, card.definitionId), 'site-instance-transform');
       if (!effect) continue;
       // `allVersions` (Tower Raided as-57): the transform reaches every
       // printing of the bound location — hero, minion, Fallen-wizard and

@@ -17,14 +17,14 @@ import { ownerOf } from '../types/state.js';
 import { getEffectiveSiteType, resolveSiteInstanceTransform, siteConstraintFilterMatches } from './effective.js';
 import { logDetail } from './legal-actions/log.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { defById, isBearerCannotUntapLive, bearsNeverUntapCard, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { defById, isBearerCannotUntapLive, bearsNeverUntapCard, findEventMaintenanceEffect, getCardEffects, hasSiteFlag, isHavenForPlayer, isSelfDiscardMove, moveSideboardCard, purgeCompanyFollowers, toCardInstance, updatePlayer, wrongActionType, findCardEffect } from './reducer-utils.js';
 import { enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
 import { handleGrantActionApply } from './grant-action-apply.js';
 import { handlePlayResourceShortEvent } from './reducer-events.js';
 import { handlePlayCharacter } from './reducer-organization.js';
 import { enqueueMaintenanceUpkeep } from './event-maintenance.js';
 import { countExtraAgentActions } from './mh-agents.js';
-import type { OnEventEffect, CardEffect, UntapMindRollEffect, TakePrisonerEffect } from '../types/effects.js';
+import type { OnEventEffect, CardEffect, UntapMindRollEffect } from '../types/effects.js';
 
 
 /**
@@ -643,9 +643,7 @@ function enqueuePrisonerUntapBodyChecks(state: GameState): GameState {
     const host = state.hazardHosts.find(h => h.hostCard.instanceId === kind.hostInstanceId);
     if (!host) continue;
     const hostDef = defById(state, host.hostCard.definitionId);
-    const effect = getCardEffects(hostDef).find(
-      (e): e is TakePrisonerEffect => e.type === 'take-prisoner',
-    );
+    const effect = findCardEffect(hostDef, 'take-prisoner');
     if (!effect?.untapBodyCheck) continue;
     const charDef = defById(state, charInPlay.definitionId);
     const charName = charDef?.name ?? String(characterId);

@@ -22,7 +22,7 @@ import { ownerOf, resolveInstanceId } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, buildBearerContext, collectCharacterEffects } from './effects/index.js';
 import { revealInstances } from './visibility.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId } from './reducer-utils.js';
+import { makeCombatState, clearPlannedMovement, companyById, deckSearchCancellerFor, companySiteName, companySiteRegion, companySubphaseScope, defById, diceRollEffect, discardOrRecyclePlayedEvent, factionPlayableSiteRegions, findAttachment, findById, findCharacterCompany, findDuplicationLimitEffect, gateDeckSearchFetch, getCardEffects, getOnEventEffects, influenceRegionPenalty, isCovertCompany, matchesDefinition, playedAfterFactionMpPin, removeAttachment, removeById, roll2d6, rollDiceForPlayer, toCardInstance, updateCharacter, updatePlayer, wrongActionType, applyTapSiteOnPlayFlag, attackSourceCreatureInstanceId, findCardEffect } from './reducer-utils.js';
 import { flagCouncilCall } from './reducer-end-of-turn.js';
 import { addRemovalProtection } from './removal-protection.js';
 import { addConstraint, dequeueResolution, enqueueCorruptionCheck, enqueueResolution, sweepExpired } from './pending.js';
@@ -72,9 +72,7 @@ export function handlePlayPermanentEvent(state: GameState, action: GameAction): 
   // entered play loose in `cardsInPlay`, permanently spent with no character
   // ever attached. Reject it here too as defense in depth, independent of
   // which emitter is consulted.
-  const recruitmentVehicle = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').RecruitmentVehicleEffect => e.type === 'recruitment-vehicle',
-  );
+  const recruitmentVehicle = findCardEffect(def, 'recruitment-vehicle');
   if (recruitmentVehicle) {
     return { state, error: `${def.name}: can only be played bundled with a character recruit, not as a standalone permanent event` };
   }
@@ -190,9 +188,7 @@ export function handlePlayShortEvent(state: GameState, action: GameAction): Redu
   // effect and a chosen own-character target installs a turn-scoped removal
   // protection and discards the spent card. (The card's hazard mode is a
   // separate `play-hazard` path via `call-of-home-check`.)
-  const protectEffect = getCardEffects(def).find(
-    (e): e is import('../types/effects.js').ProtectFromRemovalEffect => e.type === 'protect-from-removal',
-  );
+  const protectEffect = findCardEffect(def, 'protect-from-removal');
   if (protectEffect && action.targetCharacterId) {
     const targetChar = player.characters[action.targetCharacterId];
     if (!targetChar) return { state, error: `${def.name}: target character not found` };

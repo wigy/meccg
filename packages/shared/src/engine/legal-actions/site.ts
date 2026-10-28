@@ -21,7 +21,7 @@ import { CardStatus, Race } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
 import { resolveInstanceId, ownerOf } from '../../types/state.js';
 import { isSetAsideCard } from '../set-aside.js';
-import { collectFactionCardEffects, raceForCardTextFilter, hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, companyKeywordDiscardCandidates, keywordDiscardCandidates, companyItemDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
+import { collectFactionCardEffects, raceForCardTextFilter, hasSiteFlag, hasSiteFlagForPlayer, isSiteProtectedForPlayer, isWizardhavenConversionFor, canAttackAlignment, companyAttemptSupportBonus, cvccAttackPermitted, siteDeniesCompanyAttack, matchesDefinition, siteRuleAllowsCreatureByRace, siteRegionTypeOf, playerById, defById, getCardEffects, getLeaderControlEffect, leaderControlEligibility, collectFactionInfluenceRestriction, collectPlayerInPlayInfluenceEffects, collectGlobalCheckModifier, countCopiesInPlay, countCopiesDeclaredInChain, countPlayerHeldCopies, countAttachedInCompany, countPermanentEventCopiesAtSite, countPermanentEventCopiesDeclaredInChainAtSite, countItemAttachedCopies, defNamesOf, isCardNameInPlayOrCharacters, isCardNameInPlayForPlayer, isCovertCompany, companyBlocksJoins, companyHasNoAllyRestriction, findDuplicationLimitEffect, countCompanyBoundCopies, countCompanyBoundCopiesDeclaredInChain, findAllyPlayGrant, allyPlayGrantAllowsAlly, findPlayerAllyPlayGrant, grantedActionUsedThisTurn, isHavenForPlayer, findPlayConditionEffect, findPlayConditionEffects, namedDiscardCandidates, companyKeywordDiscardCandidates, keywordDiscardCandidates, companyItemDiscardCandidates, siteHasTechnologyItemUnlock, siteHasWarForgesItemUnlock, siteEddyLock, siteFactionInfluenceModifier, effectiveGeneralInfluence, rescuablePrisonersAtSite, selectCompanyActions, parseHomesiteNames, matchesCompanyContextCondition, getOpponentInfluenceOverride, siteFactionLockedByAgentHomeSite, influenceModificationsNullified, activePlayerDeckSize, siteMatchesEntry, siteHasDragonAtHomeVictory, characterHomeSiteRegions, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, agentAttackIsMandatory, companySkipsSiteOnGuardCards, onGuardEventDuplicationBlocked, hasCardEffect, findCardEffect } from '../reducer-utils.js';
 import { collectCharacterEffects, collectCompanyAllyEffects, checkConditionalEffects, resolveCheckModifier, resolveAutoInfluenceFaction, resolveStatModifiers, normalizeCreatureRace, getEffectiveSkills, resolveDef } from '../effects/index.js';
 import type { ResolverContext } from '../effects/index.js';
 import { logDetail, logHeading } from './log.js';
@@ -700,7 +700,7 @@ function automaticAttacksActions(
     if (company && autoAttacks.length > 0 && siteState.automaticAttacksResolved === 0
       && siteState.autoAttacksSkipped !== true && !siteState.soloAutoAttackCharacterId) {
       const burglaryCards = player.hand.filter(c =>
-        getCardEffects(defById(state, c.definitionId)).some(e => e.type === 'burglary-attempt'));
+        hasCardEffect(defById(state, c.definitionId), 'burglary-attempt'));
       if (burglaryCards.length > 0) {
         for (const charId of company.characters) {
           const char = player.characters[charId];
@@ -1239,8 +1239,7 @@ export function playResourcesActions(
   const hostGrantsUnderDeepsReplay = (hostInstanceId: CardInstanceId | undefined): boolean => {
     if (hostInstanceId === undefined) return false;
     const host = allCardsInPlay.find(c => c.instanceId === hostInstanceId);
-    return getCardEffects(defById(state, host?.definitionId ?? ('' as CardDefinitionId)))
-      .some(e => e.type === 'reveal-deck-choose-set-aside');
+    return hasCardEffect(defById(state, host?.definitionId ?? ('' as CardDefinitionId)), 'reveal-deck-choose-set-aside');
   };
   const underDeepsSetAsideCandidates = siteIsUnderDeepsForSetAside
     ? allCardsInPlay
@@ -1266,7 +1265,7 @@ export function playResourcesActions(
   const itemCacheCandidates = effectiveSiteTypeForCache
     ? player.cardsInPlay.flatMap(host => {
       const hostDef = defById(state, host.definitionId);
-      const cacheEffect = getCardEffects(hostDef).find(e => e.type === 'item-cache-play-source');
+      const cacheEffect = findCardEffect(hostDef, 'item-cache-play-source');
       if (!cacheEffect || cacheEffect.type !== 'item-cache-play-source') return [];
       if (!cacheEffect.siteTypes.includes(effectiveSiteTypeForCache)) return [];
       return (host.setAside ?? [])
@@ -1363,9 +1362,7 @@ export function playResourcesActions(
         // A permanent-event declaring its own `play-window` belongs to that
         // window only (No News of Our Riding le-211: the after-attack combat
         // window, offered by the `post-attack-play-offer` resolution).
-        const eventPlayWindow = getCardEffects(eventDef).find(
-          (e): e is import('../../types/effects.js').PlayWindowEffect => e.type === 'play-window',
-        );
+        const eventPlayWindow = findCardEffect(eventDef, 'play-window');
         if (eventPlayWindow && eventPlayWindow.phase !== Phase.Site) {
           logDetail(`Permanent event ${eventDef.name}: play-window restricts it to the ${eventPlayWindow.phase} phase — not playable during the site phase`);
           continue;

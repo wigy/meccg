@@ -25,7 +25,7 @@
 import type { CardInPlay, GameState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, getCardEffects, discardCardsInPlayWhere } from './reducer-utils.js';
+import { defById, discardCardsInPlayWhere, hasCardEffect } from './reducer-utils.js';
 
 /**
  * Whether some card carrying `retain-hazard-long-events` is currently in play.
@@ -42,8 +42,7 @@ export function hazardLongEventsRetained(state: GameState): boolean {
 function isRetainer(state: GameState, card: CardInPlay): boolean {
   if (card.pendingTriggerAttack === true) return false;
   if (card.setAsideHost !== undefined) return false;
-  return getCardEffects(defById(state, card.definitionId))
-    .some(e => e.type === 'retain-hazard-long-events');
+  return hasCardEffect(defById(state, card.definitionId), 'retain-hazard-long-events');
 }
 
 /**

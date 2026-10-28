@@ -33,7 +33,7 @@ import {
   sumMarshallingPoints,
 } from '@meccg/shared';
 import { projectPlayerView } from '@meccg/game-server';
-import type { Agent, AgentContext, ConsideredAction } from '../types.js';
+import type { Agent, AgentContext, ConsideredAction, OwnDeckList } from '../types.js';
 import { createRandomStream } from '../random-stream.js';
 import { forwardActions } from './regress.js';
 import { heuristicStrategy } from './heuristic.js';
@@ -128,6 +128,8 @@ export interface H2AnalysisOptions {
   readonly tunables?: Tunables;
   /** Forced risk posture in [-1, 1], instead of deriving it from the standing. */
   readonly riskOverride?: number;
+  /** The owner's deck list, as a live agent is handed it; without it, deck-dependent values are not counted. */
+  readonly ownDeck?: OwnDeckList;
 }
 
 /**
@@ -145,7 +147,7 @@ export function analyzeH2Position(
   const tunables = options.tunables ?? DEFAULT_TUNABLES;
   const standing = computeStanding(view, loadWinProbModel(), tunables, options.riskOverride);
   const modules = resolveModules(options.modules);
-  const moduleContext = { view, cardPool, legalActions, tunables, standing };
+  const moduleContext = { view, cardPool, legalActions, tunables, standing, ownDeck: options.ownDeck };
 
   // What the modules would commit to from this position, with no history behind
   // it. An explanation sees one position rather than a game, so there are no

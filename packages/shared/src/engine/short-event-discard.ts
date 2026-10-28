@@ -26,12 +26,11 @@ import { logDetail } from './legal-actions/log.js';
 import { addConstraint, enqueueCorruptionCheck } from './pending.js';
 import { applyMove, dropConstraintsSourcedBy, findMoveEffectByShape } from './reducer-move.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInstance, updateAttachment, updateCharacter, updatePlayer } from './reducer-utils.js';
+import { defById, findAttachment, getCardEffects, matchesDefinition, toCardInstance, updateAttachment, updateCharacter, updatePlayer, findCardEffect } from './reducer-utils.js';
 import { buildInPlayNames } from './recompute-derived.js';
 import { recordAttackChanges } from './attack-log.js';
 import type { AttackChangeSource } from './attack-log.js';
 import { resolveAttackProwess, resolveAttackStrikes } from './effects/resolver.js';
-import type { RegionTransformEffect, SiteUntapEffect, ItemUntapEffect } from '../types/effects.js';
 
 /**
  * Whether tapping `characterId` as the cost-payer for one of this module's
@@ -341,9 +340,7 @@ export function applyShortEventRegionTransform(
   newRegionType: RegionType,
   costTapCharacterId: CardInstanceId | undefined,
 ): ReducerResult {
-  const regionTransform = getCardEffects(def).find(
-    (e): e is RegionTransformEffect => e.type === 'region-transform',
-  );
+  const regionTransform = findCardEffect(def, 'region-transform');
   if (!regionTransform) return { state, error: `${def.name}: no region-transform effect` };
 
   const playerIndex = getPlayerIndex(state, actor);
@@ -416,9 +413,7 @@ export function applyShortEventSiteUntap(
   siteInstanceId: CardInstanceId,
   costTapCharacterId: CardInstanceId | undefined,
 ): ReducerResult {
-  const siteUntap = getCardEffects(def).find(
-    (e): e is SiteUntapEffect => e.type === 'site-untap',
-  );
+  const siteUntap = findCardEffect(def, 'site-untap');
   if (!siteUntap) return { state, error: `${def.name}: no site-untap effect` };
 
   const playerIndex = getPlayerIndex(state, actor);
@@ -491,9 +486,7 @@ export function applyShortEventItemUntap(
   itemInstanceId: CardInstanceId,
   costTapCharacterId: CardInstanceId | undefined,
 ): ReducerResult {
-  const itemUntap = getCardEffects(def).find(
-    (e): e is ItemUntapEffect => e.type === 'item-untap',
-  );
+  const itemUntap = findCardEffect(def, 'item-untap');
   if (!itemUntap) return { state, error: `${def.name}: no item-untap effect` };
 
   const playerIndex = getPlayerIndex(state, actor);

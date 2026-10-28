@@ -51,9 +51,15 @@ import type { Race } from '../types/common.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { resolveInstanceId } from '../types/state.js';
 import {
-  defById, cardName, updatePlayer, companyById, getCardEffects,
-  normalAttackOverride, makeCombatState,
-  resolveAttackerChoosesDefenders, isCovertCompany,
+  defById,
+  cardName,
+  updatePlayer,
+  companyById,
+  normalAttackOverride,
+  makeCombatState,
+  resolveAttackerChoosesDefenders,
+  isCovertCompany,
+  findCardEffect,
 } from './reducer-utils.js';
 import { isReduceAttacksToOneInPlay } from './manifestations.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -69,9 +75,7 @@ import { logDetail } from './legal-actions/log.js';
 export function findRevealAndAttackEffect(
   def: ReturnType<typeof defById>,
 ): RevealAndAttackEffect | undefined {
-  return getCardEffects(def).find(
-    (e): e is RevealAndAttackEffect => e.type === 'reveal-and-attack',
-  );
+  return findCardEffect(def, 'reveal-and-attack');
 }
 
 /** Whether a definition id names a hazard-creature card. */

@@ -18,12 +18,12 @@ import { hasPlayFlag } from '../../effects/play-flags.js';
 import { getPlayerIndex } from '../../state-utils.js';
 import { CardStatus } from '../../types/common.js';
 import { Phase } from '../../types/state-phases.js';
-import type { CardEffect, OnEventEffect, CancelChainReturnToOriginEffect, ForceReturnToOriginEffect, GrantActionEffect, CounterCancelAttackRollEffect, ReturnChainEntryCardToHandAction } from '../../types/effects.js';
+import type { CardEffect, OnEventEffect, ForceReturnToOriginEffect, GrantActionEffect, ReturnChainEntryCardToHandAction } from '../../types/effects.js';
 import { isSiteCard, isCharacterCard } from '../../types/cards.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
 import { cardStatusToName } from '../../types/common.js';
 import { logDetail } from './log.js';
-import { playerById, getCardEffects, defById, companyById, pendingChainCards, countUnresolvedChainHazards, mostRecentUnresolvedHazardTargetsCompany , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
+import { playerById, getCardEffects, defById, companyById, pendingChainCards, countUnresolvedChainHazards, mostRecentUnresolvedHazardTargetsCompany, onGuardEventDuplicationBlocked, hasCardEffect, findCardEffect } from '../reducer-utils.js';
 import { companyContainsBalrogAvatar } from '../../state-utils.js';
 import { emitGrantedActionConstraintActions } from './granted-action-constraints.js';
 import { heroResourceShortEventActions } from './long-event.js';
@@ -492,9 +492,7 @@ function cancelReturnToOriginChainActions(state: GameState, playerId: PlayerId):
     if (!charData) continue;
     for (const ally of charData.allies ?? []) {
       const allyDef = defById(state, ally.definitionId);
-      const hasCancelEffect = getCardEffects(allyDef).some(
-        (e): e is CancelChainReturnToOriginEffect => e.type === 'cancel-chain-return-to-origin',
-      );
+      const hasCancelEffect = hasCardEffect(allyDef, 'cancel-chain-return-to-origin');
       if (!hasCancelEffect) continue;
       const allyName = allyDef?.name ?? (ally.definitionId as string);
       if (ally.status !== CardStatus.Untapped) {
@@ -541,7 +539,7 @@ function cancelHazardEventChainActions(state: GameState, playerId: PlayerId): Ev
 
   // Sources: the player's in-play cards carrying cancel-hazard-event-play.
   const sources = player.cardsInPlay.filter(c =>
-    getCardEffects(defById(state, c.definitionId)).some(e => e.type === 'cancel-hazard-event-play'),
+    hasCardEffect(defById(state, c.definitionId), 'cancel-hazard-event-play'),
   );
   if (sources.length === 0) return [];
 
@@ -624,7 +622,7 @@ function counterCancelAttackChainActions(state: GameState, playerId: PlayerId): 
   const actions: EvaluatedAction[] = [];
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
-    if (!getCardEffects(def).some(e => e.type === 'cancel-chain-attack-cancel')) continue;
+    if (!hasCardEffect(def, 'cancel-chain-attack-cancel')) continue;
     for (const targetInstanceId of cancelEntries) {
       logDetail(`counter-cancel-attack: ${def?.name ?? (handCard.definitionId as string)} can negate an opponent's cancel-attack on the chain`);
       actions.push({
@@ -721,9 +719,7 @@ function counterCancelRollChainActions(state: GameState, playerId: PlayerId): Ev
   const actions: EvaluatedAction[] = [];
   for (const c of candidates) {
     const def = defById(state, c.definitionId);
-    const rollEffect = getCardEffects(def).find(
-      (e): e is CounterCancelAttackRollEffect => e.type === 'counter-cancel-attack-roll',
-    );
+    const rollEffect = findCardEffect(def, 'counter-cancel-attack-roll');
     if (!rollEffect) continue;
     if (attackRace === undefined || !rollEffect.race.includes(attackRace)) {
       logDetail(`counter-cancel-roll: ${def?.name ?? (c.definitionId as string)} cannot counter a "${attackRace ?? 'raceless'}" attack`);

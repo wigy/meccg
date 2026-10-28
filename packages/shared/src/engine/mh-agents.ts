@@ -26,7 +26,7 @@ import { logDetail } from './legal-actions/log.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import type { ReducerResult } from './reducer-utils.js';
 import { controlCostOf } from './control-cost.js';
-import { agentAttackSiteBoost, makeCombatState, characterEntries, defById, findById, findCharacterCompany, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames, influenceModificationsNullified, agentCurrentSiteName, agentMatchesFilter } from './reducer-utils.js';
+import { agentAttackSiteBoost, makeCombatState, characterEntries, defById, findById, findCharacterCompany, getCardEffects, removeById, updatePlayer, wrongActionType, roll2d6, diceRollEffect, effectiveGeneralInfluence, parseHomesiteNames, influenceModificationsNullified, agentCurrentSiteName, agentMatchesFilter, findCardEffect } from './reducer-utils.js';
 import { enqueueResolution, addConstraint } from './pending.js';
 import { allyEffectiveMind } from './ally-stats.js';
 import { availableDI, normalUnusedDI } from './legal-actions/organization.js';
@@ -837,9 +837,7 @@ export function handleAgentTapGrantCreatureKeying(
   }
   const sourceDef = defById(state, sourceCard.definitionId);
   if (!sourceDef) return { state, error: 'Source card definition not found' };
-  const eff = getCardEffects(sourceDef).find(
-    (e): e is import('../types/effects.js').AgentTapGrantCreatureKeyingEffect => e.type === 'agent-tap-grant-creature-keying',
-  );
+  const eff = findCardEffect(sourceDef, 'agent-tap-grant-creature-keying');
   if (!eff) return { state, error: `${sourceDef.name} does not have an agent-tap-grant-creature-keying effect` };
 
   if (agent.siteStack.length === 0) return { state, error: 'Agent has no current site' };

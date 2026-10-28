@@ -46,7 +46,7 @@ import { buildPlayOptionContext, availableDI, conditionalDISpentOnFollowers, nor
 import { playResourcesActions } from './site.js';
 import { logDetail } from './log.js';
 import { canPayCost } from '../cost-evaluator.js';
-import { collectFactionCardEffects, cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint , onGuardEventDuplicationBlocked } from '../reducer-utils.js';
+import { collectFactionCardEffects, cardName, matchesDefinition, findCharacterCompany, riddlingCompanyBonus, findById, findAttachment, playerById, activePlayerState, getCardEffects, companyById, countCopiesInPlay, defById, findEventMaintenanceEffect, findDuplicationLimitEffect, effectiveGeneralInfluence, generalInfluenceControlLimit, defNamesOf, itemKeywordsOf, itemSubtypesOf, collectGlobalCheckModifier, influenceModificationsNullified, characterHomeSiteRegions, siteRegionTypeOf, deckSearchCancellerFor, buildFactionCheckContext, buildFactionControllerContext, regionTypeCounts, regionAdjacentSwapEligibleSites, isCardNameEffectCanceled, fetchZoneItemInstanceIds, characterHasCannotUntapConstraint, onGuardEventDuplicationBlocked, findCardEffect, hasCardEffect } from '../reducer-utils.js';
 import { isBalrogAvatarDef } from '../../state-utils.js';
 import { effectiveItemCorruptionPoints } from '../../item-corruption.js';
 import { afterAttackPlayTargets, afterAttackCharacterPlayTarget } from '../post-attack-play.js';
@@ -1392,9 +1392,7 @@ export function goldRingTestActions(
 
   // Every roll is in — the player chooses which total the test uses.
   if (rolledTotals.length >= rollCount && rollCount > 1) {
-    const table = getCardEffects(ringDef).find(
-      (e): e is RingTestTableEffect => e.type === 'ring-test-table',
-    );
+    const table = findCardEffect(ringDef, 'ring-test-table');
     const distinct = [...new Set(rolledTotals)];
     logDetail(`Pending gold-ring-test for ${ringName}: choose one of the rolled totals (${rolledTotals.join(', ')})`);
     return distinct.map(rollTotal => {
@@ -1804,7 +1802,7 @@ function corruptionCheckEntryActions(
   for (const item of char.items) {
     if (item.status !== CardStatus.Untapped) continue;
     const itemDef = defById(state, item.definitionId);
-    const boostEffect = getCardEffects(itemDef).find(e => e.type === 'corruption-check-boost');
+    const boostEffect = findCardEffect(itemDef, 'corruption-check-boost');
     if (!boostEffect) continue;
     logDetail(`Support available: ${itemDef?.name ?? (item.definitionId as string)} can tap for a bonus to ${charName}'s corruption check`);
     supportActions.push({
@@ -3604,7 +3602,7 @@ export function ringPlayOfferActions(
     const category = (eligibleCategories as readonly string[]).find(cat => keywords.includes(cat)) as RingCategory | undefined;
     if (!category) continue;
     const hostDef = defById(state, player.cardsInPlay.find(c => c.instanceId === card.setAsideHost)?.definitionId as CardDefinitionId);
-    if (!getCardEffects(hostDef).some(e => e.type === 'ring-cache-play-source')) continue;
+    if (!hasCardEffect(hostDef, 'ring-cache-play-source')) continue;
     if (isUniqueRingAlreadyInPlay(state, def)) continue;
     const charDupLimit = findDuplicationLimitEffect(def, 'character');
     if (charDupLimit) {

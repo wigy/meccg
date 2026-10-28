@@ -8,7 +8,7 @@
 
 import type { GameState, PlayerState, PlayerId, CardInstanceId, CardInstance, CardInPlay, CardDefinitionId, CompanyId, GameAction, Company, CombatState, ChainEntry, CharacterInPlay, ItemInPlay, AllyInPlay, CardDefinition, FactionCard, SiteCard, TwoDiceSix, DieRoll, GameEffect, DiceRollEffect, PlayableAtEntry, StrikeAssignment, OnGuardCard } from '../index.js';
 import type { AttackSource } from '../types/state-combat.js';
-import type { CardEffect, CreatureAltEventEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, AgentHomeSiteFactionLockEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect, TapTakeItemEffect } from '../types/effects.js';
+import type { CardEffect, CreatureAltEventEffect, OnEventEffect, Condition, FetchToDeckEffect, EventMaintenanceEffect, DuplicationLimitEffect, PlayConditionEffect, PlayTargetEffect, OpponentInfluenceOverrideEffect, FactionSiegeEffect, GrantAttemptSupportEffect, FwSiteAlignmentRestrictionEffect, TapTakeItemEffect } from '../types/effects.js';
 import { buildMovementMap, regionDistanceInclusive } from '../movement-map.js';
 import type { ResolutionScope, ActiveConstraint, SiteFlag } from '../types/pending.js';
 import { GENERAL_INFLUENCE } from '../constants.js';
@@ -1294,6 +1294,23 @@ export function getCardEffects(
 }
 
 /**
+ * The first effect of the given `type` on a card definition, narrowed to that
+ * effect's interface, or `undefined` when the card has none. Replaces the
+ * `getCardEffects(def).find((e): e is XEffect => e.type === 'x')` idiom.
+ */
+export function findCardEffect<K extends CardEffect['type']>(
+  def: CardDefinition | null | undefined,
+  type: K,
+): Extract<CardEffect, { readonly type: K }> | undefined {
+  return getCardEffects(def).find((e): e is Extract<CardEffect, { readonly type: K }> => e.type === type);
+}
+
+/** True when a card definition carries at least one effect of the given `type`. */
+export function hasCardEffect(def: CardDefinition | null | undefined, type: CardEffect['type']): boolean {
+  return getCardEffects(def).some(e => e.type === type);
+}
+
+/**
  * True when either player controls an in-play card carrying a
  * `cancel-card-effects` effect naming `cardName`. This is the generic
  * "cancels the effects of X" primitive (The Way is Shut dm-98; Earth-tremors
@@ -1502,7 +1519,7 @@ export function playerHasExtraUnderDeepsMH(state: GameState, playerIndex: number
   const player = state.players[playerIndex];
   if (!player) return false;
   return player.cardsInPlay.some(cip =>
-    getCardEffects(defById(state, cip.definitionId)).some(e => e.type === 'extra-under-deeps-mh-phase'),
+    hasCardEffect(defById(state, cip.definitionId), 'extra-under-deeps-mh-phase'),
   );
 }
 
@@ -1743,7 +1760,7 @@ export function influenceModificationsNullified(state: GameState): boolean {
         || cip.pendingTriggerAttack) continue;
       const def = defById(state, cip.definitionId);
       if (!def) continue;
-      if (getCardEffects(def).some(e => e.type === 'nullify-influence-modifications')) {
+      if (hasCardEffect(def, 'nullify-influence-modifications')) {
         logDetail(`Influence modifications nullified by "${def.name}" (${cip.definitionId as string})`);
         return true;
       }
@@ -1826,7 +1843,7 @@ export function handDiscardRecycleOptionInPlay(state: GameState): { readonly sou
         || cip.pendingTriggerAttack) continue;
       const def = defById(state, cip.definitionId);
       if (!def) continue;
-      if (getCardEffects(def).some(e => e.type === 'hand-discard-recycle-option')) {
+      if (hasCardEffect(def, 'hand-discard-recycle-option')) {
         return { sourceName: def.name };
       }
     }
@@ -3133,9 +3150,7 @@ export function classifyCorruptionOutcome(
 export function getLeaderControlEffect(
   def: CardDefinition | null | undefined,
 ): import('../types/effects.js').LeaderControlEffect | undefined {
-  return getCardEffects(def).find(
-    (e): e is import('../types/effects.js').LeaderControlEffect => e.type === 'leader-control',
-  );
+  return findCardEffect(def, 'leader-control');
 }
 
 /**
@@ -3165,9 +3180,7 @@ export function leaderControlEligibility(
 export function findEventMaintenanceEffect(
   def: CardDefinition | null | undefined,
 ): EventMaintenanceEffect | undefined {
-  return getCardEffects(def).find(
-    (e): e is EventMaintenanceEffect => e.type === 'event-maintenance',
-  );
+  return findCardEffect(def, 'event-maintenance');
 }
 
 /**
@@ -3575,7 +3588,7 @@ export function playerPlaysAsSauron(
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = defById(state, card.definitionId);
-    if (getCardEffects(def).some(e => e.type === 'play-as-sauron')) return true;
+    if (hasCardEffect(def, 'play-as-sauron')) return true;
   }
   return false;
 }
@@ -3598,7 +3611,7 @@ export function playerHasNoCharacterPlayLimit(
   for (const card of player.cardsInPlay) {
     if (card.setAsideHost !== undefined) continue;
     const def = defById(state, card.definitionId);
-    if (getCardEffects(def).some(e => e.type === 'no-character-play-limit')) return true;
+    if (hasCardEffect(def, 'no-character-play-limit')) return true;
   }
   return false;
 }
@@ -3632,7 +3645,7 @@ export function playerRecyclesMagicToDeck(state: GameState, playerIndex: number)
   const avatar = findPlayerAvatar(state, state.players[playerIndex]);
   if (!avatar) return false;
   const def = resolveDef(state, avatar.instanceId);
-  return getCardEffects(def).some(e => e.type === 'magic-discard-to-deck');
+  return hasCardEffect(def, 'magic-discard-to-deck');
 }
 
 /**
@@ -5084,9 +5097,7 @@ export function siteFactionLockedByAgentHomeSite(
       for (const item of char.items) {
         const def = resolveDef(state, item.instanceId);
         if (!def) continue;
-        const lock = getCardEffects(def).find(
-          (e): e is AgentHomeSiteFactionLockEffect => e.type === 'agent-home-site-faction-lock',
-        );
+        const lock = findCardEffect(def, 'agent-home-site-faction-lock');
         if (!lock) continue;
         const charDef = resolveDef(state, char.instanceId);
         if (!charDef || !isCharacterCard(charDef)) continue;
@@ -5146,7 +5157,7 @@ export function getOpponentInfluenceOverride(
 ): OpponentInfluenceOverrideEffect | undefined {
   for (const card of player.cardsInPlay) {
     const def = defById(state, card.definitionId);
-    const eff = getCardEffects(def).find(e => e.type === 'opponent-influence-override');
+    const eff = findCardEffect(def, 'opponent-influence-override');
     if (eff) return eff;
   }
   return undefined;
@@ -6698,9 +6709,7 @@ export function siteEddyLock(
     if (forPlayer !== undefined && p.id !== forPlayer) continue;
     for (const c of p.cardsInPlay) {
       if (c.attachedToSite !== siteDefId || c.pendingTriggerAttack) continue;
-      const eff = getCardEffects(defById(state, c.definitionId)).find(
-        (e): e is import('../types/effects.js').EddyLockEffect => e.type === 'eddy-lock',
-      );
+      const eff = findCardEffect(defById(state, c.definitionId), 'eddy-lock');
       if (eff) return eff;
     }
   }
@@ -6845,7 +6854,7 @@ function cardKeptInMarshallingPointPile(def: CardDefinition | null | undefined):
  * Lamedon were still in play).
  */
 function cardHasOwnLeavesPlayDiscardCondition(def: CardDefinition | null | undefined): boolean {
-  return getCardEffects(def).some(e => e.type === 'discard-on-card-leaves-play');
+  return hasCardEffect(def, 'discard-on-card-leaves-play');
 }
 
 /**
@@ -6956,7 +6965,7 @@ export function discardOrphanedAgentAttachedEvents(state: GameState): GameState 
       const agent = player.agents.find(a => a.id === card.attachedToAgentId);
       if (!agent) return true;
       const def = defById(state, card.definitionId);
-      const discardsOnReveal = getCardEffects(def).some(e => e.type === 'agent-reveal-site-override');
+      const discardsOnReveal = hasCardEffect(def, 'agent-reveal-site-override');
       return discardsOnReveal && agent.revealed;
     },
     (card, player) => {
@@ -7045,7 +7054,7 @@ export function discardOrphanedFactionAttachedEvents(state: GameState): GameStat
     state,
     card => card.attachedTo !== undefined
       && !factionIds.has(card.attachedTo as string)
-      && getCardEffects(defById(state, card.definitionId)).some(e => e.type === 'faction-siege'),
+      && hasCardEffect(defById(state, card.definitionId), 'faction-siege'),
     card => {
       const def = state.cardPool[card.definitionId];
       logDetail(`faction-attached event: discarding "${def?.name ?? card.definitionId}" — target faction ${card.attachedTo as string} left play`);
@@ -7819,9 +7828,7 @@ export function findAllyPlayGrant(
     for (const item of char.items) {
       const def = defById(state, item.definitionId);
       if (!def) continue;
-      const eff = getCardEffects(def).find(
-        (e): e is import('../types/effects.js').GrantAllyPlayEffect => e.type === 'grant-ally-play',
-      );
+      const eff = findCardEffect(def, 'grant-ally-play');
       if (eff) return { effect: eff, bearerId: charId };
     }
   }
@@ -8376,7 +8383,7 @@ export function isCovertCompany(
     for (const ally of charData.allies) {
       const allyDef = defById(state, ally.definitionId);
       if (!allyDef || !isAllyCard(allyDef)) continue;
-      if (getCardEffects(allyDef).some(e => e.type === 'company-overt')) {
+      if (hasCardEffect(allyDef, 'company-overt')) {
         return false; // overt
       }
     }
@@ -8385,7 +8392,7 @@ export function isCovertCompany(
     for (const hazard of charData.hazards) {
       const hazardDef = defById(state, hazard.definitionId);
       if (!hazardDef) continue;
-      if (getCardEffects(hazardDef).some(e => e.type === 'company-overt')) {
+      if (hasCardEffect(hazardDef, 'company-overt')) {
         return false; // overt
       }
     }
@@ -8399,7 +8406,7 @@ export function isCovertCompany(
       if (card.companyId !== company.id) continue;
       const cardDef = defById(state, card.definitionId);
       if (!cardDef) continue;
-      if (getCardEffects(cardDef).some(e => e.type === 'company-overt')) {
+      if (hasCardEffect(cardDef, 'company-overt')) {
         return false; // overt (e.g. Fell Rider)
       }
     }

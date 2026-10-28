@@ -23,7 +23,7 @@ import type { GameState, PlayerState } from '../index.js';
 import { Phase } from '../types/state-phases.js';
 import { matchesContext } from '../effects/index.js';
 import { logDetail } from './legal-actions/log.js';
-import { defById, getCardEffects, discardCardsInPlayWhere } from './reducer-utils.js';
+import { defById, getCardEffects, discardCardsInPlayWhere, hasCardEffect } from './reducer-utils.js';
 
 /**
  * The set of instance IDs currently occupying a player's bare `cardsInPlay`
@@ -52,7 +52,7 @@ export function applyDiscardOnCardLeaves(prev: GameState, next: GameState): Game
   // Fast path: nothing to do unless some card with the trigger is in play.
   const anyTrigger = next.players.some(p =>
     p.cardsInPlay.some(cip =>
-      getCardEffects(defById(next, cip.definitionId)).some(e => e.type === 'discard-on-card-leaves-play')));
+      hasCardEffect(defById(next, cip.definitionId), 'discard-on-card-leaves-play')));
   if (!anyTrigger) return next;
 
   // Per player: did a card matching *some* active trigger's filter just leave

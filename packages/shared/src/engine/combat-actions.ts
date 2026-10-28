@@ -27,7 +27,7 @@ import { formatSignedNumber } from '../format-helpers.js';
 import { getPlayerIndex } from '../state-utils.js';
 import { isCharacterCard, isItemCard, isSiteCard } from '../types/cards.js';
 import { Alignment, CardStatus, Race } from '../types/common.js';
-import type { ModifyAttackEffect, StrikeModifierEffect, HalveStrikesEffect, CombatTapCompanyBoostEffect, AllyBodyCheckBoostEffect, FleeFromStrikeEffect, CancelStrikeEffect, ProtectFromStrikeAssignmentEffect, SacrificeOfFormEffect, MultiStrikeOptionEffect, TargetCharacterStatModifierEffect } from '../types/effects.js';
+import type { ModifyAttackEffect, StrikeModifierEffect, CombatTapCompanyBoostEffect, TargetCharacterStatModifierEffect } from '../types/effects.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { hasPlayFlag } from '../effects/play-flags.js';
 import { Phase } from '../types/state-phases.js';
@@ -37,7 +37,7 @@ import { findAllyInCompany, findItemInCompany, buildPlayedModifyAttackContext } 
 import { allyEffectiveBody } from './ally-stats.js';
 import { resolveInstanceId } from '../types/state.js';
 import type { ReducerResult } from './reducer-utils.js';
-import { attackSourceCreatureInstanceId, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, resolveCreatureBodyForCheck, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, cardName, cleanupEmptyCompanies, clonePlayers, companyById, companyShadowMagicUsers, companySubphaseScope, countNazgulPermanentEventsInPlay, defById, diceRollEffect, discardOrRecyclePlayedEvent, findAttachment, findById, findCharacterCompany, getCardEffects, getOnEventEffects, partitionLeavingAllies, removeAttachment, removeById, resolveCreatureBodyForCheck, ringwraithReclaimMark, roll2d6, rollDiceForPlayer, toCardInstance, updateAttachment, updateCharacter, updatePlayer, wrongActionType, findCardEffect, hasCardEffect } from './reducer-utils.js';
 import { evaluateExpr } from './effects/expression-eval.js';
 import { resolveEnemyBody, resolveDef } from './effects/index.js';
 import { buildInPlayNames } from './recompute-derived.js';
@@ -256,8 +256,7 @@ export function handleCancelStrike(state: GameState, action: GameAction, combat:
       return { state, error: 'Canceller not found as character, item, or ally' };
     }
     const cancellerLabel = cardName(state, located.attachment.definitionId);
-    const cancelEffect = getCardEffects(defById(state, located.attachment.definitionId))
-      .find((e): e is CancelStrikeEffect => e.type === 'cancel-strike');
+    const cancelEffect = findCardEffect(defById(state, located.attachment.definitionId), 'cancel-strike');
 
     if (cancelEffect?.cost?.check === 'corruption') {
       // The One Ring (tw-347): instead of tapping, the bearer makes a corruption
@@ -358,9 +357,7 @@ export function handleFleeFromStrike(state: GameState, action: GameAction, comba
   const handCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Flee-from-strike card not found in hand' };
   const cardDef = defById(state, handCard.definitionId);
-  const effect = getCardEffects(cardDef).find(
-    (e): e is FleeFromStrikeEffect => e.type === 'flee-from-strike',
-  );
+  const effect = findCardEffect(cardDef, 'flee-from-strike');
   if (!effect) return { state, error: 'Card has no flee-from-strike effect' };
 
   const currentStrike = combat.strikeAssignments[combat.currentStrikeIndex];
@@ -429,7 +426,7 @@ export function handleSacrificeOfForm(state: GameState, action: GameAction, comb
   const handCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Sacrifice of Form card not found in hand' };
   const cardDef = defById(state, handCard.definitionId);
-  const effect = getCardEffects(cardDef).find((e): e is SacrificeOfFormEffect => e.type === 'sacrifice-of-form');
+  const effect = findCardEffect(cardDef, 'sacrifice-of-form');
   if (!effect) return { state, error: 'Card has no sacrifice-of-form effect' };
 
   const wizardId = action.characterInstanceId;
@@ -1280,7 +1277,7 @@ export function handleBodyCheckRoll(state: GameState, action: GameAction, combat
       if ((discardBodyCheckValues).includes(effectiveRoll)) {
         const isProtected = charData.items.some(item => {
           const itemDef = state.cardPool[item.definitionId];
-          return getCardEffects(itemDef).some(e => e.type === 'protect-from-body-check');
+          return hasCardEffect(itemDef, 'protect-from-body-check');
         });
         if (isProtected) {
           logDetail(`Body check roll ${effectiveRoll} matches discardBodyCheck — discard suppressed by protect-from-body-check; character survives wounded`);
@@ -1541,9 +1538,7 @@ export function handleConvertCreatureToAlly(state: GameState, action: GameAction
   const handCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!handCard) return { state, error: 'Conversion card not in hand' };
   const cardDef = defById(state, handCard.definitionId);
-  const effect = getCardEffects(cardDef).find(
-    (e): e is import('../types/effects.js').ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
-  );
+  const effect = findCardEffect(cardDef, 'convert-creature-to-ally');
   if (!effect) return { state, error: 'Card has no convert-creature-to-ally effect' };
 
   // The attacking creature card.
@@ -1664,9 +1659,7 @@ export function handleHalveStrikes(state: GameState, action: GameAction, combat:
   const currentAttackStrikes = originalStrikes - untouchedStrikes;
 
   const cardDef = state.cardPool[discardedCard.definitionId];
-  const halveEffect = getCardEffects(cardDef).find(
-    (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
-  );
+  const halveEffect = findCardEffect(cardDef, 'halve-strikes');
   const op = halveEffect?.op ?? 'halve';
   let newCurrentAttackStrikes: number;
   if (op === 'subtract') {
@@ -1724,8 +1717,7 @@ export function handleProtectFromStrikeAssignment(state: GameState, action: Game
   const playedCard = findById(defPlayer.hand, action.cardInstanceId);
   if (!playedCard) return { state, error: 'Card not in hand' };
 
-  const protEff = getCardEffects(defById(state, playedCard.definitionId))
-    .find((e): e is ProtectFromStrikeAssignmentEffect => e.type === 'protect-from-strike-assignment');
+  const protEff = findCardEffect(defById(state, playedCard.definitionId), 'protect-from-strike-assignment');
   if (!protEff) return { state, error: 'Card has no protect-from-strike-assignment effect' };
 
   const targetChar = defPlayer.characters[action.targetCharacterId];
@@ -1822,9 +1814,7 @@ export function handleEnableMultiStrikeOption(state: GameState, action: GameActi
   if (!playedCard) return { state, error: 'Card not in hand' };
 
   const cardDef = defById(state, playedCard.definitionId);
-  const effect = getCardEffects(cardDef).find(
-    (e): e is MultiStrikeOptionEffect => e.type === 'multi-strike-option',
-  );
+  const effect = findCardEffect(cardDef, 'multi-strike-option');
   if (!effect) return { state, error: 'Card has no multi-strike-option effect' };
 
   const cardName_ = cardName(state, playedCard.definitionId);
@@ -1962,7 +1952,7 @@ export function handleFaceStrikeOnTap(state: GameState, action: GameAction, comb
   if (item.status !== CardStatus.Untapped) return { state, error: 'Item must be untapped to activate' };
 
   const itemDef = defById(state, item.definitionId);
-  const effect = getCardEffects(itemDef).find(e => e.type === 'face-strike-on-tap');
+  const effect = findCardEffect(itemDef, 'face-strike-on-tap');
   if (!effect) return { state, error: 'Item has no face-strike-on-tap effect' };
   const reduction = (effect as { bodyReductionOnParry?: number }).bodyReductionOnParry ?? 0;
 
@@ -2274,9 +2264,7 @@ export function handleTapAllyBodyCheckBoost(state: GameState, action: GameAction
   }
 
   const allyDef = defById(state, ally.definitionId);
-  const boostEffect = getCardEffects(allyDef).find(
-    (e): e is AllyBodyCheckBoostEffect => e.type === 'ally-body-check-boost',
-  );
+  const boostEffect = findCardEffect(allyDef, 'ally-body-check-boost');
   if (!boostEffect) return { state, error: 'Ally has no ally-body-check-boost effect' };
 
   const allyName = allyDef?.name ?? (ally.definitionId as string);
@@ -2322,7 +2310,7 @@ export function handleCaptureInLieuOfBodyCheck(state: GameState, action: GameAct
   const item = bearer.items.find(i => i.instanceId === action.cardInstanceId);
   if (!item) return { state, error: 'No Better Use: card not on bearer' };
   const itemDef = defById(state, item.definitionId);
-  if (!getCardEffects(itemDef).some(e => e.type === 'cvcc-capture-in-lieu-of-body-check')) {
+  if (!hasCardEffect(itemDef, 'cvcc-capture-in-lieu-of-body-check')) {
     return { state, error: 'No Better Use: card has no capture-in-lieu-of-body-check effect' };
   }
   if (noBetterUseAlreadyUsed(state, item.instanceId)) {
@@ -2470,7 +2458,7 @@ export function handleModifyAttack(state: GameState, action: GameAction, combat:
     if (!effect) return { state, error: `Card has no modify-attack (${altPermanentEvent ? 'fromAltPermanentEvent' : 'fromHand'}) effect` };
 
     if (altPermanentEvent) {
-      const altEvent = getCardEffects(cardDef).find(e => e.type === 'creature-alt-event');
+      const altEvent = findCardEffect(cardDef, 'creature-alt-event');
       if (altEvent?.type !== 'creature-alt-event' || altEvent.mode !== 'permanent-event' || altEvent.persistent) {
         return { state, error: 'modify-attack: card in play is not a convertible creature-permanent-event' };
       }

@@ -25,7 +25,7 @@ import { CardStatus } from '../types/common.js';
 import { Phase } from '../types/state-phases.js';
 import { logDetail } from './legal-actions/log.js';
 import { findAllyInCompany, findItemInCompany } from './legal-actions/combat.js';
-import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySiteDef, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { attackSourceCreatureInstanceId, cardName, clonePlayers, companyById, companySiteDef, companySubphaseScope, defById, discardOrRecyclePlayedEvent, findById, getCardEffects, removeById, toCardInstance, updateCharacter, updatePlayer, wrongActionType, findCardEffect } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { matchesCondition } from '../effects/condition-matcher.js';
 import { enqueueCorruptionCheck, addConstraint, removeConstraint, enqueueResolution, sweepExpired } from './pending.js';
@@ -106,9 +106,7 @@ export function handleCancelAttackByInPlayFaction(
   if (!factionEntry) return { state, error: 'Cancel-attack faction not in play' };
 
   const factionDef = defById(state, factionEntry.definitionId);
-  const cancelEffect = getCardEffects(factionDef).find(
-    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
-  );
+  const cancelEffect = findCardEffect(factionDef, 'cancel-attack');
   const tapCost = cancelEffect?.cost?.tap === 'self';
 
   const factionName = cardName(state, factionEntry.definitionId);
@@ -211,9 +209,7 @@ export function handleCancelAttackBySiteSwap(
 
   const hostDef = defById(state, hostEntry.definitionId);
   const hostName = cardName(state, hostEntry.definitionId);
-  const cancelEffect = getCardEffects(hostDef).find(
-    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
-  );
+  const cancelEffect = findCardEffect(hostDef, 'cancel-attack');
   const siteSwap = cancelEffect?.siteSwap;
   if (!siteSwap) return { state, error: `${hostName} has no site-swap cancel-attack effect` };
 
@@ -384,9 +380,7 @@ export function handleCancelAttackByInPlayItem(
 
   const itemDef = defById(state, item.definitionId);
   const itemName = itemDef?.name ?? (item.definitionId as string);
-  const cancelEffect = getCardEffects(itemDef).find(
-    (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
-  );
+  const cancelEffect = findCardEffect(itemDef, 'cancel-attack');
 
   const tapCost = cancelEffect?.cost?.tap;
   const bearerOnly = tapCost === 'bearer';
@@ -483,7 +477,7 @@ export function handleCancelWeaponEffects(
   if (!found) return { state, error: 'Cancel-weapon source item not found in company' };
   const { item: whip, hostCharId } = found;
   const whipDef = defById(state, whip.definitionId);
-  const eff = getCardEffects(whipDef).find(e => e.type === 'combat-cancel-weapon');
+  const eff = findCardEffect(whipDef, 'combat-cancel-weapon');
   if (!eff) return { state, error: 'Item has no combat-cancel-weapon effect' };
   if (whip.status !== CardStatus.Untapped) return { state, error: 'Whip must be untapped to cancel a weapon' };
 
@@ -623,9 +617,7 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
     // event (Farmer Maggot as-48) or a controlled faction (Wild Hounds wh-40).
     const inPlayEntry = defPlayer.cardsInPlay.find(c => c.instanceId === action.cardInstanceId);
     if (inPlayEntry) {
-      const inPlayCancel = getCardEffects(defById(state, inPlayEntry.definitionId)).find(
-        (e): e is import('../types/effects.js').CancelAttackEffect => e.type === 'cancel-attack',
-      );
+      const inPlayCancel = findCardEffect(defById(state, inPlayEntry.definitionId), 'cancel-attack');
       if (inPlayCancel?.siteSwap) {
         return handleCancelAttackBySiteSwap(state, action, combat);
       }

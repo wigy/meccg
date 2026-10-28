@@ -13,7 +13,7 @@
  */
 
 import type { GameState, PlayerId, EvaluatedAction, CombatState, CardInstanceId, CardDefinitionId } from '../../index.js';
-import type { CancelAttackEffect, ConvertCreatureToAllyEffect, FlatteryCancelAttackEffect, GoodwillCancelAttackEffect, RiddlingAttemptEffect, StrikeModifierEffect, HalveStrikesEffect, ModifyAttackEffect, OnEventEffect, PlayWindowEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ProtectFromStrikeAssignmentEffect, AllyBodyCheckBoostEffect, JoinCombatForceStrikeEffect, CombatDiscardOpponentItemEffect, SiteStormDevastationEffect, FleeFromStrikeEffect, SacrificeOfFormEffect, AttackRollStrikesFailEffect, MultiStrikeOptionEffect, ForceOpponentDiscardEffect, TargetCharacterStatModifierEffect } from '../../types/effects.js';
+import type { CancelAttackEffect, FlatteryCancelAttackEffect, RiddlingAttemptEffect, ModifyAttackEffect, OnEventEffect, PlayTargetEffect, CompanyCombatBoostEffect, CombatTapCompanyBoostEffect, ForceOpponentDiscardEffect, TargetCharacterStatModifierEffect } from '../../types/effects.js';
 import type { AllyInPlay, Company } from '../../types/state-cards.js';
 import type { PlayerState } from '../../types/state-player.js';
 import { matchesCondition } from '../../effects/condition-matcher.js';
@@ -30,7 +30,7 @@ import { resolveDef, enemyRaceContext, getEffectiveSkills } from '../effects/ind
 import { canPayCost } from '../cost-evaluator.js';
 import { heroResourceShortEventActions } from './long-event.js';
 import { buildPlayOptionContext, getPlayTargetEffect, grantedActionActivations, playerStateGateMet } from './organization.js';
-import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, untappedAltPermanentEvents, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck } from '../reducer-utils.js';
+import { attackSourceCreatureInstanceId, findCharacterCompany, playerById, getCardEffects, getOnEventEffects, companyById, defById, defNamesOf, itemKeywordsOf, isCovertCompany, findDuplicationLimitEffect, findPlayConditionEffect, inPlayNamesForPlayerDeep, isCardNameInPlayForPlayer, isCardNameInPlayOrCharacters, isCombatReactiveShortEvent, untappedAltPermanentEvents, countCopiesInPlay, companyShadowMagicUsers, resolveCreatureBodyForCheck, findCardEffect, hasCardEffect } from '../reducer-utils.js';
 import { holdableAttackCreatureInstanceId } from '../held-creature.js';
 import { countConstraintsFromDefinition, constraintsOnCompany, multiStrikeAllowance } from '../pending.js';
 import { allyEffectiveBody } from '../ally-stats.js';
@@ -681,9 +681,7 @@ export function assignStrikeActions(
         for (const ally of charData.allies) {
           if (assignedCharIds.has(ally.instanceId as string)) continue;
           const allyDef = defById(state, ally.definitionId);
-          const shieldEff = getCardEffects(allyDef).find(
-            (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
-          );
+          const shieldEff = findCardEffect(allyDef, 'strike-shield');
           if (shieldEff) {
             logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
             strikeShieldBlockedChars.add(charId as string);
@@ -754,7 +752,7 @@ export function assignStrikeActions(
       // assigned") and only when there is more than one strike to redirect.
       if (combat.strikeAssignments.length === 0 && combat.strikesTotal > 1) {
         const bearsOption = charData.items.some(i =>
-          getCardEffects(defById(state, i.definitionId)).some(e => e.type === 'face-all-strikes-option'));
+          hasCardEffect(defById(state, i.definitionId), 'face-all-strikes-option'));
         if (bearsOption) {
           logDetail(`Defender can have ${charId as string} face all ${combat.strikesTotal} strikes (face-all-strikes-option)`);
           actions.push({
@@ -860,7 +858,7 @@ export function assignStrikeActions(
         for (const item of charData.items) {
           if (item.status !== CardStatus.Untapped) continue;
           const itemDef = defById(state, item.definitionId);
-          const hasFaceStrike = getCardEffects(itemDef).some(e => e.type === 'face-strike-on-tap');
+          const hasFaceStrike = hasCardEffect(itemDef, 'face-strike-on-tap');
           if (!hasFaceStrike) continue;
           logDetail(`Defender may tap ${item.instanceId as string} to have ${charId as string} face a strike (Bow of Alatar)`);
           actions.push({
@@ -951,9 +949,7 @@ export function assignStrikeActions(
         for (const ally of charData.allies) {
           if (assignedCharIds.has(ally.instanceId as string)) continue;
           const allyDef = defById(state, ally.definitionId);
-          const shieldEff = getCardEffects(allyDef).find(
-            (e): e is import('../../types/effects.js').StrikeShieldEffect => e.type === 'strike-shield',
-          );
+          const shieldEff = findCardEffect(allyDef, 'strike-shield');
           if (shieldEff) {
             logDetail(`strike-shield: ally ${ally.instanceId as string} not yet assigned — blocking strike on ${charId as string}`);
             strikeShieldBlockedChars.add(charId as string);
@@ -1472,9 +1468,7 @@ function fleeFromStrikeActions(
   for (const card of defPlayer.hand) {
     const def = defById(state, card.definitionId);
     if (!def) continue;
-    const effect = getCardEffects(def).find(
-      (e): e is FleeFromStrikeEffect => e.type === 'flee-from-strike',
-    );
+    const effect = findCardEffect(def, 'flee-from-strike');
     if (!effect) continue;
     if (effect.characterName !== struckName) continue;
     if (strikeProwess <= charProwess) {
@@ -1528,7 +1522,7 @@ function sacrificeOfFormActions(
   for (const card of defPlayer.hand) {
     const def = defById(state, card.definitionId);
     if (!def) continue;
-    const effect = getCardEffects(def).find((e): e is SacrificeOfFormEffect => e.type === 'sacrifice-of-form');
+    const effect = findCardEffect(def, 'sacrifice-of-form');
     if (!effect) continue;
     const alreadyBound = defPlayer.cardsInPlay.some(c => c.sacrificeOfFormCharacterInstanceId === wizardId);
     if (alreadyBound) {
@@ -1637,9 +1631,7 @@ function resolveStrikeActions(
   for (const handCard of player0.hand) {
     const cardDef = defById(state, handCard.definitionId);
     if (!cardDef || (cardDef.cardType !== 'hero-resource-event' && cardDef.cardType !== 'minion-resource-event') || cardDef.eventType !== 'short') continue;
-    const strikeEffect = getCardEffects(cardDef).find(
-      (e): e is StrikeModifierEffect => e.type === 'strike-modifier',
-    );
+    const strikeEffect = findCardEffect(cardDef, 'strike-modifier');
     if (!strikeEffect) continue;
 
     let explanation: string;
@@ -2374,9 +2366,7 @@ function tapAllyBodyCheckBoostActions(
     if (ally.status !== CardStatus.Untapped) continue;
     if (!struckIds.has(ally.instanceId as string)) continue;
     const allyDef = defById(state, ally.definitionId);
-    const boostEffect = getCardEffects(allyDef).find(
-      (e): e is AllyBodyCheckBoostEffect => e.type === 'ally-body-check-boost',
-    );
+    const boostEffect = findCardEffect(allyDef, 'ally-body-check-boost');
     if (!boostEffect) continue;
     const allyName = allyDef?.name ?? (ally.definitionId as string);
     logDetail(`Tap-ally-body-check-boost available: ${allyName} (+${boostEffect.value} body to ${strike.characterId as string})`);
@@ -2434,7 +2424,7 @@ function captureInLieuOfBodyCheckActions(
     if (charData.status !== CardStatus.Untapped) continue;
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
-      if (!getCardEffects(itemDef).some(e => e.type === 'cvcc-capture-in-lieu-of-body-check')) continue;
+      if (!hasCardEffect(itemDef, 'cvcc-capture-in-lieu-of-body-check')) continue;
       if (noBetterUseAlreadyUsed(state, item.instanceId)) continue;
       logDetail(`No Better Use available: ${charId} may tap to capture ${targetCharacterId as string} in lieu of body check`);
       actions.push({
@@ -2541,9 +2531,7 @@ function convertCreatureToAllyActions(
   const actions: EvaluatedAction[] = [];
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const effect = getCardEffects(cardDef).find(
-      (e): e is ConvertCreatureToAllyEffect => e.type === 'convert-creature-to-ally',
-    );
+    const effect = findCardEffect(cardDef, 'convert-creature-to-ally');
     if (!effect) continue;
     if (creatureStrikes > effect.maxStrikes) {
       logDetail(`${cardDef?.name ?? handCard.definitionId as string}: creature has ${creatureStrikes} strikes (> ${effect.maxStrikes}) — not playable`);
@@ -2913,9 +2901,7 @@ function cancelAttackActions(
       if (!charData) continue;
       const charDef = defById(state, charData.definitionId);
       if (!charDef) continue;
-      const cancelEffect = getCardEffects(charDef).find(
-        (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-      );
+      const cancelEffect = findCardEffect(charDef, 'cancel-attack');
       if (!cancelEffect) continue;
       if (cancelEffect.cost?.tap !== 'self') continue;
       if (!isDefending && !cancelEffect.anyCompany) continue;
@@ -2952,9 +2938,7 @@ function cancelAttackActions(
   for (const { ally } of findCompanyAllies(player, company.characters)) {
     const allyDef = defById(state, ally.definitionId);
     if (!allyDef) continue;
-    const cancelEffect = getCardEffects(allyDef).find(
-      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-    );
+    const cancelEffect = findCardEffect(allyDef, 'cancel-attack');
     if (!cancelEffect) continue;
     if (cancelEffect.cost?.tap !== 'self') continue;
     if (ally.status !== CardStatus.Untapped) {
@@ -3001,9 +2985,7 @@ function cancelAttackActions(
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
       if (!itemDef) continue;
-      const cancelEffect = getCardEffects(itemDef).find(
-        (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-      );
+      const cancelEffect = findCardEffect(itemDef, 'cancel-attack');
       if (!cancelEffect) continue;
       const tapCost = cancelEffect.cost?.tap;
       if (tapCost !== 'self' && tapCost !== 'self-and-bearer' && tapCost !== 'bearer') continue;
@@ -3050,9 +3032,7 @@ function cancelAttackActions(
   // loop below (which skips discard-cost / tap-cost cancel-attack cards).
   for (const inPlayCard of player.cardsInPlay) {
     const def = defById(state, inPlayCard.definitionId);
-    const cancelEffect = getCardEffects(def).find(
-      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-    );
+    const cancelEffect = findCardEffect(def, 'cancel-attack');
     if (!cancelEffect) continue;
     const inPlayCost = cancelEffect.cost;
     const discardCost = inPlayCost?.discard === 'self';
@@ -3120,9 +3100,7 @@ function cancelAttackActions(
   }
   for (const handCard of player.hand) {
     const def = defById(state, handCard.definitionId);
-    const cancelEffect = getCardEffects(def).find(
-      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-    );
+    const cancelEffect = findCardEffect(def, 'cancel-attack');
     if (!cancelEffect || !cancelEffect.handModeRequiresCovert) continue;
     // "Playable if …" gates on the player's own state (e.g. Eye Never
     // Sleeping as-82: playable only while the player counts as Sauron) apply
@@ -3153,9 +3131,7 @@ function cancelAttackActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const cancelEffect = getCardEffects(cardDef).find(
-      (e): e is CancelAttackEffect => e.type === 'cancel-attack',
-    );
+    const cancelEffect = findCardEffect(cardDef, 'cancel-attack');
     if (!cancelEffect) continue;
 
     // Any tap cost involving the card itself or its bearer requires the card to
@@ -3391,9 +3367,7 @@ function cancelAttackActions(
   // carries at least one item of the entry's rank to discard.
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const goodwillEffect = getCardEffects(cardDef).find(
-      (e): e is GoodwillCancelAttackEffect => e.type === 'goodwill-cancel-attack',
-    );
+    const goodwillEffect = findCardEffect(cardDef, 'goodwill-cancel-attack');
     if (!goodwillEffect) continue;
 
     const isAgentAttack = combat.attackSource.type === 'agent';
@@ -3549,9 +3523,7 @@ function protectFromStrikeAssignmentActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const protEff = getCardEffects(cardDef).find(
-      (e): e is ProtectFromStrikeAssignmentEffect => e.type === 'protect-from-strike-assignment',
-    );
+    const protEff = findCardEffect(cardDef, 'protect-from-strike-assignment');
     if (!protEff) continue;
 
     // Shared once per card: used both by the `filter`'s `company.hasShadowMagicUser`
@@ -3646,9 +3618,7 @@ function halveStrikesActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const halveEffect = getCardEffects(cardDef).find(
-      (e): e is HalveStrikesEffect => e.type === 'halve-strikes',
-    );
+    const halveEffect = findCardEffect(cardDef, 'halve-strikes');
     if (!halveEffect) continue;
 
     // Check `when` condition (e.g. "inPlay": "Gates of Morning")
@@ -3705,9 +3675,7 @@ function multiStrikeOptionActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const effect = getCardEffects(cardDef).find(
-      (e): e is MultiStrikeOptionEffect => e.type === 'multi-strike-option',
-    );
+    const effect = findCardEffect(cardDef, 'multi-strike-option');
     if (!effect) continue;
 
     logDetail(`Multi-strike-option available: ${handCard.definitionId as string}`);
@@ -3799,7 +3767,7 @@ function cancelWeaponActions(
     if (!charDef || !isBalrogAvatarDef(charDef)) continue; // may only be borne by The Balrog
     for (const item of charData.items) {
       const itemDef = defById(state, item.definitionId);
-      const eff = getCardEffects(itemDef).find(e => e.type === 'combat-cancel-weapon');
+      const eff = findCardEffect(itemDef, 'combat-cancel-weapon');
       if (!eff) continue;
       const itemName = itemDef?.name ?? (item.definitionId as string);
       if (item.status !== CardStatus.Untapped) {
@@ -3874,9 +3842,7 @@ function combatDiscardOpponentItemActions(
 
   // Only proceed if the acting player has a hand card that carries the effect.
   const candidates = player.hand.filter(hc =>
-    getCardEffects(defById(state, hc.definitionId)).some(
-      (e): e is CombatDiscardOpponentItemEffect => e.type === 'combat-discard-opponent-item',
-    ),
+    hasCardEffect(defById(state, hc.definitionId), 'combat-discard-opponent-item'),
   );
   if (candidates.length === 0) return [];
 
@@ -3967,9 +3933,7 @@ function siteStormAtSiteActions(
   if (!player) return [];
 
   const candidates = player.hand.filter(hc =>
-    getCardEffects(defById(state, hc.definitionId)).some(
-      (e): e is SiteStormDevastationEffect => e.type === 'site-storm-devastation',
-    ),
+    hasCardEffect(defById(state, hc.definitionId), 'site-storm-devastation'),
   );
   if (candidates.length === 0) return [];
 
@@ -4708,9 +4672,7 @@ function attackRollStrikesFailActions(
   const actions: EvaluatedAction[] = [];
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const effect = getCardEffects(cardDef).find(
-      (e): e is AttackRollStrikesFailEffect => e.type === 'attack-roll-strikes-fail',
-    );
+    const effect = findCardEffect(cardDef, 'attack-roll-strikes-fail');
     if (!effect) continue;
     for (const charId of company.characters) {
       const charData = player.characters[charId];
@@ -4817,9 +4779,7 @@ function joinCombatForceStrikeActions(
 
   for (const handCard of player.hand) {
     const cardDef = defById(state, handCard.definitionId);
-    const effect = getCardEffects(cardDef).find(
-      (e): e is JoinCombatForceStrikeEffect => e.type === 'join-combat-force-strike',
-    );
+    const effect = findCardEffect(cardDef, 'join-combat-force-strike');
     if (!effect) continue;
 
     // Site gate: defending company must be at or moving to a qualifying site.
@@ -5318,9 +5278,7 @@ function combatHazardPermanentPlays(
     const def = defById(state, handCard.definitionId);
     if (!def || def.cardType !== 'hazard-event') continue;
     if (def.eventType !== 'permanent' && !isCombatReactiveShortEvent(def)) continue;
-    const playWindow = getCardEffects(def).find(
-      (e): e is PlayWindowEffect => e.type === 'play-window',
-    );
+    const playWindow = findCardEffect(def, 'play-window');
     if (!playWindow || playWindow.phase !== 'combat' || playWindow.step !== 'resolve-strike') continue;
 
     const playCondition = findPlayConditionEffect(def, 'combat-creature-race');
@@ -5339,9 +5297,7 @@ function combatHazardPermanentPlays(
       continue;
     }
 
-    const playTarget = getCardEffects(def).find(
-      (e): e is PlayTargetEffect => e.type === 'play-target',
-    );
+    const playTarget = findCardEffect(def, 'play-target');
     if (playTarget && playTarget.target === 'character' && playTarget.filter) {
       const possessionNames = defNamesOf(state, targetChar.items);
       const itemKeywords = itemKeywordsOf(state, targetChar.items);
@@ -5380,9 +5336,7 @@ function combatHazardPermanentPlays(
     }
 
     // take-prisoner: require a valid rescue site in the hazard player's location deck.
-    const takePrisonerEff = getCardEffects(def).find(
-      (e): e is import('../../types/effects.js').TakePrisonerEffect => e.type === 'take-prisoner',
-    );
+    const takePrisonerEff = findCardEffect(def, 'take-prisoner');
     if (takePrisonerEff) {
       const hasRescueSite = attacker.siteDeck.some(site => {
         const siteDef = defById(state, site.definitionId);
@@ -5492,17 +5446,13 @@ function leftBehindActions(
   for (const handCard of attacker.hand) {
     const def = defById(state, handCard.definitionId);
     if (!def || def.cardType !== 'hazard-event' || def.eventType !== 'short') continue;
-    const effect = getCardEffects(def).find(
-      (e): e is import('../../types/effects.js').LeftBehindSplitEffect => e.type === 'left-behind-split',
-    );
+    const effect = findCardEffect(def, 'left-behind-split');
     if (!effect) continue;
     if (attackStrikes < effect.minStrikes) {
       logDetail(`Left Behind "${def.name}": attack has ${attackStrikes} strikes (< ${effect.minStrikes}) — not playable`);
       continue;
     }
-    const playTarget = getCardEffects(def).find(
-      (e): e is PlayTargetEffect => e.type === 'play-target',
-    );
+    const playTarget = findCardEffect(def, 'play-target');
     for (const charId of defendingCompany.characters) {
       const charInPlay = defender.characters[charId];
       if (!charInPlay) continue;

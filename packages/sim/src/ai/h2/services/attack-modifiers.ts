@@ -218,19 +218,34 @@ export function sameBoost(a: AttackBoost | null, b: AttackBoost | null): boolean
 export function boostInPlay(
   view: PlayerView,
   cardPool: Readonly<Record<string, CardDefinition>>,
-  options: { readonly hypothetical?: string; readonly excluding?: string } = {},
+  options: { readonly hypothetical?: string; readonly excluding?: string | readonly string[] } = {},
 ): AttackBoost | null {
-  const { hypothetical, excluding } = options;
+  const { hypothetical } = options;
+  // An excluded card is gone from the board, not only from the sum: Minions
+  // Stir's "+2 if Doors of Night is in play" must drop back to +1 when it is
+  // Doors of Night that is taken away, so the conditions are read against the
+  // board without it too.
+  const board = options.excluding === undefined ? view : withoutInPlay(view, options.excluding);
   let boost: AttackBoost | null = null;
-  for (const zone of [view.self.cardsInPlay, view.opponent.cardsInPlay]) {
+  for (const zone of [board.self.cardsInPlay, board.opponent.cardsInPlay]) {
     for (const card of zone) {
-      if (excluding !== undefined && (card.instanceId as string) === excluding) continue;
       const def = cardPool[card.definitionId];
       if ((def as unknown as { cardType?: string } | undefined)?.cardType !== 'hazard-event') continue;
-      boost = mergeBoosts(boost, attackBoostOf(def, view, cardPool, hypothetical));
+      boost = mergeBoosts(boost, attackBoostOf(def, board, cardPool, hypothetical));
     }
   }
   return boost;
+}
+
+/** The view with these free-standing cards taken out of play on both sides. */
+export function withoutInPlay(view: PlayerView, excluding: string | readonly string[]): PlayerView {
+  const gone = new Set(typeof excluding === 'string' ? [excluding] : excluding);
+  const keep = (cards: PlayerView['self']['cardsInPlay']) => cards.filter(c => !gone.has(c.instanceId as string));
+  return {
+    ...view,
+    self: { ...view.self, cardsInPlay: keep(view.self.cardsInPlay) },
+    opponent: { ...view.opponent, cardsInPlay: keep(view.opponent.cardsInPlay) },
+  } as PlayerView;
 }
 
 /** What a boost adds to one creature, by the race printed on its card. */

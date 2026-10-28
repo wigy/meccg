@@ -42,7 +42,7 @@ import { resolveInstanceId, ownerOf } from '../types/state.js';
 import { resolveDef, getEffectiveSkills, collectCharacterEffects, resolveCheckModifier } from './effects/index.js';
 import { hasPlayFlag } from '../effects/index.js';
 import { extraGeneralInfluence } from '../alignment-rules.js';
-import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescued, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType } from './reducer-utils.js';
+import { makeCombatState, retargetMergedCompanyConstraints, activePlayerState, characterHasCannotUntapConstraint, markPrisonersRescued, cardName, clearPlannedMovement, companyById, deckSearchCancellerFor, classifyCorruptionOutcome, cleanupEmptyCompanies, clonePlayers, defById, discardOrRecyclePlayedEvent, effectiveGeneralInfluence, findById, findCharacterCompany, findEventMaintenanceEffect, riddlingCompanyBonus, gateDeckSearchFetch, getCardEffects, getOnEventEffects, matchesDefinition, nextCompanyId, partitionLeavingAllies, regionAdjacentSwapEligibleSites, removeById, removePrisonerFromHost, rollDiceForPlayer, siteNeverUntapsForOwner, sweepCharacterLeavesCompanyEvents, sweepCompanyMembershipChangedEvents, sweepLeaderLeavesCompanyEvents, toCardInstance, tapCompanyCardsOnItemPlay, updateCharacter, updatePlayer, wrongActionType, findCardEffect } from './reducer-utils.js';
 import { applyCost } from './cost-evaluator.js';
 import { findCapturingPressGang, capturePressGang } from './press-gang.js';
 import { influenceOverflowAmount, influenceOverflowStep } from './influence-overflow.js';
@@ -408,9 +408,7 @@ export function applyCorruptionCheckResolution(
       const item = bearer.items[itemIndex];
       if (item.status !== CardStatus.Untapped) return { state, error: 'support-corruption-check: item is not untapped' };
       const itemDef = defById(state, item.definitionId);
-      const boostEffect = getCardEffects(itemDef).find(
-        (e): e is import('../types/effects.js').CorruptionCheckBoostEffect => e.type === 'corruption-check-boost',
-      );
+      const boostEffect = findCardEffect(itemDef, 'corruption-check-boost');
       if (!boostEffect) return { state, error: 'support-corruption-check: item has no corruption-check-boost effect' };
       logDetail(`Support: ${itemDef?.name ?? (item.definitionId as string)} taps for ${formatSignedNumber(boostEffect.value)} to ${cardName(state, resolveInstanceId(state, supportTargetId) ?? bearer.definitionId)}'s corruption check (${supportEntry.kind.reason})`);
       let boostState = updatePlayer(state, boostPlayerIndex, p =>
@@ -3111,9 +3109,7 @@ export function applyOpposedRollResolution(
   );
 
   const sourceDef = defById(next, kind.sourceDefinitionId);
-  const effect = getCardEffects(sourceDef).find(
-    (e): e is import('../types/effects.js').OpposedRollEffect => e.type === 'opposed-roll',
-  );
+  const effect = findCardEffect(sourceDef, 'opposed-roll');
   const outcomes = (won ? effect?.onWin : effect?.onLose) ?? [];
   for (const outcome of outcomes) {
     next = applyOpposedRollOutcome(next, outcome, {

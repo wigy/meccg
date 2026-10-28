@@ -50,8 +50,8 @@ import { matchesContext } from '../effects/condition-matcher.js';
 import { collectItemModifiersFromDefs, itemModifierDeltas } from '../item-corruption.js';
 import type { InPlayItemModifier } from '../item-corruption.js';
 import type { CollectedEffect, ResolverContext } from './effects/index.js';
-import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, permanentEventSiteResourceSubtypes, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState, companyAllyRingwraithMode } from './reducer-utils.js';
-import type { Condition, AgentHomeSiteFactionLockEffect, RestoredItemStatsEffect, CreatureStorageEffect } from '../types/effects.js';
+import { playerById, findCharacterCompany, getLeaderControlEffect, getCardEffects, matchesDefinition, stagePointsOfCard, isStageCardDef, siteOccupancyStagePointsOfCard, findPlayerAvatar, permanentEventSiteResourceSubtypes, defById, playerHasKillMpExemption, hasEliminatedAvatar, collectEnvironmentOverride, isHavenForPlayer, characterBearsAttachedEffect, agentHomeSiteFactionLockState, companyAllyRingwraithMode, hasCardEffect, findCardEffect } from './reducer-utils.js';
+import type { Condition, RestoredItemStatsEffect } from '../types/effects.js';
 import { companyExemptsCharacterFromInfluence } from './company-composition.js';
 import { pickActiveItemsForCharacter } from './item-slots.js';
 import { controlCostOf } from './control-cost.js';
@@ -328,7 +328,7 @@ function deniesFallenWizardMp(
   playerAlignment: Alignment,
 ): boolean {
   if (playerAlignment !== 'fallen-wizard') return false;
-  return getCardEffects(def).some(e => e.type === 'fw-mp-none');
+  return hasCardEffect(def, 'fw-mp-none');
 }
 
 /**
@@ -1684,9 +1684,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       // marshalling points" only while the bearer is unwounded at one of his
       // Border-/Free-hold home sites. Credit it here when active, and skip the
       // unconditional item-MP tally below so it never counts otherwise.
-      const homeLock = getCardEffects(itemDef).find(
-        (e): e is AgentHomeSiteFactionLockEffect => e.type === 'agent-home-site-faction-lock',
-      );
+      const homeLock = findCardEffect(itemDef, 'agent-home-site-faction-lock');
       if (homeLock) {
         const lockState = agentHomeSiteFactionLockState(state, char, charDef, charCompany, homeLock.homeSiteTypes);
         if (lockState.active && hasMarshallingPoints(itemDef)) {
@@ -1734,9 +1732,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
       // the controller of Elven Rope"). Additive, not a replacement, so the
       // item's own printed MP (0 for Elven Rope) is still scored below.
       if (item.storedCreature) {
-        const storageEffect = getCardEffects(itemDef).find(
-          (e): e is CreatureStorageEffect => e.type === 'creature-storage',
-        );
+        const storageEffect = findCardEffect(itemDef, 'creature-storage');
         if (storageEffect) {
           mp = { ...mp, misc: mp.misc + storageEffect.marshallingPoints };
           if (atUnderDeeps) underDeepsMp = { ...underDeepsMp, misc: underDeepsMp.misc + storageEffect.marshallingPoints };
@@ -1992,7 +1988,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
   for (const host of player.cardsInPlay) {
     const hostDef = resolveDef(state, host.instanceId);
     if (!hostDef) continue;
-    const countBonus = getCardEffects(hostDef).find(e => e.type === 'item-cache-count-bonus');
+    const countBonus = findCardEffect(hostDef, 'item-cache-count-bonus');
     if (!countBonus || countBonus.type !== 'item-cache-count-bonus') continue;
     const cachedCount = host.setAside?.length ?? 0;
     if (cachedCount >= countBonus.count) {
@@ -2028,7 +2024,7 @@ function recomputePlayer(state: GameState, player: PlayerState, inPlayNames: rea
     if (card.attachedTo === undefined) continue;
     const def = resolveDef(state, card.instanceId);
     if (!def) continue;
-    const bonus = getCardEffects(def).find(e => e.type === 'attached-faction-mp-bonus');
+    const bonus = findCardEffect(def, 'attached-faction-mp-bonus');
     if (!bonus || bonus.type !== 'attached-faction-mp-bonus') continue;
     const targetStillInPlay = player.cardsInPlay.some(c => c.instanceId === card.attachedTo);
     if (!targetStillInPlay) continue;

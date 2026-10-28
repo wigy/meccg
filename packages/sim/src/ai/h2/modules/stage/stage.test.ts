@@ -227,3 +227,65 @@ describe('stage: on a recorded position', () => {
     }
   });
 });
+
+describe('stage: Gates of Morning', () => {
+  // Strong players play it with no hazard environment to discard, because
+  // their own cards do more while it is out (game mvnhp11q-o23csi, seq 1070:
+  // The Cock Crows in hand). Priced only by its sweep, it lost to a pass.
+  const SCENARIO = 'movement/gates-of-morning-for-the-cock-crows';
+  const setup = (view: PlayerView) => {
+    const scenario = loadScenario(SCENARIO);
+    const cardPool = loadCardPool();
+    const legalActions = computeLegalActions(scenario.state, scenario.actingPlayer)
+      .filter(legal => legal.viable)
+      .map(legal => legal.action);
+    const gates = legalActions.find(a => {
+      if (a.type !== 'play-permanent-event') return false;
+      const id = (a as unknown as { cardInstanceId: string }).cardInstanceId;
+      const card = view.self.hand.find(c => (c.instanceId as string) === id);
+      return (cardPool[card?.definitionId as string] as unknown as { name?: string } | undefined)?.name === 'Gates of Morning';
+    })!;
+    const moduleContext: ModuleContext = {
+      view, cardPool, legalActions, tunables: DEFAULT_TUNABLES,
+      standing: computeStanding(view, testWinProbModel(), DEFAULT_TUNABLES),
+    };
+    return { gates, moduleContext };
+  };
+
+  test('is credited the card in hand that does more with it, which pays for the card', () => {
+    const { gates, moduleContext } = setup(scenarioView(loadScenario(SCENARIO)));
+    const evaluation = stageModule.evaluate(gates, moduleContext)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('The Cock Crows do more with Gates of Morning in play');
+    expect(evaluation.utility).toBeGreaterThanOrEqual(0);
+  });
+
+  test('and with more of them still in the deck, beats passing', () => {
+    // Steve's deck held three Star of High Hope (+2 instead of +1 with it out).
+    const { gates, moduleContext } = setup(scenarioView(loadScenario(SCENARIO)));
+    const withDeck = { ...moduleContext, ownDeck: { playDeck: ['td-154', 'td-154', 'td-154'], draftPool: [] } };
+    const evaluation = stageModule.evaluate(gates, withDeck)!;
+    expect(JSON.stringify(evaluation.rationale)).toContain('Star of High Hope');
+    expect(evaluation.utility).toBeGreaterThan(0);
+  });
+
+  test('discarding Doors of Night is worth the Minions Stir upgrade it takes with it', () => {
+    // Doors of Night declares nothing itself; what it does is Minions Stir's
+    // +2 instead of +1, so the sweep is worth that difference.
+    const base = scenarioView(loadScenario(SCENARIO));
+    const theirs = (n: string) => `${base.opponent.id as string}-${n}`;
+    const withEnvironment = {
+      ...base,
+      opponent: {
+        ...base.opponent,
+        cardsInPlay: [
+          ...base.opponent.cardsInPlay,
+          { instanceId: theirs('9001'), definitionId: 'tw-28' },
+          { instanceId: theirs('9002'), definitionId: 'tw-61' },
+        ],
+      },
+    } as unknown as PlayerView;
+    const { gates, moduleContext } = setup(withEnvironment);
+    const evaluation = stageModule.evaluate(gates, moduleContext)!;
+    expect(JSON.stringify(evaluation.rationale)).toMatch(/discarding Doors of Night takes [1-9]/);
+  });
+});
