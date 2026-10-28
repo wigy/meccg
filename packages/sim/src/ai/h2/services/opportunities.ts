@@ -49,7 +49,7 @@ function isSiteDefinition(def: CardDefinition): boolean {
 
 /** A site's printed name, for plan labels and rationales. */
 export function siteNameOf(def: CardDefinition): string {
-  return (def as unknown as { name?: string }).name ?? 'an unnamed site';
+  return def.name ?? 'an unnamed site';
 }
 
 /** The slice of a company the route arithmetic reads. */

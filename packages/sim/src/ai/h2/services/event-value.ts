@@ -647,7 +647,7 @@ function reliefFromRemoval(
     const relief = reliefFrom(target as string);
     if (relief <= 0) return null;
     const def = located ? cardPool[located.definitionId] : undefined;
-    const name = (def as unknown as { name?: string } | undefined)?.name ?? (target as string);
+    const name = def?.name ?? (target as string);
     return {
       tsd: relief,
       reason: `discarding ${name} takes ${relief.toFixed(1)} of harm off our companies — `
@@ -667,7 +667,7 @@ function reliefFromRemoval(
       if (!couldMatch(removal.filter, def)) continue;
       matches.push({
         instanceId: card.instanceId as string,
-        name: (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string),
+        name: def?.name ?? (card.definitionId as string),
         ours: ownerOf(card.instanceId) === view.self.id,
         hazard: (def as unknown as { cardType?: string } | undefined)?.cardType === 'hazard-event',
       });
@@ -917,7 +917,7 @@ function enablerGain(
   }
   if (credited.size === 0) return null;
   const options = [...credited.values()].reduce((sum, n) => sum + n, 0);
-  const names = [...credited.keys()].map(id => (cardPool[id] as unknown as { name?: string } | undefined)?.name ?? id);
+  const names = [...credited.keys()].map(id => cardPool[id]?.name ?? id);
   return {
     tsd: options * each,
     reason: `${names.join(', ')} do more with ${name} in play — about ${options.toFixed(1)} card(s) in hand or `
@@ -1012,7 +1012,7 @@ export function declaredEventEvaluation(
   // The Free Council is the last thing the game does, so a card spent there
   // forgoes nothing — the same reading `corruption` makes of a support tap.
   const spent = context.view.phaseState.phase === Phase.FreeCouncil ? 0 : tunables.provisionalCardPrice;
-  const name = (def as unknown as { name?: string } | undefined)?.name ?? (card.definitionId as string);
+  const name = def?.name ?? (card.definitionId as string);
   const check = forcedCheckCost(effects, context, action);
   const risk = check?.tsd ?? 0;
 

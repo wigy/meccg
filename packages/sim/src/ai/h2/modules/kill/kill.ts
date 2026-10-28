@@ -41,7 +41,7 @@ import { computeCharacterValue } from '../../services/character-value.js';
 function nameOfCharacter(context: ModuleContext, instanceId: CardInstanceId): string {
   const character = context.view.self.characters[instanceId];
   const name = character
-    ? (context.cardPool[character.definitionId] as unknown as { name?: string } | undefined)?.name
+    ? context.cardPool[character.definitionId]?.name
     : undefined;
   return name ?? (instanceId as string);
 }

@@ -1428,7 +1428,7 @@ function evaluateOnGuard(action: GameAction, context: ModuleContext): Evaluation
     );
   }
 
-  const name = (context.cardPool[card.definitionId] as unknown as { name?: string } | undefined)?.name
+  const name = context.cardPool[card.definitionId]?.name
     ?? (card.definitionId as string);
   return freeOption(
     action, context, name,

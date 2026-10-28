@@ -46,7 +46,7 @@ export const computeReach = memoizeOnFirst(
   (cardPool: Readonly<Record<string, CardDefinition>>): Reach => {
     const map = buildMovementMap(cardPool);
     const nameOf = (definitionId: string): string | undefined =>
-      (cardPool[definitionId] as unknown as { name?: string } | undefined)?.name;
+      cardPool[definitionId]?.name;
     const starterAdjacent = (fromName: string, toName: string): boolean =>
       map.havenSites.get(fromName)?.has(toName) === true
       || map.havenSites.get(toName)?.has(fromName) === true
