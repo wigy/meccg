@@ -710,7 +710,7 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
       target: { kind: 'player', playerId: action.player },
       kind: { type: 'attack-card-played' },
     });
-    logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: added attack-card-played marker (cancel-attack duplication-limit scope attack)`);
+    logDetail(`${cardDef?.name ?? handCard.definitionId as string}: added attack-card-played marker (cancel-attack duplication-limit scope attack)`);
   }
 
   // Turn-scoped duplication limit: record this play as a constraint so the
@@ -727,7 +727,7 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
       target: { kind: 'player', playerId: action.player },
       kind: { type: 'attack-card-played' },
     });
-    logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: added turn-scoped duplication marker (cannot be duplicated on a given turn)`);
+    logDetail(`${cardDef?.name ?? handCard.definitionId as string}: added turn-scoped duplication marker (cannot be duplicated on a given turn)`);
   }
 
   // Dual-mode "reduce prowess" variant (e.g. The Tormented Earth): instead of
@@ -738,7 +738,7 @@ export function handleCancelAttack(state: GameState, action: GameAction, combat:
     if (!resultState.combat) return { state, error: 'No active combat to reduce prowess' };
     const before = resultState.combat.strikeProwess;
     const after = before - cancelEffect.prowessPenalty;
-    logDetail(`${(cardDef as { name?: string }).name ?? handCard.definitionId as string}: reduce attack prowess ${before} → ${after} (-${cancelEffect.prowessPenalty})`);
+    logDetail(`${cardDef?.name ?? handCard.definitionId as string}: reduce attack prowess ${before} → ${after} (-${cancelEffect.prowessPenalty})`);
     const reducedCombat = recordAttackChanges(resultState.combat, { ...resultState.combat, strikeProwess: after }, {
       sourceInstanceId: handCard.instanceId,
       sourceDefinitionId: handCard.definitionId,

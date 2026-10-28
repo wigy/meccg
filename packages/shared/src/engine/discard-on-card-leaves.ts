@@ -79,7 +79,7 @@ export function applyDiscardOnCardLeaves(prev: GameState, next: GameState): Game
         if (effect.type !== 'discard-on-card-leaves-play') continue;
         const triggered = leftDefs.some(leftDef => matchesContext(effect.filter, { card: leftDef }));
         if (triggered) {
-          logDetail(`discard-on-card-leaves-play: "${(def as { name?: string } | undefined)?.name ?? (cip.definitionId as string)}" — a matching card left ${player.name}'s play area`);
+          logDetail(`discard-on-card-leaves-play: "${def?.name ?? (cip.definitionId as string)}" — a matching card left ${player.name}'s play area`);
           carriersToDiscard.add(cip.instanceId as string);
         }
       }

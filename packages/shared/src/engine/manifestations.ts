@@ -96,7 +96,7 @@ export function manifestationOfEntityInPlay(
   state: GameState,
   def: CardDefinition,
 ): string | null {
-  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
+  const nameOf = (d: CardDefinition): string => d.name ?? (d.id as string);
   for (const player of state.players) {
     // Characters in play.
     for (const char of Object.values(player.characters)) {
@@ -132,7 +132,7 @@ export function manifestationInCardsInPlay(
   state: GameState,
   def: CardDefinition,
 ): string | null {
-  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
+  const nameOf = (d: CardDefinition): string => d.name ?? (d.id as string);
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const cardDef = defById(state, card.definitionId);
@@ -169,7 +169,7 @@ export function blockingManifestationForCharacterPlay(
 ): string | null {
   const inCharacters = manifestationOfEntityInPlay(state, def);
   if (inCharacters) return inCharacters;
-  const nameOf = (d: CardDefinition): string => (d as { name?: string }).name ?? (d.id as string);
+  const nameOf = (d: CardDefinition): string => d.name ?? (d.id as string);
   for (const player of state.players) {
     for (const card of player.cardsInPlay) {
       const sisterDef = defById(state, card.definitionId);

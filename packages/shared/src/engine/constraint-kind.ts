@@ -157,7 +157,7 @@ export function buildConstraintKind(
         if (!siteDefinitionId && ps.destinationSiteName) {
           for (const [defId, d] of Object.entries(state.cardPool)) {
             const ct = (d as { cardType?: string }).cardType;
-            const name = (d as { name?: string }).name;
+            const name = d.name;
             if (ct?.includes('site') && name === ps.destinationSiteName) {
               siteDefinitionId = defId as import('../types/common.js').CardDefinitionId;
               break;
@@ -192,7 +192,7 @@ export function buildConstraintKind(
       // definitions sharing a name) are all retyped, not just the one the
       // card was played on.
       const allVersions = (onEvent.apply as { allVersions?: boolean }).allVersions === true;
-      const siteName = (state.cardPool[siteDefinitionId] as { name?: string } | undefined)?.name;
+      const siteName = state.cardPool[siteDefinitionId]?.name;
       if (allVersions && siteName === undefined) return null;
       return {
         type: 'attribute-modifier',
@@ -200,7 +200,7 @@ export function buildConstraintKind(
         op: 'override',
         value: overrideType,
         filter: allVersions
-          ? { 'site.name': siteName! }
+          ? { 'site.name': siteName }
           : { 'site.definitionId': siteDefinitionId as string },
         ...(purpose === 'healing' ? { healingOnly: true } : {}),
         ...(purpose === 'healing-and-hazards' ? { excludesCharacterPlay: true } : {}),
@@ -436,7 +436,7 @@ function findPathRegionNameOfType(
 ): string | undefined {
   for (let i = pathNames.length - 1; i >= 0; i--) {
     const def = Object.values(state.cardPool).find(
-      d => (d as { cardType?: string }).cardType === 'region' && (d as { name?: string }).name === pathNames[i],
+      d => (d as { cardType?: string }).cardType === 'region' && d.name === pathNames[i],
     ) as { regionType?: RegionType } | undefined;
     if (def?.regionType === regionType) return pathNames[i];
   }

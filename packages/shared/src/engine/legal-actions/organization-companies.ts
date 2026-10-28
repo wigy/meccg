@@ -546,7 +546,7 @@ export function collectPassiveMovementBonus(
         const allQualify = characterIds.every(cId => {
           const c = player.characters[cId];
           return c?.allies.some(a => {
-            const aDef = state.cardPool[a.definitionId] as { name?: string } | undefined;
+            const aDef = state.cardPool[a.definitionId];
             return aDef?.name !== undefined && eff.allyNames.includes(aDef.name);
           });
         });

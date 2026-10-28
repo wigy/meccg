@@ -56,7 +56,7 @@ export function handleCombatJoinCharacter(state: GameState, action: GameAction, 
   const effect = getCardEffects(eventDef).find(
     (e): e is CombatJoinCharacterEffect => e.type === 'combat-join-character',
   )!;
-  const eventName = (eventDef as { name?: string }).name ?? (eventCard.definitionId as string);
+  const eventName = eventDef?.name ?? (eventCard.definitionId as string);
 
   const charId = charCard.instanceId;
   const newChar: CharacterInPlay = {
@@ -83,7 +83,7 @@ export function handleCombatJoinCharacter(state: GameState, action: GameAction, 
     characters,
     companies: p.companies.map(c => c.id === combat.companyId ? { ...c, characters: [...c.characters, charId] } : c),
   }));
-  logDetail(`${eventName}: ${(defById(state, charCard.definitionId) as { name?: string }).name} joins company ${combat.companyId as string} (controlledBy ${action.controlledBy as string}) with ${eventName} placed on them`);
+  logDetail(`${eventName}: ${defById(state, charCard.definitionId)?.name} joins company ${combat.companyId as string} (controlledBy ${action.controlledBy as string}) with ${eventName} placed on them`);
 
   const attackCtx = { attack: { creatureRace: combat.creatureRace, creatureRaces: combat.creatureRaces ?? (combat.creatureRace ? [combat.creatureRace] : []) } };
   const keep = effect.keepWhen !== undefined && matchesCondition(effect.keepWhen, attackCtx);

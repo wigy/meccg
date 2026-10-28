@@ -171,7 +171,7 @@ export function siteConstraintFilterMatches(
  */
 export function siteNameOf(state: GameState, siteDefinitionId: CardDefinitionId | undefined): string | undefined {
   if (siteDefinitionId === undefined) return undefined;
-  return (state.cardPool[siteDefinitionId] as { name?: string } | undefined)?.name;
+  return state.cardPool[siteDefinitionId]?.name;
 }
 
 /**

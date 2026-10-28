@@ -76,7 +76,7 @@ describe('resourcePlayableAt', () => {
     // Recorded strong players entered sites for these and the AI, seeing
     // nothing playable there, skipped the site instead.
     const pool = loadCardPool();
-    const byName = (name: string) => Object.values(pool).find(c => (c as { name?: string }).name === name)!;
+    const byName = (name: string) => Object.values(pool).find(c => c.name === name)!;
 
     test('a site target filtered on the effective site type (Hall of Fire at a Haven)', () => {
       expect(resourcePlayableAt(byName('Hall of Fire'), mockSite('haven'))).toBe(true);

@@ -748,7 +748,7 @@ function runGrantApply(
             s,
             c => c.instanceId === targetId,
             c => {
-              const targetDef = s.cardPool[c.definitionId] as { name?: string } | undefined;
+              const targetDef = s.cardPool[c.definitionId];
               logDetail(`Grant-action ${ctx.action.actionId}: discarding in-play "${targetDef?.name ?? (c.definitionId as string)}" (${c.instanceId as string})`);
             },
           );

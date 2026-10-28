@@ -575,7 +575,7 @@ export function applyTapDiscardInPlay(state: GameState, action: GameAction): Red
 
   let newState = updatePlayer(state, playerIndex, p => updateCharacter(p, action.characterId, c => ({ ...c, status: CardStatus.Tapped })));
   const targetInstance = toCardInstance(target);
-  const cardName = (targetDef as { name?: string }).name ?? (target.definitionId as string);
+  const cardName = targetDef.name ?? (target.definitionId as string);
   newState = updatePlayer(newState, opponentIndex, p => ({
     ...p,
     cardsInPlay: p.cardsInPlay.filter(c => c.instanceId !== action.targetInstanceId),

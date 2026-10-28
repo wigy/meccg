@@ -1864,7 +1864,7 @@ function summonsFromLongSleepActions(
     );
     if (!shaEffect) continue;
 
-    const defName = (def as { name?: string })?.name ?? (card.definitionId as string);
+    const defName = def?.name ?? (card.definitionId as string);
     const slotOccupied = player.reservedCreatures.some(
       r => r.sourceCardInstanceId === card.instanceId,
     );
@@ -1876,7 +1876,7 @@ function summonsFromLongSleepActions(
         if (!hDef || hDef.cardType !== 'hazard-creature') continue;
         const race = (hDef).race.toLowerCase();
         if (race !== Race.Dragon && race !== Race.Drake) continue;
-        const hName = (hDef as { name?: string })?.name ?? (handCard.definitionId as string);
+        const hName = hDef?.name ?? (handCard.definitionId as string);
         logDetail(`${defName}: offering reserve-creature for "${hName}" (slot empty, free action)`);
         actions.push({
           action: {
@@ -1896,7 +1896,7 @@ function summonsFromLongSleepActions(
     );
     if (reservation) {
       const creatureDef = defById(state, reservation.creature.definitionId);
-      const creatureName = (creatureDef as { name?: string })?.name ?? (reservation.creature.definitionId as string);
+      const creatureName = creatureDef?.name ?? (reservation.creature.definitionId as string);
 
       // Must initiate a new chain
       if (state.chain !== null) {
@@ -2057,7 +2057,7 @@ function playCreatureFromDiscardActions(
     );
     if (!effect) continue;
 
-    const defName = (def as { name?: string })?.name ?? (handCard.definitionId as string);
+    const defName = def?.name ?? (handCard.definitionId as string);
 
     // The short-event itself counts against the hazard limit (CoE 2.IV.vii.3).
     if (limitReached) {
@@ -2084,7 +2084,7 @@ function playCreatureFromDiscardActions(
       if (!creatureDef || creatureDef.cardType !== 'hazard-creature') continue;
       if (!matchesCondition(effect.filter, creatureDef as unknown as Record<string, unknown>)) continue;
 
-      const creatureName = (creatureDef as { name?: string })?.name ?? (discardCard.definitionId as string);
+      const creatureName = creatureDef?.name ?? (discardCard.definitionId as string);
 
       const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
       const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
@@ -2169,7 +2169,7 @@ function nazgulPermanentEventAttackActions(
     const effect = getCardEffects(def).find(e => e.type === 'nazgul-permanent-event-attack');
     if (!effect) continue;
 
-    const defName = (def as { name?: string })?.name ?? (handCard.definitionId as string);
+    const defName = def?.name ?? (handCard.definitionId as string);
 
     // Creatures must initiate a new chain — not playable in response (CoE rule 307).
     if (state.chain != null) {
@@ -2199,7 +2199,7 @@ function nazgulPermanentEventAttackActions(
         const nazgulDef = defById(state, cip.definitionId);
         if (!isNazgulPermanentEvent(nazgulDef)) continue;
         const creatureDef = nazgulDef as unknown as CreatureCard;
-        const nazgulName = (creatureDef as { name?: string })?.name ?? (cip.definitionId as string);
+        const nazgulName = creatureDef?.name ?? (cip.definitionId as string);
 
         const matches = findCreatureKeyingMatches(creatureDef, mhState, state, targetCompany);
         const keyingGrant = grantsCreatureKeying(state, mhState, resourcePlayer, targetCompany, creatureDef, playerId);
@@ -2298,7 +2298,7 @@ function spawnReplayCreatureFromDiscardActions(
     );
     if (!effect) continue;
 
-    const sourceName = (sourceDef as { name?: string })?.name ?? (sourceCard.definitionId as string);
+    const sourceName = sourceDef?.name ?? (sourceCard.definitionId as string);
 
     // Once per company's M/H phase per source.
     if (usedSources.includes(sourceCard.instanceId)) {
@@ -2325,7 +2325,7 @@ function spawnReplayCreatureFromDiscardActions(
       if (!creatureDef || creatureDef.cardType !== 'hazard-creature') continue;
       if (!matchesCondition(effect.filter, creatureDef as unknown as Record<string, unknown>)) continue;
 
-      const creatureName = (creatureDef as { name?: string })?.name ?? (discardCard.definitionId as string);
+      const creatureName = creatureDef?.name ?? (discardCard.definitionId as string);
 
       // "This card must have already attacked the company this turn" — the
       // creature's name must appear in the company's hazardsEncountered list.
@@ -4107,7 +4107,7 @@ function playHazardsActionsForCompany(
             if (!charData) continue;
             for (const ally of charData.allies) {
               const allyDef = defById(state, ally.definitionId);
-              const allyName = (allyDef as { name?: string })?.name ?? (ally.definitionId as string);
+              const allyName = allyDef?.name ?? (ally.definitionId as string);
               logDetail(`Hazard short-event "${def.name}" playable on ally "${allyName}" (${ally.instanceId as string})`);
               actions.push({
                 action: { ...action, targetAllyId: ally.instanceId },
@@ -5859,7 +5859,7 @@ function collectCreatureKeyingGrants(
     for (const cardInPlay of player.cardsInPlay) {
       const def = defById(state, cardInPlay.definitionId);
       if (!def) continue;
-      const sourceName = (def as { name?: string }).name ?? (cardInPlay.definitionId as string);
+      const sourceName = def.name ?? (cardInPlay.definitionId as string);
       for (const e of getCardEffects(def)) {
         if (e.type === 'grant-creature-keying') {
           if ((e.source ?? 'in-play') !== 'in-play') continue;
@@ -5885,7 +5885,7 @@ function collectCreatureKeyingGrants(
   if (encountered.length > 0) {
     const encounteredNames = new Set<string>(encountered);
     for (const def of Object.values(state.cardPool)) {
-      const name = (def as { name?: string }).name;
+      const name = def.name;
       if (name === undefined || !encounteredNames.has(name)) continue;
       for (const e of getCardEffects(def)) {
         if (e.type !== 'grant-creature-keying') continue;

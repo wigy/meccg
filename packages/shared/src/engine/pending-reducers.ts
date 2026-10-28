@@ -4823,7 +4823,7 @@ export function applyTapOneCharacterResolution(
     return { state, error: `Character ${characterInstanceId as string} is not untapped` };
   }
 
-  const charName = (defById(state, char.definitionId) as { name?: string })?.name ?? (characterInstanceId as string);
+  const charName = defById(state, char.definitionId)?.name ?? (characterInstanceId as string);
   logDetail(`tap-one-character: tapping ${charName} (Stench of Mordor)`);
 
   const newState = updatePlayer(state, playerIdx, p => ({
@@ -4919,7 +4919,7 @@ export function applyHavenRestoreCharacterResolution(
     return { state, error: `Character ${characterInstanceId as string} is neither tapped nor wounded` };
   }
 
-  const charName = (defById(state, char.definitionId) as { name?: string })?.name ?? (characterInstanceId as string);
+  const charName = defById(state, char.definitionId)?.name ?? (characterInstanceId as string);
   logDetail(`haven-restore-character: Hall of Fire restores ${charName} (${char.status} → ${nextStatus})`);
 
   const newState = updatePlayer(state, playerIdx, p => ({
@@ -5776,7 +5776,7 @@ export function applyAgentPlayManifestationResolution(
   const gollum = findById(defPlayer.hand, action.manifestationCardInstanceId);
   if (!gollum) return { state, error: 'Manifestation card not in defender hand' };
 
-  const gollumName = (defById(state, gollum.definitionId) as { name?: string })?.name ?? 'manifestation';
+  const gollumName = defById(state, gollum.definitionId)?.name ?? 'manifestation';
   logDetail(`agent-play-manifestation: ${defPlayer.name} taps ${action.characterId as string} to play ${gollumName}; My Precious discarded`);
 
   // Tap the character, attach Gollum as an ally on it, remove Gollum from hand.
@@ -5830,7 +5830,7 @@ export function applyStayHerAppetiteRollResolution(
     companyId, sourceDefinitionId,
   } = g.kind;
 
-  const sourceName = (defById(state, sourceDefinitionId) as { name?: string })?.name ?? 'Stay Her Appetite';
+  const sourceName = defById(state, sourceDefinitionId)?.name ?? 'Stay Her Appetite';
 
   // Condition roll
   const threshold = opponentUnusedGI + controllerUnusedDI + 5;

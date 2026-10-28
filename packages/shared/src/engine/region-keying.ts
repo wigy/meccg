@@ -52,7 +52,7 @@ export function applyRegionTypeOverrides(
     if (!regionName || !pathNames.includes(regionName)) continue;
     const overrideType = c.kind.value as RegionType;
     const regionDef = Object.values(state.cardPool).find(
-      d => (d as { cardType?: string }).cardType === 'region' && (d as { name?: string }).name === regionName,
+      d => (d as { cardType?: string }).cardType === 'region' && d.name === regionName,
     ) as { regionType?: RegionType } | undefined;
     const printed = regionDef?.regionType;
     const index = printed !== undefined ? result.indexOf(printed) : -1;

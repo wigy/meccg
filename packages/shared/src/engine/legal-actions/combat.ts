@@ -1357,7 +1357,7 @@ function selfCancelStrikeActions(
       if (!isTapCost && !isCorruptionCost) continue;
       if (isTapCost && c.status !== CardStatus.Untapped) continue;
 
-      const name = (def as { name?: string }).name ?? (c.definitionId as string);
+      const name = def.name ?? (c.definitionId as string);
       if (eff.when && !matchesCondition(eff.when, buildCtx())) {
         logDetail(`Cancel-strike ${name}: when condition not met (target ${targetName})`);
         continue;
@@ -1411,7 +1411,7 @@ function selfDodgeStrikeActions(
       if (eff.type !== 'strike-modifier') continue;
       if (!eff.dodge || eff.cost?.tap !== 'self') continue;
 
-      const name = (def as { name?: string }).name ?? (c.definitionId as string);
+      const name = def.name ?? (c.definitionId as string);
       if (eff.when && !matchesCondition(eff.when, buildCtx())) {
         logDetail(`Dodge-strike ${name}: when condition not met (target ${targetName})`);
         continue;
@@ -1657,16 +1657,16 @@ function resolveStrikeActions(
           continue;
         }
       }
-      explanation = `${(cardDef as { name?: string } | undefined)?.name ?? 'Strike event'}: cancels the strike against ${charName} outright (no roll)`;
+      explanation = `${cardDef?.name ?? 'Strike event'}: cancels the strike against ${charName} outright (no roll)`;
       need = 0;
-      logDetail(`Cancel strike available: ${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string} for ${charName}`);
+      logDetail(`Cancel strike available: ${cardDef?.name ?? handCard.definitionId as string} for ${charName}`);
     } else if (strikeEffect.dodge) {
       if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {
-        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
+        logDetail(`${cardDef?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
         continue;
       }
       if (strikeEffect.requiredSkill && currentStrike.requiredSkillEventPlayed) {
-        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
+        logDetail(`${cardDef?.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
         continue;
       }
       explanation = `Dodge: need ${tapNeed}+ (prowess ${tapProwess} vs ${strikeProwess}, no tap)`;
@@ -1724,11 +1724,11 @@ function resolveStrikeActions(
       continue;
     } else {
       if (strikeEffect.requiredSkill && !struckSkills.some(s => s === strikeEffect.requiredSkill)) {
-        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
+        logDetail(`${cardDef?.name ?? handCard.definitionId as string}: ${charName} lacks required skill '${strikeEffect.requiredSkill}' — not playable`);
         continue;
       }
       if (strikeEffect.requiredSkill && currentStrike.requiredSkillEventPlayed) {
-        logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
+        logDetail(`${cardDef?.name ?? handCard.definitionId as string}: a skill-required resource has already been played against this strike (CoE 3.iv.5) — not playable`);
         continue;
       }
       const bonus = strikeEffect.prowessBonus ?? 0;
@@ -1736,9 +1736,9 @@ function resolveStrikeActions(
       const modifiedNeed = Math.max(2, strikeProwess - modifiedTapProwess + 1);
       const bodyPenalty = strikeEffect.bodyPenalty ?? 0;
       const bodyNote = bodyPenalty ? `, body ${formatSignedNumber(bodyPenalty)}` : '';
-      explanation = `${(cardDef as { name?: string } | undefined)?.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${formatSignedNumber(bonus)}` : ''}${bodyNote})`;
+      explanation = `${cardDef?.name ?? 'Strike event'}: need ${modifiedNeed}+ (prowess ${modifiedTapProwess} vs ${strikeProwess}${bonus !== 0 ? `, ${formatSignedNumber(bonus)}` : ''}${bodyNote})`;
       need = modifiedNeed;
-      logDetail(`Strike event available: ${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string} for ${charName} — ${explanation}`);
+      logDetail(`Strike event available: ${cardDef?.name ?? handCard.definitionId as string} for ${charName} — ${explanation}`);
     }
 
     actions.push({
@@ -1970,7 +1970,7 @@ function cvccResolveStrikeActions(
       ? atkPlayer.characters[currentStrike.attackingCharacterId]
       : undefined;
     const atkCharDef = atkCharData?.definitionId ? defById(state, atkCharData.definitionId) : undefined;
-    const atkCharName = (atkCharDef as { name?: string } | undefined)?.name
+    const atkCharName = atkCharDef?.name
       ?? (currentStrike.attackingCharacterId as string | undefined)
       ?? 'attacker';
 
@@ -2378,7 +2378,7 @@ function tapAllyBodyCheckBoostActions(
       (e): e is AllyBodyCheckBoostEffect => e.type === 'ally-body-check-boost',
     );
     if (!boostEffect) continue;
-    const allyName = (allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string);
+    const allyName = allyDef?.name ?? (ally.definitionId as string);
     logDetail(`Tap-ally-body-check-boost available: ${allyName} (+${boostEffect.value} body to ${strike.characterId as string})`);
     actions.push({
       action: { type: 'tap-ally-body-check-boost', player: playerId, cardInstanceId: ally.instanceId },
@@ -2546,11 +2546,11 @@ function convertCreatureToAllyActions(
     );
     if (!effect) continue;
     if (creatureStrikes > effect.maxStrikes) {
-      logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: creature has ${creatureStrikes} strikes (> ${effect.maxStrikes}) — not playable`);
+      logDetail(`${cardDef?.name ?? handCard.definitionId as string}: creature has ${creatureStrikes} strikes (> ${effect.maxStrikes}) — not playable`);
       continue;
     }
     if (!effect.races.map(r => r.toLowerCase()).includes(creatureRace)) {
-      logDetail(`${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}: creature race "${creatureRace}" not eligible — not playable`);
+      logDetail(`${cardDef?.name ?? handCard.definitionId as string}: creature race "${creatureRace}" not eligible — not playable`);
       continue;
     }
     // Candidate controlling characters. When the card requires the controller
@@ -2565,7 +2565,7 @@ function convertCreatureToAllyActions(
       : [...company.characters];
     if (candidateChars.length === 0) continue;
     for (const charId of candidateChars) {
-      logDetail(`Convert-creature-to-ally available: "${(cardDef as { name?: string } | undefined)?.name ?? handCard.definitionId as string}" controlled by ${charId as string}`);
+      logDetail(`Convert-creature-to-ally available: "${cardDef?.name ?? handCard.definitionId as string}" controlled by ${charId as string}`);
       actions.push({
         action: {
           type: 'convert-creature-to-ally',
@@ -2837,7 +2837,7 @@ function cancelAttackActions(
       const nameKeyedRegionTypes: string[] = [];
       for (const regionName of combat.attackKeyingRegionNames) {
         const regionDef = Object.values(state.cardPool).find(
-          d => (d as { cardType?: string }).cardType === 'region' && (d as { name?: string }).name === regionName,
+          d => (d as { cardType?: string }).cardType === 'region' && d.name === regionName,
         ) as { regionType?: RegionType } | undefined;
         if (regionDef?.regionType) nameKeyedRegionTypes.push(getEffectiveRegionType(state, regionName, regionDef.regionType));
       }
@@ -3007,7 +3007,7 @@ function cancelAttackActions(
       if (!cancelEffect) continue;
       const tapCost = cancelEffect.cost?.tap;
       if (tapCost !== 'self' && tapCost !== 'self-and-bearer' && tapCost !== 'bearer') continue;
-      const itemName = (itemDef as { name?: string }).name ?? (item.definitionId as string);
+      const itemName = itemDef.name ?? (item.definitionId as string);
       // Costs that tap the item require the item itself to be untapped.
       if ((tapCost === 'self' || tapCost === 'self-and-bearer') && item.status !== CardStatus.Untapped) {
         logDetail(`Cancel-attack ${itemName}: item tapped, cannot activate`);
@@ -3063,7 +3063,7 @@ function cancelAttackActions(
     // canceling the attack. One action per candidate replacement site — the
     // player picks which site to flee to.
     if (cancelEffect.siteSwap) {
-      const label = (def as { name?: string })?.name ?? inPlayCard.definitionId as string;
+      const label = def?.name ?? inPlayCard.definitionId as string;
       for (const evaluated of siteSwapCancelActions(
         state, playerId, player, company, inPlayCard, cancelEffect.siteSwap, label,
       )) {
@@ -3073,25 +3073,25 @@ function cancelAttackActions(
     }
     // A tap-cost faction (Beasts of the Wood wh-38) must itself be untapped.
     if (tapCost && inPlayCard.status !== CardStatus.Untapped) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: in-play faction is tapped, cannot tap to cancel`);
+      logDetail(`Cancel-attack ${def?.name ?? inPlayCard.definitionId as string}: in-play faction is tapped, cannot tap to cancel`);
       continue;
     }
     // Company-bound restriction cards (Going Ever Under Dark ba-37) may only
     // cancel an attack against their own company, and only in company-vs-company
     // combat ("an attack against them by an opponent's company").
     if (inPlayCard.companyId && inPlayCard.companyId !== combat.companyId) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: bound to a different company — skipping`);
+      logDetail(`Cancel-attack ${def?.name ?? inPlayCard.definitionId as string}: bound to a different company — skipping`);
       continue;
     }
     if (cancelEffect.requiresCvCC && !combat.isCvCC) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: requires a company-vs-company attack — skipping`);
+      logDetail(`Cancel-attack ${def?.name ?? inPlayCard.definitionId as string}: requires a company-vs-company attack — skipping`);
       continue;
     }
     if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string}: when condition not met (in-play faction)`);
+      logDetail(`Cancel-attack ${def?.name ?? inPlayCard.definitionId as string}: when condition not met (in-play faction)`);
       continue;
     }
-    logDetail(`Cancel-attack available: ${tapCost ? 'tap' : 'discard'} ${(def as { name?: string })?.name ?? inPlayCard.definitionId as string} (in-play faction)`);
+    logDetail(`Cancel-attack available: ${tapCost ? 'tap' : 'discard'} ${def?.name ?? inPlayCard.definitionId as string} (in-play faction)`);
     actions.push({
       action: { type: 'cancel-attack', player: playerId, cardInstanceId: inPlayCard.instanceId },
       viable: true,
@@ -3107,7 +3107,7 @@ function cancelAttackActions(
       (e): e is CancelAttackEffect => e.type === 'cancel-attack' && e.fromStored === true,
     );
     if (!cancelEffect || cancelEffect.cost?.discard !== 'self') continue;
-    const label = (def as { name?: string })?.name ?? stored.definitionId as string;
+    const label = def?.name ?? stored.definitionId as string;
     if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
       logDetail(`Cancel-attack ${label}: when condition not met (stored card, source ${combat.attackSource.type}, site ${siteType ?? 'none'})`);
       continue;
@@ -3128,23 +3128,23 @@ function cancelAttackActions(
     // Sleeping as-82: playable only while the player counts as Sauron) apply
     // whenever the card is played from hand.
     if (!playerStateGateMet(state, player, playerId, def)) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: play-condition player-state not satisfied`);
+      logDetail(`Cancel-attack ${def?.name ?? handCard.definitionId as string}: play-condition player-state not satisfied`);
       continue;
     }
     // Minion resource card, only playable by a character in a covert company.
     if (player.alignment !== Alignment.Ringwraith) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a minion player`);
+      logDetail(`Cancel-attack ${def?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a minion player`);
       continue;
     }
     if (!isCovertCompany(company, player, state)) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a covert company`);
+      logDetail(`Cancel-attack ${def?.name ?? handCard.definitionId as string}: hand (minion resource) mode requires a covert company`);
       continue;
     }
     if (cancelEffect.when && !matchesCondition(cancelEffect.when, whenContext())) {
-      logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? handCard.definitionId as string}: when condition not met (minion resource)`);
+      logDetail(`Cancel-attack ${def?.name ?? handCard.definitionId as string}: when condition not met (minion resource)`);
       continue;
     }
-    logDetail(`Cancel-attack available: play ${(def as { name?: string })?.name ?? handCard.definitionId as string} from hand (minion resource, covert company)`);
+    logDetail(`Cancel-attack available: play ${def?.name ?? handCard.definitionId as string} from hand (minion resource, covert company)`);
     actions.push({
       action: { type: 'cancel-attack', player: playerId, cardInstanceId: handCard.instanceId },
       viable: true,
@@ -3507,7 +3507,7 @@ function cancelAttackActions(
       const def = resolveDef(state, a.action.cardInstanceId);
       const isSpell = !!def && 'keywords' in def && (def as { keywords?: readonly string[] }).keywords?.includes('spell');
       if (isSpell) {
-        logDetail(`Cancel-attack ${(def as { name?: string })?.name ?? a.action.cardInstanceId as string}: suppressed — spells cannot be used against this attack (The Hunt)`);
+        logDetail(`Cancel-attack ${def?.name ?? a.action.cardInstanceId as string}: suppressed — spells cannot be used against this attack (The Hunt)`);
       }
       return !isSpell;
     });
@@ -4272,7 +4272,7 @@ export function buildPlayedModifyAttackContext(
   if (creatureInstanceId) {
     const cDef = resolveDef(state, creatureInstanceId);
     if (cDef && 'prowess' in cDef) baseProwess = (cDef as { prowess: number }).prowess;
-    if (cDef) creatureName = (cDef as { name?: string }).name;
+    if (cDef) creatureName = cDef.name;
   }
   // An automatic-attack is either a site's built-in attack or a played
   // auto-attack; exposed so cards can gate on "playable on an
@@ -4495,7 +4495,7 @@ function companyCombatBoostActions(
   const attackWhenContext = {
     enemy: {
       race: combat.creatureRace,
-      name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+      name: enemyCreatureDef?.name ?? '',
       ...(attackingCompanyForOvert && attackingPlayerForOvert
         ? { overt: !isCovertCompany(attackingCompanyForOvert, attackingPlayerForOvert, state) }
         : {}),
@@ -4517,7 +4517,7 @@ function companyCombatBoostActions(
     if (attackDupLimit) {
       const prior = countConstraintsFromDefinition(state, cardDef.id, 'attack');
       if (prior >= attackDupLimit.max) {
-        logDetail(`${(cardDef as { name?: string }).name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
+        logDetail(`${cardDef.name}: attack duplication limit reached (${prior}/${attackDupLimit.max})`);
         continue;
       }
     }
@@ -4529,7 +4529,7 @@ function companyCombatBoostActions(
       effect => !effect.when || matchesCondition(effect.when, attackWhenContext),
     );
     if (eligibleBoosts.length === 0) {
-      logDetail(`${(cardDef as { name?: string }).name}: attack (race=${attackWhenContext.enemy.race ?? 'none'}, name=${attackWhenContext.enemy.name || 'none'}) does not match when-condition — company-combat-boost not offered`);
+      logDetail(`${cardDef.name}: attack (race=${attackWhenContext.enemy.race ?? 'none'}, name=${attackWhenContext.enemy.name || 'none'}) does not match when-condition — company-combat-boost not offered`);
       continue;
     }
 
@@ -4556,7 +4556,7 @@ function companyCombatBoostActions(
           const bearsMatchingItem = charData.items.some(item => {
             const itemDef = defById(state, item.definitionId);
             return itemDef && matchesCondition(costEffect.requiredItemFilter!, { item: {
-              name: (itemDef as { name?: string }).name ?? '',
+              name: itemDef.name ?? '',
               keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
               cardType: itemDef.cardType,
               subtype: (itemDef as { subtype?: string }).subtype,
@@ -4566,7 +4566,7 @@ function companyCombatBoostActions(
         }
         const exempt = costEffect.costExemptRace && charDef.race === costEffect.costExemptRace;
         if (!exempt && !canPayCost(cost, charData)) continue;
-        logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);
+        logDetail(`Company-combat-boost available: ${cardDef.name} via ${charData.definitionId as string}${exempt ? ' (cost-exempt race)' : ''}`);
         actions.push({
           action: {
             type: 'play-short-event',
@@ -4601,7 +4601,7 @@ function companyCombatBoostActions(
             if (!activeItemIds.has(item.instanceId as string)) return false;
             const itemDef = defById(state, item.definitionId);
             return itemDef && matchesCondition(effect.itemFilter!, { item: {
-              name: (itemDef as { name?: string }).name ?? '',
+              name: itemDef.name ?? '',
               keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
               cardType: itemDef.cardType,
               subtype: (itemDef as { subtype?: string }).subtype,
@@ -4620,7 +4620,7 @@ function companyCombatBoostActions(
         if (!charCardDef || !('race' in charCardDef)) continue;
         const ctx = { target: {
           race: (charCardDef as { race?: Race }).race,
-          name: (charCardDef as { name?: string }).name ?? '',
+          name: charCardDef.name ?? '',
           skills: (charCardDef as { skills?: readonly string[] }).skills ?? [],
           keywords: (charCardDef as { keywords?: readonly string[] }).keywords ?? [],
         } };
@@ -4629,7 +4629,7 @@ function companyCombatBoostActions(
       if (hasMatch) break;
     }
     if (!hasMatch) {
-      logDetail(`${(cardDef as { name?: string }).name}: no matching characters/items in company — company-combat-boost not offered`);
+      logDetail(`${cardDef.name}: no matching characters/items in company — company-combat-boost not offered`);
       continue;
     }
 
@@ -4650,11 +4650,11 @@ function companyCombatBoostActions(
         return matchesCondition(cost.filter, ctx);
       });
       if (candidates.length < cost.minCount) {
-        logDetail(`${(cardDef as { name?: string }).name}: only ${candidates.length} matching discard-cost card(s) in hand — need at least ${cost.minCount}`);
+        logDetail(`${cardDef.name}: only ${candidates.length} matching discard-cost card(s) in hand — need at least ${cost.minCount}`);
         continue;
       }
       for (const combo of combinationsInRange(candidates, cost.minCount, cost.maxCount)) {
-        logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name} (discard ${combo.map(c => defById(state, c.definitionId)?.name ?? c.definitionId as string).join(', ')})`);
+        logDetail(`Company-combat-boost available: ${cardDef.name} (discard ${combo.map(c => defById(state, c.definitionId)?.name ?? c.definitionId as string).join(', ')})`);
         actions.push({
           action: {
             type: 'play-short-event',
@@ -4668,7 +4668,7 @@ function companyCombatBoostActions(
       continue;
     }
 
-    logDetail(`Company-combat-boost available: ${(cardDef as { name?: string }).name}`);
+    logDetail(`Company-combat-boost available: ${cardDef.name}`);
     actions.push({
       action: {
         type: 'play-short-event',
@@ -4763,7 +4763,7 @@ function hazardCreatureForceDiscardActions(
   const whenContext = {
     enemy: {
       race: combat.creatureRace,
-      name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+      name: enemyCreatureDef?.name ?? '',
     },
   };
 
@@ -4775,10 +4775,10 @@ function hazardCreatureForceDiscardActions(
     );
     if (!effect) continue;
     if (effect.when && !matchesCondition(effect.when, whenContext)) {
-      logDetail(`${(cardDef as { name?: string })?.name ?? handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
+      logDetail(`${cardDef?.name ?? handCard.definitionId as string}: when condition not met (creature race: ${combat.creatureRace ?? 'none'})`);
       continue;
     }
-    logDetail(`Force-opponent-discard (hazard-creature) available: ${(cardDef as { name?: string })?.name ?? handCard.definitionId as string}`);
+    logDetail(`Force-opponent-discard (hazard-creature) available: ${cardDef?.name ?? handCard.definitionId as string}`);
     actions.push({
       action: { type: 'play-short-event', player: playerId, cardInstanceId: handCard.instanceId },
       viable: true,
@@ -4830,28 +4830,28 @@ function joinCombatForceStrikeActions(
         return siteDef?.keywords?.includes(effect.requiresSiteKeyword!) ?? false;
       };
       if (!siteHasKeyword(company.currentSite) && !siteHasKeyword(company.destinationSite)) {
-        logDetail(`${(cardDef as { name?: string }).name}: company not at/moving to a ${effect.requiresSiteKeyword} site — not offered`);
+        logDetail(`${cardDef?.name}: company not at/moving to a ${effect.requiresSiteKeyword} site — not offered`);
         continue;
       }
     }
 
     // Exclusion gate: the named card must not be in play.
     if (effect.notInPlay && inPlayNames.includes(effect.notInPlay)) {
-      logDetail(`${(cardDef as { name?: string }).name}: ${effect.notInPlay} is in play — not offered`);
+      logDetail(`${cardDef?.name}: ${effect.notInPlay} is in play — not offered`);
       continue;
     }
 
     // The named character must be in play for this player (avatar to summon).
     const namedInPlay = Object.values(player.characters).some(ch => {
-      const chDef = defById(state, ch.definitionId) as { name?: string } | undefined;
+      const chDef = defById(state, ch.definitionId);
       return chDef?.name === effect.characterName;
     });
     if (!namedInPlay) {
-      logDetail(`${(cardDef as { name?: string }).name}: ${effect.characterName} not in play — not offered`);
+      logDetail(`${cardDef?.name}: ${effect.characterName} not in play — not offered`);
       continue;
     }
 
-    logDetail(`join-combat-force-strike available: ${(cardDef as { name?: string }).name} (summon ${effect.characterName})`);
+    logDetail(`join-combat-force-strike available: ${cardDef?.name} (summon ${effect.characterName})`);
     actions.push({
       action: {
         type: 'play-short-event',
@@ -4883,7 +4883,7 @@ function combatTapCompanyBoostHasMatch(
     if (!memberDef || !('race' in memberDef)) continue;
     const ctx = { target: {
       race: (memberDef as { race?: Race }).race,
-      name: (memberDef as { name?: string }).name ?? '',
+      name: memberDef.name ?? '',
       skills: (memberDef as { skills?: readonly string[] }).skills ?? [],
     } };
     if (matchesCondition(effect.filter, ctx)) return true;
@@ -4948,7 +4948,7 @@ function tapAllyCombatBoostActions(
         c => c.source === ally.instanceId && c.scope.kind === 'attack',
       );
       if (already) {
-        logDetail(`Ally ${(allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string)}: boost already applied this attack`);
+        logDetail(`Ally ${allyDef?.name ?? (ally.definitionId as string)}: boost already applied this attack`);
         continue;
       }
 
@@ -4956,7 +4956,7 @@ function tapAllyCombatBoostActions(
       const hasMatch = boostEffects.some(effect => combatTapCompanyBoostHasMatch(state, player, company, effect));
       if (!hasMatch) continue;
 
-      logDetail(`Tap-ally-combat-boost available: ${(allyDef as { name?: string } | undefined)?.name ?? (ally.definitionId as string)}`);
+      logDetail(`Tap-ally-combat-boost available: ${allyDef?.name ?? (ally.definitionId as string)}`);
       actions.push({
         action: { type: 'tap-ally-combat-boost', player: playerId, cardInstanceId: ally.instanceId },
         viable: true,
@@ -4979,14 +4979,14 @@ function tapAllyCombatBoostActions(
         c => c.source === source.instanceId && c.scope.kind === 'attack',
       );
       if (already) {
-        logDetail(`${(sourceDef as { name?: string } | undefined)?.name ?? (source.definitionId as string)}: boost already applied this attack`);
+        logDetail(`${sourceDef?.name ?? (source.definitionId as string)}: boost already applied this attack`);
         continue;
       }
 
       const hasMatch = boostEffects.some(effect => combatTapCompanyBoostHasMatch(state, player, company, effect));
       if (!hasMatch) continue;
 
-      logDetail(`Tap-ally-combat-boost available (bearer taps): ${(sourceDef as { name?: string } | undefined)?.name ?? (source.definitionId as string)}`);
+      logDetail(`Tap-ally-combat-boost available (bearer taps): ${sourceDef?.name ?? (source.definitionId as string)}`);
       actions.push({
         action: {
           type: 'tap-ally-combat-boost',

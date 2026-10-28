@@ -63,7 +63,7 @@ export function combatJoinCharacterActions(
       (e): e is CombatJoinCharacterEffect => e.type === 'combat-join-character',
     );
     if (!effect) continue;
-    const eventName = (eventDef as { name?: string }).name ?? (eventCard.definitionId as string);
+    const eventName = eventDef?.name ?? (eventCard.definitionId as string);
 
     if (effect.requiresCompanyHomesite) {
       const hasHomesite = company.characters.some(id => {

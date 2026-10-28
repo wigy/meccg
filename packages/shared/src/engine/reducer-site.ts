@@ -3638,7 +3638,7 @@ function fireItemSelfPlayCorruptionCheck(
   const char = player.characters[targetCharId];
   if (!char) return state;
   const charDef = defById(state, char.definitionId);
-  const itemName = (itemDef as { name?: string } | undefined)?.name ?? 'item';
+  const itemName = itemDef?.name ?? 'item';
 
   let newState = state;
   for (const effect of effects) {
@@ -3835,7 +3835,7 @@ function fireItemPlayCorruptionChecks(
 
   const cp = isItemCard(itemDef) ? itemDef.corruptionPoints : 0;
   const modifier = cp > 0 ? -cp : 0;
-  const itemName = (itemDef as { name?: string } | undefined)?.name ?? 'item';
+  const itemName = itemDef?.name ?? 'item';
 
   let newState = state;
   for (const constraint of constraints) {
@@ -4283,7 +4283,7 @@ export function resolveInfluenceAttemptRoll(
       // (e.g. Mine or No One's ba-68 → opponent-influence only) is left for that
       // path; only consume it here if its condition matches this faction check.
       if (constraint.kind.when && !matchesContext(constraint.kind.when, resolverCtx)) continue;
-      const boostSourceName = (defById(state, constraint.sourceDefinitionId) as { name?: string } | undefined)?.name;
+      const boostSourceName = defById(state, constraint.sourceDefinitionId)?.name;
       if (boostSourceName && blockedBoostCardNames.has(boostSourceName)) {
         // "cannot be done with <named card>": the boost is suppressed (still consumed).
         consumedConstraintIds.push(constraint.id as string);
@@ -5924,12 +5924,12 @@ function fireCvccPreStrikeEffects(
 
         // Check condition
         if (effect.when && !matchesCondition(effect.when, bearerCtx)) {
-          logDetail(`CvCC pre-strike: ${(itemDef as { name?: string }).name} condition not met for bearer — skipping`);
+          logDetail(`CvCC pre-strike: ${itemDef.name} condition not met for bearer — skipping`);
           continue;
         }
 
         const threshold = effect.apply.threshold ?? 5;
-        const itemName = (itemDef as { name?: string }).name ?? (item.definitionId as string);
+        const itemName = itemDef.name ?? (item.definitionId as string);
         logDetail(`CvCC pre-strike: ${itemName} fires — enqueuing ${defMinionAllies.length} ally-discard roll(s)`);
 
         for (const { allyInstanceId, allyMind } of defMinionAllies) {

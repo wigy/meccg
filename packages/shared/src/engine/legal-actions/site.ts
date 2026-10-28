@@ -2982,7 +2982,7 @@ export function playResourcesActions(
             if (constraint.kind.check !== 'influence') continue;
             if (constraint.target.kind !== 'character') continue;
             if (constraint.target.characterId !== ch.instanceId) continue;
-            const boostSourceName = (defById(state, constraint.sourceDefinitionId) as { name?: string } | undefined)?.name;
+            const boostSourceName = defById(state, constraint.sourceDefinitionId)?.name;
             if (boostSourceName && blockedBoosts.has(boostSourceName)) continue; // suppressed
             if (constraint.kind.prowessSubstitution) {
               // Threats (le-244): unused DI is replaced by min(prowess, max).

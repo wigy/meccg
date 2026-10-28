@@ -1375,7 +1375,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
         const attackWhenContext = {
           enemy: {
             race: combat.creatureRace,
-            name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+            name: enemyCreatureDef?.name ?? '',
             ...(attackingCompanyForOvert && attackingPlayerForOvert
               ? { overt: !isCovertCompany(attackingCompanyForOvert, attackingPlayerForOvert, newState) }
               : {}),
@@ -1429,7 +1429,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
               const matchedItem = bearer?.items.find(item => {
                 const itemDef = defById(newState, item.definitionId);
                 return itemDef && matchesCondition(boostEffect.requiredItemFilter!, { item: {
-                  name: (itemDef as { name?: string }).name ?? '',
+                  name: itemDef.name ?? '',
                   keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
                   cardType: itemDef.cardType,
                   subtype: (itemDef as { subtype?: string }).subtype,
@@ -1551,14 +1551,14 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
                 if (!activeItemIds.has(item.instanceId as string)) return false;
                 const itemDef = defById(newState, item.definitionId);
                 return itemDef && matchesCondition(boostEffect.itemFilter!, { item: {
-                  name: (itemDef as { name?: string }).name ?? '',
+                  name: itemDef.name ?? '',
                   keywords: (itemDef as { keywords?: readonly string[] }).keywords ?? [],
                   cardType: itemDef.cardType,
                   subtype: (itemDef as { subtype?: string }).subtype,
                 } });
               });
               for (const item of matchingItems) {
-                const itemName = (defById(newState, item.definitionId) as { name?: string } | undefined)?.name ?? item.definitionId as string;
+                const itemName = defById(newState, item.definitionId)?.name ?? item.definitionId as string;
                 if (boostEffect.stat === 'creature-body') {
                   logDetail(`${def.name}: adding attack-scoped -${boostValue < 0 ? -boostValue : boostValue} creature-body (strikes faced by ${charId as string}, via ${itemName})`);
                   newState = addConstraint(newState, {
@@ -1588,7 +1588,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
                     bearer: buildBearerContext(charCardDef),
                     enemy: {
                       race: combat.creatureRace ?? undefined,
-                      name: (enemyCreatureDef as { name?: string } | undefined)?.name ?? '',
+                      name: enemyCreatureDef?.name ?? '',
                       prowess: combat.strikeProwess,
                       body: combat.creatureBody,
                     },
@@ -1765,7 +1765,7 @@ export function handlePlayResourceShortEvent(state: GameState, action: GameActio
       const defPlayer = newState.players[defPlayerIndex];
       // Locate the named character among the defending player's characters.
       const namedEntry = Object.entries(defPlayer.characters).find(([, ch]) => {
-        const chDef = defById(newState, ch.definitionId) as { name?: string } | undefined;
+        const chDef = defById(newState, ch.definitionId);
         return chDef?.name === joinForceStrike.characterName;
       });
       if (namedEntry) {
@@ -2587,7 +2587,7 @@ function applyPlayOptionAddConstraint(
       if (!destSiteDefId && mh.destinationSiteName) {
         for (const [defId, d] of Object.entries(state.cardPool)) {
           const ct = (d as { cardType?: string }).cardType;
-          const name = (d as { name?: string }).name;
+          const name = d.name;
           if (ct?.includes('site') && name === mh.destinationSiteName) {
             destSiteDefId = defId;
             break;
