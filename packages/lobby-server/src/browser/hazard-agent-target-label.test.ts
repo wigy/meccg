@@ -56,6 +56,43 @@ describe('agent-targeting hazard choices name the target agent', () => {
     expect(desc).not.toContain('agent-');
   });
 
+  test('tap-an-agent choices name the tapped agent and the prison site', () => {
+    // Bug 720f74ba920333aa (game mvsffw67-vylmxe, seq 557): To Get You Away
+    // (dm-92) offered one choice per agent / prison site, all labelled
+    // "Play hazard".
+    const TO_GET_YOU_AWAY = 'p1-64' as CardInstanceId;
+    const ELWEN = 'p1-52' as CardInstanceId;
+    const ANARIN = 'p1-62' as CardInstanceId;
+    const LORIEN = 'p1-133' as CardInstanceId;
+    const EDORAS = 'p1-116' as CardInstanceId;
+    const defs: Record<string, string> = {
+      [TO_GET_YOU_AWAY]: 'dm-92', [ELWEN]: 'dm-8', [ANARIN]: 'dm-1', [LORIEN]: 'tw-408', [EDORAS]: 'tw-394',
+    };
+    const tapPool = {
+      ...pool,
+      'dm-92': { id: 'dm-92', name: 'To Get You Away', cardType: 'hazard-event' },
+      'dm-8': { id: 'dm-8', name: 'Elwen', cardType: 'minion-character' },
+      'tw-408': { id: 'tw-408', name: 'Lórien', cardType: 'hero-site' },
+      'tw-394': { id: 'tw-394', name: 'Edoras', cardType: 'hero-site' },
+    } as unknown as Readonly<Record<string, CardDefinition>>;
+    const tapLookup = (id: CardInstanceId) => defs[id as string] as CardDefinitionId | undefined;
+    const tapPlay = (agent: CardInstanceId, prison: CardInstanceId): PlayHazardAction => ({
+      type: 'play-hazard',
+      player: HAZARD_PLAYER,
+      cardInstanceId: TO_GET_YOU_AWAY,
+      targetCompanyId: 'company-p2-1' as CompanyId,
+      agentInstanceId: agent,
+      prisonSiteInstanceId: prison,
+    });
+    const labels = [tapPlay(ELWEN, LORIEN), tapPlay(ELWEN, EDORAS), tapPlay(ANARIN, LORIEN)]
+      .map(a => hazardPlayLabel(a, tapLookup, {}, tapPool));
+    expect(labels).toEqual([
+      'Play hazard (tap agent Elwen; prisoner held at Lórien)',
+      'Play hazard (tap agent Elwen; prisoner held at Edoras)',
+      'Play hazard (tap agent Anarin; prisoner held at Lórien)',
+    ]);
+  });
+
   test('a face-down opponent agent stays anonymous', () => {
     const hidden: OpponentAgentView = {
       id: ANARIN_AGENT, characterInstanceId: null, characterDefinitionId: null,
